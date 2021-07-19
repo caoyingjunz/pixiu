@@ -26,6 +26,8 @@ import (
 	"os"
 	"time"
 
+	containerdapi "github.com/containerd/containerd"
+	cns "github.com/containerd/containerd/namespaces"
 	dockertypes "github.com/docker/docker/api/types"
 	dockerapi "github.com/docker/docker/client"
 	"k8s.io/klog/v2"
@@ -54,6 +56,12 @@ type Interface interface {
 	//InspectImageByID(imageID string) (*dockertypes.ImageInspect, error)
 }
 
+type Containerd interface {
+	CPullImage(image, namespaces string) (string, error)
+	CIsImageExists(image, namespaces string) (bool, error)
+
+}
+
 // DockerClient is a wrapped layer of docker client for pixiu internal use.
 type DockerClient struct {
 	client *dockerapi.Client
@@ -66,8 +74,14 @@ type DockerClient struct {
 	imagePullProgressDeadline time.Duration
 }
 
+type ContainerdClient struct {
+	client *containerdapi.Client
+}
+
 // Make sure that DockerClient implemented the Interface.
 var _ Interface = &DockerClient{}
+
+var _ Containerd = &ContainerdClient{}
 
 func getDockerClient(dockerEndpoint string) (*dockerapi.Client, error) {
 	if len(dockerEndpoint) != 0 {
@@ -216,6 +230,58 @@ func (dc *DockerClient) RemoveImage(image string, opts dockertypes.ImageRemoveOp
 	}
 
 	return resp, nil
+}
+
+func getContainerdClient(containerdsock string) (*containerdapi.Client, error) {
+	if len(containerdsock) != 0 {
+		klog.Infof("connecting to container on %s", containerdsock)
+		client, err := containerdapi.New(containerdsock)
+		if err != nil {
+			klog.Error(err)
+		}
+		defer client.Close()
+		return client, err
+	}
+	return containerdapi.New("/run/containerd/containerd.sock")
+}
+
+func ConnectToContainerdOrDie(containerEndpoints string) Containerd {
+	containerEndpointclinet, err := getContainerdClient(containerEndpoints)
+	if err != nil {
+		klog.Fatalf("Could not connect to container: %v", err)
+	}
+	cc := &ContainerdClient{
+		client: containerEndpointclinet,
+	}
+	return cc
+}
+
+func (cc *ContainerdClient) CPullImage(image, namespaces string) (string, error) {
+	ctx := cns.WithNamespace(context.Background(), namespaces)
+	images, err := cc.client.Pull(ctx, image, containerdapi.WithPullUnpack)
+	if err != nil {
+		klog.Error(err)
+	}
+	return images.Name(), nil
+}
+
+func (cc *ContainerdClient) CIsImageExists(image, namespaces string) (bool, error) {
+	ctx := cns.WithNamespace(context.Background(), namespaces)
+	images, err := cc.client.ListImages(ctx)
+	if err != nil {
+		klog.Error(err)
+	}
+	for _, i := range images {
+		if image != i.Name() {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+//TODO
+func (cc *ContainerdClient) CRemoveImage(image, namespaces string) (string, error) {
+	return "", nil
 }
 
 // ImageNotFoundError is the error returned by InspectImage when image not found.
