@@ -18,22 +18,55 @@ package main
 
 import (
 	"flag"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/rest"
 	"time"
 
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/pixiu-controller-manager/app"
-	clientset "github.com/caoyingjunz/pixiu/pkg/client/clientset/versioned"
+	isclientset "github.com/caoyingjunz/pixiu/pkg/client/clientset/versioned"
+	pClientset "github.com/caoyingjunz/pixiu/pkg/client/clientset/versioned"
 	informer "github.com/caoyingjunz/pixiu/pkg/client/informers/externalversions"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	"github.com/caoyingjunz/pixiu/pkg/controller/imageset"
 	"github.com/caoyingjunz/pixiu/pkg/signals"
+	kubeinformers "k8s.io/client-go/informers"
+	clientset "k8s.io/client-go/kubernetes"
 )
 
 const (
 	HealthzHost = "127.0.0.1"
 	HealthzPort = "10258"
 )
+
+type ControllerContext struct {
+	// ClientBuilder will provide a client for this controller to use
+	ClientBuilder controller.ControllerClientBuilder
+	// PixiuClientBuilder will provide a client for pixiu controller to use
+	PixiuClientBuilder func(c *rest.Config) *pClientset.Clientset
+
+	// InformerFactory gives access to informers for the controller.
+	InformerFactory informers.SharedInformerFactory
+
+	ObjectOrMetadataInformerFactory controller.InformerFactory
+
+
+	// AvailableResources is a map listing currently available resources for pixiu
+	AvailableResources map[schema.GroupVersionResource]bool
+
+	// Stop is the stop channel
+	Stop <-chan struct{}
+
+	// KubeConfig is the given config to cluster
+	KubeConfig *rest.Config
+
+	// ResyncPeriod generates a duration each time it is invoked; this is so that
+	// multiple controllers don't get into lock-step and all hammer the apiserver
+	// with list requests simultaneously.
+	ResyncPeriod func() time.Duration
+}
 
 func main() {
 	klog.InitFlags(nil)
@@ -47,13 +80,20 @@ func main() {
 		klog.Fatalf("Build kube config failed: %v", err)
 	}
 
+	isclientSet, err := isclientset.NewForConfig(clientConfig)
+	if err != nil {
+		klog.Fatalf("Error building imageset clientset: %v", err)
+	}
+
 	clientSet, err := clientset.NewForConfig(clientConfig)
 	if err != nil {
 		klog.Fatalf("Error building imageset clientset: %v", err)
 	}
 
-	clientBuilder := controller.SimpleControllerClientBuilder{ClientConfig: clientConfig}
-	isInformerFactory := informer.NewSharedInformerFactory(clientSet, time.Second+30)
+	InformerFactory := kubeinformers.NewSharedInformerFactory(clientSet, time.Second+30)
+	isInformerFactory := informer.NewSharedInformerFactory(isclientSet, time.Second+30)
+
+
 
 	hostName, err := imageset.GetHostName(hostnameOverride)
 	if err != nil {
@@ -61,26 +101,25 @@ func main() {
 	}
 
 	isc, err := imageset.NewImageSetController(
-		clientSet,
+		InformerFactory.Apps().V1().Deployments(),
+		InformerFactory.Apps().V1().StatefulSets(),
 		isInformerFactory.Apps().V1alpha1().ImageSets(),
-		clientBuilder.ClientOrDie("shared-informers"),
+		clientSet,
+		isclientSet,
 		hostName,
 	)
 	if err != nil {
 		klog.Fatalf("Error new ImageSetController: %v", err)
 	}
 
-	go isc.Run(5, stopCh)
+	go isc.Run(5,stopCh)
 
-	// notice that there is no need to run Start methods in a separate goroutine.
-	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
 	isInformerFactory.Start(stopCh)
 
-	// Heathz Check
 	go app.StartHealthzServer(healthzHost, healthzPort)
 
-	// always wait
 	select {}
+
 }
 
 var (
