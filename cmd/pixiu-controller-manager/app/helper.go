@@ -19,7 +19,9 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -29,6 +31,12 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+)
+
+const (
+	defaultReadinessEndpoint = "/readyz"
+	defaultLivenessEndpoint  = "/healthz"
+	defaultMetricsEndpoint   = "/metrics"
 )
 
 // WaitForAPIServer waits for the API Server's /healthz endpoint to report "ok" with timeout.
@@ -60,13 +68,24 @@ func WaitForAPIServer(client clientset.Interface, timeout time.Duration) error {
 }
 
 func StartHealthzServer(healthzHost string, healthzPort string) {
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(200)
-		w.Write([]byte("ok"))
-	})
+	var healthzHandler *healthz.Handler
+	healthzHandler = &healthz.Handler{Checks: map[string]healthz.Checker{}}
+	healthzHandler.Checks["ping"] = healthz.Ping
+
+	mux := http.NewServeMux()
+	server := http.Server{
+		Handler: mux,
+	}
+	mux.Handle(defaultLivenessEndpoint, http.StripPrefix(defaultLivenessEndpoint, healthzHandler))
+	mux.Handle(defaultLivenessEndpoint+"/", http.StripPrefix(defaultLivenessEndpoint, healthzHandler))
+
+	healthProbeListener, err := net.Listen("tcp",healthzHost+":"+healthzPort)
+	if err != nil {
+		klog.Fatalf("error starting healthserver: %v", err)
+	}
 
 	klog.Infof("Starting Healthz Server...")
-	klog.Fatal(http.ListenAndServe(healthzHost+":"+healthzPort, nil))
+	klog.Fatal(server.Serve(healthProbeListener))
 }
 
 func CreateRecorder(kubeClient clientset.Interface, userAgent string) record.EventRecorder {
