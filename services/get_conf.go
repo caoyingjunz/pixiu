@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
@@ -16,18 +17,19 @@ func GetConf() Conf {
 
 	file, err := os.Open("config/config.yml")
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
-	bytes, err := ioutil.ReadAll(file)
 
+	bytes, err := ioutil.ReadAll(file)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 	cfg := Conf{}
 	err = yaml.Unmarshal(bytes, &cfg)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
+
 	return cfg
 }

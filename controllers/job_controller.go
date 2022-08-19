@@ -6,20 +6,22 @@ import (
 )
 
 func RunJob(c *gin.Context) {
-	c.JSON(200, gin.H{"data": nil, "meta": gin.H{"status": 200, "msg": "Post Success"}})
 	services.RunJob()
+
+	c.JSON(200, gin.H{"data": nil, "meta": gin.H{"status": 200, "msg": "Post Success"}})
+
 }
 
 func CreateJob(c *gin.Context) {
-	c.JSON(200, gin.H{"data": nil, "meta": gin.H{"status": 200, "msg": "Post Success"}})
 	services.CreateJob()
+	c.JSON(200, gin.H{"data": nil, "meta": gin.H{"status": 200, "msg": "Post Success"}})
 }
 func DeleteJob(c *gin.Context) {
-	c.JSON(200, gin.H{"data": nil, "meta": gin.H{"status": 200, "msg": "Post Success"}})
 	services.DeleteJob()
+	c.JSON(200, gin.H{"data": nil, "meta": gin.H{"status": 200, "msg": "Post Success"}})
 }
 
 func AddViewJob(c *gin.Context) {
-	c.JSON(200, gin.H{"data": nil, "meta": gin.H{"status": 200, "msg": "Post Success"}})
 	services.AddViewJob()
+	c.JSON(200, gin.H{"data": nil, "meta": gin.H{"status": 200, "msg": "Post Success"}})
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"github.com/bndr/gojenkins"
 )
 
@@ -13,6 +14,6 @@ func JenkinsLogin() {
 	_, err := Jenkins.Init(ctx)
 
 	if err != nil {
-		panic("Something Went Wrong")
+		fmt.Println(err)
 	}
 }
