@@ -22,6 +22,5 @@ func RunJob() {
 		time.Sleep(5000 * time.Millisecond)
 		build.Poll(ctx)
 	}
-
 	fmt.Printf("build number %d with result: %v\n", build.GetBuildNumber(), build.GetResult())
 }
