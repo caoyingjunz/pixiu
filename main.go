@@ -5,6 +5,6 @@ import "pixiu/services"
 func main() {
 	services.Login()
 	//services.AddViewJob()
-	//services.RunJob()
-	services.CreateJob()
+	services.RunJob()
+	//services.CreateJob()
 }

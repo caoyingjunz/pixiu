@@ -24,7 +24,7 @@ func CreateJob() {
   <publishers/>
   <buildWrappers/>
 </project>`
-	CreateJob, err := Jenkins.CreateJob(ctx, configString, "6666")
+	CreateJob, err := Jenkins.CreateJob(ctx, configString, "7778")
 	if err != nil {
 		panic(err)
 	}

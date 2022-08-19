@@ -8,7 +8,7 @@ import (
 
 func RunJob() {
 	ctx := context.Background()
-	queueid, err := Jenkins.BuildJob(ctx, "213123", nil)
+	queueid, err := Jenkins.BuildJob(ctx, "6666", nil)
 	if err != nil {
 		panic(err)
 	}
