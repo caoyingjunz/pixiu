@@ -3,12 +3,13 @@ package services
 import (
 	"context"
 	"fmt"
+	"pixiu/variable"
 	"time"
 )
 
 func RunJob() {
 	ctx := context.Background()
-	queueid, err := Jenkins.BuildJob(ctx, "6666", nil)
+	queueid, err := Jenkins.BuildJob(ctx, variable.RunJobName, nil)
 	if err != nil {
 		panic(err)
 	}
