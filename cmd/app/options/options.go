@@ -28,6 +28,8 @@ import (
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/middleware"
+	"github.com/caoyingjunz/gopixiu/pkg/service"
 )
 
 const (
@@ -84,13 +86,14 @@ func (o *Options) register() error {
 	//if err := o.registerDatabase(); err != nil {                                        // 注册数据库
 	//	return err
 	//}
-	if err := o.registerRouter(); err != nil { // 注册路由
-		return err
-	}
 	if err := o.registerCicd(); err != nil { // 注册CICD
 		return err
 	}
+	if err := o.registerRouter(); err != nil { // 注册路由
+		return err
+	}
 
+	service.Register(o.ComponentConfig, o.Factory)
 	return nil
 }
 
@@ -122,17 +125,12 @@ func (o *Options) registerDatabase() error {
 func (o *Options) registerRouter() error {
 	o.GinEngine = gin.Default()
 
-	InitCicdRouter(o.GinEngine)
+	o.GinEngine.Use(middleware.LoggerToFile(), middleware.Auth)
+
+	// 注册路由
+	service.InitCicdRouter(o.GinEngine)
 
 	return nil
-}
-
-func InitCicdRouter(ginEngine *gin.Engine) {
-	cicdRouter := ginEngine.Group("/cicd")
-	{
-		// TODO
-		cicdRouter.POST("createJob")
-	}
 }
 
 func (o *Options) registerCicd() error {
