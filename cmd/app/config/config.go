@@ -15,3 +15,58 @@ limitations under the License.
 */
 
 package config
+
+import "fmt"
+
+const (
+	jenkins = "jenkins"
+)
+
+type Config struct {
+	Default DefaultOptions `yaml:"default"`
+	Mysql   MysqlOptions   `yaml:"mysql"`
+	Cicd    CicdOptions    `yaml:"cicd"`
+}
+
+type DefaultOptions struct {
+	Listen   int    `yaml:"listen"`
+	LogDir   string `yaml:"log_dir"`
+	LogLevel string `yaml:"log_level"`
+}
+
+type MysqlOptions struct {
+	Host     string `yaml:"host"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Port     int    `yaml:"port"`
+	Name     string `yaml:"name"`
+}
+
+type CicdOptions struct {
+	Driver  string          `yaml:"driver"`
+	Jenkins *JenkinsOptions `yaml:"jenkins"`
+}
+
+type JenkinsOptions struct {
+	Host     string `yaml:"host"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+}
+
+func (c *Config) Valid() error {
+	if len(c.Default.LogDir) == 0 {
+		return fmt.Errorf("failed to find log_dir")
+	}
+
+	switch c.Cicd.Driver {
+	case "", jenkins:
+		j := c.Cicd.Jenkins
+		if j == nil {
+			return fmt.Errorf("jenkins config option missing")
+		}
+	default:
+		return fmt.Errorf("unsupported cicd type %s", c.Cicd.Driver)
+	}
+
+	return nil
+}

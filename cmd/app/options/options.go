@@ -16,10 +16,23 @@ limitations under the License.
 
 package options
 
+import (
+	"gorm.io/gorm"
+)
+
+const (
+	maxIdleConns = 10
+	maxOpenConns = 100
+
+	defaultConfigFile = "/etc/gopixiu/config.yaml"
+)
+
 // Options has all the params needed to run a pixiu
 type Options struct {
 	// The default values.
 	ComponentConfig string
+
+	DB *gorm.DB
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string

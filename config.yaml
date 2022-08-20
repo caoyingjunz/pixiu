@@ -1,0 +1,19 @@
+default:
+  # 服务监听端口
+  listen: 8090
+  log_dir: /Users/caoyuan/log
+
+# 数据库地址信息
+mysql:
+  host: gopixiu
+  user: root
+  password: password123456
+  port: 3306
+  name: gopixiu
+
+cicd:
+  driver: jenkins
+  jenkins:
+    host: http://8.140.165.201:9090
+    user: adminops
+    password: adminops@321
