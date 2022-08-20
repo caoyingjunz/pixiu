@@ -15,3 +15,55 @@ limitations under the License.
 */
 
 package app
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/spf13/cobra"
+
+	"github.com/caoyingjunz/gopixiu/cmd/app/options"
+)
+
+func NewServerCommand() *cobra.Command {
+	opts, err := options.NewOptions()
+	if err != nil {
+		log.Fatalf("unable to initialize command options: %v", err)
+	}
+
+	cmd := &cobra.Command{
+		Use:  "gopixiu-server",
+		Long: "The gopixiu server controller is a daemon than embeds the core control loops.",
+		Run: func(cmd *cobra.Command, args []string) {
+			if err = opts.Complete(); err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
+			}
+			if err = Run(opts); err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
+			}
+		},
+		Args: func(cmd *cobra.Command, args []string) error {
+			for _, arg := range args {
+				if len(arg) > 0 {
+					return fmt.Errorf("%q does not take any arguments, got %q", cmd.CommandPath(), args)
+				}
+			}
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func Run(c *options.Options) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	c.Start(ctx.Done())
+
+	select {}
+}

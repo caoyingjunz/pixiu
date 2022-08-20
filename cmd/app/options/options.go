@@ -37,3 +37,7 @@ type Options struct {
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
 }
+
+func NewOptions() (*Options, error) {
+	return &Options{}, nil
+}

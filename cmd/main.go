@@ -14,4 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cmd
+package main
+
+import (
+	"os"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/gopixiu/cmd/app"
+)
+
+func main() {
+	gin.SetMode(gin.ReleaseMode)
+
+	cmd := app.NewServerCommand()
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
