@@ -81,9 +81,9 @@ func (o *Options) Complete() error {
 
 func (o *Options) register() error {
 	logs.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
-	if err := o.registerDatabase(); err != nil {                                        // 注册数据库
-		return err
-	}
+	//if err := o.registerDatabase(); err != nil {                                        // 注册数据库
+	//	return err
+	//}
 	if err := o.registerRouter(); err != nil { // 注册路由
 		return err
 	}
