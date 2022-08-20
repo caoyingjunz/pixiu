@@ -27,7 +27,7 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/logs"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 const (
@@ -80,7 +80,7 @@ func (o *Options) Complete() error {
 }
 
 func (o *Options) register() error {
-	logs.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
+	log.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
 	//if err := o.registerDatabase(); err != nil {                                        // 注册数据库
 	//	return err
 	//}
@@ -122,13 +122,17 @@ func (o *Options) registerDatabase() error {
 func (o *Options) registerRouter() error {
 	o.GinEngine = gin.Default()
 
-	cicdRouter := o.GinEngine.Group("/cicd")
+	InitCicdRouter(o.GinEngine)
+
+	return nil
+}
+
+func InitCicdRouter(ginEngine *gin.Engine) {
+	cicdRouter := ginEngine.Group("/cicd")
 	{
 		// TODO
 		cicdRouter.POST("createJob")
 	}
-
-	return nil
 }
 
 func (o *Options) registerCicd() error {

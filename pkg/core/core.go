@@ -14,4 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cicd
+package core
+
+import (
+	"github.com/caoyingjunz/gopixiu/cmd/app/config"
+	"github.com/caoyingjunz/gopixiu/pkg/db"
+)
+
+type CoreV1Interface interface {
+	CicdGetter
+}
+
+type pixiu struct {
+	cfg     config.Config
+	factory db.ShareDaoFactory
+}
+
+func (pixiu *pixiu) Cicd() CicdInterface {
+	return newCicd(pixiu)
+}
+
+func New(cfg config.Config, factory db.ShareDaoFactory) CoreV1Interface {
+	return &pixiu{
+		cfg:     cfg,
+		factory: factory,
+	}
+}
