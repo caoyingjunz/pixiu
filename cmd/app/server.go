@@ -41,6 +41,10 @@ func NewServerCommand() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 				os.Exit(1)
 			}
+			if err = opts.Validate(); err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
+			}
 			if err = Run(opts); err != nil {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 				os.Exit(1)
@@ -59,11 +63,11 @@ func NewServerCommand() *cobra.Command {
 	return cmd
 }
 
-func Run(c *options.Options) error {
+func Run(opt *options.Options) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	c.Start(ctx.Done())
+	opt.Run(ctx.Done())
 
 	select {}
 }

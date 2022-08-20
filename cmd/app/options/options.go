@@ -17,7 +17,17 @@ limitations under the License.
 package options
 
 import (
+	"fmt"
+	"os"
+
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
+	"github.com/gin-gonic/gin"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/gopixiu/cmd/app/config"
+	"github.com/caoyingjunz/gopixiu/pkg/db"
+	"github.com/caoyingjunz/gopixiu/pkg/logs"
 )
 
 const (
@@ -30,9 +40,14 @@ const (
 // Options has all the params needed to run a pixiu
 type Options struct {
 	// The default values.
-	ComponentConfig string
+	ComponentConfig config.Config
+	GinEngine       *gin.Engine
 
-	DB *gorm.DB
+	DB      *gorm.DB
+	Factory db.ShareDaoFactory // 数据库接口
+
+	// CICD 的驱动接口
+	//CicdDriver
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
@@ -40,4 +55,93 @@ type Options struct {
 
 func NewOptions() (*Options, error) {
 	return &Options{}, nil
+}
+
+func (o *Options) Complete() error {
+	configFile := o.ConfigFile
+	if len(configFile) == 0 {
+		configFile = os.Getenv("ConfigFile")
+	}
+	if len(configFile) == 0 {
+		configFile = defaultConfigFile
+	}
+
+	c := pixiuConfig.New()
+	c.SetConfigFile(configFile)
+	c.SetConfigType("yaml")
+	if err := c.Binding(&o.ComponentConfig); err != nil {
+		return err
+	}
+	// 注册依赖组件
+	if err := o.register(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (o *Options) register() error {
+	logs.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
+	if err := o.registerDatabase(); err != nil {                                        // 注册数据库
+		return err
+	}
+	if err := o.registerRouter(); err != nil { // 注册路由
+		return err
+	}
+	if err := o.registerCicd(); err != nil { // 注册CICD
+		return err
+	}
+
+	return nil
+}
+
+func (o *Options) registerDatabase() error {
+	sqlConfig := o.ComponentConfig.Mysql
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
+		sqlConfig.User,
+		sqlConfig.Password,
+		sqlConfig.Host,
+		sqlConfig.Port,
+		sqlConfig.Name)
+
+	var err error
+	if o.DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{}); err != nil {
+		return err
+	}
+	// 设置数据库连接池
+	sqlDB, err := o.DB.DB()
+	if err != nil {
+		return err
+	}
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+
+	o.Factory = db.NewDaoFactory(o.DB)
+	return nil
+}
+
+func (o *Options) registerRouter() error {
+	o.GinEngine = gin.Default()
+
+	cicdRouter := o.GinEngine.Group("/cicd")
+	{
+		// TODO
+		cicdRouter.POST("createJob")
+	}
+
+	return nil
+}
+
+func (o *Options) registerCicd() error {
+	// TODO
+	return nil
+}
+
+// Validate validates all the required options.
+func (o *Options) Validate() error {
+	// TODO
+	return nil
+}
+
+func (o *Options) Run(stopCh <-chan struct{}) {
+	_ = o.GinEngine.Run(fmt.Sprintf(":%d", o.ComponentConfig.Default.Listen))
 }
