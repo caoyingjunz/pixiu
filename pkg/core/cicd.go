@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -46,5 +47,6 @@ func newCicd(c *pixiu) CicdInterface {
 }
 
 func (c *cicd) CreateJob(ctx context.Context) error {
+	fmt.Println("do test cicd")
 	return nil
 }

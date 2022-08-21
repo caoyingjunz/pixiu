@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,5 +26,14 @@ func InitCicdRouter(ginEngine *gin.Engine) {
 	cicdRouter := ginEngine.Group("/cicd")
 	{
 		cicdRouter.POST("createJob", createJob)
+	}
+}
+
+func InitCloudRouter(ginEngine *gin.Engine) {
+	cloudRouter := ginEngine.Group("/cloud")
+	{
+		cloudRouter.GET("getCloud", func(context *gin.Context) {
+			fmt.Println("TODO")
+		})
 	}
 }

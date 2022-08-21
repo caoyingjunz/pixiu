@@ -23,6 +23,7 @@ import (
 
 type CoreV1Interface interface {
 	CicdGetter
+	CloudGetter
 }
 
 type pixiu struct {
@@ -34,9 +35,20 @@ func (pixiu *pixiu) Cicd() CicdInterface {
 	return newCicd(pixiu)
 }
 
+func (pixiu *pixiu) Cloud() CloudInterface {
+	return newCloud(pixiu)
+}
+
 func New(cfg config.Config, factory db.ShareDaoFactory) CoreV1Interface {
 	return &pixiu{
 		cfg:     cfg,
 		factory: factory,
 	}
+}
+
+var Pixiu CoreV1Interface
+
+// Register 完成核心接口的注册
+func Register(cfg config.Config, f db.ShareDaoFactory) {
+	Pixiu = New(cfg, f)
 }

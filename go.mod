@@ -14,4 +14,5 @@ require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/spf13/cobra v1.5.0
 	gorm.io/driver/mysql v1.3.6
+	k8s.io/klog/v2 v2.8.0
 )

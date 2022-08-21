@@ -14,14 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package core
 
 import (
-	"fmt"
-
-	"github.com/gin-gonic/gin"
+	"github.com/caoyingjunz/gopixiu/cmd/app/config"
+	"github.com/caoyingjunz/gopixiu/pkg/db"
 )
 
-func createJob(c *gin.Context) {
-	fmt.Println("TODO create job")
+type CloudGetter interface {
+	Cloud() CloudInterface
+}
+
+type CloudInterface interface {
+}
+
+type cloud struct {
+	ComponentConfig config.Config
+	app             *pixiu
+	factory         db.ShareDaoFactory
+}
+
+func newCloud(c *pixiu) CloudInterface {
+	return &cloud{
+		ComponentConfig: c.cfg,
+		app:             c,
+		factory:         c.factory,
+	}
 }
