@@ -35,3 +35,5 @@ const (
   <buildWrappers/>
 </project>`
 )
+
+const Jenkins = "jenkins"

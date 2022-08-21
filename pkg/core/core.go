@@ -48,10 +48,3 @@ func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Je
 		cicdDriver: cicdDriver,
 	}
 }
-
-var Pixiu CoreV1Interface
-
-// Register 完成核心接口的注册
-func Register(cfg config.Config, f db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) {
-	Pixiu = New(cfg, f, cicdDriver)
-}

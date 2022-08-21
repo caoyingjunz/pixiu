@@ -14,29 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package pixiu
 
 import (
-	"fmt"
-
-	"github.com/gin-gonic/gin"
+	"github.com/caoyingjunz/gopixiu/cmd/app/options"
+	"github.com/caoyingjunz/gopixiu/pkg/core"
 )
 
-func InitCicdRouter(ginEngine *gin.Engine) {
-	cicdRouter := ginEngine.Group("/cicd")
-	{
-		cicdRouter.POST("/job/run", runJob)
-		cicdRouter.POST("/job/createJob", createJob)
-		cicdRouter.DELETE("/job/deleteJob", deleteJob)
-		cicdRouter.POST("/view/addJob", addViewJob)
-	}
-}
+var CoreV1 core.CoreV1Interface
 
-func InitCloudRouter(ginEngine *gin.Engine) {
-	cloudRouter := ginEngine.Group("/cloud")
-	{
-		cloudRouter.GET("getCloud", func(context *gin.Context) {
-			fmt.Println("TODO")
-		})
-	}
+// Setup 完成核心应用接口的设置
+func Setup(o *options.Options) {
+	CoreV1 = core.New(o.ComponentConfig, o.Factory, o.CicdDriver)
 }
