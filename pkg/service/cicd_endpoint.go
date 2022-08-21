@@ -23,5 +23,13 @@ import (
 )
 
 func createJob(c *gin.Context) {
-	pixiu.Cicd().CreateJob(context.TODO())
+	// TODO
+	r := NewResponse()
+	err := pixiu.Cicd().CreateJob(context.TODO())
+	if err != nil {
+		setFailed(c, r, err)
+		return
+	}
+
+	setSuccess(c, r)
 }
