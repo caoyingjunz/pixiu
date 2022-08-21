@@ -17,26 +17,24 @@ limitations under the License.
 package cicd
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 )
 
-func InitCicdRouter(ginEngine *gin.Engine) {
-	cicdRouter := ginEngine.Group("/cicd")
-	{
-		cicdRouter.POST("/job/run")
-		cicdRouter.POST("/job/createJob")
-		cicdRouter.DELETE("/job/deleteJob")
-		cicdRouter.POST("/view/addJob")
-	}
+// cicdRouter is a router to talk with the cicd controller
+type cicdRouter struct{}
+
+// NewRouter initializes a new container router
+func NewRouter(ginEngine *gin.Engine) {
+	s := &cicdRouter{}
+	s.initRoutes(ginEngine)
 }
 
-func InitCloudRouter(ginEngine *gin.Engine) {
-	cloudRouter := ginEngine.Group("/cloud")
+func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
+	cicdRoute := ginEngine.Group("/cicd")
 	{
-		cloudRouter.GET("getCloud", func(context *gin.Context) {
-			fmt.Println("TODO")
-		})
+		cicdRoute.POST("/job/run", s.runJob)
+		cicdRoute.POST("/job/createJob", s.createJob)
+		cicdRoute.DELETE("/job/deleteJob", s.deleteJob)
+		cicdRoute.POST("/view/addViewJob", s.addViewJob)
 	}
 }

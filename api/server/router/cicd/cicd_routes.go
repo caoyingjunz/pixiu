@@ -14,18 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package cicd
 
-import (
-	"github.com/gin-gonic/gin"
-)
+import "github.com/gin-gonic/gin"
 
-func InitCicdRouter(ginEngine *gin.Engine) {
-	cicdRouter := ginEngine.Group("/cicd")
-	{
-		cicdRouter.POST("/job/run", runJob)
-		cicdRouter.POST("/job/createJob", createJob)
-		cicdRouter.DELETE("/job/deleteJob", deleteJob)
-		cicdRouter.POST("/view/addJob", addViewJob)
-	}
-}
+func (s *cicdRouter) runJob(c *gin.Context) {}
+
+func (s *cicdRouter) createJob(c *gin.Context) {}
+
+func (s *cicdRouter) deleteJob(c *gin.Context) {}
+
+func (s *cicdRouter) addViewJob(c *gin.Context) {}
