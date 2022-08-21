@@ -17,6 +17,7 @@ limitations under the License.
 package core
 
 import (
+	"github.com/bndr/gojenkins"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 )
@@ -27,8 +28,9 @@ type CoreV1Interface interface {
 }
 
 type pixiu struct {
-	cfg     config.Config
-	factory db.ShareDaoFactory
+	cfg        config.Config
+	factory    db.ShareDaoFactory
+	cicdDriver *gojenkins.Jenkins
 }
 
 func (pixiu *pixiu) Cicd() CicdInterface {
@@ -39,16 +41,17 @@ func (pixiu *pixiu) Cloud() CloudInterface {
 	return newCloud(pixiu)
 }
 
-func New(cfg config.Config, factory db.ShareDaoFactory) CoreV1Interface {
+func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
 	return &pixiu{
-		cfg:     cfg,
-		factory: factory,
+		cfg:        cfg,
+		factory:    factory,
+		cicdDriver: cicdDriver,
 	}
 }
 
 var Pixiu CoreV1Interface
 
 // Register 完成核心接口的注册
-func Register(cfg config.Config, f db.ShareDaoFactory) {
-	Pixiu = New(cfg, f)
+func Register(cfg config.Config, f db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) {
+	Pixiu = New(cfg, f, cicdDriver)
 }

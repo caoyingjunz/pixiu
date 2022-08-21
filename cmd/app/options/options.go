@@ -17,9 +17,11 @@ limitations under the License.
 package options
 
 import (
+	"context"
 	"fmt"
 	"os"
 
+	"github.com/bndr/gojenkins"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -50,7 +52,7 @@ type Options struct {
 	Factory db.ShareDaoFactory // 数据库接口
 
 	// CICD 的驱动接口
-	//CicdDriver
+	CicdDriver *gojenkins.Jenkins
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
@@ -87,14 +89,14 @@ func (o *Options) register() error {
 	//if err := o.registerDatabase(); err != nil {                                        // 注册数据库
 	//	return err
 	//}
-	if err := o.registerCicdClient(); err != nil { // 注册 CICD 客户端
+	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
 	if err := o.registerRouter(); err != nil { // 注册路由
 		return err
 	}
 
-	service.Register(o.ComponentConfig, o.Factory)
+	service.Register(o.ComponentConfig, o.Factory, o.CicdDriver)
 	return nil
 }
 
@@ -137,8 +139,16 @@ func (o *Options) registerRouter() error {
 	return nil
 }
 
-func (o *Options) registerCicdClient() error {
-	// TODO
+func (o *Options) registerCicdDriver() error {
+	jenkinsOption := o.ComponentConfig.Cicd.Jenkins
+	switch o.ComponentConfig.Cicd.Driver {
+	case "", "jenkins":
+		o.CicdDriver = gojenkins.CreateJenkins(nil, jenkinsOption.Host, jenkinsOption.User, jenkinsOption.Password)
+		if _, err := o.CicdDriver.Init(context.TODO()); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

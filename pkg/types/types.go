@@ -14,17 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package types
 
-import (
-	"github.com/bndr/gojenkins"
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
-	"github.com/caoyingjunz/gopixiu/pkg/core"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
+const (
+	JobStringConfig = `<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers class="vector"/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders/>
+  <publishers/>
+  <buildWrappers/>
+</project>`
 )
-
-var pixiu core.CoreV1Interface
-
-func Register(cfg config.Config, f db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) {
-	pixiu = core.New(cfg, f, cicdDriver)
-}
