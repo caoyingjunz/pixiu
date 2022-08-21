@@ -57,20 +57,19 @@ type Options struct {
 }
 
 func NewOptions() (*Options, error) {
-	return &Options{}, nil
+	return &Options{
+		ConfigFile: defaultConfigFile,
+	}, nil
 }
 
 func (o *Options) Complete() error {
-	configFile := o.ConfigFile
-	if len(configFile) == 0 {
-		configFile = os.Getenv("ConfigFile")
-	}
-	if len(configFile) == 0 {
-		configFile = defaultConfigFile
+	// Try to read config file path from env.
+	if cfgFile := os.Getenv("ConfigFile"); cfgFile != "" {
+		o.ConfigFile = cfgFile
 	}
 
 	c := pixiuConfig.New()
-	c.SetConfigFile(configFile)
+	c.SetConfigFile(o.ConfigFile)
 	c.SetConfigType("yaml")
 	if err := c.Binding(&o.ComponentConfig); err != nil {
 		return err
