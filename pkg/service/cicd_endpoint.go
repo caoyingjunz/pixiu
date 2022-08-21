@@ -22,10 +22,42 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func runJob(c *gin.Context) {
+	r := NewResponse()
+	err := pixiu.Cicd().RunJob(context.TODO())
+	if err != nil {
+		setFailed(c, r, err)
+		return
+	}
+
+	setSuccess(c, r)
+}
+
 func createJob(c *gin.Context) {
-	// TODO
 	r := NewResponse()
 	err := pixiu.Cicd().CreateJob(context.TODO())
+	if err != nil {
+		setFailed(c, r, err)
+		return
+	}
+
+	setSuccess(c, r)
+}
+
+func deleteJob(c *gin.Context) {
+	r := NewResponse()
+	err := pixiu.Cicd().DeleteJob(context.TODO())
+	if err != nil {
+		setFailed(c, r, err)
+		return
+	}
+
+	setSuccess(c, r)
+}
+
+func addViewJob(c *gin.Context) {
+	r := NewResponse()
+	err := pixiu.Cicd().AddViewJob(context.TODO())
 	if err != nil {
 		setFailed(c, r, err)
 		return
