@@ -14,4 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cloud
+package service
+
+import (
+	"context"
+
+	"github.com/gin-gonic/gin"
+)
+
+func createJob(c *gin.Context) {
+	pixiu.Cicd().CreateJob(context.TODO())
+}

@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -86,7 +87,7 @@ func (o *Options) register() error {
 	//if err := o.registerDatabase(); err != nil {                                        // 注册数据库
 	//	return err
 	//}
-	if err := o.registerCicd(); err != nil { // 注册CICD
+	if err := o.registerCicdClient(); err != nil { // 注册 CICD 客户端
 		return err
 	}
 	if err := o.registerRouter(); err != nil { // 注册路由
@@ -125,15 +126,18 @@ func (o *Options) registerDatabase() error {
 func (o *Options) registerRouter() error {
 	o.GinEngine = gin.Default()
 
-	o.GinEngine.Use(middleware.LoggerToFile(), middleware.Auth)
-
 	// 注册路由
-	service.InitCicdRouter(o.GinEngine)
+	o.GinEngine.Use(middleware.LoggerToFile(), middleware.Auth)
+	{
+		service.InitCicdRouter(o.GinEngine)  // 注册 cicd 路由
+		service.InitCloudRouter(o.GinEngine) // 注册 cloud 路由
+	}
+	klog.Infof("api router register success")
 
 	return nil
 }
 
-func (o *Options) registerCicd() error {
+func (o *Options) registerCicdClient() error {
 	// TODO
 	return nil
 }
