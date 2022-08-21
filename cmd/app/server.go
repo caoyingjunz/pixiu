@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 func NewServerCommand() *cobra.Command {
@@ -67,6 +68,10 @@ func Run(opt *options.Options) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// 设置核心应用接口
+	pixiu.Setup(opt)
+
+	// 启动
 	opt.Run(ctx.Done())
 
 	select {}

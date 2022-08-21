@@ -96,7 +96,7 @@ func (o *Options) register() error {
 		return err
 	}
 
-	service.Register(o.ComponentConfig, o.Factory, o.CicdDriver)
+	//service.Register(o.ComponentConfig, o.Factory, o.CicdDriver)
 	return nil
 }
 
