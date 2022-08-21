@@ -23,7 +23,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
@@ -64,14 +66,21 @@ func NewServerCommand() *cobra.Command {
 	return cmd
 }
 
+func InitRouters(opt *options.Options) {
+	cicd.NewRouter(opt.GinEngine) // 注册 cicd 路由
+}
+
 func Run(opt *options.Options) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// 设置核心应用接口
 	pixiu.Setup(opt)
+	// 初始化 api 路由
+	InitRouters(opt)
 
-	// 启动
+	// 启动主进程
+	klog.Infof("starting pixiu server")
 	opt.Run(ctx.Done())
 
 	select {}

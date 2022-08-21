@@ -14,17 +14,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
-
-import (
-	"github.com/bndr/gojenkins"
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
-	"github.com/caoyingjunz/gopixiu/pkg/core"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
-)
-
-var pixiu core.CoreV1Interface
-
-func Register(cfg config.Config, f db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) {
-	pixiu = core.New(cfg, f, cicdDriver)
-}
+package util

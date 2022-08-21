@@ -26,13 +26,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"github.com/caoyingjunz/gopixiu/pkg/middleware"
-	"github.com/caoyingjunz/gopixiu/pkg/service"
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 const (
@@ -77,6 +75,10 @@ func (o *Options) Complete() error {
 	if err := c.Binding(&o.ComponentConfig); err != nil {
 		return err
 	}
+
+	// 初始化默认 api 路由
+	o.GinEngine = gin.Default()
+
 	// 注册依赖组件
 	if err := o.register(); err != nil {
 		return err
@@ -92,11 +94,7 @@ func (o *Options) register() error {
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
-	if err := o.registerRouter(); err != nil { // 注册路由
-		return err
-	}
 
-	//service.Register(o.ComponentConfig, o.Factory, o.CicdDriver)
 	return nil
 }
 
@@ -125,24 +123,10 @@ func (o *Options) registerDatabase() error {
 	return nil
 }
 
-func (o *Options) registerRouter() error {
-	o.GinEngine = gin.Default()
-
-	// 注册路由
-	o.GinEngine.Use(middleware.LoggerToFile(), middleware.Auth)
-	{
-		service.InitCicdRouter(o.GinEngine)  // 注册 cicd 路由
-		service.InitCloudRouter(o.GinEngine) // 注册 cloud 路由
-	}
-	klog.Infof("api router register success")
-
-	return nil
-}
-
 func (o *Options) registerCicdDriver() error {
 	jenkinsOption := o.ComponentConfig.Cicd.Jenkins
 	switch o.ComponentConfig.Cicd.Driver {
-	case "", "jenkins":
+	case "", types.Jenkins:
 		o.CicdDriver = gojenkins.CreateJenkins(nil, jenkinsOption.Host, jenkinsOption.User, jenkinsOption.Password)
 		if _, err := o.CicdDriver.Init(context.TODO()); err != nil {
 			return err
@@ -153,8 +137,8 @@ func (o *Options) registerCicdDriver() error {
 }
 
 // Validate validates all the required options.
+// TODO
 func (o *Options) Validate() error {
-	// TODO
 	return nil
 }
 

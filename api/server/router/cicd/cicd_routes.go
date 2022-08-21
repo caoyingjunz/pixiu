@@ -16,12 +16,54 @@ limitations under the License.
 
 package cicd
 
-import "github.com/gin-gonic/gin"
+import (
+	"context"
+	"github.com/gin-gonic/gin"
 
-func (s *cicdRouter) runJob(c *gin.Context) {}
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+)
 
-func (s *cicdRouter) createJob(c *gin.Context) {}
+func (s *cicdRouter) runJob(c *gin.Context) {
+	r := httputils.NewResponse()
+	err := pixiu.CoreV1.Cicd().RunJob(context.TODO())
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
-func (s *cicdRouter) deleteJob(c *gin.Context) {}
+	httputils.SetSuccess(c, r)
+}
 
-func (s *cicdRouter) addViewJob(c *gin.Context) {}
+func (s *cicdRouter) createJob(c *gin.Context) {
+	r := httputils.NewResponse()
+	err := pixiu.CoreV1.Cicd().CreateJob(context.TODO())
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) deleteJob(c *gin.Context) {
+	r := httputils.NewResponse()
+	err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO())
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) addViewJob(c *gin.Context) {
+	r := httputils.NewResponse()
+	err := pixiu.CoreV1.Cicd().AddViewJob(context.TODO())
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}

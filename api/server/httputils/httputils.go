@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package httputils
 
 import (
 	"net/http"
@@ -45,14 +45,14 @@ func (r *Response) SetMessage(m interface{}) {
 	}
 }
 
-// setSuccess 设置成功返回值
-func setSuccess(c *gin.Context, r *Response) {
+// SetSuccess 设置成功返回值
+func SetSuccess(c *gin.Context, r *Response) {
 	r.SetCode(http.StatusOK)
 	c.JSON(http.StatusOK, r)
 }
 
-// setFailed 设置错误返回值
-func setFailed(c *gin.Context, r *Response, err error) {
+// SetFailed 设置错误返回值
+func SetFailed(c *gin.Context, r *Response, err error) {
 	r.SetMessage(err)
 	c.JSON(http.StatusBadRequest, r)
 }

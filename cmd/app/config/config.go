@@ -16,10 +16,10 @@ limitations under the License.
 
 package config
 
-import "fmt"
+import (
+	"fmt"
 
-const (
-	jenkins = "jenkins"
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 type Config struct {
@@ -59,7 +59,7 @@ func (c *Config) Valid() error {
 	}
 
 	switch c.Cicd.Driver {
-	case "", jenkins:
+	case "", types.Jenkins:
 		j := c.Cicd.Jenkins
 		if j == nil {
 			return fmt.Errorf("jenkins config option missing")
