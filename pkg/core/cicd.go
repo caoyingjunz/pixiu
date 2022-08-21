@@ -19,12 +19,14 @@ package core
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/bndr/gojenkins"
+
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
-	"time"
 )
 
 type CicdGetter interface {
@@ -50,7 +52,7 @@ func newCicd(c *pixiu) CicdInterface {
 		ComponentConfig: c.cfg,
 		app:             c,
 		factory:         c.factory,
-		//cicdDriver:      cicdDriver,
+		cicdDriver:      c.cicdDriver,
 	}
 }
 
