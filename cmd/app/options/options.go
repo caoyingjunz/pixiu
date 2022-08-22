@@ -24,6 +24,7 @@ import (
 	"github.com/bndr/gojenkins"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -36,6 +37,8 @@ import (
 const (
 	maxIdleConns = 10
 	maxOpenConns = 100
+
+	defaultConfigFile = "/etc/gopixiu/config.yaml"
 )
 
 // Options has all the params needed to run a pixiu
@@ -59,13 +62,18 @@ func NewOptions() (*Options, error) {
 }
 
 func (o *Options) Complete() error {
-	configFile := o.ConfigFile
-	if os.Getenv("ConfigFile") != "" {
-		configFile = os.Getenv("ConfigFile")
-
+	// 配置文件优秀级: 默认配置，环境变量，命令行
+	if len(o.ConfigFile) == 0 {
+		// Try to read config file path from env.
+		if cfgFile := os.Getenv("ConfigFile"); cfgFile != "" {
+			o.ConfigFile = cfgFile
+		} else {
+			o.ConfigFile = defaultConfigFile
+		}
 	}
+
 	c := pixiuConfig.New()
-	c.SetConfigFile(configFile)
+	c.SetConfigFile(o.ConfigFile)
 	c.SetConfigType("yaml")
 	if err := c.Binding(&o.ComponentConfig); err != nil {
 		return err
@@ -79,6 +87,11 @@ func (o *Options) Complete() error {
 		return err
 	}
 	return nil
+}
+
+// BindFlags binds the pixiu Configuration struct fields
+func (o *Options) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.ConfigFile, "configfile", "", "The location of the gopixiu configuration file")
 }
 
 func (o *Options) register() error {

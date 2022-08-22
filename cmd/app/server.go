@@ -63,7 +63,7 @@ func NewServerCommand() *cobra.Command {
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&opts.ConfigFile, "config", "/etc/gopixiu/config.yaml", "gopixiu config file")
+	opts.BindFlags(cmd)
 
 	return cmd
 }
