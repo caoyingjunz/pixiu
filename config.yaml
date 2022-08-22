@@ -9,7 +9,7 @@ default:
 mysql:
   host: gopixiu
   user: root
-  password: password123456
+  password: GoPixiu868686
   port: 3306
   name: gopixiu
 
