@@ -16,7 +16,10 @@ limitations under the License.
 
 package log
 
-import "path/filepath"
+import (
+	"path/filepath"
+	"strings"
+)
 
 type Configuration struct {
 	LogFile  string
@@ -35,25 +38,43 @@ type LoggerInterface interface {
 	Errorf(f string, args ...interface{})
 }
 
-var Logger LoggerInterface
-var AccessLog LoggerInterface
+var (
+	Logger    LoggerInterface
+	AccessLog LoggerInterface
+)
 
 func Register(logDir string, logLevel string) {
-	if len(logLevel) == 0 {
-		logLevel = "INFO"
+	var (
+		accessLogFile string
+		loggerLogFile string
+	)
+	// 支持 标准输出，标准错误输出，和指定日志文件
+	switch logDir {
+	case "stdout":
+		accessLogFile, loggerLogFile = "stdout", "stdout"
+	case "stderr":
+		accessLogFile, loggerLogFile = "stderr", "stderr"
+	default:
+		accessLogFile, loggerLogFile = filepath.Join(logDir, "access.log"), filepath.Join(logDir, "gopixiu.log")
+	}
+
+	// 支持 INFO 和 ERROR，默认为 INFO
+	Level := "info"
+	if strings.ToLower(logLevel) == "error" {
+		Level = "error"
 	}
 
 	AccessLog, _ = NewZapLogger(Configuration{
-		LogFile:          filepath.Join(logDir, "access.log"),
-		LogLevel:         logLevel,
+		LogFile:          accessLogFile,
+		LogLevel:         Level,
 		RotateMaxSize:    500,
 		RotateMaxAge:     7,
 		RotateMaxBackups: 3,
 	})
 
 	Logger, _ = NewZapLogger(Configuration{
-		LogFile:          filepath.Join(logDir, "gopixiu.log"),
-		LogLevel:         logLevel,
+		LogFile:          loggerLogFile,
+		LogLevel:         Level,
 		RotateMaxSize:    500,
 		RotateMaxAge:     7,
 		RotateMaxBackups: 3,

@@ -63,6 +63,8 @@ func NewServerCommand() *cobra.Command {
 		},
 	}
 
+	opts.BindFlags(cmd)
+
 	return cmd
 }
 
