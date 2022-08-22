@@ -58,7 +58,9 @@ type Options struct {
 }
 
 func NewOptions() (*Options, error) {
-	return &Options{}, nil
+	return &Options{
+		ConfigFile: defaultConfigFile,
+	}, nil
 }
 
 func (o *Options) Complete() error {
