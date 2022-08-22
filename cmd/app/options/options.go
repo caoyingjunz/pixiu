@@ -98,9 +98,9 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 
 func (o *Options) register() error {
 	log.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
-	//if err := o.registerDatabase(); err != nil {                                        // 注册数据库
-	//	return err
-	//}
+	if err := o.registerDatabase(); err != nil {                                       // 注册数据库
+		return err
+	}
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
