@@ -36,8 +36,6 @@ import (
 const (
 	maxIdleConns = 10
 	maxOpenConns = 100
-
-	defaultConfigFile = "/etc/gopixiu/config.yaml"
 )
 
 // Options has all the params needed to run a pixiu
@@ -62,13 +60,10 @@ func NewOptions() (*Options, error) {
 
 func (o *Options) Complete() error {
 	configFile := o.ConfigFile
-	if len(configFile) == 0 {
+	if os.Getenv("ConfigFile") != "" {
 		configFile = os.Getenv("ConfigFile")
-	}
-	if len(configFile) == 0 {
-		configFile = defaultConfigFile
-	}
 
+	}
 	c := pixiuConfig.New()
 	c.SetConfigFile(configFile)
 	c.SetConfigType("yaml")
