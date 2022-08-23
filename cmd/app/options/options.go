@@ -63,8 +63,9 @@ func NewOptions() (*Options, error) {
 	}, nil
 }
 
+// Complete completes all the required options
 func (o *Options) Complete() error {
-	// 配置文件优秀级: 默认配置，环境变量，命令行
+	// 配置文件优先级: 默认配置，环境变量，命令行
 	if len(o.ConfigFile) == 0 {
 		// Try to read config file path from env.
 		if cfgFile := os.Getenv("ConfigFile"); cfgFile != "" {
@@ -152,6 +153,7 @@ func (o *Options) Validate() error {
 	return nil
 }
 
+// Run executes gopixiu command
 func (o *Options) Run(stopCh <-chan struct{}) {
 	_ = o.GinEngine.Run(fmt.Sprintf(":%d", o.ComponentConfig.Default.Listen))
 }
