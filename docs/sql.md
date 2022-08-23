@@ -1,9 +1,9 @@
-### 创建 `gopixiu` 数据库
+# 创建 `gopixiu` 数据库
 ```sql
 CREATE DATABASE gopixiu;
 ```
 
-### 创建 `users` 表
+## 创建 `users` 表
 ```sql
 CREATE TABLE `users` (
     id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,

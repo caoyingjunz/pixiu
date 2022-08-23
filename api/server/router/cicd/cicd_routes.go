@@ -68,3 +68,14 @@ func (s *cicdRouter) addViewJob(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (s *cicdRouter) getAllJobs(c *gin.Context) {
+	r := httputils.NewResponse()
+	jobs, err := pixiu.CoreV1.Cicd().GetAllJobs(context.TODO())
+	r.Result = jobs
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
