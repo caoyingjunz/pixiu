@@ -1,4 +1,4 @@
-### 创建 `gopixiu` 数据库
+# 创建 `gopixiu` 数据库
 ```sql
 CREATE DATABASE gopixiu;
 ```
