@@ -14,10 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package demo
 
-type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
+import "github.com/gin-gonic/gin"
+
+// demoRouter is a router to talk with the cicd controller
+type demoRouter struct{}
+
+// NewRouter initializes a new container router
+func NewRouter(ginEngine *gin.Engine) {
+	s := &demoRouter{}
+	s.initRoutes(ginEngine)
+}
+
+func (s *demoRouter) initRoutes(ginEngine *gin.Engine) {
+	demoRoute := ginEngine.Group("/demo")
+	{
+		demoRoute.POST("/create", s.createDemo)
+		demoRoute.GET("/detail", s.getDemo)
+	}
 }

@@ -14,10 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package model
+
+import (
+	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
+)
 
 type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
+	gopixiu.Model
+
+	Name string `gorm:"index:idx_name,unique" json:"name"` // 用户名，唯一
+}
+
+func (demo *Demo) TableName() string {
+	return "demos"
 }
