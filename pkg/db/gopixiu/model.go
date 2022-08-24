@@ -14,10 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package gopixiu
 
-type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
+import "time"
+
+type Model struct {
+	Id              int64     `gorm:"column:id;primary_key;AUTO_INCREMENT;not null" json:"id"`
+	GmtCreate       time.Time `json:"gmt_create"`
+	GmtModified     time.Time `json:"gmt_modified"`
+	ResourceVersion int64     `json:"resource_version"`
 }

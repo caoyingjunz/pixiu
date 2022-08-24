@@ -38,6 +38,7 @@ type CicdInterface interface {
 	CreateJob(ctx context.Context) error
 	DeleteJob(ctx context.Context) error
 	AddViewJob(ctx context.Context) error
+	GetAllJobs(ctx context.Context) (res []string, err error)
 }
 
 type cicd struct {
@@ -114,4 +115,18 @@ func (c *cicd) AddViewJob(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
+	getalljobs, err := c.cicdDriver.GetAllJobs(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to getalljobs job %s: %v", "test", err)
+		return nil, err
+	}
+	jobs := make([]string, 0)
+	for _, value := range getalljobs {
+		jobs = append(jobs, value.Base)
+		//fmt.Println(value.Base)
+	}
+	return jobs, nil
 }

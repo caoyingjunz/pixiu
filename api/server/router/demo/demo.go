@@ -14,28 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cicd
+package demo
 
-import (
-	"github.com/gin-gonic/gin"
-)
+import "github.com/gin-gonic/gin"
 
-// cicdRouter is a router to talk with the cicd controller
-type cicdRouter struct{}
+// demoRouter is a router to talk with the cicd controller
+type demoRouter struct{}
 
 // NewRouter initializes a new container router
 func NewRouter(ginEngine *gin.Engine) {
-	s := &cicdRouter{}
+	s := &demoRouter{}
 	s.initRoutes(ginEngine)
 }
 
-func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
-	cicdRoute := ginEngine.Group("/cicd")
+func (s *demoRouter) initRoutes(ginEngine *gin.Engine) {
+	demoRoute := ginEngine.Group("/demo")
 	{
-		cicdRoute.POST("/job/run", s.runJob)
-		cicdRoute.POST("/job/createJob", s.createJob)
-		cicdRoute.DELETE("/job/deleteJob", s.deleteJob)
-		cicdRoute.POST("/view/addViewJob", s.addViewJob)
-		cicdRoute.POST("/job/getAllJobs", s.getAllJobs)
+		demoRoute.POST("/create", s.createDemo)
+		demoRoute.GET("/detail", s.getDemo)
 	}
 }

@@ -23,6 +23,7 @@ import (
 )
 
 type CoreV1Interface interface {
+	DemoGetter
 	CicdGetter
 	CloudGetter
 }
@@ -31,6 +32,10 @@ type pixiu struct {
 	cfg        config.Config
 	factory    db.ShareDaoFactory
 	cicdDriver *gojenkins.Jenkins
+}
+
+func (pixiu *pixiu) Demo() DemoInterface {
+	return newDemo(pixiu)
 }
 
 func (pixiu *pixiu) Cicd() CicdInterface {

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cicd
+package demo
 
 import (
 	"context"
@@ -22,12 +22,19 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-func (s *cicdRouter) runJob(c *gin.Context) {
+func (s *demoRouter) getDemo(c *gin.Context) {
 	r := httputils.NewResponse()
-	err := pixiu.CoreV1.Cicd().RunJob(context.TODO())
+	demoId, err := util.ParseInt64(c.Query("demo_id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Demo().Get(context.TODO(), demoId)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -36,46 +43,17 @@ func (s *cicdRouter) runJob(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cicdRouter) createJob(c *gin.Context) {
+func (s *demoRouter) createDemo(c *gin.Context) {
 	r := httputils.NewResponse()
-	err := pixiu.CoreV1.Cicd().CreateJob(context.TODO())
-	if err != nil {
+	var demo types.Demo
+	if err := c.ShouldBindJSON(&demo); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := pixiu.CoreV1.Demo().Create(context.TODO(), &demo); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cicdRouter) deleteJob(c *gin.Context) {
-	r := httputils.NewResponse()
-	err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO())
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cicdRouter) addViewJob(c *gin.Context) {
-	r := httputils.NewResponse()
-	err := pixiu.CoreV1.Cicd().AddViewJob(context.TODO())
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cicdRouter) getAllJobs(c *gin.Context) {
-	r := httputils.NewResponse()
-	jobs, err := pixiu.CoreV1.Cicd().GetAllJobs(context.TODO())
-	r.Result = jobs
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
 	httputils.SetSuccess(c, r)
 }
