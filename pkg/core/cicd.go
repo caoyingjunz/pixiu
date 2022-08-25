@@ -34,7 +34,7 @@ type CicdGetter interface {
 }
 
 type CicdInterface interface {
-	RunJob(ctx context.Context) (res string, error error)
+	RunJob(ctx context.Context) (output string, res string, error error)
 	CreateJob(ctx context.Context) error
 	DeleteJob(ctx context.Context) error
 	AddViewJob(ctx context.Context) error
@@ -59,7 +59,7 @@ func newCicd(c *pixiu) CicdInterface {
 	}
 }
 
-func (c *cicd) RunJob(ctx context.Context) (r string, error error) {
+func (c *cicd) RunJob(ctx context.Context) (output string, res string, error error) {
 	queueid, err := c.cicdDriver.BuildJob(ctx, "test", nil)
 	if err != nil {
 		fmt.Println(err)
@@ -74,9 +74,10 @@ func (c *cicd) RunJob(ctx context.Context) (r string, error error) {
 		time.Sleep(5000 * time.Millisecond)
 		build.Poll(ctx)
 	}
-	r = build.GetResult()
-	fmt.Printf("build number %d with result: %v\n", build.GetBuildNumber(), build.GetResult())
-	return r, nil
+	res = build.GetResult()
+	output = build.GetConsoleOutput(ctx)
+
+	return output, res, nil
 }
 
 func (c *cicd) CreateJob(ctx context.Context) error {

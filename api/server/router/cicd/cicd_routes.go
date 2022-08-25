@@ -26,12 +26,15 @@ import (
 
 func (s *cicdRouter) runJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	res, err := pixiu.CoreV1.Cicd().RunJob(context.TODO())
+	output, res, err := pixiu.CoreV1.Cicd().RunJob(context.TODO())
+	r.Result = res
+	r.Message = output
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = res
+	//r.Result = res
+	//r.Message = output
 	httputils.SetSuccess(c, r)
 }
 
