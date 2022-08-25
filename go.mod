@@ -9,6 +9,7 @@ require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-playground/validator/v10 v10.11.0 // indirect
 	github.com/goccy/go-json v0.9.11 // indirect
+	github.com/golangci/golangci-lint v1.49.0 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.3 // indirect
 	github.com/spf13/cobra v1.5.0

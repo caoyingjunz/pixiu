@@ -34,11 +34,13 @@ type CicdGetter interface {
 }
 
 type CicdInterface interface {
-	RunJob(ctx context.Context) error
+	RunJob(ctx context.Context) (res string, error error)
 	CreateJob(ctx context.Context) error
 	DeleteJob(ctx context.Context) error
 	AddViewJob(ctx context.Context) error
 	GetAllJobs(ctx context.Context) (res []string, err error)
+	CopyJob(ctx context.Context) (res []string, error error)
+	RenameJob(ctx context.Context) error
 }
 
 type cicd struct {
@@ -57,7 +59,7 @@ func newCicd(c *pixiu) CicdInterface {
 	}
 }
 
-func (c *cicd) RunJob(ctx context.Context) error {
+func (c *cicd) RunJob(ctx context.Context) (r string, error error) {
 	queueid, err := c.cicdDriver.BuildJob(ctx, "test", nil)
 	if err != nil {
 		fmt.Println(err)
@@ -72,9 +74,9 @@ func (c *cicd) RunJob(ctx context.Context) error {
 		time.Sleep(5000 * time.Millisecond)
 		build.Poll(ctx)
 	}
-
+	r = build.GetResult()
 	fmt.Printf("build number %d with result: %v\n", build.GetBuildNumber(), build.GetResult())
-	return nil
+	return r, nil
 }
 
 func (c *cicd) CreateJob(ctx context.Context) error {
@@ -120,7 +122,7 @@ func (c *cicd) AddViewJob(ctx context.Context) error {
 func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
 	getalljobs, err := c.cicdDriver.GetAllJobs(ctx)
 	if err != nil {
-		log.Logger.Errorf("failed to getalljobs job %s: %v", "test", err)
+		log.Logger.Errorf("failed to getall job %s: %v", "test", err)
 		return nil, err
 	}
 	jobs := make([]string, 0)
@@ -129,4 +131,22 @@ func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
 		//fmt.Println(value.Base)
 	}
 	return jobs, nil
+}
+
+func (c *cicd) CopyJob(ctx context.Context) (res []string, error error) {
+	_, err := c.cicdDriver.CopyJob(ctx, "test", "copyJobTest123123")
+	if err != nil {
+		log.Logger.Errorf("failed to copy job %s: %v", "test", err)
+		return res, error
+	}
+	return res, nil
+}
+
+func (c *cicd) RenameJob(ctx context.Context) error {
+	err := c.cicdDriver.RenameJob(ctx, "copyJobTest123123", "RenameJobTest")
+	if err != nil {
+		log.Logger.Errorf("failed to rename job %s: %v", "test", err)
+		return nil
+	}
+	return nil
 }
