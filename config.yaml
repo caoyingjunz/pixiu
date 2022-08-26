@@ -2,7 +2,7 @@ default:
   # 服务监听端口
   listen: 8090
   log_dir: /Users/caoyuan/log
-  # 日志基本，支持 INFO 和 ERROR，默认为 INFO
+  # 日志级别，支持 INFO, WARN 和 ERROR, 默认为 INFO
   log_level: ERROR
 
 # 数据库地址信息
