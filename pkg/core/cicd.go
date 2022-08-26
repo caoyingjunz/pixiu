@@ -34,14 +34,14 @@ type CicdGetter interface {
 }
 
 type CicdInterface interface {
-	RunJob(ctx context.Context) (output string, res string, error error)
-	CreateJob(ctx context.Context) error
-	DeleteJob(ctx context.Context) error
-	AddViewJob(ctx context.Context) error
-	GetAllJobs(ctx context.Context) (res []string, err error)
-	CopyJob(ctx context.Context) (res []string, error error)
-	RenameJob(ctx context.Context) error
-	SafeRestart(ctx context.Context) error
+	RunJob(ctx context.Context, jobName string) (output string, res string, error error)
+	CreateJob(ctx context.Context, createJob string) error
+	DeleteJob(ctx context.Context, deleteJob string) error
+	AddViewJob(ctx context.Context, addViewJob string) error
+	GetAllJobs(ctx context.Context, getAllJobs string) (res []string, err error)
+	CopyJob(ctx context.Context, oldCopyJob string, newCopyJob string) (res []string, error error)
+	RenameJob(ctx context.Context, oldRenameJob string, newRenameJob string) error
+	SafeRestart(ctx context.Context, safeRestart string) error
 }
 
 type cicd struct {
@@ -60,11 +60,12 @@ func newCicd(c *pixiu) CicdInterface {
 	}
 }
 
-func (c *cicd) RunJob(ctx context.Context) (output string, res string, error error) {
-	queueid, err := c.cicdDriver.BuildJob(ctx, "test", nil)
+func (c *cicd) RunJob(ctx context.Context, jobName string) (output string, res string, error error) {
+	queueid, err := c.cicdDriver.BuildJob(ctx, jobName, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	build, err := c.cicdDriver.GetBuildFromQueueID(ctx, queueid)
 	if err != nil {
 		fmt.Println(err)
@@ -81,28 +82,28 @@ func (c *cicd) RunJob(ctx context.Context) (output string, res string, error err
 	return output, res, nil
 }
 
-func (c *cicd) CreateJob(ctx context.Context) error {
-	_, err := c.cicdDriver.CreateJob(ctx, types.JobStringConfig, "test")
+func (c *cicd) CreateJob(ctx context.Context, createJob string) error {
+	_, err := c.cicdDriver.CreateJob(ctx, types.JobStringConfig, createJob)
 	if err != nil {
-		log.Logger.Errorf("failed to create job %s: %v", "test", err)
+		log.Logger.Errorf("failed to create job %s: %v", createJob, err)
 		return err
 	}
 
 	return nil
 }
 
-func (c *cicd) DeleteJob(ctx context.Context) error {
-	_, err := c.cicdDriver.DeleteJob(ctx, "test")
+func (c *cicd) DeleteJob(ctx context.Context, deleteJob string) error {
+	_, err := c.cicdDriver.DeleteJob(ctx, deleteJob)
 	if err != nil {
-		log.Logger.Errorf("failed to delete job %s: %v", "test", err)
+		log.Logger.Errorf("failed to delete job %s: %v", deleteJob, err)
 		return err
 	}
 
 	return nil
 }
 
-func (c *cicd) AddViewJob(ctx context.Context) error {
-	view, err := c.cicdDriver.CreateView(ctx, "test", gojenkins.LIST_VIEW)
+func (c *cicd) AddViewJob(ctx context.Context, addViewJob string) error {
+	view, err := c.cicdDriver.CreateView(ctx, addViewJob, gojenkins.LIST_VIEW)
 	if err != nil {
 		log.Logger.Errorf("failed to create view %s: %v", "test", err)
 		return err
@@ -121,10 +122,10 @@ func (c *cicd) AddViewJob(ctx context.Context) error {
 	return nil
 }
 
-func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
+func (c *cicd) GetAllJobs(ctx context.Context, getAllJobs string) (res []string, err error) {
 	getalljobs, err := c.cicdDriver.GetAllJobs(ctx)
 	if err != nil {
-		log.Logger.Errorf("failed to getall job %s: %v", "test", err)
+		log.Logger.Errorf("failed to getall job %s: %v", getAllJobs, err)
 		return nil, err
 	}
 	jobs := make([]string, 0)
@@ -135,28 +136,28 @@ func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
 	return jobs, nil
 }
 
-func (c *cicd) CopyJob(ctx context.Context) (res []string, error error) {
-	_, err := c.cicdDriver.CopyJob(ctx, "test", "copyJobTest123123")
+func (c *cicd) CopyJob(ctx context.Context, oldCopyJob string, newCopyJob string) (res []string, error error) {
+	_, err := c.cicdDriver.CopyJob(ctx, oldCopyJob, newCopyJob)
 	if err != nil {
-		log.Logger.Errorf("failed to copy job %s: %v", "test", err)
+		log.Logger.Errorf("failed to copy job %s: %v", oldCopyJob, err)
 		return res, error
 	}
 	return res, nil
 }
 
-func (c *cicd) RenameJob(ctx context.Context) error {
-	err := c.cicdDriver.RenameJob(ctx, "copyJobTest123123", "RenameJobTest")
+func (c *cicd) RenameJob(ctx context.Context, oldRenameJob string, newRenameJob string) error {
+	err := c.cicdDriver.RenameJob(ctx, oldRenameJob, newRenameJob)
 	if err != nil {
-		log.Logger.Errorf("failed to rename job %s: %v", "test", err)
+		log.Logger.Errorf("failed to rename job %s: %v", newRenameJob, err)
 		return nil
 	}
 	return nil
 }
 
-func (c *cicd) SafeRestart(ctx context.Context) error {
+func (c *cicd) SafeRestart(ctx context.Context, safeRestart string) error {
 	err := c.cicdDriver.SafeRestart(ctx)
 	if err != nil {
-		log.Logger.Errorf("failed to safeRestart  %s: %v", "", err)
+		log.Logger.Errorf("failed to safeRestart  %s: %v", safeRestart, err)
 		return nil
 	}
 	return nil
