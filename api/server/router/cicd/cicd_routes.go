@@ -101,3 +101,13 @@ func (s *cicdRouter) renameJob(c *gin.Context) {
 	}
 	httputils.SetSuccess(c, r)
 }
+
+func (s *cicdRouter) safeRestart(c *gin.Context) {
+	r := httputils.NewResponse()
+	err := pixiu.CoreV1.Cicd().SafeRestart(context.TODO())
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}

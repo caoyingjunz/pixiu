@@ -39,5 +39,6 @@ func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
 		cicdRoute.POST("/job/getAllJobs", s.getAllJobs)
 		cicdRoute.POST("/job/copyJob", s.copyJob)
 		cicdRoute.POST("/job/renameJob", s.renameJob)
+		cicdRoute.POST("/safeRestart", s.safeRestart)
 	}
 }

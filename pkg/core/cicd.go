@@ -41,6 +41,7 @@ type CicdInterface interface {
 	GetAllJobs(ctx context.Context) (res []string, err error)
 	CopyJob(ctx context.Context) (res []string, error error)
 	RenameJob(ctx context.Context) error
+	SafeRestart(ctx context.Context) error
 }
 
 type cicd struct {
@@ -150,4 +151,14 @@ func (c *cicd) RenameJob(ctx context.Context) error {
 		return nil
 	}
 	return nil
+}
+
+func (c *cicd) SafeRestart(ctx context.Context) error {
+	err := c.cicdDriver.SafeRestart(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to safeRestart  %s: %v", "", err)
+		return nil
+	}
+	return nil
+
 }
