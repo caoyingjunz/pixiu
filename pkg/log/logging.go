@@ -36,6 +36,8 @@ type LoggerInterface interface {
 	Infof(f string, args ...interface{})
 	Error(args ...interface{})
 	Errorf(f string, args ...interface{})
+	Warn(args ...interface{})
+	Warnf(f string, args ...interface{})
 }
 
 var (
@@ -58,10 +60,12 @@ func Register(logDir string, logLevel string) {
 		accessLogFile, loggerLogFile = filepath.Join(logDir, "access.log"), filepath.Join(logDir, "gopixiu.log")
 	}
 
-	// 支持 INFO 和 ERROR，默认为 INFO
+	// 支持 INFO, WARN 和 ERROR，默认为 INFO
 	Level := "info"
 	if strings.ToLower(logLevel) == "error" {
 		Level = "error"
+	} else if strings.ToLower(logLevel) == "warn" {
+		Level = "warn"
 	}
 
 	AccessLog, _ = NewZapLogger(Configuration{

@@ -102,3 +102,11 @@ func (l *zapLogger) Error(args ...interface{}) {
 func (l *zapLogger) Errorf(f string, args ...interface{}) {
 	l.logger.Error(fmt.Sprintf(f, args...))
 }
+
+func (l *zapLogger) Warn(args ...interface{}) {
+	l.logger.Warn(fmt.Sprint(args...))
+}
+
+func (l *zapLogger) Warnf(f string, args ...interface{}) {
+	l.logger.Warn(fmt.Sprintf(f, args...))
+}
