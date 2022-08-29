@@ -17,19 +17,20 @@ limitations under the License.
 package cicd
 
 import (
+	"bytes"
 	"context"
-	"github.com/gin-gonic/gin"
+	"encoding/json"
+	"io/ioutil"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/gin-gonic/gin"
 )
 
 func (s *cicdRouter) runJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	jobName := c.Param("jobName")
-	_, res, err := pixiu.CoreV1.Cicd().RunJob(context.TODO(), jobName)
-
-	r.Result = res
+	name := c.Param("job_name")
+	err := pixiu.CoreV1.Cicd().RunJob(context.TODO(), name)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -39,19 +40,63 @@ func (s *cicdRouter) runJob(c *gin.Context) {
 
 func (s *cicdRouter) createJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	createJob := c.Param("createJob")
-	if err := pixiu.CoreV1.Cicd().CreateJob(context.TODO(), createJob); err != nil {
+	reqBody, _ := ioutil.ReadAll(c.Request.Body)
+	var m map[string]interface{}
+	_ = json.Unmarshal(reqBody, &m)
+	newBody, _ := json.Marshal(m)
+	c.Request.Body = ioutil.NopCloser(bytes.NewReader(newBody))
+	if err := pixiu.CoreV1.Cicd().CreateJob(context.TODO(), m["name"]); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	httputils.SetSuccess(c, r)
+}
 
+func (s *cicdRouter) copyJob(c *gin.Context) {
+	r := httputils.NewResponse()
+	reqBody, _ := ioutil.ReadAll(c.Request.Body)
+	var m map[string]string
+	_ = json.Unmarshal(reqBody, &m)
+	newBody, _ := json.Marshal(m)
+	c.Request.Body = ioutil.NopCloser(bytes.NewReader(newBody))
+
+	if _, err := pixiu.CoreV1.Cicd().CopyJob(context.TODO(), m["old_name"], m["new_name"]); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) renameJob(c *gin.Context) {
+	r := httputils.NewResponse()
+	reqBody, _ := ioutil.ReadAll(c.Request.Body)
+	var m map[string]string
+	_ = json.Unmarshal(reqBody, &m)
+	newBody, _ := json.Marshal(m)
+	c.Request.Body = ioutil.NopCloser(bytes.NewReader(newBody))
+	if err := pixiu.CoreV1.Cicd().RenameJob(context.TODO(), m["old_name"], m["new_name"]); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) getAllJobs(c *gin.Context) {
+	r := httputils.NewResponse()
+	//get_all_jobs := c.Param("get_all_jobs")
+	jobs, err := pixiu.CoreV1.Cicd().GetAllJobs(context.TODO())
+	r.Result = jobs
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }
 
 func (s *cicdRouter) deleteJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	deleteJob := c.Param("deleteJob")
-	if err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO(), deleteJob); err != nil {
+	name := c.Param("name")
+	if err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO(), name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -61,46 +106,12 @@ func (s *cicdRouter) deleteJob(c *gin.Context) {
 
 func (s *cicdRouter) addViewJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	addViewJob := c.Param("addViewJob")
-	if err := pixiu.CoreV1.Cicd().AddViewJob(context.TODO(), addViewJob); err != nil {
+	add_view_job := c.Param("add_view_job")
+	if err := pixiu.CoreV1.Cicd().AddViewJob(context.TODO(), add_view_job); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cicdRouter) getAllJobs(c *gin.Context) {
-	r := httputils.NewResponse()
-	getAllJobs := c.Param("getAllJobs")
-	jobs, err := pixiu.CoreV1.Cicd().GetAllJobs(context.TODO(), getAllJobs)
-	r.Result = jobs
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cicdRouter) copyJob(c *gin.Context) {
-	r := httputils.NewResponse()
-	oldCopyJob := c.Param("oldCopyJob")
-	newCopyJob := c.Param("newCopyJob")
-	if _, err := pixiu.CoreV1.Cicd().CopyJob(context.TODO(), oldCopyJob, newCopyJob); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cicdRouter) renameJob(c *gin.Context) {
-	r := httputils.NewResponse()
-	oldRenameJob := c.Param("oldRenameJob")
-	newRenameJob := c.Param("newRenameJob")
-	if err := pixiu.CoreV1.Cicd().RenameJob(context.TODO(), oldRenameJob, newRenameJob); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
 	httputils.SetSuccess(c, r)
 }
 
