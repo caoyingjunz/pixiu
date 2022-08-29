@@ -21,8 +21,3 @@ type Demo struct {
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
 }
-
-type K8sClusterCreate struct {
-	Name   string `json:"name"`
-	Config string `json:"config"`
-}
