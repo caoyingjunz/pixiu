@@ -16,20 +16,23 @@ limitations under the License.
 
 package cloud
 
-import "github.com/gin-gonic/gin"
+import (
+	"context"
 
-// cloudRouter is a router to talk with the cloud controller
-type cloudRouter struct{}
+	"github.com/gin-gonic/gin"
 
-// NewRouter initializes a new container router
-func NewRouter(ginEngine *gin.Engine) {
-	s := &cloudRouter{}
-	s.initRoutes(ginEngine)
-}
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+)
 
-func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
-	cloudRoute := ginEngine.Group("/cloud")
-	{
-		cloudRoute.GET("/deployments", s.ListDeployments)
+func (s *cloudRouter) ListDeployments(c *gin.Context) {
+	r := httputils.NewResponse()
+	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO())
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
 	}
+
+	r.Result = deployments.Items
+	httputils.SetSuccess(c, r)
 }
