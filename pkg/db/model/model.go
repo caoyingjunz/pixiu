@@ -29,14 +29,3 @@ type Demo struct {
 func (demo *Demo) TableName() string {
 	return "demos"
 }
-
-type K8sCluster struct {
-	gopixiu.Model
-
-	Name   string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
-	Config string `json:"config"`                            // 集群config
-}
-
-func (*K8sCluster) TableName() string {
-	return "k8s_clusters"
-}
