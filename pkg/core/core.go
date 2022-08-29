@@ -26,6 +26,7 @@ type CoreV1Interface interface {
 	DemoGetter
 	CicdGetter
 	CloudGetter
+	UserGetter
 }
 
 type pixiu struct {
@@ -36,6 +37,10 @@ type pixiu struct {
 
 func (pixiu *pixiu) Demo() DemoInterface {
 	return newDemo(pixiu)
+}
+
+func (pixiu *pixiu) User() UserInterface {
+	return newUser(pixiu)
 }
 
 func (pixiu *pixiu) Cicd() CicdInterface {

@@ -26,6 +26,19 @@ type Demo struct {
 	Name string `gorm:"index:idx_name,unique" json:"name"` // 用户名，唯一
 }
 
+type User struct {
+	gopixiu.Model
+	Name        string `gorm:"index:idx_name,unique" json:"name"`
+	Password    string `gorm:"type:varchar(256)" json:"password"`
+	Email       string `gorm:"type:varchar(128)" json:"email"`
+	Description string `gorm:"type:text" json:"description"`
+	Extension   string `gorm:"type:text" json:"extension"`
+}
+
 func (demo *Demo) TableName() string {
 	return "demos"
+}
+
+func (user *User) TableName() string {
+	return "users"
 }
