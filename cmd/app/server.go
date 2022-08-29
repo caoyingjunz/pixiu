@@ -27,6 +27,7 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/demo"
+	"github.com/caoyingjunz/gopixiu/api/server/router/user"
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
@@ -72,6 +73,7 @@ func NewServerCommand() *cobra.Command {
 func InitRouters(opt *options.Options) {
 	demo.NewRouter(opt.GinEngine) // 注册 demo 路由
 	cicd.NewRouter(opt.GinEngine) // 注册 cicd 路由
+	user.NewRouter(opt.GinEngine) // 注册 user 路由
 }
 
 func Run(opt *options.Options) error {

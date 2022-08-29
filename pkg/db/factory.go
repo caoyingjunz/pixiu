@@ -19,11 +19,10 @@ package db
 import (
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
-)
-
-import (
 	"errors"
+
+	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
+	"github.com/caoyingjunz/gopixiu/pkg/db/user"
 )
 
 var (
@@ -39,6 +38,7 @@ func IsNotUpdate(err error) bool {
 }
 
 type ShareDaoFactory interface {
+	User() user.UserInterface
 	Demo() demo.DemoInterface
 }
 
@@ -48,6 +48,10 @@ type shareDaoFactory struct {
 
 func (f *shareDaoFactory) Demo() demo.DemoInterface {
 	return demo.NewDemo(f.db)
+}
+
+func (f *shareDaoFactory) User() user.UserInterface {
+	return user.NewUser(f.db)
 }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {
