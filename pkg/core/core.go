@@ -18,6 +18,8 @@ package core
 
 import (
 	"github.com/bndr/gojenkins"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 )
@@ -26,12 +28,14 @@ type CoreV1Interface interface {
 	DemoGetter
 	CicdGetter
 	CloudGetter
+	K8sGetter
 }
 
 type pixiu struct {
 	cfg        config.Config
 	factory    db.ShareDaoFactory
 	cicdDriver *gojenkins.Jenkins
+	clientSets map[string]*kubernetes.Clientset
 }
 
 func (pixiu *pixiu) Demo() DemoInterface {
@@ -46,10 +50,15 @@ func (pixiu *pixiu) Cloud() CloudInterface {
 	return newCloud(pixiu)
 }
 
-func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
+func (pixiu *pixiu) K8s() K8sInterface {
+	return newK8s(pixiu)
+}
+
+func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins, clientSets map[string]*kubernetes.Clientset) CoreV1Interface {
 	return &pixiu{
 		cfg:        cfg,
 		factory:    factory,
 		cicdDriver: cicdDriver,
+		clientSets: clientSets,
 	}
 }

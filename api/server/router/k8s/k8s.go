@@ -14,15 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package k8s
 
-type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
+import "github.com/gin-gonic/gin"
+
+type k8sRouter struct{}
+
+func NewRouter(ginEngine *gin.Engine) {
+	s := &k8sRouter{}
+	s.initRoutes(ginEngine)
 }
 
-type K8sClusterCreate struct {
-	Name   string `json:"name"`
-	Config string `json:"config"`
+func (s *k8sRouter) initRoutes(ginEngine *gin.Engine) {
+	k8sRoute := ginEngine.Group("/k8s")
+
+	clusterRoute := k8sRoute.Group("/cluster")
+	{
+		clusterRoute.POST("/create", s.createCluster)
+	}
 }

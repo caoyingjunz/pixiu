@@ -20,6 +20,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
+	"github.com/caoyingjunz/gopixiu/pkg/db/k8s"
 )
 
 import (
@@ -40,6 +41,7 @@ func IsNotUpdate(err error) bool {
 
 type ShareDaoFactory interface {
 	Demo() demo.DemoInterface
+	K8s() k8s.K8sInterface
 }
 
 type shareDaoFactory struct {
@@ -48,6 +50,10 @@ type shareDaoFactory struct {
 
 func (f *shareDaoFactory) Demo() demo.DemoInterface {
 	return demo.NewDemo(f.db)
+}
+
+func (f *shareDaoFactory) K8s() k8s.K8sInterface {
+	return k8s.NewK8s(f.db)
 }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {
