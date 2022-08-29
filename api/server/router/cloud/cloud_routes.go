@@ -14,31 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package k8s
+package cloud
 
 import (
 	"context"
-	"fmt"
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+
 	"github.com/gin-gonic/gin"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 )
 
-func (s *k8sRouter) createCluster(c *gin.Context) {
-	r := new(httputils.Response)
-	req := new(types.K8sClusterCreate)
-	name := c.PostForm("name")
-	config := c.PostForm("config")
-	if len(name) == 0 || len(config) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
-		return
-	}
-	req.Name, req.Config = name, config
-	if err := pixiu.CoreV1.K8s().ClusterCreate(context.TODO(), req); err != nil {
+func (s *cloudRouter) getDeployList(c *gin.Context) {
+	r := httputils.NewResponse()
+	namespace := c.DefaultQuery("namespace", "default")
+
+	deployList, err := options.ClientSet.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
+	r.Result = deployList.Items
 
 	httputils.SetSuccess(c, r)
 }
