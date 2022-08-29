@@ -20,23 +20,19 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/cmd/app/options"
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (s *cloudRouter) getDeployList(c *gin.Context) {
+func (s *cloudRouter) ListDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
-	namespace := c.DefaultQuery("namespace", "default")
-
-	deployList, err := options.ClientSet.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
+	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO())
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	r.Result = deployList.Items
-
+	r.Result = deployments.Items
 	httputils.SetSuccess(c, r)
 }

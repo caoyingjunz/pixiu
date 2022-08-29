@@ -17,8 +17,15 @@ limitations under the License.
 package core
 
 import (
+	"context"
+
+	v1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type CloudGetter interface {
@@ -26,12 +33,14 @@ type CloudGetter interface {
 }
 
 type CloudInterface interface {
+	ListDeployments(ctx context.Context) (*v1.DeploymentList, error)
 }
 
 type cloud struct {
 	ComponentConfig config.Config
 	app             *pixiu
 	factory         db.ShareDaoFactory
+	clientSet       *kubernetes.Clientset
 }
 
 func newCloud(c *pixiu) CloudInterface {
@@ -39,5 +48,16 @@ func newCloud(c *pixiu) CloudInterface {
 		ComponentConfig: c.cfg,
 		app:             c,
 		factory:         c.factory,
+		clientSet:       c.clientSet,
 	}
+}
+
+func (c *cloud) ListDeployments(ctx context.Context) (*v1.DeploymentList, error) {
+	deployments, err := c.clientSet.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to list deployments: %v", err)
+		return nil, err
+	}
+
+	return deployments, nil
 }

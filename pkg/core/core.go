@@ -28,14 +28,13 @@ type CoreV1Interface interface {
 	DemoGetter
 	CicdGetter
 	CloudGetter
-	K8sGetter
 }
 
 type pixiu struct {
 	cfg        config.Config
 	factory    db.ShareDaoFactory
 	cicdDriver *gojenkins.Jenkins
-	clientSets map[string]*kubernetes.Clientset
+	clientSet  *kubernetes.Clientset
 }
 
 func (pixiu *pixiu) Demo() DemoInterface {
@@ -50,15 +49,11 @@ func (pixiu *pixiu) Cloud() CloudInterface {
 	return newCloud(pixiu)
 }
 
-func (pixiu *pixiu) K8s() K8sInterface {
-	return newK8s(pixiu)
-}
-
-func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins, clientSets map[string]*kubernetes.Clientset) CoreV1Interface {
+func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins, clientSet *kubernetes.Clientset) CoreV1Interface {
 	return &pixiu{
 		cfg:        cfg,
 		factory:    factory,
 		cicdDriver: cicdDriver,
-		clientSets: clientSets,
+		clientSet:  clientSet,
 	}
 }

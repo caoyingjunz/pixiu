@@ -167,7 +167,6 @@ func (o *Options) registerClientSets() error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
