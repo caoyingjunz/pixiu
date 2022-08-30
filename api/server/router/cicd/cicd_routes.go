@@ -66,10 +66,6 @@ func (s *cicdRouter) createJob(c *gin.Context) {
 func (s *cicdRouter) copyJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	var p CicdParameter
-	//p := struct {
-	//	OldName string `json:"oldName,omitempty"`
-	//	NewName string `json:"newName,omitempty"`
-	//}{}
 	if err := c.ShouldBindJSON(&p); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

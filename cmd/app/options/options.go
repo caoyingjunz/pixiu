@@ -112,9 +112,9 @@ func (o *Options) register() error {
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
-	//if err := o.registerClientSets(); err != nil { // 注册 ClientSets
-	//	return err
-	//}
+	if err := o.registerClientSets(); err != nil { // 注册 ClientSets
+		return err
+	}
 
 	return nil
 }
