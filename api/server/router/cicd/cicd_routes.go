@@ -18,6 +18,7 @@ package cicd
 
 import (
 	"context"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/gin-gonic/gin"
@@ -34,6 +35,7 @@ func (s *cicdRouter) runJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	httputils.SetSuccess(c, r)
 }
 
@@ -47,6 +49,7 @@ func (s *cicdRouter) createJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	httputils.SetSuccess(c, r)
 }
 
@@ -81,7 +84,6 @@ func (s *cicdRouter) renameJob(c *gin.Context) {
 
 func (s *cicdRouter) getAllJobs(c *gin.Context) {
 	r := httputils.NewResponse()
-	//get_all_jobs := c.Param("get_all_jobs")
 	jobs, err := pixiu.CoreV1.Cicd().GetAllJobs(context.TODO())
 	r.Result = jobs
 	if err != nil {

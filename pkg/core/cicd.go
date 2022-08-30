@@ -69,7 +69,6 @@ func (c *cicd) RunJob(ctx context.Context, name string) error {
 	if err != nil {
 		fmt.Println(err)
 	}
-
 	// Wait for build to finish
 	for build.IsRunning(ctx) {
 		time.Sleep(5000 * time.Millisecond)
