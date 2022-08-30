@@ -29,5 +29,7 @@ type User struct {
 	Password        string `json:"password"`
 	Email           string `json:"email"`
 	Description     string `json:"description"`
-	Extension       string `json:"extension"`
+	Status          int8   `json:"status"`
+	Role            string `json:"role"`
+	Extension       string `json:"extension,omitempty"`
 }

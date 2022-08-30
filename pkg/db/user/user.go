@@ -4,14 +4,16 @@ import (
 	"context"
 	"time"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 )
 
 type UserInterface interface {
 	Get(ctx context.Context, uid int64) (*model.User, error)
 	GetAll(ctx context.Context) ([]model.User, error)
 	Create(ctx context.Context, obj *model.User) (*model.User, error)
+	GetUserByName(ctx context.Context, name string) (*model.User, error)
 }
 
 type user struct {
@@ -47,4 +49,12 @@ func (u *user) Create(ctx context.Context, obj *model.User) (*model.User, error)
 		return nil, err
 	}
 	return obj, nil
+}
+
+func (u *user) GetUserByName(ctx context.Context, name string) (*model.User, error) {
+	var res model.User
+	if err := u.db.Where("name = ?", name).First(&res).Error; err != nil {
+		return nil, err
+	}
+	return &res, nil
 }

@@ -12,7 +12,7 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		userRoute.PUT("/:id", u.updateUser)
 		userRoute.GET("/:id", u.getUser)
 		userRoute.GET("/", u.getAllUsers)
-		userRoute.POST("/:id/login", u.login)
+		userRoute.POST("/login", u.login)
 		userRoute.POST("/:id/logout", u.logout)
 	}
 }
