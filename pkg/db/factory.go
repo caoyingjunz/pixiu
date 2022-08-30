@@ -17,13 +17,12 @@ limitations under the License.
 package db
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 
+	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
 	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
-)
-
-import (
-	"errors"
 )
 
 var (
@@ -40,6 +39,7 @@ func IsNotUpdate(err error) bool {
 
 type ShareDaoFactory interface {
 	Demo() demo.DemoInterface
+	Cloud() cloud.CloudInterface
 }
 
 type shareDaoFactory struct {
@@ -48,6 +48,10 @@ type shareDaoFactory struct {
 
 func (f *shareDaoFactory) Demo() demo.DemoInterface {
 	return demo.NewDemo(f.db)
+}
+
+func (f *shareDaoFactory) Cloud() cloud.CloudInterface {
+	return cloud.NewCloud(f.db)
 }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {

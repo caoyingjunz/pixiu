@@ -28,9 +28,9 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
+	"github.com/caoyingjunz/gopixiu/pkg/core"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
@@ -56,7 +56,7 @@ type Options struct {
 	CicdDriver *gojenkins.Jenkins
 
 	// ClientSets
-	ClientSets *kubernetes.Clientset
+	ClientSets map[string]*kubernetes.Clientset
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
@@ -101,7 +101,6 @@ func (o *Options) Complete() error {
 // BindFlags binds the pixiu Configuration struct fields
 func (o *Options) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.ConfigFile, "configfile", "", "The location of the gopixiu configuration file")
-	cmd.Flags().StringVar(&o.KubeConfig, "kubeconfig", "", "The location of the kubeconfig file") // TODO: will be removed
 }
 
 func (o *Options) register() error {
@@ -158,12 +157,8 @@ func (o *Options) registerCicdDriver() error {
 }
 
 func (o *Options) registerClientSets() error {
-	kubeConfig, err := clientcmd.BuildConfigFromFlags("", o.KubeConfig)
-	if err != nil {
-		return err
-	}
-	// 生成clientSet
-	o.ClientSets, err = kubernetes.NewForConfig(kubeConfig)
+	var err error
+	o.ClientSets, err = core.RegisterClientSets(o.Factory)
 	if err != nil {
 		return err
 	}

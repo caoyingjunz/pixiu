@@ -21,3 +21,8 @@ type Demo struct {
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
 }
+
+type CloudClusterCreate struct {
+	Name   string `json:"name"`
+	Config string `json:"config"`
+}
