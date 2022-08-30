@@ -19,8 +19,9 @@ package main
 import (
 	"os"
 
-	"github.com/caoyingjunz/gopixiu/cmd/app"
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/gopixiu/cmd/app"
 )
 
 func main() {

@@ -15,12 +15,10 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-var jwtKey []byte
-
 func (u *userRouter) createUser(ctx *gin.Context) {
 	response := httputils.NewResponse()
-	var user types.User
 
+	var user types.User
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		httputils.SetFailed(ctx, response, err)
 		return
@@ -33,12 +31,10 @@ func (u *userRouter) createUser(ctx *gin.Context) {
 	}
 
 	user.Password = string(cryptPass)
-
 	if err := pixiu.CoreV1.User().Create(context.TODO(), &user); err != nil {
 		httputils.SetFailed(ctx, response, err)
 		return
 	}
-
 }
 
 func (u *userRouter) deleteUser(ctx *gin.Context) {
@@ -51,15 +47,18 @@ func (u *userRouter) updateUser(ctx *gin.Context) {
 
 func (u *userRouter) getUser(ctx *gin.Context) {
 	response := httputils.NewResponse()
+
 	uid, err := util.ParseInt64(ctx.Param("id"))
 	if err != nil {
 		httputils.SetFailed(ctx, response, err)
 		return
 	}
+
 	response.Result, err = pixiu.CoreV1.User().Get(context.TODO(), uid)
 	if err != nil {
 		httputils.SetFailed(ctx, response, err)
 	}
+
 	httputils.SetSuccess(ctx, response)
 }
 
@@ -70,14 +69,15 @@ func (u *userRouter) getAllUsers(ctx *gin.Context) {
 	if err != nil {
 		httputils.SetFailed(ctx, response, err)
 	}
+
 	httputils.SetSuccess(ctx, response)
 }
 
 func (u *userRouter) login(ctx *gin.Context) {
 	response := httputils.NewResponse()
-	jwtKey = []byte(pixiu.CoreV1.User().GetJWTKey())
-	var user types.User
+	jwtKey := []byte(pixiu.CoreV1.User().GetJWTKey())
 
+	var user types.User
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		httputils.SetFailed(ctx, response, err)
 		return
@@ -105,6 +105,7 @@ func (u *userRouter) login(ctx *gin.Context) {
 		Name: expectedUser.Name,
 		Role: expectedUser.Role,
 	}
+
 	token, err := middleware.GenerateJWT(claims, jwtKey)
 	if err != nil {
 		httputils.SetFailed(ctx, response, err)

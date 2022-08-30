@@ -55,64 +55,55 @@ func (u *user) Create(ctx context.Context, obj *types.User) error {
 		log.Logger.Errorf("failed to create %s user: %v", obj.Name, err)
 		return err
 	}
+
 	return nil
 }
 
 func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
-	obj, err := u.factory.User().Get(ctx, uid)
+	modelUser, err := u.factory.User().Get(ctx, uid)
 	if err != nil {
 		log.Logger.Errorf("failed to get %d user: %v", uid, err)
 		return nil, err
 	}
-	return &types.User{
-		Id:              obj.Id,
-		ResourceVersion: obj.ResourceVersion,
-		Name:            obj.Name,
-		Email:           obj.Email,
-		Description:     obj.Description,
-		Status:          obj.Status,
-		Role:            obj.Role,
-		// Password: obj.Password,
-		// Extension:   obj.Extension,
-	}, nil
+
+	return model2Type(modelUser), nil
 }
 
 func (u *user) GetAll(ctx context.Context) ([]types.User, error) {
-	objs, err := u.factory.User().GetAll(ctx)
-	var res []types.User = make([]types.User, len(objs))
+	modelUsers, err := u.factory.User().GetAll(ctx)
+	var typeUsers []types.User = make([]types.User, len(modelUsers))
 	if err != nil {
 		log.Logger.Errorf("failed to get user list: %v", err)
 		return nil, err
 	}
-	for i := range objs {
-		res[i].Id = objs[i].Id
-		res[i].ResourceVersion = objs[i].ResourceVersion
-		res[i].Name = objs[i].Name
-		res[i].Password = objs[i].Password
-		res[i].Email = objs[i].Email
-		res[i].Description = objs[i].Description
-		res[i].Role = objs[i].Role
-		res[i].Status = objs[i].Status
-		// res[i].Extension = objs[i].Extension
+
+	for i, m := range modelUsers {
+		typeUsers[i] = *model2Type(&m)
 	}
-	return res, nil
+
+	return typeUsers, nil
 }
 
 func (u *user) GetUserByName(ctx context.Context, name string) (*types.User, error) {
-	obj, err := u.factory.User().GetUserByName(ctx, name)
+	modelUser, err := u.factory.User().GetUserByName(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to get user by name %s: %v", name, err)
 		return nil, err
 	}
+
+	return model2Type(modelUser), nil
+}
+
+func model2Type(u *model.User) *types.User {
 	return &types.User{
-		Id:              obj.Id,
-		ResourceVersion: obj.ResourceVersion,
-		Name:            obj.Name,
-		Email:           obj.Email,
-		Description:     obj.Description,
-		Status:          obj.Status,
-		Role:            obj.Role,
-		Password:        obj.Password,
+		Id:              u.Id,
+		ResourceVersion: u.ResourceVersion,
+		Name:            u.Name,
+		Email:           u.Email,
+		Description:     u.Description,
+		Status:          u.Status,
+		Role:            u.Role,
+		Password:        u.Password,
 		// Extension:   obj.Extension,
-	}, nil
+	}
 }

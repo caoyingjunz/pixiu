@@ -17,9 +17,9 @@ limitations under the License.
 package db
 
 import (
-	"gorm.io/gorm"
-
 	"errors"
+
+	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
 	"github.com/caoyingjunz/gopixiu/pkg/db/user"

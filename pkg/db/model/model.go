@@ -28,6 +28,7 @@ type Demo struct {
 
 type User struct {
 	gopixiu.Model
+
 	Name        string `gorm:"index:idx_name,unique" json:"name"`
 	Password    string `gorm:"type:varchar(256)" json:"password"`
 	Email       string `gorm:"type:varchar(128)" json:"email"`

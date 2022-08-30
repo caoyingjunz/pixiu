@@ -60,11 +60,13 @@ func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {
 	if err != nil {
 		return tokenString, err
 	}
+
 	return tokenString, nil
 }
 
-func JWTValid(token string, jwtKey []byte) (bool, *Claims) {
+func ValidateJWT(token string, jwtKey []byte) (bool, *Claims) {
 	var claims Claims
+	// TODO 处理 error
 	t, _ := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
