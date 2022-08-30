@@ -20,9 +20,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
+
+type Claims struct {
+	jwt.StandardClaims
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+}
 
 func Auth(c *gin.Context) {}
 
@@ -43,5 +51,28 @@ func LoggerToFile() gin.HandlerFunc {
 		clientIp := c.ClientIP()
 
 		log.AccessLog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
+	}
+}
+
+func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		return tokenString, err
+	}
+
+	return tokenString, nil
+}
+
+func ValidateJWT(token string, jwtKey []byte) (bool, *Claims) {
+	var claims Claims
+	// TODO 处理 error
+	t, _ := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if !t.Valid {
+		return false, nil
+	} else {
+		return true, &claims
 	}
 }
