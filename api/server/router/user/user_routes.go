@@ -15,83 +15,83 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-func (u *userRouter) createUser(ctx *gin.Context) {
+func (u *userRouter) createUser(c *gin.Context) {
 	response := httputils.NewResponse()
 
 	var user types.User
-	if err := ctx.ShouldBindJSON(&user); err != nil {
-		httputils.SetFailed(ctx, response, err)
+	if err := c.ShouldBindJSON(&user); err != nil {
+		httputils.SetFailed(c, response, err)
 		return
 	}
 
 	cryptPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		httputils.SetFailed(ctx, response, err)
+		httputils.SetFailed(c, response, err)
 		return
 	}
 
 	user.Password = string(cryptPass)
 	if err := pixiu.CoreV1.User().Create(context.TODO(), &user); err != nil {
-		httputils.SetFailed(ctx, response, err)
+		httputils.SetFailed(c, response, err)
 		return
 	}
 }
 
-func (u *userRouter) deleteUser(ctx *gin.Context) {
+func (u *userRouter) deleteUser(c *gin.Context) {
 
 }
 
-func (u *userRouter) updateUser(ctx *gin.Context) {
+func (u *userRouter) updateUser(c *gin.Context) {
 
 }
 
-func (u *userRouter) getUser(ctx *gin.Context) {
+func (u *userRouter) getUser(c *gin.Context) {
 	response := httputils.NewResponse()
 
-	uid, err := util.ParseInt64(ctx.Param("id"))
+	uid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(ctx, response, err)
+		httputils.SetFailed(c, response, err)
 		return
 	}
 
 	response.Result, err = pixiu.CoreV1.User().Get(context.TODO(), uid)
 	if err != nil {
-		httputils.SetFailed(ctx, response, err)
+		httputils.SetFailed(c, response, err)
 	}
 
-	httputils.SetSuccess(ctx, response)
+	httputils.SetSuccess(c, response)
 }
 
-func (u *userRouter) getAllUsers(ctx *gin.Context) {
+func (u *userRouter) getAllUsers(c *gin.Context) {
 	var err error
 	response := httputils.NewResponse()
 	response.Result, err = pixiu.CoreV1.User().GetAll(context.TODO())
 	if err != nil {
-		httputils.SetFailed(ctx, response, err)
+		httputils.SetFailed(c, response, err)
 	}
 
-	httputils.SetSuccess(ctx, response)
+	httputils.SetSuccess(c, response)
 }
 
-func (u *userRouter) login(ctx *gin.Context) {
+func (u *userRouter) login(c *gin.Context) {
 	response := httputils.NewResponse()
 	jwtKey := []byte(pixiu.CoreV1.User().GetJWTKey())
 
 	var user types.User
-	if err := ctx.ShouldBindJSON(&user); err != nil {
-		httputils.SetFailed(ctx, response, err)
+	if err := c.ShouldBindJSON(&user); err != nil {
+		httputils.SetFailed(c, response, err)
 		return
 	}
 
 	expectedUser, err := pixiu.CoreV1.User().GetUserByName(context.TODO(), user.Name)
 	if err != nil {
-		httputils.SetFailed(ctx, response, err)
+		httputils.SetFailed(c, response, err)
 		return
 	}
 
 	// Compare login user password is correctly
 	if err := bcrypt.CompareHashAndPassword([]byte(expectedUser.Password), []byte(user.Password)); err != nil {
-		httputils.SetFailed(ctx, response, err)
+		httputils.SetFailed(c, response, err)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (u *userRouter) login(ctx *gin.Context) {
 
 	token, err := middleware.GenerateJWT(claims, jwtKey)
 	if err != nil {
-		httputils.SetFailed(ctx, response, err)
+		httputils.SetFailed(c, response, err)
 	}
 	// Set token to response result
 	response.Result = map[string]string{
@@ -116,11 +116,11 @@ func (u *userRouter) login(ctx *gin.Context) {
 	}
 
 	// Set token to gin.Context
-	ctx.Set("token", token)
+	c.Set("token", token)
 
-	httputils.SetSuccess(ctx, response)
+	httputils.SetSuccess(c, response)
 }
 
-func (u *userRouter) logout(ctx *gin.Context) {
+func (u *userRouter) logout(c *gin.Context) {
 
 }

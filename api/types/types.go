@@ -31,5 +31,5 @@ type User struct {
 	Description     string `json:"description"`
 	Status          int8   `json:"status"`
 	Role            string `json:"role"`
-	Extension       string `json:"extension,omitempty"`
+	// Extension       string `json:"extension,omitempty"`
 }

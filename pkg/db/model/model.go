@@ -35,7 +35,7 @@ type User struct {
 	Status      int8   `gorm:"type:tinyint" json:"status"`
 	Role        string `gorm:"type:varchar(128)" json:"role"`
 	Description string `gorm:"type:text" json:"description"`
-	Extension   string `gorm:"type:text" json:"extension,omitempty"`
+	// Extension   string `gorm:"type:text" json:"extension,omitempty"`
 }
 
 func (demo *Demo) TableName() string {
