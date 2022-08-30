@@ -32,6 +32,6 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 	{
 		cloudRoute.GET("/deployments/:cluster_name", s.listDeployments)
 		cloudRoute.POST("/cluster/:cluster_name", s.createCluster)
-		cloudRoute.DELETE("/cluster/:cluster_nam", s.deleteCluster)
+		cloudRoute.DELETE("/cluster/:cluster_name", s.deleteCluster)
 	}
 }
