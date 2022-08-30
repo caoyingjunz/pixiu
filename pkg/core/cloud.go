@@ -100,20 +100,17 @@ func (c *cloud) getClientSet(name string) (*kubernetes.Clientset, error) {
 
 func (c *cloud) ClusterCreate(ctx context.Context, obj *types.CloudClusterCreate) error {
 	var lock sync.RWMutex
-	cloudCluster, err := c.factory.Cloud().ClusterGet(ctx, obj.Name)
-	if err != nil && !db.IsNotFound(err) {
-		return err
-	}
-	if cloudCluster != nil {
-		return fmt.Errorf("cluster already exists")
-	}
-
 	lock.Lock()
-	c.clientSets[obj.Name], err = newClientSet([]byte(obj.Config))
-	lock.Unlock()
+	defer lock.Unlock()
+
+	clientSet, err := newClientSet([]byte(obj.Config))
 	if err != nil {
 		log.Logger.Errorf("failed to create %s cloud cluster: %v", obj.Name, err)
 		return err
+	}
+
+	if _, err = c.getClientSet(obj.Name); err == nil {
+		return fmt.Errorf("cluster already exists")
 	}
 
 	_, err = c.factory.Cloud().ClusterCreate(ctx, &model.CloudCluster{
@@ -125,6 +122,8 @@ func (c *cloud) ClusterCreate(ctx context.Context, obj *types.CloudClusterCreate
 		return err
 	}
 
+	c.clientSets[obj.Name] = clientSet
+
 	return nil
 }
 
@@ -132,12 +131,11 @@ func (c *cloud) ClusterDelete(ctx context.Context, clusterName string) error {
 	if _, err := c.getClientSet(clusterName); err != nil {
 		return err
 	}
-	delete(c.clientSets, clusterName)
-
 	if _, err := c.factory.Cloud().ClusterDelete(ctx, clusterName); err != nil {
 		log.Logger.Errorf("failed to delete %s cloud cluster: %v", clusterName, err)
 		return err
 	}
+	delete(c.clientSets, clusterName)
 
 	return nil
 }

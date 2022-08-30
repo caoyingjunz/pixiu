@@ -30,13 +30,13 @@ import (
 func (s *cloudRouter) createCluster(c *gin.Context) {
 	r := new(httputils.Response)
 	req := new(types.CloudClusterCreate)
-	name := c.Param("name")
+	clusterName := c.Param("cluster_name")
 	config := c.PostForm("config")
-	if len(name) == 0 || len(config) == 0 {
+	if len(clusterName) == 0 || len(config) == 0 {
 		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
 		return
 	}
-	req.Name, req.Config = name, config
+	req.Name, req.Config = clusterName, config
 	if err := pixiu.CoreV1.Cloud().ClusterCreate(context.TODO(), req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -47,12 +47,12 @@ func (s *cloudRouter) createCluster(c *gin.Context) {
 
 func (s *cloudRouter) deleteCluster(c *gin.Context) {
 	r := new(httputils.Response)
-	name := c.Param("name")
-	if len(name) == 0 {
+	clusterName := c.Param("cluster_name")
+	if len(clusterName) == 0 {
 		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
 		return
 	}
-	if err := pixiu.CoreV1.Cloud().ClusterDelete(context.TODO(), name); err != nil {
+	if err := pixiu.CoreV1.Cloud().ClusterDelete(context.TODO(), clusterName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -62,8 +62,12 @@ func (s *cloudRouter) deleteCluster(c *gin.Context) {
 
 func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
-	cluster := c.Param("cluster")
-	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), cluster)
+	clusterName := c.Param("cluster_name")
+	if len(clusterName) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
+		return
+	}
+	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), clusterName)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
