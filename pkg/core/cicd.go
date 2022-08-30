@@ -36,11 +36,11 @@ type CicdInterface interface {
 	RunJob(ctx context.Context, name string) error
 	CreateJob(ctx context.Context, name interface{}) error
 	DeleteJob(ctx context.Context, name string) error
-	AddViewJob(ctx context.Context, add_view_job string) error
+	AddViewJob(ctx context.Context, add_view_job string, job string) error
 	GetAllJobs(ctx context.Context) (res []string, err error)
 	CopyJob(ctx context.Context, old_name string, new_name string) (res []string, err error)
 	RenameJob(ctx context.Context, old_name string, new_name string) error
-	SafeRestart(ctx context.Context, safeRestart string) error
+	SafeRestart(ctx context.Context) error
 }
 
 type cicd struct {
@@ -116,14 +116,14 @@ func (c *cicd) DeleteJob(ctx context.Context, name string) error {
 	return nil
 }
 
-func (c *cicd) AddViewJob(ctx context.Context, add_view_job string) error {
+func (c *cicd) AddViewJob(ctx context.Context, add_view_job string, job string) error {
 	view, err := c.cicdDriver.CreateView(ctx, add_view_job, gojenkins.LIST_VIEW)
 	if err != nil {
 		log.Logger.Errorf("failed to create view %s: %v", add_view_job, err)
 		return err
 	}
 
-	status, err := view.AddJob(ctx, "tt")
+	status, err := view.AddJob(ctx, job)
 	if err != nil {
 		log.Logger.Errorf("failed to add view %s: %v", add_view_job, err)
 		return err
@@ -150,10 +150,10 @@ func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
 	return jobs, nil
 }
 
-func (c *cicd) SafeRestart(ctx context.Context, safeRestart string) error {
+func (c *cicd) SafeRestart(ctx context.Context) error {
 	err := c.cicdDriver.SafeRestart(ctx)
 	if err != nil {
-		log.Logger.Errorf("failed to safeRestart  %s: %v", safeRestart, err)
+		log.Logger.Errorf("failed to safeRestart  %s: %v", err)
 		return nil
 	}
 	return nil
