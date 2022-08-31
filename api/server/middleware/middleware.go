@@ -32,9 +32,34 @@ import (
 
 type Claims struct {
 	jwt.StandardClaims
+
 	Id   int64  `json:"id"`
 	Name string `json:"name"`
 	Role string `json:"role"`
+}
+
+func InitMiddlewares(ginEngine *gin.Engine) {
+	ginEngine.Use(LoggerToFile(), AuthN)
+}
+
+func LoggerToFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		startTime := time.Now()
+
+		// 处理请求操作
+		c.Next()
+
+		endTime := time.Now()
+
+		latencyTime := endTime.Sub(startTime)
+
+		reqMethod := c.Request.Method
+		reqUri := c.Request.RequestURI
+		statusCode := c.Writer.Status()
+		clientIp := c.ClientIP()
+
+		log.AccessLog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
+	}
 }
 
 func AuthN(c *gin.Context) {
@@ -62,26 +87,6 @@ func AuthN(c *gin.Context) {
 	}
 
 	c.Next()
-}
-
-func LoggerToFile() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		startTime := time.Now()
-
-		// 处理请求操作
-		c.Next()
-
-		endTime := time.Now()
-
-		latencyTime := endTime.Sub(startTime)
-
-		reqMethod := c.Request.Method
-		reqUri := c.Request.RequestURI
-		statusCode := c.Writer.Status()
-		clientIp := c.ClientIP()
-
-		log.AccessLog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
-	}
 }
 
 func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {
