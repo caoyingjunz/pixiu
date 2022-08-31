@@ -27,13 +27,13 @@ import (
 
 func (s *cicdRouter) runJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	var p types.Cicd
-	if err := c.ShouldBindJSON(&p); err != nil {
+	var Cicd types.Cicd
+	if err := c.ShouldBindJSON(&Cicd); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	err := pixiu.CoreV1.Cicd().RunJob(context.TODO(), p.Name)
+	err := pixiu.CoreV1.Cicd().RunJob(context.TODO(), Cicd.Name)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -44,13 +44,13 @@ func (s *cicdRouter) runJob(c *gin.Context) {
 
 func (s *cicdRouter) createJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	var p types.Cicd
-	if err := c.ShouldBindJSON(&p); err != nil {
+	var Cicd types.Cicd
+	if err := c.ShouldBindJSON(&Cicd); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if err := pixiu.CoreV1.Cicd().CreateJob(context.TODO(), p.Name); err != nil {
+	if err := pixiu.CoreV1.Cicd().CreateJob(context.TODO(), Cicd.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -60,12 +60,12 @@ func (s *cicdRouter) createJob(c *gin.Context) {
 
 func (s *cicdRouter) copyJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	var p types.Cicd
-	if err := c.ShouldBindJSON(&p); err != nil {
+	var Cicd types.Cicd
+	if err := c.ShouldBindJSON(&Cicd); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if _, err := pixiu.CoreV1.Cicd().CopyJob(context.TODO(), p.OldName, p.NewName); err != nil {
+	if _, err := pixiu.CoreV1.Cicd().CopyJob(context.TODO(), Cicd.OldName, Cicd.NewName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -74,12 +74,12 @@ func (s *cicdRouter) copyJob(c *gin.Context) {
 
 func (s *cicdRouter) renameJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	var p types.Cicd
-	if err := c.ShouldBindJSON(&p); err != nil {
+	var Cicd types.Cicd
+	if err := c.ShouldBindJSON(&Cicd); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := pixiu.CoreV1.Cicd().RenameJob(context.TODO(), p.OldName, p.NewName); err != nil {
+	if err := pixiu.CoreV1.Cicd().RenameJob(context.TODO(), Cicd.OldName, Cicd.NewName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -99,8 +99,8 @@ func (s *cicdRouter) getAllJobs(c *gin.Context) {
 
 func (s *cicdRouter) deleteJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	p := c.Param("name")
-	if err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO(), p); err != nil {
+	Cicd := c.Param("name")
+	if err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO(), Cicd); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -110,12 +110,12 @@ func (s *cicdRouter) deleteJob(c *gin.Context) {
 
 func (s *cicdRouter) addViewJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	var p types.Cicd
-	if err := c.ShouldBindJSON(&p); err != nil {
+	var Cicd types.Cicd
+	if err := c.ShouldBindJSON(&Cicd); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := pixiu.CoreV1.Cicd().AddViewJob(context.TODO(), p.View_Name, p.Name); err != nil {
+	if err := pixiu.CoreV1.Cicd().AddViewJob(context.TODO(), Cicd.ViewName, Cicd.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -123,9 +123,9 @@ func (s *cicdRouter) addViewJob(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cicdRouter) safeRestart(c *gin.Context) {
+func (s *cicdRouter) restart(c *gin.Context) {
 	r := httputils.NewResponse()
-	if err := pixiu.CoreV1.Cicd().SafeRestart(context.TODO()); err != nil {
+	if err := pixiu.CoreV1.Cicd().Restart(context.TODO()); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

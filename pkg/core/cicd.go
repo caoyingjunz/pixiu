@@ -34,12 +34,12 @@ type CicdGetter interface {
 type CicdInterface interface {
 	RunJob(ctx context.Context, name string) error
 	CreateJob(ctx context.Context, name interface{}) error
-	DeleteJob(ctx context.Context, name string) error
+	DeleteJob(ctx context.Context, Cicd string) error
 	AddViewJob(ctx context.Context, addViewJob string, name string) error
 	GetAllJobs(ctx context.Context) (res []string, err error)
 	CopyJob(ctx context.Context, oldName string, newName string) (res []string, err error)
 	RenameJob(ctx context.Context, oldName string, newName string) error
-	SafeRestart(ctx context.Context) error
+	Restart(ctx context.Context) error
 }
 
 type cicd struct {
@@ -147,7 +147,7 @@ func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
 	return jobs, nil
 }
 
-func (c *cicd) SafeRestart(ctx context.Context) error {
+func (c *cicd) Restart(ctx context.Context) error {
 	err := c.cicdDriver.SafeRestart(ctx)
 	if err != nil {
 		log.Logger.Errorf("failed to safeRestart %v", err)
