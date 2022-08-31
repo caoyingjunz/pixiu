@@ -33,7 +33,7 @@ func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
 	cicdRoute := ginEngine.Group("/cicd")
 	{
 		cicdRoute.POST("/jobs/run", s.runJob)
-		cicdRoute.DELETE("/jobs/", s.deleteJob)
+		cicdRoute.DELETE("/jobs/:name", s.deleteJob)
 		cicdRoute.GET("/jobs", s.getAllJobs)
 		cicdRoute.POST("/jobs", s.createJob)
 		cicdRoute.POST("/jobs/copy", s.copyJob)

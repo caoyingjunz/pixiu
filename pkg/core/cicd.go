@@ -18,9 +18,9 @@ package core
 
 import (
 	"context"
-	"github.com/bndr/gojenkins"
 	"time"
 
+	"github.com/bndr/gojenkins"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -143,7 +143,6 @@ func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
 	jobs := make([]string, 0)
 	for _, value := range getalljobs {
 		jobs = append(jobs, value.Base)
-		//fmt.Println(value.Base)
 	}
 	return jobs, nil
 }

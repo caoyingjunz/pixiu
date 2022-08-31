@@ -21,3 +21,10 @@ type Demo struct {
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
 }
+
+type Cicd struct {
+	Name      string `json:"name,omitempty"`
+	OldName   string `json:"oldName,omitempty"`
+	NewName   string `json:"newName,omitempty"`
+	View_Name string `json:"view_name,omitempty"`
+}
