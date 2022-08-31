@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/bndr/gojenkins"
+
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -37,6 +38,9 @@ type CicdInterface interface {
 	DeleteJob(ctx context.Context, name string) error
 	AddViewJob(ctx context.Context, addViewJob string, name string) error
 	GetAllJobs(ctx context.Context) (res []string, err error)
+	GetAllViews(ctx context.Context) (views []string, err error)
+	GetAllNodes(ctx context.Context) (nodes []string, err error)
+	DeleteNode(ctx context.Context, name string) error
 	CopyJob(ctx context.Context, oldName string, newName string) (res []string, err error)
 	RenameJob(ctx context.Context, oldName string, newName string) error
 	Restart(ctx context.Context) error
@@ -114,6 +118,16 @@ func (c *cicd) DeleteJob(ctx context.Context, name string) error {
 	return nil
 }
 
+func (c *cicd) DeleteNode(ctx context.Context, name string) error {
+	_, err := c.cicdDriver.DeleteJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to delete Node %s: %v", name, err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *cicd) AddViewJob(ctx context.Context, addViewJob string, name string) error {
 	view, err := c.cicdDriver.CreateView(ctx, addViewJob, gojenkins.LIST_VIEW)
 	if err != nil {
@@ -147,10 +161,36 @@ func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
 	return jobs, nil
 }
 
+func (c *cicd) GetAllViews(ctx context.Context) (views []string, err error) {
+	getallview, err := c.cicdDriver.GetAllViews(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to getall views %s: %v", err)
+		return nil, err
+	}
+	view := make([]string, 0)
+	for _, value := range getallview {
+		view = append(view, value.Base)
+	}
+	return view, nil
+}
+
+func (c *cicd) GetAllNodes(ctx context.Context) (nodes []string, err error) {
+	getallnodes, err := c.cicdDriver.GetAllNodes(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to getall nodes %s: %v", err)
+		return nil, err
+	}
+	nodes = make([]string, 0)
+	for _, value := range getallnodes {
+		nodes = append(nodes, value.Base)
+	}
+	return nodes, nil
+}
+
 func (c *cicd) Restart(ctx context.Context) error {
 	err := c.cicdDriver.SafeRestart(ctx)
 	if err != nil {
-		log.Logger.Errorf("failed to safeRestart %v", err)
+		log.Logger.Errorf("failed to Restart %v", err)
 		return nil
 	}
 	return nil

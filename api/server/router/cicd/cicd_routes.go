@@ -98,10 +98,43 @@ func (s *cicdRouter) getAllJobs(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (s *cicdRouter) getAllViews(c *gin.Context) {
+	r := httputils.NewResponse()
+	allviews, err := pixiu.CoreV1.Cicd().GetAllViews(context.TODO())
+	r.Result = allviews
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) getAllNodes(c *gin.Context) {
+	r := httputils.NewResponse()
+	node, err := pixiu.CoreV1.Cicd().GetAllNodes(context.TODO())
+	r.Result = node
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
 func (s *cicdRouter) deleteJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	name := c.Param("name")
 	if err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO(), name); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) deleteNode(c *gin.Context) {
+	r := httputils.NewResponse()
+	nodename := c.Param("nodename")
+	if err := pixiu.CoreV1.Cicd().DeleteNode(context.TODO(), nodename); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
