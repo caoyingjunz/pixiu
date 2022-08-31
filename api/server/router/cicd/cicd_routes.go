@@ -99,8 +99,8 @@ func (s *cicdRouter) getAllJobs(c *gin.Context) {
 
 func (s *cicdRouter) deleteJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	cicd := c.Param("name")
-	if err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO(), cicd); err != nil {
+	name := c.Param("name")
+	if err := pixiu.CoreV1.Cicd().DeleteJob(context.TODO(), name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -34,7 +34,7 @@ type CicdGetter interface {
 type CicdInterface interface {
 	RunJob(ctx context.Context, name string) error
 	CreateJob(ctx context.Context, name interface{}) error
-	DeleteJob(ctx context.Context, Cicd string) error
+	DeleteJob(ctx context.Context, name string) error
 	AddViewJob(ctx context.Context, addViewJob string, name string) error
 	GetAllJobs(ctx context.Context) (res []string, err error)
 	CopyJob(ctx context.Context, oldName string, newName string) (res []string, err error)
