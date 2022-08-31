@@ -26,6 +26,8 @@ CREATE TABLE `users` (
     name varchar(128) COMMENT '用户名',
     password varchar(256) COMMENT '用户密码',
     email varchar(128) COMMENT '邮箱',
+    status tinyint COMMENT '状态: 1启用,2未启用',
+    role varchar(128) COMMENT '角色',
     description text COMMENT '描述',
     extension text COMMENT '扩展字段',
     KEY `idx_name` (`name`),
