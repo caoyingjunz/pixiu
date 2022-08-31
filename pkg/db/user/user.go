@@ -11,9 +11,11 @@ import (
 
 type UserInterface interface {
 	Get(ctx context.Context, uid int64) (*model.User, error)
-	GetAll(ctx context.Context) ([]model.User, error)
-	Create(ctx context.Context, obj *model.User) (*model.User, error)
-	GetUserByName(ctx context.Context, name string) (*model.User, error)
+	List(ctx context.Context) ([]model.User, error)
+	Create(ctx context.Context, modelUser *model.User) (*model.User, error)
+	GetByName(ctx context.Context, name string) (*model.User, error)
+	Delete(ctx context.Context, uid int64) error
+	Update(ctx context.Context, modelUser *model.User) error
 }
 
 type user struct {
@@ -25,36 +27,43 @@ func NewUser(db *gorm.DB) UserInterface {
 }
 
 func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
-	var res model.User
-	if err := u.db.Where("id = ?", uid).First(&res).Error; err != nil {
+	var modelUser model.User
+	if err := u.db.Where("id = ?", uid).First(&modelUser).Error; err != nil {
 		return nil, err
 	}
-	return &res, nil
+	return &modelUser, nil
 }
 
-func (u *user) GetAll(ctx context.Context) ([]model.User, error) {
+func (u *user) List(ctx context.Context) ([]model.User, error) {
 	var users []model.User
-	res := u.db.Find(&users)
-	if res.Error != nil {
-		return nil, res.Error
+	if tx := u.db.Find(&users); tx.Error != nil {
+		return nil, tx.Error
 	}
 	return users, nil
 }
 
-func (u *user) Create(ctx context.Context, obj *model.User) (*model.User, error) {
+func (u *user) Create(ctx context.Context, modelUser *model.User) (*model.User, error) {
 	now := time.Now()
-	obj.GmtCreate = now
-	obj.GmtModified = now
-	if err := u.db.Create(obj).Error; err != nil {
+	modelUser.GmtCreate = now
+	modelUser.GmtModified = now
+	if err := u.db.Create(modelUser).Error; err != nil {
 		return nil, err
 	}
-	return obj, nil
+	return modelUser, nil
 }
 
-func (u *user) GetUserByName(ctx context.Context, name string) (*model.User, error) {
-	var res model.User
-	if err := u.db.Where("name = ?", name).First(&res).Error; err != nil {
+func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
+	var modelUser model.User
+	if err := u.db.Where("name = ?", name).First(&modelUser).Error; err != nil {
 		return nil, err
 	}
-	return &res, nil
+	return &modelUser, nil
+}
+
+func (u *user) Delete(ctx context.Context, uid int64) error {
+	return u.db.Delete(model.User{}, uid).Error
+}
+
+func (u *user) Update(ctx context.Context, modelUser *model.User) error {
+	return u.db.Updates(*modelUser).Error
 }
