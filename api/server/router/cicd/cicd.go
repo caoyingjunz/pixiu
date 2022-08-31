@@ -44,6 +44,5 @@ func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
 		cicdRoute.DELETE("/nodes/:name", s.deleteNode)
 		// 安全重启jenkins
 		cicdRoute.POST("/restart", s.restart)
-		cicdRoute.GET("/jobs/disable/:name", s.disable)
 	}
 }
