@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package user
 
 import (
@@ -15,7 +31,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-func (u *userRouter) create(c *gin.Context) {
+func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var user types.User
@@ -24,6 +40,7 @@ func (u *userRouter) create(c *gin.Context) {
 		return
 	}
 
+	//  TODO： 移到 core 层实现
 	cryptPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
@@ -37,7 +54,7 @@ func (u *userRouter) create(c *gin.Context) {
 	}
 }
 
-func (u *userRouter) delete(c *gin.Context) {
+func (u *userRouter) deleteUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	uid, err := util.ParseInt64(c.Param("id"))
@@ -45,8 +62,7 @@ func (u *userRouter) delete(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	if err := pixiu.CoreV1.User().Delete(context.TODO(), uid); err != nil {
+	if err = pixiu.CoreV1.User().Delete(context.TODO(), uid); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -54,7 +70,7 @@ func (u *userRouter) delete(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (u *userRouter) update(c *gin.Context) {
+func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var err error
@@ -69,7 +85,7 @@ func (u *userRouter) update(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
+	// TODO: 移到core层实现
 	if user.Password != "" {
 		cryptPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
@@ -79,7 +95,7 @@ func (u *userRouter) update(c *gin.Context) {
 		user.Password = string(cryptPass)
 	}
 
-	if err := pixiu.CoreV1.User().Update(context.TODO(), &user); err != nil {
+	if err = pixiu.CoreV1.User().Update(context.TODO(), &user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -87,7 +103,7 @@ func (u *userRouter) update(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (u *userRouter) get(c *gin.Context) {
+func (u *userRouter) getUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	uid, err := util.ParseInt64(c.Param("id"))
@@ -104,7 +120,7 @@ func (u *userRouter) get(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (u *userRouter) list(c *gin.Context) {
+func (u *userRouter) listUsers(c *gin.Context) {
 	var err error
 	r := httputils.NewResponse()
 	r.Result, err = pixiu.CoreV1.User().List(context.TODO())
@@ -115,6 +131,9 @@ func (u *userRouter) list(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// login
+// 1. 检验用户名和密码是否正确，
+// 2. 返回 token
 func (u *userRouter) login(c *gin.Context) {
 	r := httputils.NewResponse()
 	jwtKey := []byte(pixiu.CoreV1.User().GetJWTKey())
@@ -163,6 +182,7 @@ func (u *userRouter) login(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// TODO
 func (u *userRouter) logout(c *gin.Context) {
 
 }

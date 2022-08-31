@@ -22,7 +22,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
@@ -68,22 +67,18 @@ func NewServerCommand() *cobra.Command {
 		},
 	}
 
+	// 绑定命令行参数
 	opts.BindFlags(cmd)
-
 	return cmd
 }
 
 func InitRouters(opt *options.Options) {
-	InitMiddlewares(opt.GinEngine) // 注册中间件
+	middleware.InitMiddlewares(opt.GinEngine) // 注册中间件
 
 	demo.NewRouter(opt.GinEngine)  // 注册 demo 路由
 	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
 	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
 	user.NewRouter(opt.GinEngine)  // 注册 user 路由
-}
-
-func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(middleware.AuthN)
 }
 
 func Run(opt *options.Options) error {
@@ -96,9 +91,8 @@ func Run(opt *options.Options) error {
 	// 初始化 api 路由
 	InitRouters(opt)
 
-	// 启动主进程
 	klog.Infof("starting pixiu server")
-
+	// 启动主进程
 	opt.Run(ctx.Done())
 
 	select {}

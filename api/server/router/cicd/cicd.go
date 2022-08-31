@@ -23,7 +23,7 @@ import (
 // cicdRouter is a router to talk with the cicd controller
 type cicdRouter struct{}
 
-// NewRouter initializes a new container router
+// NewRouter initializes a new cicd router
 func NewRouter(ginEngine *gin.Engine) {
 	s := &cicdRouter{}
 	s.initRoutes(ginEngine)

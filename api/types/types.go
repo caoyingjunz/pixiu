@@ -34,9 +34,8 @@ type User struct {
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
 	Password        string `json:"password"`
-	Email           string `json:"email"`
-	Description     string `json:"description"`
 	Status          int8   `json:"status"`
 	Role            string `json:"role"`
-	// Extension       string `json:"extension,omitempty"`
+	Email           string `json:"email"`
+	Description     string `json:"description"`
 }

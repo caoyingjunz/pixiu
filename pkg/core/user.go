@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package core
 
 import (
@@ -15,12 +31,13 @@ type UserGetter interface {
 }
 
 type UserInterface interface {
-	Create(ctx context.Context, typeUser *types.User) error
+	Create(ctx context.Context, obj *types.User) error
+	Update(ctx context.Context, obj *types.User) error
+	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*types.User, error)
 	List(ctx context.Context) ([]types.User, error)
+
 	GetByName(ctx context.Context, name string) (*types.User, error)
-	Delete(ctx context.Context, uid int64) error
-	Update(ctx context.Context, typeUser *types.User) error
 	GetJWTKey() string
 }
 
@@ -38,33 +55,31 @@ func newUser(c *pixiu) UserInterface {
 	}
 }
 
-func (u *user) GetJWTKey() string {
-	return u.ComponentConfig.Default.JWTKey
+func (u *user) Create(ctx context.Context, obj *types.User) error {
+	// TODO 校验参数合法性
+	if _, err := u.factory.User().Create(ctx, &model.User{
+		Name:        obj.Name,
+		Password:    obj.Password,
+		Status:      obj.Status,
+		Role:        obj.Role,
+		Email:       obj.Email,
+		Description: obj.Description,
+	}); err != nil {
+		log.Logger.Errorf("failed to create user %s: %v", obj.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+// Update TODO
+func (u *user) Update(ctx context.Context, obj *types.User) error {
+
+	return nil
 }
 
 func (u *user) Delete(ctx context.Context, uid int64) error {
 	return u.factory.User().Delete(ctx, uid)
-}
-
-func (u *user) Update(ctx context.Context, typeUser *types.User) error {
-	modelUser := type2Model(typeUser)
-	modelUser.Id = typeUser.Id
-	if err := u.factory.User().Update(ctx, modelUser); err != nil {
-		log.Logger.Errorf("failed to update %s user: %v", typeUser.Name, err)
-		return err
-	}
-	return nil
-}
-
-func (u *user) Create(ctx context.Context, typeUser *types.User) error {
-	// TODO 校验参数合法性
-	_, err := u.factory.User().Create(ctx, type2Model(typeUser))
-	if err != nil {
-		log.Logger.Errorf("failed to create %s user: %v", typeUser.Name, err)
-		return err
-	}
-
-	return nil
 }
 
 func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
@@ -78,28 +93,31 @@ func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
 }
 
 func (u *user) List(ctx context.Context) ([]types.User, error) {
-	modelUsers, err := u.factory.User().List(ctx)
-	var typeUsers []types.User = make([]types.User, len(modelUsers))
+	objs, err := u.factory.User().List(ctx)
 	if err != nil {
 		log.Logger.Errorf("failed to get user list: %v", err)
 		return nil, err
 	}
 
-	for i, m := range modelUsers {
-		typeUsers[i] = *model2Type(&m)
+	var users []types.User
+	for _, obj := range objs {
+		users = append(users, *model2Type(&obj))
 	}
-
-	return typeUsers, nil
+	return users, nil
 }
 
 func (u *user) GetByName(ctx context.Context, name string) (*types.User, error) {
-	modelUser, err := u.factory.User().GetByName(ctx, name)
+	obj, err := u.factory.User().GetByName(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to get user by name %s: %v", name, err)
 		return nil, err
 	}
 
-	return model2Type(modelUser), nil
+	return model2Type(obj), nil
+}
+
+func (u *user) GetJWTKey() string {
+	return u.ComponentConfig.Default.JWTKey
 }
 
 func model2Type(u *model.User) *types.User {
@@ -107,23 +125,10 @@ func model2Type(u *model.User) *types.User {
 		Id:              u.Id,
 		ResourceVersion: u.ResourceVersion,
 		Name:            u.Name,
-		Email:           u.Email,
-		Description:     u.Description,
+		Password:        u.Password,
 		Status:          u.Status,
 		Role:            u.Role,
-		Password:        u.Password,
-		// Extension:   obj.Extension,
-	}
-}
-
-func type2Model(u *types.User) *model.User {
-	return &model.User{
-		Name:        u.Name,
-		Email:       u.Email,
-		Description: u.Description,
-		Status:      u.Status,
-		Role:        u.Role,
-		Password:    u.Password,
-		// Extension:   obj.Extension,
+		Email:           u.Email,
+		Description:     u.Description,
 	}
 }
