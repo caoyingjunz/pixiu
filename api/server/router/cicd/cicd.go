@@ -32,13 +32,17 @@ func NewRouter(ginEngine *gin.Engine) {
 func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
 	cicdRoute := ginEngine.Group("/cicd")
 	{
-		cicdRoute.POST("/jobs/:name/run", s.runJob)
+		cicdRoute.POST("/jobs/run", s.runJob)
 		cicdRoute.DELETE("/jobs/:name", s.deleteJob)
 		cicdRoute.GET("/jobs", s.getAllJobs)
 		cicdRoute.POST("/jobs", s.createJob)
 		cicdRoute.POST("/jobs/copy", s.copyJob)
 		cicdRoute.POST("/jobs/rename", s.renameJob)
-		cicdRoute.POST("/view/:add_view_job/view_name", s.addViewJob)
-		cicdRoute.POST("/safeRestart/:safeRestart", s.safeRestart)
+		cicdRoute.POST("/view", s.addViewJob)
+		cicdRoute.GET("/view", s.getAllViews)
+		cicdRoute.GET("/nodes", s.getAllNodes)
+		cicdRoute.DELETE("/nodes/:name", s.deleteNode)
+		// 安全重启jenkins
+		cicdRoute.POST("/restart", s.restart)
 	}
 }
