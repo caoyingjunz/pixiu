@@ -15,7 +15,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-func (u *userRouter) createUser(c *gin.Context) {
+func (u *userRouter) create(c *gin.Context) {
 	response := httputils.NewResponse()
 
 	var user types.User
@@ -37,15 +37,57 @@ func (u *userRouter) createUser(c *gin.Context) {
 	}
 }
 
-func (u *userRouter) deleteUser(c *gin.Context) {
+func (u *userRouter) delete(c *gin.Context) {
+	response := httputils.NewResponse()
 
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, response, err)
+		return
+	}
+
+	if err := pixiu.CoreV1.User().Delete(context.TODO(), uid); err != nil {
+		httputils.SetFailed(c, response, err)
+		return
+	}
+
+	httputils.SetSuccess(c, response)
 }
 
-func (u *userRouter) updateUser(c *gin.Context) {
+func (u *userRouter) update(c *gin.Context) {
+	response := httputils.NewResponse()
 
+	var err error
+	var user types.User
+	if err = c.ShouldBindJSON(&user); err != nil {
+		httputils.SetFailed(c, response, err)
+		return
+	}
+
+	user.Id, err = util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, response, err)
+		return
+	}
+
+	if user.Password != "" {
+		cryptPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			httputils.SetFailed(c, response, err)
+			return
+		}
+		user.Password = string(cryptPass)
+	}
+
+	if err := pixiu.CoreV1.User().Update(context.TODO(), &user); err != nil {
+		httputils.SetFailed(c, response, err)
+		return
+	}
+
+	httputils.SetSuccess(c, response)
 }
 
-func (u *userRouter) getUser(c *gin.Context) {
+func (u *userRouter) get(c *gin.Context) {
 	response := httputils.NewResponse()
 
 	uid, err := util.ParseInt64(c.Param("id"))
@@ -62,10 +104,10 @@ func (u *userRouter) getUser(c *gin.Context) {
 	httputils.SetSuccess(c, response)
 }
 
-func (u *userRouter) getAllUsers(c *gin.Context) {
+func (u *userRouter) list(c *gin.Context) {
 	var err error
 	response := httputils.NewResponse()
-	response.Result, err = pixiu.CoreV1.User().GetAll(context.TODO())
+	response.Result, err = pixiu.CoreV1.User().List(context.TODO())
 	if err != nil {
 		httputils.SetFailed(c, response, err)
 	}
@@ -83,7 +125,7 @@ func (u *userRouter) login(c *gin.Context) {
 		return
 	}
 
-	expectedUser, err := pixiu.CoreV1.User().GetUserByName(context.TODO(), user.Name)
+	expectedUser, err := pixiu.CoreV1.User().GetByName(context.TODO(), user.Name)
 	if err != nil {
 		httputils.SetFailed(c, response, err)
 		return

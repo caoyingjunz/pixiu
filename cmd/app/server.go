@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/gopixiu/api/server/router/demo"
@@ -72,10 +73,15 @@ func NewServerCommand() *cobra.Command {
 }
 
 func InitRouters(opt *options.Options) {
-	demo.NewRouter(opt.GinEngine) // 注册 demo 路由
-	cicd.NewRouter(opt.GinEngine) // 注册 cicd 路由
-  cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
-	user.NewRouter(opt.GinEngine) // 注册 user 路由
+	demo.NewRouter(opt.GinEngine)  // 注册 demo 路由
+	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
+	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
+	user.NewRouter(opt.GinEngine)  // 注册 user 路由
+}
+
+func InitMiddlewares(opt *options.Options) {
+
+	opt.GinEngine.Use(middleware.AuthN)
 }
 
 func Run(opt *options.Options) error {
@@ -84,6 +90,10 @@ func Run(opt *options.Options) error {
 
 	// 设置核心应用接口
 	pixiu.Setup(opt)
+
+	// 初始化 gin 中间件
+	InitMiddlewares(opt)
+
 	// 初始化 api 路由
 	InitRouters(opt)
 

@@ -7,11 +7,11 @@ type userRouter struct{}
 func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 	userRoute := ginEngine.Group("/users")
 	{
-		userRoute.POST("/", u.createUser)
-		userRoute.DELETE("/:id", u.deleteUser)
-		userRoute.PUT("/:id", u.updateUser)
-		userRoute.GET("/:id", u.getUser)
-		userRoute.GET("/", u.getAllUsers)
+		userRoute.POST("/", u.create)
+		userRoute.DELETE("/:id", u.delete)
+		userRoute.PUT("/:id", u.update)
+		userRoute.GET("/:id", u.get)
+		userRoute.GET("/", u.list)
 		userRoute.POST("/login", u.login)
 		userRoute.POST("/:id/logout", u.logout)
 	}
