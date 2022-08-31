@@ -150,7 +150,7 @@ func (c *cicd) GetAllJobs(ctx context.Context) (res []string, err error) {
 func (c *cicd) SafeRestart(ctx context.Context) error {
 	err := c.cicdDriver.SafeRestart(ctx)
 	if err != nil {
-		log.Logger.Errorf("failed to safeRestart  %s: %v", err)
+		log.Logger.Errorf("failed to safeRestart %v", err)
 		return nil
 	}
 	return nil

@@ -18,9 +18,9 @@ package cicd
 
 import (
 	"context"
-	"github.com/caoyingjunz/gopixiu/api/types"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/gin-gonic/gin"
 )
