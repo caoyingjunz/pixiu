@@ -17,22 +17,30 @@ limitations under the License.
 package middleware
 
 import (
+	"errors"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 type Claims struct {
 	jwt.StandardClaims
+
 	Id   int64  `json:"id"`
 	Name string `json:"name"`
 	Role string `json:"role"`
 }
 
-func Auth(c *gin.Context) {}
+func InitMiddlewares(ginEngine *gin.Engine) {
+	ginEngine.Use(LoggerToFile(), AuthN)
+}
 
 func LoggerToFile() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -54,6 +62,33 @@ func LoggerToFile() gin.HandlerFunc {
 	}
 }
 
+func AuthN(c *gin.Context) {
+	// Authentication 身份认证
+	if c.Request.URL.Path == "/users/login" {
+		return
+	}
+
+	response := httputils.NewResponse()
+	token := c.Request.Header.Get("authorization")
+	if len(token) == 0 {
+		c.Abort()
+		response.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, response, errors.New("token 为空, 请先登录"))
+		return
+	}
+
+	token = strings.Split(token, " ")[1]
+	jwtKey := pixiu.CoreV1.User().GetJWTKey()
+	if _, err := ValidateJWT(token, []byte(jwtKey)); err != nil {
+		c.Abort()
+		response.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, response, err)
+		return
+	}
+
+	c.Next()
+}
+
 func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
@@ -64,15 +99,14 @@ func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {
 	return tokenString, nil
 }
 
-func ValidateJWT(token string, jwtKey []byte) (bool, *Claims) {
+func ValidateJWT(token string, jwtKey []byte) (*Claims, error) {
 	var claims Claims
-	// TODO 处理 error
-	t, _ := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
+	t, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
-	if !t.Valid {
-		return false, nil
-	} else {
-		return true, &claims
+	if err != nil || !t.Valid {
+		return nil, err
 	}
+
+	return &claims, nil
 }
