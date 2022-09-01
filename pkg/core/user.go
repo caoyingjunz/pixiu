@@ -117,7 +117,13 @@ func (u *user) GetByName(ctx context.Context, name string) (*types.User, error) 
 }
 
 func (u *user) GetJWTKey() string {
-	return u.ComponentConfig.Default.JWTKey
+	defaultJWTKey := "46JdPlYNLsNaPqBH"
+	jwtKey := u.ComponentConfig.Default.JWTKey
+	if len(jwtKey) == 0 {
+		return defaultJWTKey
+	} else {
+		return jwtKey
+	}
 }
 
 func model2Type(u *model.User) *types.User {
