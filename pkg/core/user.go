@@ -63,11 +63,9 @@ func (u *user) Create(ctx context.Context, obj *types.User) error {
 		return err
 	}
 
-	obj.Password = string(cryptPass)
-
 	if _, err := u.factory.User().Create(ctx, &model.User{
 		Name:        obj.Name,
-		Password:    obj.Password,
+		Password:    string(cryptPass),
 		Status:      obj.Status,
 		Role:        obj.Role,
 		Email:       obj.Email,
