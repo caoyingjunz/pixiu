@@ -40,14 +40,6 @@ func (u *userRouter) createUser(c *gin.Context) {
 		return
 	}
 
-	//  TODO： 移到 core 层实现
-	cryptPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	user.Password = string(cryptPass)
 	if err := pixiu.CoreV1.User().Create(context.TODO(), &user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

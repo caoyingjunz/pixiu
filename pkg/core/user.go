@@ -24,6 +24,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserGetter interface {
@@ -57,6 +58,13 @@ func newUser(c *pixiu) UserInterface {
 
 func (u *user) Create(ctx context.Context, obj *types.User) error {
 	// TODO 校验参数合法性
+	cryptPass, err := bcrypt.GenerateFromPassword([]byte(obj.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	obj.Password = string(cryptPass)
+
 	if _, err := u.factory.User().Create(ctx, &model.User{
 		Name:        obj.Name,
 		Password:    obj.Password,
