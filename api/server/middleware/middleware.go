@@ -71,33 +71,33 @@ func AuthN(c *gin.Context) {
 	r := httputils.NewResponse()
 	token := c.GetHeader("Authorization")
 	if len(token) == 0 {
-		c.Abort()
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, errors.New("authorization header is not provided"))
+		c.Abort()
 		return
 	}
 
 	fields := strings.Fields(token)
 	if len(fields) != 2 {
-		c.Abort()
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, errors.New("invalid authorization header format"))
+		c.Abort()
 		return
 	}
 
 	if fields[0] != "Bearer" {
-		c.Abort()
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, errors.New("unsupported authorization type"))
+		c.Abort()
 		return
 	}
 
 	accessToken := fields[1]
 	jwtKey := pixiu.CoreV1.User().GetJWTKey()
 	if _, err := ValidateJWT(accessToken, []byte(jwtKey)); err != nil {
-		c.Abort()
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, err)
+		c.Abort()
 		return
 	}
 
