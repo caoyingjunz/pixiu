@@ -25,14 +25,28 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (s *cloudRouter) ListDeployments(c *gin.Context) {
+func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
-	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO())
+	namespace := c.Param("namespace")
+	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
 	r.Result = deployments.Items
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) deleteDeployments(c *gin.Context) {
+	r := httputils.NewResponse()
+	name := c.Param("name")
+	namespace := c.Param("namespace")
+
+	err := pixiu.CoreV1.Cloud().DeleteDeployments(context.TODO(), namespace, name)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }
