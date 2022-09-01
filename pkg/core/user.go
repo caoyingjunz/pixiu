@@ -26,6 +26,8 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
+const defaultJWTKey string = "gopixiu"
+
 type UserGetter interface {
 	User() UserInterface
 }
@@ -117,13 +119,11 @@ func (u *user) GetByName(ctx context.Context, name string) (*types.User, error) 
 }
 
 func (u *user) GetJWTKey() string {
-	defaultJWTKey := "46JdPlYNLsNaPqBH"
 	jwtKey := u.ComponentConfig.Default.JWTKey
 	if len(jwtKey) == 0 {
-		return defaultJWTKey
-	} else {
-		return jwtKey
+		jwtKey = defaultJWTKey
 	}
+	return jwtKey
 }
 
 func model2Type(u *model.User) *types.User {
