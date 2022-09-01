@@ -68,27 +68,27 @@ func AuthN(c *gin.Context) {
 		return
 	}
 
-	response := httputils.NewResponse()
+	r := httputils.NewResponse()
 	token := c.GetHeader("Authorization")
 	if len(token) == 0 {
 		c.Abort()
-		response.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, response, errors.New("authorization header is not provided"))
+		r.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, r, errors.New("authorization header is not provided"))
 		return
 	}
 
 	fields := strings.Fields(token)
 	if len(fields) != 2 {
 		c.Abort()
-		response.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, response, errors.New("invalid authorization header format"))
+		r.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, r, errors.New("invalid authorization header format"))
 		return
 	}
 
-	if strings.ToLower(fields[0]) != "bearer" {
+	if fields[0] != "Bearer" {
 		c.Abort()
-		response.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, response, errors.New("unsupported authorization type"))
+		r.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, r, errors.New("unsupported authorization type"))
 		return
 	}
 
@@ -96,8 +96,8 @@ func AuthN(c *gin.Context) {
 	jwtKey := pixiu.CoreV1.User().GetJWTKey()
 	if _, err := ValidateJWT(accessToken, []byte(jwtKey)); err != nil {
 		c.Abort()
-		response.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, response, err)
+		r.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 
