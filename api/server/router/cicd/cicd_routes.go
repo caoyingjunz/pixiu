@@ -19,11 +19,11 @@ package cicd
 import (
 	"context"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+
+	"github.com/gin-gonic/gin"
 )
 
 func (s *cicdRouter) runJob(c *gin.Context) {
@@ -160,6 +160,34 @@ func (s *cicdRouter) addViewJob(c *gin.Context) {
 func (s *cicdRouter) restart(c *gin.Context) {
 	r := httputils.NewResponse()
 	if err := pixiu.CoreV1.Cicd().Restart(context.TODO()); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) disable(c *gin.Context) {
+	r := httputils.NewResponse()
+	var cicd types.Cicd
+	if err := c.ShouldBindJSON(&cicd); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if _, err := pixiu.CoreV1.Cicd().Disable(context.TODO(), cicd.Name); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) enable(c *gin.Context) {
+	r := httputils.NewResponse()
+	var cicd types.Cicd
+	if err := c.ShouldBindJSON(&cicd); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if _, err := pixiu.CoreV1.Cicd().Enable(context.TODO(), cicd.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
