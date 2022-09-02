@@ -22,6 +22,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -42,8 +43,10 @@ type UserInterface interface {
 	Get(ctx context.Context, uid int64) (*types.User, error)
 	List(ctx context.Context) ([]types.User, error)
 
+	Login(ctx context.Context, obj *types.User) (string, error)
+
 	GetByName(ctx context.Context, name string) (*types.User, error)
-	GetJWTKey() string
+	GetJWTKey() []byte
 }
 
 type user struct {
@@ -160,12 +163,45 @@ func (u *user) GetByName(ctx context.Context, name string) (*types.User, error) 
 	return model2Type(obj), nil
 }
 
-func (u *user) GetJWTKey() string {
+func (u *user) preLogin(ctx context.Context, obj *types.User) error {
+	if len(obj.Name) == 0 {
+		return fmt.Errorf("invalid empty user name")
+	}
+	if len(obj.Password) == 0 {
+		return fmt.Errorf("invalid empty user password")
+	}
+
+	return nil
+}
+
+func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
+	if err := u.preLogin(ctx, obj); err != nil {
+		log.Logger.Errorf("failed to pre-check for login: %v", err)
+		return "", err
+	}
+
+	userObj, err := u.factory.User().GetByName(context.TODO(), obj.Name)
+	if err != nil {
+		return "", err
+	}
+	// To ensure login password is correct
+	if err = bcrypt.CompareHashAndPassword([]byte(userObj.Password), []byte(obj.Password)); err != nil {
+		return "", fmt.Errorf("wrong password")
+	}
+
+	// TODO: 根据用户的登陆状态
+
+	// 生成 token，并返回
+	return httputils.GenerateToken(userObj.Id, obj.Name, u.GetJWTKey())
+}
+
+func (u *user) GetJWTKey() []byte {
 	jwtKey := u.ComponentConfig.Default.JWTKey
 	if len(jwtKey) == 0 {
 		jwtKey = defaultJWTKey
 	}
-	return jwtKey
+
+	return []byte(jwtKey)
 }
 
 func model2Type(u *model.User) *types.User {
