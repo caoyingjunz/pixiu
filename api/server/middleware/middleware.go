@@ -19,7 +19,6 @@ package middleware
 import (
 	"errors"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -40,7 +39,7 @@ type Claims struct {
 }
 
 func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(LoggerToFile(), AuthN)
+	ginEngine.Use(LoggerToFile(), Limiter, AuthN)
 }
 
 func LoggerToFile() gin.HandlerFunc {
@@ -63,12 +62,10 @@ func LoggerToFile() gin.HandlerFunc {
 	}
 }
 
-func AuthN(c *gin.Context) {
-	// TODO 初始化一次
-	if os.Getenv("DEBUG") == "true" {
-		return
-	}
+// Limiter TODO
+func Limiter(c *gin.Context) {}
 
+func AuthN(c *gin.Context) {
 	// Authentication 身份认证
 	if c.Request.URL.Path == "/users/login" {
 		return
