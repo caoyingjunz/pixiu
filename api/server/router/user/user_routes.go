@@ -18,17 +18,11 @@ package user
 
 import (
 	"context"
-	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/gin-gonic/gin"
 )
 
 func (u *userRouter) createUser(c *gin.Context) {
@@ -120,48 +114,18 @@ func (u *userRouter) listUsers(c *gin.Context) {
 // 2. 返回 token
 func (u *userRouter) login(c *gin.Context) {
 	r := httputils.NewResponse()
-	jwtKey := []byte(pixiu.CoreV1.User().GetJWTKey())
-
-	var user types.User
-	if err := c.ShouldBindJSON(&user); err != nil {
+	var (
+		user types.User
+		err  error
+	)
+	if err = c.ShouldBindJSON(&user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	expectedUser, err := pixiu.CoreV1.User().GetByName(context.TODO(), user.Name)
-	if err != nil {
+	if r.Result, err = pixiu.CoreV1.User().Login(context.TODO(), &user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	// Compare login user password is correctly
-	if err := bcrypt.CompareHashAndPassword([]byte(expectedUser.Password), []byte(user.Password)); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	// Generate jwt, 临时有效期 360 分钟
-	expireTime := time.Now().Add(360 * time.Minute)
-	claims := &middleware.Claims{
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expireTime.Unix(),
-		},
-		Id:   expectedUser.Id,
-		Name: expectedUser.Name,
-		Role: expectedUser.Role,
-	}
-
-	token, err := middleware.GenerateJWT(claims, jwtKey)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-	}
-	// Set token to r result
-	r.Result = map[string]string{
-		"token": token,
-	}
-
-	// Set token to gin.Context
-	c.Set("token", token)
 
 	httputils.SetSuccess(c, r)
 }

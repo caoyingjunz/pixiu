@@ -18,8 +18,10 @@ package httputils
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 type Response struct {
@@ -61,4 +63,41 @@ func NewResponse() *Response {
 	return &Response{
 		Code: http.StatusBadRequest,
 	}
+}
+
+type Claims struct {
+	jwt.StandardClaims
+
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+}
+
+// GenerateToken 生成 token
+func GenerateToken(uid int64, name string, jwtKey []byte) (string, error) {
+
+	// Generate jwt, 临时有效期 360 分钟
+	expireTime := time.Now().Add(360 * time.Minute)
+	claims := &Claims{
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expireTime.Unix(),
+		},
+		Id:   uid,
+		Name: name,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtKey)
+}
+
+func ParseToken(token string, jwtKey []byte) (*Claims, error) {
+	var claims Claims
+	t, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil || !t.Valid {
+		return nil, err
+	}
+
+	return &claims, nil
 }
