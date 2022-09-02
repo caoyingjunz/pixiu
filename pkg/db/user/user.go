@@ -22,7 +22,7 @@ import (
 
 	"gorm.io/gorm"
 
-	pixiudb "github.com/caoyingjunz/gopixiu/pkg/db"
+	dberrors "github.com/caoyingjunz/gopixiu/pkg/db/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 )
 
@@ -69,7 +69,7 @@ func (u *user) Update(ctx context.Context, uid int64, resourceVersion int64, upd
 	}
 
 	if f.RowsAffected == 0 {
-		return pixiudb.ErrRecordNotUpdate
+		return dberrors.ErrRecordNotUpdate
 	}
 
 	return nil
