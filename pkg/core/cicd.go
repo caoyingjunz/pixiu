@@ -44,6 +44,8 @@ type CicdInterface interface {
 	CopyJob(ctx context.Context, oldName string, newName string) (res []string, err error)
 	RenameJob(ctx context.Context, oldName string, newName string) error
 	Restart(ctx context.Context) error
+	Disable(ctx context.Context, name string) (bool, error)
+	Enable(ctx context.Context, name string) (bool, error)
 }
 
 type cicd struct {
@@ -194,5 +196,31 @@ func (c *cicd) Restart(ctx context.Context) error {
 		return nil
 	}
 	return nil
+}
 
+func (c *cicd) Disable(ctx context.Context, name string) (bool, error) {
+	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to Disable %v", err)
+		return false, nil
+	}
+	_, err = jobs.Disable(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to Disable %v", err)
+		return false, nil
+	}
+	return true, nil
+}
+func (c *cicd) Enable(ctx context.Context, name string) (bool, error) {
+	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to Enable %v", err)
+		return false, nil
+	}
+	_, err = jobs.Enable(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to Enable %v", err)
+		return false, nil
+	}
+	return true, nil
 }

@@ -28,11 +28,11 @@ func NewRouter(ginEngine *gin.Engine) {
 func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 	userRoute := ginEngine.Group("/users")
 	{
-		userRoute.POST("/", u.createUser)
+		userRoute.POST("", u.createUser)
 		userRoute.DELETE("/:id", u.deleteUser)
 		userRoute.PUT("/:id", u.updateUser)
 		userRoute.GET("/:id", u.getUser)
-		userRoute.GET("/", u.listUsers)
+		userRoute.GET("", u.listUsers)
 
 		// 用户的登陆或者退出
 		userRoute.POST("/login", u.login)
