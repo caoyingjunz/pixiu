@@ -184,38 +184,6 @@ func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 	return httputils.GenerateToken(userObj.Id, obj.Name, u.GetJWTKey())
 }
 
-func (u *user) preLogin(ctx context.Context, obj *types.User) error {
-	if len(obj.Name) == 0 {
-		return fmt.Errorf("invalid empty user name")
-	}
-	if len(obj.Password) == 0 {
-		return fmt.Errorf("invalid empty user password")
-	}
-
-	return nil
-}
-
-func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
-	if err := u.preLogin(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for login: %v", err)
-		return "", err
-	}
-
-	userObj, err := u.factory.User().GetByName(context.TODO(), obj.Name)
-	if err != nil {
-		return "", err
-	}
-	// To ensure login password is correct
-	if err = bcrypt.CompareHashAndPassword([]byte(userObj.Password), []byte(obj.Password)); err != nil {
-		return "", fmt.Errorf("wrong password")
-	}
-
-	// TODO: 根据用户的登陆状态
-
-	// 生成 token，并返回
-	return httputils.GenerateToken(userObj.Id, obj.Name, u.GetJWTKey())
-}
-
 func (u *user) GetJWTKey() []byte {
 	jwtKey := u.ComponentConfig.Default.JWTKey
 	if len(jwtKey) == 0 {
