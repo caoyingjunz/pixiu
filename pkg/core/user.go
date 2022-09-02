@@ -18,6 +18,9 @@ package core
 
 import (
 	"context"
+	"fmt"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
@@ -57,11 +60,32 @@ func newUser(c *pixiu) UserInterface {
 	}
 }
 
+// 创建前检查：
+// 1. 用户名不能为空
+// 2. 用户密码不能为空
+// 3. 其他创建前检查
+func (u *user) preCreate(ctx context.Context, obj *types.User) error {
+	if len(obj.Name) == 0 || len(obj.Password) == 0 {
+		return fmt.Errorf("user name or password could not be empty")
+	}
+
+	return nil
+}
+
 func (u *user) Create(ctx context.Context, obj *types.User) error {
-	// TODO 校验参数合法性
-	if _, err := u.factory.User().Create(ctx, &model.User{
+	if err := u.preCreate(ctx, obj); err != nil {
+		log.Logger.Errorf("failed to pre-check for created: %v", err)
+		return err
+	}
+
+	// 对密码进行加密存储
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(obj.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	if _, err = u.factory.User().Create(ctx, &model.User{
 		Name:        obj.Name,
-		Password:    obj.Password,
+		Password:    string(encryptedPassword),
 		Status:      obj.Status,
 		Role:        obj.Role,
 		Email:       obj.Email,
@@ -74,14 +98,32 @@ func (u *user) Create(ctx context.Context, obj *types.User) error {
 	return nil
 }
 
-// Update TODO
 func (u *user) Update(ctx context.Context, obj *types.User) error {
+	oldUser, err := u.factory.User().Get(ctx, obj.Id)
+	if err != nil {
+		log.Logger.Errorf("failed to get user %d: %v", obj.Id)
+		return err
+	}
+
+	updates := u.parseUserUpdates(oldUser, obj)
+	if len(updates) == 0 {
+		return nil
+	}
+	if err = u.factory.User().Update(ctx, obj.Id, obj.ResourceVersion, updates); err != nil {
+		log.Logger.Errorf("failed to update user %d: %v", obj.Id, err)
+		return err
+	}
 
 	return nil
 }
 
 func (u *user) Delete(ctx context.Context, uid int64) error {
-	return u.factory.User().Delete(ctx, uid)
+	if err := u.factory.User().Delete(ctx, uid); err != nil {
+		log.Logger.Errorf("failed to delete user id %d: %v", uid, err)
+		return err
+	}
+
+	return nil
 }
 
 func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
@@ -136,5 +178,28 @@ func model2Type(u *model.User) *types.User {
 		Role:            u.Role,
 		Email:           u.Email,
 		Description:     u.Description,
+		TimeSpec: types.TimeSpec{
+			GmtCreate:   u.GmtCreate.Format(timeLayout),
+			GmtModified: u.GmtModified.Format(timeLayout),
+		},
 	}
+}
+
+func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[string]interface{} {
+	updates := make(map[string]interface{})
+
+	if oldObj.Status != newObj.Status { // 更新状态
+		updates["status"] = newObj.Status
+	}
+	if oldObj.Role != newObj.Role { // 更新用户角色
+		updates["role"] = newObj.Role
+	}
+	if oldObj.Email != newObj.Email { // 更新邮件
+		updates["email"] = newObj.Email
+	}
+	if oldObj.Description != newObj.Description { // 更新描述
+		updates["description"] = newObj.Description
+	}
+
+	return updates
 }

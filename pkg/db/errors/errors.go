@@ -14,34 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package errors
 
 import (
-	"gorm.io/gorm"
+	"errors"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
-	"github.com/caoyingjunz/gopixiu/pkg/db/user"
+	"gorm.io/gorm"
 )
 
-type ShareDaoFactory interface {
-	User() user.UserInterface
-	Demo() demo.DemoInterface
+var (
+	ErrRecordNotUpdate = errors.New("record not updated")
+)
+
+func IsNotFound(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
-type shareDaoFactory struct {
-	db *gorm.DB
-}
-
-func (f *shareDaoFactory) Demo() demo.DemoInterface {
-	return demo.NewDemo(f.db)
-}
-
-func (f *shareDaoFactory) User() user.UserInterface {
-	return user.NewUser(f.db)
-}
-
-func NewDaoFactory(db *gorm.DB) ShareDaoFactory {
-	return &shareDaoFactory{
-		db: db,
-	}
+func IsNotUpdate(err error) bool {
+	return errors.Is(err, ErrRecordNotUpdate)
 }

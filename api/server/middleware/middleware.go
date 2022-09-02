@@ -39,7 +39,7 @@ type Claims struct {
 }
 
 func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(LoggerToFile(), AuthN)
+	ginEngine.Use(LoggerToFile(), Limiter, AuthN)
 }
 
 func LoggerToFile() gin.HandlerFunc {
@@ -61,6 +61,9 @@ func LoggerToFile() gin.HandlerFunc {
 		log.AccessLog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
 	}
 }
+
+// Limiter TODO
+func Limiter(c *gin.Context) {}
 
 func AuthN(c *gin.Context) {
 	// Authentication 身份认证
@@ -94,8 +97,7 @@ func AuthN(c *gin.Context) {
 
 	accessToken := fields[1]
 	jwtKey := pixiu.CoreV1.User().GetJWTKey()
-	user, err := ValidateJWT(accessToken, []byte(jwtKey))
-
+	claims, err := ValidateJWT(accessToken, []byte(jwtKey))
 	if err != nil {
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, err)
@@ -103,8 +105,7 @@ func AuthN(c *gin.Context) {
 		return
 	}
 
-	c.Set("userId", user.Id)
-	c.Next()
+	c.Set("userId", claims.Id)
 }
 
 func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {
