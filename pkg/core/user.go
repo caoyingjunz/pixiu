@@ -164,6 +164,13 @@ func (u *user) GetByName(ctx context.Context, name string) (*types.User, error) 
 }
 
 func (u *user) preLogin(ctx context.Context, obj *types.User) error {
+	if len(obj.Name) == 0 {
+		return fmt.Errorf("invalid empty user name")
+	}
+	if len(obj.Password) == 0 {
+		return fmt.Errorf("invalid empty user password")
+	}
+
 	return nil
 }
 
@@ -175,13 +182,11 @@ func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 
 	userObj, err := u.factory.User().GetByName(context.TODO(), obj.Name)
 	if err != nil {
-		log.Logger.Errorf("failed to get %s: %v", obj.Name, err)
 		return "", err
 	}
 	// To ensure login password is correct
-	if err = bcrypt.CompareHashAndPassword([]byte(userObj.Password), []byte(userObj.Password)); err != nil {
-		log.Logger.Errorf("%s wrong password", obj.Name)
-		return "", fmt.Errorf("wrong password for user %s", obj.Name)
+	if err = bcrypt.CompareHashAndPassword([]byte(userObj.Password), []byte(obj.Password)); err != nil {
+		return "", fmt.Errorf("wrong password")
 	}
 
 	// TODO: 根据用户的登陆状态
