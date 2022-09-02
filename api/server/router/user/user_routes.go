@@ -18,11 +18,13 @@ package user
 
 import (
 	"context"
+
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
-	"github.com/gin-gonic/gin"
 )
 
 func (u *userRouter) createUser(c *gin.Context) {
