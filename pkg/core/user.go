@@ -45,7 +45,6 @@ type UserInterface interface {
 
 	Login(ctx context.Context, obj *types.User) (string, error)
 
-	GetByName(ctx context.Context, name string) (*types.User, error)
 	GetJWTKey() []byte
 }
 
@@ -153,16 +152,6 @@ func (u *user) List(ctx context.Context) ([]types.User, error) {
 	return users, nil
 }
 
-func (u *user) GetByName(ctx context.Context, name string) (*types.User, error) {
-	obj, err := u.factory.User().GetByName(ctx, name)
-	if err != nil {
-		log.Logger.Errorf("failed to get user by name %s: %v", name, err)
-		return nil, err
-	}
-
-	return model2Type(obj), nil
-}
-
 func (u *user) preLogin(ctx context.Context, obj *types.User) error {
 	if len(obj.Name) == 0 {
 		return fmt.Errorf("invalid empty user name")
@@ -209,7 +198,6 @@ func model2Type(u *model.User) *types.User {
 		Id:              u.Id,
 		ResourceVersion: u.ResourceVersion,
 		Name:            u.Name,
-		Password:        u.Password,
 		Status:          u.Status,
 		Role:            u.Role,
 		Email:           u.Email,
