@@ -94,13 +94,16 @@ func AuthN(c *gin.Context) {
 
 	accessToken := fields[1]
 	jwtKey := pixiu.CoreV1.User().GetJWTKey()
-	if _, err := ValidateJWT(accessToken, []byte(jwtKey)); err != nil {
+	user, err := ValidateJWT(accessToken, []byte(jwtKey))
+
+	if err != nil {
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, err)
 		c.Abort()
 		return
 	}
 
+	c.Set("userId", user.Id)
 	c.Next()
 }
 
