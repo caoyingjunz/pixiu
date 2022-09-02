@@ -19,10 +19,10 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
