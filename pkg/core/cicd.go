@@ -48,6 +48,7 @@ type CicdInterface interface {
 	Enable(ctx context.Context, name string) (bool, error)
 	Config(ctx context.Context, name string) (config string, err error)
 	UpdateConfig(ctx context.Context, name string) error
+	History(ctx context.Context, name string) ([]*gojenkins.History, error)
 	GetLastFailedBuild(ctx context.Context, name string) (getLastFailedBuild1 gojenkins.JobBuild, err error)
 	GetLastSuccessfulBuild(ctx context.Context, name string) (getLastSuccessfulBuild gojenkins.JobBuild, err error)
 }
@@ -194,12 +195,12 @@ func (c *cicd) Restart(ctx context.Context) error {
 }
 
 func (c *cicd) Disable(ctx context.Context, name string) (bool, error) {
-	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	job, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to Disable %v", err)
 		return false, nil
 	}
-	if _, err = jobs.Disable(ctx); err != nil {
+	if _, err = job.Disable(ctx); err != nil {
 		log.Logger.Errorf("failed to Disable %v", err)
 		return false, nil
 	}
@@ -207,12 +208,12 @@ func (c *cicd) Disable(ctx context.Context, name string) (bool, error) {
 }
 
 func (c *cicd) Enable(ctx context.Context, name string) (bool, error) {
-	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	job, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to get job %v", err)
 		return false, nil
 	}
-	if _, err = jobs.Enable(ctx); err != nil {
+	if _, err = job.Enable(ctx); err != nil {
 		log.Logger.Errorf("failed to Enable %v", err)
 		return false, nil
 	}
@@ -220,12 +221,12 @@ func (c *cicd) Enable(ctx context.Context, name string) (bool, error) {
 }
 
 func (c *cicd) Config(ctx context.Context, name string) (config string, err error) {
-	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	job, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to get job %v", err)
 		return config, nil
 	}
-	config, err = jobs.GetConfig(ctx)
+	config, err = job.GetConfig(ctx)
 	if err != nil {
 		log.Logger.Errorf("failed to Enable %v", err)
 		return config, nil
@@ -234,12 +235,12 @@ func (c *cicd) Config(ctx context.Context, name string) (config string, err erro
 }
 
 func (c *cicd) UpdateConfig(ctx context.Context, name string) error {
-	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	job, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to get job %v", err)
 		return nil
 	}
-	if err = jobs.UpdateConfig(ctx, "dsfd"); err != nil {
+	if err = job.UpdateConfig(ctx, "dsfd"); err != nil {
 		log.Logger.Errorf("failed to UpdateConfig %v", err)
 		return nil
 	}
@@ -247,12 +248,12 @@ func (c *cicd) UpdateConfig(ctx context.Context, name string) error {
 }
 
 func (c *cicd) GetLastFailedBuild(ctx context.Context, name string) (getLastFailedBuild1 gojenkins.JobBuild, err error) {
-	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	job, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to  jobs %s: %v", err)
 		return getLastFailedBuild1, err
 	}
-	failedBuild := jobs.Raw.LastFailedBuild
+	failedBuild := job.Raw.LastFailedBuild
 	if err != nil {
 		log.Logger.Errorf("failed to GetLastFailedBuild %v", err)
 		return failedBuild, nil
@@ -261,15 +262,29 @@ func (c *cicd) GetLastFailedBuild(ctx context.Context, name string) (getLastFail
 }
 
 func (c *cicd) GetLastSuccessfulBuild(ctx context.Context, name string) (getLastSuccessfulBuild gojenkins.JobBuild, err error) {
-	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	job, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to  jobs %s: %v", err)
 		return getLastSuccessfulBuild, err
 	}
-	successBuild := jobs.Raw.LastSuccessfulBuild
+	successBuild := job.Raw.LastSuccessfulBuild
 	if err != nil {
 		log.Logger.Errorf("failed to GetLastSuccessfulBuild %v", err)
 		return successBuild, nil
 	}
 	return successBuild, nil
+}
+
+func (c *cicd) History(ctx context.Context, name string) ([]*gojenkins.History, error) {
+	job, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to  jobs %s: %v", err)
+		return nil, err
+	}
+	history, err := job.History(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to GetLastSuccessfulBuild %v", err)
+		return nil, err
+	}
+	return history, nil
 }
