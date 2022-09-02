@@ -3,7 +3,7 @@ default:
   listen: 8090
   log_dir: /Users/caoyuan/log
   # 日志级别，支持 INFO, WARN 和 ERROR, 默认为 INFO
-  log_level: ERROR
+  log_level: INFO
   # jwt 签名的 key
   jwt_key: gopixiu
 

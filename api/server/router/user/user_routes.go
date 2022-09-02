@@ -156,8 +156,8 @@ func (u *userRouter) login(c *gin.Context) {
 		return
 	}
 
-	// Generate jwt
-	expireTime := time.Now().Add(20 * time.Minute)
+	// Generate jwt, 临时有效期 360 分钟
+	expireTime := time.Now().Add(360 * time.Minute)
 	claims := &middleware.Claims{
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expireTime.Unix(),
