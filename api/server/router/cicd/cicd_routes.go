@@ -18,7 +18,6 @@ package cicd
 
 import (
 	"context"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -109,6 +108,38 @@ func (s *cicdRouter) getAllViews(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (s *cicdRouter) getLastFailedBuild(c *gin.Context) {
+	r := httputils.NewResponse()
+	var cicd types.Cicd
+	if err := c.ShouldBindJSON(&cicd); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	LastFailedBuild, err := pixiu.CoreV1.Cicd().GetLastFailedBuild(context.TODO(), cicd.Name)
+	r.Result = LastFailedBuild
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) getLastSuccessfulBuild(c *gin.Context) {
+	r := httputils.NewResponse()
+	var cicd types.Cicd
+	if err := c.ShouldBindJSON(&cicd); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	getLastSuccessfulBuild, err := pixiu.CoreV1.Cicd().GetLastSuccessfulBuild(context.TODO(), cicd.Name)
+	r.Result = getLastSuccessfulBuild
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
 func (s *cicdRouter) getAllNodes(c *gin.Context) {
 	r := httputils.NewResponse()
 	node, err := pixiu.CoreV1.Cicd().GetAllNodes(context.TODO())
@@ -188,6 +219,36 @@ func (s *cicdRouter) enable(c *gin.Context) {
 		return
 	}
 	if _, err := pixiu.CoreV1.Cicd().Enable(context.TODO(), cicd.Name); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) config(c *gin.Context) {
+	r := httputils.NewResponse()
+	var cicd types.Cicd
+	if err := c.ShouldBindJSON(&cicd); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	config, err := pixiu.CoreV1.Cicd().Config(context.TODO(), cicd.Name)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = config
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) updateConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+	var cicd types.Cicd
+	if err := c.ShouldBindJSON(&cicd); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := pixiu.CoreV1.Cicd().UpdateConfig(context.TODO(), cicd.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
