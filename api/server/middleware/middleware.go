@@ -19,6 +19,7 @@ package middleware
 import (
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -63,6 +64,11 @@ func LoggerToFile() gin.HandlerFunc {
 }
 
 func AuthN(c *gin.Context) {
+	// TODO 初始化一次
+	if os.Getenv("DEBUG") == "true" {
+		return
+	}
+
 	// Authentication 身份认证
 	if c.Request.URL.Path == "/users/login" {
 		return

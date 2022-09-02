@@ -33,7 +33,6 @@ import (
 
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
-
 	var user types.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		httputils.SetFailed(c, r, err)
@@ -52,24 +51,11 @@ func (u *userRouter) createUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-}
-
-func (u *userRouter) deleteUser(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	uid, err := util.ParseInt64(c.Param("id"))
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = pixiu.CoreV1.User().Delete(context.TODO(), uid); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
 
 	httputils.SetSuccess(c, r)
 }
 
+// TODO: 优化
 func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -103,29 +89,43 @@ func (u *userRouter) updateUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (u *userRouter) getUser(c *gin.Context) {
+func (u *userRouter) deleteUser(c *gin.Context) {
 	r := httputils.NewResponse()
-
 	uid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = pixiu.CoreV1.User().Delete(context.TODO(), uid); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getUser(c *gin.Context) {
+	r := httputils.NewResponse()
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	r.Result, err = pixiu.CoreV1.User().Get(context.TODO(), uid)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
+		return
 	}
 
 	httputils.SetSuccess(c, r)
 }
 
 func (u *userRouter) listUsers(c *gin.Context) {
-	var err error
 	r := httputils.NewResponse()
-	r.Result, err = pixiu.CoreV1.User().List(context.TODO())
-	if err != nil {
+	var err error
+	if r.Result, err = pixiu.CoreV1.User().List(context.TODO()); err != nil {
 		httputils.SetFailed(c, r, err)
+		return
 	}
 
 	httputils.SetSuccess(c, r)
