@@ -100,8 +100,7 @@ func AuthN(c *gin.Context) {
 
 	accessToken := fields[1]
 	jwtKey := pixiu.CoreV1.User().GetJWTKey()
-	user, err := ValidateJWT(accessToken, []byte(jwtKey))
-
+	claims, err := ValidateJWT(accessToken, []byte(jwtKey))
 	if err != nil {
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, err)
@@ -109,8 +108,7 @@ func AuthN(c *gin.Context) {
 		return
 	}
 
-	c.Set("userId", user.Id)
-	c.Next()
+	c.Set("userId", claims.Id)
 }
 
 func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {

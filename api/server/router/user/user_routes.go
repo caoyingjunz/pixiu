@@ -65,7 +65,6 @@ func (u *userRouter) updateUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	if err = pixiu.CoreV1.User().Update(context.TODO(), &user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

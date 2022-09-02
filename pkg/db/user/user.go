@@ -22,12 +22,13 @@ import (
 
 	"gorm.io/gorm"
 
+	pixiudb "github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 )
 
 type UserInterface interface {
 	Create(ctx context.Context, obj *model.User) (*model.User, error)
-	Update(ctx context.Context, obj *model.User) error
+	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
 	List(ctx context.Context) ([]model.User, error)
@@ -44,6 +45,7 @@ func NewUser(db *gorm.DB) UserInterface {
 }
 
 func (u *user) Create(ctx context.Context, obj *model.User) (*model.User, error) {
+	// 系统维护字段
 	now := time.Now()
 	obj.GmtCreate = now
 	obj.GmtModified = now
@@ -54,34 +56,54 @@ func (u *user) Create(ctx context.Context, obj *model.User) (*model.User, error)
 	return obj, nil
 }
 
-func (u *user) Update(ctx context.Context, modelUser *model.User) error {
-	return u.db.Updates(*modelUser).Error
+func (u *user) Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := u.db.Model(&model.User{}).
+		Where("id = ? and resource_version = ?", uid, resourceVersion).
+		Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+
+	if f.RowsAffected == 0 {
+		return pixiudb.ErrRecordNotUpdate
+	}
+
+	return nil
 }
 
 func (u *user) Delete(ctx context.Context, uid int64) error {
-	return u.db.Delete(model.User{}, uid).Error
+	return u.db.
+		Where("id = ?", uid).
+		Delete(&model.User{}).
+		Error
 }
 
 func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
-	var modelUser model.User
-	if err := u.db.Where("id = ?", uid).First(&modelUser).Error; err != nil {
+	var obj model.User
+	if err := u.db.Where("id = ?", uid).First(&obj).Error; err != nil {
 		return nil, err
 	}
-	return &modelUser, nil
+
+	return &obj, nil
 }
 
 func (u *user) List(ctx context.Context) ([]model.User, error) {
-	var users []model.User
-	if tx := u.db.Find(&users); tx.Error != nil {
-		return nil, tx.Error
+	var us []model.User
+	if err := u.db.Find(&us).Error; err != nil {
+		return nil, err
 	}
-	return users, nil
+
+	return us, nil
 }
 
 func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
-	var modelUser model.User
-	if err := u.db.Where("name = ?", name).First(&modelUser).Error; err != nil {
+	var obj model.User
+	if err := u.db.Where("name = ?", name).First(&obj).Error; err != nil {
 		return nil, err
 	}
-	return &modelUser, nil
+	return &obj, nil
 }

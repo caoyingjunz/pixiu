@@ -98,14 +98,32 @@ func (u *user) Create(ctx context.Context, obj *types.User) error {
 	return nil
 }
 
-// Update TODO
 func (u *user) Update(ctx context.Context, obj *types.User) error {
+	oldUser, err := u.factory.User().Get(ctx, obj.Id)
+	if err != nil {
+		log.Logger.Errorf("failed to get user %d: %v", obj.Id)
+		return err
+	}
+
+	updates := u.parseUserUpdates(oldUser, obj)
+	if len(updates) == 0 {
+		return nil
+	}
+	if err = u.factory.User().Update(ctx, obj.Id, obj.ResourceVersion, updates); err != nil {
+		log.Logger.Errorf("failed to update user %d: %v", obj.Id, err)
+		return err
+	}
 
 	return nil
 }
 
 func (u *user) Delete(ctx context.Context, uid int64) error {
-	return u.factory.User().Delete(ctx, uid)
+	if err := u.factory.User().Delete(ctx, uid); err != nil {
+		log.Logger.Errorf("failed to delete user id %d: %v", uid, err)
+		return err
+	}
+
+	return nil
 }
 
 func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
@@ -165,4 +183,23 @@ func model2Type(u *model.User) *types.User {
 			GmtModified: u.GmtModified.Format(timeLayout),
 		},
 	}
+}
+
+func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[string]interface{} {
+	updates := make(map[string]interface{})
+
+	if oldObj.Status != newObj.Status { // 更新状态
+		updates["status"] = newObj.Status
+	}
+	if oldObj.Role != newObj.Role { // 更新用户角色
+		updates["role"] = newObj.Role
+	}
+	if oldObj.Email != newObj.Email { // 更新邮件
+		updates["email"] = newObj.Email
+	}
+	if oldObj.Description != newObj.Description { // 更新描述
+		updates["description"] = newObj.Description
+	}
+
+	return updates
 }
