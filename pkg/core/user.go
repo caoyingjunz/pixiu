@@ -18,6 +18,9 @@ package core
 
 import (
 	"context"
+	"fmt"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
@@ -57,11 +60,32 @@ func newUser(c *pixiu) UserInterface {
 	}
 }
 
+// 创建前检查：
+// 1. 用户名不能为空
+// 2. 用户密码不能为空
+// 3. 其他创建前检查
+func (u *user) preCreate(ctx context.Context, obj *types.User) error {
+	if len(obj.Name) == 0 || len(obj.Password) == 0 {
+		return fmt.Errorf("user name or password could not be empty")
+	}
+
+	return nil
+}
+
 func (u *user) Create(ctx context.Context, obj *types.User) error {
-	// TODO 校验参数合法性
-	if _, err := u.factory.User().Create(ctx, &model.User{
+	if err := u.preCreate(ctx, obj); err != nil {
+		log.Logger.Errorf("failed to pre-check for created: %v", err)
+		return err
+	}
+
+	// 对密码进行加密存储
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(obj.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	if _, err = u.factory.User().Create(ctx, &model.User{
 		Name:        obj.Name,
-		Password:    obj.Password,
+		Password:    string(encryptedPassword),
 		Status:      obj.Status,
 		Role:        obj.Role,
 		Email:       obj.Email,

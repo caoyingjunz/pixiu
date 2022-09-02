@@ -38,15 +38,6 @@ func (u *userRouter) createUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	//  TODO： 移到 core 层实现
-	cryptPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	user.Password = string(cryptPass)
 	if err := pixiu.CoreV1.User().Create(context.TODO(), &user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -55,30 +46,24 @@ func (u *userRouter) createUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// TODO: 优化
+// 更新用户属性：
+// 不允许更改字段:
+// 1. 用户名
+// 2. 用户密码 —— 通过修改密码API进行修改
 func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
-
-	var err error
-	var user types.User
+	var (
+		err  error
+		user types.User
+	)
 	if err = c.ShouldBindJSON(&user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	user.Id, err = util.ParseInt64(c.Param("id"))
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
-	}
-	// TODO: 移到core层实现
-	if user.Password != "" {
-		cryptPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-		if err != nil {
-			httputils.SetFailed(c, r, err)
-			return
-		}
-		user.Password = string(cryptPass)
 	}
 
 	if err = pixiu.CoreV1.User().Update(context.TODO(), &user); err != nil {
