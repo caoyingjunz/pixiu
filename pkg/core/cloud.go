@@ -34,7 +34,7 @@ type CloudGetter interface {
 
 type CloudInterface interface {
 	ListDeployments(ctx context.Context, namespace string) (*v1.DeploymentList, error)
-	DeleteDeployments(ctx context.Context, namespace, name string) error
+	DeleteDeployment(ctx context.Context, namespace, name string) error
 }
 
 type cloud struct {
@@ -63,13 +63,10 @@ func (c *cloud) ListDeployments(ctx context.Context, namespace string) (*v1.Depl
 	return deployments, nil
 }
 
-func (c *cloud) DeleteDeployments(ctx context.Context, namespace, name string) error {
-	deletePolicy := metav1.DeletePropagationForeground
-	err := c.clientSet.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{
-		PropagationPolicy: &deletePolicy,
-	})
+func (c *cloud) DeleteDeployment(ctx context.Context, namespace, name string) error {
+	err := c.clientSet.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to delete deployments: %v", err)
+		log.Logger.Errorf("failed to delete  %v deployments %v : %v", namespace, name, err)
 		return err
 	}
 	return nil

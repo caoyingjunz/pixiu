@@ -22,28 +22,37 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
 	namespace := c.Param("namespace")
+	if namespace == "" {
+		namespace = "default"
+	}
 	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	r.Result = deployments.Items
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) deleteDeployments(c *gin.Context) {
+func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
 	name := c.Param("name")
 	namespace := c.Param("namespace")
 
-	err := pixiu.CoreV1.Cloud().DeleteDeployments(context.TODO(), namespace, name)
+	if namespace == "" {
+		namespace = "default"
+	}
+	if name == "" {
+		log.Logger.Error("you must enter deployment name.")
+	}
+	err := pixiu.CoreV1.Cloud().DeleteDeployment(context.TODO(), namespace, name)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
