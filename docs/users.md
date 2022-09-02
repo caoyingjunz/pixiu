@@ -53,7 +53,7 @@
 - URL: /users/:id/login
 - 正常返回码: 200
 - 异常返回码: badRequest(400), unauthorized(401), forbidden(403), itemNotFound(404)
-- 请求参数: name, password
+- 请求参数:
 - 响应结果:
 
 ## ChangePassword
