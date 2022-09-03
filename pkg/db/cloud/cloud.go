@@ -26,11 +26,11 @@ import (
 )
 
 type CloudInterface interface {
-	Create(ctx context.Context, obj *model.Cluster) (*model.Cluster, error)
+	Create(ctx context.Context, obj *model.Cloud) (*model.Cloud, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cid int64) error
-	Get(ctx context.Context, cid int64) (*model.Cluster, error)
-	List(ctx context.Context) ([]model.Cluster, error)
+	Get(ctx context.Context, cid int64) (*model.Cloud, error)
+	List(ctx context.Context) ([]model.Cloud, error)
 }
 
 type cloud struct {
@@ -41,7 +41,7 @@ func NewCloud(db *gorm.DB) CloudInterface {
 	return &cloud{db}
 }
 
-func (s *cloud) Create(ctx context.Context, obj *model.Cluster) (*model.Cluster, error) {
+func (s *cloud) Create(ctx context.Context, obj *model.Cloud) (*model.Cloud, error) {
 	// TODO: gorm 的 webhook
 	now := time.Now()
 	obj.GmtCreate = now
@@ -58,7 +58,7 @@ func (s *cloud) Update(ctx context.Context, uid int64, resourceVersion int64, up
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
 
-	f := s.db.Model(&model.Cluster{}).
+	f := s.db.Model(&model.Cloud{}).
 		Where("id = ? and resource_version = ?", uid, resourceVersion).
 		Updates(updates)
 	if f.Error != nil {
@@ -71,13 +71,12 @@ func (s *cloud) Update(ctx context.Context, uid int64, resourceVersion int64, up
 func (s *cloud) Delete(ctx context.Context, cid int64) error {
 	return s.db.
 		Where("id = ?", cid).
-		Delete(&model.Cluster{}).
+		Delete(&model.Cloud{}).
 		Error
-
 }
 
-func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
-	var c model.Cluster
+func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cloud, error) {
+	var c model.Cloud
 	if err := s.db.Where("id = ?", cid).First(&c).Error; err != nil {
 		return nil, err
 	}
@@ -85,8 +84,8 @@ func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
 	return &c, nil
 }
 
-func (s *cloud) List(ctx context.Context) ([]model.Cluster, error) {
-	var cs []model.Cluster
+func (s *cloud) List(ctx context.Context) ([]model.Cloud, error) {
+	var cs []model.Cloud
 	if err := s.db.Find(&cs).Error; err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ package cloud
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,17 +28,41 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (s *cloudRouter) createCluster(c *gin.Context) {
-	r := new(httputils.Response)
-	req := new(types.Cloud)
-	clusterName := c.Param("cluster_name")
-	config := c.PostForm("config")
-	if len(clusterName) == 0 || len(config) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
+func readConfig(c *gin.Context) ([]byte, error) {
+	config, err := c.FormFile("kubeconfig")
+	if err != nil {
+		return nil, err
+	}
+	file, err := config.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return ioutil.ReadAll(file)
+}
+
+func (s *cloudRouter) createCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err   error
+		cloud types.Cloud
+	)
+	//if err = c.ShouldBindJSON(&cloud); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	cloud.Name = c.Param("name")
+	if len(cloud.Name) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
 		return
 	}
-	req.Name, req.Config = clusterName, config
-	if err := pixiu.CoreV1.Cloud().DeleteCluster(context.TODO(), req); err != nil {
+	cloud.KubeConfig, err = readConfig(c)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Create(context.TODO(), &cloud); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -45,20 +70,23 @@ func (s *cloudRouter) createCluster(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) deleteCluster(c *gin.Context) {
-	r := new(httputils.Response)
-	clusterName := c.Param("cluster_name")
-	if len(clusterName) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
-		return
-	}
-	if err := pixiu.CoreV1.Cloud().DeleteCluster(context.TODO(), clusterName); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+func (s *cloudRouter) updateCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) deleteCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	cid := c.Param("cid")
+
+	r.Result = cid
 
 	httputils.SetSuccess(c, r)
 }
+
+func (s *cloudRouter) getCloud(c *gin.Context) {}
+
+func (s *cloudRouter) listClouds(c *gin.Context) {}
 
 func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -78,19 +106,6 @@ func (s *cloudRouter) listDeployments(c *gin.Context) {
 
 func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
-	name := c.Param("name")
-	namespace := c.Param("namespace")
 
-	if namespace == "" {
-		namespace = "default"
-	}
-	if name == "" {
-		log.Logger.Error("you must enter deployment name.")
-	}
-	err := pixiu.CoreV1.Cloud().DeleteDeployment(context.TODO(), namespace, name)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
 	httputils.SetSuccess(c, r)
 }

@@ -17,8 +17,6 @@ limitations under the License.
 package db
 
 import (
-	"errors"
-
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
@@ -42,6 +40,7 @@ func (f *shareDaoFactory) Demo() demo.DemoInterface {
 
 func (f *shareDaoFactory) Cloud() cloud.CloudInterface {
 	return cloud.NewCloud(f.db)
+}
 
 func (f *shareDaoFactory) User() user.UserInterface {
 	return user.NewUser(f.db)
