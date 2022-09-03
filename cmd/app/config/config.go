@@ -32,6 +32,7 @@ type DefaultOptions struct {
 	Listen   int    `yaml:"listen"`
 	LogDir   string `yaml:"log_dir"`
 	LogLevel string `yaml:"log_level"`
+	JWTKey   string `yaml:"jwt_key"`
 }
 
 type MysqlOptions struct {

@@ -14,25 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cloud
+package user
 
 import "github.com/gin-gonic/gin"
 
-// cloudRouter is a router to talk with the cloud controller
-type cloudRouter struct{}
+type userRouter struct{}
 
-// NewRouter initializes a new container router
 func NewRouter(ginEngine *gin.Engine) {
-	s := &cloudRouter{}
-	s.initRoutes(ginEngine)
+	u := &userRouter{}
+	u.initRoutes(ginEngine)
 }
 
-func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
-	cloudRoute := ginEngine.Group("/cloud")
+func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
+	userRoute := ginEngine.Group("/users")
 	{
-		cloudRoute.POST("/cluster/:cluster_name", s.createCluster)
-		cloudRoute.DELETE("/cluster/:cluster_name", s.deleteCluster)
+		userRoute.POST("", u.createUser)
+		userRoute.DELETE("/:id", u.deleteUser)
+		userRoute.PUT("/:id", u.updateUser)
+		userRoute.GET("/:id", u.getUser)
+		userRoute.GET("", u.listUsers)
 
-		cloudRoute.GET("/deployments/:namespace", s.listDeployments)
+		// 用户的登陆或者退出
+		userRoute.POST("/login", u.login)
+		userRoute.POST("/:id/logout", u.logout)
 	}
 }

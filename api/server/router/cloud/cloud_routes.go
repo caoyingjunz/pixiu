@@ -72,7 +72,25 @@ func (s *cloudRouter) listDeployments(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	r.Result = deployments.Items
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) deleteDeployment(c *gin.Context) {
+	r := httputils.NewResponse()
+	name := c.Param("name")
+	namespace := c.Param("namespace")
+
+	if namespace == "" {
+		namespace = "default"
+	}
+	if name == "" {
+		log.Logger.Error("you must enter deployment name.")
+	}
+	err := pixiu.CoreV1.Cloud().DeleteDeployment(context.TODO(), namespace, name)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }

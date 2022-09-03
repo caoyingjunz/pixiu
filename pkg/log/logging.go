@@ -70,7 +70,7 @@ func Register(logDir string, logLevel string) {
 
 	AccessLog, _ = NewZapLogger(Configuration{
 		LogFile:          accessLogFile,
-		LogLevel:         Level,
+		LogLevel:         "info", // access 的 log 只会有 info
 		RotateMaxSize:    500,
 		RotateMaxAge:     7,
 		RotateMaxBackups: 3,

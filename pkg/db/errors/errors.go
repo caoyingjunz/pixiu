@@ -14,25 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cloud
+package errors
 
-import "github.com/gin-gonic/gin"
+import (
+	"errors"
 
-// cloudRouter is a router to talk with the cloud controller
-type cloudRouter struct{}
+	"gorm.io/gorm"
+)
 
-// NewRouter initializes a new container router
-func NewRouter(ginEngine *gin.Engine) {
-	s := &cloudRouter{}
-	s.initRoutes(ginEngine)
+var (
+	ErrRecordNotUpdate = errors.New("record not updated")
+)
+
+func IsNotFound(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
-func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
-	cloudRoute := ginEngine.Group("/cloud")
-	{
-		cloudRoute.POST("/cluster/:cluster_name", s.createCluster)
-		cloudRoute.DELETE("/cluster/:cluster_name", s.deleteCluster)
-
-		cloudRoute.GET("/deployments/:namespace", s.listDeployments)
-	}
+func IsNotUpdate(err error) bool {
+	return errors.Is(err, ErrRecordNotUpdate)
 }

@@ -23,21 +23,11 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
 	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
+	"github.com/caoyingjunz/gopixiu/pkg/db/user"
 )
-
-var (
-	ErrRecordNotUpdate = errors.New("record not updated")
-)
-
-func IsNotFound(err error) bool {
-	return errors.Is(err, gorm.ErrRecordNotFound)
-}
-
-func IsNotUpdate(err error) bool {
-	return errors.Is(err, ErrRecordNotUpdate)
-}
 
 type ShareDaoFactory interface {
+	User() user.UserInterface
 	Demo() demo.DemoInterface
 	Cloud() cloud.CloudInterface
 }
@@ -52,6 +42,9 @@ func (f *shareDaoFactory) Demo() demo.DemoInterface {
 
 func (f *shareDaoFactory) Cloud() cloud.CloudInterface {
 	return cloud.NewCloud(f.db)
+
+func (f *shareDaoFactory) User() user.UserInterface {
+	return user.NewUser(f.db)
 }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {

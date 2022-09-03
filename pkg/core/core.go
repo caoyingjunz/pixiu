@@ -28,6 +28,7 @@ type CoreV1Interface interface {
 	DemoGetter
 	CicdGetter
 	CloudGetter
+	UserGetter
 }
 
 type pixiu struct {
@@ -39,6 +40,10 @@ type pixiu struct {
 
 func (pixiu *pixiu) Demo() DemoInterface {
 	return newDemo(pixiu)
+}
+
+func (pixiu *pixiu) User() UserInterface {
+	return newUser(pixiu)
 }
 
 func (pixiu *pixiu) Cicd() CicdInterface {
@@ -57,3 +62,7 @@ func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Je
 		clientSets: clientSets,
 	}
 }
+
+const (
+	timeLayout = "2006-01-02 15:04:05.999999999"
+)
