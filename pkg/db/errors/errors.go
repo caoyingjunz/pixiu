@@ -14,28 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package errors
 
-import "github.com/gin-gonic/gin"
+import (
+	"errors"
 
-type userRouter struct{}
+	"gorm.io/gorm"
+)
 
-func NewRouter(ginEngine *gin.Engine) {
-	u := &userRouter{}
-	u.initRoutes(ginEngine)
+var (
+	ErrRecordNotUpdate = errors.New("record not updated")
+)
+
+func IsNotFound(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
-func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
-	userRoute := ginEngine.Group("/users")
-	{
-		userRoute.POST("", u.createUser)
-		userRoute.DELETE("/:id", u.deleteUser)
-		userRoute.PUT("/:id", u.updateUser)
-		userRoute.GET("/:id", u.getUser)
-		userRoute.GET("", u.listUsers)
-
-		// 用户的登陆或者退出
-		userRoute.POST("/login", u.login)
-		userRoute.POST("/:id/logout", u.logout)
-	}
+func IsNotUpdate(err error) bool {
+	return errors.Is(err, ErrRecordNotUpdate)
 }
