@@ -36,8 +36,8 @@ type CloudGetter interface {
 }
 
 type CloudInterface interface {
-	CreateCluster(ctx context.Context, obj *types.Cloud) error
-	DeleteCluster(ctx context.Context, cid int64) error
+	Create(ctx context.Context, obj *types.Cloud) error
+	Delete(ctx context.Context, cid int64) error
 
 	ListDeployments(ctx context.Context, clusterName string) (*v1.DeploymentList, error)
 }
@@ -97,11 +97,11 @@ func (c *cloud) getClientSet(name string) (*kubernetes.Clientset, error) {
 	return clientSet, nil
 }
 
-func (c *cloud) CreateCluster(ctx context.Context, obj *types.Cloud) error {
+func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	return nil
 }
 
-func (c *cloud) DeleteCluster(ctx context.Context, cid int64) error {
+func (c *cloud) Delete(ctx context.Context, cid int64) error {
 	return nil
 }
 

@@ -28,10 +28,14 @@ func NewRouter(ginEngine *gin.Engine) {
 }
 
 func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
-	cloudRoute := ginEngine.Group("/cloud")
+	cloudRoute := ginEngine.Group("/clouds")
 	{
-		cloudRoute.POST("/cluster/:cluster_name", s.createCluster)
-		cloudRoute.DELETE("/cluster/:cluster_name", s.deleteCluster)
+		//  k8s cluster API
+		cloudRoute.POST("", s.createCloud)
+		cloudRoute.PUT("/:cid", s.updateCloud)
+		cloudRoute.DELETE("/:cid", s.deleteCloud)
+		cloudRoute.GET("/:cid", s.getCloud)
+		cloudRoute.GET("", s.listClouds)
 
 		cloudRoute.GET("/deployments/:namespace", s.listDeployments)
 	}
