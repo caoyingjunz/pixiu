@@ -33,7 +33,8 @@ type CloudGetter interface {
 }
 
 type CloudInterface interface {
-	ListDeployments(ctx context.Context) (*v1.DeploymentList, error)
+	ListDeployments(ctx context.Context, namespace string) (*v1.DeploymentList, error)
+	DeleteDeployment(ctx context.Context, namespace, name string) error
 }
 
 type cloud struct {
@@ -52,12 +53,21 @@ func newCloud(c *pixiu) CloudInterface {
 	}
 }
 
-func (c *cloud) ListDeployments(ctx context.Context) (*v1.DeploymentList, error) {
-	deployments, err := c.clientSet.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
+func (c *cloud) ListDeployments(ctx context.Context, namespace string) (*v1.DeploymentList, error) {
+	deployments, err := c.clientSet.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Logger.Errorf("failed to list deployments: %v", err)
 		return nil, err
 	}
 
 	return deployments, nil
+}
+
+func (c *cloud) DeleteDeployment(ctx context.Context, namespace, name string) error {
+	err := c.clientSet.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to delete  %v deployments %v : %v", namespace, name, err)
+		return err
+	}
+	return nil
 }
