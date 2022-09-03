@@ -19,13 +19,11 @@ package main
 import (
 	"os"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/caoyingjunz/gopixiu/cmd/app"
 )
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	//gin.SetMode(gin.ReleaseMode)
 
 	cmd := app.NewServerCommand()
 	if err := cmd.Execute(); err != nil {

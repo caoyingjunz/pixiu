@@ -29,10 +29,11 @@ type Config struct {
 }
 
 type DefaultOptions struct {
-	Listen   int    `yaml:"listen"`
-	LogDir   string `yaml:"log_dir"`
-	LogLevel string `yaml:"log_level"`
-	JWTKey   string `yaml:"jwt_key"`
+	Listen       int    `yaml:"listen"`
+	LogDir       string `yaml:"log_dir"`
+	LogLevel     string `yaml:"log_level"`
+	JWTKey       string `yaml:"jwt_key"`
+	IsKubeConfig bool   `yaml:"is_kube_config"`
 }
 
 type MysqlOptions struct {

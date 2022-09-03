@@ -180,6 +180,7 @@ func (u *userRouter) login(c *gin.Context) {
 	c.Set("token", token)
 
 	httputils.SetSuccess(c, r)
+	util.GetUUID()
 }
 
 // TODO

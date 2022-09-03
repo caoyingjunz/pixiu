@@ -112,8 +112,10 @@ func (o *Options) register() error {
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
-	if err := o.registerClientSets(); err != nil { // 注册 ClientSets
-		return err
+	if o.ComponentConfig.Default.IsKubeConfig {
+		if err := o.registerClientSets(); err != nil { // 注册 ClientSets
+			return err
+		}
 	}
 
 	return nil
@@ -139,7 +141,7 @@ func (o *Options) registerDatabase() error {
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
-
+	//o.DB.AutoMigrate(&model.Menu{}, &model.Role{}, &model.UserRole{}, &model.RoleMenu{})
 	o.Factory = db.NewDaoFactory(o.DB)
 	return nil
 }
