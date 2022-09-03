@@ -42,6 +42,7 @@ type Cluster struct {
 
 func (*Cluster) TableName() string {
 	return "clusters"
+}
 
 type User struct {
 	gopixiu.Model
