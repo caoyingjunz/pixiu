@@ -30,7 +30,7 @@ func (demo *Demo) TableName() string {
 	return "demos"
 }
 
-type Cluster struct {
+type Cloud struct {
 	gopixiu.Model
 
 	Name        string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
@@ -40,8 +40,9 @@ type Cluster struct {
 	Extension   string `gorm:"type:text" json:"extension"`
 }
 
-func (*Cluster) TableName() string {
-	return "clusters"
+func (*Cloud) TableName() string {
+	return "clouds"
+}
 
 type User struct {
 	gopixiu.Model

@@ -34,6 +34,7 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	if err := pixiu.CoreV1.Cloud().Create(context.TODO(), &cloud); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -44,7 +45,6 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 
 func (s *cloudRouter) updateCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-
 	httputils.SetSuccess(c, r)
 }
 

@@ -23,20 +23,9 @@ type TimeSpec struct {
 }
 
 type Demo struct {
-	Id              int64 `json:"id"`
-	ResourceVersion int64 `json:"resource_version"`
-
-	Name string `json:"name"`
-}
-
-type Cloud struct {
-	Id              int64 `json:"id"`
-	ResourceVersion int64 `json:"resource_version"`
-
-	Name        string `json:"name"`
-	Description string `json:"description"`
-
-	TimeSpec
+	Id              int64  `json:"id"`
+	ResourceVersion int64  `json:"resource_version"`
+	Name            string `json:"name"`
 }
 
 type Cicd struct {
@@ -54,6 +43,16 @@ type User struct {
 	Status          int8   `json:"status"`
 	Role            string `json:"role"`
 	Email           string `json:"email"`
+	Description     string `json:"description"`
+
+	TimeSpec
+}
+
+type Cloud struct {
+	Id              int64  `json:"id"`
+	ResourceVersion int64  `json:"resource_version"`
+	Name            string `json:"name"`
+	KubeConfig      []byte `json:"kube_config"`
 	Description     string `json:"description"`
 
 	TimeSpec

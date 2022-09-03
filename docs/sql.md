@@ -40,9 +40,9 @@ CREATE TABLE `users` (
 insert into users(name, password) values ('admin', 'a66abb5684c45962d887564f08346e8d');
 ```
 
-## 创建 `clusters` 表
+## 创建 `clouds` 表
 ```sql
-CREATE TABLE `clusters` (
+CREATE TABLE `clouds` (
     id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
     gmt_create datetime COMMENT '创建时间',
     gmt_modified datetime COMMENT '修改时间',
