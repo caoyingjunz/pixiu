@@ -37,3 +37,20 @@ CREATE TABLE `users` (
 ```sql
 insert into users(name, password) values ('admin', 'a66abb5684c45962d887564f08346e8d');
 ```
+
+## 创建 `clusters` 表
+```sql
+CREATE TABLE `clusters` (
+    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
+    gmt_create datetime COMMENT '创建时间',
+    gmt_modified datetime COMMENT '修改时间',
+    resource_version int COMMENT '版本号',
+    name varchar(128) COMMENT '用户名',
+    status int COMMENT '集群状态',
+    kube_config text COMMENT 'kubeConfig',
+    description text COMMENT '描述',
+    extension text COMMENT '扩展字段',
+    KEY `idx_name` (`name`),
+    UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=22220801;
+```

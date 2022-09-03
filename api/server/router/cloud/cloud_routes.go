@@ -29,7 +29,7 @@ import (
 
 func (s *cloudRouter) createCluster(c *gin.Context) {
 	r := new(httputils.Response)
-	req := new(types.CloudClusterCreate)
+	req := new(types.Cloud)
 	clusterName := c.Param("cluster_name")
 	config := c.PostForm("config")
 	if len(clusterName) == 0 || len(config) == 0 {
@@ -37,7 +37,7 @@ func (s *cloudRouter) createCluster(c *gin.Context) {
 		return
 	}
 	req.Name, req.Config = clusterName, config
-	if err := pixiu.CoreV1.Cloud().ClusterCreate(context.TODO(), req); err != nil {
+	if err := pixiu.CoreV1.Cloud().DeleteCluster(context.TODO(), req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -52,7 +52,7 @@ func (s *cloudRouter) deleteCluster(c *gin.Context) {
 		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
 		return
 	}
-	if err := pixiu.CoreV1.Cloud().ClusterDelete(context.TODO(), clusterName); err != nil {
+	if err := pixiu.CoreV1.Cloud().DeleteCluster(context.TODO(), clusterName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

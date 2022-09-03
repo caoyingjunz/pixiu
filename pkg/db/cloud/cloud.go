@@ -26,10 +26,11 @@ import (
 )
 
 type CloudInterface interface {
-	ClusterCreate(ctx context.Context, obj *model.CloudCluster) (*model.CloudCluster, error)
-	ClusterGet(ctx context.Context, name string) (*model.CloudCluster, error)
-	ClusterGetAll(ctx context.Context) ([]model.CloudCluster, error)
-	ClusterDelete(ctx context.Context, name string) (*model.CloudCluster, error)
+	Create(ctx context.Context, obj *model.Cluster) (*model.Cluster, error)
+	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
+	Delete(ctx context.Context, cid int64) error
+	Get(ctx context.Context, cid int64) (*model.Cluster, error)
+	List(ctx context.Context) ([]model.Cluster, error)
 }
 
 type cloud struct {
@@ -40,40 +41,55 @@ func NewCloud(db *gorm.DB) CloudInterface {
 	return &cloud{db}
 }
 
-func (s *cloud) ClusterCreate(ctx context.Context, obj *model.CloudCluster) (*model.CloudCluster, error) {
+func (s *cloud) Create(ctx context.Context, obj *model.Cluster) (*model.Cluster, error) {
+	// TODO: gorm 的 webhook
 	now := time.Now()
 	obj.GmtCreate = now
 	obj.GmtModified = now
+
 	if err := s.db.Create(obj).Error; err != nil {
 		return nil, err
 	}
-
 	return obj, nil
 }
 
-func (s *cloud) ClusterGet(ctx context.Context, name string) (*model.CloudCluster, error) {
-	var d model.CloudCluster
-	if err := s.db.Where("name = ?", name).First(&d).Error; err != nil {
-		return nil, err
+func (s *cloud) Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := s.db.Model(&model.Cluster{}).
+		Where("id = ? and resource_version = ?", uid, resourceVersion).
+		Updates(updates)
+	if f.Error != nil {
+		return f.Error
 	}
 
-	return &d, nil
+	return nil
 }
 
-func (s *cloud) ClusterGetAll(ctx context.Context) ([]model.CloudCluster, error) {
-	var d []model.CloudCluster
-	if err := s.db.Find(&d).Error; err != nil {
-		return nil, err
-	}
+func (s *cloud) Delete(ctx context.Context, cid int64) error {
+	return s.db.
+		Where("id = ?", cid).
+		Delete(&model.Cluster{}).
+		Error
 
-	return d, nil
 }
 
-func (s *cloud) ClusterDelete(ctx context.Context, name string) (*model.CloudCluster, error) {
-	var d model.CloudCluster
-	if err := s.db.Where("name = ?", name).Delete(&d).Error; err != nil {
+func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
+	var c model.Cluster
+	if err := s.db.Where("id = ?", cid).First(&c).Error; err != nil {
 		return nil, err
 	}
 
-	return &d, nil
+	return &c, nil
+}
+
+func (s *cloud) List(ctx context.Context) ([]model.Cluster, error) {
+	var cs []model.Cluster
+	if err := s.db.Find(&cs).Error; err != nil {
+		return nil, err
+	}
+
+	return cs, nil
 }

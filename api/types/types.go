@@ -17,12 +17,16 @@ limitations under the License.
 package types
 
 type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
+	Id              int64 `json:"id"`
+	ResourceVersion int64 `json:"resource_version"`
+
+	Name string `json:"name"`
 }
 
-type CloudClusterCreate struct {
-	Name   string `json:"name"`
-	Config string `json:"config"`
+type Cloud struct {
+	Id              int64 `json:"id"`
+	ResourceVersion int64 `json:"resource_version"`
+
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }

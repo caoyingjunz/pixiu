@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +28,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -38,9 +36,10 @@ type CloudGetter interface {
 }
 
 type CloudInterface interface {
+	CreateCluster(ctx context.Context, obj *types.Cloud) error
+	DeleteCluster(ctx context.Context, cid int64) error
+
 	ListDeployments(ctx context.Context, clusterName string) (*v1.DeploymentList, error)
-	ClusterCreate(ctx context.Context, obj *types.CloudClusterCreate) error
-	ClusterDelete(ctx context.Context, clusterName string) error
 }
 
 type cloud struct {
@@ -61,12 +60,12 @@ func newCloud(c *pixiu) CloudInterface {
 
 func RegisterClientSets(factory db.ShareDaoFactory) (map[string]*kubernetes.Clientset, error) {
 	clientSets := map[string]*kubernetes.Clientset{}
-	clusters, err := factory.Cloud().ClusterGetAll(context.TODO())
+	clusters, err := factory.Cloud().List(context.TODO())
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range clusters {
-		c, err := newClientSet([]byte(v.Config))
+		c, err := newClientSet([]byte(v.KubeConfig))
 		if err != nil {
 			return nil, err
 		}
@@ -98,45 +97,11 @@ func (c *cloud) getClientSet(name string) (*kubernetes.Clientset, error) {
 	return clientSet, nil
 }
 
-func (c *cloud) ClusterCreate(ctx context.Context, obj *types.CloudClusterCreate) error {
-	var lock sync.RWMutex
-	lock.Lock()
-	defer lock.Unlock()
-
-	clientSet, err := newClientSet([]byte(obj.Config))
-	if err != nil {
-		log.Logger.Errorf("failed to create %s cloud cluster: %v", obj.Name, err)
-		return err
-	}
-
-	if _, err = c.getClientSet(obj.Name); err == nil {
-		return fmt.Errorf("cluster already exists")
-	}
-
-	_, err = c.factory.Cloud().ClusterCreate(ctx, &model.CloudCluster{
-		Name:   obj.Name,
-		Config: obj.Config,
-	})
-	if err != nil {
-		log.Logger.Errorf("failed to create %s cloud cluster: %v", obj.Name, err)
-		return err
-	}
-
-	c.clientSets[obj.Name] = clientSet
-
+func (c *cloud) CreateCluster(ctx context.Context, obj *types.Cloud) error {
 	return nil
 }
 
-func (c *cloud) ClusterDelete(ctx context.Context, clusterName string) error {
-	if _, err := c.getClientSet(clusterName); err != nil {
-		return err
-	}
-	if _, err := c.factory.Cloud().ClusterDelete(ctx, clusterName); err != nil {
-		log.Logger.Errorf("failed to delete %s cloud cluster: %v", clusterName, err)
-		return err
-	}
-	delete(c.clientSets, clusterName)
-
+func (c *cloud) DeleteCluster(ctx context.Context, cid int64) error {
 	return nil
 }
 
