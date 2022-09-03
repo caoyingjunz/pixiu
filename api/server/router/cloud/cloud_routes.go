@@ -44,8 +44,10 @@ func readConfig(c *gin.Context) ([]byte, error) {
 
 func (s *cloudRouter) createCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-	var cloud types.Cloud
-	var err error
+	var (
+		err   error
+		cloud types.Cloud
+	)
 	if err = c.ShouldBindJSON(&cloud); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
