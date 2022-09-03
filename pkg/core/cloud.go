@@ -18,11 +18,14 @@ package core
 
 import (
 	"context"
+	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -33,15 +36,17 @@ type CloudGetter interface {
 }
 
 type CloudInterface interface {
-	ListDeployments(ctx context.Context, namespace string) (*v1.DeploymentList, error)
-	DeleteDeployment(ctx context.Context, namespace, name string) error
+	CreateCluster(ctx context.Context, obj *types.Cloud) error
+	DeleteCluster(ctx context.Context, cid int64) error
+
+	ListDeployments(ctx context.Context, clusterName string) (*v1.DeploymentList, error)
 }
 
 type cloud struct {
 	ComponentConfig config.Config
 	app             *pixiu
 	factory         db.ShareDaoFactory
-	clientSet       *kubernetes.Clientset
+	clientSets      map[string]*kubernetes.Clientset
 }
 
 func newCloud(c *pixiu) CloudInterface {
@@ -49,25 +54,67 @@ func newCloud(c *pixiu) CloudInterface {
 		ComponentConfig: c.cfg,
 		app:             c,
 		factory:         c.factory,
-		clientSet:       c.clientSet,
+		clientSets:      c.clientSets,
 	}
 }
 
-func (c *cloud) ListDeployments(ctx context.Context, namespace string) (*v1.DeploymentList, error) {
-	deployments, err := c.clientSet.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+func RegisterClientSets(factory db.ShareDaoFactory) (map[string]*kubernetes.Clientset, error) {
+	clientSets := map[string]*kubernetes.Clientset{}
+	clusters, err := factory.Cloud().List(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range clusters {
+		c, err := newClientSet([]byte(v.KubeConfig))
+		if err != nil {
+			return nil, err
+		}
+		clientSets[v.Name] = c
+	}
+
+	return clientSets, nil
+}
+
+func newClientSet(config []byte) (*kubernetes.Clientset, error) {
+	c, err := clientcmd.RESTConfigFromKubeConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	cs, err := kubernetes.NewForConfig(c)
+	if err != nil {
+		return nil, err
+	}
+
+	return cs, nil
+}
+
+func (c *cloud) getClientSet(name string) (*kubernetes.Clientset, error) {
+	clientSet := c.clientSets[name]
+	if clientSet == nil {
+		return nil, fmt.Errorf("cluster not found")
+	}
+	return clientSet, nil
+}
+
+func (c *cloud) CreateCluster(ctx context.Context, obj *types.Cloud) error {
+	return nil
+}
+
+func (c *cloud) DeleteCluster(ctx context.Context, cid int64) error {
+	return nil
+}
+
+func (c *cloud) ListDeployments(ctx context.Context, clusterName string) (*v1.DeploymentList, error) {
+	clientSet, err := c.getClientSet(clusterName)
+	if err != nil {
+		return nil, err
+	}
+	deployments, err := clientSet.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Logger.Errorf("failed to list deployments: %v", err)
 		return nil, err
 	}
 
 	return deployments, nil
-}
-
-func (c *cloud) DeleteDeployment(ctx context.Context, namespace, name string) error {
-	err := c.clientSet.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to delete  %v deployments %v : %v", namespace, name, err)
-		return err
-	}
-	return nil
 }

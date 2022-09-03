@@ -23,9 +23,18 @@ type TimeSpec struct {
 }
 
 type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
+	Id              int64 `json:"id"`
+	ResourceVersion int64 `json:"resource_version"`
+
+	Name string `json:"name"`
+}
+
+type Cloud struct {
+	Id              int64 `json:"id"`
+	ResourceVersion int64 `json:"resource_version"`
+
+	Name        string `json:"name"`
+	Description string `json:"description"`
 
 	TimeSpec
 }

@@ -30,7 +30,9 @@ func NewRouter(ginEngine *gin.Engine) {
 func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 	cloudRoute := ginEngine.Group("/cloud")
 	{
+		cloudRoute.POST("/cluster/:cluster_name", s.createCluster)
+		cloudRoute.DELETE("/cluster/:cluster_name", s.deleteCluster)
+
 		cloudRoute.GET("/deployments/:namespace", s.listDeployments)
-		cloudRoute.DELETE("/deployments/:namespace/:name", s.deleteDeployment)
 	}
 }

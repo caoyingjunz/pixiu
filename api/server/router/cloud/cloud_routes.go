@@ -18,21 +18,56 @@ package cloud
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
+func (s *cloudRouter) createCluster(c *gin.Context) {
+	r := new(httputils.Response)
+	req := new(types.Cloud)
+	clusterName := c.Param("cluster_name")
+	config := c.PostForm("config")
+	if len(clusterName) == 0 || len(config) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
+		return
+	}
+	req.Name, req.Config = clusterName, config
+	if err := pixiu.CoreV1.Cloud().DeleteCluster(context.TODO(), req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) deleteCluster(c *gin.Context) {
+	r := new(httputils.Response)
+	clusterName := c.Param("cluster_name")
+	if len(clusterName) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
+		return
+	}
+	if err := pixiu.CoreV1.Cloud().DeleteCluster(context.TODO(), clusterName); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
-	namespace := c.Param("namespace")
-	if namespace == "" {
-		namespace = "default"
+	clusterName := c.Param("cluster_name")
+	if len(clusterName) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
+		return
 	}
-	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), namespace)
+	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), clusterName)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
