@@ -19,6 +19,7 @@ package options
 import (
 	"context"
 	"fmt"
+	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"os"
 
 	"github.com/bndr/gojenkins"
@@ -141,7 +142,7 @@ func (o *Options) registerDatabase() error {
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
-	//o.DB.AutoMigrate(&model.Menu{}, &model.Role{}, &model.UserRole{}, &model.RoleMenu{})
+	o.DB.AutoMigrate(&model.Menu{}, &model.Role{}, &model.UserRole{}, &model.RoleMenu{})
 	o.Factory = db.NewDaoFactory(o.DB)
 	return nil
 }

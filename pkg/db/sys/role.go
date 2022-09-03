@@ -3,6 +3,7 @@ package sys
 import (
 	"context"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"gorm.io/gorm"
 )
 
@@ -28,6 +29,7 @@ func NewRole(db *gorm.DB) *role {
 func (r *role) Create(c context.Context, obj *model.Role) (*model.Role, error) {
 
 	if err := r.db.Create(obj).Error; err != nil {
+		log.Logger.Errorf(err.Error())
 		return nil, err
 	}
 	return obj, nil
@@ -38,7 +40,27 @@ func (r *role) Update(c context.Context, role *model.Role) error {
 }
 
 func (r *role) Delete(c context.Context, rid int64) error {
-	return r.db.Delete(model.Role{}, rid).Error
+	tx := r.db.Begin()
+	defer func() {
+		if err := recover(); err != nil {
+			tx.Rollback()
+		}
+	}()
+	if err := tx.Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	// 删除角色
+	if err := tx.Where("id = ?", rid).Delete(&model.Role{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	//删除角色相关的菜单
+	if err := tx.Where("role_id = ?", rid).Delete(&model.RoleMenu{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
 }
 
 func (r *role) Get(c context.Context, rid int64) (role *model.Role, err error) {

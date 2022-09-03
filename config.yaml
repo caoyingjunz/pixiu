@@ -11,10 +11,10 @@ default:
 
 # 数据库地址信息
 mysql:
-  host: 42.192.54.11
-  user: lbemi
-  password: Admin_1234
-  port: 3333
+  host: gopixiu
+  user: root
+  password: GoPixiu868686
+  port: 3306
   name: gopixiu
 
 cicd:
