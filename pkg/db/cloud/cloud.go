@@ -73,7 +73,6 @@ func (s *cloud) Delete(ctx context.Context, cid int64) error {
 		Where("id = ?", cid).
 		Delete(&model.Cloud{}).
 		Error
-
 }
 
 func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cloud, error) {

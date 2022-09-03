@@ -54,12 +54,11 @@ func (pixiu *pixiu) Cloud() CloudInterface {
 	return newCloud(pixiu)
 }
 
-func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins, clientSets map[string]*kubernetes.Clientset) CoreV1Interface {
+func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
 	return &pixiu{
 		cfg:        cfg,
 		factory:    factory,
 		cicdDriver: cicdDriver,
-		clientSets: clientSets,
 	}
 }
 

@@ -48,8 +48,13 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		err   error
 		cloud types.Cloud
 	)
-	if err = c.ShouldBindJSON(&cloud); err != nil {
-		httputils.SetFailed(c, r, err)
+	//if err = c.ShouldBindJSON(&cloud); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	cloud.Name = c.Param("name")
+	if len(cloud.Name) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
 		return
 	}
 	cloud.KubeConfig, err = readConfig(c)

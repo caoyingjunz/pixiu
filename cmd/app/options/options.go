@@ -27,10 +27,8 @@ import (
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
-	"github.com/caoyingjunz/gopixiu/pkg/core"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
@@ -55,12 +53,8 @@ type Options struct {
 	// CICD 的驱动接口
 	CicdDriver *gojenkins.Jenkins
 
-	// ClientSets
-	ClientSets map[string]*kubernetes.Clientset
-
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
-	KubeConfig string // Path to a kubeConfig.
 }
 
 func NewOptions() (*Options, error) {
@@ -111,9 +105,6 @@ func (o *Options) register() error {
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
-	if err := o.registerClientSets(); err != nil { // 注册 ClientSets
-		return err
-	}
 
 	return nil
 }
@@ -153,15 +144,6 @@ func (o *Options) registerCicdDriver() error {
 		}
 	}
 
-	return nil
-}
-
-func (o *Options) registerClientSets() error {
-	var err error
-	o.ClientSets, err = core.RegisterClientSets(o.Factory)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
