@@ -19,6 +19,7 @@ package cloud
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,15 +28,34 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
+func readConfig(c *gin.Context) ([]byte, error) {
+	config, err := c.FormFile("kubeconfig")
+	if err != nil {
+		return nil, err
+	}
+	file, err := config.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return ioutil.ReadAll(file)
+}
+
 func (s *cloudRouter) createCloud(c *gin.Context) {
 	r := httputils.NewResponse()
 	var cloud types.Cloud
-	if err := c.ShouldBindJSON(&cloud); err != nil {
+	var err error
+	if err = c.ShouldBindJSON(&cloud); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	if err := pixiu.CoreV1.Cloud().Create(context.TODO(), &cloud); err != nil {
+	cloud.KubeConfig, err = readConfig(c)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Create(context.TODO(), &cloud); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
