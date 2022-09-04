@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,7 @@ func (*menuRouter) addMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	var menu model.Menu
 	if err := c.ShouldBindJSON(&menu); err != nil {
+		log.Logger.Errorf(err.Error())
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -29,9 +29,14 @@ func (r *roleRouter) initRoutes(ginEngine *gin.Engine) {
 	userRoute := ginEngine.Group("/role")
 	{
 		userRoute.POST("", r.addRole)
-		userRoute.DELETE("/:id", r.deleteRole)
+		userRoute.DELETE("", r.deleteRole)
 		userRoute.PUT("/:id", r.updateRole)
 		userRoute.GET("/:id", r.getRole)
 		userRoute.GET("", r.listRoles)
+
+		// 获取角色权限
+		userRoute.GET("/:id/menus", r.getMenusByRole)
+		userRoute.POST("/:id/menus", r.setRoleMenus)
+
 	}
 }

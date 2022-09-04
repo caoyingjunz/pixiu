@@ -82,5 +82,6 @@ func Register(logDir string, logLevel string) {
 		RotateMaxSize:    500,
 		RotateMaxAge:     7,
 		RotateMaxBackups: 3,
-	})
+	},
+	)
 }

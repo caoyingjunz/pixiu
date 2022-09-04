@@ -31,6 +31,7 @@ type CoreV1Interface interface {
 	UserGetter
 	RoleGetter
 	MenuGetter
+	CasbinGetter
 }
 
 type pixiu struct {
@@ -62,6 +63,10 @@ func (pixiu *pixiu) Role() RoleInterface {
 
 func (pixiu *pixiu) Menu() MenuInterface {
 	return newMenu(pixiu)
+}
+
+func (pixiu *pixiu) Casbin() CasbinInterface {
+	return newCasbin(pixiu)
 }
 
 func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins, clientSet *kubernetes.Clientset) CoreV1Interface {

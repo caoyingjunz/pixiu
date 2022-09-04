@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"fmt"
-
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -46,6 +45,10 @@ type UserInterface interface {
 	Login(ctx context.Context, obj *types.User) (string, error)
 
 	GetJWTKey() []byte
+
+	GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) // SetRoles 为用户分配角色，可以是多个角色
+	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
+	GetMenus(ctx context.Context, uid int64) (*[]model.Menu, error)
 }
 
 type user struct {
@@ -226,4 +229,29 @@ func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[stri
 	}
 
 	return updates
+}
+
+func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) {
+	roleInfo, err := u.factory.User().GetRoleIDByUser(ctx, uid)
+	return roleInfo, err
+}
+
+func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error) {
+	err = u.factory.User().SetUserRoles(ctx, uid, rids)
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return
+	}
+	ridStruct, err := u.factory.User().GetRoleIDByUser(ctx, uid)
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return
+	}
+	go u.factory.Casbin().CasbinAddRoleForUser(uid, ridStruct["role_ids"])
+	return
+}
+
+func (u *user) GetMenus(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
+	menus, err = u.factory.User().GetMenus(ctx, uid)
+	return
 }

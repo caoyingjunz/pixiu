@@ -9,8 +9,8 @@ import (
 // RoleMenu 角色-菜单
 type RoleMenu struct {
 	gopixiu.Model
-	RoleID uint64 `gorm:"column:role_id;unique_index:uk_role_menu_role_id;not null;"` // 角色ID
-	MenuID uint64 `gorm:"column:menu_id;unique_index:uk_role_menu_role_id;not null;"` // 菜单ID
+	RoleID int64 `gorm:"column:role_id;unique_index:uk_role_menu_role_id;not null;"` // 角色ID
+	MenuID int64 `gorm:"column:menu_id;unique_index:uk_role_menu_role_id;not null;"` // 菜单ID
 }
 
 // TableName 表名

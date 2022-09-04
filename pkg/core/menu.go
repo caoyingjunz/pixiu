@@ -31,6 +31,7 @@ func newMenu(c *pixiu) sys.MenuInterface {
 	}
 }
 func (m *menu) Create(c context.Context, obj *model.Menu) (menu *model.Menu, err error) {
+
 	if menu, err = m.factory.Menu().Create(c, obj); err != nil {
 		return
 	}
@@ -63,5 +64,10 @@ func (m *menu) GetByRoleID(c context.Context, roleID uint64) (menu *model.Menu, 
 	if menu, err = m.factory.Menu().GetByRoleID(c, roleID); err != nil {
 		return nil, err
 	}
+	return
+}
+
+func (m *menu) GetByIds(c context.Context, mids []int64) (menus *[]model.Menu, err error) {
+	menus, err = m.factory.Menu().GetByIds(c, mids)
 	return
 }

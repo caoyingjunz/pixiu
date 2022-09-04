@@ -8,8 +8,8 @@ import (
 
 type UserRole struct {
 	gopixiu.Model
-	UserID uint64 `gorm:"column:user_id;unique_index:uk_user_role_user_id;not null;"` // 管理员ID
-	RoleID uint64 `gorm:"column:role_id;unique_index:uk_user_role_user_id;not null;"` // 角色ID
+	UserID int64 `gorm:"column:user_id;unique_index:uk_user_role_user_id;not null;"` // 管理员ID
+	RoleID int64 `gorm:"column:role_id;unique_index:uk_user_role_user_id;not null;"` // 角色ID
 }
 
 // TableName 自定义表名

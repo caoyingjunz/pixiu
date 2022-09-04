@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/casbin/casbin/v2"
+	csmodel "github.com/casbin/casbin/v2/model"
+	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"os"
 
 	"github.com/bndr/gojenkins"
@@ -62,6 +65,7 @@ type Options struct {
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
 	KubeConfig string // Path to a kubeConfig.
+	Enforcer   *casbin.Enforcer
 }
 
 func NewOptions() (*Options, error) {
@@ -143,7 +147,13 @@ func (o *Options) registerDatabase() error {
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	o.DB.AutoMigrate(&model.Menu{}, &model.Role{}, &model.UserRole{}, &model.RoleMenu{})
-	o.Factory = db.NewDaoFactory(o.DB)
+	//注册casbin
+	err = o.registerCasbinEnforcer()
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return err
+	}
+	o.Factory = db.NewDaoFactory(o.DB, o.Enforcer)
 	return nil
 }
 
@@ -171,6 +181,52 @@ func (o *Options) registerClientSets() error {
 		return err
 	}
 	return nil
+}
+
+// 注册casbin
+func (o *Options) registerCasbinEnforcer() (err error) {
+	rbacRules :=
+		`
+	[request_definition]
+	r = sub, obj, act
+	
+	[policy_definition]
+	p = sub, obj, act
+	
+	[role_definition]
+	g = _, _
+
+	[policy_effect]
+	e = some(where (p.eft == allow))
+	
+	[matchers]
+	m = g(r.sub, p.sub) && keyMatch2(r.obj, p.obj) && regexMatch(r.act, p.act) || r.sub == "21220804"
+	`
+	m, err := csmodel.NewModelFromString(rbacRules)
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return
+	}
+	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(o.DB, &model.CasbinModel{})
+
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return
+	}
+	enforcer, err := casbin.NewEnforcer(m, adapter)
+
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return
+	}
+	err = enforcer.LoadPolicy()
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return
+	}
+	//enforcer.SavePolicy()
+	o.Enforcer = enforcer
+	return
 }
 
 // Validate validates all the required options.

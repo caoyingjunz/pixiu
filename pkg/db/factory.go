@@ -19,6 +19,7 @@ package db
 import (
 	"errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/sys"
+	"github.com/casbin/casbin/v2"
 
 	"gorm.io/gorm"
 
@@ -43,10 +44,12 @@ type ShareDaoFactory interface {
 	Demo() demo.DemoInterface
 	Role() sys.RoleInterface
 	Menu() sys.MenuInterface
+	Casbin() sys.CasbinInterface
 }
 
 type shareDaoFactory struct {
-	db *gorm.DB
+	db       *gorm.DB
+	enforcer *casbin.Enforcer
 }
 
 func (f *shareDaoFactory) Demo() demo.DemoInterface {
@@ -62,8 +65,13 @@ func (f *shareDaoFactory) Menu() sys.MenuInterface {
 	return sys.NewMenu(f.db)
 }
 
-func NewDaoFactory(db *gorm.DB) ShareDaoFactory {
+func (f *shareDaoFactory) Casbin() sys.CasbinInterface {
+	return sys.NewCasbin(f.db, f.enforcer)
+}
+
+func NewDaoFactory(db *gorm.DB, enforcer *casbin.Enforcer) ShareDaoFactory {
 	return &shareDaoFactory{
-		db: db,
+		db:       db,
+		enforcer: enforcer,
 	}
 }

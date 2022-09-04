@@ -15,6 +15,7 @@ type MenuInterface interface {
 	List(context.Context) ([]model.Menu, error)
 
 	GetByRoleID(context.Context, uint64) (*model.Menu, error)
+	GetByIds(c context.Context, mids []int64) (menus *[]model.Menu, err error)
 }
 
 type menu struct {
@@ -55,21 +56,17 @@ func (m *menu) List(c context.Context) (menus []model.Menu, err error) {
 	return
 }
 
-/*
-
-db.Table("go_service_info").Select("go_service_info.serviceId as service_id, go_service_info.serviceName as service_name,
-go_system_info.systemId as system_id, go_system_info.systemName as system_name").
-Joins("left join go_system_info on go_service_info.systemId = go_system_info.systemId
-where go_service_info.serviceId <> ? and go_system_info.systemId = ?", "xxx", "xxx").Scan(&results)
-
-*/
-
 //GetByRoleID 根据角色ID查询该角色下所有菜单
 func (m *menu) GetByRoleID(c context.Context, roleID uint64) (menu *model.Menu, err error) {
 	m.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.code,menu.method").
 		Joins("left join role_menu on menu.id = role_menu.menu_id ").Scan(&menu)
-	//if err := m.db.Where("name = ?", roleID).First(&menu).Error; err != nil {
-	//	return nil, err
-	//}
+
+	return
+}
+
+func (m *menu) GetByIds(c context.Context, mids []int64) (menus *[]model.Menu, err error) {
+	if err := m.db.Where("id in ?", mids).Find(&menus).Error; err != nil {
+		return nil, err
+	}
 	return
 }

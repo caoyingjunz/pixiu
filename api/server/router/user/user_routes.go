@@ -18,8 +18,9 @@ package user
 
 import (
 	"context"
-
+	"github.com/caoyingjunz/gopixiu/api/server/common"
 	"github.com/gin-gonic/gin"
+	"net/http"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
@@ -111,6 +112,52 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (u *userRouter) getRoleIDsByUser(c *gin.Context) {
+	uid, isExit := c.Get("userId")
+	r := httputils.NewResponse()
+	if !isExit {
+		r.SetCode(common.ErrorCodePermissionDeny)
+		httputils.SetFailed(c, r, "无权限")
+		return
+	}
+	result, err := pixiu.CoreV1.User().GetRoleIDByUser(c, uid.(int64))
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "获取失败")
+	}
+	r.Result = result
+
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) setRolesByUserId(c *gin.Context) {
+
+	var roleIds []int64
+	roleId := map[string][]int64{
+		"role_ids": roleIds,
+	}
+	r := httputils.NewResponse()
+	err := c.ShouldBindJSON(&roleId)
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "参数错误")
+		return
+	}
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	err = pixiu.CoreV1.User().SetUserRoles(c, uid, roleId["role_ids"])
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "内部错误")
+		return
+	}
+	r.SetCode(http.StatusOK)
+	httputils.SetSuccess(c, r)
+}
+
 // login
 // 1. 检验用户名和密码是否正确，
 // 2. 返回 token
@@ -131,6 +178,26 @@ func (u *userRouter) login(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 	util.GetUUID()
+}
+
+func (u *userRouter) getMenus(c *gin.Context) {
+	uidStr, _ := c.Get("userId")
+	r := httputils.NewResponse()
+	uid := uidStr.(int64)
+	//if err != nil {
+	//	r.SetCode(http.StatusBadRequest)
+	//	httputils.SetFailed(c, r, "参数错误")
+	//	return
+	//}
+
+	res, err := pixiu.CoreV1.User().GetMenus(c, uid)
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "内部错误")
+		return
+	}
+	r.Result = res
+	httputils.SetSuccess(c, r)
 }
 
 // TODO
