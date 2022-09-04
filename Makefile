@@ -7,7 +7,7 @@ dockerhubUser = sl01248
 ALL: run
 
 run: build
-	./gopixiu --configfile ./config.yaml --kubeconfig ./kubeconfig
+	./gopixiu --configfile ./config.yaml
 
 build:
 	go build -o $(releaseName) ./cmd/
