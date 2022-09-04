@@ -83,8 +83,10 @@ func (s *cloudRouter) deleteCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	r.Result = cid
+	if err = pixiu.CoreV1.Cloud().Delete(context.TODO(), cid); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -116,24 +118,34 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// listDeployments API: clouds/<cloud_name>/namespaces/<ns>/deployments
 func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
-	clusterName := c.Param("cluster_name")
-	if len(clusterName) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
+	var (
+		err         error
+		listOptions types.ListOptions
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), clusterName)
+	r.Result, err = pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), listOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = deployments.Items
+
 	httputils.SetSuccess(c, r)
 }
 
 func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var deleteOptions types.GetOrDeleteOptions
+	if err := c.ShouldBindUri(&deleteOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }

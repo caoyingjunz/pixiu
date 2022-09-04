@@ -22,6 +22,17 @@ type TimeSpec struct {
 	GmtModified interface{} `json:"gmt_modified,omitempty"`
 }
 
+type ListOptions struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+	Namespace string `uri:"namespace" binding:"required"`
+}
+
+type GetOrDeleteOptions struct {
+	ListOptions
+
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
 type Demo struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`
