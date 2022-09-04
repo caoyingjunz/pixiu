@@ -38,7 +38,7 @@ type pixiu struct {
 	cfg        config.Config
 	factory    db.ShareDaoFactory
 	cicdDriver *gojenkins.Jenkins
-	clientSet  *kubernetes.Clientset
+	clientSets map[string]*kubernetes.Clientset
 }
 
 func (pixiu *pixiu) Demo() DemoInterface {
@@ -69,12 +69,11 @@ func (pixiu *pixiu) Casbin() CasbinInterface {
 	return newCasbin(pixiu)
 }
 
-func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins, clientSet *kubernetes.Clientset) CoreV1Interface {
+func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
 	return &pixiu{
 		cfg:        cfg,
 		factory:    factory,
 		cicdDriver: cicdDriver,
-		clientSet:  clientSet,
 	}
 }
 

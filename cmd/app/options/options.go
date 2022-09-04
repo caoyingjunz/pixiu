@@ -31,8 +31,6 @@ import (
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -59,12 +57,8 @@ type Options struct {
 	// CICD 的驱动接口
 	CicdDriver *gojenkins.Jenkins
 
-	// ClientSets
-	ClientSets *kubernetes.Clientset
-
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
-	KubeConfig string // Path to a kubeConfig.
 	Enforcer   *casbin.Enforcer
 }
 
@@ -106,7 +100,6 @@ func (o *Options) Complete() error {
 // BindFlags binds the pixiu Configuration struct fields
 func (o *Options) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.ConfigFile, "configfile", "", "The location of the gopixiu configuration file")
-	cmd.Flags().StringVar(&o.KubeConfig, "kubeconfig", "", "The location of the kubeconfig file") // TODO: will be removed
 }
 
 func (o *Options) register() error {
@@ -116,11 +109,6 @@ func (o *Options) register() error {
 	}
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
-	}
-	if o.ComponentConfig.Default.IsKubeConfig {
-		if err := o.registerClientSets(); err != nil { // 注册 ClientSets
-			return err
-		}
 	}
 
 	return nil
@@ -167,19 +155,6 @@ func (o *Options) registerCicdDriver() error {
 		}
 	}
 
-	return nil
-}
-
-func (o *Options) registerClientSets() error {
-	kubeConfig, err := clientcmd.BuildConfigFromFlags("", o.KubeConfig)
-	if err != nil {
-		return err
-	}
-	// 生成clientSet
-	o.ClientSets, err = kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

@@ -90,6 +90,10 @@ func Run(opt *options.Options) error {
 
 	// 设置核心应用接口
 	pixiu.Setup(opt)
+	// 初始化已存在 cloud clients
+	if err := pixiu.CoreV1.Cloud().InitCloudClients(); err != nil {
+		return err
+	}
 
 	// 初始化 api 路由
 	InitRouters(opt)
