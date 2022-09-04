@@ -52,6 +52,7 @@ type Cloud struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
+	Status          int    `json:"status"`
 	KubeConfig      []byte `json:"kube_config"`
 	Description     string `json:"description"`
 
