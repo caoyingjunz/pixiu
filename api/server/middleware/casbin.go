@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"errors"
-	"fmt"
 	"github.com/caoyingjunz/gopixiu/api/server/common"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -28,7 +27,6 @@ func CasbinMiddleware() gin.HandlerFunc {
 		}
 
 		m := c.Request.Method
-		fmt.Printf("------------url: %v, method: %v, UID: %v \n", p, m, uid)
 		e := pixiu.CoreV1.Casbin().GetEnforce()
 		if e == nil {
 			log.Logger.Errorf("cabin初始化失败.")
