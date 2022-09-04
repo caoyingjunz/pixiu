@@ -17,7 +17,6 @@ limitations under the License.
 package db
 
 import (
-	"errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/sys"
 	"github.com/casbin/casbin/v2"
 

@@ -76,7 +76,7 @@ type Claims struct {
 // GenerateToken 生成 token
 func GenerateToken(uid int64, name string, jwtKey []byte) (string, error) {
 	// Generate jwt, 临时有效期 360 分钟
-	expireTime := time.Now().Add(3000 * time.Minute)
+	expireTime := time.Now().Add(360 * time.Minute)
 	claims := &Claims{
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expireTime.Unix(),
