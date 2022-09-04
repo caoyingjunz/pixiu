@@ -28,18 +28,9 @@ func NewRouter(ginEngine *gin.Engine) {
 }
 
 func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
-	// Set a lower memory limit for multipart forms (default is 32 MiB)
-	ginEngine.MaxMultipartMemory = 8 << 20 // 8 MiB
-
-	cloudRoute := ginEngine.Group("/clouds")
+	cloudRoute := ginEngine.Group("/cloud")
 	{
-		//  k8s cluster API
-		cloudRoute.POST("/:name", s.createCloud) // TODO: will optimise
-		cloudRoute.PUT("/:cid", s.updateCloud)
-		cloudRoute.DELETE("/:cid", s.deleteCloud)
-		cloudRoute.GET("/:cid", s.getCloud)
-		cloudRoute.GET("", s.listClouds)
-
 		cloudRoute.GET("/deployments/:namespace", s.listDeployments)
+		cloudRoute.DELETE("/deployments/:namespace/:name", s.deleteDeployment)
 	}
 }

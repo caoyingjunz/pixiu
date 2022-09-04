@@ -26,16 +26,16 @@ import (
 	"os"
 
 	"github.com/bndr/gojenkins"
+	"github.com/caoyingjunz/gopixiu/cmd/app/config"
+	"github.com/caoyingjunz/gopixiu/pkg/db"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"github.com/caoyingjunz/gopixiu/pkg/types"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -57,8 +57,12 @@ type Options struct {
 	// CICD 的驱动接口
 	CicdDriver *gojenkins.Jenkins
 
+	// ClientSets
+	ClientSets *kubernetes.Clientset
+
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
+	KubeConfig string // Path to a kubeConfig.
 	Enforcer   *casbin.Enforcer
 }
 
@@ -100,6 +104,7 @@ func (o *Options) Complete() error {
 // BindFlags binds the pixiu Configuration struct fields
 func (o *Options) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.ConfigFile, "configfile", "", "The location of the gopixiu configuration file")
+	cmd.Flags().StringVar(&o.KubeConfig, "kubeconfig", "", "The location of the kubeconfig file") // TODO: will be removed
 }
 
 func (o *Options) register() error {
@@ -134,7 +139,7 @@ func (o *Options) registerDatabase() error {
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
-	o.DB.AutoMigrate(&model.Menu{}, &model.Role{}, &model.UserRole{}, &model.RoleMenu{})
+	//o.DB.AutoMigrate(&model.Menu{}, &model.Role{}, &model.UserRole{}, &model.RoleMenu{})
 	//注册casbin
 	err = o.registerCasbinEnforcer()
 	if err != nil {

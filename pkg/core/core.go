@@ -38,7 +38,7 @@ type pixiu struct {
 	cfg        config.Config
 	factory    db.ShareDaoFactory
 	cicdDriver *gojenkins.Jenkins
-	clientSets map[string]*kubernetes.Clientset
+	clientSet  *kubernetes.Clientset
 }
 
 func (pixiu *pixiu) Demo() DemoInterface {
