@@ -35,7 +35,7 @@ type pixiu struct {
 	cfg        config.Config
 	factory    db.ShareDaoFactory
 	cicdDriver *gojenkins.Jenkins
-	clientSet  *kubernetes.Clientset
+	clientSets map[string]*kubernetes.Clientset
 }
 
 func (pixiu *pixiu) Demo() DemoInterface {
@@ -54,11 +54,14 @@ func (pixiu *pixiu) Cloud() CloudInterface {
 	return newCloud(pixiu)
 }
 
-func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins, clientSet *kubernetes.Clientset) CoreV1Interface {
+func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
 	return &pixiu{
 		cfg:        cfg,
 		factory:    factory,
 		cicdDriver: cicdDriver,
-		clientSet:  clientSet,
 	}
 }
+
+const (
+	timeLayout = "2006-01-02 15:04:05.999999999"
+)

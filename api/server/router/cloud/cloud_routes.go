@@ -18,21 +18,94 @@ package cloud
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (s *cloudRouter) ListDeployments(c *gin.Context) {
+func readConfig(c *gin.Context) ([]byte, error) {
+	config, err := c.FormFile("kubeconfig")
+	if err != nil {
+		return nil, err
+	}
+	file, err := config.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return ioutil.ReadAll(file)
+}
+
+func (s *cloudRouter) createCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO())
+	var (
+		err   error
+		cloud types.Cloud
+	)
+	//if err = c.ShouldBindJSON(&cloud); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	cloud.Name = c.Param("name")
+	if len(cloud.Name) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
+		return
+	}
+	cloud.KubeConfig, err = readConfig(c)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = pixiu.CoreV1.Cloud().Create(context.TODO(), &cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) updateCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) deleteCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	cid := c.Param("cid")
+
+	r.Result = cid
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) getCloud(c *gin.Context) {}
+
+func (s *cloudRouter) listClouds(c *gin.Context) {}
+
+func (s *cloudRouter) listDeployments(c *gin.Context) {
+	r := httputils.NewResponse()
+	clusterName := c.Param("cluster_name")
+	if len(clusterName) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
+		return
+	}
+	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), clusterName)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	r.Result = deployments.Items
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) deleteDeployment(c *gin.Context) {
+	r := httputils.NewResponse()
+
 	httputils.SetSuccess(c, r)
 }

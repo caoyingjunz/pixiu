@@ -30,6 +30,20 @@ func (demo *Demo) TableName() string {
 	return "demos"
 }
 
+type Cloud struct {
+	gopixiu.Model
+
+	Name        string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
+	Status      int    `json:"status"`
+	KubeConfig  string `gorm:"type:text" json:"config"` // 集群 config
+	Description string `gorm:"type:text" json:"description"`
+	Extension   string `gorm:"type:text" json:"extension"`
+}
+
+func (*Cloud) TableName() string {
+	return "clouds"
+}
+
 type User struct {
 	gopixiu.Model
 

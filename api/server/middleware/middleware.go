@@ -17,29 +17,22 @@ limitations under the License.
 package middleware
 
 import (
-	"errors"
+	"fmt"
+	"os"
+
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-type Claims struct {
-	jwt.StandardClaims
-
-	Id   int64  `json:"id"`
-	Name string `json:"name"`
-	Role string `json:"role"`
-}
-
 func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(LoggerToFile(), AuthN)
+	ginEngine.Use(LoggerToFile(), Limiter, AuthN)
 }
 
 func LoggerToFile() gin.HandlerFunc {
@@ -62,7 +55,14 @@ func LoggerToFile() gin.HandlerFunc {
 	}
 }
 
+// Limiter TODO
+func Limiter(c *gin.Context) {}
+
 func AuthN(c *gin.Context) {
+	if os.Getenv("DEBUG") == "true" {
+		return
+	}
+
 	// Authentication 身份认证
 	if c.Request.URL.Path == "/users/login" {
 		return
@@ -72,7 +72,7 @@ func AuthN(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	if len(token) == 0 {
 		r.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, r, errors.New("authorization header is not provided"))
+		httputils.SetFailed(c, r, fmt.Errorf("authorization header is not provided"))
 		c.Abort()
 		return
 	}
@@ -80,22 +80,21 @@ func AuthN(c *gin.Context) {
 	fields := strings.Fields(token)
 	if len(fields) != 2 {
 		r.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, r, errors.New("invalid authorization header format"))
+		httputils.SetFailed(c, r, fmt.Errorf("invalid authorization header format"))
 		c.Abort()
 		return
 	}
 
 	if fields[0] != "Bearer" {
 		r.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, r, errors.New("unsupported authorization type"))
+		httputils.SetFailed(c, r, fmt.Errorf("unsupported authorization type"))
 		c.Abort()
 		return
 	}
 
 	accessToken := fields[1]
 	jwtKey := pixiu.CoreV1.User().GetJWTKey()
-	user, err := ValidateJWT(accessToken, []byte(jwtKey))
-
+	claims, err := httputils.ParseToken(accessToken, []byte(jwtKey))
 	if err != nil {
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, err)
@@ -103,28 +102,5 @@ func AuthN(c *gin.Context) {
 		return
 	}
 
-	c.Set("userId", user.Id)
-	c.Next()
-}
-
-func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
-	if err != nil {
-		return tokenString, err
-	}
-
-	return tokenString, nil
-}
-
-func ValidateJWT(token string, jwtKey []byte) (*Claims, error) {
-	var claims Claims
-	t, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
-	if err != nil || !t.Valid {
-		return nil, err
-	}
-
-	return &claims, nil
+	c.Set("userId", claims.Id)
 }
