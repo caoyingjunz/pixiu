@@ -22,6 +22,12 @@ type TimeSpec struct {
 	GmtModified interface{} `json:"gmt_modified,omitempty"`
 }
 
+type Password struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+	ReNewPassword   string `json:"re_new_password"`
+}
+
 type Demo struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`

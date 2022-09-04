@@ -18,6 +18,7 @@ package user
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -135,4 +136,31 @@ func (u *userRouter) login(c *gin.Context) {
 // TODO
 func (u *userRouter) logout(c *gin.Context) {
 
+}
+
+func (u *userRouter) changePassword(c *gin.Context) {
+	r := httputils.NewResponse()
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	// 解析修改密码的三个参数
+	//   1. 当前密码 2. 新密码 3. 确认新密码
+	var pass types.Password
+	if err := c.ShouldBindJSON(&pass); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	// 需要通过 token 中的 id 判断当前操作的用户和需要修改密码的用户是否是同一个
+	// Authorization 头在中间件 authN 已经进行参数校验, 此处不需要进行校验了
+	fileds := strings.Fields(c.GetHeader("Authorization"))
+	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), &pass, uid, fileds[1]); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
 }

@@ -33,6 +33,8 @@ type UserInterface interface {
 	Get(ctx context.Context, uid int64) (*model.User, error)
 	List(ctx context.Context) ([]model.User, error)
 
+	ChangePassword(ctx context.Context, obj *model.User, newPass string) error
+
 	GetByName(ctx context.Context, name string) (*model.User, error)
 }
 
@@ -98,6 +100,18 @@ func (u *user) List(ctx context.Context) ([]model.User, error) {
 	}
 
 	return us, nil
+}
+
+func (u *user) ChangePassword(ctx context.Context, obj *model.User, newPass string) error {
+	user := new(model.User)
+	user.Password = newPass
+	user.ResourceVersion = obj.ResourceVersion + 1
+	tx := u.db.Model(&obj).Where("resource_version = ?", obj.ResourceVersion).Updates(user)
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	return nil
 }
 
 func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
