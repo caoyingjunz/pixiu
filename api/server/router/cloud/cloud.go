@@ -44,5 +44,9 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		// listDeployments API: v1/<cloud_name>/namespaces/<ns>/deployments
 		cloudRoute.GET("/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
 		cloudRoute.DELETE("/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
+		//TODO:缺少body构成方法  暂时写成这样
+		cloudRoute.POST("/v1/:cloud_name/namespaces/:namespace/deployments/:object_name/replicas/:replicas/imagename/:image_name/image/:image/containerport/:container_port", s.createDeployment)
+		//TODO:缺少body构成方法
+		cloudRoute.POST("/v1/:cloud_name/namespaces/:namespace/deployments/:object_name/update", s.updateDeployment)
 	}
 }

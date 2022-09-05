@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
+	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,6 +49,8 @@ type CloudInterface interface {
 
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
+	CreateDeployment(ctx context.Context, createOptions types.GetOrCreateOptions) (string, error)
+	UpdateDeployment(ctx context.Context, updateOptions types.UpdateOptions) error
 }
 
 var clientSets client.ClientsInterface
@@ -202,5 +205,114 @@ func (c *cloud) ListDeployments(ctx context.Context, listOptions types.ListOptio
 }
 
 func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+	clientSet, found := clientSets.Get(deleteOptions.CloudName)
+	if !found {
+		return fmt.Errorf("failed to found %s client", deleteOptions.CloudName)
+	}
+	err := clientSet.AppsV1().Deployments(deleteOptions.Namespace).Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to list %s deployments: %v", deleteOptions.Namespace, err)
+		return err
+	}
+	return nil
+}
+
+func (c *cloud) CreateDeployment(ctx context.Context, createOptions types.GetOrCreateOptions) (string, error) {
+	clientSet, found := clientSets.Get(createOptions.CloudName)
+	if !found {
+		return "", fmt.Errorf("failed to found %s client", createOptions.CloudName)
+	}
+
+	deployment := &v1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: createOptions.ObjectName,
+		},
+		Spec: v1.DeploymentSpec{
+			Replicas: &createOptions.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": createOptions.ObjectName,
+				},
+			},
+			Template: apiv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": createOptions.ObjectName,
+					},
+				},
+				Spec: apiv1.PodSpec{
+					Containers: []apiv1.Container{
+						{
+							Name:  createOptions.ImageName,
+							Image: createOptions.Image,
+							Ports: []apiv1.ContainerPort{
+								{
+									Name:          "http",
+									Protocol:      apiv1.ProtocolTCP,
+									ContainerPort: createOptions.ContainerPort,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	createDeployment, err := clientSet.AppsV1().Deployments(createOptions.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to create %s deployments: %v \t %v", createOptions.Namespace, createOptions.ObjectName, err)
+		return "", err
+	}
+	return createDeployment.GetObjectMeta().GetName(), nil
+}
+
+func (c *cloud) UpdateDeployment(ctx context.Context, updateOptions types.UpdateOptions) error {
+	clientSet, found := clientSets.Get(updateOptions.CloudName)
+	if !found {
+		return fmt.Errorf("failed to found %s client", updateOptions.CloudName)
+	}
+
+	deployment := &v1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: updateOptions.ObjectName,
+		},
+		Spec: v1.DeploymentSpec{
+			Replicas: &updateOptions.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": updateOptions.ObjectName,
+				},
+			},
+			Template: apiv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": updateOptions.ObjectName,
+					},
+				},
+				Spec: apiv1.PodSpec{
+					Containers: []apiv1.Container{
+						{
+							Name:  updateOptions.ImageName,
+							Image: updateOptions.Image,
+							Ports: []apiv1.ContainerPort{
+								{
+									Name:          "http",
+									Protocol:      apiv1.ProtocolTCP,
+									ContainerPort: updateOptions.ContainerPort,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := clientSet.AppsV1().Deployments(updateOptions.Namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to update %s deployments: %v  \t %v", updateOptions.Namespace, updateOptions.ObjectName, err)
+		return err
+	}
 	return nil
 }

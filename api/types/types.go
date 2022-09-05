@@ -33,6 +33,28 @@ type GetOrDeleteOptions struct {
 	ObjectName string `uri:"object_name" binding:"required"`
 }
 
+type GetOrCreateOptions struct {
+	ListOptions
+
+	ObjectName    string            `uri:"object_name" binding:"required"`
+	Replicas      int32             `uri:"replicas"`
+	ImageName     string            `uri:"image_name" binding:"required"`
+	Image         string            `uri:"image" binding:"required"`
+	ContainerPort int32             `uri:"container_port" binding:"required"`
+	Lable         map[string]string `uri:"lable" binding:"required"`
+}
+
+type UpdateOptions struct {
+	ListOptions
+
+	ObjectName    string            `uri:"object_name" binding:"required"`
+	Replicas      int32             `uri:"replicas"`
+	ImageName     string            `uri:"image_name" binding:"required"`
+	Image         string            `uri:"image" binding:"required"`
+	ContainerPort int32             `uri:"container_port" binding:"required"`
+	Lable         map[string]string `uri:"lable" binding:"required"`
+}
+
 type Demo struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`

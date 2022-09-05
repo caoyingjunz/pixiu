@@ -16,7 +16,9 @@ limitations under the License.
 
 package util
 
-import "strconv"
+import (
+	"strconv"
+)
 
 // ParseInt64 将字符串转换为 int64
 func ParseInt64(s string) (int64, error) {
