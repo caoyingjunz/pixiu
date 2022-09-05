@@ -140,7 +140,6 @@ func (s *cloudRouter) listDeployments(c *gin.Context) {
 
 func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
-
 	var deleteOptions types.GetOrDeleteOptions
 	if err := c.ShouldBindUri(&deleteOptions); err != nil {
 		httputils.SetFailed(c, r, err)
