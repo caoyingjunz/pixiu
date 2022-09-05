@@ -18,11 +18,12 @@ package cicd
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+
+	"github.com/gin-gonic/gin"
 )
 
 func (s *cicdRouter) runJob(c *gin.Context) {
@@ -88,8 +89,8 @@ func (s *cicdRouter) renameJob(c *gin.Context) {
 
 func (s *cicdRouter) getAllJobs(c *gin.Context) {
 	r := httputils.NewResponse()
-	jobs, err := pixiu.CoreV1.Cicd().GetAllJobs(context.TODO())
-	r.Result = jobs
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().GetAllJobs(context.TODO())
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -99,8 +100,8 @@ func (s *cicdRouter) getAllJobs(c *gin.Context) {
 
 func (s *cicdRouter) getAllViews(c *gin.Context) {
 	r := httputils.NewResponse()
-	allviews, err := pixiu.CoreV1.Cicd().GetAllViews(context.TODO())
-	r.Result = allviews
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().GetAllViews(context.TODO())
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -115,8 +116,8 @@ func (s *cicdRouter) getLastFailedBuild(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	LastFailedBuild, err := pixiu.CoreV1.Cicd().GetLastFailedBuild(context.TODO(), cicd.Name)
-	r.Result = LastFailedBuild
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().GetLastFailedBuild(context.TODO(), cicd.Name)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -131,8 +132,8 @@ func (s *cicdRouter) getLastSuccessfulBuild(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	getLastSuccessfulBuild, err := pixiu.CoreV1.Cicd().GetLastSuccessfulBuild(context.TODO(), cicd.Name)
-	r.Result = getLastSuccessfulBuild
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().GetLastSuccessfulBuild(context.TODO(), cicd.Name)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -142,8 +143,8 @@ func (s *cicdRouter) getLastSuccessfulBuild(c *gin.Context) {
 
 func (s *cicdRouter) getAllNodes(c *gin.Context) {
 	r := httputils.NewResponse()
-	node, err := pixiu.CoreV1.Cicd().GetAllNodes(context.TODO())
-	r.Result = node
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().GetAllNodes(context.TODO())
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -232,12 +233,12 @@ func (s *cicdRouter) config(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	config, err := pixiu.CoreV1.Cicd().Config(context.TODO(), cicd.Name)
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().Config(context.TODO(), cicd.Name)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = config
 	httputils.SetSuccess(c, r)
 }
 
@@ -262,11 +263,11 @@ func (s *cicdRouter) history(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	history, err := pixiu.CoreV1.Cicd().History(context.TODO(), cicd.Name)
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().History(context.TODO(), cicd.Name)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = history
 	httputils.SetSuccess(c, r)
 }

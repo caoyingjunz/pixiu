@@ -49,7 +49,7 @@ type CicdInterface interface {
 	Config(ctx context.Context, name string) (config string, err error)
 	UpdateConfig(ctx context.Context, name string) error
 	History(ctx context.Context, name string) ([]*gojenkins.History, error)
-	GetLastFailedBuild(ctx context.Context, name string) (getLastFailedBuild1 gojenkins.JobBuild, err error)
+	GetLastFailedBuild(ctx context.Context, name string) (gojenkins.JobBuild, error)
 	GetLastSuccessfulBuild(ctx context.Context, name string) (getLastSuccessfulBuild gojenkins.JobBuild, err error)
 }
 
