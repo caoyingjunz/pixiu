@@ -26,6 +26,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
 func readConfig(c *gin.Context) ([]byte, error) {
@@ -77,35 +78,79 @@ func (s *cloudRouter) updateCloud(c *gin.Context) {
 
 func (s *cloudRouter) deleteCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-	cid := c.Param("cid")
-
-	r.Result = cid
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) getCloud(c *gin.Context) {}
-
-func (s *cloudRouter) listClouds(c *gin.Context) {}
-
-func (s *cloudRouter) listDeployments(c *gin.Context) {
-	r := httputils.NewResponse()
-	clusterName := c.Param("cluster_name")
-	if len(clusterName) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("参数为空"))
-		return
-	}
-	deployments, err := pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), clusterName)
+	cid, err := util.ParseInt64(c.Param("cid"))
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = deployments.Items
+	if err = pixiu.CoreV1.Cloud().Delete(context.TODO(), cid); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) getCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	cid, err := util.ParseInt64(c.Param("cid"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().Get(context.TODO(), cid)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) listClouds(c *gin.Context) {
+	r := httputils.NewResponse()
+	var err error
+	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO()); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+// listDeployments API: clouds/<cloud_name>/namespaces/<ns>/deployments
+func (s *cloudRouter) listDeployments(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		listOptions types.ListOptions
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), listOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var deleteOptions types.GetOrDeleteOptions
+	if err := c.ShouldBindUri(&deleteOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	err := pixiu.CoreV1.Cloud().DeleteDeployment(context.TODO(), deleteOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
