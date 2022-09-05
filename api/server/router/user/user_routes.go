@@ -19,7 +19,6 @@ package user
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
