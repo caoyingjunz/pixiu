@@ -40,5 +40,6 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 
 		// 修改密码
 		userRoute.PUT("/change/:id/password", u.changePassword)
+		// 重置密码
 	}
 }
