@@ -154,6 +154,21 @@ func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// 获取用户左侧菜单
+func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
+	uidStr, _ := c.Get("userId")
+	r := httputils.NewResponse()
+	uid := uidStr.(int64)
+	res, err := pixiu.CoreV1.User().GetLeftMenusByUserID(c, uid)
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "内部错误")
+		return
+	}
+	r.Result = res
+	httputils.SetSuccess(c, r)
+}
+
 func (u *userRouter) getRoleIDsByUser(c *gin.Context) {
 	uid, isExit := c.Get("userId")
 	r := httputils.NewResponse()

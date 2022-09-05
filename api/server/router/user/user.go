@@ -46,6 +46,6 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		// 获取当前用户的按钮
 		userRoute.GET("/buttons", u.getButtonsByCurrentUser)
 		// 更具用户ID获取用户的菜单
-		userRoute.GET("/:id/buttons", u.getButtonsByCurrentUser)
+		userRoute.GET("/menus", u.getLeftMenusByCurrentUser)
 	}
 }

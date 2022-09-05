@@ -50,6 +50,7 @@ type UserInterface interface {
 	GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) // SetRoles 为用户分配角色，可以是多个角色
 	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
 	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
+	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 }
 
 type user struct {
@@ -244,5 +245,10 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 
 func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
 	menus, err = u.factory.User().GetButtonsByUserID(ctx, uid)
+	return
+}
+
+func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
+	menus, err = u.factory.User().GetLeftMenusByUserID(ctx, uid)
 	return
 }

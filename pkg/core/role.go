@@ -75,5 +75,6 @@ func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 		log.Logger.Errorf(err.Error())
 		return err
 	}
+	// TODO casbin设置角色权限
 	return nil
 }
