@@ -107,12 +107,7 @@ func (u *user) ChangePassword(ctx context.Context, obj *model.User, newPass stri
 	user.Password = newPass
 	user.ResourceVersion = obj.ResourceVersion + 1
 	user.GmtModified = time.Now()
-	tx := u.db.Model(&obj).Where("resource_version = ?", obj.ResourceVersion).Updates(user)
-	if tx.Error != nil {
-		return tx.Error
-	}
-
-	return nil
+	return u.db.Model(&obj).Where("resource_version = ?", obj.ResourceVersion).Updates(user).Error
 }
 
 func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
