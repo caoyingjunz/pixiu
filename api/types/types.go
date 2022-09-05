@@ -22,10 +22,22 @@ type TimeSpec struct {
 	GmtModified interface{} `json:"gmt_modified,omitempty"`
 }
 
+
 type Password struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword     string `json:"new_password"`
 	ReNewPassword   string `json:"re_new_password"`
+}
+
+type ListOptions struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+	Namespace string `uri:"namespace" binding:"required"`
+}
+
+type GetOrDeleteOptions struct {
+	ListOptions
+
+	ObjectName string `uri:"object_name" binding:"required"`
 }
 
 type Demo struct {
@@ -58,6 +70,7 @@ type Cloud struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
+	Status          int    `json:"status"`
 	KubeConfig      []byte `json:"kube_config"`
 	Description     string `json:"description"`
 
