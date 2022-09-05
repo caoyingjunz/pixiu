@@ -27,7 +27,6 @@ type ClientsInterface interface {
 	Update(key string, obj *kubernetes.Clientset)
 	Delete(key string)
 	Get(key string) (*kubernetes.Clientset, bool)
-	List() []*kubernetes.Clientset
 }
 
 type cloudClient struct {
@@ -63,18 +62,6 @@ func (cc *cloudClient) Get(key string) (*kubernetes.Clientset, bool) {
 
 	item, exists := cc.items[key]
 	return item, exists
-}
-
-func (cc *cloudClient) List() []*kubernetes.Clientset {
-	cc.lock.Lock()
-	defer cc.lock.Unlock()
-
-	var ks []*kubernetes.Clientset
-	for _, obj := range cc.items {
-		ks = append(ks, obj)
-	}
-
-	return ks
 }
 
 func NewCloudClients() ClientsInterface {

@@ -50,11 +50,12 @@ type CloudInterface interface {
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
 }
 
+var clientSets client.ClientsInterface
+
 type cloud struct {
 	ComponentConfig config.Config
 	app             *pixiu
 	factory         db.ShareDaoFactory
-	clientSets      client.ClientsInterface
 }
 
 func newCloud(c *pixiu) CloudInterface {
@@ -62,7 +63,6 @@ func newCloud(c *pixiu) CloudInterface {
 		ComponentConfig: c.cfg,
 		app:             c,
 		factory:         c.factory,
-		clientSets:      client.NewCloudClients(),
 	}
 }
 
@@ -97,7 +97,7 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 
-	c.clientSets.Add(obj.Name, clientSet)
+	clientSets.Add(obj.Name, clientSet)
 	return nil
 }
 
@@ -115,7 +115,7 @@ func (c *cloud) Delete(ctx context.Context, cid int64) error {
 		return err
 	}
 
-	c.clientSets.Delete(obj.Name)
+	clientSets.Delete(obj.Name)
 	return nil
 }
 
@@ -157,6 +157,9 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 }
 
 func (c *cloud) InitCloudClients() error {
+	// 初始化云客户端
+	clientSets = client.NewCloudClients()
+
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
 		log.Logger.Errorf("failed to list exist clouds: %v", err)
@@ -168,7 +171,7 @@ func (c *cloud) InitCloudClients() error {
 			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
 			return err
 		}
-		c.clientSets.Add(cloudObj.Name, clientSet)
+		clientSets.Add(cloudObj.Name, clientSet)
 	}
 
 	return nil
@@ -184,10 +187,11 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 }
 
 func (c *cloud) ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error) {
-	clientSet, found := c.clientSets.Get(listOptions.CloudName)
+	clientSet, found := clientSets.Get(listOptions.CloudName)
 	if !found {
 		return nil, fmt.Errorf("failed to found %s client", listOptions.CloudName)
 	}
+
 	deployments, err := clientSet.AppsV1().Deployments(listOptions.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Logger.Errorf("failed to list %s deployments: %v", listOptions.Namespace, err)

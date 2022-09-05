@@ -146,6 +146,11 @@ func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	err := pixiu.CoreV1.Cloud().DeleteDeployment(context.TODO(), deleteOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
