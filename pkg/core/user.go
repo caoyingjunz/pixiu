@@ -215,27 +215,28 @@ func (u *user) ChangePassword(ctx context.Context, obj *types.Password, uid int6
 		return err
 	}
 
-	// 4. 获取当前密码，检查原始密码是否正确
+	// 获取当前密码，检查原始密码是否正确
 	userObj, err := u.factory.User().Get(ctx, uid)
 	if err != nil {
 		log.Logger.Errorf("failed to get user by id %d: %v", uid, err)
 		return err
 	}
-	if err = bcrypt.CompareHashAndPassword([]byte(userObj.Password), []byte(obj.Password)); err != nil {
+	// To ensure origin password is correct
+	if err = bcrypt.CompareHashAndPassword([]byte(userObj.Password), []byte(obj.OriginPassword)); err != nil {
 		return fmt.Errorf("incorrect origin password")
 	}
 
-	// 5. 密码加密存储
+	// 密码加密存储
 	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(obj.Password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err
 	}
-
 	if err = u.factory.User().Update(ctx, uid, userObj.ResourceVersion, map[string]interface{}{"password": encryptedPassword}); err != nil {
 		log.Logger.Errorf("failed to change %d password %d: %v", uid, err)
 		return err
 	}
+
 	return nil
 }
 

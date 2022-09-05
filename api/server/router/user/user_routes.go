@@ -156,12 +156,12 @@ func (u *userRouter) changePassword(c *gin.Context) {
 	password.UserId = idOptions.Id
 
 	// 需要通过 token 中的 id 判断当前操作的用户和需要修改密码的用户是否是同一个
-	uidInToken := c.GetInt64("userId")
-	if uidInToken == 0 {
+	uid := c.GetInt64("userId")
+	if uid == 0 {
 		httputils.SetFailed(c, r, fmt.Errorf("user id in token not exists"))
 		return
 	}
-	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), &password, uidInToken); err != nil {
+	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), &password, uid); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
