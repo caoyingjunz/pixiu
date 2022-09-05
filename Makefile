@@ -1,4 +1,4 @@
-.PHONY: run build image push
+.PHONY: run build image push clean
 
 tag = v0.1
 releaseName = gopixiu
@@ -17,3 +17,6 @@ image:
 
 push: image
 	docker push $(dockerhubUser)/$(releaseName):$(tag)
+
+clean:
+	-rm -f ./$(releaseName)

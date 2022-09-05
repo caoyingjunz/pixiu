@@ -16,10 +16,34 @@ limitations under the License.
 
 package types
 
+// TimeSpec 通用时间规格
+type TimeSpec struct {
+	GmtCreate   interface{} `json:"gmt_create,omitempty"`
+	GmtModified interface{} `json:"gmt_modified,omitempty"`
+}
+
+type ListOptions struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+	Namespace string `uri:"namespace" binding:"required"`
+}
+
+type GetOrDeleteOptions struct {
+	ListOptions
+
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
 type Demo struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
+}
+
+type Cicd struct {
+	Name     string `json:"name,omitempty"`
+	OldName  string `json:"oldName,omitempty"`
+	NewName  string `json:"newName,omitempty"`
+	ViewName string `json:"viewname,omitempty"`
 }
 
 type User struct {
@@ -27,9 +51,21 @@ type User struct {
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
 	Password        string `json:"password"`
-	Email           string `json:"email"`
-	Description     string `json:"description"`
 	Status          int8   `json:"status"`
 	Role            string `json:"role"`
-	// Extension       string `json:"extension,omitempty"`
+	Email           string `json:"email"`
+	Description     string `json:"description"`
+
+	TimeSpec
+}
+
+type Cloud struct {
+	Id              int64  `json:"id"`
+	ResourceVersion int64  `json:"resource_version"`
+	Name            string `json:"name"`
+	Status          int    `json:"status"`
+	KubeConfig      []byte `json:"kube_config"`
+	Description     string `json:"description"`
+
+	TimeSpec
 }

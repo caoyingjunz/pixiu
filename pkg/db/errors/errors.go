@@ -14,16 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pixiu
+package errors
 
 import (
-	"github.com/caoyingjunz/gopixiu/cmd/app/options"
-	"github.com/caoyingjunz/gopixiu/pkg/core"
+	"errors"
+
+	"gorm.io/gorm"
 )
 
-var CoreV1 core.CoreV1Interface
+var (
+	ErrRecordNotUpdate = errors.New("record not updated")
+)
 
-// Setup 完成核心应用接口的设置
-func Setup(o *options.Options) {
-	CoreV1 = core.New(o.ComponentConfig, o.Factory, o.CicdDriver)
+func IsNotFound(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
+}
+
+func IsNotUpdate(err error) bool {
+	return errors.Is(err, ErrRecordNotUpdate)
 }

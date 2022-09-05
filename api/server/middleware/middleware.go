@@ -17,22 +17,23 @@ limitations under the License.
 package middleware
 
 import (
+	"fmt"
+	"os"
+
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
 
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-type Claims struct {
-	jwt.StandardClaims
-	Id   int64  `json:"id"`
-	Name string `json:"name"`
-	Role string `json:"role"`
+func InitMiddlewares(ginEngine *gin.Engine) {
+	ginEngine.Use(LoggerToFile(), Limiter, AuthN)
 }
-
-func Auth(c *gin.Context) {}
 
 func LoggerToFile() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -54,25 +55,52 @@ func LoggerToFile() gin.HandlerFunc {
 	}
 }
 
-func GenerateJWT(claims jwt.Claims, jwtKey []byte) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
+// Limiter TODO
+func Limiter(c *gin.Context) {}
+
+func AuthN(c *gin.Context) {
+	if os.Getenv("DEBUG") == "true" {
+		return
+	}
+
+	// Authentication 身份认证
+	if c.Request.URL.Path == "/users/login" {
+		return
+	}
+
+	r := httputils.NewResponse()
+	token := c.GetHeader("Authorization")
+	if len(token) == 0 {
+		r.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, r, fmt.Errorf("authorization header is not provided"))
+		c.Abort()
+		return
+	}
+
+	fields := strings.Fields(token)
+	if len(fields) != 2 {
+		r.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, r, fmt.Errorf("invalid authorization header format"))
+		c.Abort()
+		return
+	}
+
+	if fields[0] != "Bearer" {
+		r.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, r, fmt.Errorf("unsupported authorization type"))
+		c.Abort()
+		return
+	}
+
+	accessToken := fields[1]
+	jwtKey := pixiu.CoreV1.User().GetJWTKey()
+	claims, err := httputils.ParseToken(accessToken, []byte(jwtKey))
 	if err != nil {
-		return tokenString, err
+		r.SetCode(http.StatusUnauthorized)
+		httputils.SetFailed(c, r, err)
+		c.Abort()
+		return
 	}
 
-	return tokenString, nil
-}
-
-func ValidateJWT(token string, jwtKey []byte) (bool, *Claims) {
-	var claims Claims
-	// TODO 处理 error
-	t, _ := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
-	if !t.Valid {
-		return false, nil
-	} else {
-		return true, &claims
-	}
+	c.Set("userId", claims.Id)
 }
