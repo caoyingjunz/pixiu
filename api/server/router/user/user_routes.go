@@ -18,8 +18,6 @@ package user
 
 import (
 	"context"
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -156,12 +154,8 @@ func (u *userRouter) changePassword(c *gin.Context) {
 	password.UserId = idOptions.Id
 
 	// 需要通过 token 中的 id 判断当前操作的用户和需要修改密码的用户是否是同一个
-	uid := c.GetInt64("userId")
-	if uid == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("user id in token not exists"))
-		return
-	}
-	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), uid, &password); err != nil {
+	// Get the uid from token
+	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), c.GetInt64("userId"), &password); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
