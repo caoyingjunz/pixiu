@@ -44,6 +44,7 @@ type UserInterface interface {
 	List(ctx context.Context) ([]types.User, error)
 
 	Login(ctx context.Context, obj *types.User) (string, error)
+	ChangePassword(ctx context.Context, obj *types.Password, uid int64, uidInToken int64) error
 
 	GetJWTKey() []byte
 }
@@ -182,6 +183,54 @@ func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 
 	// 生成 token，并返回
 	return httputils.GenerateToken(userObj.Id, obj.Name, u.GetJWTKey())
+}
+
+func (u *user) ChangePassword(ctx context.Context, obj *types.Password, uid int64, uidInToken int64) error {
+	// 1. 两次输入的密码不一致
+	if obj.NewPassword != obj.ReNewPassword {
+		log.Logger.Errorf("failed to change password %d: two input inconsistencies", uid)
+		return fmt.Errorf("two input inconsistencies")
+	}
+
+	// 2. 新旧密码一样
+	if obj.CurrentPassword == obj.NewPassword {
+		log.Logger.Errorf("failed to change password %d: same passowrd as old and new", uid)
+		return fmt.Errorf("same passowrd as old and new")
+	}
+
+	// 3. 请求参数中的 uid 和 token 中的 uid 不一致
+	//    		- 普通用户禁止修改他人的密码
+	// TODO		- 管理员可以修改他人的密码
+	if uidInToken != uid {
+		log.Logger.Errorf("cannot change other user's (%d) password", uid)
+		return fmt.Errorf("cannot change other user's (%d) password", uid)
+	}
+
+	user, err := u.factory.User().Get(ctx, uid)
+	if err != nil {
+		log.Logger.Errorf("failed to get user by id %d: %v", uid, err)
+		return err
+	}
+
+	// 4. 当前密码错误
+	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(obj.CurrentPassword)); err != nil {
+		log.Logger.Errorf("password is incorrect %d: %v", uid, err)
+		return err
+	}
+
+	// 5. 密码加密存储
+	cryptNewPass, err := bcrypt.GenerateFromPassword([]byte(obj.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		log.Logger.Errorf("failed to change password %d: %v", uid, err)
+		return err
+	}
+
+	if err = u.factory.User().ChangePassword(ctx, user, string(cryptNewPass)); err != nil {
+		log.Logger.Errorf("failed to change password %d: %v", uid, err)
+		return err
+	}
+
+	return nil
 }
 
 func (u *user) GetJWTKey() []byte {

@@ -18,6 +18,7 @@ package user
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -135,4 +136,34 @@ func (u *userRouter) login(c *gin.Context) {
 // TODO
 func (u *userRouter) logout(c *gin.Context) {
 
+}
+
+func (u *userRouter) changePassword(c *gin.Context) {
+	r := httputils.NewResponse()
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	// 解析修改密码的三个参数
+	//   1. 当前密码 2. 新密码 3. 确认新密码
+	var pass types.Password
+	if err := c.ShouldBindJSON(&pass); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	// 需要通过 token 中的 id 判断当前操作的用户和需要修改密码的用户是否是同一个
+	uidInToken := c.GetInt64("userId")
+	if uidInToken == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("user id in token not exists"))
+		return
+	}
+	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), &pass, uid, uidInToken); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
 }
