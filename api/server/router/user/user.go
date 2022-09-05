@@ -39,6 +39,6 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		userRoute.POST("/:id/logout", u.logout)
 
 		// 修改密码
-		userRoute.PUT("/:id/changePassword", u.changePassword)
+		userRoute.PUT("/change/:id/password", u.changePassword)
 	}
 }

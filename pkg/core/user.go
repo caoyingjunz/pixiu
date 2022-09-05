@@ -44,7 +44,7 @@ type UserInterface interface {
 	List(ctx context.Context) ([]types.User, error)
 
 	Login(ctx context.Context, obj *types.User) (string, error)
-	ChangePassword(ctx context.Context, obj *types.Password, uid int64, token string) error
+	ChangePassword(ctx context.Context, obj *types.Password, uid int64, uidInToken int64) error
 
 	GetJWTKey() []byte
 }
@@ -185,7 +185,7 @@ func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 	return httputils.GenerateToken(userObj.Id, obj.Name, u.GetJWTKey())
 }
 
-func (u *user) ChangePassword(ctx context.Context, obj *types.Password, uid int64, token string) error {
+func (u *user) ChangePassword(ctx context.Context, obj *types.Password, uid int64, uidInToken int64) error {
 	// 1. 两次输入的密码不一致
 	if obj.NewPassword != obj.ReNewPassword {
 		log.Logger.Errorf("failed to change password %d: two input inconsistencies", uid)
@@ -201,12 +201,7 @@ func (u *user) ChangePassword(ctx context.Context, obj *types.Password, uid int6
 	// 3. 请求参数中的 uid 和 token 中的 uid 不一致
 	//    		- 普通用户禁止修改他人的密码
 	// TODO		- 管理员可以修改他人的密码
-	claims, err := httputils.ParseToken(token, u.GetJWTKey())
-	if err != nil {
-		log.Logger.Errorf("failed to change password %d: %v", uid, err)
-		return err
-	}
-	if claims.Id != uid {
+	if uidInToken != uid {
 		log.Logger.Errorf("cannot change other user's (%d) password", uid)
 		return fmt.Errorf("cannot change other user's (%d) password", uid)
 	}
