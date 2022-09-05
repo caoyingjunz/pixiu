@@ -161,7 +161,7 @@ func (u *userRouter) changePassword(c *gin.Context) {
 		httputils.SetFailed(c, r, fmt.Errorf("user id in token not exists"))
 		return
 	}
-	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), &password, uid); err != nil {
+	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), uid, &password); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
