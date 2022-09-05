@@ -17,8 +17,6 @@ limitations under the License.
 package log
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -48,8 +46,6 @@ var (
 )
 
 func Register(logDir string, logLevel string) {
-
-	checkDir(logDir)
 
 	var (
 		accessLogFile string
@@ -89,18 +85,4 @@ func Register(logDir string, logLevel string) {
 		RotateMaxAge:     7,
 		RotateMaxBackups: 3,
 	})
-}
-
-// checkDir 判断log_dir指定的目录是否存在，如果不存在则直接创建
-func checkDir(logPath string) {
-	fmt.Println(logPath)
-	stat, err := os.Stat(logPath)
-	// 对象不为空说明目录存在
-	if stat != nil {
-		return
-	}
-	err = os.Mkdir(logPath, 0777)
-	if err != nil {
-		panic("启动失败，log目录创建异常" + err.Error())
-	}
 }

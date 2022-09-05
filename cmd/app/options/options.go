@@ -19,6 +19,7 @@ package options
 import (
 	"context"
 	"fmt"
+	"github.com/caoyingjunz/gopixiu/pkg/util"
 	"os"
 
 	"github.com/bndr/gojenkins"
@@ -98,6 +99,18 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 }
 
 func (o *Options) register() error {
+	if util.FileExist(o.ComponentConfig.Default.LogDir) { // 判断文件是否存在
+		isDir, err := util.CheckIsDir(o.ComponentConfig.Default.LogDir) // 判断文件类型
+		if err != nil {
+			panic(err)
+		}
+		if !isDir {
+			panic("存在同名文件，但是非目录，请重新设置log_dir路径")
+		}
+	} else {
+		util.CreateDir(o.ComponentConfig.Default.LogDir) // 创建指定路径的目录
+	}
+
 	log.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
 	if err := o.registerDatabase(); err != nil {                                       // 注册数据库
 		return err
