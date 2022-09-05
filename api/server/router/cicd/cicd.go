@@ -41,6 +41,7 @@ func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
 		cicdRoute.POST("/jobs/disable", s.disable)
 		cicdRoute.POST("/jobs/enable", s.enable)
 		cicdRoute.POST("/view", s.addViewJob)
+		cicdRoute.GET("/jobs/details/:name", s.details)
 		cicdRoute.GET("/view", s.getAllViews)
 		cicdRoute.GET("/nodes", s.getAllNodes)
 		cicdRoute.GET("/jobs", s.getAllJobs)

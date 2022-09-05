@@ -39,6 +39,7 @@ type CicdInterface interface {
 	AddViewJob(ctx context.Context, addViewJob string, name string) error
 	GetAllJobs(ctx context.Context) (res []string, err error)
 	GetAllViews(ctx context.Context) (views []string, err error)
+	Details(ctx context.Context, name string) *gojenkins.JobResponse
 	GetAllNodes(ctx context.Context) (nodes []string, err error)
 	DeleteNode(ctx context.Context, name string) error
 	CopyJob(ctx context.Context, oldName string, newName string) (res []string, err error)
@@ -211,6 +212,7 @@ func (c *cicd) Disable(ctx context.Context, name string) (bool, error) {
 	}
 	return true, nil
 }
+
 func (c *cicd) Enable(ctx context.Context, name string) (bool, error) {
 	jobs, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
@@ -223,4 +225,15 @@ func (c *cicd) Enable(ctx context.Context, name string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func (c *cicd) Details(ctx context.Context, name string) *gojenkins.JobResponse {
+	var err error
+	job, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to Enable %v", err)
+		return nil
+	}
+	details := job.GetDetails()
+	return details
 }
