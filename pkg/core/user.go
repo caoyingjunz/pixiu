@@ -232,6 +232,7 @@ func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Passwor
 		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err
 	}
+	// TODO: 未对 ResourceVersion 进行校验，修改密码是非高频操作，暂时不做校验
 	if err = u.factory.User().Update(ctx, uid, userObj.ResourceVersion, map[string]interface{}{"password": encryptedPassword}); err != nil {
 		log.Logger.Errorf("failed to change %d password %d: %v", uid, err)
 		return err
