@@ -1,9 +1,11 @@
-package sys
+package user
 
 import (
 	"context"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+
 	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 )
 
 // MenuInterface 角色操作接口

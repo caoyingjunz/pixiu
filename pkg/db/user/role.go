@@ -1,10 +1,12 @@
-package sys
+package user
 
 import (
 	"context"
+
+	"gorm.io/gorm"
+
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"gorm.io/gorm"
 )
 
 // RoleInterface 角色操作接口

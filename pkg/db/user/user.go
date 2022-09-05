@@ -18,14 +18,14 @@ package user
 
 import (
 	"context"
-	"github.com/caoyingjunz/gopixiu/pkg/db/dbcommon"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"time"
 
 	"gorm.io/gorm"
 
+	"github.com/caoyingjunz/gopixiu/pkg/db/dbcommon"
 	dberrors "github.com/caoyingjunz/gopixiu/pkg/db/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type UserInterface interface {
@@ -38,7 +38,7 @@ type UserInterface interface {
 	GetByName(ctx context.Context, name string) (*model.User, error)
 	GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error)
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
-	GetMenus(ctx context.Context, uid int64) (*[]model.Menu, error)
+	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 }
 
 type user struct {
@@ -158,7 +158,7 @@ func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int
 	return roleInfo, nil
 }
 
-func (u *user) GetMenus(ctx context.Context, uid int64) (*[]model.Menu, error) {
+func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
 	var menus []model.Menu
 	err := u.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.sequence,menu.code,menu.method, menu.menu_type").
 		Joins("left join role_menu on menu.id = role_menu.menu_id ").

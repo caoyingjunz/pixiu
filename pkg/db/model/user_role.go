@@ -1,15 +1,17 @@
 package model
 
 import (
-	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
 )
 
 type UserRole struct {
 	gopixiu.Model
-	UserID int64 `gorm:"column:user_id;unique_index:uk_user_role_user_id;not null;"` // 管理员ID
-	RoleID int64 `gorm:"column:role_id;unique_index:uk_user_role_user_id;not null;"` // 角色ID
+	UserID int64 `gorm:"column:user_id;unique_index:uk_user_role_user_id;not null;" json:"user_id"` // 管理员ID
+	RoleID int64 `gorm:"column:role_id;unique_index:uk_user_role_user_id;not null;" json:"role_id"` // 角色ID
 }
 
 // TableName 自定义表名

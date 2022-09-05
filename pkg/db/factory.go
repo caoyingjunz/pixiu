@@ -17,12 +17,10 @@ limitations under the License.
 package db
 
 import (
-	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
-	"github.com/caoyingjunz/gopixiu/pkg/db/sys"
 	"github.com/casbin/casbin/v2"
-
 	"gorm.io/gorm"
 
+	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
 	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
 	"github.com/caoyingjunz/gopixiu/pkg/db/user"
 )
@@ -31,9 +29,9 @@ type ShareDaoFactory interface {
 	User() user.UserInterface
 	Demo() demo.DemoInterface
 	Cloud() cloud.CloudInterface
-	Role() sys.RoleInterface
-	Menu() sys.MenuInterface
-	Casbin() sys.CasbinInterface
+	Role() user.RoleInterface
+	Menu() user.MenuInterface
+	Casbin() user.CasbinInterface
 }
 
 type shareDaoFactory struct {
@@ -50,15 +48,15 @@ func (f *shareDaoFactory) Cloud() cloud.CloudInterface {
 func (f *shareDaoFactory) User() user.UserInterface {
 	return user.NewUser(f.db)
 }
-func (f *shareDaoFactory) Role() sys.RoleInterface {
-	return sys.NewRole(f.db)
+func (f *shareDaoFactory) Role() user.RoleInterface {
+	return user.NewRole(f.db)
 }
-func (f *shareDaoFactory) Menu() sys.MenuInterface {
-	return sys.NewMenu(f.db)
+func (f *shareDaoFactory) Menu() user.MenuInterface {
+	return user.NewMenu(f.db)
 }
 
-func (f *shareDaoFactory) Casbin() sys.CasbinInterface {
-	return sys.NewCasbin(f.db, f.enforcer)
+func (f *shareDaoFactory) Casbin() user.CasbinInterface {
+	return user.NewCasbin(f.db, f.enforcer)
 }
 
 func NewDaoFactory(db *gorm.DB, enforcer *casbin.Enforcer) ShareDaoFactory {

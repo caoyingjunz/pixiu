@@ -33,16 +33,19 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		userRoute.PUT("/:id", u.updateUser)
 		userRoute.GET("/:id", u.getUser)
 		userRoute.GET("", u.listUsers)
-		// 查询当前用户角色
+
+		//  查询当前用户角色
 		userRoute.GET("/roles", u.getRoleIDsByUser)
-		//根据用户id分配权限
+		// 根据用户id分配权限
 		userRoute.POST("/:id/roles", u.setRolesByUserId)
 
 		// 用户的登陆或者退出
 		userRoute.POST("/login", u.login)
 		userRoute.POST("/:id/logout", u.logout)
 
-		//获取当前用户的菜单（即按钮）
-		userRoute.GET("/menus", u.getMenus)
+		// 获取当前用户的按钮
+		userRoute.GET("/buttons", u.getButtonsByCurrentUser)
+		// 更具用户ID获取用户的菜单
+		userRoute.GET("/:id/buttons", u.getButtonsByCurrentUser)
 	}
 }

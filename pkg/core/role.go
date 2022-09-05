@@ -2,16 +2,17 @@ package core
 
 import (
 	"context"
+
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/db/sys"
+	user2 "github.com/caoyingjunz/gopixiu/pkg/db/user"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 // RoleInterface 角色操作接口
 type RoleInterface interface {
-	sys.RoleInterface
+	user2.RoleInterface
 }
 
 type RoleGetter interface {

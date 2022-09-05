@@ -2,13 +2,15 @@ package middleware
 
 import (
 	"errors"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/common"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	"github.com/gin-gonic/gin"
-	"net/http"
-	"strconv"
 )
 
 func CasbinMiddleware() gin.HandlerFunc {
@@ -18,9 +20,9 @@ func CasbinMiddleware() gin.HandlerFunc {
 			return
 		}
 		// 用户ID
-		uid, isExit := c.Get("userId")
+		uid, isExist := c.Get("userId")
 		r := httputils.NewResponse()
-		if !isExit {
+		if !isExist {
 			r.SetCode(common.ErrorCodePermissionDeny)
 			httputils.SetFailed(c, r, "无权限")
 			return

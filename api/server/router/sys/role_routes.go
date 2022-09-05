@@ -2,13 +2,15 @@ package sys
 
 import (
 	"context"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
-	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 func (*roleRouter) addRole(c *gin.Context) {

@@ -1,16 +1,18 @@
 package model
 
 import (
-	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
 )
 
 // RoleMenu 角色-菜单
 type RoleMenu struct {
 	gopixiu.Model
-	RoleID int64 `gorm:"column:role_id;unique_index:uk_role_menu_role_id;not null;"` // 角色ID
-	MenuID int64 `gorm:"column:menu_id;unique_index:uk_role_menu_role_id;not null;"` // 菜单ID
+	RoleID int64 `gorm:"column:role_id;unique_index:uk_role_menu_role_id;not null;" json:"role_id"`  // 角色ID
+	MenuID int64 `gorm:"column:menu_id;unique_index:uk_role_menu_role_id;not null;" json:"menu_id'"` // 菜单ID
 }
 
 // TableName 表名

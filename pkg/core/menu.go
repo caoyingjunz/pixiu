@@ -2,15 +2,16 @@ package core
 
 import (
 	"context"
+
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/db/sys"
+	user2 "github.com/caoyingjunz/gopixiu/pkg/db/user"
 )
 
 // MenuInterface 菜单操作接口
 type MenuInterface interface {
-	sys.MenuInterface
+	user2.MenuInterface
 }
 
 type MenuGetter interface {
@@ -23,7 +24,7 @@ type menu struct {
 	factory         db.ShareDaoFactory
 }
 
-func newMenu(c *pixiu) sys.MenuInterface {
+func newMenu(c *pixiu) user2.MenuInterface {
 	return &menu{
 		c.cfg,
 		c,

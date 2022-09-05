@@ -1,11 +1,13 @@
-package sys
+package user
 
 import (
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"strconv"
+
 	"github.com/casbin/casbin/v2"
 	"gorm.io/gorm"
-	"strconv"
+
+	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type CasbinInterface interface {

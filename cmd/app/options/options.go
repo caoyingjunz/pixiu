@@ -19,23 +19,24 @@ package options
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/casbin/casbin/v2"
-	csmodel "github.com/casbin/casbin/v2/model"
-	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"os"
 
 	"github.com/bndr/gojenkins"
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"github.com/caoyingjunz/gopixiu/pkg/types"
-	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
+	"github.com/casbin/casbin/v2"
+	csmodel "github.com/casbin/casbin/v2/model"
+	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/caoyingjunz/gopixiu/cmd/app/config"
+	"github.com/caoyingjunz/gopixiu/pkg/db"
+	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/types"
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
 const (

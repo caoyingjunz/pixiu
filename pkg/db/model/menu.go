@@ -1,9 +1,11 @@
 package model
 
 import (
-	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
 )
 
 //Menu 菜单

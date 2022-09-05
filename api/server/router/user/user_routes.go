@@ -18,10 +18,11 @@ package user
 
 import (
 	"context"
-	"github.com/caoyingjunz/gopixiu/api/server/common"
-	"github.com/gin-gonic/gin"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/gopixiu/api/server/common"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
@@ -180,17 +181,12 @@ func (u *userRouter) login(c *gin.Context) {
 	util.GetUUID()
 }
 
-func (u *userRouter) getMenus(c *gin.Context) {
+// 获取用户button按钮
+func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 	uidStr, _ := c.Get("userId")
 	r := httputils.NewResponse()
 	uid := uidStr.(int64)
-	//if err != nil {
-	//	r.SetCode(http.StatusBadRequest)
-	//	httputils.SetFailed(c, r, "参数错误")
-	//	return
-	//}
-
-	res, err := pixiu.CoreV1.User().GetMenus(c, uid)
+	res, err := pixiu.CoreV1.User().GetButtonsByUserID(c, uid)
 	if err != nil {
 		r.SetCode(http.StatusBadRequest)
 		httputils.SetFailed(c, r, "内部错误")

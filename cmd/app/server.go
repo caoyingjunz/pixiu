@@ -19,7 +19,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/gopixiu/api/server/router/sys"
 	"log"
 	"os"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/gopixiu/api/server/router/demo"
+	"github.com/caoyingjunz/gopixiu/api/server/router/sys"
 	"github.com/caoyingjunz/gopixiu/api/server/router/user"
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"

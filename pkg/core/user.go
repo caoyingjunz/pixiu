@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -48,7 +49,7 @@ type UserInterface interface {
 
 	GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) // SetRoles 为用户分配角色，可以是多个角色
 	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
-	GetMenus(ctx context.Context, uid int64) (*[]model.Menu, error)
+	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 }
 
 type user struct {
@@ -251,7 +252,7 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 	return
 }
 
-func (u *user) GetMenus(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
-	menus, err = u.factory.User().GetMenus(ctx, uid)
+func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
+	menus, err = u.factory.User().GetButtonsByUserID(ctx, uid)
 	return
 }

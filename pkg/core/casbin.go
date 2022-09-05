@@ -1,15 +1,16 @@
 package core
 
 import (
+	"github.com/casbin/casbin/v2"
+
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/db/sys"
-	"github.com/casbin/casbin/v2"
+	user2 "github.com/caoyingjunz/gopixiu/pkg/db/user"
 )
 
 type CasbinInterface interface {
-	sys.CasbinInterface
+	user2.CasbinInterface
 	GetEnforce() *casbin.Enforcer
 }
 type CasbinGetter interface {
