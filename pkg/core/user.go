@@ -46,7 +46,7 @@ type UserInterface interface {
 	Login(ctx context.Context, obj *types.User) (string, error)
 
 	// ChangePassword 修改密码
-	ChangePassword(ctx context.Context, obj *types.Password, uid int64) error
+	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error
 
 	GetJWTKey() []byte
 }
@@ -188,7 +188,7 @@ func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 }
 
 // 修改密码前的参数校验
-func (u *user) preChangePassword(ctx context.Context, obj *types.Password, uid int64) error {
+func (u *user) preChangePassword(ctx context.Context, uid int64, obj *types.Password) error {
 	// 1. 新旧密码一样
 	if obj.OriginPassword == obj.Password {
 		return fmt.Errorf("the origin password is equal to the password")
@@ -209,8 +209,8 @@ func (u *user) preChangePassword(ctx context.Context, obj *types.Password, uid i
 	return nil
 }
 
-func (u *user) ChangePassword(ctx context.Context, obj *types.Password, uid int64) error {
-	if err := u.preChangePassword(ctx, obj, uid); err != nil {
+func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Password) error {
+	if err := u.preChangePassword(ctx, uid, obj); err != nil {
 		log.Logger.Errorf("failed to change password: %v", err)
 		return err
 	}
