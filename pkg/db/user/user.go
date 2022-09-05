@@ -18,12 +18,14 @@ package user
 
 import (
 	"context"
+	"github.com/caoyingjunz/gopixiu/pkg/db/dbcommon"
 	"time"
 
 	"gorm.io/gorm"
 
 	dberrors "github.com/caoyingjunz/gopixiu/pkg/db/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type UserInterface interface {
@@ -34,6 +36,9 @@ type UserInterface interface {
 	List(ctx context.Context) ([]model.User, error)
 
 	GetByName(ctx context.Context, name string) (*model.User, error)
+	GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error)
+	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
+	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 }
 
 type user struct {
@@ -106,4 +111,65 @@ func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) 
 		return nil, err
 	}
 	return &obj, nil
+}
+
+func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error) {
+	tx := u.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	if err := tx.Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Where(&model.UserRole{UserID: uid}).Delete(&model.UserRole{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if len(rids) > 0 {
+		for _, rid := range rids {
+			rm := new(model.UserRole)
+			rm.RoleID = rid
+			rm.UserID = uid
+			if err := tx.Create(rm).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+
+	return tx.Commit().Error
+}
+
+func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) {
+	comm := dbcommon.NewCommon(u.db)
+	where := model.UserRole{UserID: uid}
+	roleList := []int64{}
+	err := comm.PluckList(&model.UserRole{}, &where, &roleList, "role_id")
+	if err != nil {
+
+		return nil, err
+	}
+	roleInfo := map[string][]int64{
+		"role_ids": roleList,
+	}
+	return roleInfo, nil
+}
+
+func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
+	var menus []model.Menu
+	err := u.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.sequence,menu.code,menu.method, menu.menu_type").
+		Joins("left join role_menu on menu.id = role_menu.menu_id ").
+		Joins("left join user_role on user_role.user_id = role_menu.role_id  and user_role.user_id = ?", uid).
+		Where("menu.menu_type = 2").
+		Order("parent_id ASC").
+		Order("sequence ASC").
+		Scan(&menus).Error
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return &menus, err
+	}
+	return &menus, nil
 }

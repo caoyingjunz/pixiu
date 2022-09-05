@@ -28,6 +28,8 @@ type ShareDaoFactory interface {
 	User() user.UserInterface
 	Demo() demo.DemoInterface
 	Cloud() cloud.CloudInterface
+	Role() user.RoleInterface
+	Menu() user.MenuInterface
 }
 
 type shareDaoFactory struct {
@@ -44,6 +46,13 @@ func (f *shareDaoFactory) Cloud() cloud.CloudInterface {
 
 func (f *shareDaoFactory) User() user.UserInterface {
 	return user.NewUser(f.db)
+}
+
+func (f *shareDaoFactory) Role() user.RoleInterface {
+	return user.NewRole(f.db)
+}
+func (f *shareDaoFactory) Menu() user.MenuInterface {
+	return user.NewMenu(f.db)
 }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {

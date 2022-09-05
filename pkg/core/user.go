@@ -46,6 +46,10 @@ type UserInterface interface {
 	Login(ctx context.Context, obj *types.User) (string, error)
 
 	GetJWTKey() []byte
+
+	GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) // SetRoles 为用户分配角色，可以是多个角色
+	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
+	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 }
 
 type user struct {
@@ -226,4 +230,19 @@ func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[stri
 	}
 
 	return updates
+}
+
+func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) {
+	roleInfo, err := u.factory.User().GetRoleIDByUser(ctx, uid)
+	return roleInfo, err
+}
+
+func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error) {
+	return u.factory.User().SetUserRoles(ctx, uid, rids)
+	// TODO casbin设置权限
+}
+
+func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
+	menus, err = u.factory.User().GetButtonsByUserID(ctx, uid)
+	return
 }

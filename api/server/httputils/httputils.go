@@ -54,7 +54,7 @@ func SetSuccess(c *gin.Context, r *Response) {
 }
 
 // SetFailed 设置错误返回值
-func SetFailed(c *gin.Context, r *Response, err error) {
+func SetFailed(c *gin.Context, r *Response, err interface{}) {
 	r.SetMessage(err)
 	c.JSON(http.StatusBadRequest, r)
 }
