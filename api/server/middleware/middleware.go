@@ -69,9 +69,9 @@ func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		r := httputils.NewResponse()
 		// 把 key: clientIP value: *ratelimit.Bucket 存入 LRU Cache 中
-		key := c.ClientIP()
-		if !cache.Has(key) {
-			if err := cache.SetWithExpire(key, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum), time.Minute*5); err != nil {
+		clientIP := c.ClientIP()
+		if !cache.Has(clientIP) {
+			if err := cache.SetWithExpire(clientIP, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum), time.Minute*5); err != nil {
 				httputils.SetFailed(c, r, err)
 				c.Abort()
 				return
@@ -79,7 +79,7 @@ func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 		}
 
 		// 通过 ClientIP 取出 bucket
-		val, err := cache.Get(key)
+		val, err := cache.Get(clientIP)
 		if err != nil {
 			httputils.SetFailed(c, r, err)
 			c.Abort()
