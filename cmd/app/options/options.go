@@ -99,10 +99,9 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 }
 
 func (o *Options) register() error {
-	if err := util.EnsureDirectoryExists(o.ComponentConfig.Default.LogDir); err != nil {
+	if err := util.EnsureDirectoryExists(o.ComponentConfig.Default.LogDir); err != nil { // 判断文件夹是否存在，不存在则创建
 		return err
 	}
-
 	log.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
 	if err := o.registerDatabase(); err != nil {                                       // 注册数据库
 		return err
@@ -110,7 +109,6 @@ func (o *Options) register() error {
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
-
 	return nil
 }
 
