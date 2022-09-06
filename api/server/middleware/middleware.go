@@ -94,8 +94,6 @@ func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
-		c.Next()
 	}
 }
 
