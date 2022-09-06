@@ -11,13 +11,13 @@ import (
 // MenuInterface 角色操作接口
 type MenuInterface interface {
 	Create(context.Context, *model.Menu) (*model.Menu, error)
-	Update(context.Context, *model.Menu) error
+	Update(context.Context, *model.Menu, int64) error
 	Delete(context.Context, int64) error
 	Get(context.Context, int64) (*model.Menu, error)
-	List(context.Context) ([]model.Menu, error)
+	List(context.Context) ([]model.TreeMenus, error)
 
 	GetByRoleID(context.Context, uint64) (*model.Menu, error)
-	GetByIds(c context.Context, mids []int64) (menus *[]model.Menu, err error)
+	GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error)
 }
 
 type menu struct {
@@ -36,8 +36,12 @@ func (m *menu) Create(c context.Context, obj *model.Menu) (*model.Menu, error) {
 	return obj, nil
 }
 
-func (m *menu) Update(c context.Context, menu *model.Menu) error {
-	return m.db.Updates(*menu).Error
+func (m *menu) Update(c context.Context, menu *model.Menu, mId int64) error {
+	//return m.db.Model(&model.Menu{}).Where("id = ?", mId).Updates(&menu).Error
+	//return m.db.Save(&menu).Where("resource_version = ?", menu.ResourceVersion).Error
+	var mm model.Menu
+	//m.db.Model(&mm).Select("*").Updates(menu)
+	return m.db.Model(&mm).Updates(menu).Error
 }
 
 func (m *menu) Delete(c context.Context, mid int64) error {
@@ -51,10 +55,10 @@ func (m *menu) Get(c context.Context, mid int64) (menu *model.Menu, err error) {
 	return
 }
 
-func (m *menu) List(c context.Context) (menus []model.Menu, err error) {
-	if tx := m.db.Find(&menus); tx.Error != nil {
-		return nil, tx.Error
-	}
+func (m *menu) List(c context.Context) (treeMenusList []model.TreeMenus, err error) {
+	var menus []model.Menu
+	err = m.db.Find(&menus).Error
+	treeMenusList = getTreeMenus(menus, 0)
 	return
 }
 
@@ -66,9 +70,21 @@ func (m *menu) GetByRoleID(c context.Context, roleID uint64) (menu *model.Menu, 
 	return
 }
 
-func (m *menu) GetByIds(c context.Context, mids []int64) (menus *[]model.Menu, err error) {
-	if err := m.db.Where("id in ?", mids).Find(&menus).Error; err != nil {
+func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error) {
+	if err := m.db.Where("id in ?", mIds).Find(&menus).Error; err != nil {
 		return nil, err
 	}
 	return
+}
+
+func getTreeMenus(menusList []model.Menu, pid int64) (treeMenusList []model.TreeMenus) {
+	for _, v := range menusList {
+		if v.ParentID == pid {
+			child := getTreeMenus(menusList, v.Id)
+			node := model.TreeMenus{Menus: v}
+			node.Children = child
+			treeMenusList = append(treeMenusList, node)
+		}
+	}
+	return treeMenusList
 }

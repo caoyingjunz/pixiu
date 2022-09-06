@@ -170,8 +170,15 @@ func (u *userRouter) changePassword(c *gin.Context) {
 func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 	uidStr, _ := c.Get("userId")
 	r := httputils.NewResponse()
+
+	menuId, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "参数错误")
+		return
+	}
 	uid := uidStr.(int64)
-	res, err := pixiu.CoreV1.User().GetButtonsByUserID(c, uid)
+	res, err := pixiu.CoreV1.User().GetButtonsByUserID(c, uid, menuId)
 	if err != nil {
 		r.SetCode(http.StatusBadRequest)
 		httputils.SetFailed(c, r, "内部错误")
@@ -183,8 +190,11 @@ func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 
 // 获取用户左侧菜单
 func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
+
+	// 忽略err报错，因为过了AuthN认证中间件，该userID一定存在
 	uidStr, _ := c.Get("userId")
 	r := httputils.NewResponse()
+
 	uid := uidStr.(int64)
 	res, err := pixiu.CoreV1.User().GetLeftMenusByUserID(c, uid)
 	if err != nil {
@@ -210,7 +220,6 @@ func (u *userRouter) getRoleIDsByUser(c *gin.Context) {
 		httputils.SetFailed(c, r, "获取失败")
 	}
 	r.Result = result
-
 	httputils.SetSuccess(c, r)
 }
 

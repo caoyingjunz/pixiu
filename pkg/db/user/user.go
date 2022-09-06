@@ -38,8 +38,8 @@ type UserInterface interface {
 	GetByName(ctx context.Context, name string) (*model.User, error)
 	GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error)
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
-	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
-	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
+	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
+	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.TreeMenus, error)
 }
 
 type user struct {
@@ -114,6 +114,7 @@ func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) 
 	return &obj, nil
 }
 
+//SetUserRoles 分配用户角色
 func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error) {
 	tx := u.db.Begin()
 	defer func() {
@@ -144,6 +145,7 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 	return tx.Commit().Error
 }
 
+//GetRoleIDByUser 查询用户角色
 func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) {
 	comm := dbcommon.NewCommon(u.db)
 	where := model.UserRole{UserID: uid}
@@ -159,26 +161,30 @@ func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int
 	return roleInfo, nil
 }
 
-func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
+//GetButtonsByUserID 获取菜单按钮
+func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error) {
 	var menus []model.Menu
-	err := u.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.sequence,menu.code,menu.method, menu.menu_type").
+	err := u.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.sequence,"+
+		"menu.code,menu.method, menu.menu_type").
 		Joins("left join role_menu on menu.id = role_menu.menu_id ").
 		Joins("left join user_role on user_role.user_id = role_menu.role_id  and user_role.user_id = ?", uid).
-		Where("menu.menu_type = 2").
+		Where("menu.menu_type = 2 and menu.parent_id = ?", menuId).
 		Order("parent_id ASC").
 		Order("sequence ASC").
 		Scan(&menus).Error
 	if err != nil {
 		log.Logger.Errorf(err.Error())
-		return &menus, err
+		return nil, err
 	}
+
 	return &menus, nil
 }
 
 // GetLeftMenusByUserID 根据用户ID获取左侧菜单
-func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
+func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.TreeMenus, error) {
 	var menus []model.Menu
-	err := u.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.sequence,menu.code,menu.method, menu.menu_type").
+	err := u.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.sequence,"+
+		"menu.code,menu.method, menu.menu_type").
 		Joins("left join role_menu on menu.id = role_menu.menu_id ").
 		Joins("left join user_role on user_role.user_id = role_menu.role_id  and user_role.user_id = ?", uid).
 		Where("menu.menu_type = 1").
@@ -187,7 +193,8 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Me
 		Scan(&menus).Error
 	if err != nil {
 		log.Logger.Errorf(err.Error())
-		return &menus, err
+		return nil, err
 	}
-	return &menus, nil
+	treeMenusList := getTreeMenus(menus, 0)
+	return &treeMenusList, nil
 }

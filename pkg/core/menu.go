@@ -32,29 +32,28 @@ func newMenu(c *pixiu) user2.MenuInterface {
 	}
 }
 func (m *menu) Create(c context.Context, obj *model.Menu) (menu *model.Menu, err error) {
-
 	if menu, err = m.factory.Menu().Create(c, obj); err != nil {
 		return
 	}
 	return
 }
 
-func (m *menu) Update(c context.Context, menu *model.Menu) error {
-	return m.factory.Menu().Update(c, menu)
+func (m *menu) Update(c context.Context, menu *model.Menu, mId int64) error {
+	return m.factory.Menu().Update(c, menu, mId)
 }
 
-func (m *menu) Delete(c context.Context, rid int64) error {
-	return m.factory.Menu().Delete(c, rid)
+func (m *menu) Delete(c context.Context, mId int64) error {
+	return m.factory.Menu().Delete(c, mId)
 }
 
-func (m *menu) Get(c context.Context, rid int64) (menu *model.Menu, err error) {
-	if menu, err = m.factory.Menu().Get(c, rid); err != nil {
+func (m *menu) Get(c context.Context, mIds int64) (menu *model.Menu, err error) {
+	if menu, err = m.factory.Menu().Get(c, mIds); err != nil {
 		return nil, err
 	}
 	return
 }
 
-func (m *menu) List(c context.Context) (menus []model.Menu, err error) {
+func (m *menu) List(c context.Context) (menus []model.TreeMenus, err error) {
 	if menus, err = m.factory.Menu().List(c); err != nil {
 		return
 	}
@@ -68,7 +67,7 @@ func (m *menu) GetByRoleID(c context.Context, roleID uint64) (menu *model.Menu, 
 	return
 }
 
-func (m *menu) GetByIds(c context.Context, mids []int64) (menus *[]model.Menu, err error) {
-	menus, err = m.factory.Menu().GetByIds(c, mids)
+func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error) {
+	menus, err = m.factory.Menu().GetByIds(c, mIds)
 	return
 }

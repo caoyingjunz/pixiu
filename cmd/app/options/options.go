@@ -19,7 +19,10 @@ package options
 import (
 	"context"
 	"fmt"
+	"gorm.io/gorm/logger"
+	logs "log"
 	"os"
+	"time"
 
 	"github.com/bndr/gojenkins"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
@@ -119,7 +122,16 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Name)
 
 	var err error
-	if o.DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{}); err != nil {
+	writer := logs.New(os.Stdout, "\r\n", logs.LstdFlags)
+	if o.DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.New(
+			writer, logger.Config{
+				SlowThreshold:             200 * time.Millisecond,
+				LogLevel:                  logger.Info,
+				IgnoreRecordNotFoundError: true,
+			},
+		),
+	}); err != nil {
 		return err
 	}
 	// 设置数据库连接池

@@ -47,8 +47,8 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		// 根据用户id分配权限
 		userRoute.POST("/:id/roles", u.setRolesByUserId)
 
-		// 获取当前用户的按钮
-		userRoute.GET("/buttons", u.getButtonsByCurrentUser)
+		// 根据菜单ID获取当前用户的菜单的按钮
+		userRoute.GET("/menus/:id", u.getButtonsByCurrentUser)
 		// 更具用户ID获取用户的菜单
 		userRoute.GET("/menus", u.getLeftMenusByCurrentUser)
 	}
