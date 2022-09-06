@@ -34,17 +34,21 @@ func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
 	{
 		// 安全重启jenkins
 		cicdRoute.POST("/restart", s.restart)
+		//Job API
 		cicdRoute.POST("/jobs/run", s.runJob)
 		cicdRoute.POST("/jobs", s.createJob)
+		cicdRoute.GET("/jobs", s.getAllJobs)
+		cicdRoute.DELETE("/jobs/:name", s.deleteJob)
 		cicdRoute.POST("/jobs/copy", s.copyJob)
 		cicdRoute.POST("/jobs/rename", s.renameJob)
 		cicdRoute.POST("/jobs/disable", s.disable)
 		cicdRoute.POST("/jobs/enable", s.enable)
+		cicdRoute.POST("/jobs/stop", s.stop)
+		//View API
 		cicdRoute.POST("/view", s.addViewJob)
 		cicdRoute.GET("/view", s.getAllViews)
+		//Node API
 		cicdRoute.GET("/nodes", s.getAllNodes)
-		cicdRoute.GET("/jobs", s.getAllJobs)
-		cicdRoute.DELETE("/jobs/:name", s.deleteJob)
 		cicdRoute.DELETE("/nodes/:name", s.deleteNode)
 
 	}

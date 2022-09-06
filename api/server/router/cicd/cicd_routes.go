@@ -193,3 +193,17 @@ func (s *cicdRouter) enable(c *gin.Context) {
 	}
 	httputils.SetSuccess(c, r)
 }
+
+func (s *cicdRouter) stop(c *gin.Context) {
+	r := httputils.NewResponse()
+	var cicd types.Cicd
+	if err := c.ShouldBindJSON(&cicd); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if _, err := pixiu.CoreV1.Cicd().Stop(context.TODO(), cicd.Name); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
