@@ -109,6 +109,7 @@ func (o *Options) register() error {
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
+
 	return nil
 }
 
