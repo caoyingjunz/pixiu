@@ -90,7 +90,7 @@ func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 		bucket := val.(*ratelimit.Bucket)
 		if bucket.TakeAvailable(1) == 0 {
 			r.SetCode(http.StatusGatewayTimeout)
-			httputils.SetFailed(c, r, fmt.Errorf("too many requests"))
+			httputils.SetFailed(c, r, fmt.Errorf("the system is busy. please try again later"))
 			c.Abort()
 			return
 		}
