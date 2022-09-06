@@ -44,5 +44,6 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		// listDeployments API: v1/<cloud_name>/namespaces/<ns>/deployments
 		cloudRoute.GET("/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
 		cloudRoute.DELETE("/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
+		cloudRoute.POST("/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
 	}
 }

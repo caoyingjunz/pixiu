@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
+	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,6 +49,7 @@ type CloudInterface interface {
 
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
+	CreateDeployment(ctx context.Context, getOptions types.GetOrCreateOptions, createOptions types.CreateOptions) (string, error)
 }
 
 var clientSets client.ClientsInterface
@@ -213,4 +215,56 @@ func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrD
 		return err
 	}
 	return nil
+}
+
+func (c *cloud) CreateDeployment(ctx context.Context, getOptions types.GetOrCreateOptions, createOptions types.CreateOptions) (string, error) {
+	clientSet, found := clientSets.Get(getOptions.CloudName)
+	if !found {
+		return "", fmt.Errorf("failed to found %s client", getOptions.CloudName)
+	}
+
+	deployment := &v1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: getOptions.ObjectName,
+		},
+		Spec: v1.DeploymentSpec{
+			Replicas: &createOptions.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":                   getOptions.ObjectName,
+					createOptions.LableName: createOptions.Lable,
+				},
+			},
+			Template: apiv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":                   getOptions.ObjectName,
+						createOptions.LableName: createOptions.Lable,
+					},
+				},
+				Spec: apiv1.PodSpec{
+					Containers: []apiv1.Container{
+						{
+							Name:  createOptions.ImageName,
+							Image: createOptions.Image,
+							Ports: []apiv1.ContainerPort{
+								{
+									Name:          "http",
+									Protocol:      apiv1.ProtocolTCP,
+									ContainerPort: createOptions.ContainerPort,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	createDeployment, err := clientSet.AppsV1().Deployments(getOptions.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to create %s deployments: %v \t %v", getOptions.Namespace, getOptions.ObjectName, err)
+		return "", err
+	}
+	return createDeployment.GetObjectMeta().GetName(), nil
 }

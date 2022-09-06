@@ -153,3 +153,28 @@ func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (s *cloudRouter) createDeployment(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err           error
+		getOptions    types.GetOrCreateOptions
+		createOptions types.CreateOptions
+	)
+	if err := c.ShouldBindUri(&getOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if err := c.ShouldBindJSON(&createOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	r.Message, err = pixiu.CoreV1.Cloud().CreateDeployment(context.TODO(), getOptions, createOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
