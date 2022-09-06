@@ -42,8 +42,14 @@ type CreateOptions struct {
 	ImageName     string `json:"image_name" binding:"required"`
 	Image         string `json:"image" binding:"required"`
 	ContainerPort int32  `json:"container_port" binding:"required"`
-	LableName     string `json:"lable_name"`
-	Lable         string `json:"lable"`
+	//Lable         map[string]string `json:"lable"` //  应该这样写  不知如何传参以及取值
+	LableName string   `json:"lable_name"`
+	Lable     string   `json:"lable"`
+	Command   []string `json:"command"`
+	//ImagePullPolicy导入问题
+	ImagePullPolicy string            `json:"image_pull_policy"`
+	PortsName       string            `json:"ports_name" binding:"required"`
+	NodeSelector    map[string]string `json:"node_selector,omitempty"`
 }
 
 type UpdateOptions struct {

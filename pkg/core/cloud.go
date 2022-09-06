@@ -225,31 +225,32 @@ func (c *cloud) CreateDeployment(ctx context.Context, getOptions types.GetOrCrea
 
 	deployment := &v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: getOptions.ObjectName,
+			Name:      getOptions.ObjectName,
+			Namespace: getOptions.Namespace,
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &createOptions.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":                   getOptions.ObjectName,
 					createOptions.LableName: createOptions.Lable,
 				},
 			},
 			Template: apiv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                   getOptions.ObjectName,
 						createOptions.LableName: createOptions.Lable,
 					},
 				},
 				Spec: apiv1.PodSpec{
+					NodeSelector: createOptions.NodeSelector,
 					Containers: []apiv1.Container{
 						{
-							Name:  createOptions.ImageName,
-							Image: createOptions.Image,
+							Name:    createOptions.ImageName,
+							Image:   createOptions.Image,
+							Command: createOptions.Command,
 							Ports: []apiv1.ContainerPort{
 								{
-									Name:          "http",
+									Name:          createOptions.PortsName,
 									Protocol:      apiv1.ProtocolTCP,
 									ContainerPort: createOptions.ContainerPort,
 								},
