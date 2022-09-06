@@ -50,7 +50,6 @@ func Register(logDir string, logLevel string) {
 		accessLogFile string
 		loggerLogFile string
 	)
-
 	// 支持 标准输出，标准错误输出，和指定日志文件
 	switch logDir {
 	case "stdout":
