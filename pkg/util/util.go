@@ -17,7 +17,6 @@ limitations under the License.
 package util
 
 import (
-	"errors"
 	"os"
 	"strconv"
 )
@@ -30,28 +29,28 @@ func ParseInt64(s string) (int64, error) {
 	return strconv.ParseInt(s, 10, 64)
 }
 
-// FileExist 判断文件是否存在
-func FileExist(file string) bool {
-	stat, _ := os.Stat(file)
-	if stat == nil {
+// IsDirectoryExists 判断目录是否存在
+func IsDirectoryExists(path string) bool {
+	stat, err := os.Stat(path)
+	if err != nil {
 		return false
 	}
-	return true
+	return stat.IsDir()
 }
 
-// CheckIsDir 判断文件类型是否是目录
-func CheckIsDir(file string) (bool, error) {
-	stat, _ := os.Stat(file)
-	if stat == nil {
-		return false, errors.New("文件不存在！")
-	}
-	return stat.IsDir(), nil
-}
-
-// CreateDir 创建指定目录
-func CreateDir(file string) {
-	err := os.MkdirAll(file, 0777)
+// IsFileExists 判断文件是否存在
+func IsFileExists(path string) bool {
+	stat, err := os.Stat(path)
 	if err != nil {
-		panic("目录创建异常" + err.Error())
+		return false
 	}
+	return !stat.IsDir()
+}
+
+// EnsureDirectoryExists 不存在则创建指定目录
+func EnsureDirectoryExists(path string) (err error) {
+	if !IsDirectoryExists(path) {
+		err = os.MkdirAll(path, 0755)
+	}
+	return
 }

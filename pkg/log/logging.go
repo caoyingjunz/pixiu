@@ -46,7 +46,6 @@ var (
 )
 
 func Register(logDir string, logLevel string) {
-
 	var (
 		accessLogFile string
 		loggerLogFile string
