@@ -139,6 +139,33 @@ func (u *userRouter) logout(c *gin.Context) {
 
 }
 
+func (u *userRouter) changePassword(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var idOptions types.IdOptions
+	if err := c.ShouldBindUri(&idOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	// 解析修改密码的三个参数
+	//  1. 当前密码 2. 新密码 3. 确认新密码
+	var password types.Password
+	if err := c.ShouldBindJSON(&password); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	password.UserId = idOptions.Id
+
+	// 需要通过 token 中的 id 判断当前操作的用户和需要修改密码的用户是否是同一个
+	// Get the uid from token
+	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), c.GetInt64("userId"), &password); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 // 获取用户button按钮
 func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 	uidStr, _ := c.Get("userId")

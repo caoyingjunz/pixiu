@@ -38,6 +38,10 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		userRoute.POST("/login", u.login)
 		userRoute.POST("/:id/logout", u.logout)
 
+		// 修改密码
+		userRoute.PUT("/change/:id/password", u.changePassword)
+		// 重置密码
+
 		//  查询当前用户角色
 		userRoute.GET("/roles", u.getRoleIDsByUser)
 		// 根据用户id分配权限
