@@ -64,14 +64,14 @@ func LoggerToFile() gin.HandlerFunc {
 // 使用 LRU 的原因: 如果不使用LRU, 当用户很多的时候, 需要在内存中维护一个很大的结构, 可能造成OOM
 func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 	// 初始化一个 LRU Cache
-	gc := gcache.New(200).LRU().Build()
+	cache := gcache.New(200).LRU().Build()
 
 	return func(c *gin.Context) {
 		r := httputils.NewResponse()
 		// 把 key: clientIP value: *ratelimit.Bucket 存入 LRU Cache 中
 		key := c.ClientIP()
-		if !gc.Has(key) {
-			if err := gc.SetWithExpire(key, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum), time.Minute*5); err != nil {
+		if !cache.Has(key) {
+			if err := cache.SetWithExpire(key, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum), time.Minute*5); err != nil {
 				httputils.SetFailed(c, r, err)
 				c.Abort()
 				return
@@ -79,7 +79,7 @@ func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 		}
 
 		// 通过 ClientIP 取出 bucket
-		val, err := gc.Get(key)
+		val, err := cache.Get(key)
 		if err != nil {
 			httputils.SetFailed(c, r, err)
 			c.Abort()
@@ -89,7 +89,8 @@ func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 		// 判断是否还有可用的 bucket
 		bucket := val.(*ratelimit.Bucket)
 		if bucket.TakeAvailable(1) == 0 {
-			httputils.SetFailed(c, r, fmt.Errorf("no token available"))
+			r.SetCode(http.StatusGatewayTimeout)
+			httputils.SetFailed(c, r, fmt.Errorf("no bucket-token available"))
 			c.Abort()
 			return
 		}
