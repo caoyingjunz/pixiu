@@ -73,6 +73,7 @@ func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 		if !gc.Has(key) {
 			if err := gc.SetWithExpire(key, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum), time.Minute*5); err != nil {
 				httputils.SetFailed(c, r, err)
+				c.Abort()
 				return
 			}
 		}
