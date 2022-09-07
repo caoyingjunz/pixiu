@@ -21,11 +21,12 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
@@ -49,21 +50,23 @@ type CloudInterface interface {
 
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
+
+	ListNamespaces(ctx context.Context, cloudName string) ([]corev1.Namespace, error)
+
+	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 }
 
 var clientSets client.ClientsInterface
 
 type cloud struct {
-	ComponentConfig config.Config
-	app             *pixiu
-	factory         db.ShareDaoFactory
+	app     *pixiu
+	factory db.ShareDaoFactory
 }
 
 func newCloud(c *pixiu) CloudInterface {
 	return &cloud{
-		ComponentConfig: c.cfg,
-		app:             c,
-		factory:         c.factory,
+		app:     c,
+		factory: c.factory,
 	}
 }
 
@@ -144,19 +147,6 @@ func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
 	return cs, nil
 }
 
-func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
-	return &types.Cloud{
-		Id:          obj.Id,
-		Name:        obj.Name,
-		Status:      obj.Status,
-		Description: obj.Description,
-		TimeSpec: types.TimeSpec{
-			GmtCreate:   obj.GmtCreate.Format(timeLayout),
-			GmtModified: obj.GmtModified.Format(timeLayout),
-		},
-	}
-}
-
 func (c *cloud) InitCloudClients() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
@@ -185,4 +175,17 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(kubeConfig)
+}
+
+func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
+	return &types.Cloud{
+		Id:          obj.Id,
+		Name:        obj.Name,
+		Status:      obj.Status,
+		Description: obj.Description,
+		TimeSpec: types.TimeSpec{
+			GmtCreate:   obj.GmtCreate.Format(timeLayout),
+			GmtModified: obj.GmtModified.Format(timeLayout),
+		},
+	}
 }

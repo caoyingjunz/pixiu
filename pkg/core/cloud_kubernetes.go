@@ -20,6 +20,8 @@ import (
 	"context"
 
 	v1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
@@ -56,4 +58,36 @@ func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrD
 	}
 
 	return nil
+}
+
+func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
+	clientSet := clientSets.Get(listOptions.CloudName)
+	if clientSet == nil {
+		return nil, clientError
+	}
+	jobs, err := clientSet.BatchV1().
+		Jobs(listOptions.Namespace).
+		List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to delete %s deployment: %v", listOptions.Namespace, err)
+		return nil, err
+	}
+
+	return jobs.Items, nil
+}
+
+func (c *cloud) ListNamespaces(ctx context.Context, cloudName string) ([]corev1.Namespace, error) {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return nil, clientError
+	}
+	namespaces, err := clientSet.CoreV1().
+		Namespaces().
+		List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to list namespaces: %v", cloudName, err)
+		return nil, err
+	}
+
+	return namespaces.Items, err
 }
