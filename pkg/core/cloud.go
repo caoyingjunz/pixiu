@@ -33,6 +33,8 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
+var clientError = fmt.Errorf("failed to found clout client")
+
 type CloudGetter interface {
 	Cloud() CloudInterface
 }
@@ -187,12 +189,13 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 }
 
 func (c *cloud) ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error) {
-	clientSet, found := clientSets.Get(listOptions.CloudName)
-	if !found {
-		return nil, fmt.Errorf("failed to found %s client", listOptions.CloudName)
+	clientSet := clientSets.Get(listOptions.CloudName)
+	if clientSet == nil {
+		return nil, clientError
 	}
-
-	deployments, err := clientSet.AppsV1().Deployments(listOptions.Namespace).List(ctx, metav1.ListOptions{})
+	deployments, err := clientSet.AppsV1().
+		Deployments(listOptions.Namespace).
+		List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Logger.Errorf("failed to list %s deployments: %v", listOptions.Namespace, err)
 		return nil, err
@@ -203,14 +206,16 @@ func (c *cloud) ListDeployments(ctx context.Context, listOptions types.ListOptio
 
 func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
 	// 获取 k8s 客户端
-	clientSet, found := clientSets.Get(deleteOptions.CloudName)
-	if !found {
-		return fmt.Errorf("failed to found %s client", deleteOptions.CloudName)
+	clientSet := clientSets.Get(deleteOptions.CloudName)
+	if clientSet == nil {
+		return clientError
 	}
-
-	if err := clientSet.AppsV1().Deployments(deleteOptions.Namespace).Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
+	if err := clientSet.AppsV1().
+		Deployments(deleteOptions.Namespace).
+		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
 		log.Logger.Errorf("failed to delete %s deployment: %v", deleteOptions.Namespace, err)
 		return err
 	}
+
 	return nil
 }
