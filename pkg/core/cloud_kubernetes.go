@@ -21,7 +21,6 @@ import (
 
 	v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -61,54 +60,19 @@ func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrD
 	return nil
 }
 
-func (c *cloud) CreateDeployment(ctx context.Context, getOptions types.GetOrCreateOptions, createOptions types.CreateOptions) (string, error) {
-	clientSet := clientSets.Get(getOptions.CloudName)
-
-	deployment := &v1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      getOptions.ObjectName,
-			Namespace: getOptions.Namespace,
-		},
-		Spec: v1.DeploymentSpec{
-			Replicas: &createOptions.Replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					createOptions.LableName: createOptions.Lable,
-				},
-			},
-			Template: apiv1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						createOptions.LableName: createOptions.Lable,
-					},
-				},
-				Spec: apiv1.PodSpec{
-					NodeSelector: createOptions.NodeSelector,
-					Containers: []apiv1.Container{
-						{
-							Name:    createOptions.ImageName,
-							Image:   createOptions.Image,
-							Command: createOptions.Command,
-							Ports: []apiv1.ContainerPort{
-								{
-									Name:          createOptions.PortsName,
-									Protocol:      apiv1.ProtocolTCP,
-									ContainerPort: createOptions.ContainerPort,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+func (c *cloud) CreateDeployment(ctx context.Context, cloudName string, deployment *v1.Deployment) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	if _, err := clientSet.AppsV1().
+		Deployments(deployment.Namespace).
+		Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to create %s deployments: %v \t %v", deployment.Namespace, deployment.Name, err)
+		return err
 	}
 
-	createDeployment, err := clientSet.AppsV1().Deployments(getOptions.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to create %s deployments: %v \t %v", getOptions.Namespace, getOptions.ObjectName, err)
-		return "", err
-	}
-	return createDeployment.GetObjectMeta().GetName(), nil
+	return nil
 }
 
 func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {

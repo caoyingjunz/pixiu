@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/api/apps/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
@@ -134,19 +135,24 @@ func (s *cloudRouter) listNamespaces(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// listDeployments API: clouds/<cloud_name>/namespaces/<ns>/deployments
-func (s *cloudRouter) listDeployments(c *gin.Context) {
+func (s *cloudRouter) createDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions types.ListOptions
+		err        error
+		getOptions types.GetOrCreateOptions
+		deployment v1.Deployment
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&getOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), listOptions)
-	if err != nil {
+	if err = c.ShouldBindJSON(&deployment); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	deployment.Name = getOptions.ObjectName
+	deployment.Namespace = getOptions.Namespace
+	if err = pixiu.CoreV1.Cloud().CreateDeployment(context.TODO(), getOptions.CloudName, &deployment); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -170,23 +176,24 @@ func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) createDeployment(c *gin.Context) {
+// listDeployments API: clouds/<cloud_name>/namespaces/<ns>/deployments
+func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		getOptions    types.GetOrCreateOptions
-		createOptions types.CreateOptions
+		err         error
+		listOptions types.ListOptions
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), listOptions)
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if err = c.ShouldBindJSON(&createOptions); err != nil {
-		r.Message, err = pixiu.CoreV1.Cloud().CreateDeployment(context.TODO(), getOptions, createOptions)
-
-		httputils.SetSuccess(c, r)
-	}
+	httputils.SetSuccess(c, r)
 }
 
 func (s *cloudRouter) listJobs(c *gin.Context) {
