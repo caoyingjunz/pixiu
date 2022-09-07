@@ -31,6 +31,27 @@ type GetOrDeleteOptions struct {
 	ObjectName string `uri:"object_name" binding:"required"`
 }
 
+type GetOrCreateOptions struct {
+	ListOptions
+
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
+type CreateOptions struct {
+	Replicas      int32  `json:"replicas"`
+	ImageName     string `json:"image_name" binding:"required"`
+	Image         string `json:"image" binding:"required"`
+	ContainerPort int32  `json:"container_port" binding:"required"`
+	//Lable         map[string]string `json:"lable"` //  应该这样写  不知如何传参以及取值
+	LableName string   `json:"lable_name"`
+	Lable     string   `json:"lable"`
+	Command   []string `json:"command"`
+	//ImagePullPolicy导入问题
+	ImagePullPolicy string            `json:"image_pull_policy"`
+	PortsName       string            `json:"ports_name" binding:"required"`
+	NodeSelector    map[string]string `json:"node_selector,omitempty"`
+}
+
 type Demo struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`

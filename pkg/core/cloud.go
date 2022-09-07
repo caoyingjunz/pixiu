@@ -50,7 +50,7 @@ type CloudInterface interface {
 
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
-
+	CreateDeployment(ctx context.Context, getOptions types.GetOrCreateOptions, createOptions types.CreateOptions) (string, error)
 	ListNamespaces(ctx context.Context, cloudName string) ([]corev1.Namespace, error)
 
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
