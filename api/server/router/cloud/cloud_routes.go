@@ -114,6 +114,26 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (s *cloudRouter) createNamespace(c *gin.Context) {}
+func (s *cloudRouter) updateNamespace(c *gin.Context) {}
+func (s *cloudRouter) deleteNamespace(c *gin.Context) {}
+func (s *cloudRouter) getNamespace(c *gin.Context)    {}
+
+func (s *cloudRouter) listNamespaces(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err          error
+		cloudOptions types.CloudOptions
+	)
+	r.Result, err = pixiu.CoreV1.Cloud().ListNamespaces(context.TODO(), cloudOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 // listDeployments API: clouds/<cloud_name>/namespaces/<ns>/deployments
 func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -161,25 +181,6 @@ func (s *cloudRouter) listJobs(c *gin.Context) {
 		return
 	}
 	r.Result, err = pixiu.CoreV1.Cloud().ListJobs(context.TODO(), listOptions)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) listNamespaces(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err        error
-		cloud_name = c.Param("cloud_name")
-	)
-	if len(cloud_name) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
-		return
-	}
-	r.Result, err = pixiu.CoreV1.Cloud().ListNamespaces(context.TODO(), cloud_name)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
