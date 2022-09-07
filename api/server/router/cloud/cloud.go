@@ -35,19 +35,24 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 	{
 		//  k8s cluster API
 		cloudRoute.POST("/:name", s.createCloud) // TODO: will optimise
-		cloudRoute.PUT("/:cid", s.updateCloud)
-		cloudRoute.DELETE("/:cid", s.deleteCloud)
-		cloudRoute.GET("/:cid", s.getCloud)
+		cloudRoute.PUT("/:id", s.updateCloud)
+		cloudRoute.DELETE("/:id", s.deleteCloud)
+		cloudRoute.GET("/:id", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
 
-		// Deployments API
-		// listDeployments API: v1/<cloud_name>/namespaces/<ns>/deployments
-		cloudRoute.GET("/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
-		cloudRoute.DELETE("/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
-
 		// Namespaces API
+		cloudRoute.POST("/v1/:cloud_name/namespaces", s.createNamespace)
+		cloudRoute.PUT("/v1/:cloud_name/namespaces/:object_name", s.updateNamespace)
+		cloudRoute.DELETE("/v1/:cloud_name/namespaces/:object_name", s.deleteNamespace)
+		cloudRoute.GET("/v1/:cloud_name/namespaces/:object_name", s.getNamespace)
 		cloudRoute.GET("/v1/:cloud_name/namespaces", s.listNamespaces)
-		//Job API
-		cloudRoute.GET("/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
+
+		// Deployments API
+		// listDeployments API: apps/v1/<cloud_name>/namespaces/<ns>/deployments
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
+
+		// Job API
+		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
 	}
 }
