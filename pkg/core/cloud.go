@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -186,36 +185,4 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(kubeConfig)
-}
-
-func (c *cloud) ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error) {
-	clientSet := clientSets.Get(listOptions.CloudName)
-	if clientSet == nil {
-		return nil, clientError
-	}
-	deployments, err := clientSet.AppsV1().
-		Deployments(listOptions.Namespace).
-		List(ctx, metav1.ListOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to list %s deployments: %v", listOptions.Namespace, err)
-		return nil, err
-	}
-
-	return deployments.Items, nil
-}
-
-func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
-	// 获取 k8s 客户端
-	clientSet := clientSets.Get(deleteOptions.CloudName)
-	if clientSet == nil {
-		return clientError
-	}
-	if err := clientSet.AppsV1().
-		Deployments(deleteOptions.Namespace).
-		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
-		log.Logger.Errorf("failed to delete %s deployment: %v", deleteOptions.Namespace, err)
-		return err
-	}
-
-	return nil
 }
