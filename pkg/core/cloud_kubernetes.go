@@ -68,7 +68,7 @@ func (c *cloud) CreateDeployment(ctx context.Context, cloudName string, deployme
 	if _, err := clientSet.AppsV1().
 		Deployments(deployment.Namespace).
 		Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
-		log.Logger.Errorf("failed to create %s deployments: %v \t %v", deployment.Namespace, deployment.Name, err)
+		log.Logger.Errorf("failed to create %s %s deployments: %v", deployment.Namespace, deployment.Name, err)
 		return err
 	}
 
