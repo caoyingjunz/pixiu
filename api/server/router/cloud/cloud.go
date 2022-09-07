@@ -40,14 +40,20 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/:cid", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
 
-		// Deployments API
-		// listDeployments API: v1/<cloud_name>/namespaces/<ns>/deployments
-		cloudRoute.GET("/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
-		cloudRoute.DELETE("/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
-		cloudRoute.POST("/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
 		// Namespaces API
+		cloudRoute.POST("/v1/:cloud_name/namespaces", s.createNamespace)
+		cloudRoute.PUT("/v1/:cloud_name/namespaces/:object_name", s.updateNamespace)
+		cloudRoute.DELETE("/v1/:cloud_name/namespaces/:object_name", s.deleteNamespace)
+		cloudRoute.GET("/v1/:cloud_name/namespaces/:object_name", s.getNamespace)
 		cloudRoute.GET("/v1/:cloud_name/namespaces", s.listNamespaces)
-		//Job API
-		cloudRoute.GET("/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
+
+		// Deployments API
+		// listDeployments API: apps/v1/<cloud_name>/namespaces/<ns>/deployments
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
+    cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
+
+		// Job API
+		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
 	}
 }

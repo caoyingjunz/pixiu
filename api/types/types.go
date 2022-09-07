@@ -20,6 +20,10 @@ type IdOptions struct {
 	Id int64 `uri:"id" binding:"required"`
 }
 
+type CloudOptions struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+}
+
 type ListOptions struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 	Namespace string `uri:"namespace" binding:"required"`
