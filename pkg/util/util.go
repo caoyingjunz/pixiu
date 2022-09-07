@@ -16,7 +16,10 @@ limitations under the License.
 
 package util
 
-import "strconv"
+import (
+	"os"
+	"strconv"
+)
 
 // ParseInt64 将字符串转换为 int64
 func ParseInt64(s string) (int64, error) {
@@ -24,4 +27,30 @@ func ParseInt64(s string) (int64, error) {
 		return 0, nil
 	}
 	return strconv.ParseInt(s, 10, 64)
+}
+
+// IsDirectoryExists 判断目录是否存在
+func IsDirectoryExists(path string) bool {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return stat.IsDir()
+}
+
+// IsFileExists 判断文件是否存在
+func IsFileExists(path string) bool {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !stat.IsDir()
+}
+
+// EnsureDirectoryExists 不存在则创建指定目录
+func EnsureDirectoryExists(path string) (err error) {
+	if !IsDirectoryExists(path) {
+		err = os.MkdirAll(path, 0755)
+	}
+	return
 }
