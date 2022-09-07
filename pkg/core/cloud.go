@@ -23,17 +23,17 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
+
+var clientError = fmt.Errorf("failed to found clout client")
 
 type CloudGetter interface {
 	Cloud() CloudInterface
@@ -51,7 +51,7 @@ type CloudInterface interface {
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
 
-	ListNamespaces(ctx context.Context, cloud_name string) ([]corev1.Namespace, error)
+	ListNamespaces(ctx context.Context, cloudName string) ([]corev1.Namespace, error)
 
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 }
@@ -59,16 +59,14 @@ type CloudInterface interface {
 var clientSets client.ClientsInterface
 
 type cloud struct {
-	ComponentConfig config.Config
-	app             *pixiu
-	factory         db.ShareDaoFactory
+	app     *pixiu
+	factory db.ShareDaoFactory
 }
 
 func newCloud(c *pixiu) CloudInterface {
 	return &cloud{
-		ComponentConfig: c.cfg,
-		app:             c,
-		factory:         c.factory,
+		app:     c,
+		factory: c.factory,
 	}
 }
 
@@ -149,19 +147,6 @@ func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
 	return cs, nil
 }
 
-func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
-	return &types.Cloud{
-		Id:          obj.Id,
-		Name:        obj.Name,
-		Status:      obj.Status,
-		Description: obj.Description,
-		TimeSpec: types.TimeSpec{
-			GmtCreate:   obj.GmtCreate.Format(timeLayout),
-			GmtModified: obj.GmtModified.Format(timeLayout),
-		},
-	}
-}
-
 func (c *cloud) InitCloudClients() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
@@ -192,57 +177,15 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(kubeConfig)
 }
 
-func (c *cloud) ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error) {
-	clientSet, found := clientSets.Get(listOptions.CloudName)
-	if !found {
-		return nil, fmt.Errorf("failed to found %s client", listOptions.CloudName)
+func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
+	return &types.Cloud{
+		Id:          obj.Id,
+		Name:        obj.Name,
+		Status:      obj.Status,
+		Description: obj.Description,
+		TimeSpec: types.TimeSpec{
+			GmtCreate:   obj.GmtCreate.Format(timeLayout),
+			GmtModified: obj.GmtModified.Format(timeLayout),
+		},
 	}
-
-	deployments, err := clientSet.AppsV1().Deployments(listOptions.Namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to list %s deployments: %v", listOptions.Namespace, err)
-		return nil, err
-	}
-
-	return deployments.Items, nil
-}
-
-func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
-	// 获取 k8s 客户端
-	clientSet, found := clientSets.Get(deleteOptions.CloudName)
-	if !found {
-		return fmt.Errorf("failed to found %s client", deleteOptions.CloudName)
-	}
-
-	if err := clientSet.AppsV1().Deployments(deleteOptions.Namespace).Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
-		log.Logger.Errorf("failed to delete %s deployment: %v", deleteOptions.Namespace, err)
-		return err
-	}
-	return nil
-}
-
-func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
-	clientSet, found := clientSets.Get(listOptions.CloudName)
-	if !found {
-		return nil, fmt.Errorf("failed to found %s client", listOptions.CloudName)
-	}
-	jobs, err := clientSet.BatchV1().Jobs(listOptions.Namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to delete %s deployment: %v", listOptions.Namespace, err)
-		return nil, err
-	}
-	return jobs.Items, nil
-}
-
-func (c *cloud) ListNamespaces(ctx context.Context, cloud_name string) ([]corev1.Namespace, error) {
-	clientSet, found := clientSets.Get(cloud_name)
-	if !found {
-		return nil, fmt.Errorf("failed to found %s client", cloud_name)
-	}
-	namespaces, err := clientSet.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return namespaces.Items, err
 }
