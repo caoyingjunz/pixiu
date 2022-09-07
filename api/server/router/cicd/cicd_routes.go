@@ -141,6 +141,13 @@ func (s *cicdRouter) getLastSuccessfulBuild(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (s *cicdRouter) details(c *gin.Context) {
+	r := httputils.NewResponse()
+	name := c.Param("name")
+	r.Result = pixiu.CoreV1.Cicd().Details(context.TODO(), name)
+	httputils.SetSuccess(c, r)
+}
+
 func (s *cicdRouter) getAllNodes(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
