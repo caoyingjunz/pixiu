@@ -36,6 +36,7 @@ type CicdInterface interface {
 	RunJob(ctx context.Context, name string) error
 	CreateJob(ctx context.Context, name interface{}) error
 	DeleteJob(ctx context.Context, name string) error
+	DeleteViewJob(ctx context.Context, name string, viewname string) (bool, error)
 	AddViewJob(ctx context.Context, addViewJob string, name string) error
 	GetAllJobs(ctx context.Context) (res []string, err error)
 	GetAllViews(ctx context.Context) (views []string, err error)
@@ -118,6 +119,21 @@ func (c *cicd) DeleteJob(ctx context.Context, name string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *cicd) DeleteViewJob(ctx context.Context, name string, viewname string) (bool, error) {
+	view := &gojenkins.View{Jenkins: c.cicdDriver}
+	view, err := c.cicdDriver.GetView(ctx, viewname)
+	if err != nil {
+		log.Logger.Errorf("failed to found view%s: %v", viewname, err)
+		return false, err
+	}
+	if _, err = view.DeleteJob(ctx, name); err != nil {
+		log.Logger.Errorf("failed to delete viewjob %s: %v", name, err)
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (c *cicd) DeleteNode(ctx context.Context, name string) error {

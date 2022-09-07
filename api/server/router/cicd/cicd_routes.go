@@ -163,6 +163,18 @@ func (s *cicdRouter) deleteJob(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (s *cicdRouter) deleteViewJob(c *gin.Context) {
+	r := httputils.NewResponse()
+	parm := map[string]interface{}{"name": c.Param("name"), "viewname": c.Param("viewname")}
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().DeleteViewJob(context.TODO(), parm["name"].(string), parm["viewname"].(string))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
 func (s *cicdRouter) deleteNode(c *gin.Context) {
 	r := httputils.NewResponse()
 	nodename := c.Param("nodename")
