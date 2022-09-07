@@ -60,6 +60,21 @@ func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrD
 	return nil
 }
 
+func (c *cloud) CreateDeployment(ctx context.Context, cloudName string, deployment *v1.Deployment) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	if _, err := clientSet.AppsV1().
+		Deployments(deployment.Namespace).
+		Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to create %s %s deployments: %v", deployment.Namespace, deployment.Name, err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
 	clientSet := clientSets.Get(listOptions.CloudName)
 	if clientSet == nil {
