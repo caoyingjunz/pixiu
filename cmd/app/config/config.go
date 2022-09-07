@@ -56,10 +56,6 @@ type JenkinsOptions struct {
 }
 
 func (c *Config) Valid() error {
-	if len(c.Default.LogDir) == 0 {
-		return fmt.Errorf("failed to find log_dir")
-	}
-
 	switch c.Cicd.Driver {
 	case "", types.Jenkins:
 		j := c.Cicd.Jenkins
