@@ -19,8 +19,9 @@ package core
 import (
 	"context"
 	"fmt"
+
 	v1 "k8s.io/api/apps/v1"
-	v12 "k8s.io/api/batch/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -51,7 +52,7 @@ type CloudInterface interface {
 
 	ListNamespaces(ctx context.Context, cloud_name string) ([]string, error)
 
-	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]v12.Job, error)
+	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 }
 
 var clientSets client.ClientsInterface
@@ -219,7 +220,7 @@ func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrD
 	return nil
 }
 
-func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]v12.Job, error) {
+func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
 	clientSet, found := clientSets.Get(listOptions.CloudName)
 	if !found {
 		return nil, fmt.Errorf("failed to found %s client", listOptions.CloudName)
