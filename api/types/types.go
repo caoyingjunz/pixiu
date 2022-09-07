@@ -16,10 +16,8 @@ limitations under the License.
 
 package types
 
-// TimeSpec 通用时间规格
-type TimeSpec struct {
-	GmtCreate   interface{} `json:"gmt_create,omitempty"`
-	GmtModified interface{} `json:"gmt_modified,omitempty"`
+type IdOptions struct {
+	Id int64 `uri:"id" binding:"required"`
 }
 
 type ListOptions struct {
@@ -44,6 +42,7 @@ type Cicd struct {
 	OldName  string `json:"oldName,omitempty"`
 	NewName  string `json:"newName,omitempty"`
 	ViewName string `json:"viewname,omitempty"`
+	Version  string `json:"version,omitempty"`
 }
 
 type User struct {
@@ -59,6 +58,13 @@ type User struct {
 	TimeSpec
 }
 
+type Password struct {
+	UserId          int64  `json:"user_id"`
+	OriginPassword  string `json:"origin_password"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
+
 type Cloud struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`
@@ -68,4 +74,10 @@ type Cloud struct {
 	Description     string `json:"description"`
 
 	TimeSpec
+}
+
+// TimeSpec 通用时间规格
+type TimeSpec struct {
+	GmtCreate   interface{} `json:"gmt_create,omitempty"`
+	GmtModified interface{} `json:"gmt_modified,omitempty"`
 }

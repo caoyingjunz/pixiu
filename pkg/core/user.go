@@ -45,6 +45,9 @@ type UserInterface interface {
 
 	Login(ctx context.Context, obj *types.User) (string, error)
 
+	// ChangePassword 修改密码
+	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error
+
 	GetJWTKey() []byte
 }
 
@@ -182,6 +185,60 @@ func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 
 	// 生成 token，并返回
 	return httputils.GenerateToken(userObj.Id, obj.Name, u.GetJWTKey())
+}
+
+// 修改密码前的参数校验
+func (u *user) preChangePassword(ctx context.Context, uid int64, obj *types.Password) error {
+	// 1. 新旧密码一样
+	if obj.OriginPassword == obj.Password {
+		return fmt.Errorf("the origin password is equal to the password")
+	}
+
+	// 2. 两次输入的密码不一致
+	if obj.Password != obj.ConfirmPassword {
+		return fmt.Errorf("the confrim password is equal to the password")
+	}
+
+	// 3. 请求参数中的 uid 和 token 中的 uid 不一致
+	// - 普通用户禁止修改他人的密码
+	// TODO - 管理员可以修改他人的密码
+	if uid != obj.UserId {
+		return fmt.Errorf("cannot change other user's (%d) password", obj.UserId)
+	}
+
+	return nil
+}
+
+func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Password) error {
+	if err := u.preChangePassword(ctx, uid, obj); err != nil {
+		log.Logger.Errorf("failed to change password: %v", err)
+		return err
+	}
+
+	// 获取当前密码，检查原始密码是否正确
+	userObj, err := u.factory.User().Get(ctx, uid)
+	if err != nil {
+		log.Logger.Errorf("failed to get user by id %d: %v", uid, err)
+		return err
+	}
+	// To ensure origin password is correct
+	if err = bcrypt.CompareHashAndPassword([]byte(userObj.Password), []byte(obj.OriginPassword)); err != nil {
+		return fmt.Errorf("incorrect origin password")
+	}
+
+	// 密码加密存储
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(obj.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
+		return err
+	}
+	// TODO: 未对 ResourceVersion 进行校验，修改密码是非高频操作，暂时不做校验
+	if err = u.factory.User().Update(ctx, uid, userObj.ResourceVersion, map[string]interface{}{"password": encryptedPassword}); err != nil {
+		log.Logger.Errorf("failed to change %d password %d: %v", uid, err)
+		return err
+	}
+
+	return nil
 }
 
 func (u *user) GetJWTKey() []byte {

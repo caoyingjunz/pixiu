@@ -44,10 +44,15 @@ func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
 		cicdRoute.POST("/jobs/disable", s.disable)
 		cicdRoute.POST("/jobs/enable", s.enable)
 		cicdRoute.POST("/jobs/stop", s.stop)
-		//View API
+		cicdRoute.POST("/jobs/config", s.config)
+		cicdRoute.POST("/jobs/updateconfig", s.updateConfig)
 		cicdRoute.POST("/view", s.addViewJob)
+		cicdRoute.GET("/jobs/details/:name", s.details)
+		cicdRoute.POST("/jobs/failed", s.getLastFailedBuild)
+		cicdRoute.POST("/jobs/success", s.getLastSuccessfulBuild)
+		cicdRoute.POST("/jobs/history", s.history)
 		cicdRoute.GET("/view", s.getAllViews)
-		//Node API
+		cicdRoute.DELETE("/view/:name/:viewname", s.deleteViewJob)
 		cicdRoute.GET("/nodes", s.getAllNodes)
 		cicdRoute.DELETE("/nodes/:name", s.deleteNode)
 
