@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/bndr/gojenkins"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
@@ -99,16 +100,28 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 }
 
 func (o *Options) register() error {
-	if err := util.EnsureDirectoryExists(o.ComponentConfig.Default.LogDir); err != nil { // 判断文件夹是否存在，不存在则创建
+	if err := o.registerLogger(); err != nil { // 注册数据库
 		return err
 	}
-	log.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
-	if err := o.registerDatabase(); err != nil {                                       // 注册数据库
+	if err := o.registerDatabase(); err != nil { // 注册数据库
 		return err
 	}
 	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
 		return err
 	}
+
+	return nil
+}
+
+func (o *Options) registerLogger() error {
+	if strings.ToLower(o.ComponentConfig.Default.LogType) == "file" {
+		// 判断文件夹是否存在，不存在则创建
+		if err := util.EnsureDirectoryExists(o.ComponentConfig.Default.LogDir); err != nil {
+			return err
+		}
+	}
+	// 注册日志
+	log.Register(o.ComponentConfig.Default.LogType, o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel)
 
 	return nil
 }
