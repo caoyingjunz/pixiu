@@ -202,5 +202,15 @@ func (c *cloud) ListDeployments(ctx context.Context, listOptions types.ListOptio
 }
 
 func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+	// 获取 k8s 客户端
+	clientSet, found := clientSets.Get(deleteOptions.CloudName)
+	if !found {
+		return fmt.Errorf("failed to found %s client", deleteOptions.CloudName)
+	}
+
+	if err := clientSet.AppsV1().Deployments(deleteOptions.Namespace).Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete %s deployment: %v", deleteOptions.Namespace, err)
+		return err
+	}
 	return nil
 }
