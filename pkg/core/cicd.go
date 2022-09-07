@@ -48,6 +48,7 @@ type CicdInterface interface {
 	Restart(ctx context.Context) error
 	Disable(ctx context.Context, name string) (bool, error)
 	Enable(ctx context.Context, name string) (bool, error)
+	Stop(ctx context.Context, name string) (bool, error)
 	Config(ctx context.Context, name string) (config string, err error)
 	UpdateConfig(ctx context.Context, name string) error
 	History(ctx context.Context, name string) ([]*gojenkins.History, error)
@@ -76,7 +77,6 @@ func (c *cicd) RunJob(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-
 	build, err := c.cicdDriver.GetBuildFromQueueID(ctx, queueid)
 	if err != nil {
 		return err
@@ -138,8 +138,7 @@ func (c *cicd) DeleteViewJob(ctx context.Context, name string, viewname string) 
 }
 
 func (c *cicd) DeleteNode(ctx context.Context, name string) error {
-	_, err := c.cicdDriver.DeleteJob(ctx, name)
-	if err != nil {
+	if _, err := c.cicdDriver.DeleteJob(ctx, name); err != nil {
 		log.Logger.Errorf("failed to delete Node %s: %v", name, err)
 		return err
 	}
@@ -234,6 +233,19 @@ func (c *cicd) Enable(ctx context.Context, name string) (bool, error) {
 		log.Logger.Errorf("failed to Enable %v", err)
 		return false, nil
 	}
+	return true, nil
+}
+
+func (c *cicd) Stop(ctx context.Context, name string) (bool, error) {
+	build := &gojenkins.Build{Jenkins: c.cicdDriver}
+	var err error
+	if build.Job, err = c.cicdDriver.GetJob(ctx, name); err != nil {
+		return false, err
+	}
+	if _, err = build.Stop(ctx); err != nil {
+		return false, err
+	}
+
 	return true, nil
 }
 
