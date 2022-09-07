@@ -100,7 +100,7 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 }
 
 func (o *Options) register() error {
-	if err := o.registerLogger(); err != nil { // 注册数据库
+	if err := o.registerLogger(); err != nil { // 注册日志
 		return err
 	}
 	if err := o.registerDatabase(); err != nil { // 注册数据库

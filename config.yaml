@@ -1,7 +1,7 @@
 default:
   # 服务监听端口
   listen: 8090
-  # 日志类型，支持 stdout, stderr 和 file, 默认为 file
+  # 日志类型，支持 stdout, stderr 和 file, 默认为 stdout
   log_type: stdout
   # 日志路径
   log_dir: /var/log/pixiu

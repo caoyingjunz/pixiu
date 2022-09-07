@@ -36,11 +36,9 @@ func NewZapLogger(c Configuration) (LoggerInterface, error) {
 	var w io.Writer
 	// 支持 标准输出，标准错误输出，和指定日志文件
 	switch strings.ToLower(c.LogType) {
-	case "stdout":
-		w = os.Stdout
 	case "stderr":
 		w = os.Stderr
-	default:
+	case "file":
 		w = &lumberjack.Logger{
 			Filename:   c.LogFile,
 			MaxSize:    c.RotateMaxSize,
@@ -48,6 +46,8 @@ func NewZapLogger(c Configuration) (LoggerInterface, error) {
 			MaxBackups: c.RotateMaxBackups,
 			Compress:   c.Compress,
 		}
+	default:
+		w = os.Stdout
 	}
 
 	cfg := zapcore.EncoderConfig{
