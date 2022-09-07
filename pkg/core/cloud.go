@@ -21,6 +21,8 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,6 +50,10 @@ type CloudInterface interface {
 
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
+
+	ListNamespaces(ctx context.Context, cloud_name string) ([]corev1.Namespace, error)
+
+	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 }
 
 var clientSets client.ClientsInterface
@@ -213,4 +219,30 @@ func (c *cloud) DeleteDeployment(ctx context.Context, deleteOptions types.GetOrD
 		return err
 	}
 	return nil
+}
+
+func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
+	clientSet, found := clientSets.Get(listOptions.CloudName)
+	if !found {
+		return nil, fmt.Errorf("failed to found %s client", listOptions.CloudName)
+	}
+	jobs, err := clientSet.BatchV1().Jobs(listOptions.Namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to delete %s deployment: %v", listOptions.Namespace, err)
+		return nil, err
+	}
+	return jobs.Items, nil
+}
+
+func (c *cloud) ListNamespaces(ctx context.Context, cloud_name string) ([]corev1.Namespace, error) {
+	clientSet, found := clientSets.Get(cloud_name)
+	if !found {
+		return nil, fmt.Errorf("failed to found %s client", cloud_name)
+	}
+	namespaces, err := clientSet.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return namespaces.Items, err
 }
