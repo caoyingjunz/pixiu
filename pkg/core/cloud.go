@@ -22,6 +22,7 @@ import (
 
 	v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -50,7 +51,7 @@ type CloudInterface interface {
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
 
-	ListNamespaces(ctx context.Context, cloud_name string) ([]string, error)
+	ListNamespaces(ctx context.Context, cloud_name string) ([]corev1.Namespace, error)
 
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 }
@@ -233,7 +234,7 @@ func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]
 	return jobs.Items, nil
 }
 
-func (c *cloud) ListNamespaces(ctx context.Context, cloud_name string) ([]string, error) {
+func (c *cloud) ListNamespaces(ctx context.Context, cloud_name string) ([]corev1.Namespace, error) {
 	clientSet, found := clientSets.Get(cloud_name)
 	if !found {
 		return nil, fmt.Errorf("failed to found %s client", cloud_name)
@@ -242,10 +243,6 @@ func (c *cloud) ListNamespaces(ctx context.Context, cloud_name string) ([]string
 	if err != nil {
 		return nil, err
 	}
-	namespace := make([]string, 0)
-	for _, value := range namespaces.Items {
-		namespace = append(namespace, value.Name)
-	}
 
-	return namespace, err
+	return namespaces.Items, err
 }
