@@ -106,3 +106,18 @@ func (c *cloud) ListNamespaces(ctx context.Context, cloudOptions types.CloudOpti
 
 	return namespaces.Items, err
 }
+
+func (c *cloud) ListServices(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error) {
+	clientSet := clientSets.Get(listOptions.CloudName)
+	if clientSet == nil {
+		return nil, clientError
+	}
+	services, err := clientSet.CoreV1().
+		Services(listOptions.Namespace).
+		List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to list services: %v", listOptions.CloudName, err)
+		return nil, err
+	}
+	return services.Items, nil
+}

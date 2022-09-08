@@ -214,3 +214,23 @@ func (s *cloudRouter) listJobs(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+// listServices
+func (s *cloudRouter) listServices(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		listOptions types.ListOptions
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().ListServices(context.TODO(), listOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}

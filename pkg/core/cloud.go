@@ -55,6 +55,8 @@ type CloudInterface interface {
 	ListNamespaces(ctx context.Context, cloudOptions types.CloudOptions) ([]corev1.Namespace, error)
 
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
+
+	ListServices(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error)
 }
 
 var clientSets client.ClientsInterface
