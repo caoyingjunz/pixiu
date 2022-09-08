@@ -107,6 +107,86 @@ func (c *cloud) ListNamespaces(ctx context.Context, cloudOptions types.CloudOpti
 	return namespaces.Items, err
 }
 
+func (c *cloud) ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error) {
+	clientSet := clientSets.Get(listOptions.CloudName)
+	if clientSet == nil {
+		return nil, clientError
+	}
+	statefulsets, err := clientSet.AppsV1().
+		StatefulSets(listOptions.Namespace).
+		List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to list statefulsets: %v", listOptions.Namespace, err)
+		return nil, err
+	}
+
+	return statefulsets.Items, err
+}
+
+func (c *cloud) GetStatefulset(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error) {
+	clientSet := clientSets.Get(getOptions.CloudName)
+	if clientSet == nil {
+		return nil, clientError
+	}
+	statefulset, err := clientSet.AppsV1().
+		StatefulSets(getOptions.Namespace).
+		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get statefulsets: %v", getOptions.CloudName, err)
+		return nil, err
+	}
+
+	return statefulset, err
+}
+
+func (c *cloud) DeleteStatefulset(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+	clientSet := clientSets.Get(deleteOptions.CloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	err := clientSet.AppsV1().
+		StatefulSets(deleteOptions.Namespace).
+		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to list statefulsets: %v", deleteOptions.CloudName, err)
+		return err
+	}
+
+	return err
+}
+
+func (c *cloud) UpdateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	_, err := clientSet.AppsV1().
+		StatefulSets(statefulset.Namespace).
+		Update(ctx, statefulset, metav1.UpdateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to update statefulsets: %v", cloudName, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *cloud) CreateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	_, err := clientSet.AppsV1().
+		StatefulSets(statefulset.Namespace).
+		Create(ctx, statefulset, metav1.CreateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to create statefulsets: %v", cloudName, err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *cloud) ListServices(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error) {
 	clientSet := clientSets.Get(listOptions.CloudName)
 	if clientSet == nil {

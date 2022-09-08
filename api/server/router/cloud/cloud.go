@@ -57,6 +57,13 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		// Job API
 		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
 
+		// StatefulSet API
+		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.createStatefulset)
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.updateStatefulset)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.deleteStatefulset)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.getStatefulset)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulsets)
+
 		// Service API
 		cloudRoute.GET("/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
 	}
