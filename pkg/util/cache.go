@@ -48,7 +48,7 @@ func (c *LRUCache) Add(key, value interface{}) {
 	}
 
 	// 已经超出 lrucache 的容量, 删除 list 尾部节点, 删除 items 中 key=key 的项
-	if c.evictList.Len() >= c.cap {
+	if c.evictList.Len() > c.cap {
 		lastElement := c.evictList.Back()
 		c.evictList.Remove(lastElement)
 		delete(c.items, lastElement.Value.(*entry).key)
