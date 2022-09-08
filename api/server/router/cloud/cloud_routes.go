@@ -21,10 +21,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-
 	"github.com/gin-gonic/gin"
 	v1 "k8s.io/api/apps/v1"
-  corev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
@@ -140,26 +139,19 @@ func (s *cloudRouter) createNamespace(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) updateNamespace(c *gin.Context) {
-}
+func (s *cloudRouter) updateNamespace(c *gin.Context) {}
+
 func (s *cloudRouter) deleteNamespace(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions types.CloudOptions
+		err              error
+		namespaceOptions types.NamespaceOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&namespaceOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	namespace := struct {
-		Name string `json:"name,omitempty"`
-	}{}
-	if err = c.ShouldBindJSON(&namespace); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = pixiu.CoreV1.Cloud().DeleteNamespace(context.TODO(), listOptions.CloudName, namespace.Name); err != nil {
+	if err = pixiu.CoreV1.Cloud().DeleteNamespace(context.TODO(), namespaceOptions.CloudName, namespaceOptions.ObjectName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
