@@ -40,6 +40,7 @@ type CloudGetter interface {
 }
 
 type CloudInterface interface {
+	// Cloud
 	Create(ctx context.Context, obj *types.Cloud) error
 	Update(ctx context.Context, obj *types.Cloud) error
 	Delete(ctx context.Context, cid int64) error
@@ -48,19 +49,25 @@ type CloudInterface interface {
 
 	InitCloudClients() error
 
+	// Deployment
 	CreateDeployment(ctx context.Context, cloudName string, deployment *v1.Deployment) error
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
 
+	// Namespace
 	ListNamespaces(ctx context.Context, cloudOptions types.CloudOptions) ([]corev1.Namespace, error)
+	CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error
+	DeleteNamespace(ctx context.Context, cloudName string, namespace string) error
 
+	// Jobs
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 
-	ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
-	GetStatefulset(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error)
-	DeleteStatefulset(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	UpdateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error
+	// Statefulset
 	CreateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error
+	UpdateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error
+	DeleteStatefulset(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
+	GetStatefulset(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error)
+	ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
 }
 
 var clientSets client.ClientsInterface

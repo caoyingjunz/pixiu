@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
@@ -115,10 +116,49 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) createNamespace(c *gin.Context) {}
+func (s *cloudRouter) createNamespace(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		listOptions types.CloudOptions
+		namespace   corev1.Namespace
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().CreateNamespace(context.TODO(), listOptions.CloudName, namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 func (s *cloudRouter) updateNamespace(c *gin.Context) {}
-func (s *cloudRouter) deleteNamespace(c *gin.Context) {}
-func (s *cloudRouter) getNamespace(c *gin.Context)    {}
+
+func (s *cloudRouter) deleteNamespace(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err              error
+		namespaceOptions types.NamespaceOptions
+	)
+	if err = c.ShouldBindUri(&namespaceOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().DeleteNamespace(context.TODO(), namespaceOptions.CloudName, namespaceOptions.ObjectName); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+func (s *cloudRouter) getNamespace(c *gin.Context) {}
 
 func (s *cloudRouter) listNamespaces(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -126,6 +166,10 @@ func (s *cloudRouter) listNamespaces(c *gin.Context) {
 		err          error
 		cloudOptions types.CloudOptions
 	)
+	if err = c.ShouldBindUri(&cloudOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	r.Result, err = pixiu.CoreV1.Cloud().ListNamespaces(context.TODO(), cloudOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
