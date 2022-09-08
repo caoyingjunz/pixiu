@@ -20,13 +20,23 @@ type IdOptions struct {
 	Id int64 `uri:"id" binding:"required"`
 }
 
+type CloudOptions struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+}
+
 type ListOptions struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 	Namespace string `uri:"namespace" binding:"required"`
 }
 
 type GetOrDeleteOptions struct {
-	ListOptions
+	ListOptions `json:",inline"`
+
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
+type GetOrCreateOptions struct {
+	ListOptions `json:",inline,omitempty"`
 
 	ObjectName string `uri:"object_name" binding:"required"`
 }
@@ -42,6 +52,7 @@ type Cicd struct {
 	OldName  string `json:"oldName,omitempty"`
 	NewName  string `json:"newName,omitempty"`
 	ViewName string `json:"viewname,omitempty"`
+	Version  string `json:"version,omitempty"`
 }
 
 type User struct {

@@ -141,6 +141,13 @@ func (s *cicdRouter) getLastSuccessfulBuild(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (s *cicdRouter) details(c *gin.Context) {
+	r := httputils.NewResponse()
+	name := c.Param("name")
+	r.Result = pixiu.CoreV1.Cicd().Details(context.TODO(), name)
+	httputils.SetSuccess(c, r)
+}
+
 func (s *cicdRouter) getAllNodes(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
@@ -160,6 +167,18 @@ func (s *cicdRouter) deleteJob(c *gin.Context) {
 		return
 	}
 
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) deleteViewJob(c *gin.Context) {
+	r := httputils.NewResponse()
+	parm := map[string]interface{}{"name": c.Param("name"), "viewname": c.Param("viewname")}
+	var err error
+	r.Result, err = pixiu.CoreV1.Cicd().DeleteViewJob(context.TODO(), parm["name"].(string), parm["viewname"].(string))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }
 
@@ -220,6 +239,20 @@ func (s *cicdRouter) enable(c *gin.Context) {
 		return
 	}
 	if _, err := pixiu.CoreV1.Cicd().Enable(context.TODO(), cicd.Name); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cicdRouter) stop(c *gin.Context) {
+	r := httputils.NewResponse()
+	var cicd types.Cicd
+	if err := c.ShouldBindJSON(&cicd); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if _, err := pixiu.CoreV1.Cicd().Stop(context.TODO(), cicd.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
