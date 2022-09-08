@@ -19,12 +19,13 @@ package core
 import (
 	"context"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 	v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 func (c *cloud) ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error) {
@@ -108,9 +109,6 @@ func (c *cloud) ListNamespaces(ctx context.Context, cloudOptions types.CloudOpti
 
 func (c *cloud) ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error) {
 	clientSet := clientSets.Get(listOptions.CloudName)
-	if clientSet == nil {
-		return nil, clientError
-	}
 	if clientSet == nil {
 		return nil, clientError
 	}
