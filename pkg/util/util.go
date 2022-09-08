@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 package util
+<<<<<<< HEAD
 
 import (
 	"os"
@@ -54,3 +55,5 @@ func EnsureDirectoryExists(path string) (err error) {
 	}
 	return
 }
+=======
+>>>>>>> parent of 8acc52e (Add demo app api completed (get, post) (#26))

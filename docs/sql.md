@@ -3,19 +3,6 @@
 CREATE DATABASE gopixiu;
 ```
 
-## 创建 `demos` 表
-```sql
-CREATE TABLE `demos` (
-    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
-    gmt_create datetime COMMENT '创建时间',
-    gmt_modified datetime COMMENT '修改时间',
-    resource_version int COMMENT '版本号',
-    name varchar(128) COMMENT 'demo 名称',
-    KEY `idx_name` (`name`),
-    UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=20220801;
-```
-
 ## 创建 `users` 表
 ```sql
 CREATE TABLE `users` (
