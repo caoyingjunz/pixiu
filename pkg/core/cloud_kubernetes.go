@@ -224,7 +224,7 @@ func (c *cloud) ListServices(ctx context.Context, listOptions types.ListOptions)
 		Services(listOptions.Namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to list services: %v", listOptions.CloudName, err)
+		log.Logger.Errorf("failed to list %s %s services: %v", listOptions.CloudName, listOptions.Namespace, err)
 		return nil, err
 	}
 	return services.Items, nil
