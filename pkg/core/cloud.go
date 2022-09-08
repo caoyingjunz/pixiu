@@ -70,6 +70,10 @@ type CloudInterface interface {
 	ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
 
 	ListServices(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error)
+	CreateService(ctx context.Context, cloudName string, service *corev1.Service) error
+	UpdateService(ctx context.Context, cloudName string, service *corev1.Service) error
+	DeleteService(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
+	GetService(ctx context.Context, getOptions types.GetOrDeleteOptions) (*corev1.Service, error)
 }
 
 var clientSets client.ClientsInterface

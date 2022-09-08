@@ -229,3 +229,66 @@ func (c *cloud) ListServices(ctx context.Context, listOptions types.ListOptions)
 	}
 	return services.Items, nil
 }
+
+func (c *cloud) GetService(ctx context.Context, getOptions types.GetOrDeleteOptions) (*corev1.Service, error) {
+	clientSet := clientSets.Get(getOptions.CloudName)
+	if clientSet == nil {
+		return nil, clientError
+	}
+	service, err := clientSet.CoreV1().
+		Services(getOptions.Namespace).
+		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get service: %v", getOptions.CloudName, err)
+		return nil, err
+	}
+
+	return service, err
+}
+
+func (c *cloud) DeleteService(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+	clientSet := clientSets.Get(deleteOptions.CloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	if err := clientSet.CoreV1().
+		Services(deleteOptions.Namespace).
+		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete %s service: %v", deleteOptions.Namespace, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *cloud) UpdateService(ctx context.Context, cloudName string, service *corev1.Service) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	_, err := clientSet.CoreV1().
+		Services(service.Namespace).
+		Update(ctx, service, metav1.UpdateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to update service: %v", cloudName, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *cloud) CreateService(ctx context.Context, cloudName string, service *corev1.Service) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	_, err := clientSet.CoreV1().
+		Services(service.Namespace).
+		Create(ctx, service, metav1.CreateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to create service: %v", cloudName, err)
+		return err
+	}
+
+	return nil
+}

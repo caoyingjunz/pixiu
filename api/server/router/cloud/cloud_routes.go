@@ -360,7 +360,7 @@ func (s *cloudRouter) listStatefulsets(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// listServices
+// Serivice
 func (s *cloudRouter) listServices(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -372,6 +372,91 @@ func (s *cloudRouter) listServices(c *gin.Context) {
 		return
 	}
 	r.Result, err = pixiu.CoreV1.Cloud().ListServices(context.TODO(), listOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) createService(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err        error
+		getOptions types.GetOrCreateOptions
+		service    corev1.Service
+	)
+	if err = c.ShouldBindUri(&getOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&service); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	service.Name = getOptions.ObjectName
+	service.Namespace = getOptions.Namespace
+	if err = pixiu.CoreV1.Cloud().CreateService(context.TODO(), getOptions.CloudName, &service); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) updateService(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err           error
+		createOptions types.GetOrCreateOptions
+		service       corev1.Service
+	)
+	if err = c.ShouldBindUri(&createOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	service.Name = createOptions.ObjectName
+	service.Namespace = createOptions.Namespace
+	err = pixiu.CoreV1.Cloud().UpdateService(context.TODO(), createOptions.CloudName, &service)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) deleteService(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err        error
+		delOptions types.GetOrDeleteOptions
+	)
+	if err = c.ShouldBindUri(&delOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	err = pixiu.CoreV1.Cloud().DeleteService(context.TODO(), delOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) getService(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err        error
+		getOptions types.GetOrDeleteOptions
+	)
+	if err = c.ShouldBindUri(&getOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().GetService(context.TODO(), getOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
