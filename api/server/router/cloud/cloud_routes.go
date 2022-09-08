@@ -19,14 +19,14 @@ package cloud
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
-	
+
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
 	"k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
