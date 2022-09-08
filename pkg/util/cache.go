@@ -59,9 +59,9 @@ func (c *LRUCache) Get(key interface{}) (value interface{}) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	value = nil
-	if c.Contains(key) {
-		value = c.items[key].Value.(*entry).value
-		c.evictList.MoveToFront(c.items[key])
+	if ent, ok := c.items[key]; ok {
+		value = ent.Value.(*entry).value
+		c.evictList.MoveToFront(ent)
 	}
 	return
 }
