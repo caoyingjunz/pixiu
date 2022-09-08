@@ -19,10 +19,12 @@ package cloud
 import (
 	"context"
 	"fmt"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"k8s.io/api/apps/v1"
@@ -114,9 +116,56 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) updateNamespace(c *gin.Context) {}
-func (s *cloudRouter) deleteNamespace(c *gin.Context) {}
-func (s *cloudRouter) getNamespace(c *gin.Context)    {}
+func (s *cloudRouter) createNamespace(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		listOptions types.CloudOptions
+		namespace   corev1.Namespace
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().CreateNamespace(context.TODO(), listOptions.CloudName, namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) updateNamespace(c *gin.Context) {
+}
+func (s *cloudRouter) deleteNamespace(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		listOptions types.CloudOptions
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	namespace := struct {
+		Name string `json:"name,omitempty"`
+	}{}
+	if err = c.ShouldBindJSON(&namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().DeleteNamespace(context.TODO(), listOptions.CloudName, namespace.Name); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+func (s *cloudRouter) getNamespace(c *gin.Context) {}
 
 func (s *cloudRouter) listNamespaces(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -124,6 +173,10 @@ func (s *cloudRouter) listNamespaces(c *gin.Context) {
 		err          error
 		cloudOptions types.CloudOptions
 	)
+	if err = c.ShouldBindUri(&cloudOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	r.Result, err = pixiu.CoreV1.Cloud().ListNamespaces(context.TODO(), cloudOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
@@ -187,30 +240,6 @@ func (s *cloudRouter) listDeployments(c *gin.Context) {
 	}
 	r.Result, err = pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), listOptions)
 	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) createNamespace(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err         error
-		listOptions types.ListOptions
-		namespace   corev1.Namespace
-	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = c.ShouldBindJSON(&namespace); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	namespace.Namespace = listOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().CreateNamespace(context.TODO(), listOptions.CloudName, namespace); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

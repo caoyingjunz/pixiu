@@ -18,7 +18,6 @@ package core
 
 import (
 	"context"
-
 	v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -82,8 +81,21 @@ func (c *cloud) CreateNamespace(ctx context.Context, cloudName string, namespace
 	}
 	_, err := clientSet.CoreV1().
 		Namespaces().
-		Create(ctx, *namespace, metav1.CreateOptions{})
+		Create(ctx, &namespace, metav1.CreateOptions{})
 	if err != nil {
+		log.Logger.Errorf("failed to create namespaces: %v", cloudName, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *cloud) DeleteNamespace(ctx context.Context, cloudName string, namespace string) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	if err := clientSet.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{}); err != nil {
 		log.Logger.Errorf("failed to create namespaces: %v", cloudName, err)
 		return err
 	}
