@@ -24,13 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluele/gcache"
 	"github.com/gin-gonic/gin"
 	"github.com/juju/ratelimit"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
 func InitMiddlewares(ginEngine *gin.Engine) {
@@ -57,32 +57,21 @@ func LoggerToFile() gin.HandlerFunc {
 	}
 }
 
-// 该 RateLimiter 使用了两个开源组件
-//  1. google 实现的 LRU Cache 的库
-//  2. token bucket 的一个开源实现
-//
-// 使用 LRU 的原因: 如果不使用LRU, 当用户很多的时候, 需要在内存中维护一个很大的结构, 可能造成OOM
 func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 	// 初始化一个 LRU Cache
-	cache := gcache.New(200).LRU().Build()
+	cache, _ := util.NewLRUCache(200)
 
 	return func(c *gin.Context) {
 		r := httputils.NewResponse()
 		// 把 key: clientIP value: *ratelimit.Bucket 存入 LRU Cache 中
 		clientIP := c.ClientIP()
-		if !cache.Has(clientIP) {
-			if err := cache.SetWithExpire(clientIP, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum), time.Minute*5); err != nil {
-				httputils.SetFailed(c, r, err)
-				c.Abort()
-				return
-			}
+		if !cache.Contains(clientIP) {
+			cache.Add(clientIP, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum))
 		}
 
 		// 通过 ClientIP 取出 bucket
-		val, err := cache.Get(clientIP)
-		if err != nil {
-			httputils.SetFailed(c, r, err)
-			c.Abort()
+		val := cache.Get(clientIP)
+		if val == nil {
 			return
 		}
 
