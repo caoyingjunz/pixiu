@@ -67,6 +67,7 @@ func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 		clientIP := c.ClientIP()
 		if !cache.Contains(clientIP) {
 			cache.Add(clientIP, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum))
+			return
 		}
 
 		// 通过 ClientIP 取出 bucket
