@@ -61,6 +61,12 @@ type CloudInterface interface {
 
 	//Jobs
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
+
+	ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
+	GetStatefulset(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error)
+	DeleteStatefulset(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
+	UpdateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error
+	CreateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error
 }
 
 var clientSets client.ClientsInterface
