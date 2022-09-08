@@ -39,7 +39,6 @@ func (m *Menu) TableName() string {
 func (m *Menu) BeforeCreate(*gorm.DB) error {
 	m.GmtCreate = time.Now()
 	m.GmtModified = time.Now()
-	m.Status = 1
 	return nil
 }
 
