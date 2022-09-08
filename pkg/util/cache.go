@@ -39,8 +39,7 @@ func (c *LRUCache) Add(key, value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.Contains(key) { // 当前 key 是否已经存在, 存在覆盖当前 value, 并把节点移动到 list 头部
-		ent := c.items[key]
+	if ent, ok := c.items[key]; ok { // 当前 key 是否已经存在, 存在覆盖当前 value, 并把节点移动到 list 头部
 		ent.Value.(*entry).value = value
 		c.evictList.MoveToFront(ent)
 	} else { // 不存在, 添加到 list 头部

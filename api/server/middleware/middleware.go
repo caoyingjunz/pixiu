@@ -57,7 +57,8 @@ func LoggerToFile() gin.HandlerFunc {
 	}
 }
 
-func RateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
+// TODO 限速大小从配置中读取
+func PerUserRateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 	// 初始化一个 LRU Cache
 	cache, _ := util.NewLRUCache(200)
 
