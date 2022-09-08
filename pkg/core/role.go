@@ -39,8 +39,8 @@ func (r *role) Create(c context.Context, obj *model.Role) (role *model.Role, err
 	return
 }
 
-func (r *role) Update(c context.Context, role *model.Role) error {
-	return r.factory.Role().Update(c, role)
+func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
+	return r.factory.Role().Update(c, role, rid)
 }
 
 func (r *role) Delete(c context.Context, rid []int64) error {

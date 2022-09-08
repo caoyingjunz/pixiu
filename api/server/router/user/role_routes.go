@@ -37,12 +37,12 @@ func (*roleRouter) updateRole(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	role.Id, err = util.ParseInt64(c.Param("id"))
+	roleId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Role().Update(context.TODO(), &role); err != nil {
+	if err = pixiu.CoreV1.Role().Update(context.TODO(), &role, roleId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

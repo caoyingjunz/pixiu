@@ -1,7 +1,6 @@
 package model
 
 import (
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"time"
 
 	"gorm.io/gorm"
@@ -44,9 +43,6 @@ func (m *Menu) BeforeCreate(*gorm.DB) error {
 
 // BeforeUpdate 更新前
 func (m *Menu) BeforeUpdate(tx *gorm.DB) error {
-	log.Logger.Info("--------BeforeUpdate-----")
-	log.Logger.Info(m.Id, m.ResourceVersion, m.GmtCreate)
 	m.GmtModified = time.Now()
-	m.ResourceVersion++
 	return nil
 }

@@ -18,7 +18,6 @@ package user
 
 import (
 	"context"
-	"github.com/caoyingjunz/gopixiu/pkg/db/dbcommon"
 	"time"
 
 	"gorm.io/gorm"
@@ -40,6 +39,7 @@ type UserInterface interface {
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
 	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.TreeMenus, error)
+	DeleteRolesByUserID(ctx context.Context, uid int64) error
 }
 
 type user struct {
@@ -119,14 +119,17 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 	tx := u.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
+			log.Logger.Errorf(err.(error).Error())
 			tx.Rollback()
 		}
 	}()
 	if err := tx.Error; err != nil {
+		log.Logger.Errorf(err.Error())
 		tx.Rollback()
 		return err
 	}
 	if err := tx.Where(&model.UserRole{UserID: uid}).Delete(&model.UserRole{}).Error; err != nil {
+		log.Logger.Errorf(err.Error())
 		tx.Rollback()
 		return err
 	}
@@ -136,6 +139,7 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 			rm.RoleID = rid
 			rm.UserID = uid
 			if err := tx.Create(rm).Error; err != nil {
+				log.Logger.Errorf(err.Error())
 				tx.Rollback()
 				return err
 			}
@@ -147,12 +151,10 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 
 //GetRoleIDByUser 查询用户角色
 func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (map[string][]int64, error) {
-	comm := dbcommon.NewCommon(u.db)
-	where := model.UserRole{UserID: uid}
 	roleList := []int64{}
-	err := comm.PluckList(&model.UserRole{}, &where, &roleList, "role_id")
+	err := u.db.Model(&model.UserRole{}).Where("user_id = ?", uid).Pluck("role_id", &roleList).Error
 	if err != nil {
-
+		log.Logger.Errorf(err.Error())
 		return nil, err
 	}
 	roleInfo := map[string][]int64{
@@ -197,4 +199,13 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Tr
 	}
 	treeMenusList := getTreeMenus(menus, 0)
 	return &treeMenusList, nil
+}
+
+func (u *user) DeleteRolesByUserID(ctx context.Context, uid int64) error {
+	err := u.db.Where("user_id = ?", uid).Delete(&model.UserRole{}).Error
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return err
+	}
+	return nil
 }

@@ -60,7 +60,7 @@ func (m *menu) List(c context.Context) (menus []model.TreeMenus, err error) {
 	return
 }
 
-func (m *menu) GetByRoleID(c context.Context, roleID uint64) (menu *model.Menu, err error) {
+func (m *menu) GetByRoleID(c context.Context, roleID int64) (menu *model.Menu, err error) {
 	if menu, err = m.factory.Menu().GetByRoleID(c, roleID); err != nil {
 		return nil, err
 	}

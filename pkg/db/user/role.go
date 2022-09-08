@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 
 	"gorm.io/gorm"
 
@@ -12,7 +13,7 @@ import (
 // RoleInterface 角色操作接口
 type RoleInterface interface {
 	Create(context.Context, *model.Role) (*model.Role, error)
-	Update(context.Context, *model.Role) error
+	Update(context.Context, *model.Role, int64) error
 	Delete(context.Context, []int64) error
 	Get(context.Context, int64) (*[]model.Role, error)
 	List(context.Context) ([]model.Role, error)
@@ -37,8 +38,15 @@ func (r *role) Create(c context.Context, obj *model.Role) (*model.Role, error) {
 	return obj, nil
 }
 
-func (r *role) Update(c context.Context, role *model.Role) error {
-	return r.db.Updates(*role).Error
+func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
+	resourceVersion := role.ResourceVersion
+	role.ResourceVersion++
+	tx := r.db.Where("id = ? and resource_version = ? ", rid, resourceVersion).Updates(role)
+	log.Logger.Info(tx.RowsAffected)
+	if tx.RowsAffected == 0 {
+		return errors.New("update failed")
+	}
+	return tx.Error
 }
 
 func (r *role) Delete(c context.Context, rids []int64) error {
@@ -46,20 +54,25 @@ func (r *role) Delete(c context.Context, rids []int64) error {
 	defer func() {
 		if err := recover(); err != nil {
 			tx.Rollback()
+			log.Logger.Errorf(err.(error).Error())
+
 		}
 	}()
 	if err := tx.Error; err != nil {
 		tx.Rollback()
+		log.Logger.Errorf(err.Error())
 		return err
 	}
 	// 删除角色
-	if err := tx.Where("id = ?", rids).Delete(&model.Role{}).Error; err != nil {
+	if err := tx.Where("id in ?", rids).Delete(&model.Role{}).Error; err != nil {
 		tx.Rollback()
+		log.Logger.Errorf(err.Error())
 		return err
 	}
 	//删除角色相关的菜单
-	if err := tx.Where("role_id = ?", rids).Delete(&model.RoleMenu{}).Error; err != nil {
+	if err := tx.Where("role_id in ?", rids).Delete(&model.RoleMenu{}).Error; err != nil {
 		tx.Rollback()
+		log.Logger.Errorf(err.Error())
 		return err
 	}
 	return tx.Commit().Error
@@ -81,7 +94,11 @@ func (r *role) List(c context.Context) (roles []model.Role, err error) {
 func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error) {
 	var menus []model.Menu
 	err := r.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.sequence,menu.code,menu.method").
-		Joins("left join role_menu on menu.id = role_menu.menu_id and role_id= ?", rid).Order("parent_id ASC").Order("sequence ASC").Scan(&menus).Error
+		Joins("left join role_menu on menu.id = role_menu.menu_id", rid).
+		Where("role_menu.role_id = ?", rid).
+		Order("parent_id ASC").
+		Order("sequence ASC").
+		Scan(&menus).Error
 	if err != nil {
 		log.Logger.Errorf(err.Error())
 		return nil, err

@@ -2,13 +2,14 @@ package user
 
 import (
 	"context"
-
+	"errors"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 )
 
-// MenuInterface 角色操作接口
+// MenuInterface 菜单操作接口
 type MenuInterface interface {
 	Create(context.Context, *model.Menu) (*model.Menu, error)
 	Update(context.Context, *model.Menu, int64) error
@@ -16,7 +17,7 @@ type MenuInterface interface {
 	Get(context.Context, int64) (*model.Menu, error)
 	List(context.Context) ([]model.TreeMenus, error)
 
-	GetByRoleID(context.Context, uint64) (*model.Menu, error)
+	GetByRoleID(context.Context, int64) (*model.Menu, error)
 	GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error)
 }
 
@@ -37,11 +38,14 @@ func (m *menu) Create(c context.Context, obj *model.Menu) (*model.Menu, error) {
 }
 
 func (m *menu) Update(c context.Context, menu *model.Menu, mId int64) error {
-	//return m.db.Model(&model.Menu{}).Where("id = ?", mId).Updates(&menu).Error
-	//return m.db.Save(&menu).Where("resource_version = ?", menu.ResourceVersion).Error
-	var mm model.Menu
-	//m.db.Model(&mm).Select("*").Updates(menu)
-	return m.db.Model(&mm).Updates(menu).Error
+	resourceVersion := menu.ResourceVersion
+	menu.ResourceVersion++
+	tx := m.db.Where("id = ? and resource_version = ? ", mId, resourceVersion).Updates(menu)
+	if tx.RowsAffected == 0 {
+		log.Logger.Errorf("数据不存在.")
+		return errors.New("update failed")
+	}
+	return tx.Error
 }
 
 func (m *menu) Delete(c context.Context, mid int64) error {
@@ -63,10 +67,9 @@ func (m *menu) List(c context.Context) (treeMenusList []model.TreeMenus, err err
 }
 
 //GetByRoleID 根据角色ID查询该角色下所有菜单
-func (m *menu) GetByRoleID(c context.Context, roleID uint64) (menu *model.Menu, err error) {
+func (m *menu) GetByRoleID(c context.Context, roleID int64) (menu *model.Menu, err error) {
 	m.db.Table("menu").Select(" menu.id, menu.parent_id,menu.name, menu.url, menu.icon,menu.code,menu.method").
-		Joins("left join role_menu on menu.id = role_menu.menu_id ").Scan(&menu)
-
+		Joins("left join role_menu on menu.id = role_menu.menu_id ").Where("role_menu.role_id = ?", roleID).Scan(&menu)
 	return
 }
 

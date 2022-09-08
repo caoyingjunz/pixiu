@@ -32,6 +32,5 @@ func (r *Role) BeforeCreate(*gorm.DB) error {
 // BeforeUpdate 更新前操作
 func (r *Role) BeforeUpdate(*gorm.DB) error {
 	r.GmtModified = time.Now()
-	r.ResourceVersion++
 	return nil
 }

@@ -36,9 +36,11 @@ type CicdInterface interface {
 	RunJob(ctx context.Context, name string) error
 	CreateJob(ctx context.Context, name interface{}) error
 	DeleteJob(ctx context.Context, name string) error
+	DeleteViewJob(ctx context.Context, name string, viewname string) (bool, error)
 	AddViewJob(ctx context.Context, addViewJob string, name string) error
 	GetAllJobs(ctx context.Context) (res []string, err error)
 	GetAllViews(ctx context.Context) (views []string, err error)
+	Details(ctx context.Context, name string) *gojenkins.JobResponse
 	GetAllNodes(ctx context.Context) (nodes []string, err error)
 	DeleteNode(ctx context.Context, name string) error
 	CopyJob(ctx context.Context, oldName string, newName string) (res []string, err error)
@@ -46,6 +48,12 @@ type CicdInterface interface {
 	Restart(ctx context.Context) error
 	Disable(ctx context.Context, name string) (bool, error)
 	Enable(ctx context.Context, name string) (bool, error)
+	Stop(ctx context.Context, name string) (bool, error)
+	Config(ctx context.Context, name string) (config string, err error)
+	UpdateConfig(ctx context.Context, name string) error
+	History(ctx context.Context, name string) ([]*gojenkins.History, error)
+	GetLastFailedBuild(ctx context.Context, name string) (gojenkins.JobBuild, error)
+	GetLastSuccessfulBuild(ctx context.Context, name string) (getLastSuccessfulBuild gojenkins.JobBuild, err error)
 }
 
 type cicd struct {
@@ -69,7 +77,6 @@ func (c *cicd) RunJob(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-
 	build, err := c.cicdDriver.GetBuildFromQueueID(ctx, queueid)
 	if err != nil {
 		return err
@@ -83,8 +90,7 @@ func (c *cicd) RunJob(ctx context.Context, name string) error {
 }
 
 func (c *cicd) CreateJob(ctx context.Context, name interface{}) error {
-	_, err := c.cicdDriver.CreateJob(ctx, types.JobStringConfig, name)
-	if err != nil {
+	if _, err := c.cicdDriver.CreateJob(ctx, types.JobStringConfig, name); err != nil {
 		log.Logger.Errorf("failed to create job %s: %v", name, err)
 		return err
 	}
@@ -93,8 +99,7 @@ func (c *cicd) CreateJob(ctx context.Context, name interface{}) error {
 }
 
 func (c *cicd) CopyJob(ctx context.Context, oldName string, newName string) (res []string, err error) {
-	_, err = c.cicdDriver.CopyJob(ctx, oldName, newName)
-	if err != nil {
+	if _, err = c.cicdDriver.CopyJob(ctx, oldName, newName); err != nil {
 		log.Logger.Errorf("failed to copy job %s: %v", oldName, err)
 		return res, err
 	}
@@ -102,8 +107,7 @@ func (c *cicd) CopyJob(ctx context.Context, oldName string, newName string) (res
 }
 
 func (c *cicd) RenameJob(ctx context.Context, oldName string, newName string) error {
-	err := c.cicdDriver.RenameJob(ctx, oldName, newName)
-	if err != nil {
+	if err := c.cicdDriver.RenameJob(ctx, oldName, newName); err != nil {
 		log.Logger.Errorf("failed to rename job %s: %v", newName, err)
 		return nil
 	}
@@ -111,22 +115,33 @@ func (c *cicd) RenameJob(ctx context.Context, oldName string, newName string) er
 }
 
 func (c *cicd) DeleteJob(ctx context.Context, name string) error {
-	_, err := c.cicdDriver.DeleteJob(ctx, name)
-	if err != nil {
+	if _, err := c.cicdDriver.DeleteJob(ctx, name); err != nil {
 		log.Logger.Errorf("failed to delete job %s: %v", name, err)
 		return err
 	}
-
 	return nil
 }
 
-func (c *cicd) DeleteNode(ctx context.Context, name string) error {
-	_, err := c.cicdDriver.DeleteJob(ctx, name)
+func (c *cicd) DeleteViewJob(ctx context.Context, name string, viewname string) (bool, error) {
+	view := &gojenkins.View{Jenkins: c.cicdDriver}
+	view, err := c.cicdDriver.GetView(ctx, viewname)
 	if err != nil {
+		log.Logger.Errorf("failed to found view%s: %v", viewname, err)
+		return false, err
+	}
+	if _, err = view.DeleteJob(ctx, name); err != nil {
+		log.Logger.Errorf("failed to delete viewjob %s: %v", name, err)
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (c *cicd) DeleteNode(ctx context.Context, name string) error {
+	if _, err := c.cicdDriver.DeleteJob(ctx, name); err != nil {
 		log.Logger.Errorf("failed to delete Node %s: %v", name, err)
 		return err
 	}
-
 	return nil
 }
 
@@ -136,7 +151,6 @@ func (c *cicd) AddViewJob(ctx context.Context, addViewJob string, name string) e
 		log.Logger.Errorf("failed to create view %s: %v", addViewJob, err)
 		return err
 	}
-
 	status, err := view.AddJob(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to add view %s: %v", addViewJob, err)
@@ -146,7 +160,6 @@ func (c *cicd) AddViewJob(ctx context.Context, addViewJob string, name string) e
 		log.Logger.Errorf("failed to add view %s: %v", addViewJob, err)
 		return err
 	}
-
 	return nil
 }
 
@@ -190,8 +203,7 @@ func (c *cicd) GetAllNodes(ctx context.Context) (nodes []string, err error) {
 }
 
 func (c *cicd) Restart(ctx context.Context) error {
-	err := c.cicdDriver.SafeRestart(ctx)
-	if err != nil {
+	if err := c.cicdDriver.SafeRestart(ctx); err != nil {
 		log.Logger.Errorf("failed to Restart %v", err)
 		return nil
 	}
@@ -199,28 +211,120 @@ func (c *cicd) Restart(ctx context.Context) error {
 }
 
 func (c *cicd) Disable(ctx context.Context, name string) (bool, error) {
-	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	job, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
 		log.Logger.Errorf("failed to Disable %v", err)
 		return false, nil
 	}
-	_, err = jobs.Disable(ctx)
-	if err != nil {
+	if _, err = job.Disable(ctx); err != nil {
 		log.Logger.Errorf("failed to Disable %v", err)
 		return false, nil
 	}
 	return true, nil
 }
+
 func (c *cicd) Enable(ctx context.Context, name string) (bool, error) {
-	jobs, err := c.cicdDriver.GetJob(ctx, name)
+	job, err := c.cicdDriver.GetJob(ctx, name)
 	if err != nil {
-		log.Logger.Errorf("failed to Enable %v", err)
+		log.Logger.Errorf("failed to get job %v", err)
 		return false, nil
 	}
-	_, err = jobs.Enable(ctx)
-	if err != nil {
+	if _, err = job.Enable(ctx); err != nil {
 		log.Logger.Errorf("failed to Enable %v", err)
 		return false, nil
 	}
 	return true, nil
+}
+
+func (c *cicd) Stop(ctx context.Context, name string) (bool, error) {
+	build := &gojenkins.Build{Jenkins: c.cicdDriver}
+	var err error
+	if build.Job, err = c.cicdDriver.GetJob(ctx, name); err != nil {
+		return false, err
+	}
+	if _, err = build.Stop(ctx); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (c *cicd) Details(ctx context.Context, name string) *gojenkins.JobResponse {
+	var err error
+	job, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to Enable %v", err)
+		return nil
+	}
+	details := job.GetDetails()
+	return details
+}
+
+func (c *cicd) Config(ctx context.Context, name string) (config string, err error) {
+	job, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to get job %v", err)
+		return config, nil
+	}
+	config, err = job.GetConfig(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to Enable %v", err)
+		return config, nil
+	}
+	return config, nil
+}
+
+func (c *cicd) UpdateConfig(ctx context.Context, name string) error {
+	job, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to get job %v", err)
+		return nil
+	}
+	if err = job.UpdateConfig(ctx, "dsfd"); err != nil {
+		log.Logger.Errorf("failed to UpdateConfig %v", err)
+		return nil
+	}
+	return nil
+}
+
+func (c *cicd) GetLastFailedBuild(ctx context.Context, name string) (getLastFailedBuild1 gojenkins.JobBuild, err error) {
+	job, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to  jobs %s: %v", err)
+		return getLastFailedBuild1, err
+	}
+	failedBuild := job.Raw.LastFailedBuild
+	if err != nil {
+		log.Logger.Errorf("failed to GetLastFailedBuild %v", err)
+		return failedBuild, nil
+	}
+	return failedBuild, nil
+}
+
+func (c *cicd) GetLastSuccessfulBuild(ctx context.Context, name string) (getLastSuccessfulBuild gojenkins.JobBuild, err error) {
+	job, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to  jobs %s: %v", err)
+		return getLastSuccessfulBuild, err
+	}
+	successBuild := job.Raw.LastSuccessfulBuild
+	if err != nil {
+		log.Logger.Errorf("failed to GetLastSuccessfulBuild %v", err)
+		return successBuild, nil
+	}
+	return successBuild, nil
+}
+
+func (c *cicd) History(ctx context.Context, name string) ([]*gojenkins.History, error) {
+	job, err := c.cicdDriver.GetJob(ctx, name)
+	if err != nil {
+		log.Logger.Errorf("failed to  jobs %s: %v", err)
+		return nil, err
+	}
+	history, err := job.History(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to GetLastSuccessfulBuild %v", err)
+		return nil, err
+	}
+	return history, nil
 }

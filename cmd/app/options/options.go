@@ -35,6 +35,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
+	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
 const (
@@ -101,6 +102,9 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 }
 
 func (o *Options) register() error {
+	if err := util.EnsureDirectoryExists(o.ComponentConfig.Default.LogDir); err != nil { // 判断文件夹是否存在，不存在则创建
+		return err
+	}
 	log.Register(o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel) // 注册日志
 	if err := o.registerDatabase(); err != nil {                                       // 注册数据库
 		return err
@@ -122,16 +126,19 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Name)
 
 	var err error
-	writer := logs.New(os.Stdout, "\r\n", logs.LstdFlags)
-	if o.DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.New(
+
+	gormConfig := gorm.Config{}
+	if sqlConfig.Debug {
+		writer := logs.New(os.Stdout, "\r\n", logs.LstdFlags)
+		gormConfig.Logger = logger.New(
 			writer, logger.Config{
 				SlowThreshold:             200 * time.Millisecond,
 				LogLevel:                  logger.Info,
 				IgnoreRecordNotFoundError: true,
-			},
-		),
-	}); err != nil {
+			})
+	}
+
+	if o.DB, err = gorm.Open(mysql.Open(dsn), &gormConfig); err != nil {
 		return err
 	}
 	// 设置数据库连接池

@@ -41,6 +41,7 @@ type MysqlOptions struct {
 	Password string `yaml:"password"`
 	Port     int    `yaml:"port"`
 	Name     string `yaml:"name"`
+	Debug    bool   `yaml:"debug"`
 }
 
 type CicdOptions struct {

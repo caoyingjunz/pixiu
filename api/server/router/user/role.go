@@ -28,14 +28,20 @@ func NewRoleRouter(ginEngine *gin.Engine) {
 func (r *roleRouter) initRoutes(ginEngine *gin.Engine) {
 	userRoute := ginEngine.Group("/role")
 	{
+		// 添加角色
 		userRoute.POST("", r.addRole)
+		// 删除角色
 		userRoute.DELETE("", r.deleteRole)
+		// 根据角色ID更新角色信息
 		userRoute.PUT("/:id", r.updateRole)
+		// 根据角色ID获取角色信息
 		userRoute.GET("/:id", r.getRole)
+		// 获取所有角色
 		userRoute.GET("", r.listRoles)
 
-		// 获取角色权限
+		// 根据角色ID获取角色权限
 		userRoute.GET("/:id/menus", r.getMenusByRole)
+		// 根据角色ID设置角色权限
 		userRoute.POST("/:id/menus", r.setRoleMenus)
 
 	}

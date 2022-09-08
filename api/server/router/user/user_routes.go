@@ -224,7 +224,6 @@ func (u *userRouter) getRoleIDsByUser(c *gin.Context) {
 }
 
 func (u *userRouter) setRolesByUserId(c *gin.Context) {
-
 	var roleIds []int64
 	roleId := map[string][]int64{
 		"role_ids": roleIds,
@@ -242,6 +241,49 @@ func (u *userRouter) setRolesByUserId(c *gin.Context) {
 		return
 	}
 	err = pixiu.CoreV1.User().SetUserRoles(c, uid, roleId["role_ids"])
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "内部错误")
+		return
+	}
+	r.SetCode(http.StatusOK)
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) updateRolesByUserId(c *gin.Context) {
+	var roleIds []int64
+	roleId := map[string][]int64{
+		"role_ids": roleIds,
+	}
+	r := httputils.NewResponse()
+	err := c.ShouldBindJSON(&roleId)
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "参数错误")
+		return
+	}
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	err = pixiu.CoreV1.User().SetUserRoles(c, uid, roleId["role_ids"])
+	if err != nil {
+		r.SetCode(http.StatusBadRequest)
+		httputils.SetFailed(c, r, "内部错误")
+		return
+	}
+	r.SetCode(http.StatusOK)
+	httputils.SetSuccess(c, r)
+}
+func (u *userRouter) deleteRolesByUserId(c *gin.Context) {
+	r := httputils.NewResponse()
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	err = pixiu.CoreV1.User().DeleteRolesByUserID(c, uid)
 	if err != nil {
 		r.SetCode(http.StatusBadRequest)
 		httputils.SetFailed(c, r, "内部错误")
