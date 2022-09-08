@@ -58,7 +58,6 @@ func (c *LRUCache) Add(key, value interface{}) {
 func (c *LRUCache) Get(key interface{}) (value interface{}) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	value = nil
 	if ent, ok := c.items[key]; ok {
 		value = ent.Value.(*entry).value
 		c.evictList.MoveToFront(ent)
