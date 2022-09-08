@@ -57,6 +57,10 @@ func LoggerToFile() gin.HandlerFunc {
 	}
 }
 
+// Limiter TODO
+func Limiter(c *gin.Context) {}
+
+// UserRateLimiter 针对每个用户的请求进行限速
 // TODO 限速大小从配置中读取
 func UserRateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 	// 初始化一个 LRU Cache
