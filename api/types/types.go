@@ -41,6 +41,18 @@ type GetOrCreateOptions struct {
 	ObjectName string `uri:"object_name" binding:"required"`
 }
 
+type GetOrUpdateOptions struct {
+	ListOptions `json:",inline,omitempty"`
+
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
+//后期有新的模块需要更新可以直接添加
+type UpdateOptions struct {
+	Images   string `json:"images"`
+	Replicas *int32 `json:"replicas"`
+}
+
 type Demo struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`

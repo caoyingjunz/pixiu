@@ -34,6 +34,7 @@ import (
 )
 
 var clientError = fmt.Errorf("failed to found clout client")
+var listError = fmt.Errorf("This Deployment is not exist")
 
 type CloudGetter interface {
 	Cloud() CloudInterface
@@ -48,6 +49,7 @@ type CloudInterface interface {
 
 	InitCloudClients() error
 
+	UpdateDeployment(ctx context.Context, cloudName string, getdeployment types.GetOrUpdateOptions, update types.UpdateOptions) error
 	CreateDeployment(ctx context.Context, cloudName string, deployment *v1.Deployment) error
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)

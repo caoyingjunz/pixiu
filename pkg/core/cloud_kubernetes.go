@@ -18,7 +18,6 @@ package core
 
 import (
 	"context"
-
 	v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -69,6 +68,29 @@ func (c *cloud) CreateDeployment(ctx context.Context, cloudName string, deployme
 		Deployments(deployment.Namespace).
 		Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		log.Logger.Errorf("failed to create %s %s deployments: %v", deployment.Namespace, deployment.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *cloud) UpdateDeployment(ctx context.Context, cloudName string, getOptions types.GetOrUpdateOptions, updateOptions types.UpdateOptions) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	deploymentList, err := clientSet.AppsV1().Deployments(getOptions.Namespace).Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		return listError
+	}
+	// 结构体中新添加的更新模块在这里按量添加
+	deploymentList.Spec.Template.Spec.Containers[0].Image = updateOptions.Images
+	deploymentList.Spec.Replicas = updateOptions.Replicas
+
+	if _, err := clientSet.AppsV1().
+		Deployments(getOptions.Namespace).
+		Update(ctx, deploymentList, metav1.UpdateOptions{}); err != nil {
+		log.Logger.Errorf("failed to update %s %s deployments: %v", getOptions.Namespace, getOptions.ObjectName, err)
 		return err
 	}
 
