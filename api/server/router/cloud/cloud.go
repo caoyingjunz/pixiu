@@ -47,6 +47,9 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/v1/:cloud_name/namespaces/:object_name", s.getNamespace)
 		cloudRoute.GET("/v1/:cloud_name/namespaces", s.listNamespaces)
 
+		// Service API
+		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
+
 		// Deployments API
 		// 创建 deployments
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)

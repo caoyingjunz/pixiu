@@ -68,6 +68,8 @@ type CloudInterface interface {
 	DeleteStatefulset(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	GetStatefulset(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error)
 	ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
+
+	ListServices(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error)
 }
 
 var clientSets client.ClientsInterface
