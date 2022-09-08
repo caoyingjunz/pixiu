@@ -80,11 +80,10 @@ func (c *cloud) CreateNamespace(ctx context.Context, cloudName string, namespace
 	if clientSet == nil {
 		return clientError
 	}
-	_, err := clientSet.CoreV1().
+	if _, err := clientSet.CoreV1().
 		Namespaces().
-		Create(ctx, &namespace, metav1.CreateOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to create namespaces: %v", cloudName, err)
+		Create(ctx, &namespace, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to create %s namespace %s: %v", cloudName, namespace.Name, err)
 		return err
 	}
 
@@ -97,7 +96,7 @@ func (c *cloud) DeleteNamespace(ctx context.Context, cloudName string, namespace
 		return clientError
 	}
 	if err := clientSet.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{}); err != nil {
-		log.Logger.Errorf("failed to create namespaces: %v", cloudName, err)
+		log.Logger.Errorf("failed to delete %s namespace %s: %v", cloudName, namespace, err)
 		return err
 	}
 
