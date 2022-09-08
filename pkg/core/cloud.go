@@ -53,6 +53,7 @@ type CloudInterface interface {
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
 
 	ListNamespaces(ctx context.Context, cloudOptions types.CloudOptions) ([]corev1.Namespace, error)
+	CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error
 
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 }

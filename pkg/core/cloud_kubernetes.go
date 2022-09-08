@@ -75,6 +75,22 @@ func (c *cloud) CreateDeployment(ctx context.Context, cloudName string, deployme
 	return nil
 }
 
+func (c *cloud) CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	_, err := clientSet.CoreV1().
+		Namespaces().
+		Create(ctx, *namespace, metav1.CreateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to create namespaces: %v", cloudName, err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
 	clientSet := clientSets.Get(listOptions.CloudName)
 	if clientSet == nil {

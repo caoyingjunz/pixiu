@@ -19,15 +19,14 @@ package cloud
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-
-	"github.com/gin-gonic/gin"
-	"k8s.io/api/apps/v1"
-
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/gin-gonic/gin"
+	"io/ioutil"
+	"k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func readConfig(c *gin.Context) ([]byte, error) {
@@ -115,7 +114,6 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) createNamespace(c *gin.Context) {}
 func (s *cloudRouter) updateNamespace(c *gin.Context) {}
 func (s *cloudRouter) deleteNamespace(c *gin.Context) {}
 func (s *cloudRouter) getNamespace(c *gin.Context)    {}
@@ -189,6 +187,30 @@ func (s *cloudRouter) listDeployments(c *gin.Context) {
 	}
 	r.Result, err = pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), listOptions)
 	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) createNamespace(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		listOptions types.ListOptions
+		namespace   corev1.Namespace
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	namespace.Namespace = listOptions.Namespace
+	if err = pixiu.CoreV1.Cloud().CreateNamespace(context.TODO(), listOptions.CloudName, namespace); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
