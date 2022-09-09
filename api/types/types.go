@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 package types
-<<<<<<< HEAD
 
 type IdOptions struct {
 	Id int64 `uri:"id" binding:"required"`
@@ -98,5 +97,3 @@ type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`
 	GmtModified interface{} `json:"gmt_modified,omitempty"`
 }
-=======
->>>>>>> parent of 8acc52e (Add demo app api completed (get, post) (#26))
