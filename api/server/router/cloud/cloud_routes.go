@@ -249,7 +249,7 @@ func (s *cloudRouter) listJobs(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().ListJobs(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Jobs(listOptions.CloudName).List(context.TODO(), listOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

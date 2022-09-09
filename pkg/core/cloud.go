@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -52,9 +51,7 @@ type CloudInterface interface {
 	// kubernetes 资源的接口定义
 	pixiukubernetes.DeploymentsGetter
 	pixiukubernetes.NamespacesGetter
-
-	// Jobs
-	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
+	pixiukubernetes.JobsGetter
 
 	// Statefulset
 	CreateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error
@@ -86,6 +83,10 @@ func (c *cloud) Deployments(cloud string) pixiukubernetes.DeploymentInterface {
 
 func (c *cloud) Namespaces(cloud string) pixiukubernetes.NamespaceInterface {
 	return pixiukubernetes.NewNamespaces(clientSets.Get(cloud), cloud)
+}
+
+func (c *cloud) Jobs(cloud string) pixiukubernetes.JobInterface {
+	return pixiukubernetes.NewJobs(clientSets.Get(cloud), cloud)
 }
 
 func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
