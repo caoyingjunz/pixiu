@@ -47,14 +47,11 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context) ([]types.Cloud, error)
 
-	Init() error
+	Init() error // 初始化 cloud 的客户端
 
+	// kubernetes 资源的接口定义
 	pixiukubernetes.DeploymentsGetter
-
-	// Namespace
-	ListNamespaces(ctx context.Context, cloudOptions types.CloudOptions) ([]corev1.Namespace, error)
-	CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error
-	DeleteNamespace(ctx context.Context, cloudName string, namespace string) error
+	pixiukubernetes.NamespacesGetter
 
 	// Jobs
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
@@ -84,7 +81,11 @@ func newCloud(c *pixiu) CloudInterface {
 }
 
 func (c *cloud) Deployments(cloud string) pixiukubernetes.DeploymentInterface {
-	return pixiukubernetes.NewDeployments(clientSets.Get(cloud), "")
+	return pixiukubernetes.NewDeployments(clientSets.Get(cloud), cloud)
+}
+
+func (c *cloud) Namespaces(cloud string) pixiukubernetes.NamespaceInterface {
+	return pixiukubernetes.NewNamespaces(clientSets.Get(cloud), cloud)
 }
 
 func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {

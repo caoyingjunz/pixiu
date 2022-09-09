@@ -28,34 +28,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
-func (c *cloud) CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error {
-	clientSet := clientSets.Get(cloudName)
-	if clientSet == nil {
-		return clientError
-	}
-	if _, err := clientSet.CoreV1().
-		Namespaces().
-		Create(ctx, &namespace, metav1.CreateOptions{}); err != nil {
-		log.Logger.Errorf("failed to create %s namespace %s: %v", cloudName, namespace.Name, err)
-		return err
-	}
-
-	return nil
-}
-
-func (c *cloud) DeleteNamespace(ctx context.Context, cloudName string, namespace string) error {
-	clientSet := clientSets.Get(cloudName)
-	if clientSet == nil {
-		return clientError
-	}
-	if err := clientSet.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{}); err != nil {
-		log.Logger.Errorf("failed to delete %s namespace %s: %v", cloudName, namespace, err)
-		return err
-	}
-
-	return nil
-}
-
 func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
 	clientSet := clientSets.Get(listOptions.CloudName)
 	if clientSet == nil {
@@ -70,22 +42,6 @@ func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]
 	}
 
 	return jobs.Items, nil
-}
-
-func (c *cloud) ListNamespaces(ctx context.Context, cloudOptions types.CloudOptions) ([]corev1.Namespace, error) {
-	clientSet := clientSets.Get(cloudOptions.CloudName)
-	if clientSet == nil {
-		return nil, clientError
-	}
-	namespaces, err := clientSet.CoreV1().
-		Namespaces().
-		List(ctx, metav1.ListOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to list namespaces: %v", cloudOptions.CloudName, err)
-		return nil, err
-	}
-
-	return namespaces.Items, err
 }
 
 func (c *cloud) ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error) {

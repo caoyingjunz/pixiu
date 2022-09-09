@@ -131,7 +131,7 @@ func (s *cloudRouter) createNamespace(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().CreateNamespace(context.TODO(), listOptions.CloudName, namespace); err != nil {
+	if err = pixiu.CoreV1.Cloud().Namespaces(listOptions.CloudName).Create(context.TODO(), namespace); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -151,7 +151,7 @@ func (s *cloudRouter) deleteNamespace(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().DeleteNamespace(context.TODO(), namespaceOptions.CloudName, namespaceOptions.ObjectName); err != nil {
+	if err = pixiu.CoreV1.Cloud().Namespaces(namespaceOptions.CloudName).Delete(context.TODO(), namespaceOptions.ObjectName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -170,8 +170,7 @@ func (s *cloudRouter) listNamespaces(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().ListNamespaces(context.TODO(), cloudOptions)
-	if err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().Namespaces(cloudOptions.CloudName).List(context.TODO()); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
