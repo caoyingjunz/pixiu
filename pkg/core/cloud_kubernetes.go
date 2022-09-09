@@ -103,6 +103,34 @@ func (c *cloud) DeleteNamespace(ctx context.Context, cloudName string, namespace
 	return nil
 }
 
+func (c *cloud) GetNamespace(ctx context.Context, cloudName string, namespace string) (*corev1.Namespace, error) {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return nil, clientError
+	}
+	namespaces, err := clientSet.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s namespace %s: %v", cloudName, namespace, err)
+		return nil, err
+	}
+
+	return namespaces, nil
+}
+
+func (c *cloud) UpdateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	_, err := clientSet.CoreV1().Namespaces().Update(ctx, &namespace, metav1.UpdateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to update %s namespace %s: %v", cloudName, namespace, err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *cloud) ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
 	clientSet := clientSets.Get(listOptions.CloudName)
 	if clientSet == nil {

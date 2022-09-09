@@ -58,6 +58,8 @@ type CloudInterface interface {
 	ListNamespaces(ctx context.Context, cloudOptions types.CloudOptions) ([]corev1.Namespace, error)
 	CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error
 	DeleteNamespace(ctx context.Context, cloudName string, namespace string) error
+	GetNamespace(context.Context, string, string) (*corev1.Namespace, error)
+	UpdateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error
 
 	// Jobs
 	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)

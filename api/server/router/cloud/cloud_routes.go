@@ -21,14 +21,14 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/gin-gonic/gin"
-	v1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/gin-gonic/gin"
+
+	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func readConfig(c *gin.Context) ([]byte, error) {
@@ -139,7 +139,28 @@ func (s *cloudRouter) createNamespace(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) updateNamespace(c *gin.Context) {}
+func (s *cloudRouter) updateNamespace(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err          error
+		cloudOptions types.CloudOptions
+		namespace    corev1.Namespace
+	)
+	if err = c.ShouldBindUri(&cloudOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().UpdateNamespace(context.TODO(), cloudOptions.CloudName, namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
 
 func (s *cloudRouter) deleteNamespace(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -158,7 +179,24 @@ func (s *cloudRouter) deleteNamespace(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
-func (s *cloudRouter) getNamespace(c *gin.Context) {}
+
+func (s *cloudRouter) getNamespace(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err              error
+		namespaceOptions types.NamespaceOptions
+	)
+	if err = c.ShouldBindUri(&namespaceOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = pixiu.CoreV1.Cloud().GetNamespace(context.TODO(), namespaceOptions.CloudName, namespaceOptions.ObjectName); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
 
 func (s *cloudRouter) listNamespaces(c *gin.Context) {
 	r := httputils.NewResponse()
