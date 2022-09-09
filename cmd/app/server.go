@@ -27,12 +27,8 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
-<<<<<<< HEAD
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
-	"github.com/caoyingjunz/gopixiu/api/server/router/demo"
 	"github.com/caoyingjunz/gopixiu/api/server/router/user"
-=======
->>>>>>> parent of 8acc52e (Add demo app api completed (get, post) (#26))
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
@@ -76,16 +72,12 @@ func NewServerCommand() *cobra.Command {
 }
 
 func InitRouters(opt *options.Options) {
-<<<<<<< HEAD
 	middleware.InitMiddlewares(opt.GinEngine) // 注册中间件
 
-	demo.NewRouter(opt.GinEngine)  // 注册 demo 路由
 	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
 	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
 	user.NewRouter(opt.GinEngine)  // 注册 user 路由
-=======
-	cicd.NewRouter(opt.GinEngine) // 注册 cicd 路由
->>>>>>> parent of 8acc52e (Add demo app api completed (get, post) (#26))
+	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
 }
 
 func Run(opt *options.Options) error {

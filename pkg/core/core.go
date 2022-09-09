@@ -37,17 +37,10 @@ type pixiu struct {
 	clientSets map[string]*kubernetes.Clientset
 }
 
-<<<<<<< HEAD
-func (pixiu *pixiu) Demo() DemoInterface {
-	return newDemo(pixiu)
-}
-
 func (pixiu *pixiu) User() UserInterface {
 	return newUser(pixiu)
 }
 
-=======
->>>>>>> parent of 8acc52e (Add demo app api completed (get, post) (#26))
 func (pixiu *pixiu) Cicd() CicdInterface {
 	return newCicd(pixiu)
 }
