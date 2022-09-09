@@ -28,6 +28,7 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
+	pixiukubernetes "github.com/caoyingjunz/gopixiu/pkg/core/kubernetes"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -40,19 +41,15 @@ type CloudGetter interface {
 }
 
 type CloudInterface interface {
-	// Cloud
 	Create(ctx context.Context, obj *types.Cloud) error
 	Update(ctx context.Context, obj *types.Cloud) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context) ([]types.Cloud, error)
 
-	InitCloudClients() error
+	Init() error
 
-	// Deployment
-	CreateDeployment(ctx context.Context, cloudName string, deployment *v1.Deployment) error
-	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
+	pixiukubernetes.DeploymentsGetter
 
 	// Namespace
 	ListNamespaces(ctx context.Context, cloudOptions types.CloudOptions) ([]corev1.Namespace, error)
@@ -84,6 +81,10 @@ func newCloud(c *pixiu) CloudInterface {
 		app:     c,
 		factory: c.factory,
 	}
+}
+
+func (c *cloud) Deployments(cloud string) pixiukubernetes.DeploymentInterface {
+	return pixiukubernetes.NewDeployments(clientSets.Get(cloud), "")
 }
 
 func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
@@ -163,7 +164,7 @@ func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
 	return cs, nil
 }
 
-func (c *cloud) InitCloudClients() error {
+func (c *cloud) Init() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 

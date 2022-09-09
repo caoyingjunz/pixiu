@@ -196,7 +196,7 @@ func (s *cloudRouter) createDeployment(c *gin.Context) {
 	}
 	deployment.Name = getOptions.ObjectName
 	deployment.Namespace = getOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().CreateDeployment(context.TODO(), getOptions.CloudName, &deployment); err != nil {
+	if err = pixiu.CoreV1.Cloud().Deployments(getOptions.CloudName).Create(context.TODO(), &deployment); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -211,7 +211,7 @@ func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().DeleteDeployment(context.TODO(), deleteOptions)
+	err := pixiu.CoreV1.Cloud().Deployments(deleteOptions.CloudName).Delete(context.TODO(), deleteOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -231,7 +231,7 @@ func (s *cloudRouter) listDeployments(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().ListDeployments(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Deployments(listOptions.CloudName).List(context.TODO(), listOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
