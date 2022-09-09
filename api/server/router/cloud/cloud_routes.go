@@ -220,7 +220,7 @@ func (s *cloudRouter) updateDeployment(c *gin.Context) {
 		return
 	}
 
-	if err = pixiu.CoreV1.Cloud().UpdateDeployment(context.TODO(), getOptions.CloudName, getOptions, updateOptions); err != nil {
+	if err = pixiu.CoreV1.Cloud().UpdateDeployment(context.TODO(), getOptions, updateOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

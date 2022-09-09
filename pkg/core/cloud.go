@@ -51,7 +51,7 @@ type CloudInterface interface {
 
 	// Deployment
 	CreateDeployment(ctx context.Context, cloudName string, deployment *v1.Deployment) error
-	UpdateDeployment(ctx context.Context, cloudName string, getdeployment types.GetOrUpdateOptions, update types.UpdateOptions) error
+	UpdateDeployment(ctx context.Context, getdeployment types.GetOrUpdateOptions, update types.UpdateOptions) error
 	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
 

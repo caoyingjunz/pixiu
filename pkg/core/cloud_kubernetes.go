@@ -75,23 +75,8 @@ func (c *cloud) CreateDeployment(ctx context.Context, cloudName string, deployme
 	return nil
 }
 
-func (c *cloud) CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error {
-	clientSet := clientSets.Get(cloudName)
-	if clientSet == nil {
-		return clientError
-	}
-	if _, err := clientSet.CoreV1().
-		Namespaces().
-		Create(ctx, &namespace, metav1.CreateOptions{}); err != nil {
-		log.Logger.Errorf("failed to create %s namespace %s: %v", cloudName, namespace.Name, err)
-		return err
-	}
-
-	return nil
-}
-
-func (c *cloud) UpdateDeployment(ctx context.Context, cloudName string, getOptions types.GetOrUpdateOptions, updateOptions types.UpdateOptions) error {
-	clientSet := clientSets.Get(cloudName)
+func (c *cloud) UpdateDeployment(ctx context.Context, getOptions types.GetOrUpdateOptions, updateOptions types.UpdateOptions) error {
+	clientSet := clientSets.Get(getOptions.CloudName)
 	if clientSet == nil {
 		return clientError
 	}
@@ -112,6 +97,22 @@ func (c *cloud) UpdateDeployment(ctx context.Context, cloudName string, getOptio
 
 	return nil
 }
+
+func (c *cloud) CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	if _, err := clientSet.CoreV1().
+		Namespaces().
+		Create(ctx, &namespace, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to create %s namespace %s: %v", cloudName, namespace.Name, err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *cloud) DeleteNamespace(ctx context.Context, cloudName string, namespace string) error {
 	clientSet := clientSets.Get(cloudName)
 	if clientSet == nil {
