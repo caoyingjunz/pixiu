@@ -47,6 +47,9 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/v1/:cloud_name/namespaces/:object_name", s.getNamespace)
 		cloudRoute.GET("/v1/:cloud_name/namespaces", s.listNamespaces)
 
+		// Service API
+		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
+
 		// Deployments API
 		// 创建 deployments
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
@@ -58,5 +61,12 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 
 		// Job API
 		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
+
+		// StatefulSet API
+		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.createStatefulset)
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.updateStatefulset)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.deleteStatefulset)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.getStatefulset)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulsets)
 	}
 }

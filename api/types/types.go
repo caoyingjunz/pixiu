@@ -24,6 +24,12 @@ type CloudOptions struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 }
 
+type NamespaceOptions struct {
+	CloudOptions `json:",inline"`
+
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
 type ListOptions struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 	Namespace string `uri:"namespace" binding:"required"`
