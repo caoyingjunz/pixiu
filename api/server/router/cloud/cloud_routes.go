@@ -220,6 +220,29 @@ func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (s *cloudRouter) redeployDeployment(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err  error
+		opts types.GetOrCreateOptions
+	)
+	if err = c.ShouldBindUri(&opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	err = pixiu.CoreV1.Cloud().RedeployDeployment(
+		context.TODO(),
+		opts.CloudName,
+		opts.Namespace,
+		opts.ObjectName)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
 // listDeployments API: clouds/<cloud_name>/namespaces/<ns>/deployments
 func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()

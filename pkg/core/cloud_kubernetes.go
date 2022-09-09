@@ -75,6 +75,29 @@ func (c *cloud) CreateDeployment(ctx context.Context, cloudName string, deployme
 	return nil
 }
 
+func (c *cloud) RedeployDeployment(ctx context.Context, cloudName, namespace, deploymentName string) error {
+	clientSet := clientSets.Get(cloudName)
+	if clientSet == nil {
+		return clientError
+	}
+	dep, err := clientSet.AppsV1().
+		Deployments(namespace).
+		Get(ctx, deploymentName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s %s deployment(%s) before redeploy: %v",
+			cloudName, namespace, deploymentName, err)
+		return err
+	}
+	dep.Spec.Template.ObjectMeta.SetCreationTimestamp(metav1.Now())
+	if _, err := clientSet.AppsV1().
+		Deployments(namespace).
+		Update(ctx, dep, metav1.UpdateOptions{}); err != nil {
+		log.Logger.Errorf("failed to redeploy %s %s deployment(%s): %v", cloudName, namespace, deploymentName, err)
+		return err
+	}
+	return nil
+}
+
 func (c *cloud) CreateNamespace(ctx context.Context, cloudName string, namespace corev1.Namespace) error {
 	clientSet := clientSets.Get(cloudName)
 	if clientSet == nil {
