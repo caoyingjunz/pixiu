@@ -17,6 +17,7 @@ limitations under the License.
 package httputils
 
 import (
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -99,4 +100,19 @@ func ParseToken(token string, jwtKey []byte) (*Claims, error) {
 	}
 
 	return &claims, nil
+}
+
+// ReadFile 从请求中获取指定文件内容
+func ReadFile(c *gin.Context, f string) ([]byte, error) {
+	fileHeader, err := c.FormFile(f)
+	if err != nil {
+		return nil, err
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return ioutil.ReadAll(file)
 }
