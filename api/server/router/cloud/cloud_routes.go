@@ -19,8 +19,6 @@ package cloud
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -40,8 +38,7 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
 		return
 	}
-	cloud.KubeConfig, err = readConfig(c)
-	if err != nil {
+	if cloud.KubeConfig, err = httputils.ReadFile(c, "kubeconfig"); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -98,19 +95,4 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 	}
 
 	httputils.SetSuccess(c, r)
-}
-
-// 从请求中获取配置文件
-func readConfig(c *gin.Context) ([]byte, error) {
-	config, err := c.FormFile("kubeconfig")
-	if err != nil {
-		return nil, err
-	}
-	file, err := config.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	return ioutil.ReadAll(file)
 }
