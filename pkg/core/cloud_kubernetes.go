@@ -39,3 +39,7 @@ func (c *cloud) StatefulSets(cloud string) pixiukubernetes.StatefulSetInterface 
 func (c *cloud) Jobs(cloud string) pixiukubernetes.JobInterface {
 	return pixiukubernetes.NewJobs(clientSets.Get(cloud), cloud)
 }
+
+func (c *cloud) Events(cloud string) pixiukubernetes.EventInterface {
+	return pixiukubernetes.NewEvents(clientSets.Get(cloud), cloud)
+}

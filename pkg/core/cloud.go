@@ -52,6 +52,7 @@ type CloudInterface interface {
 	pixiukubernetes.StatefulSetGetter
 	pixiukubernetes.DeploymentsGetter
 	pixiukubernetes.JobsGetter
+	pixiukubernetes.EventGetter
 }
 
 var clientSets client.ClientsInterface
