@@ -20,11 +20,16 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"k8s.io/klog/v2"
 
+	_ "github.com/caoyingjunz/gopixiu/api/docs"
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
@@ -71,6 +76,21 @@ func NewServerCommand() *cobra.Command {
 	return cmd
 }
 
+// @BasePath /api/v1
+
+// PingExample godoc
+// @Summary ping example
+// @Schemes
+// @Description do ping
+// @Tags example
+// @Accept json
+// @Produce json
+// @Success 200 {string} Helloworld
+// @Router /example/helloworld [get]
+func Helloworld(g *gin.Context) {
+	g.JSON(http.StatusOK, "helloworld")
+}
+
 func InitRouters(opt *options.Options) {
 	middleware.InitMiddlewares(opt.GinEngine) // 注册中间件
 
@@ -92,6 +112,16 @@ func Run(opt *options.Options) error {
 
 	// 初始化 api 路由
 	InitRouters(opt)
+
+	v1 := opt.GinEngine.Group("/api/v1")
+	{
+		eg := v1.Group("/example")
+		{
+			eg.GET("/helloworld", Helloworld)
+		}
+	}
+
+	opt.GinEngine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 
 	klog.Infof("starting pixiu server")
 	// 启动主进程
