@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	v1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -49,18 +47,11 @@ type CloudInterface interface {
 	Init() error // 初始化 cloud 的客户端
 
 	// kubernetes 资源的接口定义
-	pixiukubernetes.DeploymentsGetter
 	pixiukubernetes.NamespacesGetter
+	pixiukubernetes.ServicesGetter
+	pixiukubernetes.StatefulSetGetter
+	pixiukubernetes.DeploymentsGetter
 	pixiukubernetes.JobsGetter
-
-	// Statefulset
-	CreateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error
-	UpdateStatefulset(ctx context.Context, cloudName string, statefulset *v1.StatefulSet) error
-	DeleteStatefulset(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	GetStatefulset(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error)
-	ListStatefulsets(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
-
-	ListServices(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error)
 }
 
 var clientSets client.ClientsInterface
@@ -75,18 +66,6 @@ func newCloud(c *pixiu) CloudInterface {
 		app:     c,
 		factory: c.factory,
 	}
-}
-
-func (c *cloud) Deployments(cloud string) pixiukubernetes.DeploymentInterface {
-	return pixiukubernetes.NewDeployments(clientSets.Get(cloud), cloud)
-}
-
-func (c *cloud) Namespaces(cloud string) pixiukubernetes.NamespaceInterface {
-	return pixiukubernetes.NewNamespaces(clientSets.Get(cloud), cloud)
-}
-
-func (c *cloud) Jobs(cloud string) pixiukubernetes.JobInterface {
-	return pixiukubernetes.NewJobs(clientSets.Get(cloud), cloud)
 }
 
 func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {

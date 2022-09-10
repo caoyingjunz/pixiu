@@ -258,7 +258,7 @@ func (s *cloudRouter) listJobs(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) createStatefulset(c *gin.Context) {
+func (s *cloudRouter) createStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err           error
@@ -271,7 +271,7 @@ func (s *cloudRouter) createStatefulset(c *gin.Context) {
 	}
 	statefulset.Name = createOptions.ObjectName
 	statefulset.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().CreateStatefulset(context.TODO(), createOptions.CloudName, &statefulset)
+	err = pixiu.CoreV1.Cloud().StatefulSets(createOptions.CloudName).Create(context.TODO(), &statefulset)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -280,7 +280,7 @@ func (s *cloudRouter) createStatefulset(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) updateStatefulset(c *gin.Context) {
+func (s *cloudRouter) updateStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err           error
@@ -293,7 +293,7 @@ func (s *cloudRouter) updateStatefulset(c *gin.Context) {
 	}
 	statefulset.Name = createOptions.ObjectName
 	statefulset.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().UpdateStatefulset(context.TODO(), createOptions.CloudName, &statefulset)
+	err = pixiu.CoreV1.Cloud().StatefulSets(createOptions.CloudName).Update(context.TODO(), &statefulset)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -302,7 +302,7 @@ func (s *cloudRouter) updateStatefulset(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) deleteStatefulset(c *gin.Context) {
+func (s *cloudRouter) deleteStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
@@ -312,7 +312,7 @@ func (s *cloudRouter) deleteStatefulset(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err = pixiu.CoreV1.Cloud().DeleteStatefulset(context.TODO(), delOptions)
+	err = pixiu.CoreV1.Cloud().StatefulSets(delOptions.CloudName).Delete(context.TODO(), delOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -321,7 +321,7 @@ func (s *cloudRouter) deleteStatefulset(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) getStatefulset(c *gin.Context) {
+func (s *cloudRouter) getStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
@@ -331,7 +331,7 @@ func (s *cloudRouter) getStatefulset(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().GetStatefulset(context.TODO(), getOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(getOptions.CloudName).Get(context.TODO(), getOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -340,7 +340,7 @@ func (s *cloudRouter) getStatefulset(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) listStatefulsets(c *gin.Context) {
+func (s *cloudRouter) listStatefulSets(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err         error
@@ -350,7 +350,7 @@ func (s *cloudRouter) listStatefulsets(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().ListStatefulsets(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(listOptions.CloudName).List(context.TODO(), listOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -370,7 +370,7 @@ func (s *cloudRouter) listServices(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().ListServices(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Services(listOptions.CloudName).List(context.TODO(), listOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
