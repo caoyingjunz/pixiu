@@ -57,7 +57,7 @@ type JenkinsOptions struct {
 }
 
 func (c *Config) Valid() error {
-	if strings.ToLower(c.Default.LogType) == "file"{
+	if strings.ToLower(c.Default.LogType) == "file" {
 		if len(c.Default.LogDir) == 0 {
 			return fmt.Errorf("log_dir should be config when log type is file")
 		}
