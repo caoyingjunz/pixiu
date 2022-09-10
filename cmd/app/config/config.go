@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
@@ -30,6 +31,7 @@ type Config struct {
 
 type DefaultOptions struct {
 	Listen   int    `yaml:"listen"`
+	LogType  string `yaml:"log_type"`
 	LogDir   string `yaml:"log_dir"`
 	LogLevel string `yaml:"log_level"`
 	JWTKey   string `yaml:"jwt_key"`
@@ -55,8 +57,10 @@ type JenkinsOptions struct {
 }
 
 func (c *Config) Valid() error {
-	if len(c.Default.LogDir) == 0 {
-		return fmt.Errorf("failed to find log_dir")
+	if strings.ToLower(c.Default.LogType) == "file" {
+		if len(c.Default.LogDir) == 0 {
+			return fmt.Errorf("log_dir should be config when log type is file")
+		}
 	}
 
 	switch c.Cicd.Driver {
