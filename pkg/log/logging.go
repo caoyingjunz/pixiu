@@ -22,7 +22,6 @@ import (
 )
 
 type Configuration struct {
-	LogType  string
 	LogFile  string
 	LogLevel string
 
@@ -47,6 +46,20 @@ var (
 )
 
 func Register(logType, logDir, logLevel string) {
+	var (
+		accessLogFile string
+		loggerLogFile string
+	)
+	// 支持 标准输出，标准错误输出，和指定日志文件
+	switch logType {
+	case "stdout":
+		accessLogFile, loggerLogFile = "stdout", "stdout"
+	case "stderr":
+		accessLogFile, loggerLogFile = "stderr", "stderr"
+	default:
+		accessLogFile, loggerLogFile = filepath.Join(logDir, "access.log"), filepath.Join(logDir, "gopixiu.log")
+	}
+
 	// 支持 INFO, WARN 和 ERROR，默认为 INFO
 	Level := "info"
 	if strings.ToLower(logLevel) == "error" {
@@ -56,8 +69,7 @@ func Register(logType, logDir, logLevel string) {
 	}
 
 	AccessLog, _ = NewZapLogger(Configuration{
-		LogType:          logType,
-		LogFile:          filepath.Join(logDir, "access.log"),
+		LogFile:          accessLogFile,
 		LogLevel:         "info", // access 的 log 只会有 info
 		RotateMaxSize:    500,
 		RotateMaxAge:     7,
@@ -65,8 +77,7 @@ func Register(logType, logDir, logLevel string) {
 	})
 
 	Logger, _ = NewZapLogger(Configuration{
-		LogType:          logType,
-		LogFile:          filepath.Join(logDir, "gopixiu.log"),
+		LogFile:          loggerLogFile,
 		LogLevel:         Level,
 		RotateMaxSize:    500,
 		RotateMaxAge:     7,

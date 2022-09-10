@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
@@ -56,6 +57,12 @@ type JenkinsOptions struct {
 }
 
 func (c *Config) Valid() error {
+	if strings.ToLower(c.Default.LogType) == "file"{
+		if len(c.Default.LogDir) == 0 {
+			return fmt.Errorf("log_dir should be config when log type is file")
+		}
+	}
+
 	switch c.Cicd.Driver {
 	case "", types.Jenkins:
 		j := c.Cicd.Jenkins

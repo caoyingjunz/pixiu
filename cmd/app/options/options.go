@@ -114,14 +114,15 @@ func (o *Options) register() error {
 }
 
 func (o *Options) registerLogger() error {
-	if strings.ToLower(o.ComponentConfig.Default.LogType) == "file" {
+	logType :=strings.ToLower(o.ComponentConfig.Default.LogType)
+	if logType == "file" {
 		// 判断文件夹是否存在，不存在则创建
 		if err := util.EnsureDirectoryExists(o.ComponentConfig.Default.LogDir); err != nil {
 			return err
 		}
 	}
 	// 注册日志
-	log.Register(o.ComponentConfig.Default.LogType, o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel)
+	log.Register(logType, o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel)
 
 	return nil
 }
