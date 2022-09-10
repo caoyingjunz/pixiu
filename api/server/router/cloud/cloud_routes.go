@@ -22,28 +22,12 @@ import (
 	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
-	v1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
-
-func readConfig(c *gin.Context) ([]byte, error) {
-	config, err := c.FormFile("kubeconfig")
-	if err != nil {
-		return nil, err
-	}
-	file, err := config.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	return ioutil.ReadAll(file)
-}
 
 func (s *cloudRouter) createCloud(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -116,265 +100,17 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) createNamespace(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err         error
-		listOptions types.CloudOptions
-		namespace   corev1.Namespace
-	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = c.ShouldBindJSON(&namespace); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = pixiu.CoreV1.Cloud().Namespaces(listOptions.CloudName).Create(context.TODO(), namespace); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) updateNamespace(c *gin.Context) {}
-
-func (s *cloudRouter) deleteNamespace(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err              error
-		namespaceOptions types.NamespaceOptions
-	)
-	if err = c.ShouldBindUri(&namespaceOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = pixiu.CoreV1.Cloud().Namespaces(namespaceOptions.CloudName).Delete(context.TODO(), namespaceOptions.ObjectName); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-func (s *cloudRouter) getNamespace(c *gin.Context) {}
-
-func (s *cloudRouter) listNamespaces(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err          error
-		cloudOptions types.CloudOptions
-	)
-	if err = c.ShouldBindUri(&cloudOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if r.Result, err = pixiu.CoreV1.Cloud().Namespaces(cloudOptions.CloudName).List(context.TODO()); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) createDeployment(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err        error
-		getOptions types.GetOrCreateOptions
-		deployment v1.Deployment
-	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = c.ShouldBindJSON(&deployment); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	deployment.Name = getOptions.ObjectName
-	deployment.Namespace = getOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().Deployments(getOptions.CloudName).Create(context.TODO(), &deployment); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) deleteDeployment(c *gin.Context) {
-	r := httputils.NewResponse()
-	var deleteOptions types.GetOrDeleteOptions
-	if err := c.ShouldBindUri(&deleteOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	err := pixiu.CoreV1.Cloud().Deployments(deleteOptions.CloudName).Delete(context.TODO(), deleteOptions)
+// 从请求中获取配置文件
+func readConfig(c *gin.Context) ([]byte, error) {
+	config, err := c.FormFile("kubeconfig")
 	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
+		return nil, err
 	}
-
-	httputils.SetSuccess(c, r)
-}
-
-// listDeployments API: clouds/<cloud_name>/namespaces/<ns>/deployments
-func (s *cloudRouter) listDeployments(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err         error
-		listOptions types.ListOptions
-	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result, err = pixiu.CoreV1.Cloud().Deployments(listOptions.CloudName).List(context.TODO(), listOptions)
+	file, err := config.Open()
 	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
+		return nil, err
 	}
+	defer file.Close()
 
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) listJobs(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err         error
-		listOptions types.ListOptions
-	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result, err = pixiu.CoreV1.Cloud().Jobs(listOptions.CloudName).List(context.TODO(), listOptions)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) createStatefulSet(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err           error
-		createOptions types.GetOrCreateOptions
-		statefulset   v1.StatefulSet
-	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	statefulset.Name = createOptions.ObjectName
-	statefulset.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().StatefulSets(createOptions.CloudName).Create(context.TODO(), &statefulset)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) updateStatefulSet(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err           error
-		createOptions types.GetOrCreateOptions
-		statefulset   v1.StatefulSet
-	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	statefulset.Name = createOptions.ObjectName
-	statefulset.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().StatefulSets(createOptions.CloudName).Update(context.TODO(), &statefulset)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) deleteStatefulSet(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err        error
-		delOptions types.GetOrDeleteOptions
-	)
-	if err = c.ShouldBindUri(&delOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	err = pixiu.CoreV1.Cloud().StatefulSets(delOptions.CloudName).Delete(context.TODO(), delOptions)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) getStatefulSet(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err        error
-		getOptions types.GetOrDeleteOptions
-	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(getOptions.CloudName).Get(context.TODO(), getOptions)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) listStatefulSets(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err         error
-		listOptions types.ListOptions
-	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(listOptions.CloudName).List(context.TODO(), listOptions)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-// listServices
-func (s *cloudRouter) listServices(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err         error
-		listOptions types.ListOptions
-	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result, err = pixiu.CoreV1.Cloud().Services(listOptions.CloudName).List(context.TODO(), listOptions)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
+	return ioutil.ReadAll(file)
 }
