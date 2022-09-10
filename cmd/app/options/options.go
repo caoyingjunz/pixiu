@@ -114,7 +114,7 @@ func (o *Options) register() error {
 }
 
 func (o *Options) registerLogger() error {
-	logType :=strings.ToLower(o.ComponentConfig.Default.LogType)
+	logType := strings.ToLower(o.ComponentConfig.Default.LogType)
 	if logType == "file" {
 		// 判断文件夹是否存在，不存在则创建
 		if err := util.EnsureDirectoryExists(o.ComponentConfig.Default.LogDir); err != nil {
