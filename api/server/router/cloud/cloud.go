@@ -21,7 +21,7 @@ import "github.com/gin-gonic/gin"
 // cloudRouter is a router to talk with the cloud controller
 type cloudRouter struct{}
 
-// NewRouter initializes a new container router
+// NewRouter initializes a new cloud router
 func NewRouter(ginEngine *gin.Engine) {
 	s := &cloudRouter{}
 	s.initRoutes(ginEngine)
@@ -61,10 +61,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
 
 		// StatefulSet API
-		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.createStatefulset)
-		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.updateStatefulset)
-		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.deleteStatefulset)
-		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.getStatefulset)
-		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulsets)
+		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.createStatefulSet)
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.updateStatefulSet)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.deleteStatefulSet)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.getStatefulSet)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulSets)
 	}
 }
