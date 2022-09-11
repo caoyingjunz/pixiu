@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -33,12 +34,11 @@ func TimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 
 func NewZapLogger(c Configuration) (LoggerInterface, error) {
 	var w io.Writer
-	switch c.LogFile {
-	case "stdout":
-		w = os.Stdout
+	// 支持 标准输出，标准错误输出，和指定日志文件
+	switch strings.ToLower(c.LogType) {
 	case "stderr":
 		w = os.Stderr
-	default:
+	case "file":
 		w = &lumberjack.Logger{
 			Filename:   c.LogFile,
 			MaxSize:    c.RotateMaxSize,
@@ -46,6 +46,8 @@ func NewZapLogger(c Configuration) (LoggerInterface, error) {
 			MaxBackups: c.RotateMaxBackups,
 			Compress:   c.Compress,
 		}
+	default:
+		w = os.Stdout
 	}
 
 	cfg := zapcore.EncoderConfig{

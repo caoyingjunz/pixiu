@@ -20,14 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	v1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
+	pixiukubernetes "github.com/caoyingjunz/gopixiu/pkg/core/kubernetes"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -46,15 +44,14 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context) ([]types.Cloud, error)
 
-	InitCloudClients() error
+	Init() error // 初始化 cloud 的客户端
 
-	CreateDeployment(ctx context.Context, cloudName string, deployment *v1.Deployment) error
-	DeleteDeployment(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	ListDeployments(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
-
-	ListNamespaces(ctx context.Context, cloudOptions types.CloudOptions) ([]corev1.Namespace, error)
-
-	ListJobs(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
+	// kubernetes 资源的接口定义
+	pixiukubernetes.NamespacesGetter
+	pixiukubernetes.ServicesGetter
+	pixiukubernetes.StatefulSetGetter
+	pixiukubernetes.DeploymentsGetter
+	pixiukubernetes.JobsGetter
 }
 
 var clientSets client.ClientsInterface
@@ -148,7 +145,7 @@ func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
 	return cs, nil
 }
 
-func (c *cloud) InitCloudClients() error {
+func (c *cloud) Init() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package demo
+package cloud
 
 import (
 	"context"
@@ -24,33 +24,21 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-func (s *demoRouter) getDemo(c *gin.Context) {
+// listServices
+func (s *cloudRouter) listServices(c *gin.Context) {
 	r := httputils.NewResponse()
-	demoId, err := util.ParseInt64(c.Query("demo_id"))
+	var (
+		err         error
+		listOptions types.ListOptions
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().Services(listOptions.CloudName).List(context.TODO(), listOptions)
 	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result, err = pixiu.CoreV1.Demo().Get(context.TODO(), demoId)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *demoRouter) createDemo(c *gin.Context) {
-	r := httputils.NewResponse()
-	var demo types.Demo
-	if err := c.ShouldBindJSON(&demo); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err := pixiu.CoreV1.Demo().Create(context.TODO(), &demo); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

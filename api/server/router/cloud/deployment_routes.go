@@ -18,52 +18,33 @@ package cloud
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
+	v1 "k8s.io/api/apps/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-func (s *cloudRouter) createCloud(c *gin.Context) {
+func (s *cloudRouter) createDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err   error
-		cloud types.Cloud
+		err        error
+		getOptions types.GetOrCreateOptions
+		deployment v1.Deployment
 	)
-	cloud.Name = c.Param("name")
-	if len(cloud.Name) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
-		return
-	}
-	if cloud.KubeConfig, err = httputils.ReadFile(c, "kubeconfig"); err != nil {
+	if err = c.ShouldBindUri(&getOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Create(context.TODO(), &cloud); err != nil {
+	if err = c.ShouldBindJSON(&deployment); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) updateCloud(c *gin.Context) {
-	r := httputils.NewResponse()
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) deleteCloud(c *gin.Context) {
-	r := httputils.NewResponse()
-	cid, err := util.ParseInt64(c.Param("cid"))
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = pixiu.CoreV1.Cloud().Delete(context.TODO(), cid); err != nil {
+	deployment.Name = getOptions.ObjectName
+	deployment.Namespace = getOptions.Namespace
+	if err = pixiu.CoreV1.Cloud().Deployments(getOptions.CloudName).Create(context.TODO(), &deployment); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -71,14 +52,14 @@ func (s *cloudRouter) deleteCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) getCloud(c *gin.Context) {
+func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
-	cid, err := util.ParseInt64(c.Param("cid"))
-	if err != nil {
+	var deleteOptions types.GetOrDeleteOptions
+	if err := c.ShouldBindUri(&deleteOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Get(context.TODO(), cid)
+	err := pixiu.CoreV1.Cloud().Deployments(deleteOptions.CloudName).Delete(context.TODO(), deleteOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -87,10 +68,19 @@ func (s *cloudRouter) getCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) listClouds(c *gin.Context) {
+// listDeployments API: clouds/<cloud_name>/namespaces/<ns>/deployments
+func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
-	var err error
-	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO()); err != nil {
+	var (
+		err         error
+		listOptions types.ListOptions
+	)
+	if err = c.ShouldBindUri(&listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().Deployments(listOptions.CloudName).List(context.TODO(), listOptions)
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

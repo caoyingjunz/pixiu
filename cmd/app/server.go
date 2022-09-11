@@ -28,7 +28,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
-	"github.com/caoyingjunz/gopixiu/api/server/router/demo"
 	"github.com/caoyingjunz/gopixiu/api/server/router/user"
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
@@ -42,7 +41,7 @@ func NewServerCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:  "gopixiu-server",
-		Long: "The gopixiu server controller is a daemon than embeds the core control loops.",
+		Long: "The gopixiu server controller is a daemon that embeds the core control loops.",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err = opts.Complete(); err != nil {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -75,10 +74,9 @@ func NewServerCommand() *cobra.Command {
 func InitRouters(opt *options.Options) {
 	middleware.InitMiddlewares(opt.GinEngine) // 注册中间件
 
-	demo.NewRouter(opt.GinEngine)  // 注册 demo 路由
-	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
 	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
 	user.NewRouter(opt.GinEngine)  // 注册 user 路由
+	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
 }
 
 func Run(opt *options.Options) error {
@@ -88,7 +86,7 @@ func Run(opt *options.Options) error {
 	// 设置核心应用接口
 	pixiu.Setup(opt)
 	// 初始化已存在 cloud clients
-	if err := pixiu.CoreV1.Cloud().InitCloudClients(); err != nil {
+	if err := pixiu.CoreV1.Cloud().Init(); err != nil {
 		return err
 	}
 

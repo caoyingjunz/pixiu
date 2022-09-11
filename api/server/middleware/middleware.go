@@ -25,14 +25,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/juju/ratelimit"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/gopixiu/pkg/util/lru"
 )
 
 func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(LoggerToFile(), Limiter, AuthN)
+	ginEngine.Use(LoggerToFile(), UserRateLimiter(100, 20), AuthN)
 }
 
 func LoggerToFile() gin.HandlerFunc {
@@ -57,6 +59,38 @@ func LoggerToFile() gin.HandlerFunc {
 
 // Limiter TODO
 func Limiter(c *gin.Context) {}
+
+// UserRateLimiter 针对每个用户的请求进行限速
+// TODO 限速大小从配置中读取
+func UserRateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
+	// 初始化一个 LRU Cache
+	cache, _ := lru.NewLRUCache(200)
+
+	return func(c *gin.Context) {
+		r := httputils.NewResponse()
+		// 把 key: clientIP value: *ratelimit.Bucket 存入 LRU Cache 中
+		clientIP := c.ClientIP()
+		if !cache.Contains(clientIP) {
+			cache.Add(clientIP, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum))
+			return
+		}
+
+		// 通过 ClientIP 取出 bucket
+		val := cache.Get(clientIP)
+		if val == nil {
+			return
+		}
+
+		// 判断是否还有可用的 bucket
+		bucket := val.(*ratelimit.Bucket)
+		if bucket.TakeAvailable(1) == 0 {
+			r.SetCode(http.StatusGatewayTimeout)
+			httputils.SetFailed(c, r, fmt.Errorf("the system is busy. please try again later"))
+			c.Abort()
+			return
+		}
+	}
+}
 
 func AuthN(c *gin.Context) {
 	if os.Getenv("DEBUG") == "true" {
