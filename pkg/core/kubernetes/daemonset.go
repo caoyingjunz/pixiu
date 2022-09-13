@@ -23,7 +23,7 @@ type DaemonSetInterface interface {
 	List(ctx context.Context, listOptions types.ListOptions) ([]v1.DaemonSet, error)
 }
 
-type daemonsets struct {
+type daemonSets struct {
 	client *kubernetes.Clientset
 	cloud  string
 }
@@ -35,7 +35,7 @@ func NewDaemonSets(client *kubernetes.Clientset, cloud string) DaemonSetInterfac
 	}
 }
 
-func (c *daemonsets) Create(ctx context.Context, daemonset *v1.DaemonSet) error {
+func (c *daemonSets) Create(ctx context.Context, daemonset *v1.DaemonSet) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -50,7 +50,7 @@ func (c *daemonsets) Create(ctx context.Context, daemonset *v1.DaemonSet) error 
 	return nil
 }
 
-func (c *daemonsets) Update(ctx context.Context, daemonset *v1.DaemonSet) error {
+func (c *daemonSets) Update(ctx context.Context, daemonset *v1.DaemonSet) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -64,7 +64,7 @@ func (c *daemonsets) Update(ctx context.Context, daemonset *v1.DaemonSet) error 
 	return nil
 }
 
-func (c *daemonsets) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *daemonSets) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -78,7 +78,7 @@ func (c *daemonsets) Delete(ctx context.Context, deleteOptions types.GetOrDelete
 	return nil
 }
 
-func (c *daemonsets) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.DaemonSet, error) {
+func (c *daemonSets) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.DaemonSet, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -93,7 +93,7 @@ func (c *daemonsets) Get(ctx context.Context, getOptions types.GetOrDeleteOption
 	return ds, err
 }
 
-func (c *daemonsets) List(ctx context.Context, listOptions types.ListOptions) ([]v1.DaemonSet, error) {
+func (c *daemonSets) List(ctx context.Context, listOptions types.ListOptions) ([]v1.DaemonSet, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
