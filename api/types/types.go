@@ -47,6 +47,10 @@ type GetOrCreateOptions struct {
 	ObjectName string `uri:"object_name" binding:"required"`
 }
 
+type NodeListOptions struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+}
+
 type Demo struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`
