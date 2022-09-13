@@ -20,16 +20,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
 )
 
-type Demo struct {
-	gopixiu.Model
-
-	Name string `gorm:"index:idx_name,unique" json:"name"` // 用户名，唯一
-}
-
-func (demo *Demo) TableName() string {
-	return "demos"
-}
-
 type Cloud struct {
 	gopixiu.Model
 

@@ -25,7 +25,6 @@ import (
 )
 
 type CoreV1Interface interface {
-	DemoGetter
 	CicdGetter
 	CloudGetter
 	UserGetter
@@ -36,10 +35,6 @@ type pixiu struct {
 	factory    db.ShareDaoFactory
 	cicdDriver *gojenkins.Jenkins
 	clientSets map[string]*kubernetes.Clientset
-}
-
-func (pixiu *pixiu) Demo() DemoInterface {
-	return newDemo(pixiu)
 }
 
 func (pixiu *pixiu) User() UserInterface {

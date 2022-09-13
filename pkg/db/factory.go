@@ -20,22 +20,16 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
-	"github.com/caoyingjunz/gopixiu/pkg/db/demo"
 	"github.com/caoyingjunz/gopixiu/pkg/db/user"
 )
 
 type ShareDaoFactory interface {
 	User() user.UserInterface
-	Demo() demo.DemoInterface
 	Cloud() cloud.CloudInterface
 }
 
 type shareDaoFactory struct {
 	db *gorm.DB
-}
-
-func (f *shareDaoFactory) Demo() demo.DemoInterface {
-	return demo.NewDemo(f.db)
 }
 
 func (f *shareDaoFactory) Cloud() cloud.CloudInterface {

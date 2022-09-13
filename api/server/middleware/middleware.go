@@ -30,7 +30,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/caoyingjunz/gopixiu/pkg/util/lru"
 )
 
 func InitMiddlewares(ginEngine *gin.Engine) {
@@ -64,7 +64,7 @@ func Limiter(c *gin.Context) {}
 // TODO 限速大小从配置中读取
 func UserRateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
 	// 初始化一个 LRU Cache
-	cache, _ := util.NewLRUCache(200)
+	cache, _ := lru.NewLRUCache(200)
 
 	return func(c *gin.Context) {
 		r := httputils.NewResponse()

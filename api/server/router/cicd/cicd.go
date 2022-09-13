@@ -55,6 +55,5 @@ func (s *cicdRouter) initRoutes(ginEngine *gin.Engine) {
 		cicdRoute.DELETE("/view/:name/:viewname", s.deleteViewJob)
 		cicdRoute.GET("/nodes", s.getAllNodes)
 		cicdRoute.DELETE("/nodes/:name", s.deleteNode)
-
 	}
 }
