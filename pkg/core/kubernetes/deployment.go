@@ -35,6 +35,7 @@ type DeploymentInterface interface {
 	Create(ctx context.Context, deployment *v1.Deployment) error
 	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
+	Update(ctx context.Context, getdeployment types.GetOrUpdateOptions, update types.UpdateOptions) error
 }
 
 type deployments struct {
@@ -58,6 +59,28 @@ func (c *deployments) Create(ctx context.Context, deployment *v1.Deployment) err
 		Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		log.Logger.Errorf("failed to delete %s namespace %s: %v", c.cloud, deployment.Namespace, err)
 
+		return err
+	}
+
+	return nil
+}
+
+func (c *deployments) UpdateDeployment(ctx context.Context, getOptions types.GetOrUpdateOptions, updateOptions types.UpdateOptions) error {
+	if c.client == nil {
+		return clientError
+	}
+	deploymentList, err := c.client.AppsV1().Deployments(getOptions.Namespace).Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	// 结构体中新添加的更新模块在这里按量添加
+	deploymentList.Spec.Template.Spec.Containers[0].Image = updateOptions.Images
+	deploymentList.Spec.Replicas = updateOptions.Replicas
+
+	if _, err := c.client.AppsV1().
+		Deployments(getOptions.Namespace).
+		Update(ctx, deploymentList, metav1.UpdateOptions{}); err != nil {
+		log.Logger.Errorf("failed to update %s %s deployments: %v", getOptions.Namespace, getOptions.ObjectName, err)
 		return err
 	}
 
