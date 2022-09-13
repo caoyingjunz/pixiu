@@ -68,6 +68,6 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulSets)
 
 		// Event API
-		cloudRoute.GET("/core/v1:cloud_name/namespaces/:namespace/deployments/:object_name/events", s.listEventsDeploymentByName)
+		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/deployments/:object_name/events", s.listEventsDeploymentByName)
 	}
 }
