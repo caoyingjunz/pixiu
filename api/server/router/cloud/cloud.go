@@ -66,5 +66,12 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.deleteStatefulSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.getStatefulSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulSets)
+
+		// DaemonSet API
+		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.createDaemonSet)
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.updateDaemonSet)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.deleteDaemonSet)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.getDaemonSet)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.listDaemonsets)
 	}
 }
