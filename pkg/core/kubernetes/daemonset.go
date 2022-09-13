@@ -29,7 +29,7 @@ type daemonSets struct {
 }
 
 func NewDaemonSets(client *kubernetes.Clientset, cloud string) DaemonSetInterface {
-	return &daemonsets{
+	return &daemonSets{
 		client: client,
 		cloud:  cloud,
 	}
