@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
@@ -29,18 +28,18 @@ func (s *cloudRouter) listNodes(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) createNode(c *gin.Context) {
+func (s *cloudRouter) getNode(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions types.NodeListOptions
-		node        v1.Node
+		err        error
+		getOptions types.GetNodeOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&getOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Nodes(listOptions.CloudName).Create(context.TODO(), &node); err != nil {
+	r.Result, err = pixiu.CoreV1.Cloud().Nodes(getOptions.CloudName).Get(context.TODO(), getOptions)
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

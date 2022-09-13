@@ -2,11 +2,13 @@ package kubernetes
 
 import (
 	"context"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -15,8 +17,8 @@ type NodesGetter interface {
 }
 
 type NodeInterface interface {
-	List(ctx context.Context) ([]v1.Node, error)
-	Create(ctx context.Context, nodes *v1.Node) error
+	List(ctx context.Context) ([]*types.Nodes, error)
+	Get(ctx context.Context, nodeOptions types.GetNodeOptions) (*v1.Node, error)
 }
 
 type nodes struct {
@@ -31,7 +33,7 @@ func NewNodes(c *kubernetes.Clientset, cloud string) *nodes {
 	}
 }
 
-func (c *nodes) List(ctx context.Context) ([]v1.Node, error) {
+func (c *nodes) List(ctx context.Context) ([]*types.Nodes, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -42,16 +44,34 @@ func (c *nodes) List(ctx context.Context) ([]v1.Node, error) {
 		log.Logger.Errorf("failed to list node :%v", err)
 		return nil, err
 	}
-	return nodeList.Items, nil
+
+	ref := make([]*types.Nodes, 0)
+	for _, item := range nodeList.Items {
+		ref = append(ref, &types.Nodes{
+			Name:                    item.Name,
+			Age:                     int(time.Now().Sub(item.ObjectMeta.CreationTimestamp.Time).Hours() / 24),
+			KubeletVersion:          item.Status.NodeInfo.KubeletVersion,
+			ContainerRuntimeVersion: item.Status.NodeInfo.ContainerRuntimeVersion,
+			KernelVersion:           item.Status.NodeInfo.KernelVersion,
+			InternalIP:              item.Status.Addresses[0].Address,
+			OsImage:                 item.Status.NodeInfo.OSImage,
+		})
+	}
+
+	return ref, nil
+
 }
 
-func (c *nodes) Create(ctx context.Context, nodes *v1.Node) error {
+func (c *nodes) Get(ctx context.Context, nodeOptions types.GetNodeOptions) (*v1.Node, error) {
 	if c.client == nil {
-		return clientError
+		return nil, clientError
 	}
-	if _, err := c.client.CoreV1().Nodes().Create(ctx, nodes, metav1.CreateOptions{}); err != nil {
-		log.Logger.Errorf("failed to create %s : %v", c.cloud, err)
-		return err
+	node, err := c.client.CoreV1().
+		Nodes().
+		Get(ctx, nodeOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get node :%v", err)
+		return nil, err
 	}
-	return nil
+	return node, nil
 }

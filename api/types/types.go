@@ -51,9 +51,20 @@ type NodeListOptions struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 }
 
-type CreateNodeOptions struct {
+type Nodes struct {
+	Name string `json:"name"`
+	//Status                  bool `json:"status"`
+	Age                     int    `json:"age"`
+	KubeletVersion          string `json:"kubeletVersion"`
+	InternalIP              string `json:"internal-ip"`
+	OsImage                 string `json:"osImage"`
+	KernelVersion           string `json:"kernelVersion"`
+	ContainerRuntimeVersion string `json:"containerRuntimeVersion"`
+}
+
+type GetNodeOptions struct {
 	NodeListOptions
-	NodeName string `uri:"node_name" binding:"required"`
+	ObjectName string `uri:"object_name" binding:"required"`
 }
 
 type Demo struct {
