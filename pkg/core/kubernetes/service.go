@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -36,6 +37,7 @@ type ServiceInterface interface {
 	Create(ctx context.Context, service *corev1.Service) error
 	Update(ctx context.Context, service *corev1.Service) error
 	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*corev1.Service, error)
+	Delete(ctx context.Context, getOptions types.GetOrDeleteOptions) error
 }
 
 type services struct {
@@ -84,11 +86,20 @@ func (c *services) Update(ctx context.Context, service *corev1.Service) error {
 	if c.client == nil {
 		return clientError
 	}
-	if _, err := c.client.CoreV1().
-		Services(service.Namespace).
-		Update(ctx, service, metav1.UpdateOptions{}); err != nil {
-		log.Logger.Errorf("failed to update %s service: %v", c.cloud, err)
-		return err
+	servicesClient := c.client.CoreV1().Services(service.Namespace)
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
+		result, getErr := servicesClient.Get(context.TODO(), service.Name, metav1.GetOptions{})
+		if getErr != nil {
+			log.Logger.Errorf("Failed to get latest version of Service: %v", getErr)
+			return getErr
+		}
+		result.Spec = service.Spec
+		_, updateErr := servicesClient.Update(context.TODO(), result, metav1.UpdateOptions{})
+		return updateErr
+	})
+	if retryErr != nil {
+		log.Logger.Errorf("Update Service failed: %v", retryErr)
 	}
 
 	return nil
@@ -107,4 +118,19 @@ func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions)
 	}
 
 	return sts, err
+}
+
+func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+	if c.client == nil {
+		return clientError
+	}
+	err := c.client.CoreV1().
+		Services(deleteOptions.Namespace).
+		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s serice: %v", c.cloud, err)
+		return err
+	}
+
+	return err
 }
