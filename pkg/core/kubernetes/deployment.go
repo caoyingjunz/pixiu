@@ -65,7 +65,7 @@ func (c *deployments) Create(ctx context.Context, deployment *v1.Deployment) err
 	return nil
 }
 
-func (c *deployments) UpdateDeployment(ctx context.Context, getOptions types.GetOrUpdateOptions, updateOptions types.UpdateOptions) error {
+func (c *deployments) Update(ctx context.Context, getOptions types.GetOrUpdateOptions, updateOptions types.UpdateOptions) error {
 	if c.client == nil {
 		return clientError
 	}
