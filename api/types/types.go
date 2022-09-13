@@ -52,11 +52,13 @@ type NodeListOptions struct {
 }
 
 type Nodes struct {
-	Name string `json:"name"`
-	//Status                  bool `json:"status"`
+	Name                    string `json:"name"`
+	Status                  string `json:"status"`
+	Roles                   string `json:"roles"`
 	Age                     int    `json:"age"`
 	KubeletVersion          string `json:"kubeletVersion"`
 	InternalIP              string `json:"internal-ip"`
+	ExternalIP              string `json:"external-ip"`
 	OsImage                 string `json:"osImage"`
 	KernelVersion           string `json:"kernelVersion"`
 	ContainerRuntimeVersion string `json:"containerRuntimeVersion"`

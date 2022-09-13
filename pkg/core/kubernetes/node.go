@@ -49,11 +49,14 @@ func (c *nodes) List(ctx context.Context) ([]*types.Nodes, error) {
 	for _, item := range nodeList.Items {
 		ref = append(ref, &types.Nodes{
 			Name:                    item.Name,
+			Status:                  string(item.Status.Conditions[len(item.Status.Conditions)-1].Type),
+			Roles:                   item.Labels["node-role.kubernetes.io/master"],
 			Age:                     int(time.Now().Sub(item.ObjectMeta.CreationTimestamp.Time).Hours() / 24),
 			KubeletVersion:          item.Status.NodeInfo.KubeletVersion,
 			ContainerRuntimeVersion: item.Status.NodeInfo.ContainerRuntimeVersion,
 			KernelVersion:           item.Status.NodeInfo.KernelVersion,
 			InternalIP:              item.Status.Addresses[0].Address,
+			ExternalIP:              item.Spec.PodCIDR,
 			OsImage:                 item.Status.NodeInfo.OSImage,
 		})
 	}
