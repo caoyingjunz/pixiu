@@ -18,7 +18,6 @@ package kubernetes
 
 import (
 	"context"
-
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -34,6 +33,8 @@ type NamespaceInterface interface {
 	Create(ctx context.Context, namespace v1.Namespace) error
 	Delete(ctx context.Context, namespace string) error
 	List(ctx context.Context) ([]v1.Namespace, error)
+	Get(ctx context.Context, namespace string) (*v1.Namespace, error)
+	Update(ctx context.Context, namespace v1.Namespace) (*v1.Namespace, error)
 }
 
 type namespaces struct {
@@ -88,4 +89,30 @@ func (c *namespaces) List(ctx context.Context) ([]v1.Namespace, error) {
 	}
 
 	return ns.Items, nil
+}
+
+func (c *namespaces) Get(ctx context.Context, namespace string) (*v1.Namespace, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	ns, err := c.client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get namespaces: %v", err)
+		return nil, err
+	}
+
+	return ns, nil
+}
+
+func (c *namespaces) Update(ctx context.Context, namespace v1.Namespace) (*v1.Namespace, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	ns, err := c.client.CoreV1().Namespaces().Update(ctx, &namespace, metav1.UpdateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to update namespaces: %v", err)
+		return nil, err
+	}
+
+	return ns, nil
 }
