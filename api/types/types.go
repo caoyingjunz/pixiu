@@ -51,6 +51,11 @@ type NodeListOptions struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 }
 
+type CreateNodeOptions struct {
+	NodeListOptions
+	NodeName string `uri:"node_name" binding:"required"`
+}
+
 type Demo struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`

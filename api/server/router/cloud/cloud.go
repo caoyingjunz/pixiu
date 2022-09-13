@@ -68,6 +68,8 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulSets)
 
 		// Node API
-		cloudRoute.GET("/apps/v1/:cloud_name/nodes", s.getNode)
+		cloudRoute.POST("/apps/v1/:cloud_name/nodes/:node_name", s.createNode)
+		cloudRoute.GET("/apps/v1/:cloud_name/nodes", s.listNodes)
+
 	}
 }
