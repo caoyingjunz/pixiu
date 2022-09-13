@@ -19,7 +19,7 @@ package kubernetes
 import (
 	"context"
 
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -32,7 +32,10 @@ type ServicesGetter interface {
 }
 
 type ServiceInterface interface {
-	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error)
+	List(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error)
+	Create(ctx context.Context, service *corev1.Service) error
+	Update(ctx context.Context, service *corev1.Service) error
+	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*corev1.Service, error)
 }
 
 type services struct {
@@ -47,7 +50,7 @@ func NewServices(c *kubernetes.Clientset, cloud string) *services {
 	}
 }
 
-func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error) {
+func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -60,4 +63,48 @@ func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]v
 	}
 
 	return svc.Items, nil
+}
+
+func (c *services) Create(ctx context.Context, service *corev1.Service) error {
+	if c.client == nil {
+		return clientError
+	}
+	if _, err := c.client.CoreV1().
+		Services(service.Namespace).
+		Create(ctx, service, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to create %s service %s: %v", c.cloud, service.Namespace, err)
+
+		return err
+	}
+
+	return nil
+}
+
+func (c *services) Update(ctx context.Context, service *corev1.Service) error {
+	if c.client == nil {
+		return clientError
+	}
+	if _, err := c.client.CoreV1().
+		Services(service.Namespace).
+		Update(ctx, service, metav1.UpdateOptions{}); err != nil {
+		log.Logger.Errorf("failed to update %s service: %v", c.cloud, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*corev1.Service, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	sts, err := c.client.CoreV1().
+		Services(getOptions.Namespace).
+		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s serice: %v", c.cloud, err)
+		return nil, err
+	}
+
+	return sts, err
 }

@@ -34,7 +34,8 @@ import (
 )
 
 func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(LoggerToFile(), UserRateLimiter(100, 20), AuthN)
+	// ginEngine.Use(LoggerToFile(), UserRateLimiter(100, 20), AuthN)
+	ginEngine.Use(LoggerToFile(), UserRateLimiter(100, 20))
 }
 
 func LoggerToFile() gin.HandlerFunc {
