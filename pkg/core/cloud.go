@@ -51,6 +51,7 @@ type CloudInterface interface {
 	pixiukubernetes.ServicesGetter
 	pixiukubernetes.StatefulSetGetter
 	pixiukubernetes.DeploymentsGetter
+	pixiukubernetes.DaemonSetGetter
 	pixiukubernetes.JobsGetter
 }
 

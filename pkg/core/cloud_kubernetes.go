@@ -36,6 +36,10 @@ func (c *cloud) StatefulSets(cloud string) pixiukubernetes.StatefulSetInterface 
 	return pixiukubernetes.NewStatefulSets(clientSets.Get(cloud), cloud)
 }
 
+func (c *cloud) DaemonSets(cloud string) pixiukubernetes.DaemonSetInterface {
+	return pixiukubernetes.NewDaemonSets(clientSets.Get(cloud), cloud)
+}
+
 func (c *cloud) Jobs(cloud string) pixiukubernetes.JobInterface {
 	return pixiukubernetes.NewJobs(clientSets.Get(cloud), cloud)
 }
