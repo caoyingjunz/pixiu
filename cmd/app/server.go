@@ -20,7 +20,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -82,9 +86,6 @@ func InitRouters(opt *options.Options) {
 }
 
 func Run(opt *options.Options) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// 设置核心应用接口
 	pixiu.Setup(opt)
 	// 初始化已存在 cloud clients
@@ -96,8 +97,35 @@ func Run(opt *options.Options) error {
 	InitRouters(opt)
 
 	klog.Infof("starting pixiu server")
-	// 启动主进程
-	opt.Run(ctx.Done())
+	// 启动优雅服务
+	GracefullyServer(opt)
 
-	select {}
+	return nil
+}
+
+func GracefullyServer(opt *options.Options) {
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
+		Handler: opt.GinEngine,
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal("can't listen server: ", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("PiXiu Server Exiting...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("PiXiu Server Shutdown:", err)
+	}
+
+	log.Println("PiXiu Server Success Exit")
 }
