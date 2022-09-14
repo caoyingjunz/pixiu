@@ -19,13 +19,13 @@ package kubernetes
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
+	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
+
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
-
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type ServicesGetter interface {
@@ -33,10 +33,10 @@ type ServicesGetter interface {
 }
 
 type ServiceInterface interface {
-	List(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error)
-	Create(ctx context.Context, service *corev1.Service) error
-	Update(ctx context.Context, service *corev1.Service) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*corev1.Service, error)
+	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error)
+	Create(ctx context.Context, service *v1.Service) error
+	Update(ctx context.Context, service *v1.Service) error
+	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error)
 	Delete(ctx context.Context, getOptions types.GetOrDeleteOptions) error
 }
 
@@ -52,7 +52,7 @@ func NewServices(c *kubernetes.Clientset, cloud string) *services {
 	}
 }
 
-func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]corev1.Service, error) {
+func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -67,7 +67,7 @@ func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]c
 	return svc.Items, nil
 }
 
-func (c *services) Create(ctx context.Context, service *corev1.Service) error {
+func (c *services) Create(ctx context.Context, service *v1.Service) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -82,7 +82,7 @@ func (c *services) Create(ctx context.Context, service *corev1.Service) error {
 	return nil
 }
 
-func (c *services) Update(ctx context.Context, service *corev1.Service) error {
+func (c *services) Update(ctx context.Context, service *v1.Service) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -105,7 +105,7 @@ func (c *services) Update(ctx context.Context, service *corev1.Service) error {
 	return nil
 }
 
-func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*corev1.Service, error) {
+func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error) {
 	if c.client == nil {
 		return nil, clientError
 	}

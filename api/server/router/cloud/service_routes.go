@@ -23,7 +23,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/gin-gonic/gin"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 )
 
 // listServices
@@ -51,7 +51,7 @@ func (s *cloudRouter) createService(c *gin.Context) {
 	var (
 		err           error
 		createOptions types.CreateOptions
-		service       corev1.Service
+		service       v1.Service
 	)
 	if err = c.ShouldBindUri(&createOptions); err != nil {
 		httputils.SetFailed(c, r, err)
@@ -75,7 +75,7 @@ func (s *cloudRouter) updateService(c *gin.Context) {
 	var (
 		err           error
 		createOptions types.GetOrCreateOptions
-		service       corev1.Service
+		service       v1.Service
 	)
 	if err = c.ShouldBindUri(&createOptions); err != nil {
 		httputils.SetFailed(c, r, err)
