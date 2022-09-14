@@ -25,11 +25,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Ob struct {
-	Type   string
-	Object interface{}
-}
-
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 	var user types.User
