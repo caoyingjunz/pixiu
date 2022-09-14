@@ -47,22 +47,37 @@ func (c *nodes) List(ctx context.Context) ([]*types.Nodes, error) {
 
 	ref := make([]*types.Nodes, 0)
 	for _, item := range nodeList.Items {
-		ref = append(ref, &types.Nodes{
-			Name:                    item.Name,
-			Status:                  string(item.Status.Conditions[len(item.Status.Conditions)-1].Type),
-			Roles:                   item.Labels["node-role.kubernetes.io/master"],
-			Age:                     int(time.Now().Sub(item.ObjectMeta.CreationTimestamp.Time).Hours() / 24),
-			KubeletVersion:          item.Status.NodeInfo.KubeletVersion,
-			ContainerRuntimeVersion: item.Status.NodeInfo.ContainerRuntimeVersion,
-			KernelVersion:           item.Status.NodeInfo.KernelVersion,
-			InternalIP:              item.Status.Addresses[0].Address,
-			ExternalIP:              item.Spec.PodCIDR,
-			OsImage:                 item.Status.NodeInfo.OSImage,
-		})
+		for _, status := range item.Status.Conditions {
+			if status.Type == v1.NodeReady && status.Status == v1.ConditionTrue {
+				ref = append(ref, &types.Nodes{
+					Name:                    item.Name,
+					Status:                  "Ready",
+					Roles:                   item.Labels["kubernetes.io/role"],
+					Age:                     int(time.Now().Sub(item.ObjectMeta.CreationTimestamp.Time).Hours() / 24),
+					KubeletVersion:          item.Status.NodeInfo.KubeletVersion,
+					ContainerRuntimeVersion: item.Status.NodeInfo.ContainerRuntimeVersion,
+					KernelVersion:           item.Status.NodeInfo.KernelVersion,
+					InternalIP:              item.Status.Addresses[0].Address,
+					ExternalIP:              item.Spec.PodCIDR,
+					OsImage:                 item.Status.NodeInfo.OSImage,
+				})
+			} else if status.Type == v1.NodeReady && status.Status == v1.ConditionFalse {
+				ref = append(ref, &types.Nodes{
+					Name:                    item.Name,
+					Status:                  "NotReady",
+					Roles:                   item.Labels["kubernetes.io/role"],
+					Age:                     int(time.Now().Sub(item.ObjectMeta.CreationTimestamp.Time).Hours() / 24),
+					KubeletVersion:          item.Status.NodeInfo.KubeletVersion,
+					ContainerRuntimeVersion: item.Status.NodeInfo.ContainerRuntimeVersion,
+					KernelVersion:           item.Status.NodeInfo.KernelVersion,
+					InternalIP:              item.Status.Addresses[0].Address,
+					ExternalIP:              item.Spec.PodCIDR,
+					OsImage:                 item.Status.NodeInfo.OSImage,
+				})
+			}
+		}
 	}
-
 	return ref, nil
-
 }
 
 func (c *nodes) Get(ctx context.Context, nodeOptions types.GetNodeOptions) (*v1.Node, error) {

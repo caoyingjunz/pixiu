@@ -68,8 +68,8 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulSets)
 
 		// Node API
-		cloudRoute.GET("/apps/v1/:cloud_name/nodes", s.listNodes)
-		cloudRoute.GET("/apps/v1/:cloud_name/nodes/:object_name", s.getNode)
+		cloudRoute.GET("/v1/:cloud_name/nodes", s.listNodes)
+		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)
 
 		// DaemonSet API
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.createDaemonSet)
