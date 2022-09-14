@@ -33,11 +33,11 @@ type ServicesGetter interface {
 }
 
 type ServiceInterface interface {
-	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error)
 	Create(ctx context.Context, service *v1.Service) error
 	Update(ctx context.Context, service *v1.Service) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error)
 	Delete(ctx context.Context, getOptions types.GetOrDeleteOptions) error
+	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error)
+	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error)
 }
 
 type services struct {
@@ -105,21 +105,6 @@ func (c *services) Update(ctx context.Context, service *v1.Service) error {
 	return nil
 }
 
-func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error) {
-	if c.client == nil {
-		return nil, clientError
-	}
-	sts, err := c.client.CoreV1().
-		Services(getOptions.Namespace).
-		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to get %s serice: %v", c.cloud, err)
-		return nil, err
-	}
-
-	return sts, err
-}
-
 func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
 	if c.client == nil {
 		return clientError
@@ -133,4 +118,19 @@ func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOp
 	}
 
 	return err
+}
+
+func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	sts, err := c.client.CoreV1().
+		Services(getOptions.Namespace).
+		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s serice: %v", c.cloud, err)
+		return nil, err
+	}
+
+	return sts, err
 }
