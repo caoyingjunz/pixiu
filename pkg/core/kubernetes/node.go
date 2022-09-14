@@ -19,7 +19,7 @@ type NodesGetter interface {
 
 type NodeInterface interface {
 	List(ctx context.Context) ([]*types.Nodes, error)
-	Get(ctx context.Context, nodeOptions types.GetNodeOptions) (*v1.Node, error)
+	Get(ctx context.Context, nodeOptions types.NodeOptions) (*v1.Node, error)
 }
 
 type nodes struct {
@@ -32,6 +32,21 @@ func NewNodes(c *kubernetes.Clientset, cloud string) *nodes {
 		client: c,
 		cloud:  cloud,
 	}
+}
+
+func (c *nodes) Get(ctx context.Context, nodeOptions types.NodeOptions) (*v1.Node, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	node, err := c.client.CoreV1().
+		Nodes().
+		Get(ctx, nodeOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get node :%v", err)
+		return nil, err
+	}
+
+	return node, nil
 }
 
 func (c *nodes) List(ctx context.Context) ([]*types.Nodes, error) {
@@ -67,18 +82,4 @@ func (c *nodes) List(ctx context.Context) ([]*types.Nodes, error) {
 
 	}
 	return ref, nil
-}
-
-func (c *nodes) Get(ctx context.Context, nodeOptions types.GetNodeOptions) (*v1.Node, error) {
-	if c.client == nil {
-		return nil, clientError
-	}
-	node, err := c.client.CoreV1().
-		Nodes().
-		Get(ctx, nodeOptions.ObjectName, metav1.GetOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to get node :%v", err)
-		return nil, err
-	}
-	return node, nil
 }

@@ -26,7 +26,14 @@ type CloudOptions struct {
 
 type NamespaceOptions struct {
 	CloudOptions `json:",inline"`
-	ObjectName   string `uri:"object_name" binding:"required"`
+
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
+type NodeOptions struct {
+	CloudOptions `json:",inline"`
+
+	ObjectName string `uri:"object_name" binding:"required"`
 }
 
 type ListOptions struct {
@@ -46,10 +53,6 @@ type GetOrCreateOptions struct {
 	ObjectName string `uri:"object_name" binding:"required"`
 }
 
-type NodeListOptions struct {
-	CloudName string `uri:"cloud_name" binding:"required"`
-}
-
 type Nodes struct {
 	Name                    string `json:"name"`
 	Status                  string `json:"status"`
@@ -61,11 +64,6 @@ type Nodes struct {
 	OsImage                 string `json:"osImage"`
 	KernelVersion           string `json:"kernelVersion"`
 	ContainerRuntimeVersion string `json:"containerRuntimeVersion"`
-}
-
-type GetNodeOptions struct {
-	NodeListOptions
-	ObjectName string `uri:"object_name" binding:"required"`
 }
 
 type CreateOptions struct {

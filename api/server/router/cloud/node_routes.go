@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package cloud
 
 import (
@@ -10,17 +26,17 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (s *cloudRouter) listNodes(c *gin.Context) {
+func (s *cloudRouter) getNode(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err         error
-		listOptions types.NodeListOptions
+		nodeOptions types.NodeOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&nodeOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Nodes(listOptions.CloudName).List(context.TODO())
+	r.Result, err = pixiu.CoreV1.Cloud().Nodes(nodeOptions.CloudName).Get(context.TODO(), nodeOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -28,20 +44,21 @@ func (s *cloudRouter) listNodes(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) getNode(c *gin.Context) {
+func (s *cloudRouter) listNodes(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions types.GetNodeOptions
+		err          error
+		cloudOptions types.CloudOptions
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&cloudOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Nodes(getOptions.CloudName).Get(context.TODO(), getOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Nodes(cloudOptions.CloudName).List(context.TODO())
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	httputils.SetSuccess(c, r)
 }

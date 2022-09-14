@@ -40,6 +40,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/:cid", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
 
+		// Node API
+		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)
+		cloudRoute.GET("/v1/:cloud_name/nodes", s.listNodes)
+
 		// Namespaces API
 		cloudRoute.POST("/v1/:cloud_name/namespaces", s.createNamespace)
 		cloudRoute.PUT("/v1/:cloud_name/namespaces/:object_name", s.updateNamespace)
@@ -70,10 +74,6 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.deleteStatefulSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.getStatefulSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulSets)
-
-		// Node API
-		cloudRoute.GET("/v1/:cloud_name/nodes", s.listNodes)
-		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)
 
 		// DaemonSet API
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.createDaemonSet)
