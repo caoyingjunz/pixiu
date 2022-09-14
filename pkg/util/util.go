@@ -19,8 +19,6 @@ package util
 import (
 	"os"
 	"strconv"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 // ParseInt64 将字符串转换为 int64
@@ -55,13 +53,4 @@ func EnsureDirectoryExists(path string) (err error) {
 		err = os.MkdirAll(path, 0755)
 	}
 	return
-}
-
-func IsNodeReady(status v1.ConditionStatus) string {
-	if status == "True" {
-		return "Ready"
-	} else if status == "False" {
-		return "NotReady"
-	}
-	return "Unknown"
 }

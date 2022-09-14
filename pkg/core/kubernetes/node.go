@@ -18,15 +18,18 @@ package kubernetes
 
 import (
 	"context"
-	"time"
+	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
+)
+
+const (
+	labelNodeRole = "node-role.kubernetes.io"
 )
 
 type NodesGetter interface {
@@ -34,8 +37,8 @@ type NodesGetter interface {
 }
 
 type NodeInterface interface {
-	List(ctx context.Context) ([]*types.Nodes, error)
 	Get(ctx context.Context, nodeOptions types.NodeOptions) (*v1.Node, error)
+	List(ctx context.Context) ([]types.Node, error)
 }
 
 type nodes struct {
@@ -65,7 +68,7 @@ func (c *nodes) Get(ctx context.Context, nodeOptions types.NodeOptions) (*v1.Nod
 	return node, nil
 }
 
-func (c *nodes) List(ctx context.Context) ([]*types.Nodes, error) {
+func (c *nodes) List(ctx context.Context) ([]types.Node, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -77,25 +80,59 @@ func (c *nodes) List(ctx context.Context) ([]*types.Nodes, error) {
 		return nil, err
 	}
 
-	ref := make([]*types.Nodes, 0)
+	var nodeSlice []types.Node
 	for _, item := range nodeList.Items {
-		for _, status := range item.Status.Conditions {
-			if status.Type == "Ready" {
-				ref = append(ref, &types.Nodes{
-					Name:                    item.Name,
-					Status:                  util.IsNodeReady(status.Status),
-					Roles:                   item.Labels["kubernetes.io/role"],
-					Age:                     int(time.Now().Sub(item.ObjectMeta.CreationTimestamp.Time).Hours() / 24),
-					KubeletVersion:          item.Status.NodeInfo.KubeletVersion,
-					ContainerRuntimeVersion: item.Status.NodeInfo.ContainerRuntimeVersion,
-					KernelVersion:           item.Status.NodeInfo.KernelVersion,
-					InternalIP:              item.Status.Addresses[0].Address,
-					ExternalIP:              item.Spec.PodCIDR,
-					OsImage:                 item.Status.NodeInfo.OSImage,
-				})
+		nodeSlice = append(nodeSlice, c.object2Type(item))
+	}
+
+	return nodeSlice, nil
+}
+
+// 将 k8s 的对象转换成 type node
+func (c *nodes) object2Type(node v1.Node) types.Node {
+	var (
+		status     = "NotReady"
+		internalIP string
+		roles      []string
+	)
+	nodeStatus := node.Status
+	nodeInfo := nodeStatus.NodeInfo
+
+	// 获取 roles
+	for label := range node.Labels {
+		if strings.HasPrefix(label, labelNodeRole) {
+			parts := strings.Split(label, "/")
+			// node-role.kubernetes.io/control-plane: ""
+			// node-role.kubernetes.io/master: ""
+			if len(parts) == 2 {
+				roles = append(roles, parts[len(parts)-1])
 			}
 		}
-
 	}
-	return ref, nil
+	// 获取节点状态
+	for _, condition := range nodeStatus.Conditions {
+		if condition.Type == "Ready" {
+			if condition.Status == "True" {
+				status = "Ready"
+			}
+		}
+	}
+	// 获取节点的 ip 地址
+	for _, address := range nodeStatus.Addresses {
+		if address.Type == "InternalIP" {
+			internalIP = address.Address
+		}
+	}
+
+	return types.Node{
+		Name:             node.Name,
+		Status:           status,
+		Roles:            strings.Join(roles, ","),
+		Age:              "", // TODO: 后续实现
+		Version:          nodeInfo.KubeletVersion,
+		InternalIP:       internalIP,
+		OsImage:          nodeInfo.OSImage,
+		KernelVersion:    nodeInfo.KernelVersion,
+		ContainerRuntime: nodeInfo.ContainerRuntimeVersion,
+	}
 }
