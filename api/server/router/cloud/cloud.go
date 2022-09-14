@@ -40,6 +40,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/:cid", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
 
+		// Node API
+		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)
+		cloudRoute.GET("/v1/:cloud_name/nodes", s.listNodes)
+
 		// Namespaces API
 		cloudRoute.POST("/v1/:cloud_name/namespaces", s.createNamespace)
 		cloudRoute.PUT("/v1/:cloud_name/namespaces/:object_name", s.updateNamespace)
