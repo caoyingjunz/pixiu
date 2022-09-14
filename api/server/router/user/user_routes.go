@@ -18,13 +18,17 @@ package user
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/gin-gonic/gin"
 )
+
+type Ob struct {
+	Type   string
+	Object interface{}
+}
 
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -139,15 +143,12 @@ func (u *userRouter) logout(c *gin.Context) {
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var idOptions types.IdOptions
-	if err := c.ShouldBindUri(&idOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	// 解析修改密码的三个参数
-	//  1. 当前密码 2. 新密码 3. 确认新密码
-	var password types.Password
-	if err := c.ShouldBindJSON(&password); err != nil {
+	var (
+		idOptions types.IdOptions
+		password  types.Password
+	)
+
+	if err := httputils.ShouldBindAny(c, &idOptions, &password); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

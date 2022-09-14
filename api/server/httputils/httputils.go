@@ -17,13 +17,18 @@ limitations under the License.
 package httputils
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 )
+
+type any = interface{}
 
 type Response struct {
 	Code    int         `json:"code"` // 返回值
@@ -115,4 +120,45 @@ func ReadFile(c *gin.Context, f string) ([]byte, error) {
 	defer file.Close()
 
 	return ioutil.ReadAll(file)
+}
+
+func ShouldBindAny(c *gin.Context, Obj ...any) error {
+	for _, obj := range Obj {
+		typeOfObj := reflect.TypeOf(obj)
+		field := typeOfObj.Field(0)
+		tag := strings.Split(string(field.Tag), ":")
+		switch tag[0] {
+		case "uri":
+			if err := c.ShouldBindUri(&obj); err != nil {
+				return err
+			}
+		case "json":
+			if err := c.ShouldBindJSON(&obj); err != nil {
+				return err
+			}
+		case "xml":
+			if err := c.ShouldBindXML(&obj); err != nil {
+				return err
+			}
+		case "query":
+			if err := c.ShouldBindQuery(&obj); err != nil {
+				return err
+			}
+		case "yaml":
+			if err := c.ShouldBindYAML(&obj); err != nil {
+				return err
+			}
+		case "toml":
+			if err := c.ShouldBindTOML(&obj); err != nil {
+				return err
+			}
+		case "header":
+			if err := c.ShouldBindHeader(&obj); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("cannot resolve this type")
+		}
+	}
+	return nil
 }
