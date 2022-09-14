@@ -117,8 +117,6 @@ func runGraceServer(opt *options.Options) {
 
 	// Wait for interrupt signal to gracefully shut down the server with a timeout of 5 seconds.
 	quit := make(chan os.Signal)
-	// kill (no param) default send syscall.SIGTERM
-	// kill -2 is syscall.SIGINT
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	klog.Infof("shutting pixiu server down ...")
