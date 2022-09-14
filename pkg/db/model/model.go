@@ -25,7 +25,11 @@ type Cloud struct {
 
 	Name        string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
 	Status      int    `json:"status"`
+	CloudType   string `json:"cloud_type"`              // 集群类型，支持自建和标准
+	KubeVersion string `json:"kube_version"`            // k8s 的版本
 	KubeConfig  string `gorm:"type:text" json:"config"` // 集群 config
+	NodeNumber  int    `json:"node_number"`
+	Resources   string `json:"resources"`
 	Description string `gorm:"type:text" json:"description"`
 	Extension   string `gorm:"type:text" json:"extension"`
 }
