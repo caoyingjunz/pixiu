@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -51,6 +52,7 @@ type CloudInterface interface {
 	pixiukubernetes.ServicesGetter
 	pixiukubernetes.StatefulSetGetter
 	pixiukubernetes.DeploymentsGetter
+	pixiukubernetes.DaemonSetGetter
 	pixiukubernetes.JobsGetter
 	pixiukubernetes.NodesGetter
 }
@@ -76,6 +78,11 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 	if len(obj.KubeConfig) == 0 {
 		return fmt.Errorf("invalid empty kubeconfig data")
 	}
+	// 集群类型支持 自建和标准，默认为标准
+	// TODO: 未对类型进行检查
+	if len(obj.CloudType) == 0 {
+		obj.CloudType = "标准"
+	}
 
 	return nil
 }
@@ -92,9 +99,29 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		log.Logger.Errorf("failed to create %s clientSet: %v", obj.Name, err)
 		return err
 	}
+	// 获取 k8s 集群信息: k8s 版本，节点数量，资源信息
+	nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil || len(nodes.Items) == 0 {
+		log.Logger.Errorf("failed to connected to k8s cluster: %v", err)
+		return err
+	}
+
+	var (
+		kubeVersion string
+		resources   string
+	)
+	// 第一个节点的版本作为集群版本
+	node := nodes.Items[0]
+	nodeStatus := node.Status
+	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
+	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:       obj.Name,
-		KubeConfig: string(obj.KubeConfig),
+		Name:        obj.Name,
+		CloudType:   obj.CloudType,
+		KubeVersion: kubeVersion,
+		KubeConfig:  string(obj.KubeConfig),
+		NodeNumber:  len(nodes.Items),
+		Resources:   resources,
 	}); err != nil {
 		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
 		return err
@@ -177,10 +204,20 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
+	// TODO: 优化转换
+	status := "正常"
+	if obj.Status == 2 {
+		status = "异常"
+	}
+
 	return &types.Cloud{
 		Id:          obj.Id,
 		Name:        obj.Name,
-		Status:      obj.Status,
+		Status:      status,
+		CloudType:   obj.CloudType,
+		KubeVersion: obj.KubeVersion,
+		NodeNumber:  obj.NodeNumber,
+		Resources:   obj.Resources,
 		Description: obj.Description,
 		TimeSpec: types.TimeSpec{
 			GmtCreate:   obj.GmtCreate.Format(timeLayout),
