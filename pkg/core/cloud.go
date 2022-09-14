@@ -30,6 +30,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
 var clientError = fmt.Errorf("failed to found clout client")
@@ -88,7 +89,7 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 
 func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	if err := c.preCreate(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for %a created: %v", obj.Name, err)
+		log.Logger.Errorf("failed to pre-check for %s created: %v", obj.Name, err)
 		return err
 	}
 
@@ -182,7 +183,11 @@ func (c *cloud) Init() error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
-		clientSet, err := c.newClientSet([]byte(cloudObj.KubeConfig))
+		kubeConfig, err := util.AesCBCDecrypt(cloudObj.KubeConfig)
+		if err != nil {
+			return err
+		}
+		clientSet, err := c.newClientSet([]byte(kubeConfig))
 		if err != nil {
 			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
 			return err
