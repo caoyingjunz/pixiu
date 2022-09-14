@@ -19,13 +19,13 @@ package kubernetes
 import (
 	"context"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
+
+	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type ServicesGetter interface {
@@ -124,7 +124,7 @@ func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions)
 	if c.client == nil {
 		return nil, clientError
 	}
-	sts, err := c.client.CoreV1().
+	svc, err := c.client.CoreV1().
 		Services(getOptions.Namespace).
 		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
 	if err != nil {
@@ -132,5 +132,5 @@ func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions)
 		return nil, err
 	}
 
-	return sts, err
+	return svc, err
 }
