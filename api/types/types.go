@@ -26,8 +26,7 @@ type CloudOptions struct {
 
 type NamespaceOptions struct {
 	CloudOptions `json:",inline"`
-
-	ObjectName string `uri:"object_name" binding:"required"`
+	ObjectName   string `uri:"object_name" binding:"required"`
 }
 
 type ListOptions struct {
@@ -45,6 +44,10 @@ type GetOrCreateOptions struct {
 	ListOptions `json:",inline,omitempty"`
 
 	ObjectName string `uri:"object_name" binding:"required"`
+}
+
+type CreateOptions struct {
+	ListOptions `json:",inline,omitempty"`
 }
 
 type Demo struct {
