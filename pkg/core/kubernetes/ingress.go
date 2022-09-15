@@ -6,7 +6,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 
-	v12 "k8s.io/api/networking/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -16,9 +16,9 @@ type IngressGetter interface {
 }
 
 type IngressInterface interface {
-	List(ctx context.Context, listOptions types.ListOptions) (*v12.IngressList, error)
-	Create(ctx context.Context, listOptions *v12.Ingress) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v12.Ingress, error)
+	List(ctx context.Context, listOptions types.ListOptions) (*networkingv1.IngressList, error)
+	Create(ctx context.Context, listOptions *networkingv1.Ingress) error
+	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*networkingv1.Ingress, error)
 	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 }
 
@@ -34,7 +34,7 @@ func NewIngress(c *kubernetes.Clientset, cloud string) *ingress {
 	}
 }
 
-func (c *ingress) List(ctx context.Context, listOptions types.ListOptions) (*v12.IngressList, error) {
+func (c *ingress) List(ctx context.Context, listOptions types.ListOptions) (*networkingv1.IngressList, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -48,7 +48,7 @@ func (c *ingress) List(ctx context.Context, listOptions types.ListOptions) (*v12
 	return ing, err
 }
 
-func (c *ingress) Create(ctx context.Context, ingress *v12.Ingress) error {
+func (c *ingress) Create(ctx context.Context, ingress *networkingv1.Ingress) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -61,7 +61,7 @@ func (c *ingress) Create(ctx context.Context, ingress *v12.Ingress) error {
 	return nil
 }
 
-func (c *ingress) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v12.Ingress, error) {
+func (c *ingress) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*networkingv1.Ingress, error) {
 	if c.client == nil {
 		return nil, clientError
 	}

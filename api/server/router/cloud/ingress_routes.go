@@ -21,11 +21,6 @@ func (s *cloudRouter) listIngress(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = c.ShouldBindJSON(&listOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
 	r.Result, err = pixiu.CoreV1.Cloud().Ingress(listOptions.CloudName).List(context.TODO(), listOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
