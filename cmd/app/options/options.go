@@ -170,8 +170,3 @@ func (o *Options) registerCicdDriver() error {
 func (o *Options) Validate() error {
 	return nil
 }
-
-// Run executes gopixiu command
-func (o *Options) Run(stopCh <-chan struct{}) {
-	_ = o.GinEngine.Run(fmt.Sprintf(":%d", o.ComponentConfig.Default.Listen))
-}

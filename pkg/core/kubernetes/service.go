@@ -19,9 +19,10 @@ package kubernetes
 import (
 	"context"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -32,6 +33,10 @@ type ServicesGetter interface {
 }
 
 type ServiceInterface interface {
+	Create(ctx context.Context, service *v1.Service) error
+	Update(ctx context.Context, service *v1.Service) error
+	Delete(ctx context.Context, getOptions types.GetOrDeleteOptions) error
+	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error)
 	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error)
 }
 
@@ -60,4 +65,72 @@ func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]v
 	}
 
 	return svc.Items, nil
+}
+
+func (c *services) Create(ctx context.Context, service *v1.Service) error {
+	if c.client == nil {
+		return clientError
+	}
+	if _, err := c.client.CoreV1().
+		Services(service.Namespace).
+		Create(ctx, service, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to create %s service %s: %v", c.cloud, service.Namespace, err)
+
+		return err
+	}
+
+	return nil
+}
+
+func (c *services) Update(ctx context.Context, service *v1.Service) error {
+	if c.client == nil {
+		return clientError
+	}
+	servicesClient := c.client.CoreV1().Services(service.Namespace)
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
+		result, getErr := servicesClient.Get(context.TODO(), service.Name, metav1.GetOptions{})
+		if getErr != nil {
+			log.Logger.Errorf("Failed to get latest version of Service: %v", getErr)
+			return getErr
+		}
+		result.Spec = service.Spec
+		_, updateErr := servicesClient.Update(context.TODO(), result, metav1.UpdateOptions{})
+		return updateErr
+	})
+	if retryErr != nil {
+		log.Logger.Errorf("Update Service failed: %v", retryErr)
+	}
+
+	return nil
+}
+
+func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+	if c.client == nil {
+		return clientError
+	}
+	err := c.client.CoreV1().
+		Services(deleteOptions.Namespace).
+		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s serice: %v", c.cloud, err)
+		return err
+	}
+
+	return err
+}
+
+func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	svc, err := c.client.CoreV1().
+		Services(getOptions.Namespace).
+		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s serice: %v", c.cloud, err)
+		return nil, err
+	}
+
+	return svc, err
 }
