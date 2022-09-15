@@ -15,3 +15,13 @@ limitations under the License.
 */
 
 package httpstatus
+
+import "errors"
+
+var (
+	ParamsError   = errors.New("参数错误")
+	OperateFailed = errors.New("操作失败")
+	NoPermission  = errors.New("无权限")
+	InnerError    = errors.New("inner error")
+	NoUserIdError = errors.New("请登录")
+)

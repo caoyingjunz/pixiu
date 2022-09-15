@@ -41,5 +41,20 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		// 修改密码
 		userRoute.PUT("/change/:id/password", u.changePassword)
 		// 重置密码
+
+		//  查询当前用户角色
+		userRoute.GET("/roles", u.getRoleIDsByUser)
+
+		// 根据用户id分配角色
+		userRoute.POST("/:id/roles", u.setRolesByUserId)
+		// 根据用户id删除角色
+		userRoute.DELETE("/:id/roles", u.deleteRolesByUserId)
+		// 根据用户id修改角色
+		userRoute.PUT("/:id/roles", u.updateRolesByUserId)
+
+		// 根据菜单ID获取当前用户的菜单的按钮
+		userRoute.GET("/menus/:id", u.getButtonsByCurrentUser)
+		// 根据用户ID获取用户的菜单
+		userRoute.GET("/menus", u.getLeftMenusByCurrentUser)
 	}
 }

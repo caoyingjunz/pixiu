@@ -49,6 +49,12 @@ type UserInterface interface {
 	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error
 
 	GetJWTKey() []byte
+
+	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
+	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
+	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
+	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
+	DeleteRolesByUserID(ctx context.Context, uid int64) error
 }
 
 type user struct {
@@ -283,4 +289,48 @@ func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[stri
 	}
 
 	return updates
+}
+
+func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error) {
+	roleInfo, err := u.factory.User().GetRoleIDByUser(ctx, uid)
+	return roleInfo, err
+}
+
+func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error) {
+	err = u.factory.User().SetUserRoles(ctx, uid, rids)
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return
+	}
+	roles, err := u.factory.User().GetRoleIDByUser(ctx, uid)
+	if err != nil {
+		log.Logger.Errorf(err.Error())
+		return
+	}
+
+	for _, role := range *roles {
+		rids = append(rids, role.Id)
+		if role.ParentID != 0 {
+			for _, nodeRole := range role.Children {
+				rids = append(rids, nodeRole.Id)
+			}
+		}
+	}
+	// 设置casbin权限
+	go u.factory.Authentication().AddRoleForUser(uid, rids)
+	return
+}
+
+func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (menus *[]model.Menu, err error) {
+	menus, err = u.factory.User().GetButtonsByUserID(ctx, uid, menuId)
+	return
+}
+
+func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
+	menus, err = u.factory.User().GetLeftMenusByUserID(ctx, uid)
+	return
+}
+
+func (u *user) DeleteRolesByUserID(ctx context.Context, uid int64) error {
+	return u.factory.User().DeleteRolesByUserID(ctx, uid)
 }

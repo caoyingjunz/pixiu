@@ -28,6 +28,9 @@ type CoreV1Interface interface {
 	CicdGetter
 	CloudGetter
 	UserGetter
+	RoleGetter
+	MenuGetter
+	AuthenticationGetter
 }
 
 type pixiu struct {
@@ -49,6 +52,16 @@ func (pixiu *pixiu) Cloud() CloudInterface {
 	return newCloud(pixiu)
 }
 
+func (pixiu *pixiu) Role() RoleInterface {
+	return newRole(pixiu)
+}
+
+func (pixiu *pixiu) Menu() MenuInterface {
+	return newMenu(pixiu)
+}
+func (pixiu *pixiu) Authentication() AuthenticationInterface {
+	return newAuthentication(pixiu)
+}
 func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
 	return &pixiu{
 		cfg:        cfg,
