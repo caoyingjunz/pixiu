@@ -10,23 +10,29 @@ package util
 
 import "testing"
 
+var (
+	kb1 = `aaaaaaa`
+	kb2 = `bbbbbbb`
+	kb3 = `ccccccc`
+)
+
 func TestAesCBCEncrypt(t *testing.T) {
 	cases := []struct {
 		Name string
 		text string
 	}{
-		{"a", "aaaaaa"},
-		{"b", "bbbbbb"},
-		{"c", "cccccc"},
+		{"a", kb1},
+		{"b", kb2},
+		{"c", kb3},
 	}
 
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
 			if ans, err := AesCBCEncrypt(c.text); err != nil {
 				t.Fatalf("encrypt text %s failed: %+v",
-					c.text, err)
+					c.text[:10], err)
 			} else {
-				t.Logf("encrypt text %s is %s", c.text, ans)
+				t.Logf("encrypt text %s is { %s }", c.text[:10], ans)
 			}
 		})
 	}

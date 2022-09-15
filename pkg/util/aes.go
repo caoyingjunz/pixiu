@@ -26,7 +26,7 @@ var (
 func AesCBCDecrypt(decryptText string) (string, error) {
 	decode_data, err := base64.StdEncoding.DecodeString(decryptText)
 	if err != nil {
-		log.Logger.Errorf("the text you are going to decrypt is illegal. error is: %+v", err)
+		log.Logger.Errorf("the text you are going to decipher is illegal. error is: %+v", err)
 		return "", err
 	}
 	//生成密码数据块cipher.Block
