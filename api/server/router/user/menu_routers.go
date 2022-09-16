@@ -2,12 +2,12 @@ package user
 
 import (
 	"context"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -16,8 +16,6 @@ func (*menuRouter) addMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	var menu model.Menu
 	if err := c.ShouldBindJSON(&menu); err != nil {
-		// 系统记录异常日志
-		log.Logger.Errorf(err.Error())
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -33,13 +31,11 @@ func (*menuRouter) updateMenu(c *gin.Context) {
 	var menu model.Menu
 
 	if err := c.ShouldBindJSON(&menu); err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
 	menuId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -55,7 +51,6 @@ func (*menuRouter) deleteMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	mid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -71,7 +66,6 @@ func (*menuRouter) getMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	mid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}

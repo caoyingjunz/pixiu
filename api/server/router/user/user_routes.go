@@ -18,6 +18,9 @@ package user
 
 import (
 	"context"
+
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
@@ -25,7 +28,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
-	"github.com/gin-gonic/gin"
 )
 
 func (u *userRouter) createUser(c *gin.Context) {
@@ -134,9 +136,7 @@ func (u *userRouter) login(c *gin.Context) {
 }
 
 // TODO
-func (u *userRouter) logout(c *gin.Context) {
-
-}
+func (u *userRouter) logout(c *gin.Context) {}
 
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -196,14 +196,14 @@ func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.NoUserIdError)
 		return
 	}
-
+	var err error
 	uid := uidStr.(int64)
-	res, err := pixiu.CoreV1.User().GetLeftMenusByUserID(c, uid)
+	r.Result, err = pixiu.CoreV1.User().GetLeftMenusByUserID(c, uid)
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
-	r.Result = res
+
 	httputils.SetSuccess(c, r)
 }
 
@@ -211,7 +211,6 @@ func (u *userRouter) getRolesByUserId(c *gin.Context) {
 	r := httputils.NewResponse()
 	uid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -229,7 +228,6 @@ func (u *userRouter) setRolesByUserId(c *gin.Context) {
 	r := httputils.NewResponse()
 	err := c.ShouldBindJSON(&roleId)
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}

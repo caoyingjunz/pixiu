@@ -12,7 +12,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func authentication() gin.HandlerFunc {
+func Authentication() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if path == "/users/login" {
@@ -36,7 +36,6 @@ func authentication() gin.HandlerFunc {
 		uidStr := strconv.FormatInt(uid.(int64), 10)
 		ok, err := enforcer.Enforce(uidStr, path, method)
 		if err != nil {
-			log.Logger.Errorf(err.Error())
 			r.SetCode(http.StatusInternalServerError)
 			httputils.SetFailed(c, r, httpstatus.InnerError)
 			c.Abort()
@@ -48,6 +47,5 @@ func authentication() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		c.Next()
 	}
 }

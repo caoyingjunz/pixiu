@@ -2,12 +2,12 @@ package core
 
 import (
 	"context"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	menus "github.com/caoyingjunz/gopixiu/pkg/db/user"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 // MenuInterface 菜单操作接口

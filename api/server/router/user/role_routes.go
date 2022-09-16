@@ -2,12 +2,12 @@ package user
 
 import (
 	"context"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -16,7 +16,6 @@ func (*roleRouter) addRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role model.Role
 	if err := c.ShouldBindJSON(&role); err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -31,13 +30,11 @@ func (*roleRouter) updateRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role model.Role
 	if err := c.ShouldBindJSON(&role); err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
 	roleId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -54,12 +51,10 @@ func (*roleRouter) deleteRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -75,7 +70,6 @@ func (*roleRouter) getRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -104,7 +98,6 @@ func (*roleRouter) getMenusByRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -119,13 +112,11 @@ func (*roleRouter) setRoleMenus(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
 	var menus model.Menus
-	if err := c.ShouldBindJSON(&menus); err != nil {
-		log.Logger.Error(err)
+	if err = c.ShouldBindJSON(&menus); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
