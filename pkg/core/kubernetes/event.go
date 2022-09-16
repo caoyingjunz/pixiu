@@ -37,7 +37,7 @@ func (c *events) ListEventsByName(ctx context.Context, listOptions types.GetOrDe
 	events, err := c.client.CoreV1().
 		Events(listOptions.Namespace).
 		List(ctx, metav1.ListOptions{
-			// todo 
+			// todo
 		})
 	if err != nil {
 		log.Logger.Errorf("failed to list %s %s services: %v", listOptions.CloudName, listOptions.Namespace, err)
