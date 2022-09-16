@@ -17,6 +17,7 @@ limitations under the License.
 package httputils
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -67,7 +68,7 @@ func NewResponse() *Response {
 }
 
 type Claims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 
 	Id   int64  `json:"id"`
 	Name string `json:"name"`
@@ -77,10 +78,13 @@ type Claims struct {
 // GenerateToken 生成 token
 func GenerateToken(uid int64, name string, jwtKey []byte) (string, error) {
 	// Generate jwt, 临时有效期 360 分钟
-	expireTime := time.Now().Add(360 * time.Minute)
+	nowTime := time.Now()
+	expiresTime := nowTime.Add(360 * time.Minute)
 	claims := &Claims{
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expireTime.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expiresTime), // 过期时间
+			IssuedAt:  jwt.NewNumericDate(nowTime),     // 签发时间
+			NotBefore: jwt.NewNumericDate(nowTime),     // 生效时间
 		},
 		Id:   uid,
 		Name: name,
@@ -90,16 +94,31 @@ func GenerateToken(uid int64, name string, jwtKey []byte) (string, error) {
 	return token.SignedString(jwtKey)
 }
 
-func ParseToken(token string, jwtKey []byte) (*Claims, error) {
-	var claims Claims
-	t, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
+func ParseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
-	if err != nil || !t.Valid {
-		return nil, err
+	if err != nil {
+		if ve, ok := err.(*jwt.ValidationError); ok {
+			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
+				return nil, errors.New("that's not even a token")
+			} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
+				return nil, errors.New("token is expired")
+			} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
+				return nil, errors.New("token not active yet")
+			} else {
+				return nil, errors.New("couldn't handle this token")
+			}
+		}
 	}
-
-	return &claims, nil
+	if token != nil {
+		if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+			return claims, nil
+		}
+		return nil, errors.New("couldn't handle this token")
+	} else {
+		return nil, errors.New("couldn't handle this token")
+	}
 }
 
 // ReadFile 从请求中获取指定文件内容
