@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.2.0 // indirect
 	github.com/bndr/gojenkins v1.1.0
 	github.com/caoyingjunz/pixiulib v0.0.0-20220819163605-c3c10ec3ed3c
+	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-playground/validator/v10 v10.11.0 // indirect
 	github.com/goccy/go-json v0.9.11 // indirect

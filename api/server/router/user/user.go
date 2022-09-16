@@ -16,7 +16,9 @@ limitations under the License.
 
 package user
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 type userRouter struct{}
 

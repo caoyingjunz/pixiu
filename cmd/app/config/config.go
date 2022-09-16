@@ -27,6 +27,7 @@ type Config struct {
 	Default DefaultOptions `yaml:"default"`
 	Mysql   MysqlOptions   `yaml:"mysql"`
 	Cicd    CicdOptions    `yaml:"cicd"`
+	Cors    CorsOptions    `yaml:"cors"`
 }
 
 type DefaultOptions struct {
@@ -54,6 +55,10 @@ type JenkinsOptions struct {
 	Host     string `yaml:"host"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
+}
+
+type CorsOptions struct {
+	AllowOrigins string `yaml:"AllowOrigins"`
 }
 
 func (c *Config) Valid() error {

@@ -24,3 +24,6 @@ cicd:
     host: http://8.140.165.201:9090
     user: adminops
     password: adminops@321
+
+cors:
+  AllowOrigins: http://127.0.0.1

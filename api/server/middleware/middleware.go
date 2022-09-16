@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/juju/ratelimit"
 
@@ -32,6 +33,13 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util/lru"
 )
+
+// 跨域
+func Cors(ginEngine *gin.Engine, origin string) {
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{origin}
+	ginEngine.Use(cors.New(config))
+}
 
 func InitMiddlewares(ginEngine *gin.Engine) {
 	ginEngine.Use(LoggerToFile(), UserRateLimiter(100, 20), AuthN)
