@@ -74,6 +74,7 @@ type Cicd struct {
 	NewName  string `json:"newName,omitempty"`
 	ViewName string `json:"viewname,omitempty"`
 	Version  string `json:"version,omitempty"`
+	Type     string `json:"type,omitempty"`
 }
 
 type User struct {

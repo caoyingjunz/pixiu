@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 	"time"
 
 	"github.com/bndr/gojenkins"
@@ -25,7 +26,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 type CicdGetter interface {
@@ -34,7 +34,7 @@ type CicdGetter interface {
 
 type CicdInterface interface {
 	RunJob(ctx context.Context, name string) error
-	CreateJob(ctx context.Context, name interface{}) error
+	CreateJob(ctx context.Context, name interface{}, t string) error
 	DeleteJob(ctx context.Context, name string) error
 	DeleteViewJob(ctx context.Context, name string, viewname string) (bool, error)
 	AddViewJob(ctx context.Context, addViewJob string, name string) error
@@ -89,10 +89,17 @@ func (c *cicd) RunJob(ctx context.Context, name string) error {
 	return nil
 }
 
-func (c *cicd) CreateJob(ctx context.Context, name interface{}) error {
-	if _, err := c.cicdDriver.CreateJob(ctx, types.JobStringConfig, name); err != nil {
-		log.Logger.Errorf("failed to create job %s: %v", name, err)
-		return err
+func (c *cicd) CreateJob(ctx context.Context, name interface{}, t string) error {
+	if t == "PipLineStyle" {
+		if _, err := c.cicdDriver.CreateJob(ctx, types.PipLineStyleConfig, name); err != nil {
+			log.Logger.Errorf("failed to create job %s: %v", name, err)
+			return err
+		}
+	} else {
+		if _, err := c.cicdDriver.CreateJob(ctx, types.FreeStyleConfig, name); err != nil {
+			log.Logger.Errorf("failed to create job %s: %v", name, err)
+			return err
+		}
 	}
 
 	return nil
