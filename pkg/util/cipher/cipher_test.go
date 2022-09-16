@@ -32,7 +32,7 @@ var (
 	kb3 = `ccccccc`
 )
 
-func TestAesCBCEncrypt(t *testing.T) {
+func TestEncrypt(t *testing.T) {
 	cases := []struct {
 		Name string
 		text []byte
@@ -54,7 +54,7 @@ func TestAesCBCEncrypt(t *testing.T) {
 	}
 }
 
-func TestAesCBCDecrypt(t *testing.T) {
+func TestDecrypt(t *testing.T) {
 	cases := []struct {
 		Name string
 		text string
