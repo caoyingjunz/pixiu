@@ -129,3 +129,9 @@ type Node struct {
 	KernelVersion    string `json:"kernel_version"`
 	ContainerRuntime string `json:"container_runtime"`
 }
+
+// Paging 分页
+type Paging struct {
+	Limit int `json:"limit" binding:"gt=0"`
+	Page  int `json:"page" binding:"gt=0"`
+}

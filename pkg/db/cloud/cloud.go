@@ -20,9 +20,9 @@ import (
 	"context"
 	"time"
 
-	"gorm.io/gorm"
-
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"gorm.io/gorm"
 )
 
 type CloudInterface interface {
@@ -30,7 +30,7 @@ type CloudInterface interface {
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
-	List(ctx context.Context) ([]model.Cloud, error)
+	List(ctx context.Context, paging *types.Paging) ([]model.Cloud, error)
 }
 
 type cloud struct {
@@ -84,10 +84,20 @@ func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cloud, error) {
 	return &c, nil
 }
 
-func (s *cloud) List(ctx context.Context) ([]model.Cloud, error) {
+func (s *cloud) List(ctx context.Context, paging *types.Paging) ([]model.Cloud, error) {
 	var cs []model.Cloud
-	if err := s.db.Find(&cs).Error; err != nil {
-		return nil, err
+
+	// 不分页
+	if paging == nil {
+		if err := s.db.Find(&cs).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		// 分页
+		offset := (paging.Page - 1) * paging.Limit
+		if err := s.db.Offset(offset).Limit(paging.Limit).Find(&cs).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	return cs, nil

@@ -43,7 +43,7 @@ type CloudInterface interface {
 	Update(ctx context.Context, obj *types.Cloud) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
-	List(ctx context.Context) ([]types.Cloud, error)
+	List(ctx context.Context, paging *types.Paging) ([]types.Cloud, error)
 
 	Init() error // 初始化 cloud 的客户端
 
@@ -159,8 +159,8 @@ func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 	return c.model2Type(cloudObj), nil
 }
 
-func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
-	cloudObjs, err := c.factory.Cloud().List(ctx)
+func (c *cloud) List(ctx context.Context, paging *types.Paging) ([]types.Cloud, error) {
+	cloudObjs, err := c.factory.Cloud().List(ctx, paging)
 	if err != nil {
 		log.Logger.Errorf("failed to list clouds: %v", err)
 		return nil, err
@@ -177,7 +177,7 @@ func (c *cloud) Init() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
-	cloudObjs, err := c.factory.Cloud().List(context.TODO())
+	cloudObjs, err := c.factory.Cloud().List(context.TODO(), nil)
 	if err != nil {
 		log.Logger.Errorf("failed to list exist clouds: %v", err)
 		return err

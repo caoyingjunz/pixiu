@@ -89,8 +89,17 @@ func (s *cloudRouter) getCloud(c *gin.Context) {
 
 func (s *cloudRouter) listClouds(c *gin.Context) {
 	r := httputils.NewResponse()
-	var err error
-	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO()); err != nil {
+	var (
+		err    error
+		paging types.Paging
+	)
+
+	if err = c.ShouldBindJSON(&paging); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO(), &paging); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
