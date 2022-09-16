@@ -17,7 +17,7 @@ limitations under the License.
 package httputils
 
 import (
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -27,9 +27,9 @@ import (
 )
 
 type Response struct {
-	Code    int         `json:"code"` // 返回值
-	Result  interface{} `json:"result,omitempty"`
-	Message string      `json:"message,omitempty"`
+	Code    int         `json:"code"`              // 返回的状态码
+	Result  interface{} `json:"result,omitempty"`  // 正常返回时的数据，可以为任意数据结构
+	Message string      `json:"message,omitempty"` // 异常返回时的错误信息
 }
 
 func (r *Response) Error() string {
@@ -99,26 +99,14 @@ func ParseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
 		return jwtKey, nil
 	})
 	if err != nil {
-		if ve, ok := err.(*jwt.ValidationError); ok {
-			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-				return nil, errors.New("that's not even a token")
-			} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
-				return nil, errors.New("token is expired")
-			} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-				return nil, errors.New("token not active yet")
-			} else {
-				return nil, errors.New("couldn't handle this token")
-			}
-		}
+		return nil, err
 	}
-	if token != nil {
-		if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-			return claims, nil
-		}
-		return nil, errors.New("couldn't handle this token")
-	} else {
-		return nil, errors.New("couldn't handle this token")
+
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
 	}
+
+	return nil, fmt.Errorf("failed to parse invailed token")
 }
 
 // ReadFile 从请求中获取指定文件内容
