@@ -43,7 +43,6 @@ func NewCloud(db *gorm.DB) CloudInterface {
 
 func (s *cloud) Create(ctx context.Context, obj *model.Cloud) (*model.Cloud, error) {
 	// TODO: gorm 的 webhook
-
 	now := time.Now()
 	obj.GmtCreate = now
 	obj.GmtModified = now
@@ -81,6 +80,7 @@ func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cloud, error) {
 	if err := s.db.Where("id = ?", cid).First(&c).Error; err != nil {
 		return nil, err
 	}
+
 	return &c, nil
 }
 

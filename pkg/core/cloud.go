@@ -93,6 +93,12 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		log.Logger.Errorf("failed to pre-check for %s created: %v", obj.Name, err)
 		return err
 	}
+	// 直接对 kubeConfig 内容进行加密
+	encryptData, err := cipher.Encrypt(obj.KubeConfig)
+	if err != nil {
+		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
+		return err
+	}
 
 	// 先构造 clientSet，如果有异常，直接返回
 	clientSet, err := c.newClientSet(obj.KubeConfig)
@@ -116,17 +122,12 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
 
-	// 对 kubeconfig 进行加密
-	kubeConfig, err := cipher.AesCBCEncrypt(string(obj.KubeConfig))
-	if err != nil {
-		return err
-	}
 	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:        obj.Name,
 		CloudType:   obj.CloudType,
 		KubeVersion: kubeVersion,
-		KubeConfig:  kubeConfig,
+		KubeConfig:  encryptData,
 		NodeNumber:  len(nodes.Items),
 		Resources:   resources,
 	}); err != nil {
@@ -190,11 +191,11 @@ func (c *cloud) Init() error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
-		kubeConfig, err := cipher.AesCBCDecrypt(cloudObj.KubeConfig)
+		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
 		if err != nil {
 			return err
 		}
-		clientSet, err := c.newClientSet([]byte(kubeConfig))
+		clientSet, err := c.newClientSet(kubeConfig)
 		if err != nil {
 			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
 			return err
