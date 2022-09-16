@@ -30,7 +30,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 )
 
 var clientError = fmt.Errorf("failed to found clout client")
@@ -115,12 +115,18 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	node := nodes.Items[0]
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
+
+	// 对 kubeconfig 进行加密
+	kubeConfig, err := cipher.AesCBCEncrypt(string(obj.KubeConfig))
+	if err != nil {
+		return err
+	}
 	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:        obj.Name,
 		CloudType:   obj.CloudType,
 		KubeVersion: kubeVersion,
-		KubeConfig:  string(obj.KubeConfig),
+		KubeConfig:  kubeConfig,
 		NodeNumber:  len(nodes.Items),
 		Resources:   resources,
 	}); err != nil {
@@ -184,7 +190,7 @@ func (c *cloud) Init() error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
-		kubeConfig, err := util.AesCBCDecrypt(cloudObj.KubeConfig)
+		kubeConfig, err := cipher.AesCBCDecrypt(cloudObj.KubeConfig)
 		if err != nil {
 			return err
 		}

@@ -6,15 +6,13 @@
  @Desc    : aes cbc 加密解密实现
 */
 
-package util
+package cipher
 
 import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
-
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 // TODO: key后期改成从配置文件中读取
@@ -24,9 +22,8 @@ var (
 )
 
 func AesCBCDecrypt(decryptText string) (string, error) {
-	decode_data, err := base64.StdEncoding.DecodeString(decryptText)
+	decodeData, err := base64.StdEncoding.DecodeString(decryptText)
 	if err != nil {
-		log.Logger.Errorf("the text you are going to decipher is illegal. error is: %+v", err)
 		return "", err
 	}
 	//生成密码数据块cipher.Block
@@ -37,10 +34,10 @@ func AesCBCDecrypt(decryptText string) (string, error) {
 	//解密模式
 	blockMode := cipher.NewCBCDecrypter(block, []byte(AES_IV))
 	//输出到[]byte数组
-	origin_data := make([]byte, len(decode_data))
-	blockMode.CryptBlocks(origin_data, decode_data)
+	originData := make([]byte, len(decodeData))
+	blockMode.CryptBlocks(originData, decodeData)
 	//去除填充,并返回
-	return string(unpad(origin_data)), nil
+	return string(unpad(originData)), nil
 }
 
 func AesCBCEncrypt(encryptText string) (string, error) {
@@ -60,15 +57,15 @@ func AesCBCEncrypt(encryptText string) (string, error) {
 	return base64.StdEncoding.EncodeToString(crypted), nil
 }
 
-func pad(ciphertext []byte, blockSize int) []byte {
-	padding := blockSize - len(ciphertext)%blockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(ciphertext, padtext...)
+func pad(cipherText []byte, blockSize int) []byte {
+	padding := blockSize - len(cipherText)%blockSize
+	padText := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(cipherText, padText...)
 }
 
-func unpad(ciphertext []byte) []byte {
-	length := len(ciphertext)
+func unpad(cipherText []byte) []byte {
+	length := len(cipherText)
 	//去掉最后一次的padding
-	unpadding := int(ciphertext[length-1])
-	return ciphertext[:(length - unpadding)]
+	unpadding := int(cipherText[length-1])
+	return cipherText[:(length - unpadding)]
 }

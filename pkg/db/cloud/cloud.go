@@ -23,7 +23,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
 type CloudInterface interface {
@@ -45,15 +44,9 @@ func NewCloud(db *gorm.DB) CloudInterface {
 func (s *cloud) Create(ctx context.Context, obj *model.Cloud) (*model.Cloud, error) {
 	// TODO: gorm 的 webhook
 
-	// 对 kubeconfig 进行加密
-	kubeConfig, err := util.AesCBCEncrypt(obj.KubeConfig)
-	if err != nil {
-		return nil, err
-	}
 	now := time.Now()
 	obj.GmtCreate = now
 	obj.GmtModified = now
-	obj.KubeConfig = kubeConfig
 
 	if err := s.db.Create(obj).Error; err != nil {
 		return nil, err
@@ -65,15 +58,6 @@ func (s *cloud) Update(ctx context.Context, uid int64, resourceVersion int64, up
 	// 系统维护字段
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
-
-	// 对 kubeconfig 进行加密
-	if _, ok := updates["config"]; ok {
-		kubeConfig, err := util.AesCBCEncrypt(updates["config"].(string))
-		if err != nil {
-			return err
-		}
-		updates["config"] = kubeConfig
-	}
 
 	f := s.db.Model(&model.Cloud{}).
 		Where("id = ? and resource_version = ?", uid, resourceVersion).

@@ -6,7 +6,7 @@
  @Desc    :
 */
 
-package util
+package cipher
 
 import "testing"
 
@@ -30,9 +30,9 @@ func TestAesCBCEncrypt(t *testing.T) {
 		t.Run(c.Name, func(t *testing.T) {
 			if ans, err := AesCBCEncrypt(c.text); err != nil {
 				t.Fatalf("encrypt text %s failed: %+v",
-					c.text[:10], err)
+					c.text, err)
 			} else {
-				t.Logf("encrypt text %s is { %s }", c.text[:10], ans)
+				t.Logf("encrypt text %s is { %s }", c.text, ans)
 			}
 		})
 	}
