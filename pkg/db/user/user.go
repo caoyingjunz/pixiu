@@ -39,7 +39,6 @@ type UserInterface interface {
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
 	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
-	DeleteRolesByUserID(ctx context.Context, uid int64) error
 }
 
 type user struct {
@@ -171,7 +170,7 @@ func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (roles *[]model.R
 // GetButtonsByUserID 获取菜单按钮
 func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error) {
 	var menus []model.Menu
-	err := u.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name, menus.url, menus.icon,menus.sequence,"+
+	err := u.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name,menus.memo, menus.url, menus.icon,menus.sequence,"+
 		"menus.method, menus.menu_type").
 		Joins("left join role_menus on menus.id = role_menus.menu_id ").
 		Joins("left join user_roles on user_roles.role_id = role_menus.role_id  ").
@@ -191,7 +190,7 @@ func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]mo
 // GetLeftMenusByUserID 根据用户ID获取左侧菜单
 func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
 	var menus []model.Menu
-	err := u.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name, menus.url, menus.icon,menus.sequence,"+
+	err := u.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name,menus.memo, menus.url, menus.icon,menus.sequence,"+
 		"menus.method, menus.menu_type").
 		Joins("left join role_menus on menus.id = role_menus.menu_id ").
 		Joins("left join user_roles on user_roles.role_id = role_menus.role_id ").
@@ -207,13 +206,4 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Me
 
 	treeMenusList := getTreeMenus(menus, 0)
 	return &treeMenusList, nil
-}
-
-func (u *user) DeleteRolesByUserID(ctx context.Context, uid int64) error {
-	err := u.db.Where("user_id = ?", uid).Delete(&model.UserRole{}).Error
-	if err != nil {
-		log.Logger.Errorf(err.Error())
-		return err
-	}
-	return nil
 }

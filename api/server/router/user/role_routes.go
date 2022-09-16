@@ -52,14 +52,18 @@ func (*roleRouter) updateRole(c *gin.Context) {
 // 删除前弹窗提示检查该角色是否已经与用户绑定，如果绑定，删除后用户将没有此角色权限
 func (*roleRouter) deleteRole(c *gin.Context) {
 	r := httputils.NewResponse()
-	var roles model.Roles
-	err := c.ShouldBindJSON(&roles)
+	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
 		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
-	if err = pixiu.CoreV1.Role().Delete(c, roles.RoleIds); err != nil {
+	if err != nil {
+		log.Logger.Error(err)
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+	if err = pixiu.CoreV1.Role().Delete(c, rid); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}

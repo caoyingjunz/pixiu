@@ -58,8 +58,8 @@ func (c *authentication) SetRolePermission(roleId int64, menus *[]model.Menu) (b
 }
 
 // DeleteRole 删除角色
-func (c *authentication) DeleteRole(roleIds []int64) error {
-	err := c.factory.Authentication().DeleteRole(roleIds)
+func (c *authentication) DeleteRole(roleId int64) error {
+	err := c.factory.Authentication().DeleteRole(roleId)
 	if err != nil {
 		log.Logger.Error(err)
 		return err

@@ -13,7 +13,7 @@ type AuthenticationInterface interface {
 	GetEnforce() *casbin.Enforcer
 	AddRoleForUser(userid int64, roleIds []int64) (err error)
 	SetRolePermission(roleId int64, menus *[]model.Menu) (bool, error)
-	DeleteRole(roleIds []int64) error
+	DeleteRole(roleId int64) error
 	DeleteRolePermission(...string) error
 }
 
@@ -50,7 +50,7 @@ func (c *authentication) SetRolePermission(roleId int64, menus *[]model.Menu) (b
 // 设置角色权限
 func (c *authentication) setRolePermission(roleId int64, menus *[]model.Menu) (bool, error) {
 	for _, menu := range *menus {
-		if menu.MenuType == 2 {
+		if menu.MenuType == 2 || menu.MenuType == 3 {
 			ok, err := c.enforcer.AddPermissionForUser(strconv.FormatInt(roleId, 10), menu.URL, menu.Method)
 			if !ok || err != nil {
 				return ok, err
@@ -61,17 +61,17 @@ func (c *authentication) setRolePermission(roleId int64, menus *[]model.Menu) (b
 }
 
 // DeleteRole 删除角色
-func (c *authentication) DeleteRole(roleIds []int64) error {
-	for _, rid := range roleIds {
-		_, err := c.enforcer.DeletePermissionsForUser(strconv.FormatInt(rid, 10))
-		if err != nil {
-			return err
-		}
-		_, err = c.enforcer.DeleteRole(strconv.FormatInt(rid, 10))
-		if err != nil {
-			return err
-		}
+func (c *authentication) DeleteRole(roleId int64) error {
+
+	ok, err := c.enforcer.DeletePermissionsForUser(strconv.FormatInt(roleId, 10))
+	if err != nil || !ok {
+		return err
 	}
+	_, err = c.enforcer.DeleteRole(strconv.FormatInt(roleId, 10))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

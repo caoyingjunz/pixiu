@@ -54,7 +54,6 @@ type UserInterface interface {
 	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
 	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
-	DeleteRolesByUserID(ctx context.Context, uid int64) error
 }
 
 type user struct {
@@ -329,8 +328,4 @@ func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (menus
 func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
 	menus, err = u.factory.User().GetLeftMenusByUserID(ctx, uid)
 	return
-}
-
-func (u *user) DeleteRolesByUserID(ctx context.Context, uid int64) error {
-	return u.factory.User().DeleteRolesByUserID(ctx, uid)
 }

@@ -13,7 +13,7 @@ import (
 type RoleInterface interface {
 	Create(context.Context, *model.Role) (*model.Role, error)
 	Update(context.Context, *model.Role, int64) error
-	Delete(context.Context, []int64) error
+	Delete(context.Context, int64) error
 	Get(context.Context, int64) (*[]model.Role, error)
 	List(context.Context) (*[]model.Role, error)
 	GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error)
@@ -50,7 +50,7 @@ func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
 	return tx.Error
 }
 
-func (r *role) Delete(c context.Context, rids []int64) error {
+func (r *role) Delete(c context.Context, rId int64) error {
 	tx := r.db.Begin()
 	defer func() {
 		if err := recover(); err != nil {
@@ -62,21 +62,21 @@ func (r *role) Delete(c context.Context, rids []int64) error {
 		return err
 	}
 	//删除角色相关的菜单
-	if err := tx.Where("role_id in ?", rids).Delete(&model.RoleMenu{}).Error; err != nil {
+	if err := tx.Where("role_id = ?", rId).Delete(&model.RoleMenu{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 	// 删除角色及其子角色
-	if err := tx.Where("id in ?", rids).
-		Or("parent_id in ?", rids).
+	if err := tx.Where("id in =", rId).
+		Or("parent_id in =", rId).
 		Delete(&model.Role{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 
 	// 删除用户绑定的角色信息(用户需要重新绑定角色)
-	if err := tx.Where("role_id in ?", rids).
-		Or("parent_id in ?", rids).
+	if err := tx.Where("role_id = ?", rId).
+		Or("parent_id = ?", rId).
 		Delete(&model.UserRole{}).Error; err != nil {
 		tx.Rollback()
 		return err

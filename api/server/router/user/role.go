@@ -31,7 +31,7 @@ func (r *roleRouter) initRoutes(ginEngine *gin.Engine) {
 		// 添加角色
 		roleRoute.POST("", r.addRole)
 		// 删除角色
-		roleRoute.DELETE("", r.deleteRole)
+		roleRoute.DELETE("/:id", r.deleteRole)
 		// 根据角色ID更新角色信息
 		roleRoute.PUT("/:id", r.updateRole)
 		// 根据角色ID获取角色信息

@@ -48,13 +48,13 @@ func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
 	return nil
 }
 
-func (r *role) Delete(c context.Context, rid []int64) error {
-	err := r.factory.Role().Delete(c, rid)
+func (r *role) Delete(c context.Context, rId int64) error {
+	err := r.factory.Role().Delete(c, rId)
 	if err != nil {
 		log.Logger.Error(err)
 		return err
 	}
-	go r.factory.Authentication().DeleteRole(rid)
+	go r.factory.Authentication().DeleteRole(rId)
 	return nil
 }
 
