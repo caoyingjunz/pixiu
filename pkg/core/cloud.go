@@ -30,6 +30,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 )
 
 var clientError = fmt.Errorf("failed to found clout client")
@@ -89,7 +90,13 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 
 func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	if err := c.preCreate(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for %a created: %v", obj.Name, err)
+		log.Logger.Errorf("failed to pre-check for %s created: %v", obj.Name, err)
+		return err
+	}
+	// 直接对 kubeConfig 内容进行加密
+	encryptData, err := cipher.Encrypt(obj.KubeConfig)
+	if err != nil {
+		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return err
 	}
 
@@ -114,12 +121,13 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	node := nodes.Items[0]
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
+
 	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:        obj.Name,
 		CloudType:   obj.CloudType,
 		KubeVersion: kubeVersion,
-		KubeConfig:  string(obj.KubeConfig),
+		KubeConfig:  encryptData,
 		NodeNumber:  len(nodes.Items),
 		Resources:   resources,
 	}); err != nil {
@@ -183,7 +191,11 @@ func (c *cloud) Init() error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
-		clientSet, err := c.newClientSet([]byte(cloudObj.KubeConfig))
+		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
+		if err != nil {
+			return err
+		}
+		clientSet, err := c.newClientSet(kubeConfig)
 		if err != nil {
 			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
 			return err
