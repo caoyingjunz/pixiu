@@ -18,7 +18,6 @@ package kubernetes
 
 import (
 	"context"
-
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +31,10 @@ type JobsGetter interface {
 }
 
 type JobInterface interface {
+	Create(ctx context.Context, job *batchv1.Job) error
+	Update(ctx context.Context, job *batchv1.Job) error
+	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
+	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*batchv1.Job, error)
 	List(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 }
 
@@ -45,6 +48,64 @@ func NewJobs(c *kubernetes.Clientset, cloud string) *jobs {
 		client: c,
 		cloud:  cloud,
 	}
+}
+
+func (c *jobs) Create(ctx context.Context, job *batchv1.Job) error {
+	if c.client == nil {
+		return clientError
+	}
+	if _, err := c.client.BatchV1().
+		Jobs(job.Namespace).
+		Create(ctx, job, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete %s namespace %s: %v", c.cloud, job.Namespace, err)
+
+		return err
+	}
+
+	return nil
+}
+
+func (c *jobs) Update(ctx context.Context, job *batchv1.Job) error {
+	if c.client == nil {
+		return clientError
+	}
+	if _, err := c.client.BatchV1().
+		Jobs(job.Namespace).
+		Update(ctx, job, metav1.UpdateOptions{}); err != nil {
+		log.Logger.Errorf("failed to update %s statefulSet: %v", c.cloud, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *jobs) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+	if c.client == nil {
+		return clientError
+	}
+	if err := c.client.BatchV1().
+		Jobs(deleteOptions.Namespace).
+		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete %s deployment: %v", deleteOptions.Namespace, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *jobs) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*batchv1.Job, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	job, err := c.client.BatchV1().
+		Jobs(getOptions.Namespace).
+		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s statefulSets: %v", getOptions.CloudName, err)
+		return nil, err
+	}
+
+	return job, err
 }
 
 func (c *jobs) List(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
