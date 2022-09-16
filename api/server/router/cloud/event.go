@@ -10,17 +10,17 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (s *cloudRouter) listEventsDeploymentByName(c *gin.Context) {
+func (s *cloudRouter) listEventsByName(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err     error
-		options types.GetOrDeleteOptions
+		options types.GetOrDeleteOptionsForEvents
 	)
 	if err = c.ShouldBindUri(&options); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Events(options.CloudName).ListEventsOfDeploymentByName(context.TODO(), options)
+	r.Result, err = pixiu.CoreV1.Cloud().Events(options.CloudName).ListEventsByName(context.TODO(), options)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
