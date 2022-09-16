@@ -207,14 +207,15 @@ func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (u *userRouter) getRoleIDsByUser(c *gin.Context) {
-	uid, exist := c.Get("userId")
+func (u *userRouter) getRolesByUserId(c *gin.Context) {
 	r := httputils.NewResponse()
-	if !exist {
-		httputils.SetFailed(c, r, httpstatus.NoUserIdError)
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		log.Logger.Error(err)
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
-	result, err := pixiu.CoreV1.User().GetRoleIDByUser(c, uid.(int64))
+	result, err := pixiu.CoreV1.User().GetRoleIDByUser(c, uid)
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return

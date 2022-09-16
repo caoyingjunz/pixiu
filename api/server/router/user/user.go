@@ -43,7 +43,7 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		// 重置密码
 
 		//  查询当前用户角色
-		userRoute.GET("/roles", u.getRoleIDsByUser)
+		userRoute.GET("/:id/roles", u.getRolesByUserId)
 
 		// 根据用户id分配角色
 		userRoute.POST("/:id/roles", u.setRolesByUserId)

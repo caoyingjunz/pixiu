@@ -152,7 +152,7 @@ func (o *Options) registerDatabase() error {
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
-
+	o.DB.AutoMigrate(&model.Role{})
 	// 注册casbin
 	err = o.registerCasbinEnforcer()
 	if err != nil {
