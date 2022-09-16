@@ -19,8 +19,11 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -36,7 +39,7 @@ import (
 func NewServerCommand() *cobra.Command {
 	opts, err := options.NewOptions()
 	if err != nil {
-		log.Fatalf("unable to initialize command options: %v", err)
+		klog.Fatalf("unable to initialize command options: %v", err)
 	}
 
 	cmd := &cobra.Command{
@@ -80,9 +83,6 @@ func InitRouters(opt *options.Options) {
 }
 
 func Run(opt *options.Options) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// 设置核心应用接口
 	pixiu.Setup(opt)
 	// 初始化已存在 cloud clients
@@ -93,9 +93,38 @@ func Run(opt *options.Options) error {
 	// 初始化 api 路由
 	InitRouters(opt)
 
-	klog.Infof("starting pixiu server")
-	// 启动主进程
-	opt.Run(ctx.Done())
+	// 启动优雅服务
+	runGraceServer(opt)
 
-	select {}
+	return nil
+}
+
+func runGraceServer(opt *options.Options) {
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
+		Handler: opt.GinEngine,
+	}
+
+	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
+	go func() {
+		klog.Infof("starting pixiu server")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			klog.Fatal("failed to listen pixiu server: ", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shut down the server with a timeout of 5 seconds.
+	quit := make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	klog.Infof("shutting pixiu server down ...")
+
+	// The context is used to inform the server it has 5 seconds to finish the request
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		klog.Fatal("pixiu server forced to shutdown: ", err)
+	}
+
+	klog.Infof("pixiu server exit successful")
 }

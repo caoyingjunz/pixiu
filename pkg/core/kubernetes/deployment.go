@@ -56,7 +56,7 @@ func (c *deployments) Create(ctx context.Context, deployment *v1.Deployment) err
 	if _, err := c.client.AppsV1().
 		Deployments(deployment.Namespace).
 		Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
-		log.Logger.Errorf("failed to delete %s namespace %s: %v", c.cloud, deployment.Namespace, err)
+		log.Logger.Errorf("failed to create %s namespace %s: %v", c.cloud, deployment.Namespace, err)
 
 		return err
 	}

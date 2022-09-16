@@ -24,10 +24,21 @@ type CloudOptions struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 }
 
+type ObjectOptions struct {
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
 type NamespaceOptions struct {
 	CloudOptions `json:",inline"`
 
-	ObjectName string `uri:"object_name" binding:"required"`
+	ObjectOptions `json:",inline"`
+}
+
+// NodeOptions todo: 后续整合优化
+type NodeOptions struct {
+	CloudOptions `json:",inline"`
+
+	ObjectOptions `json:",inline"`
 }
 
 type ListOptions struct {
@@ -51,6 +62,10 @@ type GetOrCreateOptions struct {
 	ListOptions `json:",inline,omitempty"`
 
 	ObjectName string `uri:"object_name" binding:"required"`
+}
+
+type CreateOptions struct {
+	ListOptions `json:",inline,omitempty"`
 }
 
 type Demo struct {
@@ -91,8 +106,12 @@ type Cloud struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
-	Status          int    `json:"status"`
+	Status          string `json:"status"`
+	CloudType       string `json:"cloud_type"`
+	KubeVersion     string `json:"kube_version"`
 	KubeConfig      []byte `json:"kube_config"`
+	NodeNumber      int    `json:"node_number"`
+	Resources       string `json:"resources"`
 	Description     string `json:"description"`
 
 	TimeSpec
@@ -102,4 +121,17 @@ type Cloud struct {
 type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`
 	GmtModified interface{} `json:"gmt_modified,omitempty"`
+}
+
+// Node k8s node属性
+type Node struct {
+	Name             string `json:"name"`
+	Status           string `json:"status"`
+	Roles            string `json:"roles"`
+	Age              string `json:"age"`
+	Version          string `json:"version"`
+	InternalIP       string `json:"internal_ip"`
+	OsImage          string `json:"osImage"`
+	KernelVersion    string `json:"kernel_version"`
+	ContainerRuntime string `json:"container_runtime"`
 }

@@ -40,6 +40,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/:cid", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
 
+		// Node API
+		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)
+		cloudRoute.GET("/v1/:cloud_name/nodes", s.listNodes)
+
 		// Namespaces API
 		cloudRoute.POST("/v1/:cloud_name/namespaces", s.createNamespace)
 		cloudRoute.PUT("/v1/:cloud_name/namespaces/:object_name", s.updateNamespace)
@@ -48,6 +52,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/v1/:cloud_name/namespaces", s.listNamespaces)
 
 		// Service API
+		cloudRoute.POST("/core/v1/:cloud_name/namespaces/:namespace/services", s.createService)
+		cloudRoute.PUT("/core/v1/:cloud_name/namespaces/:namespace/services/:object_name", s.updateService)
+		cloudRoute.DELETE("/core/v1/:cloud_name/namespaces/:namespace/services/:object_name", s.deleteService)
+		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services/:object_name", s.getService)
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
 
 		// Deployments API
@@ -58,6 +66,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
 
 		// Job API
+		cloudRoute.POST("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.createJob)
+		cloudRoute.PUT("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.updateJob)
+		cloudRoute.DELETE("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.deleteJob)
+		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.getJob)
 		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
 
 		// StatefulSet API
@@ -67,7 +79,15 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.getStatefulSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulSets)
 
+
 		// Event API
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/:workload/:object_name/events", s.listEventsByName)
+
+		// DaemonSet API
+		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.createDaemonSet)
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.updateDaemonSet)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.deleteDaemonSet)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.getDaemonSet)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.listDaemonsets)
 	}
 }
