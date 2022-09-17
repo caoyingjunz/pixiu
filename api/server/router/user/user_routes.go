@@ -24,8 +24,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -175,7 +173,6 @@ func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 
 	menuId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -224,20 +221,19 @@ func (u *userRouter) getRolesByUserId(c *gin.Context) {
 }
 
 func (u *userRouter) setRolesByUserId(c *gin.Context) {
-	var roleId model.Roles
+	var roles types.Roles
 	r := httputils.NewResponse()
-	err := c.ShouldBindJSON(&roleId)
+	err := c.ShouldBindJSON(&roles)
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
 	uid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
-	err = pixiu.CoreV1.User().SetUserRoles(c, uid, roleId.RoleIds)
+	err = pixiu.CoreV1.User().SetUserRoles(c, uid, roles.RoleIds)
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return

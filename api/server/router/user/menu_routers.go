@@ -54,7 +54,7 @@ func (*menuRouter) deleteMenu(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
-	if err := pixiu.CoreV1.Menu().Delete(c, mid); err != nil {
+	if err = pixiu.CoreV1.Menu().Delete(c, mid); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
@@ -87,5 +87,4 @@ func (*menuRouter) listMenus(c *gin.Context) {
 	r.Result = res
 
 	httputils.SetSuccess(c, r)
-
 }

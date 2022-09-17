@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package model
 
 import (
@@ -11,6 +27,7 @@ import (
 // Menu 菜单
 type Menu struct {
 	gopixiu.Model
+
 	Status   int8   `gorm:"column:status;type:tinyint(1);not null;" json:"status" form:"status"`          // 状态(1:启用 2:不启用)
 	Memo     string `gorm:"column:memo;size:128;" json:"memo,omitempty" form:"memo"`                      // 备注
 	ParentID int64  `gorm:"column:parent_id;not null;" json:"parent_id,omitempty" form:"parent_id"`       // 父级ID
@@ -21,10 +38,6 @@ type Menu struct {
 	Icon     string `gorm:"column:icon;size:32;" json:"icon,omitempty" form:"icon"`                       // icon
 	Method   string `gorm:"column:method;size:32;not null;" json:"method,omitempty" form:"method"`        // 操作类型 none/GET/POST/PUT/DELETE
 	Children []Menu `gorm:"-" json:"children"`
-}
-
-type Menus struct {
-	MenuIDS []int64 `json:"menu_ids"`
 }
 
 // TableName 表名

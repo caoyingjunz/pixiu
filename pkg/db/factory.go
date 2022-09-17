@@ -44,15 +44,18 @@ func (f *shareDaoFactory) Cloud() cloud.CloudInterface {
 func (f *shareDaoFactory) User() user.UserInterface {
 	return user.NewUser(f.db)
 }
+
 func (f *shareDaoFactory) Role() user.RoleInterface {
 	return user.NewRole(f.db)
 }
+
 func (f *shareDaoFactory) Menu() user.MenuInterface {
 	return user.NewMenu(f.db)
 }
 func (f *shareDaoFactory) Authentication() user.AuthenticationInterface {
 	return user.NewAuthentication(f.db, f.enforcer)
 }
+
 func NewDaoFactory(db *gorm.DB, enforcer *casbin.Enforcer) ShareDaoFactory {
 	return &shareDaoFactory{
 		db:       db,

@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package user
 
 import (
@@ -7,6 +23,7 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
@@ -14,7 +31,7 @@ import (
 
 func (*roleRouter) addRole(c *gin.Context) {
 	r := httputils.NewResponse()
-	var role model.Role
+	var role model.Role // TODO 后续优化
 	if err := c.ShouldBindJSON(&role); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
@@ -28,7 +45,7 @@ func (*roleRouter) addRole(c *gin.Context) {
 
 func (*roleRouter) updateRole(c *gin.Context) {
 	r := httputils.NewResponse()
-	var role model.Role
+	var role model.Role // TODO 后续优化
 	if err := c.ShouldBindJSON(&role); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
@@ -91,7 +108,6 @@ func (*roleRouter) listRoles(c *gin.Context) {
 	}
 
 	httputils.SetSuccess(c, r)
-
 }
 
 func (*roleRouter) getMenusByRole(c *gin.Context) {
@@ -115,14 +131,15 @@ func (*roleRouter) setRoleMenus(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
-	var menus model.Menus
-	if err = c.ShouldBindJSON(&menus); err != nil {
+	var menuIds types.Menus
+	if err = c.ShouldBindJSON(&menuIds); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
-	if err = pixiu.CoreV1.Role().SetRole(c, rid, menus.MenuIDS); err != nil {
+	if err = pixiu.CoreV1.Role().SetRole(c, rid, menuIds.MenuIDS); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
+
 	httputils.SetSuccess(c, r)
 }
