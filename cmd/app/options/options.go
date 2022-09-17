@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/bndr/gojenkins"
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/casbin/casbin/v2"
 	csmodel "github.com/casbin/casbin/v2/model"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
@@ -37,7 +38,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
-	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
 const (
