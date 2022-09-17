@@ -16,6 +16,7 @@ type RoleInterface interface {
 	Delete(context.Context, int64) error
 	Get(context.Context, int64) (*[]model.Role, error)
 	List(context.Context) (*[]model.Role, error)
+
 	GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error)
 	SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 	GetRolesByMenuID(ctx context.Context, menuId int64) (*[]int64, error)
