@@ -28,7 +28,7 @@ func Authentication() gin.HandlerFunc {
 		}
 
 		method := c.Request.Method
-		enforcer := pixiu.CoreV1.Authentication().GetEnforce()
+		enforcer := pixiu.CoreV1.Policy().GetEnforce()
 		if enforcer == nil {
 			log.Logger.Errorf("init casbin failed.")
 			return

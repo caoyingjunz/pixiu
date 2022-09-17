@@ -19,42 +19,42 @@ package core
 import (
 	"github.com/casbin/casbin/v2"
 
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	auth "github.com/caoyingjunz/gopixiu/pkg/db/user"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
-type AuthenticationInterface interface {
-	auth.AuthenticationInterface
+type PolicyGetter interface {
+	Policy() PolicyInterface
 }
 
-type AuthenticationGetter interface {
-	Authentication() AuthenticationInterface
+type PolicyInterface interface {
+	GetEnforce() *casbin.Enforcer
+	AddRoleForUser(userid int64, roleIds []int64) (err error)
+	SetRolePermission(roleId int64, menus *[]model.Menu) (bool, error)
+	DeleteRole(roleId int64) error
+	DeleteRolePermission(resource ...string) error
 }
 
-type authentication struct {
-	ComponentConfig config.Config
-	app             *pixiu
-	factory         db.ShareDaoFactory
+type policy struct {
+	app     *pixiu
+	factory db.ShareDaoFactory
 }
 
-func newAuthentication(c *pixiu) *authentication {
-	return &authentication{
-		c.cfg,
-		c,
-		c.factory,
+func newPolicy(c *pixiu) *policy {
+	return &policy{
+		app:     c,
+		factory: c.factory,
 	}
 }
 
 // GetEnforce 获取全局enforcer
-func (c *authentication) GetEnforce() *casbin.Enforcer {
+func (c *policy) GetEnforce() *casbin.Enforcer {
 	return c.factory.Authentication().GetEnforce()
 }
 
 // AddRoleForUser 添加用户角色权限
-func (c *authentication) AddRoleForUser(userid int64, roleIds []int64) (err error) {
+func (c *policy) AddRoleForUser(userid int64, roleIds []int64) (err error) {
 	err = c.factory.Authentication().AddRoleForUser(userid, roleIds)
 	if err != nil {
 		log.Logger.Error(err)
@@ -64,7 +64,7 @@ func (c *authentication) AddRoleForUser(userid int64, roleIds []int64) (err erro
 }
 
 // SetRolePermission 设置角色权限
-func (c *authentication) SetRolePermission(roleId int64, menus *[]model.Menu) (bool, error) {
+func (c *policy) SetRolePermission(roleId int64, menus *[]model.Menu) (bool, error) {
 	ok, err := c.factory.Authentication().SetRolePermission(roleId, menus)
 	if err != nil {
 		log.Logger.Error(err)
@@ -74,7 +74,7 @@ func (c *authentication) SetRolePermission(roleId int64, menus *[]model.Menu) (b
 }
 
 // DeleteRole 删除角色
-func (c *authentication) DeleteRole(roleId int64) error {
+func (c *policy) DeleteRole(roleId int64) error {
 	err := c.factory.Authentication().DeleteRole(roleId)
 	if err != nil {
 		log.Logger.Error(err)
@@ -84,7 +84,7 @@ func (c *authentication) DeleteRole(roleId int64) error {
 }
 
 // DeleteRolePermission 删除角色权限
-func (c *authentication) DeleteRolePermission(resource ...string) error {
+func (c *policy) DeleteRolePermission(resource ...string) error {
 	err := c.factory.Authentication().DeleteRolePermission(resource...)
 	if err != nil {
 		log.Logger.Error(err)

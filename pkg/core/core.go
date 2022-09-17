@@ -30,7 +30,7 @@ type CoreV1Interface interface {
 	UserGetter
 	RoleGetter
 	MenuGetter
-	AuthenticationGetter
+	PolicyGetter
 }
 
 type pixiu struct {
@@ -59,9 +59,11 @@ func (pixiu *pixiu) Role() RoleInterface {
 func (pixiu *pixiu) Menu() MenuInterface {
 	return newMenu(pixiu)
 }
-func (pixiu *pixiu) Authentication() AuthenticationInterface {
-	return newAuthentication(pixiu)
+
+func (pixiu *pixiu) Policy() PolicyInterface {
+	return newPolicy(pixiu)
 }
+
 func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
 	return &pixiu{
 		cfg:        cfg,
