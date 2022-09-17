@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package role
 
 import (
 	"context"
@@ -29,7 +29,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-func (*roleRouter) addRole(c *gin.Context) {
+func (o *roleRouter) addRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role model.Role // TODO 后续优化
 	if err := c.ShouldBindJSON(&role); err != nil {
@@ -43,7 +43,7 @@ func (*roleRouter) addRole(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (*roleRouter) updateRole(c *gin.Context) {
+func (o *roleRouter) updateRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role model.Role // TODO 后续优化
 	if err := c.ShouldBindJSON(&role); err != nil {
@@ -64,7 +64,7 @@ func (*roleRouter) updateRole(c *gin.Context) {
 }
 
 // 删除前弹窗提示检查该角色是否已经与用户绑定，如果绑定，删除后用户将没有此角色权限
-func (*roleRouter) deleteRole(c *gin.Context) {
+func (o *roleRouter) deleteRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
@@ -83,7 +83,7 @@ func (*roleRouter) deleteRole(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (*roleRouter) getRole(c *gin.Context) {
+func (o *roleRouter) getRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
@@ -99,7 +99,7 @@ func (*roleRouter) getRole(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (*roleRouter) listRoles(c *gin.Context) {
+func (o *roleRouter) listRoles(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
 	if r.Result, err = pixiu.CoreV1.Role().List(c); err != nil {
@@ -110,7 +110,7 @@ func (*roleRouter) listRoles(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (*roleRouter) getMenusByRole(c *gin.Context) {
+func (o *roleRouter) getMenusByRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
@@ -124,7 +124,7 @@ func (*roleRouter) getMenusByRole(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (*roleRouter) setRoleMenus(c *gin.Context) {
+func (o *roleRouter) setRoleMenus(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {

@@ -14,27 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package role
 
 import "github.com/gin-gonic/gin"
 
 type roleRouter struct{}
 
 func NewRoleRouter(ginEngine *gin.Engine) {
-	u := &roleRouter{}
-	u.initRoutes(ginEngine)
+	o := &roleRouter{}
+	o.initRoutes(ginEngine)
 }
 
-func (r *roleRouter) initRoutes(ginEngine *gin.Engine) {
+func (o *roleRouter) initRoutes(ginEngine *gin.Engine) {
 	roleRoute := ginEngine.Group("/roles")
 	{
-		roleRoute.POST("", r.addRole)          // 添加角色
-		roleRoute.PUT("/:id", r.updateRole)    // 根据角色ID更新角色信息
-		roleRoute.DELETE("/:id", r.deleteRole) // 删除角色
-		roleRoute.GET("/:id", r.getRole)       // 根据角色ID获取角色信息
-		roleRoute.GET("", r.listRoles)         // 获取所有角色
+		roleRoute.POST("", o.addRole)          // 添加角色
+		roleRoute.PUT("/:id", o.updateRole)    // 根据角色ID更新角色信息
+		roleRoute.DELETE("/:id", o.deleteRole) // 删除角色
+		roleRoute.GET("/:id", o.getRole)       // 根据角色ID获取角色信息
+		roleRoute.GET("", o.listRoles)         // 获取所有角色
 
-		roleRoute.GET("/:id/menus", r.getMenusByRole) // 根据角色ID获取角色权限
-		roleRoute.POST("/:id/menus", r.setRoleMenus)  // 根据角色ID设置角色权限
+		roleRoute.GET("/:id/menus", o.getMenusByRole) // 根据角色ID获取角色权限
+		roleRoute.POST("/:id/menus", o.setRoleMenus)  // 根据角色ID设置角色权限
 	}
 }
