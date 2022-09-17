@@ -132,6 +132,6 @@ type Node struct {
 
 // Paging 分页
 type Paging struct {
-	Limit int `json:"limit" binding:"gt=0"`
-	Page  int `json:"page" binding:"gt=0"`
+	Limit int `form:"limit" binding:"gt=0"`
+	Page  int `form:"page" binding:"gt=0"`
 }

@@ -44,6 +44,7 @@ type CloudInterface interface {
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, paging *types.Paging) ([]types.Cloud, error)
+	Count(ctx context.Context) (int64, error)
 
 	Init() error // 初始化 cloud 的客户端
 
@@ -171,6 +172,17 @@ func (c *cloud) List(ctx context.Context, paging *types.Paging) ([]types.Cloud, 
 	}
 
 	return cs, nil
+}
+
+// Count 计算总量
+func (c *cloud) Count(ctx context.Context) (int64, error) {
+	count, err := c.factory.Cloud().Count(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to count clouds: %v", err)
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func (c *cloud) Init() error {

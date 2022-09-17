@@ -92,16 +92,28 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 	var (
 		err    error
 		paging types.Paging
+		clouds []types.Cloud
+		total  int64
 	)
 
-	if err = c.ShouldBindJSON(&paging); err != nil {
+	if err = c.ShouldBindQuery(&paging); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO(), &paging); err != nil {
+	if clouds, err = pixiu.CoreV1.Cloud().List(context.TODO(), &paging); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
+	}
+
+	if total, err = pixiu.CoreV1.Cloud().Count(context.TODO()); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	r.Result = map[string]interface{}{
+		"data":  clouds,
+		"total": total,
 	}
 
 	httputils.SetSuccess(c, r)

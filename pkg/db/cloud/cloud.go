@@ -31,6 +31,7 @@ type CloudInterface interface {
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
 	List(ctx context.Context, paging *types.Paging) ([]model.Cloud, error)
+	Count(ctx context.Context) (int64, error)
 }
 
 type cloud struct {
@@ -101,4 +102,17 @@ func (s *cloud) List(ctx context.Context, paging *types.Paging) ([]model.Cloud, 
 	}
 
 	return cs, nil
+}
+
+func (s *cloud) Count(ctx context.Context) (int64, error) {
+	var (
+		count int64
+		cs    model.Cloud
+	)
+
+	if err := s.db.Model(&cs).Count(&count).Error; err != nil {
+		return count, err
+	}
+
+	return count, nil
 }
