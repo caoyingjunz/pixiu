@@ -17,7 +17,6 @@ limitations under the License.
 package db
 
 import (
-	"github.com/casbin/casbin/v2"
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
@@ -33,8 +32,7 @@ type ShareDaoFactory interface {
 }
 
 type shareDaoFactory struct {
-	db       *gorm.DB
-	enforcer *casbin.Enforcer
+	db *gorm.DB
 }
 
 func (f *shareDaoFactory) Cloud() cloud.CloudInterface {
@@ -52,13 +50,14 @@ func (f *shareDaoFactory) Role() user.RoleInterface {
 func (f *shareDaoFactory) Menu() user.MenuInterface {
 	return user.NewMenu(f.db)
 }
+
+// TODO： 优化
 func (f *shareDaoFactory) Authentication() user.AuthenticationInterface {
-	return user.NewAuthentication(f.db, f.enforcer)
+	return user.NewAuthentication(f.db)
 }
 
-func NewDaoFactory(db *gorm.DB, enforcer *casbin.Enforcer) ShareDaoFactory {
+func NewDaoFactory(db *gorm.DB) ShareDaoFactory {
 	return &shareDaoFactory{
-		db:       db,
-		enforcer: enforcer,
+		db: db,
 	}
 }
