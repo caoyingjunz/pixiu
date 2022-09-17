@@ -136,6 +136,8 @@ func (u *userRouter) login(c *gin.Context) {
 // TODO
 func (u *userRouter) logout(c *gin.Context) {}
 
+func (u *userRouter) resetPassword(c *gin.Context) {}
+
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -204,7 +206,7 @@ func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (u *userRouter) getRolesByUserId(c *gin.Context) {
+func (u *userRouter) getUserRoles(c *gin.Context) {
 	r := httputils.NewResponse()
 	uid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
@@ -220,7 +222,7 @@ func (u *userRouter) getRolesByUserId(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (u *userRouter) setRolesByUserId(c *gin.Context) {
+func (u *userRouter) setUserRoles(c *gin.Context) {
 	var roles types.Roles
 	r := httputils.NewResponse()
 	err := c.ShouldBindJSON(&roles)

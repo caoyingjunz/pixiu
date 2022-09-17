@@ -152,8 +152,8 @@ func (o *Options) registerDatabase() error {
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
-	o.DB.AutoMigrate(&model.Role{})
-	// 注册casbin
+
+	// 注册 casbin
 	err = o.registerCasbinEnforcer()
 	if err != nil {
 		log.Logger.Error(err)
@@ -208,7 +208,7 @@ func (o *Options) registerCasbinEnforcer() (err error) {
 		return
 	}
 	// 调用gorm创建casbin_rule表
-	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(o.DB, &model.CasbinModel{})
+	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(o.DB, &model.Rule{})
 	if err != nil {
 		return
 	}
