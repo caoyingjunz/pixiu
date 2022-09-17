@@ -46,7 +46,7 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context) ([]types.Cloud, error)
 
-	Init() error // 初始化 cloud 的客户端
+	Load() error // 加载已经存在的 cloud 客户端
 
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
@@ -181,7 +181,7 @@ func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
 	return cs, nil
 }
 
-func (c *cloud) Init() error {
+func (c *cloud) Load() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
@@ -216,16 +216,10 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
-	// TODO: 优化转换
-	status := "正常"
-	if obj.Status == 2 {
-		status = "异常"
-	}
-
 	return &types.Cloud{
 		Id:          obj.Id,
 		Name:        obj.Name,
-		Status:      status,
+		Status:      obj.Status,
 		CloudType:   obj.CloudType,
 		KubeVersion: obj.KubeVersion,
 		NodeNumber:  obj.NodeNumber,
