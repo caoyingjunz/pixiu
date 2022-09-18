@@ -20,6 +20,7 @@ type RoleInterface interface {
 	GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error)
 	SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 	GetRolesByMenuID(ctx context.Context, menuId int64) (*[]int64, error)
+	GetRoleByRoleName(ctx context.Context, roleName string) (*model.Role, error)
 }
 
 type role struct {
@@ -31,13 +32,10 @@ func NewRole(db *gorm.DB) *role {
 }
 
 func (r *role) Create(c context.Context, obj *model.Role) (*model.Role, error) {
-	tx := r.db.Where("name = ?", obj.Name).Find(&model.Role{})
-	if tx.RowsAffected != 0 {
-		return nil, errors.New("角色已存在")
-	}
 	if err := r.db.Create(obj).Error; err != nil {
 		return nil, err
 	}
+
 	return obj, nil
 }
 
@@ -58,15 +56,18 @@ func (r *role) Delete(c context.Context, rId int64) error {
 			tx.Rollback()
 		}
 	}()
+
 	if err := tx.Error; err != nil {
 		tx.Rollback()
 		return err
 	}
+
 	//删除角色相关的菜单
 	if err := tx.Where("role_id = ?", rId).Delete(&model.RoleMenu{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
+
 	// 删除角色及其子角色
 	if err := tx.Where("id in =", rId).
 		Or("parent_id in =", rId).
@@ -113,9 +114,11 @@ func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, er
 		Order("parent_id ASC").
 		Order("sequence ASC").
 		Scan(&menus).Error
+
 	if err != nil {
 		return nil, err
 	}
+
 	res := getTreeMenus(menus, 0)
 	return &res, nil
 }
@@ -128,14 +131,17 @@ func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 			tx.Rollback()
 		}
 	}()
+
 	if err := tx.Error; err != nil {
 		tx.Rollback()
 		return err
 	}
+
 	if err := tx.Where(&model.RoleMenu{RoleID: roleId}).Delete(&model.RoleMenu{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
+
 	if len(menuIds) > 0 {
 		for _, mid := range menuIds {
 			rm := new(model.RoleMenu)
@@ -147,6 +153,7 @@ func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 			}
 		}
 	}
+
 	return tx.Commit().Error
 }
 
@@ -155,6 +162,11 @@ func (r *role) GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]i
 	if err != nil {
 		return
 	}
+	return
+}
+
+func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *model.Role, err error) {
+	err = r.db.Where("name = ?", roleName).Find(&role).Error
 	return
 }
 

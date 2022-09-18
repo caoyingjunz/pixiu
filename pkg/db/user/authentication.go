@@ -17,6 +17,7 @@ limitations under the License.
 package user
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/casbin/casbin/v2"
@@ -33,10 +34,10 @@ var Policy *casbin.Enforcer
 
 type AuthenticationInterface interface {
 	GetEnforce() *casbin.Enforcer
-	AddRoleForUser(userid int64, roleIds []int64) (err error)
-	SetRolePermission(roleId int64, menus *[]model.Menu) (bool, error)
-	DeleteRole(roleId int64) error
-	DeleteRolePermission(...string) error
+	AddRoleForUser(ctx context.Context, userid int64, roleIds []int64) (err error)
+	SetRolePermission(ctx context.Context, roleId int64, menus *[]model.Menu) (bool, error)
+	DeleteRole(ctx context.Context, roleId int64) error
+	DeleteRolePermission(ctx context.Context, resource ...string) error
 }
 
 type authentication struct {
@@ -53,7 +54,7 @@ func (c *authentication) GetEnforce() *casbin.Enforcer {
 }
 
 // AddRoleForUser 分配用户角色
-func (c *authentication) AddRoleForUser(userid int64, roleIds []int64) (err error) {
+func (c *authentication) AddRoleForUser(ctx context.Context, userid int64, roleIds []int64) (err error) {
 	uidStr := strconv.FormatInt(userid, 10)
 	c.enforcer.DeleteRolesForUser(uidStr)
 	for _, roleId := range roleIds {
@@ -63,7 +64,7 @@ func (c *authentication) AddRoleForUser(userid int64, roleIds []int64) (err erro
 }
 
 // SetRolePermission 设置角色权限
-func (c *authentication) SetRolePermission(roleId int64, menus *[]model.Menu) (bool, error) {
+func (c *authentication) SetRolePermission(ctx context.Context, roleId int64, menus *[]model.Menu) (bool, error) {
 	c.enforcer.DeletePermissionsForUser(strconv.FormatInt(roleId, 10))
 	c.setRolePermission(roleId, menus)
 	return false, nil
@@ -83,7 +84,7 @@ func (c *authentication) setRolePermission(roleId int64, menus *[]model.Menu) (b
 }
 
 // DeleteRole 删除角色
-func (c *authentication) DeleteRole(roleId int64) error {
+func (c *authentication) DeleteRole(ctx context.Context, roleId int64) error {
 
 	ok, err := c.enforcer.DeletePermissionsForUser(strconv.FormatInt(roleId, 10))
 	if err != nil || !ok {
@@ -98,7 +99,7 @@ func (c *authentication) DeleteRole(roleId int64) error {
 }
 
 // DeleteRolePermission 删除角色权限
-func (c *authentication) DeleteRolePermission(resource ...string) error {
+func (c *authentication) DeleteRolePermission(ctx context.Context, resource ...string) error {
 	ok, err := c.enforcer.DeletePermission(resource...)
 	if !ok || err != nil {
 		return err
@@ -131,7 +132,7 @@ func InitPolicyEnforcer(db *gorm.DB) (err error) {
 		return
 	}
 	// 调用gorm创建casbin_rule表
-	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(db, &model.Rule{})
+	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(db, &model.Rule{}, "rules")
 	if err != nil {
 		return
 	}

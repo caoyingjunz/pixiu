@@ -17,6 +17,8 @@ limitations under the License.
 package core
 
 import (
+	"context"
+
 	"github.com/casbin/casbin/v2"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -30,10 +32,10 @@ type PolicyGetter interface {
 
 type PolicyInterface interface {
 	GetEnforce() *casbin.Enforcer
-	AddRoleForUser(userid int64, roleIds []int64) (err error)
-	SetRolePermission(roleId int64, menus *[]model.Menu) (bool, error)
-	DeleteRole(roleId int64) error
-	DeleteRolePermission(resource ...string) error
+	AddRoleForUser(ctx context.Context, userid int64, roleIds []int64) (err error)
+	SetRolePermission(ctx context.Context, roleId int64, menus *[]model.Menu) (bool, error)
+	DeleteRole(ctx context.Context, roleId int64) error
+	DeleteRolePermission(ctx context.Context, resource ...string) error
 }
 
 type policy struct {
@@ -54,8 +56,8 @@ func (c *policy) GetEnforce() *casbin.Enforcer {
 }
 
 // AddRoleForUser 添加用户角色权限
-func (c *policy) AddRoleForUser(userid int64, roleIds []int64) (err error) {
-	err = c.factory.Authentication().AddRoleForUser(userid, roleIds)
+func (c *policy) AddRoleForUser(ctx context.Context, userid int64, roleIds []int64) (err error) {
+	err = c.factory.Authentication().AddRoleForUser(ctx, userid, roleIds)
 	if err != nil {
 		log.Logger.Error(err)
 		return
@@ -64,8 +66,8 @@ func (c *policy) AddRoleForUser(userid int64, roleIds []int64) (err error) {
 }
 
 // SetRolePermission 设置角色权限
-func (c *policy) SetRolePermission(roleId int64, menus *[]model.Menu) (bool, error) {
-	ok, err := c.factory.Authentication().SetRolePermission(roleId, menus)
+func (c *policy) SetRolePermission(ctx context.Context, roleId int64, menus *[]model.Menu) (bool, error) {
+	ok, err := c.factory.Authentication().SetRolePermission(ctx, roleId, menus)
 	if err != nil {
 		log.Logger.Error(err)
 		return ok, err
@@ -74,8 +76,8 @@ func (c *policy) SetRolePermission(roleId int64, menus *[]model.Menu) (bool, err
 }
 
 // DeleteRole 删除角色
-func (c *policy) DeleteRole(roleId int64) error {
-	err := c.factory.Authentication().DeleteRole(roleId)
+func (c *policy) DeleteRole(ctx context.Context, roleId int64) error {
+	err := c.factory.Authentication().DeleteRole(ctx, roleId)
 	if err != nil {
 		log.Logger.Error(err)
 		return err
@@ -84,8 +86,8 @@ func (c *policy) DeleteRole(roleId int64) error {
 }
 
 // DeleteRolePermission 删除角色权限
-func (c *policy) DeleteRolePermission(resource ...string) error {
-	err := c.factory.Authentication().DeleteRolePermission(resource...)
+func (c *policy) DeleteRolePermission(ctx context.Context, resource ...string) error {
+	err := c.factory.Authentication().DeleteRolePermission(ctx, resource...)
 	if err != nil {
 		log.Logger.Error(err)
 		return err

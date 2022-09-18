@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"errors"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
@@ -39,6 +40,8 @@ type RoleInterface interface {
 	GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error)
 	SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 	GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]int64, err error)
+	GetRoleByRoleName(ctx context.Context, roleName string) (*model.Role, error)
+	CheckRoleIsExist(ctx context.Context, name string) bool
 }
 
 type role struct {
@@ -69,12 +72,18 @@ func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
 }
 
 func (r *role) Delete(c context.Context, rId int64) error {
-	err := r.factory.Role().Delete(c, rId)
+	// 1.先清除rule
+	err := r.factory.Authentication().DeleteRole(c, rId)
 	if err != nil {
 		log.Logger.Error(err)
 		return err
 	}
-	go r.factory.Authentication().DeleteRole(rId)
+	// 2.删除user_role
+	err = r.factory.Role().Delete(c, rId)
+	if err != nil {
+		log.Logger.Error(err)
+		return err
+	}
 	return nil
 }
 
@@ -104,16 +113,34 @@ func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, er
 
 // SetRole 设置角色菜单权限
 func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error {
-	if err := r.factory.Role().SetRole(ctx, roleId, menuIds); err != nil {
-		log.Logger.Error(err)
-		return err
-	}
+	// 查询menus信息
 	menus, err := r.factory.Menu().GetByIds(ctx, menuIds)
 	if err != nil {
 		log.Logger.Error(err)
 		return err
 	}
-	go r.factory.Authentication().SetRolePermission(roleId, menus)
+
+	// 添加rule规则
+	ok, err := r.factory.Authentication().SetRolePermission(ctx, roleId, menus)
+	if !ok || err != nil {
+		log.Logger.Error(err)
+		return err
+	}
+
+	// 配置role_menus, 如果操作失败，则将rule表中规则清除
+	if err = r.factory.Role().SetRole(ctx, roleId, menuIds); err != nil {
+		log.Logger.Error(err)
+		//清除rule表中规则
+		for _, menu := range *menus {
+			err := r.factory.Authentication().DeleteRolePermission(ctx, menu.URL, menu.Method)
+			if err != nil {
+				log.Logger.Error(err)
+				break
+			}
+		}
+		return err
+	}
+
 	return nil
 }
 
@@ -124,4 +151,28 @@ func (r *role) GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]i
 		return
 	}
 	return
+}
+
+func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *model.Role, err error) {
+	role, err = r.factory.Role().GetRoleByRoleName(ctx, roleName)
+	if err != nil {
+		log.Logger.Error(err)
+		return
+	}
+	return
+}
+
+//CheckRoleIsExist 判断角色是否存在
+func (r *role) CheckRoleIsExist(ctx context.Context, name string) bool {
+	res, err := r.factory.Role().GetRoleByRoleName(ctx, name)
+	if err != nil {
+		log.Logger.Error(err)
+		return false
+	}
+
+	if res == nil {
+		log.Logger.Error(errors.New("role is existed"))
+		return false
+	}
+	return true
 }

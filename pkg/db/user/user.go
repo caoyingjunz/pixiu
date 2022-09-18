@@ -110,6 +110,7 @@ func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) 
 	if err := u.db.Where("name = ?", name).First(&obj).Error; err != nil {
 		return nil, err
 	}
+	
 	return &obj, nil
 }
 
@@ -122,11 +123,13 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 			tx.Rollback()
 		}
 	}()
+
 	if err := tx.Error; err != nil {
 		log.Logger.Errorf(err.Error())
 		tx.Rollback()
 		return err
 	}
+
 	if err := tx.Where(&model.UserRole{UserID: uid}).Delete(&model.UserRole{}).Error; err != nil {
 		log.Logger.Errorf(err.Error())
 		tx.Rollback()
@@ -151,7 +154,7 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 // GetRoleIDByUser 查询用户角色
 func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (roles *[]model.Role, err error) {
 	subRoleIdSql := u.db.Select("role_id").Where("user_id = ?", uid).Table("user_roles")
-	if err = u.db.Table("roles").
+	err = u.db.Table("roles").
 		Select("roles.*").
 		Joins("left join user_roles on roles.id = user_roles.role_id").
 		Where("roles.id in (?)", subRoleIdSql).
@@ -159,10 +162,13 @@ func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (roles *[]model.R
 		Group("id").
 		Order("id asc").
 		Order("sequence desc").
-		Scan(&roles).Error; err != nil {
+		Scan(&roles).Error
+
+	if err != nil || roles == nil {
 		log.Logger.Errorf(err.Error())
 		return nil, err
 	}
+
 	res := getTreeRoles(*roles, 0)
 	return &res, err
 }
@@ -180,8 +186,8 @@ func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]mo
 		Order("parent_id ASC").
 		Order("sequence ASC").
 		Scan(&menus).Error
-	if err != nil {
-		log.Logger.Errorf(err.Error())
+
+	if err != nil || menus == nil {
 		return nil, err
 	}
 	return &menus, nil
@@ -199,7 +205,8 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Me
 		Order("parent_id ASC").
 		Order("sequence DESC").
 		Scan(&menus).Error
-	if err != nil {
+
+	if err != nil || menus == nil {
 		log.Logger.Errorf(err.Error())
 		return nil, err
 	}

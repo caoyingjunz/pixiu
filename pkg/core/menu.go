@@ -37,6 +37,7 @@ type MenuInterface interface {
 	List(c context.Context) (menus []model.Menu, err error)
 
 	GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error)
+	GetMenuByMenuNameUrl(context.Context, string, string) (*model.Menu, error)
 }
 
 type menu struct {
@@ -70,19 +71,26 @@ func (m *menu) Update(c context.Context, menu *model.Menu, mId int64) error {
 
 func (m *menu) Delete(c context.Context, mId int64) error {
 	menuInfo, err := m.factory.Menu().Get(c, mId)
+	// 如果报错或者未获取到menu信息则返回
+	if err != nil || menuInfo == nil {
+		log.Logger.Error(err)
+		return err
+	}
+
+	// 清除rules
+	err = m.factory.Authentication().DeleteRolePermission(c, menuInfo.URL, menuInfo.Method)
 	if err != nil {
 		log.Logger.Error(err)
 		return err
 	}
 
+	// 清除menus
 	err = m.factory.Menu().Delete(c, mId)
 	if err != nil {
 		log.Logger.Error(err)
 		return err
 	}
 
-	//cabin 删除role对应的权限
-	go m.factory.Authentication().DeleteRolePermission(menuInfo.URL, menuInfo.Method)
 	return nil
 }
 
@@ -108,5 +116,10 @@ func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, e
 		log.Logger.Error(err)
 		return
 	}
+	return
+}
+
+func (m *menu) GetMenuByMenuNameUrl(c context.Context, url, method string) (menu *model.Menu, err error) {
+	menu, err = m.factory.Menu().GetMenuByMenuNameUrl(c, url, method)
 	return
 }

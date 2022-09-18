@@ -292,40 +292,50 @@ func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[stri
 
 func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error) {
 	roleInfo, err := u.factory.User().GetRoleIDByUser(ctx, uid)
+	if err != nil {
+		log.Logger.Error(err)
+	}
 	return roleInfo, err
 }
 
 func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error) {
-	err = u.factory.User().SetUserRoles(ctx, uid, rids)
+	// 添加规则到rules表
+	err = u.factory.Authentication().AddRoleForUser(ctx, uid, rids)
 	if err != nil {
-		log.Logger.Errorf(err.Error())
-		return
+		log.Logger.Error(err)
+		return err
 	}
-	roles, err := u.factory.User().GetRoleIDByUser(ctx, uid)
-	if err != nil {
-		log.Logger.Errorf(err.Error())
+
+	// 配置role_users表
+	err = u.factory.User().SetUserRoles(ctx, uid, rids)
+	if err != nil { // 如果失败,则清除rules已添加的规则
+		log.Logger.Error(err)
+
+		for _, roleId := range rids {
+			err = u.factory.Authentication().DeleteRole(ctx, roleId)
+			if err != nil {
+				log.Logger.Error(err)
+				break
+			}
+		}
 		return
 	}
 
-	for _, role := range *roles {
-		rids = append(rids, role.Id)
-		if role.ParentID != 0 {
-			for _, nodeRole := range role.Children {
-				rids = append(rids, nodeRole.Id)
-			}
-		}
-	}
-	// 设置casbin权限
-	go u.factory.Authentication().AddRoleForUser(uid, rids)
 	return
 }
 
 func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (menus *[]model.Menu, err error) {
 	menus, err = u.factory.User().GetButtonsByUserID(ctx, uid, menuId)
+	if err != nil {
+		log.Logger.Error(err)
+	}
 	return
 }
 
 func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
 	menus, err = u.factory.User().GetLeftMenusByUserID(ctx, uid)
+	if err != nil {
+		log.Logger.Error(err)
+	}
 	return
 }

@@ -36,6 +36,13 @@ func (o *roleRouter) addRole(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
+	exist := pixiu.CoreV1.Role().CheckRoleIsExist(c, role.Name)
+	if exist {
+		httputils.SetFailed(c, r, httpstatus.RoleExistError)
+		return
+	}
+
 	if _, err := pixiu.CoreV1.Role().Create(context.TODO(), &role); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
@@ -50,11 +57,19 @@ func (o *roleRouter) updateRole(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
 	roleId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
+	exist := pixiu.CoreV1.Role().CheckRoleIsExist(c, role.Name)
+	if exist {
+		httputils.SetFailed(c, r, httpstatus.RoleExistError)
+		return
+	}
+
 	if err = pixiu.CoreV1.Role().Update(context.TODO(), &role, roleId); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
@@ -71,10 +86,7 @@ func (o *roleRouter) deleteRole(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
-	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
-		return
-	}
+
 	if err = pixiu.CoreV1.Role().Delete(c, rid); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
@@ -90,6 +102,7 @@ func (o *roleRouter) getRole(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
 	r.Result, err = pixiu.CoreV1.Role().Get(context.TODO(), rid)
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
@@ -131,6 +144,16 @@ func (o *roleRouter) setRoleMenus(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+	role, err := pixiu.CoreV1.Role().Get(c, rid)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
+	if role == nil {
+		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
+		return
+	}
+
 	var menuIds types.Menus
 	if err = c.ShouldBindJSON(&menuIds); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)

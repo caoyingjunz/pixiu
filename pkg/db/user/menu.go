@@ -19,6 +19,7 @@ type MenuInterface interface {
 	List(context.Context) ([]model.Menu, error)
 
 	GetByIds(context.Context, []int64) (*[]model.Menu, error)
+	GetMenuByMenuNameUrl(context.Context, string, string) (*model.Menu, error)
 }
 
 type menu struct {
@@ -30,10 +31,6 @@ func NewMenu(db *gorm.DB) *menu {
 }
 
 func (m *menu) Create(c context.Context, obj *model.Menu) (*model.Menu, error) {
-	tx := m.db.Where("url = ? and method = ?", obj.URL, obj.Method).Find(&model.Menu{})
-	if tx.RowsAffected != 0 {
-		return nil, errors.New("数据已存在")
-	}
 	if err := m.db.Create(obj).Error; err != nil {
 		return nil, err
 	}
@@ -57,21 +54,27 @@ func (m *menu) Delete(c context.Context, mId int64) error {
 			tx.Rollback()
 		}
 	}()
+
 	if err := tx.Error; err != nil {
 		tx.Rollback()
 		log.Logger.Errorf(err.Error())
 		return err
 	}
+
+	// 清除role_menus
 	if err := tx.Where("menu_id = ?", mId).Delete(&model.RoleMenu{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
+
+	// 清除menus
 	if err := tx.Where("id =  ?", mId).
 		Or("parent_id = ?", mId).
 		Delete(&model.Menu{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
+
 	return tx.Commit().Error
 }
 
@@ -93,6 +96,11 @@ func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, e
 	if err = m.db.Where("id in ?", mIds).Find(&menus).Error; err != nil {
 		return nil, err
 	}
+	return
+}
+
+func (m *menu) GetMenuByMenuNameUrl(c context.Context, url, method string) (menu *model.Menu, err error) {
+	err = m.db.Where("url = ? and method = ?", url, method).Find(&menu).Error
 	return
 }
 

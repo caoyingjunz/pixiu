@@ -19,13 +19,12 @@ package menu
 import (
 	"context"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/gin-gonic/gin"
 )
 
 func (*menuRouter) addMenu(c *gin.Context) {
@@ -35,6 +34,13 @@ func (*menuRouter) addMenu(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+	// 判断权限是否已存在
+	res, err := pixiu.CoreV1.Menu().GetMenuByMenuNameUrl(c, menu.URL, menu.Method)
+	if err != nil || res != nil {
+		httputils.SetFailed(c, r, httpstatus.MenusExistError)
+		return
+	}
+
 	if _, err := pixiu.CoreV1.Menu().Create(c, &menu); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
