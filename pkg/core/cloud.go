@@ -30,6 +30,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 )
 
 var clientError = fmt.Errorf("failed to found clout client")
@@ -46,7 +47,7 @@ type CloudInterface interface {
 	List(ctx context.Context, paging *types.Paging) ([]types.Cloud, error)
 	Count(ctx context.Context) (int64, error)
 
-	Init() error // 初始化 cloud 的客户端
+	Load() error // 加载已经存在的 cloud 客户端
 
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
@@ -90,7 +91,13 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 
 func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	if err := c.preCreate(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for %a created: %v", obj.Name, err)
+		log.Logger.Errorf("failed to pre-check for %s created: %v", obj.Name, err)
+		return err
+	}
+	// 直接对 kubeConfig 内容进行加密
+	encryptData, err := cipher.Encrypt(obj.KubeConfig)
+	if err != nil {
+		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return err
 	}
 
@@ -115,12 +122,13 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	node := nodes.Items[0]
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
+
 	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:        obj.Name,
 		CloudType:   obj.CloudType,
 		KubeVersion: kubeVersion,
-		KubeConfig:  string(obj.KubeConfig),
+		KubeConfig:  encryptData,
 		NodeNumber:  len(nodes.Items),
 		Resources:   resources,
 	}); err != nil {
@@ -185,7 +193,7 @@ func (c *cloud) Count(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-func (c *cloud) Init() error {
+func (c *cloud) Load() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
@@ -195,7 +203,11 @@ func (c *cloud) Init() error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
-		clientSet, err := c.newClientSet([]byte(cloudObj.KubeConfig))
+		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
+		if err != nil {
+			return err
+		}
+		clientSet, err := c.newClientSet(kubeConfig)
 		if err != nil {
 			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
 			return err
@@ -216,16 +228,10 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
-	// TODO: 优化转换
-	status := "正常"
-	if obj.Status == 2 {
-		status = "异常"
-	}
-
 	return &types.Cloud{
 		Id:          obj.Id,
 		Name:        obj.Name,
-		Status:      status,
+		Status:      obj.Status,
 		CloudType:   obj.CloudType,
 		KubeVersion: obj.KubeVersion,
 		NodeNumber:  obj.NodeNumber,
