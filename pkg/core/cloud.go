@@ -44,7 +44,8 @@ type CloudInterface interface {
 	Update(ctx context.Context, obj *types.Cloud) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
-	List(ctx context.Context) ([]types.Cloud, error)
+	List(ctx context.Context, paging *types.Paging) ([]types.Cloud, error)
+	Count(ctx context.Context) (int64, error)
 
 	Load() error // 加载已经存在的 cloud 客户端
 
@@ -167,8 +168,8 @@ func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 	return c.model2Type(cloudObj), nil
 }
 
-func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
-	cloudObjs, err := c.factory.Cloud().List(ctx)
+func (c *cloud) List(ctx context.Context, paging *types.Paging) ([]types.Cloud, error) {
+	cloudObjs, err := c.factory.Cloud().List(ctx, paging)
 	if err != nil {
 		log.Logger.Errorf("failed to list clouds: %v", err)
 		return nil, err
@@ -181,11 +182,22 @@ func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
 	return cs, nil
 }
 
+// Count 计算总量
+func (c *cloud) Count(ctx context.Context) (int64, error) {
+	count, err := c.factory.Cloud().Count(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to count clouds: %v", err)
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (c *cloud) Load() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
-	cloudObjs, err := c.factory.Cloud().List(context.TODO())
+	cloudObjs, err := c.factory.Cloud().List(context.TODO(), nil)
 	if err != nil {
 		log.Logger.Errorf("failed to list exist clouds: %v", err)
 		return err
