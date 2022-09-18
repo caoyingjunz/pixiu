@@ -130,8 +130,8 @@ type Node struct {
 	ContainerRuntime string `json:"container_runtime"`
 }
 
-// Paging 分页
-type Paging struct {
-	Limit int `form:"limit" binding:"gt=0"`
-	Page  int `form:"page" binding:"gt=0"`
+// PageOptions 分页选项
+type PageOptions struct {
+	Limit int `form:"limit"`
+	Page  int `form:"page"`
 }

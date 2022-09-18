@@ -44,8 +44,7 @@ type CloudInterface interface {
 	Update(ctx context.Context, obj *types.Cloud) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
-	List(ctx context.Context, paging *types.Paging) ([]types.Cloud, error)
-	Count(ctx context.Context) (int64, error)
+	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
 
 	Load() error // 加载已经存在的 cloud 客户端
 
@@ -58,6 +57,11 @@ type CloudInterface interface {
 	pixiukubernetes.JobsGetter
 	pixiukubernetes.NodesGetter
 }
+
+const (
+	page     = 1
+	pageSize = 10
+)
 
 var clientSets client.ClientsInterface
 
@@ -168,13 +172,42 @@ func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 	return c.model2Type(cloudObj), nil
 }
 
-func (c *cloud) List(ctx context.Context, paging *types.Paging) ([]types.Cloud, error) {
-	cloudObjs, err := c.factory.Cloud().List(ctx, paging)
+// List 返回全量查询或者分页查询
+func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interface{}, error) {
+	var cs []types.Cloud
+
+	// 根据是否有 Page 判断是全量查询还是分页查询，如果没有则判定为全量查询，如果有，判定为分页查询
+	// TODO: 判断方法略显粗糙，后续优化
+	// 分页查询
+	if pageOption.Page != 0 {
+		if pageOption.Page < 0 {
+			pageOption.Page = page
+		}
+		if pageOption.Limit <= 0 {
+			pageOption.Limit = pageSize
+		}
+		cloudObjs, total, err := c.factory.Cloud().PageList(ctx, pageOption.Page, pageOption.Limit)
+		if err != nil {
+			log.Logger.Errorf("failed to page %d limit %d list  clouds: %v", pageOption.Page, pageOption.Limit, err)
+			return nil, err
+		}
+		// 类型转换
+		for _, cloudObj := range cloudObjs {
+			cs = append(cs, *c.model2Type(&cloudObj))
+		}
+
+		pageClouds := make(map[string]interface{})
+		pageClouds["data"] = cs
+		pageClouds["total"] = total
+		return pageClouds, nil
+	}
+
+	// 全量查询
+	cloudObjs, err := c.factory.Cloud().List(ctx)
 	if err != nil {
 		log.Logger.Errorf("failed to list clouds: %v", err)
 		return nil, err
 	}
-	var cs []types.Cloud
 	for _, cloudObj := range cloudObjs {
 		cs = append(cs, *c.model2Type(&cloudObj))
 	}
@@ -182,22 +215,11 @@ func (c *cloud) List(ctx context.Context, paging *types.Paging) ([]types.Cloud, 
 	return cs, nil
 }
 
-// Count 计算总量
-func (c *cloud) Count(ctx context.Context) (int64, error) {
-	count, err := c.factory.Cloud().Count(ctx)
-	if err != nil {
-		log.Logger.Errorf("failed to count clouds: %v", err)
-		return 0, err
-	}
-
-	return count, nil
-}
-
 func (c *cloud) Load() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
-	cloudObjs, err := c.factory.Cloud().List(context.TODO(), nil)
+	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
 		log.Logger.Errorf("failed to list exist clouds: %v", err)
 		return err

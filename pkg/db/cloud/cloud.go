@@ -20,7 +20,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"gorm.io/gorm"
 )
@@ -30,7 +29,9 @@ type CloudInterface interface {
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
-	List(ctx context.Context, paging *types.Paging) ([]model.Cloud, error)
+	List(ctx context.Context) ([]model.Cloud, error)
+
+	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
 	Count(ctx context.Context) (int64, error)
 }
 
@@ -85,32 +86,32 @@ func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cloud, error) {
 	return &c, nil
 }
 
-func (s *cloud) List(ctx context.Context, paging *types.Paging) ([]model.Cloud, error) {
+func (s *cloud) List(ctx context.Context) ([]model.Cloud, error) {
 	var cs []model.Cloud
-
-	// 不分页
-	if paging == nil {
-		if err := s.db.Find(&cs).Error; err != nil {
-			return nil, err
-		}
-	} else {
-		// 分页
-		offset := (paging.Page - 1) * paging.Limit
-		if err := s.db.Offset(offset).Limit(paging.Limit).Find(&cs).Error; err != nil {
-			return nil, err
-		}
+	if err := s.db.Find(&cs).Error; err != nil {
+		return nil, err
 	}
 
 	return cs, nil
 }
 
-func (s *cloud) Count(ctx context.Context) (int64, error) {
-	var (
-		count int64
-		cs    model.Cloud
-	)
+func (s *cloud) PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error) {
+	var cs []model.Cloud
+	if err := s.db.Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&cs).Error; err != nil {
+		return nil, 0, err
+	}
+	total, err := s.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 
-	if err := s.db.Model(&cs).Count(&count).Error; err != nil {
+	return cs, total, nil
+}
+
+func (s *cloud) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := s.db.Model(&model.Cloud{}).Count(&count).Error; err != nil {
 		return count, err
 	}
 
