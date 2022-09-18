@@ -78,6 +78,7 @@ func (r *role) Delete(c context.Context, rId int64) error {
 		log.Logger.Error(err)
 		return err
 	}
+
 	// 2.删除user_role
 	err = r.factory.Role().Delete(c, rId)
 	if err != nil {

@@ -38,6 +38,7 @@ type MenuInterface interface {
 
 	GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error)
 	GetMenuByMenuNameUrl(context.Context, string, string) (*model.Menu, error)
+	CheckMenusIsExist(c context.Context, menuId int64) bool
 }
 
 type menu struct {
@@ -122,4 +123,13 @@ func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, e
 func (m *menu) GetMenuByMenuNameUrl(c context.Context, url, method string) (menu *model.Menu, err error) {
 	menu, err = m.factory.Menu().GetMenuByMenuNameUrl(c, url, method)
 	return
+}
+
+func (m *menu) CheckMenusIsExist(c context.Context, menuId int64) bool {
+	res, err := m.factory.Menu().Get(c, menuId)
+	if err != nil || res == nil {
+		log.Logger.Error(err)
+		return false
+	}
+	return true
 }

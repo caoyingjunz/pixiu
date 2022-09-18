@@ -56,18 +56,30 @@ func (c *authentication) GetEnforce() *casbin.Enforcer {
 // AddRoleForUser 分配用户角色
 func (c *authentication) AddRoleForUser(ctx context.Context, userid int64, roleIds []int64) (err error) {
 	uidStr := strconv.FormatInt(userid, 10)
-	c.enforcer.DeleteRolesForUser(uidStr)
+	ok, err := c.enforcer.DeleteRolesForUser(uidStr)
+	if err != nil || !ok {
+		return
+	}
 	for _, roleId := range roleIds {
-		c.enforcer.AddRoleForUser(uidStr, strconv.FormatInt(roleId, 10))
+		ok, err = c.enforcer.AddRoleForUser(uidStr, strconv.FormatInt(roleId, 10))
+		if err != nil || !ok {
+			break
+		}
 	}
 	return
 }
 
 // SetRolePermission 设置角色权限
 func (c *authentication) SetRolePermission(ctx context.Context, roleId int64, menus *[]model.Menu) (bool, error) {
-	c.enforcer.DeletePermissionsForUser(strconv.FormatInt(roleId, 10))
-	c.setRolePermission(roleId, menus)
-	return false, nil
+	_, err := c.enforcer.DeletePermissionsForUser(strconv.FormatInt(roleId, 10))
+	if err != nil {
+		return false, err
+	}
+	_, err = c.setRolePermission(roleId, menus)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // 设置角色权限
@@ -100,8 +112,8 @@ func (c *authentication) DeleteRole(ctx context.Context, roleId int64) error {
 
 // DeleteRolePermission 删除角色权限
 func (c *authentication) DeleteRolePermission(ctx context.Context, resource ...string) error {
-	ok, err := c.enforcer.DeletePermission(resource...)
-	if !ok || err != nil {
+	_, err := c.enforcer.DeletePermission(resource...)
+	if err != nil {
 		return err
 	}
 	return nil

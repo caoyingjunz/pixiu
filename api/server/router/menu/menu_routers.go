@@ -56,11 +56,18 @@ func (*menuRouter) updateMenu(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
 	menuId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
+	if !pixiu.CoreV1.Menu().CheckMenusIsExist(c, menuId) {
+		httputils.SetFailed(c, r, httpstatus.MenusNtoExistError)
+		return
+	}
+
 	if err = pixiu.CoreV1.Menu().Update(c, &menu, menuId); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
@@ -76,6 +83,12 @@ func (*menuRouter) deleteMenu(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
+	if !pixiu.CoreV1.Menu().CheckMenusIsExist(c, mid) {
+		httputils.SetFailed(c, r, httpstatus.MenusNtoExistError)
+		return
+	}
+
 	if err = pixiu.CoreV1.Menu().Delete(c, mid); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return

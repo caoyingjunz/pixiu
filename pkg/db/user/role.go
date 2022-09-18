@@ -69,8 +69,8 @@ func (r *role) Delete(c context.Context, rId int64) error {
 	}
 
 	// 删除角色及其子角色
-	if err := tx.Where("id in =", rId).
-		Or("parent_id in =", rId).
+	if err := tx.Where("id  = ?", rId).
+		Or("parent_id  = ?", rId).
 		Delete(&model.Role{}).Error; err != nil {
 		tx.Rollback()
 		return err
