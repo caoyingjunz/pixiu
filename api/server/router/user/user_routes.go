@@ -230,11 +230,19 @@ func (u *userRouter) setUserRoles(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
 	uid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
+
+	res, err := pixiu.CoreV1.User().Get(c, uid)
+	if err != nil || res == nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
 	err = pixiu.CoreV1.User().SetUserRoles(c, uid, roles.RoleIds)
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
