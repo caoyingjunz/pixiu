@@ -225,7 +225,11 @@ func (c *cloud) Load() error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
-		clientSet, err := c.newClientSet([]byte(cloudObj.KubeConfig))
+		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
+		if err != nil {
+			return err
+		}
+		clientSet, err := c.newClientSet(kubeConfig)
 		if err != nil {
 			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
 			return err
