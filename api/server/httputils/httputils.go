@@ -17,6 +17,7 @@ limitations under the License.
 package httputils
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -26,9 +27,9 @@ import (
 )
 
 type Response struct {
-	Code    int         `json:"code"` // 返回值
-	Result  interface{} `json:"result,omitempty"`
-	Message string      `json:"message,omitempty"`
+	Code    int         `json:"code"`              // 返回的状态码
+	Result  interface{} `json:"result,omitempty"`  // 正常返回时的数据，可以为任意数据结构
+	Message string      `json:"message,omitempty"` // 异常返回时的错误信息
 }
 
 func (r *Response) Error() string {
@@ -67,7 +68,7 @@ func NewResponse() *Response {
 }
 
 type Claims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 
 	Id   int64  `json:"id"`
 	Name string `json:"name"`
@@ -77,10 +78,13 @@ type Claims struct {
 // GenerateToken 生成 token
 func GenerateToken(uid int64, name string, jwtKey []byte) (string, error) {
 	// Generate jwt, 临时有效期 360 分钟
-	expireTime := time.Now().Add(360 * time.Minute)
+	nowTime := time.Now()
+	expiresTime := nowTime.Add(360 * time.Minute)
 	claims := &Claims{
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expireTime.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expiresTime), // 过期时间
+			IssuedAt:  jwt.NewNumericDate(nowTime),     // 签发时间
+			NotBefore: jwt.NewNumericDate(nowTime),     // 生效时间
 		},
 		Id:   uid,
 		Name: name,
@@ -90,16 +94,19 @@ func GenerateToken(uid int64, name string, jwtKey []byte) (string, error) {
 	return token.SignedString(jwtKey)
 }
 
-func ParseToken(token string, jwtKey []byte) (*Claims, error) {
-	var claims Claims
-	t, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
+func ParseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
-	if err != nil || !t.Valid {
+	if err != nil {
 		return nil, err
 	}
 
-	return &claims, nil
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse invailed token")
 }
 
 // ReadFile 从请求中获取指定文件内容

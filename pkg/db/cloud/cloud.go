@@ -20,9 +20,8 @@ import (
 	"context"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"gorm.io/gorm"
 )
 
 type CloudInterface interface {
@@ -31,6 +30,9 @@ type CloudInterface interface {
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
 	List(ctx context.Context) ([]model.Cloud, error)
+
+	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
+	Count(ctx context.Context) (int64, error)
 }
 
 type cloud struct {
@@ -91,4 +93,27 @@ func (s *cloud) List(ctx context.Context) ([]model.Cloud, error) {
 	}
 
 	return cs, nil
+}
+
+func (s *cloud) PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error) {
+	var cs []model.Cloud
+	if err := s.db.Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&cs).Error; err != nil {
+		return nil, 0, err
+	}
+	total, err := s.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return cs, total, nil
+}
+
+func (s *cloud) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := s.db.Model(&model.Cloud{}).Count(&count).Error; err != nil {
+		return count, err
+	}
+
+	return count, nil
 }
