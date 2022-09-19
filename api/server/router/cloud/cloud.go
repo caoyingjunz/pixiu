@@ -39,6 +39,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/:cid", s.deleteCloud)
 		cloudRoute.GET("/:cid", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
+		cloudRoute.GET("/config/:name", s.getKubeConfig)
 
 		// Node API
 		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)

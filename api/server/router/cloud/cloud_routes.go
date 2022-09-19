@@ -104,3 +104,18 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (s *cloudRouter) getKubeConfig(c *gin.Context) {
+	var (
+		r         = httputils.NewResponse()
+		cloudName = c.Param("name")
+		err       error
+	)
+
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfig(context.TODO(), cloudName); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
