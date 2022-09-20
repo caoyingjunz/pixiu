@@ -39,7 +39,6 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/:cid", s.deleteCloud)
 		cloudRoute.GET("/:cid", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
-		cloudRoute.GET("/config/:name", s.getKubeConfig)
 
 		//  k8s kube_config API
 		cloudRoute.POST("/v1/config", s.createKubeConfig)
