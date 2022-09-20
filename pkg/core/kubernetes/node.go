@@ -18,11 +18,10 @@ package kubernetes
 
 import (
 	"context"
-	"strings"
-
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"strings"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -98,6 +97,8 @@ func (c *nodes) object2Type(node v1.Node) types.Node {
 	nodeStatus := node.Status
 	nodeInfo := nodeStatus.NodeInfo
 
+	// 获取创建时间
+	age := node.CreationTimestamp.Format("2006-01-02")
 	// 获取 roles
 	for label := range node.Labels {
 		if strings.HasPrefix(label, labelNodeRole) {
@@ -128,7 +129,7 @@ func (c *nodes) object2Type(node v1.Node) types.Node {
 		Name:             node.Name,
 		Status:           status,
 		Roles:            strings.Join(roles, ","),
-		Age:              "", // TODO: 后续实现
+		Age:              age,
 		Version:          nodeInfo.KubeletVersion,
 		InternalIP:       internalIP,
 		OsImage:          nodeInfo.OSImage,
