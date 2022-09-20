@@ -58,6 +58,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services/:object_name", s.getService)
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
 
+		// Event API
+		// TODO: 事件的搞笑，精细化输出
+		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/events", s.listEvents)
+
 		// Deployments API
 		// 创建 deployments
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
