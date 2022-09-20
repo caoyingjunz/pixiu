@@ -18,10 +18,11 @@ package kubernetes
 
 import (
 	"context"
+	"strings"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"strings"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
