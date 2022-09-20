@@ -54,7 +54,7 @@ type CloudInterface interface {
 	pixiukubernetes.DeploymentsGetter
 	pixiukubernetes.DaemonSetGetter
 	pixiukubernetes.JobsGetter
-	pixiukubernetes.EventGetter
+	pixiukubernetes.EventsGetter
 	pixiukubernetes.NodesGetter
 }
 

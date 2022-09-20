@@ -27,7 +27,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
-type EventGetter interface {
+type EventsGetter interface {
 	Events(cloud string) EventInterface
 }
 

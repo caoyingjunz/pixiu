@@ -19,5 +19,3 @@ package kubernetes
 import "fmt"
 
 var clientError = fmt.Errorf("failed to found clout client")
-
-const DeploymentType = "Deployment"
