@@ -18,8 +18,10 @@ package user
 
 import (
 	"context"
+
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
@@ -132,9 +134,9 @@ func (u *userRouter) login(c *gin.Context) {
 }
 
 // TODO
-func (u *userRouter) logout(c *gin.Context) {
+func (u *userRouter) logout(c *gin.Context) {}
 
-}
+func (u *userRouter) resetPassword(c *gin.Context) {}
 
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -160,5 +162,91 @@ func (u *userRouter) changePassword(c *gin.Context) {
 		return
 	}
 
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
+	r := httputils.NewResponse()
+	uidStr, exist := c.Get("userId")
+	if !exist {
+		httputils.SetFailed(c, r, httpstatus.NoUserIdError)
+		return
+	}
+
+	menuId, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+	uid := uidStr.(int64)
+	res, err := pixiu.CoreV1.User().GetButtonsByUserID(c, uid, menuId)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
+	r.Result = res
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
+	uidStr, exist := c.Get("userId")
+	r := httputils.NewResponse()
+	if !exist {
+		httputils.SetFailed(c, r, httpstatus.NoUserIdError)
+		return
+	}
+	var err error
+	uid := uidStr.(int64)
+	r.Result, err = pixiu.CoreV1.User().GetLeftMenusByUserID(c, uid)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getUserRoles(c *gin.Context) {
+	r := httputils.NewResponse()
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+	result, err := pixiu.CoreV1.User().GetRoleIDByUser(c, uid)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
+	r.Result = result
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) setUserRoles(c *gin.Context) {
+	var roles types.Roles
+	r := httputils.NewResponse()
+	err := c.ShouldBindJSON(&roles)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	res, err := pixiu.CoreV1.User().Get(c, uid)
+	if err != nil || res == nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	err = pixiu.CoreV1.User().SetUserRoles(c, uid, roles.RoleIds)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }

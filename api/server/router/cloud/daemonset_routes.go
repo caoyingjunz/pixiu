@@ -2,32 +2,33 @@ package cloud
 
 import (
 	"context"
+
 	"github.com/gin-gonic/gin"
-	batchv1 "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/apps/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (s *cloudRouter) createJob(c *gin.Context) {
+func (s *cloudRouter) createDaemonSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
 		getOptions types.GetOrCreateOptions
-		job        batchv1.Job
+		daemonset  v1.DaemonSet
 	)
 	if err = c.ShouldBindUri(&getOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = c.ShouldBindJSON(&job); err != nil {
+	if err = c.ShouldBindJSON(&daemonset); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	job.Name = getOptions.ObjectName
-	job.Namespace = getOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().Jobs(getOptions.CloudName).Create(context.TODO(), &job); err != nil {
+	daemonset.Name = getOptions.ObjectName
+	daemonset.Namespace = getOptions.Namespace
+	if err = pixiu.CoreV1.Cloud().DaemonSets(getOptions.CloudName).Create(context.TODO(), &daemonset); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -35,20 +36,20 @@ func (s *cloudRouter) createJob(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) updateJob(c *gin.Context) {
+func (s *cloudRouter) updateDaemonSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err           error
 		createOptions types.GetOrCreateOptions
-		job           batchv1.Job
+		daemonset     v1.DaemonSet
 	)
 	if err = c.ShouldBindUri(&createOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	job.Name = createOptions.ObjectName
-	job.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().Jobs(createOptions.CloudName).Update(context.TODO(), &job)
+	daemonset.Name = createOptions.ObjectName
+	daemonset.Namespace = createOptions.Namespace
+	err = pixiu.CoreV1.Cloud().DaemonSets(createOptions.CloudName).Update(context.TODO(), &daemonset)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -57,14 +58,14 @@ func (s *cloudRouter) updateJob(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) deleteJob(c *gin.Context) {
+func (s *cloudRouter) deleteDaemonSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var deleteOptions types.GetOrDeleteOptions
 	if err := c.ShouldBindUri(&deleteOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().Jobs(deleteOptions.CloudName).Delete(context.TODO(), deleteOptions)
+	err := pixiu.CoreV1.Cloud().DaemonSets(deleteOptions.CloudName).Delete(context.TODO(), deleteOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -73,7 +74,7 @@ func (s *cloudRouter) deleteJob(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) getJob(c *gin.Context) {
+func (s *cloudRouter) getDaemonSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
@@ -83,7 +84,7 @@ func (s *cloudRouter) getJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Jobs(getOptions.CloudName).Get(context.TODO(), getOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(getOptions.CloudName).Get(context.TODO(), getOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -92,7 +93,8 @@ func (s *cloudRouter) getJob(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) listJobs(c *gin.Context) {
+// listDaemonSets API: clouds/<cloud_name>/namespaces/<ns>/daemonsets
+func (s *cloudRouter) listDaemonsets(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err         error
@@ -102,7 +104,7 @@ func (s *cloudRouter) listJobs(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Jobs(listOptions.CloudName).List(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(listOptions.CloudName).List(context.TODO(), listOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

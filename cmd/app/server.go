@@ -19,9 +19,11 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -33,6 +35,8 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
+	"github.com/caoyingjunz/gopixiu/api/server/router/menu"
+	"github.com/caoyingjunz/gopixiu/api/server/router/role"
 	"github.com/caoyingjunz/gopixiu/api/server/router/user"
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
@@ -41,7 +45,7 @@ import (
 func NewServerCommand() *cobra.Command {
 	opts, err := options.NewOptions()
 	if err != nil {
-		log.Fatalf("unable to initialize command options: %v", err)
+		klog.Fatalf("unable to initialize command options: %v", err)
 	}
 
 	cmd := &cobra.Command{
@@ -94,19 +98,18 @@ func Helloworld(g *gin.Context) {
 func InitRouters(opt *options.Options) {
 	middleware.InitMiddlewares(opt.GinEngine) // 注册中间件
 
-	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
-	user.NewRouter(opt.GinEngine)  // 注册 user 路由
-	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
+	cloud.NewRouter(opt.GinEngine)    // 注册 cloud 路由
+	user.NewRouter(opt.GinEngine)     // 注册 user 路由
+	cicd.NewRouter(opt.GinEngine)     // 注册 cicd 路由
+	role.NewRoleRouter(opt.GinEngine) // 注册 role 路由
+	menu.NewMenuRouter(opt.GinEngine) // 注册 menu 路由
 }
 
 func Run(opt *options.Options) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// 设置核心应用接口
 	pixiu.Setup(opt)
-	// 初始化已存在 cloud clients
-	if err := pixiu.CoreV1.Cloud().Init(); err != nil {
+	// 加载已经存在 cloud 客户端
+	if err := pixiu.CoreV1.Cloud().Load(); err != nil {
 		return err
 	}
 
@@ -124,8 +127,38 @@ func Run(opt *options.Options) error {
 	opt.GinEngine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 
 	klog.Infof("starting pixiu server")
-	// 启动主进程
-	opt.Run(ctx.Done())
+	// 启动优雅服务
+	runGraceServer(opt)
 
-	select {}
+	return nil
+}
+
+func runGraceServer(opt *options.Options) {
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
+		Handler: opt.GinEngine,
+	}
+
+	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
+	go func() {
+		klog.Infof("starting pixiu server")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			klog.Fatal("failed to listen pixiu server: ", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shut down the server with a timeout of 5 seconds.
+	quit := make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	klog.Infof("shutting pixiu server down ...")
+
+	// The context is used to inform the server it has 5 seconds to finish the request
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		klog.Fatal("pixiu server forced to shutdown: ", err)
+	}
+
+	klog.Infof("pixiu server exit successful")
 }

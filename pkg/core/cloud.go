@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 )
 
 var clientError = fmt.Errorf("failed to found clout client")
@@ -42,17 +44,25 @@ type CloudInterface interface {
 	Update(ctx context.Context, obj *types.Cloud) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
-	List(ctx context.Context) ([]types.Cloud, error)
+	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
 
-	Init() error // 初始化 cloud 的客户端
+	Load() error // 加载已经存在的 cloud 客户端
 
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
 	pixiukubernetes.ServicesGetter
 	pixiukubernetes.StatefulSetGetter
 	pixiukubernetes.DeploymentsGetter
+	pixiukubernetes.DaemonSetGetter
 	pixiukubernetes.JobsGetter
+	pixiukubernetes.EventsGetter
+	pixiukubernetes.NodesGetter
 }
+
+const (
+	page     = 1
+	pageSize = 10
+)
 
 var clientSets client.ClientsInterface
 
@@ -75,13 +85,24 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 	if len(obj.KubeConfig) == 0 {
 		return fmt.Errorf("invalid empty kubeconfig data")
 	}
+	// 集群类型支持 自建和标准，默认为标准
+	// TODO: 未对类型进行检查
+	if len(obj.CloudType) == 0 {
+		obj.CloudType = "标准"
+	}
 
 	return nil
 }
 
 func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	if err := c.preCreate(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for %a created: %v", obj.Name, err)
+		log.Logger.Errorf("failed to pre-check for %s created: %v", obj.Name, err)
+		return err
+	}
+	// 直接对 kubeConfig 内容进行加密
+	encryptData, err := cipher.Encrypt(obj.KubeConfig)
+	if err != nil {
+		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return err
 	}
 
@@ -91,9 +112,30 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		log.Logger.Errorf("failed to create %s clientSet: %v", obj.Name, err)
 		return err
 	}
+	// 获取 k8s 集群信息: k8s 版本，节点数量，资源信息
+	nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil || len(nodes.Items) == 0 {
+		log.Logger.Errorf("failed to connected to k8s cluster: %v", err)
+		return err
+	}
+
+	var (
+		kubeVersion string
+		resources   string
+	)
+	// 第一个节点的版本作为集群版本
+	node := nodes.Items[0]
+	nodeStatus := node.Status
+	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
+
+	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:       obj.Name,
-		KubeConfig: string(obj.KubeConfig),
+		Name:        obj.Name,
+		CloudType:   obj.CloudType,
+		KubeVersion: kubeVersion,
+		KubeConfig:  encryptData,
+		NodeNumber:  len(nodes.Items),
+		Resources:   resources,
 	}); err != nil {
 		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
 		return err
@@ -131,13 +173,42 @@ func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 	return c.model2Type(cloudObj), nil
 }
 
-func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
+// List 返回全量查询或者分页查询
+func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interface{}, error) {
+	var cs []types.Cloud
+
+	// 根据是否有 Page 判断是全量查询还是分页查询，如果没有则判定为全量查询，如果有，判定为分页查询
+	// TODO: 判断方法略显粗糙，后续优化
+	// 分页查询
+	if pageOption.Page != 0 {
+		if pageOption.Page < 0 {
+			pageOption.Page = page
+		}
+		if pageOption.Limit <= 0 {
+			pageOption.Limit = pageSize
+		}
+		cloudObjs, total, err := c.factory.Cloud().PageList(ctx, pageOption.Page, pageOption.Limit)
+		if err != nil {
+			log.Logger.Errorf("failed to page %d limit %d list  clouds: %v", pageOption.Page, pageOption.Limit, err)
+			return nil, err
+		}
+		// 类型转换
+		for _, cloudObj := range cloudObjs {
+			cs = append(cs, *c.model2Type(&cloudObj))
+		}
+
+		pageClouds := make(map[string]interface{})
+		pageClouds["data"] = cs
+		pageClouds["total"] = total
+		return pageClouds, nil
+	}
+
+	// 全量查询
 	cloudObjs, err := c.factory.Cloud().List(ctx)
 	if err != nil {
 		log.Logger.Errorf("failed to list clouds: %v", err)
 		return nil, err
 	}
-	var cs []types.Cloud
 	for _, cloudObj := range cloudObjs {
 		cs = append(cs, *c.model2Type(&cloudObj))
 	}
@@ -145,7 +216,7 @@ func (c *cloud) List(ctx context.Context) ([]types.Cloud, error) {
 	return cs, nil
 }
 
-func (c *cloud) Init() error {
+func (c *cloud) Load() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
@@ -155,7 +226,11 @@ func (c *cloud) Init() error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
-		clientSet, err := c.newClientSet([]byte(cloudObj.KubeConfig))
+		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
+		if err != nil {
+			return err
+		}
+		clientSet, err := c.newClientSet(kubeConfig)
 		if err != nil {
 			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
 			return err
@@ -180,6 +255,10 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		Id:          obj.Id,
 		Name:        obj.Name,
 		Status:      obj.Status,
+		CloudType:   obj.CloudType,
+		KubeVersion: obj.KubeVersion,
+		NodeNumber:  obj.NodeNumber,
+		Resources:   obj.Resources,
 		Description: obj.Description,
 		TimeSpec: types.TimeSpec{
 			GmtCreate:   obj.GmtCreate.Format(timeLayout),

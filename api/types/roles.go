@@ -14,18 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package httpstatus
+package types
 
-import "errors"
+// TODO: 临时参数定义，后续优化
 
-var (
-	ParamsError        = errors.New("参数错误")
-	OperateFailed      = errors.New("操作失败")
-	NoPermission       = errors.New("无权限")
-	InnerError         = errors.New("inner error")
-	NoUserIdError      = errors.New("请登录")
-	RoleExistError     = errors.New("角色已存在")
-	RoleNotExistError  = errors.New("角色不存在")
-	MenusExistError    = errors.New("权限已存在")
-	MenusNtoExistError = errors.New("权限不存在")
-)
+type Menus struct {
+	MenuIDS []int64 `json:"menu_ids"`
+}
+
+type Roles struct {
+	RoleIds []int64 `json:"role_ids"`
+}
