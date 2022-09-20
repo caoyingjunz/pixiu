@@ -98,7 +98,7 @@ func (c *nodes) object2Type(node v1.Node) types.Node {
 	nodeInfo := nodeStatus.NodeInfo
 
 	// 获取创建时间
-	age := node.CreationTimestamp.Format("2006-01-02")
+	createAt := node.CreationTimestamp.Format("2006-01-02 15:04:05")
 	// 获取 roles
 	for label := range node.Labels {
 		if strings.HasPrefix(label, labelNodeRole) {
@@ -129,7 +129,7 @@ func (c *nodes) object2Type(node v1.Node) types.Node {
 		Name:             node.Name,
 		Status:           status,
 		Roles:            strings.Join(roles, ","),
-		Age:              age,
+		CreateAt:         createAt,
 		Version:          nodeInfo.KubeletVersion,
 		InternalIP:       internalIP,
 		OsImage:          nodeInfo.OSImage,
