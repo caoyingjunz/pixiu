@@ -122,9 +122,8 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 	kubeConfig.Config = string(configByte)
 	kubeConfig.ExpirationTimestamp = token.Status.ExpirationTimestamp.String()
 
-	// 写库
+	// 写库, kubeConfig 内容进行加密
 	obj := c.type2Model(kubeConfig)
-	// kubeConfig 内容进行加密
 	obj.Config, err = cipher.Encrypt(configByte)
 	if err != nil {
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
@@ -243,7 +242,7 @@ func (c *kubeConfigs) List(ctx context.Context, cloudName string) ([]types.KubeC
 		return nil, clientError
 	}
 
-	var kubeConfigs []types.KubeConfig
+	var kcs []types.KubeConfig
 	objs, err := c.factory.KubeConfig().List(ctx, cloudName)
 	if err != nil {
 		log.Logger.Errorf("failed to list kubeConfig: %v", err)
@@ -257,68 +256,88 @@ func (c *kubeConfigs) List(ctx context.Context, cloudName string) ([]types.KubeC
 		}
 		kubeConfig := c.model2Type(&obj)
 		kubeConfig.Config = string(configByte)
-		kubeConfigs = append(kubeConfigs, *kubeConfig)
+		kcs = append(kcs, *kubeConfig)
 	}
 
-	return kubeConfigs, nil
+	return kcs, nil
 }
 
-type (
-	kubeconfig struct {
-		APIVersion     string              `yaml:"apiVersion"`
-		Kind           string              `yaml:"kind"`
-		CurrentContext string              `yaml:"current-context"`
-		Clusters       []kubeconfigCluster `yaml:"clusters"`
-		Contexts       []kubeconfigContext `yaml:"contexts"`
-		Users          []kubeconfigUser    `yaml:"users"`
-	}
-	kubeconfigCluster struct {
+type kubeconfig struct {
+	APIVersion     string `yaml:"apiVersion"`
+	Kind           string `yaml:"kind"`
+	CurrentContext string `yaml:"current-context"`
+	Clusters       []struct {
 		Name    string `yaml:"name"`
 		Cluster struct {
 			Server                   string `yaml:"server"`
 			CertificateAuthorityData string `yaml:"certificate-authority-data"`
 		} `yaml:"cluster"`
-	}
-
-	kubeconfigContext struct {
+	} `yaml:"clusters"`
+	Contexts []struct {
 		Name    string `yaml:"name"`
 		Context struct {
 			Cluster string `yaml:"cluster"`
 			User    string `yaml:"user"`
 		} `yaml:"context"`
-	}
-
-	kubeconfigUser struct {
+	} `yaml:"contexts"`
+	Users []struct {
 		Name string `yaml:"name"`
 		User struct {
 			Token string `yaml:"token"`
 		} `yaml:"user"`
-	}
-)
+	} `yaml:"users"`
+}
 
 func newConfig() *kubeconfig {
-	c := &kubeconfig{
+	return &kubeconfig{
 		APIVersion:     "v1",
 		Kind:           "Config",
 		CurrentContext: "kubernetes",
-		Contexts: []kubeconfigContext{
+		Clusters: []struct {
+			Name    string `yaml:"name"`
+			Cluster struct {
+				Server                   string `yaml:"server"`
+				CertificateAuthorityData string `yaml:"certificate-authority-data"`
+			} `yaml:"cluster"`
+		}{
 			{
 				Name: "kubernetes",
+				Cluster: struct {
+					Server                   string `yaml:"server"`
+					CertificateAuthorityData string `yaml:"certificate-authority-data"`
+				}{},
 			},
 		},
-		Clusters: []kubeconfigCluster{
+		Contexts: []struct {
+			Name    string `yaml:"name"`
+			Context struct {
+				Cluster string `yaml:"cluster"`
+				User    string `yaml:"user"`
+			} `yaml:"context"`
+		}{
 			{
 				Name: "kubernetes",
+				Context: struct {
+					Cluster string `yaml:"cluster"`
+					User    string `yaml:"user"`
+				}{
+					Cluster: "kubernetes",
+				},
 			},
 		},
-		Users: []kubeconfigUser{
+		Users: []struct {
+			Name string `yaml:"name"`
+			User struct {
+				Token string `yaml:"token"`
+			} `yaml:"user"`
+		}{
 			{
-				Name: "",
+				User: struct {
+					Token string `yaml:"token"`
+				}{},
 			},
 		},
 	}
-
-	return c
 }
 func (c *kubeconfig) setServer(server string) {
 	c.Clusters[0].Cluster.Server = server
@@ -357,6 +376,7 @@ func (c *kubeConfigs) createToken(ctx context.Context, saName string) (*authenti
 
 func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfig {
 	return &types.KubeConfig{
+		Id:                  m.Id,
 		CloudName:           m.CloudName,
 		ServiceAccount:      m.ServiceAccount,
 		ClusterRole:         m.ClusterRole,

@@ -137,6 +137,7 @@ type PageOptions struct {
 }
 
 type KubeConfig struct {
+	Id                  int64  `json:"id"`
 	CloudName           string `json:"cloud_name"`
 	ServiceAccount      string `json:"service_account"`
 	ClusterRole         string `json:"cluster_role"`
