@@ -122,7 +122,7 @@ type Node struct {
 	Name             string `json:"name"`
 	Status           string `json:"status"`
 	Roles            string `json:"roles"`
-	Age              string `json:"age"`
+	CreateAt         string `json:"create_at"`
 	Version          string `json:"version"`
 	InternalIP       string `json:"internal_ip"`
 	OsImage          string `json:"osImage"`
