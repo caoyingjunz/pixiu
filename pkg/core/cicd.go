@@ -17,11 +17,15 @@ limitations under the License.
 package core
 
 import (
+	"bytes"
 	"context"
+	"html/template"
+	"strings"
 	"time"
 
 	"github.com/bndr/gojenkins"
 
+	types2 "github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -34,7 +38,7 @@ type CicdGetter interface {
 
 type CicdInterface interface {
 	RunJob(ctx context.Context, name string) error
-	CreateJob(ctx context.Context, name interface{}) error
+	CreateJob(ctx context.Context, cicd types2.Cicd) error
 	DeleteJob(ctx context.Context, name string) error
 	DeleteViewJob(ctx context.Context, name string, viewname string) (bool, error)
 	AddViewJob(ctx context.Context, addViewJob string, name string) error
@@ -89,12 +93,26 @@ func (c *cicd) RunJob(ctx context.Context, name string) error {
 	return nil
 }
 
-func (c *cicd) CreateJob(ctx context.Context, name interface{}) error {
-	if _, err := c.cicdDriver.CreateJob(ctx, types.JobStringConfig, name); err != nil {
-		log.Logger.Errorf("failed to create job %s: %v", name, err)
-		return err
+func (c *cicd) CreateJob(ctx context.Context, cicd types2.Cicd) error {
+	buf := new(bytes.Buffer)
+	if cicd.Type == "PipLineStyle" {
+		temp, _ := template.New("test").Parse(types.PipLineStyleConfig)
+		temp.Execute(buf, cicd.Git)
+		//处理转义
+		p := strings.Replace(buf.String(), "&lt;", "<", -1)
+		if _, err := c.cicdDriver.CreateJob(ctx, p, cicd.Name); err != nil {
+			log.Logger.Errorf("failed to create job %s: %v", cicd.Name, err)
+			return err
+		}
+	} else {
+		temp, _ := template.New("test").Parse(types.FreeStyleConfig)
+		temp.Execute(buf, cicd.Git)
+		p := strings.Replace(buf.String(), "&lt;", "<", -1)
+		if _, err := c.cicdDriver.CreateJob(ctx, p, cicd.Name); err != nil {
+			log.Logger.Errorf("failed to create job %s: %v", cicd.Name, err)
+			return err
+		}
 	}
-
 	return nil
 }
 
