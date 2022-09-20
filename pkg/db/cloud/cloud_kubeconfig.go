@@ -10,7 +10,7 @@ import (
 )
 
 type KubeConfigInterface interface {
-	Create(ctx context.Context, obj *model.KubeConfig) error
+	Create(ctx context.Context, obj *model.KubeConfig) (*model.KubeConfig, error)
 	Update(ctx context.Context, kid, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, kid int64) error
 	Get(ctx context.Context, kid int64) (*model.KubeConfig, error)
@@ -25,15 +25,15 @@ func NewKubeConfig(db *gorm.DB) KubeConfigInterface {
 	return &kubeConfig{db}
 }
 
-func (s *kubeConfig) Create(ctx context.Context, obj *model.KubeConfig) error {
+func (s *kubeConfig) Create(ctx context.Context, obj *model.KubeConfig) (*model.KubeConfig, error) {
 	now := time.Now()
 	obj.GmtCreate = now
 	obj.GmtModified = now
 
 	if err := s.db.Create(obj).Error; err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return obj, nil
 }
 
 func (s *kubeConfig) Update(ctx context.Context, kid, resourceVersion int64, updates map[string]interface{}) error {

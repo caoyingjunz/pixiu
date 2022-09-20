@@ -129,11 +129,13 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return nil, err
 	}
-	if err = c.factory.KubeConfig().Create(ctx, obj); err != nil {
+	obj, err = c.factory.KubeConfig().Create(ctx, obj)
+	if err != nil {
 		log.Logger.Errorf("failed to create kubeConfig: %v", err)
 		return nil, err
 	}
 
+	kubeConfig.Id = obj.Id
 	return kubeConfig, nil
 }
 
