@@ -265,14 +265,14 @@ func (c *kubeConfigs) List(ctx context.Context, cloudName string) ([]types.KubeC
 
 type (
 	kubeconfig struct {
-		APIVersion     string               `yaml:"apiVersion"`
-		Kind           string               `yaml:"kind"`
-		CurrentContext string               `yaml:"current-context"`
-		Clusters       []kubeconfig_cluster `yaml:"clusters"`
-		Contexts       []kubeconfig_context `yaml:"contexts"`
-		Users          []kubeconfig_user    `yaml:"users"`
+		APIVersion     string              `yaml:"apiVersion"`
+		Kind           string              `yaml:"kind"`
+		CurrentContext string              `yaml:"current-context"`
+		Clusters       []kubeconfigCluster `yaml:"clusters"`
+		Contexts       []kubeconfigContext `yaml:"contexts"`
+		Users          []kubeconfigUser    `yaml:"users"`
 	}
-	kubeconfig_cluster struct {
+	kubeconfigCluster struct {
 		Name    string `yaml:"name"`
 		Cluster struct {
 			Server                   string `yaml:"server"`
@@ -280,7 +280,7 @@ type (
 		} `yaml:"cluster"`
 	}
 
-	kubeconfig_context struct {
+	kubeconfigContext struct {
 		Name    string `yaml:"name"`
 		Context struct {
 			Cluster string `yaml:"cluster"`
@@ -288,7 +288,7 @@ type (
 		} `yaml:"context"`
 	}
 
-	kubeconfig_user struct {
+	kubeconfigUser struct {
 		Name string `yaml:"name"`
 		User struct {
 			Token string `yaml:"token"`
@@ -301,17 +301,17 @@ func newConfig() *kubeconfig {
 		APIVersion:     "v1",
 		Kind:           "Config",
 		CurrentContext: "kubernetes",
-		Contexts: []kubeconfig_context{
+		Contexts: []kubeconfigContext{
 			{
 				Name: "kubernetes",
 			},
 		},
-		Clusters: []kubeconfig_cluster{
+		Clusters: []kubeconfigCluster{
 			{
 				Name: "kubernetes",
 			},
 		},
-		Users: []kubeconfig_user{
+		Users: []kubeconfigUser{
 			{
 				Name: "",
 			},
