@@ -135,3 +135,11 @@ type PageOptions struct {
 	Limit int `form:"limit"`
 	Page  int `form:"page"`
 }
+
+type KubeConfig struct {
+	CloudName           string `json:"cloud_name"`
+	ServiceAccount      string `json:"service_account"`
+	ClusterRole         string `json:"cluster_role"`
+	Config              string `json:"config"`
+	ExpirationTimestamp string `json:"expiration_timestamp"`
+}

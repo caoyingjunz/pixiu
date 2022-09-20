@@ -22,6 +22,7 @@ require (
 	golang.org/x/sys v0.0.0-20220818161305-2296e01440c6 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/driver/mysql v1.3.6
 	gorm.io/gorm v1.23.8
 	k8s.io/api v0.21.2

@@ -18,13 +18,8 @@ package core
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
-	authenticationv1 "k8s.io/api/authentication/v1"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -53,7 +48,7 @@ type CloudInterface interface {
 
 	Load() error // 加载已经存在的 cloud 客户端
 
-	KubeConfig(ctx context.Context, cloudName string) (string, error)
+	KubeConfigGetter
 
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
@@ -222,77 +217,6 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	return cs, nil
 }
 
-func (c *cloud) KubeConfig(ctx context.Context, cloudName string) (string, error) {
-	if len(cloudName) == 0 {
-		return "", fmt.Errorf("cloud_name is null")
-	}
-
-	var (
-		saName                  = "gopixiu" // TODO
-		serverAddr              = "https://39.100.127.217:6443"
-		clientSet               = clientSets.Get(cloudName)
-		expirationSeconds int64 = 2592000 // 1 month
-		namespace               = "kube-system"
-		sa                *corev1.ServiceAccount
-	)
-
-	// create sa
-	sa, err := clientSet.CoreV1().ServiceAccounts(namespace).Get(ctx, saName, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return "", err
-	} else if errors.IsNotFound(err) {
-		sa = &corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: saName,
-			},
-		}
-		if _, err = clientSet.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{}); err != nil {
-			return "", err
-		}
-
-		// TODO 当前只支持admin
-		clusterRoleBinding := &rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: saName,
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      "ServiceAccount",
-					Name:      saName,
-					Namespace: namespace,
-				},
-			},
-			RoleRef: rbacv1.RoleRef{
-				Kind: "ClusterRole",
-				Name: "cluster-admin",
-			},
-		}
-		if _, err = clientSet.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil {
-			return "", err
-		}
-	}
-
-	// ca
-	cm, err := clientSet.CoreV1().ConfigMaps(namespace).Get(context.TODO(), "kube-root-ca.crt", metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	ca := base64.StdEncoding.EncodeToString([]byte(cm.Data["ca.crt"]))
-
-	// create token
-	tokenRequest := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: &expirationSeconds,
-		},
-	}
-	token, err := clientSet.CoreV1().ServiceAccounts(namespace).CreateToken(ctx, saName, tokenRequest, metav1.CreateOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	return newKubeConfig(serverAddr, ca, saName, token.Status.Token), nil
-}
-
 func (c *cloud) Load() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
@@ -325,28 +249,6 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(kubeConfig)
-}
-
-func newKubeConfig(server, ca, user, token string) string {
-	const kubeConfigTpl = `apiVersion: v1
-kind: Config
-current-context: kubernetes
-clusters:
-- name: kubernetes
-  cluster:
-    server: %s
-    certificate-authority-data: %s
-contexts:
-- name: kubernetes
-  context:
-    cluster: kubernetes
-    user: %s
-users:
-- name: %s
-  user:
-    token: %s
-`
-	return fmt.Sprintf(kubeConfigTpl, server, ca, user, user, token)
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
