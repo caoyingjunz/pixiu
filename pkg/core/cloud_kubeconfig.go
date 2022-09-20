@@ -48,13 +48,9 @@ func NewKubeConfigs(client *kubernetes.Clientset, cloud string, factory db.Share
 	}
 }
 
-const (
-	namespace = "kube-system"
-)
+const namespace = "kube-system"
 
-var (
-	expirationSeconds int64 = 2592000 // 1 month
-)
+var expirationSeconds int64 = 2592000 // 1 month
 
 func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) (*types.KubeConfig, error) {
 	if c.client == nil {
@@ -71,7 +67,7 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		},
 	}
 	if _, err := c.client.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{}); err != nil {
-		log.Logger.Error(err)
+		log.Logger.Errorf("failed to create service account: %v", err)
 		return nil, err
 	}
 
@@ -93,21 +89,21 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		},
 	}
 	if _, err := c.client.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil {
-		log.Logger.Error(err)
+		log.Logger.Errorf("failed to create cluster role binding: %v", err)
 		return nil, err
 	}
 
 	// ca
 	ca, err := c.newCA()
 	if err != nil {
-		log.Logger.Error(err)
+		log.Logger.Errorf("failed to get ca: %v", err)
 		return nil, err
 	}
 
 	//  token
 	token, err := c.createToken(ctx, kubeConfig.ServiceAccount)
 	if err != nil {
-		log.Logger.Error(err)
+		log.Logger.Errorf("failed to get token: %v", err)
 		return nil, err
 	}
 
@@ -135,6 +131,7 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		return nil, err
 	}
 	if err = c.factory.KubeConfig().Create(ctx, obj); err != nil {
+		log.Logger.Errorf("failed to create kubeConfig: %v", err)
 		return nil, err
 	}
 
@@ -148,6 +145,7 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 	// 查库
 	obj, err := c.factory.KubeConfig().Get(ctx, kid)
 	if err != nil {
+		log.Logger.Errorf("failed to get kubeConfig: %v", err)
 		return nil, err
 	}
 	// 解密
@@ -159,11 +157,13 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 	// config 对象
 	config := newConfig()
 	if err = yaml.Unmarshal(configByte, config); err != nil {
+		log.Logger.Error(err)
 		return nil, err
 	}
 	// 生成 token
 	token, err := c.createToken(ctx, obj.ServiceAccount)
 	if err != nil {
+		log.Logger.Errorf("failed to get token: %v", err)
 		return nil, err
 	}
 	config.setSA(obj.ServiceAccount, token.Status.Token)
@@ -171,6 +171,7 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 	// 写库
 	newConfigByte, err := yaml.Marshal(config)
 	if err != nil {
+		log.Logger.Error(err)
 		return nil, err
 	}
 	newConfigEncryptStr, err := cipher.Encrypt(newConfigByte)
@@ -178,10 +179,10 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return nil, err
 	}
-	// TODO resourceVersion
-	if err = c.factory.KubeConfig().Update(ctx, kid, 0,
+	if err = c.factory.KubeConfig().Update(ctx, kid, obj.ResourceVersion+1,
 		map[string]interface{}{"config": newConfigEncryptStr},
 	); err != nil {
+		log.Logger.Errorf("failed to update kubeConfig: %v", err)
 		return nil, err
 	}
 
@@ -202,12 +203,15 @@ func (c *kubeConfigs) Delete(ctx context.Context, kid int64) error {
 		return err
 	}
 	if err = c.client.RbacV1().ClusterRoleBindings().Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete cluster role binding: %v", err)
 		return err
 	}
 	if err = c.client.CoreV1().ServiceAccounts(namespace).Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete service account: %v", err)
 		return err
 	}
 	if err = c.factory.KubeConfig().Delete(ctx, kid); err != nil {
+		log.Logger.Errorf("failed to delete kubeConfig: %v", err)
 		return err
 	}
 
@@ -220,6 +224,7 @@ func (c *kubeConfigs) Get(ctx context.Context, kid int64) (*types.KubeConfig, er
 	}
 	obj, err := c.factory.KubeConfig().Get(ctx, kid)
 	if err != nil {
+		log.Logger.Errorf("failed to get kubeConfig: %v", err)
 		return nil, err
 	}
 	configByte, err := cipher.Decrypt(obj.Config)
@@ -241,6 +246,7 @@ func (c *kubeConfigs) List(ctx context.Context, cloudName string) ([]types.KubeC
 	var kubeConfigs []types.KubeConfig
 	objs, err := c.factory.KubeConfig().List(ctx, cloudName)
 	if err != nil {
+		log.Logger.Errorf("failed to list kubeConfig: %v", err)
 		return nil, err
 	}
 	for _, obj := range objs {
