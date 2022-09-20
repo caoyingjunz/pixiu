@@ -52,12 +52,6 @@ type GetOrDeleteOptions struct {
 	ObjectName string `uri:"object_name" binding:"required"`
 }
 
-type GetOrDeleteOptionsForEvents struct {
-	ListOptions `json:",inline"`
-	Workload    string `uri:"workload" binding:"required"`
-	ObjectName  string `uri:"object_name" binding:"required"`
-}
-
 type GetOrCreateOptions struct {
 	ListOptions `json:",inline,omitempty"`
 
