@@ -110,7 +110,7 @@ func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) 
 	if err := u.db.Where("name = ?", name).First(&obj).Error; err != nil {
 		return nil, err
 	}
-	
+
 	return &obj, nil
 }
 
