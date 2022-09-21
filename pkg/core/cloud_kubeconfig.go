@@ -18,6 +18,8 @@ package core
 
 import (
 	"context"
+	"strconv"
+	"time"
 
 	"gopkg.in/yaml.v2"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -66,9 +68,25 @@ func NewKubeConfigs(client *kubernetes.Clientset, cloud string, factory db.Share
 
 const namespace = "kube-system"
 
+// preCreate 创建前检查, 默认权限为 cluster-admin
+func (c *kubeConfigs) preCreate(ctx context.Context, kubeConfig *types.KubeConfig) error {
+	if len(kubeConfig.ServiceAccount) == 0 {
+		kubeConfig.ServiceAccount = strconv.FormatInt(time.Now().Unix(), 10)
+	}
+	if len(kubeConfig.ClusterRole) == 0 {
+		kubeConfig.ClusterRole = "cluster-admin"
+	}
+
+	return nil
+}
+
 func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) (*types.KubeConfig, error) {
 	if c.client == nil {
 		return nil, clientError
+	}
+	// 创建前检查
+	if err := c.preCreate(ctx, kubeConfig); err != nil {
+		return nil, err
 	}
 	// 获取集群信息
 	cloudObj, err := c.factory.Cloud().GetByName(ctx, kubeConfig.CloudName)
