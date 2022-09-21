@@ -68,6 +68,13 @@ type Demo struct {
 	Name            string `json:"name"`
 }
 
+type Git struct {
+	GitUrl        string `json:"gitUrl,omitempty"`
+	Branch        string `json:"branch,omitempty"`
+	CredentialsId string `json:"credentialsId,omitempty""`
+	ScriptPath    string `json:"scriptPath,omitempty"`
+}
+
 type Cicd struct {
 	Name     string `json:"name,omitempty"`
 	OldName  string `json:"oldName,omitempty"`
@@ -75,6 +82,8 @@ type Cicd struct {
 	ViewName string `json:"viewname,omitempty"`
 	Version  string `json:"version,omitempty"`
 	Type     string `json:"type,omitempty"`
+
+	Git
 }
 
 type User struct {
@@ -123,7 +132,7 @@ type Node struct {
 	Name             string `json:"name"`
 	Status           string `json:"status"`
 	Roles            string `json:"roles"`
-	Age              string `json:"age"`
+	CreateAt         string `json:"create_at"`
 	Version          string `json:"version"`
 	InternalIP       string `json:"internal_ip"`
 	OsImage          string `json:"osImage"`

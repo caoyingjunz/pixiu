@@ -14,18 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package httpstatus
+package menu
 
-import "errors"
+import "github.com/gin-gonic/gin"
 
-var (
-	ParamsError        = errors.New("参数错误")
-	OperateFailed      = errors.New("操作失败")
-	NoPermission       = errors.New("无权限")
-	InnerError         = errors.New("inner error")
-	NoUserIdError      = errors.New("请登录")
-	RoleExistError     = errors.New("角色已存在")
-	RoleNotExistError  = errors.New("角色不存在")
-	MenusExistError    = errors.New("权限已存在")
-	MenusNtoExistError = errors.New("权限不存在")
-)
+type menuRouter struct{}
+
+func NewMenuRouter(ginEngine *gin.Engine) {
+	u := &menuRouter{}
+	u.initRoutes(ginEngine)
+}
+
+func (m *menuRouter) initRoutes(ginEngine *gin.Engine) {
+	menuRoute := ginEngine.Group("/menus")
+	{
+		menuRoute.POST("", m.addMenu)
+		menuRoute.PUT("/:id", m.updateMenu)
+		menuRoute.DELETE("/:id", m.deleteMenu)
+		menuRoute.GET("/:id", m.getMenu)
+		menuRoute.GET("", m.listMenus)
+	}
+}
