@@ -91,9 +91,9 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.listDaemonsets)
 
 		//Ingress API
-		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress", s.listIngress)
 		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)
-		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.getIngress)
 		cloudRoute.DELETE("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.deleteIngress)
+		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.getIngress)
+		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress", s.listIngress)	
 	}
 }
