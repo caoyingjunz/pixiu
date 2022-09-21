@@ -93,7 +93,6 @@ func (c *cicd) RunJob(ctx context.Context, name string) error {
 	return nil
 }
 
-
 func (c *cicd) CreateJob(ctx context.Context, cicd types2.Cicd) error {
 	buf := new(bytes.Buffer)
 	if cicd.Type == "PipLineStyle" {
