@@ -19,11 +19,11 @@ package cicd
 import (
 	"context"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-
-	"github.com/gin-gonic/gin"
 )
 
 func (s *cicdRouter) runJob(c *gin.Context) {
