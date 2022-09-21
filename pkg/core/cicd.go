@@ -18,11 +18,11 @@ package core
 
 import (
 	"context"
-	"github.com/caoyingjunz/gopixiu/pkg/types"
 	"time"
 
 	"github.com/bndr/gojenkins"
-
+	
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
