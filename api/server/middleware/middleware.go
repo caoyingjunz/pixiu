@@ -18,8 +18,9 @@ package middleware
 
 import (
 	"fmt"
-	"net/http"
 	"os"
+
+	"net/http"
 	"strings"
 	"time"
 

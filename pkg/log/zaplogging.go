@@ -25,7 +25,7 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func TimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {

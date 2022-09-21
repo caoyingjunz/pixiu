@@ -90,7 +90,6 @@ func (s *cloudRouter) deleteNamespace(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
-
 func (s *cloudRouter) getNamespace(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (

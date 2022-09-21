@@ -2,7 +2,6 @@ package cloud
 
 import (
 	"context"
-
 	"github.com/gin-gonic/gin"
 	batchv1 "k8s.io/api/batch/v1"
 

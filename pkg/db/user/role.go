@@ -106,7 +106,6 @@ func (r *role) List(c context.Context) (roles *[]model.Role, err error) {
 	res := getTreeRoles(*roles, 0)
 	return &res, err
 }
-
 func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error) {
 	var menus []model.Menu
 	err := r.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name, menus.url, menus.icon,menus.sequence,menus.code,menus.method").
