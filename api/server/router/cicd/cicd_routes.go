@@ -50,7 +50,7 @@ func (s *cicdRouter) createJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
+	
 	if err := pixiu.CoreV1.Cicd().CreateJob(context.TODO(), cicd); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
