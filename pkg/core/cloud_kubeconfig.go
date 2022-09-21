@@ -18,12 +18,12 @@ package core
 
 import (
 	"context"
-	"encoding/base64"
 
 	"gopkg.in/yaml.v2"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -66,28 +66,38 @@ func NewKubeConfigs(client *kubernetes.Clientset, cloud string, factory db.Share
 
 const namespace = "kube-system"
 
-var expirationSeconds int64 = 2592000 // 1 month
-
 func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) (*types.KubeConfig, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
+	// 获取集群信息
+	cloudObj, err := c.factory.Cloud().GetByName(ctx, kubeConfig.CloudName)
+	if err != nil {
+		return nil, err
+	}
+	// 解密集群 config
+	cloudConfigByte, err := cipher.Decrypt(cloudObj.KubeConfig)
+	if err != nil {
+		log.Logger.Errorf("failed to Decrypt cloud KubeConfig: %v", err)
+		return nil, err
+	}
+	cloudConfig := newConfig()
+	if err = yaml.Unmarshal(cloudConfigByte, cloudConfig); err != nil {
+		return nil, err
+	}
 
-	// TODO
-	serverAddr := "https://39.100.127.217:6443"
-
-	// sa
+	// 创建 service account
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: kubeConfig.ServiceAccount,
 		},
 	}
-	if _, err := c.client.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{}); err != nil {
+	if _, err = c.client.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{}); err != nil {
 		log.Logger.Errorf("failed to create service account: %v", err)
 		return nil, err
 	}
 
-	// cluster role binding
+	// 创建 cluster role binding
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: kubeConfig.ServiceAccount,
@@ -104,26 +114,22 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 			Name: kubeConfig.ClusterRole,
 		},
 	}
-	if _, err := c.client.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil {
+	if _, err = c.client.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil {
 		log.Logger.Errorf("failed to create cluster role binding: %v", err)
 		return nil, err
 	}
 
-	// ca
-	ca, err := c.newCA()
-	if err != nil {
-		log.Logger.Errorf("failed to get ca: %v", err)
-		return nil, err
-	}
-
-	//  token
+	// 获取server地址, ca
+	serverAddr := cloudConfig.Clusters[0].Cluster.Server
+	ca := cloudConfig.Clusters[0].Cluster.CertificateAuthorityData
+	// 生成token
 	token, err := c.createToken(ctx, kubeConfig.ServiceAccount)
 	if err != nil {
 		log.Logger.Errorf("failed to get token: %v", err)
 		return nil, err
 	}
 
-	// 生成config
+	// 生成 config
 	config := newConfig()
 	config.setServer(serverAddr)
 	config.setCA(ca)
@@ -134,7 +140,6 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		return nil, err
 	}
 
-	kubeConfig.CloudName = c.cloud
 	kubeConfig.Config = string(configByte)
 	kubeConfig.ExpirationTimestamp = token.Status.ExpirationTimestamp.String()
 
@@ -150,8 +155,8 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		log.Logger.Errorf("failed to create kubeConfig: %v", err)
 		return nil, err
 	}
-
 	kubeConfig.Id = obj.Id
+
 	return kubeConfig, nil
 }
 
@@ -159,25 +164,24 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 	if c.client == nil {
 		return nil, clientError
 	}
-	// 查库
 	obj, err := c.factory.KubeConfig().Get(ctx, kid)
 	if err != nil {
 		log.Logger.Errorf("failed to get kubeConfig: %v", err)
 		return nil, err
 	}
-	// 解密
+	// 解密 config
 	configByte, err := cipher.Decrypt(obj.Config)
 	if err != nil {
 		log.Logger.Errorf("failed to decrypt kubeConfig: %v", err)
 		return nil, err
 	}
-	// config 对象
+	// 生成 config 对象
 	config := newConfig()
 	if err = yaml.Unmarshal(configByte, config); err != nil {
 		log.Logger.Error(err)
 		return nil, err
 	}
-	// 生成 token
+	// 设置新token
 	token, err := c.createToken(ctx, obj.ServiceAccount)
 	if err != nil {
 		log.Logger.Errorf("failed to get token: %v", err)
@@ -185,7 +189,7 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 	}
 	config.setSA(obj.ServiceAccount, token.Status.Token)
 
-	// 写库
+	// 写库, kubeConfig 内容进行加密
 	newConfigByte, err := yaml.Marshal(config)
 	if err != nil {
 		log.Logger.Error(err)
@@ -214,16 +218,15 @@ func (c *kubeConfigs) Delete(ctx context.Context, kid int64) error {
 	if c.client == nil {
 		return clientError
 	}
-
 	obj, err := c.factory.KubeConfig().Get(ctx, kid)
 	if err != nil {
 		return err
 	}
-	if err = c.client.RbacV1().ClusterRoleBindings().Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil {
+	if err = c.client.RbacV1().ClusterRoleBindings().Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 		log.Logger.Errorf("failed to delete cluster role binding: %v", err)
 		return err
 	}
-	if err = c.client.CoreV1().ServiceAccounts(namespace).Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil {
+	if err = c.client.CoreV1().ServiceAccounts(namespace).Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 		log.Logger.Errorf("failed to delete service account: %v", err)
 		return err
 	}
@@ -259,8 +262,7 @@ func (c *kubeConfigs) List(ctx context.Context, cloudName string) ([]types.KubeC
 	if c.client == nil {
 		return nil, clientError
 	}
-
-	var kcs []types.KubeConfig
+	var configs []types.KubeConfig
 	objs, err := c.factory.KubeConfig().List(ctx, cloudName)
 	if err != nil {
 		log.Logger.Errorf("failed to list kubeConfig: %v", err)
@@ -274,10 +276,47 @@ func (c *kubeConfigs) List(ctx context.Context, cloudName string) ([]types.KubeC
 		}
 		kubeConfig := c.model2Type(&obj)
 		kubeConfig.Config = string(configByte)
-		kcs = append(kcs, *kubeConfig)
+		configs = append(configs, *kubeConfig)
 	}
 
-	return kcs, nil
+	return configs, nil
+}
+
+// createToken 默认token有效期一个月
+func (c *kubeConfigs) createToken(ctx context.Context, saName string) (*authenticationv1.TokenRequest, error) {
+	var expirationSeconds int64 = 2592000 // 1 month
+	tokenRequest := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			ExpirationSeconds: &expirationSeconds,
+		},
+	}
+	token, err := c.client.CoreV1().ServiceAccounts(namespace).CreateToken(ctx, saName, tokenRequest, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return token, nil
+}
+
+func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfig {
+	return &types.KubeConfig{
+		Id:                  m.Id,
+		CloudName:           m.CloudName,
+		ServiceAccount:      m.ServiceAccount,
+		ClusterRole:         m.ClusterRole,
+		Config:              m.Config,
+		ExpirationTimestamp: m.ExpirationTimestamp,
+	}
+}
+
+func (c *kubeConfigs) type2Model(t *types.KubeConfig) *model.KubeConfig {
+	return &model.KubeConfig{
+		CloudName:           t.CloudName,
+		ServiceAccount:      t.ServiceAccount,
+		ClusterRole:         t.ClusterRole,
+		Config:              t.Config,
+		ExpirationTimestamp: t.ExpirationTimestamp,
+	}
 }
 
 type kubeconfig struct {
@@ -357,58 +396,17 @@ func newConfig() *kubeconfig {
 		},
 	}
 }
+
 func (c *kubeconfig) setServer(server string) {
 	c.Clusters[0].Cluster.Server = server
 }
+
 func (c *kubeconfig) setCA(ca string) {
 	c.Clusters[0].Cluster.CertificateAuthorityData = ca
 }
+
 func (c *kubeconfig) setSA(saName, saToken string) {
 	c.Contexts[0].Context.User = saName
 	c.Users[0].Name = saName
 	c.Users[0].User.Token = saToken
-}
-
-func (c *kubeConfigs) newCA() (string, error) {
-	cm, err := c.client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), "kube-root-ca.crt", metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString([]byte(cm.Data["ca.crt"])), nil
-}
-
-func (c *kubeConfigs) createToken(ctx context.Context, saName string) (*authenticationv1.TokenRequest, error) {
-	tokenRequest := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: &expirationSeconds,
-		},
-	}
-	token, err := c.client.CoreV1().ServiceAccounts(namespace).CreateToken(ctx, saName, tokenRequest, metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return token, nil
-}
-
-func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfig {
-	return &types.KubeConfig{
-		Id:                  m.Id,
-		CloudName:           m.CloudName,
-		ServiceAccount:      m.ServiceAccount,
-		ClusterRole:         m.ClusterRole,
-		Config:              m.Config,
-		ExpirationTimestamp: m.ExpirationTimestamp,
-	}
-}
-
-func (c *kubeConfigs) type2Model(t *types.KubeConfig) *model.KubeConfig {
-	return &model.KubeConfig{
-		CloudName:           t.CloudName,
-		ServiceAccount:      t.ServiceAccount,
-		ClusterRole:         t.ClusterRole,
-		Config:              t.Config,
-		ExpirationTimestamp: t.ExpirationTimestamp,
-	}
 }
