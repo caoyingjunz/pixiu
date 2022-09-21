@@ -31,6 +31,7 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
+	"github.com/caoyingjunz/gopixiu/pkg/db/user"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
@@ -149,6 +150,13 @@ func (o *Options) registerDatabase() error {
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 
 	o.Factory = db.NewDaoFactory(o.DB)
+
+	// TODO：优化
+	// 注册 policy
+	if err = user.InitPolicyEnforcer(o.DB); err != nil {
+		return err
+	}
+
 	return nil
 }
 
