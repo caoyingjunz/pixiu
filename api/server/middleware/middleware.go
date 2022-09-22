@@ -127,7 +127,7 @@ func AuthN(c *gin.Context) {
 
 	accessToken := fields[1]
 	jwtKey := pixiu.CoreV1.User().GetJWTKey()
-	claims, err := httputils.ParseToken(accessToken, []byte(jwtKey))
+	claims, err := httputils.ParseToken(accessToken, jwtKey)
 	if err != nil {
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, err)
