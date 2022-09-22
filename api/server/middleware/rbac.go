@@ -28,7 +28,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func Authentication() gin.HandlerFunc {
+func Rbac() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if path == "/users/login" {
