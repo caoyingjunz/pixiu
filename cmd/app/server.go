@@ -28,7 +28,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
-	_ "github.com/caoyingjunz/gopixiu/api/docs"
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
