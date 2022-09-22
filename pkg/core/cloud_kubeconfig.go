@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -99,11 +100,10 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		log.Logger.Errorf("failed to Decrypt cloud KubeConfig: %v", err)
 		return nil, err
 	}
-	cloudConfig := newConfig()
+	cloudConfig := newKubeConfig()
 	if err = yaml.Unmarshal(cloudConfigByte, cloudConfig); err != nil {
 		return nil, err
 	}
-
 	// 创建 service account
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -114,7 +114,6 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		log.Logger.Errorf("failed to create service account: %v", err)
 		return nil, err
 	}
-
 	// 创建 cluster role binding
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -136,31 +135,24 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		log.Logger.Errorf("failed to create cluster role binding: %v", err)
 		return nil, err
 	}
-
 	// 获取server地址, ca
-	serverAddr := cloudConfig.Clusters[0].Cluster.Server
-	ca := cloudConfig.Clusters[0].Cluster.CertificateAuthorityData
+	serverUrl := cloudConfig.Clusters[0].Cluster.Server
+	caCert := cloudConfig.Clusters[0].Cluster.CertificateAuthorityData
 	// 生成token
 	token, err := c.createToken(ctx, kubeConfig.ServiceAccount)
 	if err != nil {
 		log.Logger.Errorf("failed to get token: %v", err)
 		return nil, err
 	}
-
 	// 生成 config
-	config := newConfig()
-	config.setServer(serverAddr)
-	config.setCA(ca)
-	config.setSA(kubeConfig.ServiceAccount, token.Status.Token)
+	config := createKubeConfigWithToken(kubeConfig.CloudName, serverUrl, caCert, kubeConfig.ServiceAccount, token.Status.Token)
 	configByte, err := yaml.Marshal(config)
 	if err != nil {
 		log.Logger.Error(err)
 		return nil, err
 	}
-
 	kubeConfig.Config = string(configByte)
 	kubeConfig.ExpirationTimestamp = token.Status.ExpirationTimestamp.String()
-
 	// 写库, kubeConfig 内容进行加密
 	obj := c.type2Model(kubeConfig)
 	obj.Config, err = cipher.Encrypt(configByte)
@@ -194,7 +186,7 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 		return nil, err
 	}
 	// 生成 config 对象
-	config := newConfig()
+	config := newKubeConfig()
 	if err = yaml.Unmarshal(configByte, config); err != nil {
 		log.Logger.Error(err)
 		return nil, err
@@ -205,8 +197,7 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 		log.Logger.Errorf("failed to get token: %v", err)
 		return nil, err
 	}
-	config.setSA(obj.ServiceAccount, token.Status.Token)
-
+	config.refreshToken(token.Status.Token)
 	// 写库, kubeConfig 内容进行加密
 	newConfigByte, err := yaml.Marshal(config)
 	if err != nil {
@@ -337,7 +328,7 @@ func (c *kubeConfigs) type2Model(t *types.KubeConfig) *model.KubeConfig {
 	}
 }
 
-type kubeconfig struct {
+type Config struct {
 	APIVersion     string `yaml:"apiVersion"`
 	Kind           string `yaml:"kind"`
 	CurrentContext string `yaml:"current-context"`
@@ -363,11 +354,10 @@ type kubeconfig struct {
 	} `yaml:"users"`
 }
 
-func newConfig() *kubeconfig {
-	return &kubeconfig{
-		APIVersion:     "v1",
-		Kind:           "Config",
-		CurrentContext: "kubernetes",
+func newKubeConfig() *Config {
+	return &Config{
+		APIVersion: "v1",
+		Kind:       "Config",
 		Clusters: []struct {
 			Name    string `yaml:"name"`
 			Cluster struct {
@@ -376,7 +366,6 @@ func newConfig() *kubeconfig {
 			} `yaml:"cluster"`
 		}{
 			{
-				Name: "kubernetes",
 				Cluster: struct {
 					Server                   string `yaml:"server"`
 					CertificateAuthorityData string `yaml:"certificate-authority-data"`
@@ -391,13 +380,10 @@ func newConfig() *kubeconfig {
 			} `yaml:"context"`
 		}{
 			{
-				Name: "kubernetes",
 				Context: struct {
 					Cluster string `yaml:"cluster"`
 					User    string `yaml:"user"`
-				}{
-					Cluster: "kubernetes",
-				},
+				}{},
 			},
 		},
 		Users: []struct {
@@ -415,16 +401,21 @@ func newConfig() *kubeconfig {
 	}
 }
 
-func (c *kubeconfig) setServer(server string) {
-	c.Clusters[0].Cluster.Server = server
+func createKubeConfigWithToken(clusterName, serverURL, caCert, userName, token string) *Config {
+	contextName := fmt.Sprintf("%s@%s", userName, clusterName)
+	config := newKubeConfig()
+	config.CurrentContext = contextName
+	config.Clusters[0].Name = clusterName
+	config.Clusters[0].Cluster.Server = serverURL
+	config.Clusters[0].Cluster.CertificateAuthorityData = caCert
+	config.Contexts[0].Name = contextName
+	config.Contexts[0].Context.Cluster = clusterName
+	config.Contexts[0].Context.User = userName
+	config.Users[0].Name = userName
+	config.Users[0].User.Token = token
+	return config
 }
 
-func (c *kubeconfig) setCA(ca string) {
-	c.Clusters[0].Cluster.CertificateAuthorityData = ca
-}
-
-func (c *kubeconfig) setSA(saName, saToken string) {
-	c.Contexts[0].Context.User = saName
-	c.Users[0].Name = saName
-	c.Users[0].User.Token = saToken
+func (c *Config) refreshToken(token string) {
+	c.Users[0].User.Token = token
 }
