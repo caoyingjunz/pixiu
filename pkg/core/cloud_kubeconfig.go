@@ -218,7 +218,7 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return nil, err
 	}
-	if err = c.factory.KubeConfig().Update(ctx, kid, obj.ResourceVersion+1,
+	if err = c.factory.KubeConfig().Update(ctx, kid, obj.ResourceVersion,
 		map[string]interface{}{"config": newConfigEncryptStr},
 	); err != nil {
 		log.Logger.Errorf("failed to update kubeConfig: %v", err)
