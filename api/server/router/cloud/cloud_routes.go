@@ -63,10 +63,8 @@ func (s *cloudRouter) updateCloud(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id   path      int  true  "Cloud ID"  Format(int64)
-// @Success      204  {object}  httputils.Response
+// @Success      200  {object}  httputils.Response
 // @Failure      400  {object}  httputils.Response
-// @Failure      404  {object}  httputils.Response
-// @Failure      500  {object}  httputils.Response
 // @Router       /clouds/{id} [delete]
 func (s *cloudRouter) deleteCloud(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -92,8 +90,6 @@ func (s *cloudRouter) deleteCloud(c *gin.Context) {
 // @Param        id   path      int  true  "Cloud ID" Format(int64)
 // @Success      200  {object}  httputils.Response
 // @Failure      400  {object}  httputils.Response
-// @Failure      404  {object}  httputils.Response
-// @Failure      500  {object}  httputils.Response
 // @Router       /clouds/{id} [get]
 func (s *cloudRouter) getCloud(c *gin.Context) {
 	r := httputils.NewResponse()
