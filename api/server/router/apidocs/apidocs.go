@@ -14,24 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package menu
+package apidocs
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+)
 
-type menuRouter struct{}
+// docsRouter is a router to talk with the docs controller
+type docsRouter struct{}
 
+// NewRouter initializes a new cloud router
 func NewRouter(ginEngine *gin.Engine) {
-	u := &menuRouter{}
-	u.initRoutes(ginEngine)
+	s := &docsRouter{}
+	s.initRoutes(ginEngine)
 }
 
-func (m *menuRouter) initRoutes(ginEngine *gin.Engine) {
-	menuRoute := ginEngine.Group("/menus")
+func (s *docsRouter) initRoutes(ginEngine *gin.Engine) {
+	apiRefRoute := ginEngine.Group("/api-ref")
+
 	{
-		menuRoute.POST("", m.addMenu)
-		menuRoute.PUT("/:id", m.updateMenu)
-		menuRoute.DELETE("/:id", m.deleteMenu)
-		menuRoute.GET("/:id", m.getMenu)
-		menuRoute.GET("", m.listMenus)
+		apiRefRoute.GET("/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 }

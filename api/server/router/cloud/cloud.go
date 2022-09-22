@@ -35,9 +35,9 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 	{
 		//  k8s cluster API
 		cloudRoute.POST("/:name", s.createCloud) // TODO: will optimise
-		cloudRoute.PUT("/:cid", s.updateCloud)
-		cloudRoute.DELETE("/:cid", s.deleteCloud)
-		cloudRoute.GET("/:cid", s.getCloud)
+		cloudRoute.PUT("/:id", s.updateCloud)
+		cloudRoute.DELETE("/:id", s.deleteCloud)
+		cloudRoute.GET("/:id", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
 
 		// Node API

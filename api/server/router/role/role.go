@@ -20,7 +20,7 @@ import "github.com/gin-gonic/gin"
 
 type roleRouter struct{}
 
-func NewRoleRouter(ginEngine *gin.Engine) {
+func NewRouter(ginEngine *gin.Engine) {
 	o := &roleRouter{}
 	o.initRoutes(ginEngine)
 }
