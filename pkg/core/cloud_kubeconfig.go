@@ -105,33 +105,12 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 		return nil, err
 	}
 	// 创建 service account
-	sa := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: kubeConfig.ServiceAccount,
-		},
-	}
-	if _, err = c.client.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{}); err != nil {
+	if err = c.createServiceAccount(ctx, kubeConfig.ServiceAccount); err != nil {
 		log.Logger.Errorf("failed to create service account: %v", err)
 		return nil, err
 	}
 	// 创建 cluster role binding
-	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: kubeConfig.ServiceAccount,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      kubeConfig.ServiceAccount,
-				Namespace: namespace,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: kubeConfig.ClusterRole,
-		},
-	}
-	if _, err = c.client.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil {
+	if err = c.createClusterRoleBinding(ctx, kubeConfig.ServiceAccount, kubeConfig.ClusterRole); err != nil {
 		log.Logger.Errorf("failed to create cluster role binding: %v", err)
 		return nil, err
 	}
@@ -191,7 +170,15 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 		log.Logger.Error(err)
 		return nil, err
 	}
-	// 设置新token
+	// 重建 service account
+	if err = c.client.CoreV1().ServiceAccounts(namespace).Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+		log.Logger.Errorf("failed to delete service account: %v", err)
+	}
+	if err = c.createServiceAccount(ctx, obj.ServiceAccount); err != nil {
+		log.Logger.Errorf("failed to create service account: %v", err)
+		return nil, err
+	}
+	// 创建 token
 	token, err := c.createToken(ctx, obj.ServiceAccount)
 	if err != nil {
 		log.Logger.Errorf("failed to get token: %v", err)
@@ -305,6 +292,43 @@ func (c *kubeConfigs) createToken(ctx context.Context, saName string) (*authenti
 	}
 
 	return token, nil
+}
+
+func (c *kubeConfigs) createServiceAccount(ctx context.Context, saName string) error {
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: saName,
+		},
+	}
+	if _, err := c.client.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *kubeConfigs) createClusterRoleBinding(ctx context.Context, saName, clusterRoleName string) error {
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: saName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      saName,
+				Namespace: namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: clusterRoleName,
+		},
+	}
+	if _, err := c.client.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfig {
