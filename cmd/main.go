@@ -21,7 +21,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	_ "github.com/caoyingjunz/gopixiu/api/docs"
 	"github.com/caoyingjunz/gopixiu/cmd/app"
 )
 
