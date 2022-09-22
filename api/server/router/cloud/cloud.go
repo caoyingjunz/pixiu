@@ -65,6 +65,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services/:object_name", s.getService)
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
 
+		// Event API
+		// TODO: 事件的搞笑，精细化输出
+		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/events", s.listEvents)
+
 		// Deployments API
 		// 创建 deployments
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
@@ -92,5 +96,11 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.deleteDaemonSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.getDaemonSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.listDaemonsets)
+
+		//Ingress API
+		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)
+		cloudRoute.DELETE("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.deleteIngress)
+		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.getIngress)
+		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress", s.listIngress)	
 	}
 }
