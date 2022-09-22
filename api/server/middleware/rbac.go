@@ -28,7 +28,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func Authentication() gin.HandlerFunc {
+func Rbac() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if path == "/users/login" {
@@ -46,7 +46,7 @@ func Authentication() gin.HandlerFunc {
 		method := c.Request.Method
 		enforcer := pixiu.CoreV1.Policy().GetEnforce()
 		if enforcer == nil {
-			log.Logger.Errorf("init casbin failed.")
+			log.Logger.Errorf("failed to get enforce.")
 			return
 		}
 		uidStr := strconv.FormatInt(uid.(int64), 10)

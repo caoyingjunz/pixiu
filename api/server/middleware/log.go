@@ -17,9 +17,29 @@ limitations under the License.
 package middleware
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
-func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20), Auth, Rbac())
+func LoggerToFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		startTime := time.Now()
+
+		// 处理请求操作
+		c.Next()
+
+		endTime := time.Now()
+
+		latencyTime := endTime.Sub(startTime)
+
+		reqMethod := c.Request.Method
+		reqUri := c.Request.RequestURI
+		statusCode := c.Writer.Status()
+		clientIp := c.ClientIP()
+
+		log.AccessLog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
+	}
 }

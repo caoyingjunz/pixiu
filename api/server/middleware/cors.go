@@ -17,9 +17,20 @@ limitations under the License.
 package middleware
 
 import (
+	"time"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20), Auth, Rbac())
+func Cors() gin.HandlerFunc {
+	c := cors.Config{
+		AllowAllOrigins: true,
+		AllowMethods:    []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
+		AllowHeaders:    []string{"Content-Type", "Access-Token", "Authorization"},
+		MaxAge:          6 * time.Hour,
+	}
+
+	return cors.New(c)
+
 }
