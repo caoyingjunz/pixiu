@@ -30,7 +30,6 @@ import (
 
 	_ "github.com/caoyingjunz/gopixiu/api/docs"
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
-	"github.com/caoyingjunz/gopixiu/api/server/router/apidocs"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/gopixiu/api/server/router/menu"
@@ -86,8 +85,6 @@ func InitRouters(opt *options.Options) {
 	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
 	role.NewRouter(opt.GinEngine)  // 注册 role 路由
 	menu.NewRouter(opt.GinEngine)  // 注册 menu 路由
-
-	apidocs.NewRouter(opt.GinEngine) // 注册 API docs
 }
 
 func Run(opt *options.Options) error {
