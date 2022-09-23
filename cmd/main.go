@@ -24,6 +24,18 @@ import (
 	"github.com/caoyingjunz/gopixiu/cmd/app"
 )
 
+// @title           Pixiu API Documentation
+// @version         1.0
+// @description     Use the Pixiu APIs to your cloud
+// @termsOfService  https://github.com/caoyingjunz/gopixiu
+
+// @contact.name   API Support
+// @contact.url    https://github.com/caoyingjunz/gopixiu
+// @contact.email  support@gopixiu.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 

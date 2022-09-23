@@ -35,9 +35,9 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 	{
 		//  k8s cluster API
 		cloudRoute.POST("/:name", s.createCloud) // TODO: will optimise
-		cloudRoute.PUT("/:cid", s.updateCloud)
-		cloudRoute.DELETE("/:cid", s.deleteCloud)
-		cloudRoute.GET("/:cid", s.getCloud)
+		cloudRoute.PUT("/:id", s.updateCloud)
+		cloudRoute.DELETE("/:id", s.deleteCloud)
+		cloudRoute.GET("/:id", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
 
 		// Node API
@@ -91,7 +91,17 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.getDaemonSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.listDaemonsets)
 
+
 		// Scale API
 		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/module/:module/:object_name", s.scaleMod)
+
+		// Pod API
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/pods/:object_name/logs", s.getLog)
+
+		//Ingress API
+		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)
+		cloudRoute.DELETE("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.deleteIngress)
+		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.getIngress)
+		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress", s.listIngress)
 	}
 }

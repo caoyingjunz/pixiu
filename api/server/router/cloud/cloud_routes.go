@@ -56,9 +56,19 @@ func (s *cloudRouter) updateCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// deleteCloud godoc
+// @Summary      Delete a cloud
+// @Description  Delete by cloud ID
+// @Tags         clouds
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Cloud ID"  Format(int64)
+// @Success      200  {object}  httputils.Response
+// @Failure      400  {object}  httputils.Response
+// @Router       /clouds/{id} [delete]
 func (s *cloudRouter) deleteCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-	cid, err := util.ParseInt64(c.Param("cid"))
+	cid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -71,9 +81,19 @@ func (s *cloudRouter) deleteCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// getCloud godoc
+// @Summary      Get a cloud
+// @Description  get string by ID
+// @Tags         clouds
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Cloud ID" Format(int64)
+// @Success      200  {object}  httputils.Response
+// @Failure      400  {object}  httputils.Response
+// @Router       /clouds/{id} [get]
 func (s *cloudRouter) getCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-	cid, err := util.ParseInt64(c.Param("cid"))
+	cid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

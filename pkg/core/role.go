@@ -55,6 +55,7 @@ func newRole(c *pixiu) *role {
 		factory: c.factory,
 	}
 }
+
 func (r *role) Create(c context.Context, obj *model.Role) (role *model.Role, err error) {
 	if role, err = r.factory.Role().Create(c, obj); err != nil {
 		log.Logger.Error(err)
@@ -103,6 +104,7 @@ func (r *role) List(c context.Context) (roles *[]model.Role, err error) {
 	}
 	return
 }
+
 func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error) {
 	menus, err := r.factory.Role().GetMenusByRoleID(c, rid)
 	if err != nil {
@@ -163,7 +165,7 @@ func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *mo
 	return
 }
 
-//CheckRoleIsExist 判断角色是否存在
+// CheckRoleIsExist 判断角色是否存在
 func (r *role) CheckRoleIsExist(ctx context.Context, name string) bool {
 	res, err := r.factory.Role().GetRoleByRoleName(ctx, name)
 	if err != nil {

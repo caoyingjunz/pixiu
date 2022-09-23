@@ -14,24 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package menu
+package middleware
 
-import "github.com/gin-gonic/gin"
+import (
+	"time"
 
-type menuRouter struct{}
+	"github.com/gin-gonic/gin"
 
-func NewRouter(ginEngine *gin.Engine) {
-	u := &menuRouter{}
-	u.initRoutes(ginEngine)
-}
+	"github.com/caoyingjunz/gopixiu/pkg/log"
+)
 
-func (m *menuRouter) initRoutes(ginEngine *gin.Engine) {
-	menuRoute := ginEngine.Group("/menus")
-	{
-		menuRoute.POST("", m.addMenu)
-		menuRoute.PUT("/:id", m.updateMenu)
-		menuRoute.DELETE("/:id", m.deleteMenu)
-		menuRoute.GET("/:id", m.getMenu)
-		menuRoute.GET("", m.listMenus)
+func LoggerToFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		startTime := time.Now()
+
+		// 处理请求操作
+		c.Next()
+
+		endTime := time.Now()
+
+		latencyTime := endTime.Sub(startTime)
+
+		reqMethod := c.Request.Method
+		reqUri := c.Request.RequestURI
+		statusCode := c.Writer.Status()
+		clientIp := c.ClientIP()
+
+		log.AccessLog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
 	}
 }
