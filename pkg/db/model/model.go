@@ -57,13 +57,13 @@ func (user *User) TableName() string {
 type KubeConfig struct {
 	gopixiu.Model
 
-	CloudName           string `gorm:"index:idx_cloud_name" json:"cloud_name"`
 	ServiceAccount      string `gorm:"unique" json:"service_account"`
+	CloudName           string `gorm:"index:idx_cloud_name" json:"cloud_name"`
 	ClusterRole         string `json:"cluster_role"`
 	Config              string `gorm:"type:text" json:"config"`
 	ExpirationTimestamp string `json:"expiration_timestamp"`
 }
 
 func (*KubeConfig) TableName() string {
-	return "cloud_kube_configs"
+	return "kube_configs"
 }

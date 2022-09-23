@@ -18,12 +18,13 @@ package cloud
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
-	"github.com/gin-gonic/gin"
 )
 
 func (s *cloudRouter) createKubeConfig(c *gin.Context) {
@@ -47,16 +48,15 @@ func (s *cloudRouter) createKubeConfig(c *gin.Context) {
 
 func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 	var (
-		r   = httputils.NewResponse()
-		err error
+		r                 = httputils.NewResponse()
+		err               error
+		kubeConfigOptions = new(types.KubeConfig)
 	)
-	cloudName := c.Param("cloud_name")
-	kid, err := util.ParseInt64(c.Param("kid"))
-	if err != nil {
+	if err = c.ShouldBindUri(kubeConfigOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudName).Update(context.TODO(), kid); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(kubeConfigOptions.CloudName).Update(context.TODO(), kubeConfigOptions.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -65,14 +65,15 @@ func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 }
 
 func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
-	r := httputils.NewResponse()
-	cloudName := c.Param("cloud_name")
-	kid, err := util.ParseInt64(c.Param("kid"))
-	if err != nil {
+	var (
+		r                 = httputils.NewResponse()
+		kubeConfigOptions = new(types.KubeConfig)
+	)
+	if err := c.ShouldBindUri(kubeConfigOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().KubeConfigs(cloudName).Delete(context.TODO(), kid); err != nil {
+	if err := pixiu.CoreV1.Cloud().KubeConfigs(kubeConfigOptions.CloudName).Delete(context.TODO(), kubeConfigOptions.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -82,16 +83,15 @@ func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 
 func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 	var (
-		r   = httputils.NewResponse()
-		err error
+		r                 = httputils.NewResponse()
+		err               error
+		kubeConfigOptions = new(types.KubeConfig)
 	)
-	cloudName := c.Param("cloud_name")
-	kid, err := util.ParseInt64(c.Param("kid"))
-	if err != nil {
+	if err = c.ShouldBindUri(kubeConfigOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudName).Get(context.TODO(), kid); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(kubeConfigOptions.CloudName).Get(context.TODO(), kubeConfigOptions.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -101,10 +101,14 @@ func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 
 func (s *cloudRouter) listKubeConfig(c *gin.Context) {
 	var (
-		r   = httputils.NewResponse()
-		err error
+		r         = httputils.NewResponse()
+		err       error
+		cloudName = c.Param("cloud_name")
 	)
-	cloudName := c.Param("cloud_name")
+	if len(cloudName) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
+		return
+	}
 	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudName).List(context.TODO(), cloudName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

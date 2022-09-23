@@ -27,9 +27,9 @@ import (
 
 type KubeConfigInterface interface {
 	Create(ctx context.Context, obj *model.KubeConfig) (*model.KubeConfig, error)
-	Update(ctx context.Context, kid, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, kid int64) error
-	Get(ctx context.Context, kid int64) (*model.KubeConfig, error)
+	Update(ctx context.Context, id, resourceVersion int64, updates map[string]interface{}) error
+	Delete(ctx context.Context, id int64) error
+	Get(ctx context.Context, id int64) (*model.KubeConfig, error)
 	List(ctx context.Context, cloudName string) ([]model.KubeConfig, error)
 }
 
@@ -52,12 +52,12 @@ func (s *kubeConfig) Create(ctx context.Context, obj *model.KubeConfig) (*model.
 	return obj, nil
 }
 
-func (s *kubeConfig) Update(ctx context.Context, kid, resourceVersion int64, updates map[string]interface{}) error {
+func (s *kubeConfig) Update(ctx context.Context, id, resourceVersion int64, updates map[string]interface{}) error {
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
 
 	f := s.db.Model(&model.KubeConfig{}).
-		Where("id = ? and resource_version = ?", kid, resourceVersion).
+		Where("id = ? and resource_version = ?", id, resourceVersion).
 		Updates(updates)
 	if f.Error != nil {
 		return f.Error
@@ -66,15 +66,15 @@ func (s *kubeConfig) Update(ctx context.Context, kid, resourceVersion int64, upd
 	return nil
 }
 
-func (s *kubeConfig) Delete(ctx context.Context, kid int64) error {
+func (s *kubeConfig) Delete(ctx context.Context, id int64) error {
 	return s.db.
-		Delete(&model.KubeConfig{}, kid).
+		Delete(&model.KubeConfig{}, id).
 		Error
 }
 
-func (s *kubeConfig) Get(ctx context.Context, kid int64) (*model.KubeConfig, error) {
+func (s *kubeConfig) Get(ctx context.Context, id int64) (*model.KubeConfig, error) {
 	var obj model.KubeConfig
-	if err := s.db.First(&obj, kid).Error; err != nil {
+	if err := s.db.First(&obj, id).Error; err != nil {
 		return nil, err
 	}
 

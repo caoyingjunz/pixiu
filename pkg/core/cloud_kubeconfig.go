@@ -47,9 +47,9 @@ type KubeConfigGetter interface {
 
 type KubeConfigInterface interface {
 	Create(ctx context.Context, kubeConfig *types.KubeConfig) (*types.KubeConfig, error)
-	Update(ctx context.Context, kid int64) (*types.KubeConfig, error)
-	Delete(ctx context.Context, kid int64) error
-	Get(ctx context.Context, kid int64) (*types.KubeConfig, error)
+	Update(ctx context.Context, id int64) (*types.KubeConfig, error)
+	Delete(ctx context.Context, id int64) error
+	Get(ctx context.Context, id int64) (*types.KubeConfig, error)
 	List(ctx context.Context, cloudName string) ([]types.KubeConfig, error)
 }
 
@@ -149,11 +149,11 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 	return kubeConfig, nil
 }
 
-func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig, error) {
+func (c *kubeConfigs) Update(ctx context.Context, id int64) (*types.KubeConfig, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
-	obj, err := c.factory.KubeConfig().Get(ctx, kid)
+	obj, err := c.factory.KubeConfig().Get(ctx, id)
 	if err != nil {
 		log.Logger.Errorf("failed to get kubeConfig: %v", err)
 		return nil, err
@@ -196,7 +196,7 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return nil, err
 	}
-	if err = c.factory.KubeConfig().Update(ctx, kid, obj.ResourceVersion,
+	if err = c.factory.KubeConfig().Update(ctx, id, obj.ResourceVersion,
 		map[string]interface{}{"config": newConfigEncryptStr},
 	); err != nil {
 		log.Logger.Errorf("failed to update kubeConfig: %v", err)
@@ -210,11 +210,11 @@ func (c *kubeConfigs) Update(ctx context.Context, kid int64) (*types.KubeConfig,
 	return kubeConfig, nil
 }
 
-func (c *kubeConfigs) Delete(ctx context.Context, kid int64) error {
+func (c *kubeConfigs) Delete(ctx context.Context, id int64) error {
 	if c.client == nil {
 		return clientError
 	}
-	obj, err := c.factory.KubeConfig().Get(ctx, kid)
+	obj, err := c.factory.KubeConfig().Get(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func (c *kubeConfigs) Delete(ctx context.Context, kid int64) error {
 		log.Logger.Errorf("failed to delete service account: %v", err)
 		return err
 	}
-	if err = c.factory.KubeConfig().Delete(ctx, kid); err != nil {
+	if err = c.factory.KubeConfig().Delete(ctx, id); err != nil {
 		log.Logger.Errorf("failed to delete kubeConfig: %v", err)
 		return err
 	}
@@ -234,11 +234,11 @@ func (c *kubeConfigs) Delete(ctx context.Context, kid int64) error {
 	return nil
 }
 
-func (c *kubeConfigs) Get(ctx context.Context, kid int64) (*types.KubeConfig, error) {
+func (c *kubeConfigs) Get(ctx context.Context, id int64) (*types.KubeConfig, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
-	obj, err := c.factory.KubeConfig().Get(ctx, kid)
+	obj, err := c.factory.KubeConfig().Get(ctx, id)
 	if err != nil {
 		log.Logger.Errorf("failed to get kubeConfig: %v", err)
 		return nil, err
