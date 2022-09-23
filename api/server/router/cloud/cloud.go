@@ -91,7 +91,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.listDaemonsets)
 
 		// Pod API
-		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/pods/:object_name/getLog", s.getLog)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/pods/:object_name/logs", s.getLog)
 
 		//Ingress API
 		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)
