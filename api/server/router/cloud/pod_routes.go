@@ -22,7 +22,6 @@ func (s *cloudRouter) getLog(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	err = c.ShouldBindQuery(&logsOptions)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
@@ -41,5 +40,4 @@ func (s *cloudRouter) getLog(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 }
