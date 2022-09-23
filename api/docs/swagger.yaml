@@ -1,0 +1,77 @@
+definitions:
+  httputils.Response:
+    properties:
+      code:
+        description: 返回的状态码
+        type: integer
+      message:
+        description: 异常返回时的错误信息
+        type: string
+      result:
+        description: 正常返回时的数据，可以为任意数据结构
+    type: object
+info:
+  contact:
+    email: support@gopixiu.io
+    name: API Support
+    url: https://github.com/caoyingjunz/gopixiu
+  description: Use the Pixiu APIs to your cloud
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: https://github.com/caoyingjunz/gopixiu
+  title: Pixiu API Documentation
+  version: "1.0"
+paths:
+  /clouds/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete by cloud ID
+      parameters:
+      - description: Cloud ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      summary: Delete a cloud
+      tags:
+      - clouds
+    get:
+      consumes:
+      - application/json
+      description: get string by ID
+      parameters:
+      - description: Cloud ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      summary: Get a cloud
+      tags:
+      - clouds
+swagger: "2.0"

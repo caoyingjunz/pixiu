@@ -14,24 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package menu
+package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
-type menuRouter struct{}
+	_ "github.com/caoyingjunz/gopixiu/api/docs"
+)
 
-func NewRouter(ginEngine *gin.Engine) {
-	u := &menuRouter{}
-	u.initRoutes(ginEngine)
-}
+func main() {
+	r := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
 
-func (m *menuRouter) initRoutes(ginEngine *gin.Engine) {
-	menuRoute := ginEngine.Group("/menus")
-	{
-		menuRoute.POST("", m.addMenu)
-		menuRoute.PUT("/:id", m.updateMenu)
-		menuRoute.DELETE("/:id", m.deleteMenu)
-		menuRoute.GET("/:id", m.getMenu)
-		menuRoute.GET("", m.listMenus)
-	}
+	r.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.Run(":8091")
 }
