@@ -14,7 +14,7 @@ func (s *cloudRouter) createJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
-		getOptions types.GetOrCreateOptions
+		getOptions types.GetOptions
 		job        batchv1.Job
 	)
 	if err = c.ShouldBindUri(&getOptions); err != nil {
@@ -39,7 +39,7 @@ func (s *cloudRouter) updateJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err           error
-		createOptions types.GetOrCreateOptions
+		createOptions types.GetOptions
 		job           batchv1.Job
 	)
 	if err = c.ShouldBindUri(&createOptions); err != nil {
@@ -59,7 +59,7 @@ func (s *cloudRouter) updateJob(c *gin.Context) {
 
 func (s *cloudRouter) deleteJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	var deleteOptions types.GetOrDeleteOptions
+	var deleteOptions types.GetOptions
 	if err := c.ShouldBindUri(&deleteOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -77,7 +77,7 @@ func (s *cloudRouter) getJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
-		getOptions types.GetOrDeleteOptions
+		getOptions types.GetOptions
 	)
 	if err = c.ShouldBindUri(&getOptions); err != nil {
 		httputils.SetFailed(c, r, err)

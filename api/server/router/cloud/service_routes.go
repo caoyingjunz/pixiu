@@ -55,7 +55,7 @@ func (s *cloudRouter) updateService(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err           error
-		createOptions types.GetOrCreateOptions
+		createOptions types.GetOptions
 		service       v1.Service
 	)
 	if err = c.ShouldBindUri(&createOptions); err != nil {
@@ -81,7 +81,7 @@ func (s *cloudRouter) deleteService(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err           error
-		deleteOptions types.GetOrDeleteOptions
+		deleteOptions types.GetOptions
 	)
 	if err = c.ShouldBindUri(&deleteOptions); err != nil {
 		httputils.SetFailed(c, r, err)
@@ -99,7 +99,7 @@ func (s *cloudRouter) getService(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
-		getOptions types.GetOrDeleteOptions
+		getOptions types.GetOptions
 	)
 	if err = c.ShouldBindUri(&getOptions); err != nil {
 		httputils.SetFailed(c, r, err)

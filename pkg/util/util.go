@@ -17,6 +17,8 @@ limitations under the License.
 package util
 
 import (
+	"github.com/caoyingjunz/gopixiu/api/types"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"strconv"
 )
@@ -53,4 +55,15 @@ func EnsureDirectoryExists(path string) (err error) {
 		err = os.MkdirAll(path, 0755)
 	}
 	return
+}
+
+// 根据传入的module拿出相对应的grv
+func GroupResources(module types.ScaleOption) schema.GroupResource {
+	switch module.Module {
+	case "deployments":
+		return schema.GroupResource{Group: "apps", Resource: "deployments"}
+	case "statefulset":
+		return schema.GroupResource{Group: "apps", Resource: "statefulset"}
+	}
+	return schema.GroupResource{Group: "", Resource: ""}
 }

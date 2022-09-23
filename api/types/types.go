@@ -46,16 +46,21 @@ type ListOptions struct {
 	Namespace string `uri:"namespace" binding:"required"`
 }
 
-type GetOrDeleteOptions struct {
+type GetOptions struct {
 	ListOptions `json:",inline"`
 
 	ObjectName string `uri:"object_name" binding:"required"`
 }
 
-type GetOrCreateOptions struct {
-	ListOptions `json:",inline,omitempty"`
+type ScaleOption struct {
+	ListOptions
 
 	ObjectName string `uri:"object_name" binding:"required"`
+	Module     string `uri:"module" binding:"required"`
+}
+
+type UpdateOption struct {
+	Replicas int32 `json:"replicas"`
 }
 
 type CreateOptions struct {

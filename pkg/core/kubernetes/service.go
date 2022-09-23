@@ -35,8 +35,8 @@ type ServicesGetter interface {
 type ServiceInterface interface {
 	Create(ctx context.Context, service *v1.Service) error
 	Update(ctx context.Context, service *v1.Service) error
-	Delete(ctx context.Context, getOptions types.GetOrDeleteOptions) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error)
+	Delete(ctx context.Context, getOptions types.GetOptions) error
+	Get(ctx context.Context, getOptions types.GetOptions) (*v1.Service, error)
 	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error)
 }
 
@@ -105,7 +105,7 @@ func (c *services) Update(ctx context.Context, service *v1.Service) error {
 	return nil
 }
 
-func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *services) Delete(ctx context.Context, deleteOptions types.GetOptions) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -120,7 +120,7 @@ func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOp
 	return err
 }
 
-func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error) {
+func (c *services) Get(ctx context.Context, getOptions types.GetOptions) (*v1.Service, error) {
 	if c.client == nil {
 		return nil, clientError
 	}

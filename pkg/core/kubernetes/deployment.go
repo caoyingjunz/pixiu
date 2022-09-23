@@ -19,12 +19,11 @@ package kubernetes
 import (
 	"context"
 
+	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type DeploymentsGetter interface {
@@ -33,7 +32,7 @@ type DeploymentsGetter interface {
 
 type DeploymentInterface interface {
 	Create(ctx context.Context, deployment *v1.Deployment) error
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
+	Delete(ctx context.Context, deleteOptions types.GetOptions) error
 	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
 }
 
@@ -60,11 +59,10 @@ func (c *deployments) Create(ctx context.Context, deployment *v1.Deployment) err
 
 		return err
 	}
-
 	return nil
 }
 
-func (c *deployments) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *deployments) Delete(ctx context.Context, deleteOptions types.GetOptions) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -74,7 +72,6 @@ func (c *deployments) Delete(ctx context.Context, deleteOptions types.GetOrDelet
 		log.Logger.Errorf("failed to delete %s deployment: %v", deleteOptions.Namespace, err)
 		return err
 	}
-
 	return nil
 }
 

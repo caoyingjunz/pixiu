@@ -33,8 +33,8 @@ type JobsGetter interface {
 type JobInterface interface {
 	Create(ctx context.Context, job *batchv1.Job) error
 	Update(ctx context.Context, job *batchv1.Job) error
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*batchv1.Job, error)
+	Delete(ctx context.Context, deleteOptions types.GetOptions) error
+	Get(ctx context.Context, getOptions types.GetOptions) (*batchv1.Job, error)
 	List(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
 }
 
@@ -79,7 +79,7 @@ func (c *jobs) Update(ctx context.Context, job *batchv1.Job) error {
 	return nil
 }
 
-func (c *jobs) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *jobs) Delete(ctx context.Context, deleteOptions types.GetOptions) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -93,7 +93,7 @@ func (c *jobs) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOption
 	return nil
 }
 
-func (c *jobs) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*batchv1.Job, error) {
+func (c *jobs) Get(ctx context.Context, getOptions types.GetOptions) (*batchv1.Job, error) {
 	if c.client == nil {
 		return nil, clientError
 	}

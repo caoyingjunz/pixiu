@@ -34,8 +34,8 @@ type StatefulSetGetter interface {
 type StatefulSetInterface interface {
 	Create(ctx context.Context, statefulSet *v1.StatefulSet) error
 	Update(ctx context.Context, statefulSet *v1.StatefulSet) error
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error)
+	Delete(ctx context.Context, deleteOptions types.GetOptions) error
+	Get(ctx context.Context, getOptions types.GetOptions) (*v1.StatefulSet, error)
 	List(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
 }
 
@@ -79,7 +79,7 @@ func (c *statefulSets) Update(ctx context.Context, statefulSet *v1.StatefulSet) 
 	return nil
 }
 
-func (c *statefulSets) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *statefulSets) Delete(ctx context.Context, deleteOptions types.GetOptions) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -93,7 +93,7 @@ func (c *statefulSets) Delete(ctx context.Context, deleteOptions types.GetOrDele
 	return nil
 }
 
-func (c *statefulSets) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error) {
+func (c *statefulSets) Get(ctx context.Context, getOptions types.GetOptions) (*v1.StatefulSet, error) {
 	if c.client == nil {
 		return nil, clientError
 	}

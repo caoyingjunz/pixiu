@@ -18,8 +18,8 @@ type DaemonSetGetter interface {
 type DaemonSetInterface interface {
 	Create(ctx context.Context, daemonset *v1.DaemonSet) error
 	Update(ctx context.Context, daemonset *v1.DaemonSet) error
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.DaemonSet, error)
+	Delete(ctx context.Context, deleteOptions types.GetOptions) error
+	Get(ctx context.Context, getOptions types.GetOptions) (*v1.DaemonSet, error)
 	List(ctx context.Context, listOptions types.ListOptions) ([]v1.DaemonSet, error)
 }
 
@@ -64,7 +64,7 @@ func (c *daemonSets) Update(ctx context.Context, daemonset *v1.DaemonSet) error 
 	return nil
 }
 
-func (c *daemonSets) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *daemonSets) Delete(ctx context.Context, deleteOptions types.GetOptions) error {
 	if c.client == nil {
 		return clientError
 	}
@@ -78,7 +78,7 @@ func (c *daemonSets) Delete(ctx context.Context, deleteOptions types.GetOrDelete
 	return nil
 }
 
-func (c *daemonSets) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.DaemonSet, error) {
+func (c *daemonSets) Get(ctx context.Context, getOptions types.GetOptions) (*v1.DaemonSet, error) {
 	if c.client == nil {
 		return nil, clientError
 	}

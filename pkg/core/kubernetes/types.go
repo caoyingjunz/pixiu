@@ -19,3 +19,4 @@ package kubernetes
 import "fmt"
 
 var clientError = fmt.Errorf("failed to found clout client")
+var scaleError = fmt.Errorf("failed to found clout scale")

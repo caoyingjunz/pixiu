@@ -31,7 +31,7 @@ func (s *cloudRouter) createDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
-		getOptions types.GetOrCreateOptions
+		getOptions types.GetOptions
 		deployment v1.Deployment
 	)
 	if err = c.ShouldBindUri(&getOptions); err != nil {
@@ -54,7 +54,7 @@ func (s *cloudRouter) createDeployment(c *gin.Context) {
 
 func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
-	var deleteOptions types.GetOrDeleteOptions
+	var deleteOptions types.GetOptions
 	if err := c.ShouldBindUri(&deleteOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

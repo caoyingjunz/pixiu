@@ -15,7 +15,7 @@ func (s *cloudRouter) createStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err           error
-		createOptions types.GetOrCreateOptions
+		createOptions types.GetOptions
 		statefulset   v1.StatefulSet
 	)
 	if err = c.ShouldBindUri(&createOptions); err != nil {
@@ -37,7 +37,7 @@ func (s *cloudRouter) updateStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err           error
-		createOptions types.GetOrCreateOptions
+		createOptions types.GetOptions
 		statefulset   v1.StatefulSet
 	)
 	if err = c.ShouldBindUri(&createOptions); err != nil {
@@ -59,7 +59,7 @@ func (s *cloudRouter) deleteStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
-		delOptions types.GetOrDeleteOptions
+		delOptions types.GetOptions
 	)
 	if err = c.ShouldBindUri(&delOptions); err != nil {
 		httputils.SetFailed(c, r, err)
@@ -78,7 +78,7 @@ func (s *cloudRouter) getStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
-		getOptions types.GetOrDeleteOptions
+		getOptions types.GetOptions
 	)
 	if err = c.ShouldBindUri(&getOptions); err != nil {
 		httputils.SetFailed(c, r, err)

@@ -65,6 +65,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		// Deployments API
 		// 创建 deployments
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
+		//cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.updateDeployment)
 		// listDeployments API: apps/v1/<cloud_name>/namespaces/<ns>/deployments
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
@@ -89,5 +90,8 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.deleteDaemonSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.getDaemonSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.listDaemonsets)
+
+		// Scale API
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/module/:module/:object_name", s.scaleMod)
 	}
 }
