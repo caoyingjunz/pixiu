@@ -55,3 +55,7 @@ func (c *cloud) Events(cloud string) pixiukubernetes.EventInterface {
 func (c *cloud) Nodes(cloud string) pixiukubernetes.NodeInterface {
 	return pixiukubernetes.NewNodes(clientSets.Get(cloud), cloud)
 }
+
+func (c *cloud) Pods(cloud string) pixiukubernetes.PodInterface {
+	return pixiukubernetes.NewPods(clientSets.Get(cloud), cloud)
+}
