@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -215,10 +216,51 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	return cs, nil
 }
 
+func (c *cloud) Status(ctx context.Context, pageOption *types.PageOptions) (interface{}, error) {
+	var cs []types.Cloud
+
+	// 根据是否有 Page 判断是全量查询还是分页查询，如果没有则判定为全量查询，如果有，判定为分页查询
+	// TODO: 判断方法略显粗糙，后续优化
+	// 分页查询
+	if pageOption.Page != 0 {
+		if pageOption.Page < 0 {
+			pageOption.Page = page
+		}
+		if pageOption.Limit <= 0 {
+			pageOption.Limit = pageSize
+		}
+		cloudObjs, total, err := c.factory.Cloud().PageList(ctx, pageOption.Page, pageOption.Limit)
+		if err != nil {
+			log.Logger.Errorf("failed to page %d limit %d list  clouds: %v", pageOption.Page, pageOption.Limit, err)
+			return nil, err
+		}
+		// 类型转换
+		for _, cloudObj := range cloudObjs {
+			cs = append(cs, *c.model2Type(&cloudObj))
+		}
+
+		pageClouds := make(map[string]interface{})
+		pageClouds["data"] = cs
+		pageClouds["total"] = total
+		return pageClouds, nil
+	}
+
+	// 全量查询
+	cloudObjs, err := c.factory.Cloud().List(ctx)
+	if err != nil {
+		log.Logger.Errorf("failed to list clouds: %v", err)
+		return nil, err
+	}
+	for _, cloudObj := range cloudObjs {
+		cs = append(cs, *c.model2Type(&cloudObj))
+	}
+
+	return cs, nil
+}
+
 func (c *cloud) Load() error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
-
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
 		log.Logger.Errorf("failed to list exist clouds: %v", err)
@@ -235,9 +277,27 @@ func (c *cloud) Load() error {
 			return err
 		}
 		clientSets.Add(cloudObj.Name, clientSet)
+
+	}
+	go c.Run()
+	return nil
+}
+
+func (c *cloud) Run() {
+	ticker := time.NewTicker(20 * time.Second)
+	status := map[string]interface{}{"status": "0"}
+	for {
+		client := clientSets.List()
+		<-ticker.C
+		for k, v := range client {
+			ns, err := v.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+			if err != nil || len(ns.Items) == 0 {
+				c.factory.Cloud().Cluster(context.TODO(), k, status)
+			}
+		}
 	}
 
-	return nil
+	ticker.Stop()
 }
 
 func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {

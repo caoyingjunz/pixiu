@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+
 	"gorm.io/gorm"
 )
 
@@ -30,6 +31,7 @@ type CloudInterface interface {
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
 	List(ctx context.Context) ([]model.Cloud, error)
+	Cluster(ctx context.Context, obj string, updates map[string]interface{}) error
 
 	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
 	Count(ctx context.Context) (int64, error)
@@ -116,4 +118,20 @@ func (s *cloud) Count(ctx context.Context) (int64, error) {
 	}
 
 	return count, nil
+}
+
+func (s *cloud) Cluster(ctx context.Context, obj string, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	//updates["status"] = 0
+	//updates["resource_version"] = resourceVersion + 1
+
+	f := s.db.Model(&model.Cloud{}).
+		Where("name = ?", obj).
+		Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+
+	return nil
 }
