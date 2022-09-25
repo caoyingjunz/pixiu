@@ -68,12 +68,6 @@ type LogsOptions struct {
 	ContainerName string `form:"container_name"`
 }
 
-type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
-}
-
 type Git struct {
 	GitUrl        string `json:"gitUrl,omitempty"`
 	Branch        string `json:"branch,omitempty"`
