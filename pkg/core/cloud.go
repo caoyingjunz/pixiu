@@ -48,8 +48,6 @@ type CloudInterface interface {
 
 	Load() error // 加载已经存在的 cloud 客户端
 
-	KubeConfigGetter
-
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
 	pixiukubernetes.ServicesGetter
@@ -61,6 +59,7 @@ type CloudInterface interface {
 	pixiukubernetes.EventsGetter
 	pixiukubernetes.NodesGetter
 	pixiukubernetes.PodsGetter
+	pixiukubernetes.KubeConfigGetter
 }
 
 const (

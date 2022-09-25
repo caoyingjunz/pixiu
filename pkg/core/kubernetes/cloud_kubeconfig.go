@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package core
+package kubernetes
 
 import (
 	"context"
@@ -37,20 +37,16 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 )
 
-func (c *cloud) KubeConfigs(cloud string) KubeConfigInterface {
-	return NewKubeConfigs(clientSets.Get(cloud), cloud, c.factory)
-}
-
 type KubeConfigGetter interface {
 	KubeConfigs(cloud string) KubeConfigInterface
 }
 
 type KubeConfigInterface interface {
-	Create(ctx context.Context, kubeConfig *types.KubeConfig) (*types.KubeConfig, error)
-	Update(ctx context.Context, id int64) (*types.KubeConfig, error)
+	Create(ctx context.Context, opts *types.KubeConfigOptions) (*types.KubeConfigOptions, error)
+	Update(ctx context.Context, id int64) (*types.KubeConfigOptions, error)
 	Delete(ctx context.Context, id int64) error
-	Get(ctx context.Context, id int64) (*types.KubeConfig, error)
-	List(ctx context.Context, cloudName string) ([]types.KubeConfig, error)
+	Get(ctx context.Context, id int64) (*types.KubeConfigOptions, error)
+	List(ctx context.Context) ([]types.KubeConfigOptions, error)
 }
 
 type kubeConfigs struct {
@@ -59,9 +55,9 @@ type kubeConfigs struct {
 	factory db.ShareDaoFactory
 }
 
-func NewKubeConfigs(client *kubernetes.Clientset, cloud string, factory db.ShareDaoFactory) KubeConfigInterface {
+func NewKubeConfigs(c *kubernetes.Clientset, cloud string, factory db.ShareDaoFactory) KubeConfigInterface {
 	return &kubeConfigs{
-		client:  client,
+		client:  c,
 		cloud:   cloud,
 		factory: factory,
 	}
@@ -70,7 +66,7 @@ func NewKubeConfigs(client *kubernetes.Clientset, cloud string, factory db.Share
 const namespace = "kube-system"
 
 // preCreate 创建前检查, 默认权限为 cluster-admin
-func (c *kubeConfigs) preCreate(ctx context.Context, kubeConfig *types.KubeConfig) error {
+func (c *kubeConfigs) preCreate(ctx context.Context, kubeConfig *types.KubeConfigOptions) error {
 	if len(kubeConfig.ServiceAccount) == 0 {
 		kubeConfig.ServiceAccount = strconv.FormatInt(time.Now().Unix(), 10)
 	}
@@ -81,7 +77,7 @@ func (c *kubeConfigs) preCreate(ctx context.Context, kubeConfig *types.KubeConfi
 	return nil
 }
 
-func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) (*types.KubeConfig, error) {
+func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOptions) (*types.KubeConfigOptions, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -149,7 +145,7 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfig) 
 	return kubeConfig, nil
 }
 
-func (c *kubeConfigs) Update(ctx context.Context, id int64) (*types.KubeConfig, error) {
+func (c *kubeConfigs) Update(ctx context.Context, id int64) (*types.KubeConfigOptions, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -234,7 +230,7 @@ func (c *kubeConfigs) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (c *kubeConfigs) Get(ctx context.Context, id int64) (*types.KubeConfig, error) {
+func (c *kubeConfigs) Get(ctx context.Context, id int64) (*types.KubeConfigOptions, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -254,12 +250,12 @@ func (c *kubeConfigs) Get(ctx context.Context, id int64) (*types.KubeConfig, err
 	return kubeConfig, nil
 }
 
-func (c *kubeConfigs) List(ctx context.Context, cloudName string) ([]types.KubeConfig, error) {
+func (c *kubeConfigs) List(ctx context.Context) ([]types.KubeConfigOptions, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
-	var configs []types.KubeConfig
-	objs, err := c.factory.KubeConfig().List(ctx, cloudName)
+	var configs []types.KubeConfigOptions
+	objs, err := c.factory.KubeConfig().List(ctx, c.cloud)
 	if err != nil {
 		log.Logger.Errorf("failed to list kubeConfig: %v", err)
 		return nil, err
@@ -331,8 +327,8 @@ func (c *kubeConfigs) createClusterRoleBinding(ctx context.Context, saName, clus
 	return nil
 }
 
-func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfig {
-	return &types.KubeConfig{
+func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfigOptions {
+	return &types.KubeConfigOptions{
 		Id:                  m.Id,
 		CloudName:           m.CloudName,
 		ServiceAccount:      m.ServiceAccount,
@@ -342,7 +338,7 @@ func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfig {
 	}
 }
 
-func (c *kubeConfigs) type2Model(t *types.KubeConfig) *model.KubeConfig {
+func (c *kubeConfigs) type2Model(t *types.KubeConfigOptions) *model.KubeConfig {
 	return &model.KubeConfig{
 		CloudName:           t.CloudName,
 		ServiceAccount:      t.ServiceAccount,

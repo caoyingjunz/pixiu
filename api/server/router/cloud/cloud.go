@@ -40,7 +40,8 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/:id", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
 
-		//  k8s kube_config API
+		// kubeConfig API
+		// 点击生成指定权限的 kubeConfig，支持用完销毁
 		cloudRoute.POST("/v1/:cloud_name/config", s.createKubeConfig)
 		cloudRoute.PUT("/v1/:cloud_name/config/:id", s.updateKubeConfig)
 		cloudRoute.DELETE("/v1/:cloud_name/config/:id", s.deleteKubeConfig)
@@ -66,7 +67,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
 
 		// Event API
-		// TODO: 事件的，精细化输出
+		// TODO: 事件的优化，精细化输出
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/events", s.listEvents)
 
 		// Deployments API

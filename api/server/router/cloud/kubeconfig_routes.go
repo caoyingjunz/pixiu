@@ -18,8 +18,6 @@ package cloud
 
 import (
 	"context"
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -28,17 +26,17 @@ import (
 )
 
 func (s *cloudRouter) createKubeConfig(c *gin.Context) {
+	r := httputils.NewResponse()
 	var (
-		r                 = httputils.NewResponse()
-		err               error
-		kubeConfigOptions = new(types.KubeConfig)
+		err  error
+		opts types.KubeConfigOptions
 	)
-	if err = c.ShouldBindJSON(kubeConfigOptions); err != nil {
+	if err = c.ShouldBindJSON(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	kubeConfigOptions.CloudName = c.Param("cloud_name")
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(kubeConfigOptions.CloudName).Create(context.TODO(), kubeConfigOptions); err != nil {
+	opts.CloudName = c.Param("cloud_name")
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Create(context.TODO(), &opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -47,16 +45,16 @@ func (s *cloudRouter) createKubeConfig(c *gin.Context) {
 }
 
 func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
+	r := httputils.NewResponse()
 	var (
-		r                 = httputils.NewResponse()
-		err               error
-		kubeConfigOptions = new(types.KubeConfig)
+		err  error
+		opts types.KubeConfigOptions
 	)
-	if err = c.ShouldBindUri(kubeConfigOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(kubeConfigOptions.CloudName).Update(context.TODO(), kubeConfigOptions.Id); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Update(context.TODO(), opts.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -65,15 +63,16 @@ func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 }
 
 func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
+	r := httputils.NewResponse()
 	var (
-		r                 = httputils.NewResponse()
-		kubeConfigOptions = new(types.KubeConfig)
+		err  error
+		opts types.KubeConfigOptions
 	)
-	if err := c.ShouldBindUri(kubeConfigOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := pixiu.CoreV1.Cloud().KubeConfigs(kubeConfigOptions.CloudName).Delete(context.TODO(), kubeConfigOptions.Id); err != nil {
+	if err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Delete(context.TODO(), opts.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -82,16 +81,16 @@ func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 }
 
 func (s *cloudRouter) getKubeConfig(c *gin.Context) {
+	r := httputils.NewResponse()
 	var (
-		r                 = httputils.NewResponse()
-		err               error
-		kubeConfigOptions = new(types.KubeConfig)
+		err  error
+		opts types.KubeConfigOptions
 	)
-	if err = c.ShouldBindUri(kubeConfigOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(kubeConfigOptions.CloudName).Get(context.TODO(), kubeConfigOptions.Id); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Get(context.TODO(), opts.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -100,16 +99,13 @@ func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 }
 
 func (s *cloudRouter) listKubeConfig(c *gin.Context) {
+	r := httputils.NewResponse()
 	var (
-		r         = httputils.NewResponse()
-		err       error
-		cloudName = c.Param("cloud_name")
+		err  error
+		opts types.KubeConfigOptions
 	)
-	if len(cloudName) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
-		return
-	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudName).List(context.TODO(), cloudName); err != nil {
+	opts.CloudName = c.Param("cloud_name")
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).List(context.TODO()); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
