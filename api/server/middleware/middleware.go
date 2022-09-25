@@ -17,8 +17,9 @@ limitations under the License.
 package middleware
 
 import (
-	"github.com/gin-gonic/gin"
 	"os"
+
+	"github.com/gin-gonic/gin"
 )
 
 func InitMiddlewares(ginEngine *gin.Engine) {
