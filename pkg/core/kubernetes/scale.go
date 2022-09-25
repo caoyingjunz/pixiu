@@ -18,11 +18,16 @@ package kubernetes
 
 import (
 	"context"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/scale"
 
 	autoscalingapi "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/kubernetes"
 
 	pixiutypes "github.com/caoyingjunz/gopixiu/api/types"
@@ -56,12 +61,54 @@ func (c *scales) Get(ctx context.Context, opts pixiutypes.ScaleOptions) (*autosc
 		return nil, clientError
 	}
 
-	return nil, nil
+	scaleClient := scale.New(c.client.RESTClient(),
+		restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(c.client)),
+		dynamic.LegacyAPIPathResolverFunc,
+		scale.NewDiscoveryScaleKindResolver(c.client.Discovery()))
+
+	gr := schema.GroupResource{
+		Group:    "apps",
+		Resource: opts.Object,
+	}
+	scaleSpec, err := scaleClient.Scales(opts.Namespace).Get(context.TODO(), gr, opts.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s replicas: %v", opts.ObjectName, err)
+		return nil, err
+	}
+
+	return scaleSpec, nil
 }
 
 func (c *scales) Update(ctx context.Context, opts pixiutypes.ScaleOptions) error {
 	if c.client == nil {
 		return clientError
+	}
+	// 如果副本少于 0， 则判定为0
+	if opts.Replicas < 0 {
+		opts.Replicas = 0
+	}
+	// TODO: 处理资源类型的转换
+
+	scaleClient := scale.New(c.client.RESTClient(),
+		restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(c.client)),
+		dynamic.LegacyAPIPathResolverFunc,
+		scale.NewDiscoveryScaleKindResolver(c.client.Discovery()))
+
+	// 执行 scale
+	if _, err := scaleClient.Scales(opts.Namespace).Update(context.TODO(), schema.GroupResource{
+		Group:    "apps", // TODO: 后续增加更多的资源类型
+		Resource: opts.Object,
+	}, &autoscalingapi.Scale{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      opts.ObjectName,
+			Namespace: opts.Namespace,
+		},
+		Spec: autoscalingapi.ScaleSpec{
+			Replicas: opts.Replicas,
+		},
+	}, metav1.UpdateOptions{}); err != nil {
+		log.Logger.Errorf("failed to scale %s to replicas %d: %v", opts.ObjectName, opts.Replicas, err)
+		return err
 	}
 
 	return nil

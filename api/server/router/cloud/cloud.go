@@ -64,8 +64,8 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 
 		// Scale API  can fetch and update scales for
 		// resources in a particular namespace which implement the scale subresource.
-		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/:object/:object_name/:replicas", s.updateScale)
-		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/:object/:object_name", s.getScale)
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/scales/:object/:object_name/:replicas", s.updateScale)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/scales/:object/:object_name", s.getScale)
 
 		// Deployments API
 		// 创建 deployments

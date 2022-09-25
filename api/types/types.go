@@ -42,9 +42,11 @@ type NodeOptions struct {
 }
 
 type ScaleOptions struct {
-	CloudOptions `json:",inline"`
-
-	ObjectOptions `json:",inline"`
+	CloudName  string `uri:"cloud_name" binding:"required"`
+	Namespace  string `uri:"namespace" binding:"required"`
+	Object     string `uri:"object" binding:"required"`
+	ObjectName string `uri:"object_name" binding:"required"`
+	Replicas   int32  `uri:"replicas"`
 }
 
 type ListOptions struct {
