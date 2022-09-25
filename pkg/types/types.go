@@ -34,7 +34,7 @@ const (
   <publishers/>
   <buildWrappers/>
 </project>`
-	
+
 	FreeStyleConfig = `<?xml version='1.1' encoding='UTF-8'?>
 <project>
   <actions/>
@@ -45,13 +45,13 @@ const (
     <configVersion>2</configVersion>
     <userRemoteConfigs>
       <hudson.plugins.git.UserRemoteConfig>
-        <url>http://gitlab.example.com/root/helloworld.git</url>
-        <credentialsId>512c28b7-761f-4738-982d-e8138c8b8258</credentialsId>
+        <url>{{.GitUrl}}</url>
+        <credentialsId>{{.CredentialsId}}</credentialsId>
       </hudson.plugins.git.UserRemoteConfig>
     </userRemoteConfigs>
     <branches>
       <hudson.plugins.git.BranchSpec>
-        <name>*/main</name>
+        <name>*/{{.Branch}}</name>
       </hudson.plugins.git.BranchSpec>
     </branches>
     <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
@@ -66,7 +66,7 @@ const (
   <concurrentBuild>false</concurrentBuild>
   <builders>
     <hudson.tasks.Shell>
-      <command>mvn install</command>
+      <command>{{.ScriptPath}}</command>
       <configuredLocalRules/>
     </hudson.tasks.Shell>
   </builders>
@@ -84,20 +84,20 @@ const (
       <configVersion>2</configVersion>
       <userRemoteConfigs>
         <hudson.plugins.git.UserRemoteConfig>
-          <url>http://gitlab.example.com/root/helloworld.git</url>
-          <credentialsId>512c28b7-761f-4738-982d-e8138c8b8258</credentialsId>
+          <url>{{.GitUrl}}</url>
+          <credentialsId>{{.CredentialsId}}</credentialsId>
         </hudson.plugins.git.UserRemoteConfig>
       </userRemoteConfigs>
       <branches>
         <hudson.plugins.git.BranchSpec>
-          <name>*/main</name>
+          <name>*/{{.Branch}}</name>
         </hudson.plugins.git.BranchSpec>
       </branches>
       <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
       <submoduleCfg class="empty-list"/>
       <extensions/>
     </scm>
-    <scriptPath>Jenkinsfile</scriptPath>
+    <scriptPath>{{.ScriptPath}}</scriptPath>
     <lightweight>true</lightweight>
   </definition>
   <triggers/>

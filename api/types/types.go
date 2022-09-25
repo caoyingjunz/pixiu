@@ -62,10 +62,17 @@ type CreateOptions struct {
 	ListOptions `json:",inline,omitempty"`
 }
 
-type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
+// LogsOptions 日志
+type LogsOptions struct {
+	GetOrCreateOptions
+	ContainerName string `form:"container_name"`
+}
+
+type Git struct {
+	GitUrl        string `json:"gitUrl,omitempty"`
+	Branch        string `json:"branch,omitempty"`
+	CredentialsId string `json:"credentialsId,omitempty"`
+	ScriptPath    string `json:"scriptPath,omitempty"`
 }
 
 type Cicd struct {
@@ -74,6 +81,9 @@ type Cicd struct {
 	NewName  string `json:"newName,omitempty"`
 	ViewName string `json:"viewname,omitempty"`
 	Version  string `json:"version,omitempty"`
+	Type     string `json:"type,omitempty"`
+
+	Git
 }
 
 type User struct {
@@ -134,4 +144,26 @@ type Node struct {
 type PageOptions struct {
 	Limit int `form:"limit"`
 	Page  int `form:"page"`
+}
+
+type IdMeta struct {
+	Id int64 `uri:"id" binding:"required"`
+}
+
+type CloudMeta struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+}
+
+type CloudIdMeta struct {
+	CloudMeta `json:",inline"`
+	IdMeta    `json:",inline"`
+}
+
+type KubeConfigOptions struct {
+	Id                  int64  `json:"id"`
+	CloudName           string `json:"cloud_name"`
+	ServiceAccount      string `json:"service_account"`
+	ClusterRole         string `json:"cluster_role"`
+	Config              string `json:"config"`
+	ExpirationTimestamp string `json:"expiration_timestamp"`
 }

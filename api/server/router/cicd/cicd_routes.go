@@ -19,11 +19,11 @@ package cicd
 import (
 	"context"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-
-	"github.com/gin-gonic/gin"
 )
 
 func (s *cicdRouter) runJob(c *gin.Context) {
@@ -50,8 +50,8 @@ func (s *cicdRouter) createJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	if err := pixiu.CoreV1.Cicd().CreateJob(context.TODO(), cicd.Name); err != nil {
+	
+	if err := pixiu.CoreV1.Cicd().CreateJob(context.TODO(), cicd); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

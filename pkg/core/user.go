@@ -49,6 +49,11 @@ type UserInterface interface {
 	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error
 
 	GetJWTKey() []byte
+
+	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
+	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
+	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
+	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 }
 
 type user struct {
@@ -283,4 +288,54 @@ func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[stri
 	}
 
 	return updates
+}
+
+func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error) {
+	roleInfo, err := u.factory.User().GetRoleIDByUser(ctx, uid)
+	if err != nil {
+		log.Logger.Error(err)
+	}
+	return roleInfo, err
+}
+
+func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error) {
+	// 添加规则到rules表
+	err = u.factory.Authentication().AddRoleForUser(ctx, uid, rids)
+	if err != nil {
+		log.Logger.Error(err)
+		return err
+	}
+
+	// 配置role_users表
+	err = u.factory.User().SetUserRoles(ctx, uid, rids)
+	if err != nil { // 如果失败,则清除rules已添加的规则
+		log.Logger.Error(err)
+
+		for _, roleId := range rids {
+			err = u.factory.Authentication().DeleteRole(ctx, roleId)
+			if err != nil {
+				log.Logger.Error(err)
+				break
+			}
+		}
+		return
+	}
+
+	return
+}
+
+func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (menus *[]model.Menu, err error) {
+	menus, err = u.factory.User().GetButtonsByUserID(ctx, uid, menuId)
+	if err != nil {
+		log.Logger.Error(err)
+	}
+	return
+}
+
+func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
+	menus, err = u.factory.User().GetLeftMenusByUserID(ctx, uid)
+	if err != nil {
+		log.Logger.Error(err)
+	}
+	return
 }

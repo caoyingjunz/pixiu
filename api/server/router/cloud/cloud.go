@@ -35,10 +35,18 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 	{
 		//  k8s cluster API
 		cloudRoute.POST("/:name", s.createCloud) // TODO: will optimise
-		cloudRoute.PUT("/:cid", s.updateCloud)
-		cloudRoute.DELETE("/:cid", s.deleteCloud)
-		cloudRoute.GET("/:cid", s.getCloud)
+		cloudRoute.PUT("/:id", s.updateCloud)
+		cloudRoute.DELETE("/:id", s.deleteCloud)
+		cloudRoute.GET("/:id", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
+
+		// kubeConfig API
+		// 点击生成指定权限的 kubeConfig，支持用完销毁
+		cloudRoute.POST("/v1/:cloud_name/kubeconfigs", s.createKubeConfig)
+		cloudRoute.PUT("/v1/:cloud_name/kubeconfigs/:id", s.updateKubeConfig)
+		cloudRoute.DELETE("/v1/:cloud_name/kubeconfigs/:id", s.deleteKubeConfig)
+		cloudRoute.GET("/v1/:cloud_name/kubeconfigs/:id", s.getKubeConfig)
+		cloudRoute.GET("/v1/:cloud_name/kubeconfigs", s.listKubeConfig)
 
 		// Node API
 		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)
@@ -57,6 +65,10 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/core/v1/:cloud_name/namespaces/:namespace/services/:object_name", s.deleteService)
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services/:object_name", s.getService)
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
+
+		// Event API
+		// TODO: 事件的优化，精细化输出
+		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/events", s.listEvents)
 
 		// Deployments API
 		// 创建 deployments
@@ -85,5 +97,14 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.deleteDaemonSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.getDaemonSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.listDaemonsets)
+
+		// Pod API
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/pods/:object_name/logs", s.getLog)
+
+		//Ingress API
+		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)
+		cloudRoute.DELETE("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.deleteIngress)
+		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.getIngress)
+		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress", s.listIngress)
 	}
 }

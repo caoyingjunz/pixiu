@@ -56,7 +56,11 @@ type CloudInterface interface {
 	pixiukubernetes.DeploymentsGetter
 	pixiukubernetes.DaemonSetGetter
 	pixiukubernetes.JobsGetter
+	pixiukubernetes.IngressGetter
+	pixiukubernetes.EventsGetter
 	pixiukubernetes.NodesGetter
+	pixiukubernetes.PodsGetter
+	pixiukubernetes.KubeConfigGetter
 }
 
 const (

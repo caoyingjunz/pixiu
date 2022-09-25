@@ -20,3 +20,7 @@ push: image
 
 clean:
 	-rm -f ./$(releaseName)
+
+.PHONY: swagger-docs
+swagger-docs: ## generate the api docs
+	swag init --generalInfo ./cmd/main.go --output ./api/docs

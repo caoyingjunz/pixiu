@@ -23,6 +23,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 
 	"gorm.io/gorm"
+	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 )
 
 type CloudInterface interface {
@@ -32,6 +33,8 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
 	List(ctx context.Context) ([]model.Cloud, error)
 	Cluster(ctx context.Context, obj string, updates map[string]interface{}) error
+
+	GetByName(ctx context.Context, name string) (*model.Cloud, error)
 
 	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
 	Count(ctx context.Context) (int64, error)
@@ -134,4 +137,13 @@ func (s *cloud) Cluster(ctx context.Context, obj string, updates map[string]inte
 	}
 
 	return nil
+}
+
+func (s *cloud) GetByName(ctx context.Context, name string) (*model.Cloud, error) {
+	var c model.Cloud
+	if err := s.db.Where("name = ?", name).First(&c).Error; err != nil {
+		return nil, err
+	}
+
+	return &c, nil
 }
