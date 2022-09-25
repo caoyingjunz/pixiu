@@ -18,8 +18,13 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
+	"os"
 )
 
 func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20), Auth, Rbac())
+	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20), Auth)
+	// 临时关闭
+	if os.Getenv("DEBUG") != "true" {
+		ginEngine.Use(Rbac())
+	}
 }

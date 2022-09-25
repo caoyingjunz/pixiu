@@ -19,12 +19,12 @@ package core
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
@@ -48,7 +48,7 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
 
-	Load() error // 加载已经存在的 cloud 客户端
+	Load(stopCh chan struct{}) error // 加载已经存在的 cloud 客户端
 
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
@@ -221,7 +221,7 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	return cs, nil
 }
 
-func (c *cloud) Load(ctx context.Context) error {
+func (c *cloud) Load(stopCh chan struct{}) error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
@@ -241,30 +241,31 @@ func (c *cloud) Load(ctx context.Context) error {
 			return err
 		}
 		clientSets.Add(cloudObj.Name, clientSet)
+		klog.V(2).Infof("load cloud %s success", cloudObj.Name)
 	}
 
 	// 启动集群检查状态检查
-	go c.ClusterHealthCheck(ctx)
+	go c.ClusterHealthCheck(stopCh)
 	return nil
 }
 
-func (c *cloud) ClusterHealthCheck(ctx context.Context) {
-	klog.Infof("starting cluster health check")
-
-	ticker := time.NewTicker(20 * time.Second)
-	status := map[string]interface{}{"status": "0"}
+func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
+	klog.V(2).Infof("starting cluster health check")
+	interval := time.Second * 5
 	for {
-		client := clientSets.List()
-		<-ticker.C
-		for k, v := range client {
-			ns, err := v.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-			if err != nil || len(ns.Items) == 0 {
-				c.factory.Cloud().Cluster(context.TODO(), k, status)
+		select {
+		case <-time.After(interval):
+			for cloudName, cs := range clientSets.List() {
+				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
+				if err != nil {
+					klog.V(2).Infof("cloud %s %v", cloudName, err)
+				}
 			}
+		case <-stopCh:
+			klog.Infof("shutting cluster health check")
+			return
 		}
 	}
-
-	ticker.Stop()
 }
 
 func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
