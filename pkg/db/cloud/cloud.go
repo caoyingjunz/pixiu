@@ -32,6 +32,7 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
 	List(ctx context.Context) ([]model.Cloud, error)
 
+	SetStatus(ctx context.Context, name string, status int) error
 	GetByName(ctx context.Context, name string) (*model.Cloud, error)
 
 	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
@@ -119,6 +120,19 @@ func (s *cloud) Count(ctx context.Context) (int64, error) {
 	}
 
 	return count, nil
+}
+
+func (s *cloud) SetStatus(ctx context.Context, name string, status int) error {
+	updates := make(map[string]interface{})
+	updates["gmt_modified"] = time.Now() // 系统维护字段
+
+	updates["status"] = status
+	f := s.db.Model(&model.Cloud{}).Where("name = ?", name).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+
+	return nil
 }
 
 func (s *cloud) GetByName(ctx context.Context, name string) (*model.Cloud, error) {

@@ -19,10 +19,12 @@ package core
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
@@ -46,7 +48,7 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
 
-	Load() error // 加载已经存在的 cloud 客户端
+	Load(stopCh chan struct{}) error // 加载已经存在的 cloud 客户端
 
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
@@ -219,7 +221,7 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	return cs, nil
 }
 
-func (c *cloud) Load() error {
+func (c *cloud) Load(stopCh chan struct{}) error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
@@ -239,9 +241,43 @@ func (c *cloud) Load() error {
 			return err
 		}
 		clientSets.Add(cloudObj.Name, clientSet)
+		klog.V(2).Infof("load cloud %s success", cloudObj.Name)
 	}
 
+	// 启动集群检查状态检查
+	go c.ClusterHealthCheck(stopCh)
 	return nil
+}
+
+func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
+	klog.V(2).Infof("starting cluster health check")
+	status := make(map[string]int)
+
+	interval := time.Second * 5
+	for {
+		select {
+		case <-time.After(interval):
+			for name, cs := range clientSets.List() {
+				// TODO: 做并发优化
+				// TODO: 请求的超时设置
+				// TODO: 定时刷新 status 的存量
+				var newStatus int
+				if _, err := cs.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{}); err != nil {
+					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
+					newStatus = 1
+				}
+
+				// 对比状态是否发生改变
+				if status[name] != newStatus {
+					status[name] = newStatus
+					_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
+				}
+			}
+		case <-stopCh:
+			klog.Infof("shutting cluster health check")
+			return
+		}
+	}
 }
 
 func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {

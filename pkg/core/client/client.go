@@ -27,6 +27,7 @@ type ClientsInterface interface {
 	Update(key string, obj *kubernetes.Clientset)
 	Delete(key string)
 	Get(key string) *kubernetes.Clientset
+	List() map[string]*kubernetes.Clientset
 }
 
 type cloudClient struct {
@@ -65,6 +66,13 @@ func (cc *cloudClient) Get(key string) *kubernetes.Clientset {
 		return nil
 	}
 	return item
+}
+
+func (cc *cloudClient) List() map[string]*kubernetes.Clientset {
+	cc.lock.Lock()
+	defer cc.lock.Unlock()
+
+	return cc.items
 }
 
 func NewCloudClients() ClientsInterface {
