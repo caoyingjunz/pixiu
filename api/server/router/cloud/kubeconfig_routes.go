@@ -25,6 +25,17 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
+// createKubeConfig godoc
+// @Summary      Create a cloud custom kubeConfig
+// @Description  Create by cloud kubeConfig
+// @Tags         kubeConfigs
+// @Accept       json
+// @Produce      json
+// @Param        cloud_name  path string  true  "cloud name"  Format(string)
+// @Param        data body types.KubeConfigOptions true "service_account, cluster_role"
+// @Success      200  {object}  httputils.Response
+// @Failure      400  {object}  httputils.Response
+// @Router       /clouds/v1/{cloud_name}/kubeconfigs [post]
 func (s *cloudRouter) createKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -49,6 +60,7 @@ func (s *cloudRouter) createKubeConfig(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// TODO: docs
 func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -67,6 +79,17 @@ func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// deleteKubeConfig godoc
+// @Summary      Delete a cloud custom kubeConfig
+// @Description  Delete by cloud kubeConfig ID
+// @Tags         kubeConfigs
+// @Accept       json
+// @Produce      json
+// @Param        cloud_name  path string  true  "cloud name"  Format(string)
+// @Param        id   path      int  true  "Cloud ID"  Format(int64)
+// @Success      200  {object}  httputils.Response
+// @Failure      400  {object}  httputils.Response
+// @Router       /clouds/v1/{cloud_name}/kubeconfigs/{id} [delete]
 func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -85,6 +108,17 @@ func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// getKubeConfig godoc
+// @Summary      get a cloud custom kubeConfig
+// @Description  get by cloud kubeConfig ID
+// @Tags         kubeConfigs
+// @Accept       json
+// @Produce      json
+// @Param        cloud_name  path string  true  "cloud name"  Format(string)
+// @Param        id   path      int  true  "kubeConfig ID"  Format(int64)
+// @Success      200  {object}  httputils.Response
+// @Failure      400  {object}  httputils.Response
+// @Router       /clouds/v1/{cloud_name}/kubeconfigs/{id} [get]
 func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -103,6 +137,16 @@ func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// listKubeConfig godoc
+// @Summary      get a cloud custom kubeConfig
+// @Description  get by cloud kubeConfig ID
+// @Tags         kubeConfigs
+// @Accept       json
+// @Produce      json
+// @Param        cloud_name  path string  true  "cloud name"  Format(string)
+// @Success      200  {object}  httputils.Response
+// @Failure      400  {object}  httputils.Response
+// @Router       /clouds/v1/{cloud_name}/kubeconfigs [get]
 func (s *cloudRouter) listKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (

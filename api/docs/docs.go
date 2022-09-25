@@ -25,6 +25,183 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/clouds/v1/{cloud_name}/kubeconfigs": {
+            "get": {
+                "description": "get by cloud kubeConfig ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kubeConfigs"
+                ],
+                "summary": "get a cloud custom kubeConfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "description": "cloud name",
+                        "name": "cloud_name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create by cloud kubeConfig",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kubeConfigs"
+                ],
+                "summary": "Create a cloud custom kubeConfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "description": "cloud name",
+                        "name": "cloud_name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "service_account, cluster_role",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.KubeConfigOptions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/clouds/v1/{cloud_name}/kubeconfigs/{id}": {
+            "get": {
+                "description": "get by cloud kubeConfig ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kubeConfigs"
+                ],
+                "summary": "get a cloud custom kubeConfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "description": "cloud name",
+                        "name": "cloud_name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "kubeConfig ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete by cloud kubeConfig ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kubeConfigs"
+                ],
+                "summary": "Delete a cloud custom kubeConfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "description": "cloud name",
+                        "name": "cloud_name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Cloud ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/clouds/{id}": {
             "get": {
                 "description": "get string by ID",
@@ -116,6 +293,29 @@ const docTemplate = `{
                 },
                 "result": {
                     "description": "正常返回时的数据，可以为任意数据结构"
+                }
+            }
+        },
+        "types.KubeConfigOptions": {
+            "type": "object",
+            "properties": {
+                "cloud_name": {
+                    "type": "string"
+                },
+                "cluster_role": {
+                    "type": "string"
+                },
+                "config": {
+                    "type": "string"
+                },
+                "expiration_timestamp": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "service_account": {
+                    "type": "string"
                 }
             }
         }
