@@ -20,9 +20,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-
 	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 )
 
 type CloudInterface interface {
