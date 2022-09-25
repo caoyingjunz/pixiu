@@ -70,14 +70,14 @@ func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err  error
-		opts types.KubeConfigOptions
+		err         error
+		cloudIdMeta types.CloudIdMeta
 	)
-	if err = c.ShouldBindUri(&opts); err != nil {
+	if err = c.ShouldBindUri(&cloudIdMeta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Delete(context.TODO(), opts.Id); err != nil {
+	if err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Delete(context.TODO(), cloudIdMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -88,14 +88,14 @@ func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err  error
-		opts types.KubeConfigOptions
+		err         error
+		cloudIdMeta types.CloudIdMeta
 	)
-	if err = c.ShouldBindUri(&opts); err != nil {
+	if err = c.ShouldBindUri(&cloudIdMeta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Get(context.TODO(), opts.Id); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Get(context.TODO(), cloudIdMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

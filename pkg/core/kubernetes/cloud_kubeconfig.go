@@ -67,8 +67,10 @@ func NewKubeConfigs(c *kubernetes.Clientset, cloud string, factory db.ShareDaoFa
 	}
 }
 
+// TODO: 移到pixiu自己的 ns 中
 const namespace = "kube-system"
 
+// TODO: cluster role 的优化指定
 // preCreate 创建前检查, 默认权限为 cluster-admin
 func (c *kubeConfigs) preCreate(ctx context.Context, kubeConfig *types.KubeConfigOptions) error {
 	if len(kubeConfig.ServiceAccount) == 0 {
@@ -101,7 +103,7 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 		log.Logger.Errorf("failed to Decrypt cloud KubeConfig: %v", err)
 		return nil, err
 	}
-	kubcConfig, err := Load(cloudConfigByte)
+	configData, err := Load(cloudConfigByte)
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +112,14 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 		serverUrl string
 		caCert    string
 	)
-	for _, cluster := range kubcConfig.Clusters {
+	// TODO: 获取 caCert的方式需要更加严谨
+	for _, cluster := range configData.Clusters {
 		serverUrl = cluster.Server
 		caCert = base64.StdEncoding.EncodeToString(cluster.CertificateAuthorityData)
 		break
 	}
 
+	// TODO: 封装一个k8s的函数，包含 sa，roleBinding 和 token 的封装
 	// 创建 service account
 	if err = c.createServiceAccount(ctx, kubeConfig.ServiceAccount); err != nil {
 		log.Logger.Errorf("failed to create service account: %v", err)
@@ -126,16 +130,16 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 		log.Logger.Errorf("failed to create cluster role binding: %v", err)
 		return nil, err
 	}
-
 	// 生成token
 	token, err := c.createToken(ctx, kubeConfig.ServiceAccount)
 	if err != nil {
 		log.Logger.Errorf("failed to get token: %v", err)
 		return nil, err
 	}
-	// 生成 config
-	config := createKubeConfigWithToken(kubeConfig.CloudName, serverUrl, caCert, kubeConfig.ServiceAccount, token.Status.Token)
 
+	// 生成 config
+	// TODO: 优化
+	config := createKubeConfigWithToken(kubeConfig.CloudName, serverUrl, caCert, kubeConfig.ServiceAccount, token.Status.Token)
 	configByte, err := yaml.Marshal(config)
 	if err != nil {
 		log.Logger.Error(err)
@@ -143,14 +147,20 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 	}
 	kubeConfig.Config = string(configByte)
 	kubeConfig.ExpirationTimestamp = token.Status.ExpirationTimestamp.String()
+
 	// 写库, kubeConfig 内容进行加密
-	obj := c.type2Model(kubeConfig)
-	obj.Config, err = cipher.Encrypt(configByte)
+	encryptConfig, err := cipher.Encrypt(configByte)
 	if err != nil {
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return nil, err
 	}
-	obj, err = c.factory.KubeConfig().Create(ctx, obj)
+	obj, err := c.factory.KubeConfig().Create(ctx, &model.KubeConfig{
+		CloudName:           kubeConfig.CloudName,
+		ServiceAccount:      kubeConfig.ServiceAccount,
+		ClusterRole:         kubeConfig.ClusterRole,
+		Config:              encryptConfig,
+		ExpirationTimestamp: kubeConfig.ExpirationTimestamp,
+	})
 	if err != nil {
 		log.Logger.Errorf("failed to create kubeConfig: %v", err)
 		return nil, err
@@ -225,8 +235,13 @@ func (c *kubeConfigs) Delete(ctx context.Context, id int64) error {
 	if c.client == nil {
 		return clientError
 	}
+
 	obj, err := c.factory.KubeConfig().Get(ctx, id)
 	if err != nil {
+		return err
+	}
+	if err = c.factory.KubeConfig().Delete(ctx, id); err != nil {
+		log.Logger.Errorf("failed to delete kubeConfig: %v", err)
 		return err
 	}
 	if err = c.client.RbacV1().ClusterRoleBindings().Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
@@ -235,10 +250,6 @@ func (c *kubeConfigs) Delete(ctx context.Context, id int64) error {
 	}
 	if err = c.client.CoreV1().ServiceAccounts(namespace).Delete(ctx, obj.ServiceAccount, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 		log.Logger.Errorf("failed to delete service account: %v", err)
-		return err
-	}
-	if err = c.factory.KubeConfig().Delete(ctx, id); err != nil {
-		log.Logger.Errorf("failed to delete kubeConfig: %v", err)
 		return err
 	}
 
@@ -269,12 +280,14 @@ func (c *kubeConfigs) List(ctx context.Context) ([]types.KubeConfigOptions, erro
 	if c.client == nil {
 		return nil, clientError
 	}
-	var configs []types.KubeConfigOptions
+
 	objs, err := c.factory.KubeConfig().List(ctx, c.cloud)
 	if err != nil {
 		log.Logger.Errorf("failed to list kubeConfig: %v", err)
 		return nil, err
 	}
+
+	var configs []types.KubeConfigOptions
 	for _, obj := range objs {
 		configByte, err := cipher.Decrypt(obj.Config)
 		if err != nil {
@@ -350,16 +363,6 @@ func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfigOptions {
 		ClusterRole:         m.ClusterRole,
 		Config:              m.Config,
 		ExpirationTimestamp: m.ExpirationTimestamp,
-	}
-}
-
-func (c *kubeConfigs) type2Model(t *types.KubeConfigOptions) *model.KubeConfig {
-	return &model.KubeConfig{
-		CloudName:           t.CloudName,
-		ServiceAccount:      t.ServiceAccount,
-		ClusterRole:         t.ClusterRole,
-		Config:              t.Config,
-		ExpirationTimestamp: t.ExpirationTimestamp,
 	}
 }
 

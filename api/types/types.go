@@ -154,6 +154,11 @@ type CloudMeta struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 }
 
+type CloudIdMeta struct {
+	CloudMeta `json:",inline"`
+	IdMeta    `json:",inline"`
+}
+
 type KubeConfigOptions struct {
 	Id                  int64  `json:"id"`
 	CloudName           string `json:"cloud_name"`
