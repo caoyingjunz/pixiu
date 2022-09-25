@@ -251,14 +251,26 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 
 func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	klog.V(2).Infof("starting cluster health check")
+	status := make(map[string]int)
+
 	interval := time.Second * 5
 	for {
 		select {
 		case <-time.After(interval):
-			for cloudName, cs := range clientSets.List() {
-				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
-				if err != nil {
-					klog.V(2).Infof("cloud %s %v", cloudName, err)
+			for name, cs := range clientSets.List() {
+				// TODO: 做并发优化
+				// TODO: 请求的超时设置
+				// TODO: 定时刷新 status 的存量
+				var newStatus int
+				if _, err := cs.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{}); err != nil {
+					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
+					newStatus = 1
+				}
+
+				// 对比状态是否发生改变
+				if status[name] != newStatus {
+					status[name] = newStatus
+					_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
 				}
 			}
 		case <-stopCh:

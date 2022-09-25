@@ -31,8 +31,8 @@ type CloudInterface interface {
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
 	List(ctx context.Context) ([]model.Cloud, error)
-	Cluster(ctx context.Context, obj string, updates map[string]interface{}) error
 
+	SetStatus(ctx context.Context, name string, status int) error
 	GetByName(ctx context.Context, name string) (*model.Cloud, error)
 
 	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
@@ -122,15 +122,12 @@ func (s *cloud) Count(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-func (s *cloud) Cluster(ctx context.Context, obj string, updates map[string]interface{}) error {
-	// 系统维护字段
-	updates["gmt_modified"] = time.Now()
-	//updates["status"] = 0
-	//updates["resource_version"] = resourceVersion + 1
+func (s *cloud) SetStatus(ctx context.Context, name string, status int) error {
+	updates := make(map[string]interface{})
+	updates["gmt_modified"] = time.Now() // 系统维护字段
 
-	f := s.db.Model(&model.Cloud{}).
-		Where("name = ?", obj).
-		Updates(updates)
+	updates["status"] = status
+	f := s.db.Model(&model.Cloud{}).Where("name = ?", name).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
