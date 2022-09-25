@@ -59,6 +59,7 @@ type CloudInterface interface {
 	pixiukubernetes.EventsGetter
 	pixiukubernetes.NodesGetter
 	pixiukubernetes.PodsGetter
+	pixiukubernetes.ScalesGetter
 }
 
 const (

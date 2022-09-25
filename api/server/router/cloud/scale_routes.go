@@ -26,18 +26,17 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (s *cloudRouter) getNode(c *gin.Context) {
+func (s *cloudRouter) updateScale(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		nodeOptions types.NodeOptions
+		err  error
+		opts types.ScaleOptions
 	)
-	if err = c.ShouldBindUri(&nodeOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Nodes(nodeOptions.CloudName).Get(context.TODO(), nodeOptions)
-	if err != nil {
+	if err = pixiu.CoreV1.Cloud().Scales(opts.CloudName).Update(context.TODO(), opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -45,18 +44,17 @@ func (s *cloudRouter) getNode(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) listNodes(c *gin.Context) {
+func (s *cloudRouter) getScale(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err          error
-		cloudOptions types.CloudOptions
+		err  error
+		opts types.ScaleOptions
 	)
-	if err = c.ShouldBindUri(&cloudOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Nodes(cloudOptions.CloudName).List(context.TODO())
-	if err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().Scales(opts.CloudName).Get(context.TODO(), opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -59,8 +59,13 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/services", s.listServices)
 
 		// Event API
-		// TODO: 事件的搞笑，精细化输出
+		// TODO: 事件的收集，精细化输出
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/events", s.listEvents)
+
+		// Scale API  can fetch and update scales for
+		// resources in a particular namespace which implement the scale subresource.
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/:object/:object_name/:replicas", s.updateScale)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/:object/:object_name", s.getScale)
 
 		// Deployments API
 		// 创建 deployments

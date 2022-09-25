@@ -41,6 +41,12 @@ type NodeOptions struct {
 	ObjectOptions `json:",inline"`
 }
 
+type ScaleOptions struct {
+	CloudOptions `json:",inline"`
+
+	ObjectOptions `json:",inline"`
+}
+
 type ListOptions struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 	Namespace string `uri:"namespace" binding:"required"`

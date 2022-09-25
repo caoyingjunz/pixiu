@@ -59,3 +59,7 @@ func (c *cloud) Nodes(cloud string) pixiukubernetes.NodeInterface {
 func (c *cloud) Pods(cloud string) pixiukubernetes.PodInterface {
 	return pixiukubernetes.NewPods(clientSets.Get(cloud), cloud)
 }
+
+func (c *cloud) Scales(cloud string) pixiukubernetes.ScaleInterface {
+	return pixiukubernetes.NewScales(clientSets.Get(cloud), cloud)
+}
