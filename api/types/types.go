@@ -71,7 +71,7 @@ type LogsOptions struct {
 type Git struct {
 	GitUrl        string `json:"gitUrl,omitempty"`
 	Branch        string `json:"branch,omitempty"`
-	CredentialsId string `json:"credentialsId,omitempty""`
+	CredentialsId string `json:"credentialsId,omitempty"`
 	ScriptPath    string `json:"scriptPath,omitempty"`
 }
 
@@ -144,4 +144,26 @@ type Node struct {
 type PageOptions struct {
 	Limit int `form:"limit"`
 	Page  int `form:"page"`
+}
+
+type IdMeta struct {
+	Id int64 `uri:"id" binding:"required"`
+}
+
+type CloudMeta struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+}
+
+type CloudIdMeta struct {
+	CloudMeta `json:",inline"`
+	IdMeta    `json:",inline"`
+}
+
+type KubeConfigOptions struct {
+	Id                  int64  `json:"id"`
+	CloudName           string `json:"cloud_name"`
+	ServiceAccount      string `json:"service_account"`
+	ClusterRole         string `json:"cluster_role"`
+	Config              string `json:"config"`
+	ExpirationTimestamp string `json:"expiration_timestamp"`
 }

@@ -26,6 +26,7 @@ import (
 type ShareDaoFactory interface {
 	User() user.UserInterface
 	Cloud() cloud.CloudInterface
+	KubeConfig() cloud.KubeConfigInterface
 	Role() user.RoleInterface
 	Menu() user.MenuInterface
 	Authentication() user.AuthenticationInterface
@@ -37,6 +38,10 @@ type shareDaoFactory struct {
 
 func (f *shareDaoFactory) Cloud() cloud.CloudInterface {
 	return cloud.NewCloud(f.db)
+}
+
+func (f *shareDaoFactory) KubeConfig() cloud.KubeConfigInterface {
+	return cloud.NewKubeConfig(f.db)
 }
 
 func (f *shareDaoFactory) User() user.UserInterface {
