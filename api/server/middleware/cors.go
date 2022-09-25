@@ -14,24 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package menu
+package middleware
 
-import "github.com/gin-gonic/gin"
+import (
+	"time"
 
-type menuRouter struct{}
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+)
 
-func NewRouter(ginEngine *gin.Engine) {
-	u := &menuRouter{}
-	u.initRoutes(ginEngine)
-}
-
-func (m *menuRouter) initRoutes(ginEngine *gin.Engine) {
-	menuRoute := ginEngine.Group("/menus")
-	{
-		menuRoute.POST("", m.addMenu)
-		menuRoute.PUT("/:id", m.updateMenu)
-		menuRoute.DELETE("/:id", m.deleteMenu)
-		menuRoute.GET("/:id", m.getMenu)
-		menuRoute.GET("", m.listMenus)
+func Cors() gin.HandlerFunc {
+	c := cors.Config{
+		AllowAllOrigins: true,
+		AllowMethods:    []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
+		AllowHeaders:    []string{"Content-Type", "Access-Token", "Authorization"},
+		MaxAge:          6 * time.Hour,
 	}
+
+	return cors.New(c)
+
 }

@@ -60,6 +60,7 @@ type CloudInterface interface {
 	pixiukubernetes.IngressGetter
 	pixiukubernetes.EventsGetter
 	pixiukubernetes.NodesGetter
+	pixiukubernetes.PodsGetter
 }
 
 const (

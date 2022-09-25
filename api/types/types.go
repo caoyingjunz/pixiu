@@ -62,10 +62,10 @@ type CreateOptions struct {
 	ListOptions `json:",inline,omitempty"`
 }
 
-type Demo struct {
-	Id              int64  `json:"id"`
-	ResourceVersion int64  `json:"resource_version"`
-	Name            string `json:"name"`
+// LogsOptions 日志
+type LogsOptions struct {
+	GetOrCreateOptions
+	ContainerName string `form:"container_name"`
 }
 
 type Git struct {
