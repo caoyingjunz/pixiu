@@ -42,11 +42,11 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 
 		// kubeConfig API
 		// 点击生成指定权限的 kubeConfig，支持用完销毁
-		cloudRoute.POST("/v1/:cloud_name/config", s.createKubeConfig)
-		cloudRoute.PUT("/v1/:cloud_name/config/:id", s.updateKubeConfig)
-		cloudRoute.DELETE("/v1/:cloud_name/config/:id", s.deleteKubeConfig)
-		cloudRoute.GET("/v1/:cloud_name/config/:id", s.getKubeConfig)
-		cloudRoute.GET("/v1/:cloud_name/config", s.listKubeConfig)
+		cloudRoute.POST("/v1/:cloud_name/kubeconfigs", s.createKubeConfig)
+		cloudRoute.PUT("/v1/:cloud_name/kubeconfigs/:id", s.updateKubeConfig)
+		cloudRoute.DELETE("/v1/:cloud_name/kubeconfigs/:id", s.deleteKubeConfig)
+		cloudRoute.GET("/v1/:cloud_name/kubeconfigs/:id", s.getKubeConfig)
+		cloudRoute.GET("/v1/:cloud_name/kubeconfigs", s.listKubeConfig)
 
 		// Node API
 		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)

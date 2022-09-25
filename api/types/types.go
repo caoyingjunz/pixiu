@@ -146,10 +146,17 @@ type PageOptions struct {
 	Page  int `form:"page"`
 }
 
-type KubeConfigOptions struct {
-	Id        int64  `json:"id" uri:"id" binding:"required"`
-	CloudName string `json:"cloud_name" uri:"cloud_name" binding:"required"`
+type IdMeta struct {
+	Id int64 `uri:"id" binding:"required"`
+}
 
+type CloudMeta struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+}
+
+type KubeConfigOptions struct {
+	Id                  int64  `json:"id"`
+	CloudName           string `json:"cloud_name"`
 	ServiceAccount      string `json:"service_account"`
 	ClusterRole         string `json:"cluster_role"`
 	Config              string `json:"config"`

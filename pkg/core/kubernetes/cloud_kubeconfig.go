@@ -18,6 +18,7 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"time"
@@ -28,7 +29,10 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -70,6 +74,7 @@ func (c *kubeConfigs) preCreate(ctx context.Context, kubeConfig *types.KubeConfi
 	if len(kubeConfig.ServiceAccount) == 0 {
 		kubeConfig.ServiceAccount = strconv.FormatInt(time.Now().Unix(), 10)
 	}
+	// TODO: clusterRole 后端根据需要创建
 	if len(kubeConfig.ClusterRole) == 0 {
 		kubeConfig.ClusterRole = "cluster-admin"
 	}
@@ -96,10 +101,21 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 		log.Logger.Errorf("failed to Decrypt cloud KubeConfig: %v", err)
 		return nil, err
 	}
-	cloudConfig := newKubeConfig()
-	if err = yaml.Unmarshal(cloudConfigByte, cloudConfig); err != nil {
+	kubcConfig, err := Load(cloudConfigByte)
+	if err != nil {
 		return nil, err
 	}
+
+	var (
+		serverUrl string
+		caCert    string
+	)
+	for _, cluster := range kubcConfig.Clusters {
+		serverUrl = cluster.Server
+		caCert = base64.StdEncoding.EncodeToString(cluster.CertificateAuthorityData)
+		break
+	}
+
 	// 创建 service account
 	if err = c.createServiceAccount(ctx, kubeConfig.ServiceAccount); err != nil {
 		log.Logger.Errorf("failed to create service account: %v", err)
@@ -110,9 +126,7 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 		log.Logger.Errorf("failed to create cluster role binding: %v", err)
 		return nil, err
 	}
-	// 获取server地址, ca
-	serverUrl := cloudConfig.Clusters[0].Cluster.Server
-	caCert := cloudConfig.Clusters[0].Cluster.CertificateAuthorityData
+
 	// 生成token
 	token, err := c.createToken(ctx, kubeConfig.ServiceAccount)
 	if err != nil {
@@ -121,6 +135,7 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 	}
 	// 生成 config
 	config := createKubeConfigWithToken(kubeConfig.CloudName, serverUrl, caCert, kubeConfig.ServiceAccount, token.Status.Token)
+
 	configByte, err := yaml.Marshal(config)
 	if err != nil {
 		log.Logger.Error(err)
@@ -438,4 +453,17 @@ func createKubeConfigWithToken(clusterName, serverURL, caCert, userName, token s
 
 func (c *Config) refreshToken(token string) {
 	c.Users[0].User.Token = token
+}
+
+func Load(data []byte) (*clientcmdapi.Config, error) {
+	config := clientcmdapi.NewConfig()
+	// if there's no data in a file, return the default object instead of failing (DecodeInto reject empty input)
+	if len(data) == 0 {
+		return config, nil
+	}
+	decoded, _, err := clientcmdlatest.Codec.Decode(data, &schema.GroupVersionKind{Version: clientcmdlatest.Version, Kind: "Config"}, config)
+	if err != nil {
+		return nil, err
+	}
+	return decoded.(*clientcmdapi.Config), nil
 }

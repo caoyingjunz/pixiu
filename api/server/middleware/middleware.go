@@ -21,5 +21,5 @@ import (
 )
 
 func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20), Auth, Rbac())
+	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20), Auth)
 }

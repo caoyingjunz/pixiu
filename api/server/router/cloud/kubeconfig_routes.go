@@ -28,14 +28,19 @@ import (
 func (s *cloudRouter) createKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err  error
-		opts types.KubeConfigOptions
+		err       error
+		cloudMeta types.CloudMeta
+		opts      types.KubeConfigOptions
 	)
+	if err = c.ShouldBindUri(&cloudMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	if err = c.ShouldBindJSON(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	opts.CloudName = c.Param("cloud_name")
+	opts.CloudName = cloudMeta.CloudName
 	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Create(context.TODO(), &opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
