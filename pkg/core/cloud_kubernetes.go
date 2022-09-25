@@ -44,6 +44,22 @@ func (c *cloud) Jobs(cloud string) pixiukubernetes.JobInterface {
 	return pixiukubernetes.NewJobs(clientSets.Get(cloud), cloud)
 }
 
+func (c *cloud) Ingress(cloud string) pixiukubernetes.IngressInterface {
+	return pixiukubernetes.NewIngress(clientSets.Get(cloud), cloud)
+}
+
+func (c *cloud) Events(cloud string) pixiukubernetes.EventInterface {
+	return pixiukubernetes.NewEvents(clientSets.Get(cloud), cloud)
+}
+
 func (c *cloud) Nodes(cloud string) pixiukubernetes.NodeInterface {
 	return pixiukubernetes.NewNodes(clientSets.Get(cloud), cloud)
+}
+
+func (c *cloud) Pods(cloud string) pixiukubernetes.PodInterface {
+	return pixiukubernetes.NewPods(clientSets.Get(cloud), cloud)
+}
+
+func (c *cloud) KubeConfigs(cloud string) pixiukubernetes.KubeConfigInterface {
+	return pixiukubernetes.NewKubeConfigs(clientSets.Get(cloud), cloud, c.factory)
 }
