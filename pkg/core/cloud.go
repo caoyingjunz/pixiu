@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -220,7 +221,7 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	return cs, nil
 }
 
-func (c *cloud) Load() error {
+func (c *cloud) Load(ctx context.Context) error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
@@ -242,11 +243,14 @@ func (c *cloud) Load() error {
 		clientSets.Add(cloudObj.Name, clientSet)
 	}
 
-	go c.Run()
+	// 启动集群检查状态检查
+	go c.ClusterHealthCheck(ctx)
 	return nil
 }
 
-func (c *cloud) Run() {
+func (c *cloud) ClusterHealthCheck(ctx context.Context) {
+	klog.Infof("starting cluster health check")
+
 	ticker := time.NewTicker(20 * time.Second)
 	status := map[string]interface{}{"status": "0"}
 	for {
