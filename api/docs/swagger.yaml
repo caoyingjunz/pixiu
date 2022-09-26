@@ -107,7 +107,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputils.Response'
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/types.KubeConfigOptions'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -138,12 +145,53 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputils.Response'
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.KubeConfigOptions'
+              type: object
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/httputils.Response'
       summary: Create a cloud custom kubeConfig
+      tags:
+      - kubeConfigs
+    put:
+      consumes:
+      - application/json
+      description: Update by cloud kubeConfig
+      parameters:
+      - description: cloud name
+        format: string
+        in: path
+        name: cloud_name
+        required: true
+        type: string
+      - description: Cloud ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.KubeConfigOptions'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      summary: Update a cloud custom kubeConfig
       tags:
       - kubeConfigs
   /clouds/v1/{cloud_name}/kubeconfigs/{id}:
@@ -201,7 +249,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputils.Response'
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.KubeConfigOptions'
+              type: object
         "400":
           description: Bad Request
           schema:
