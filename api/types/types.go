@@ -46,6 +46,14 @@ type ListOptions struct {
 	Namespace string `uri:"namespace" binding:"required"`
 }
 
+type ScaleOptions struct {
+	CloudName  string `uri:"cloud_name" binding:"required"`
+	Namespace  string `uri:"namespace" binding:"required"`
+	Object     string `uri:"object" binding:"required"`
+	ObjectName string `uri:"object_name" binding:"required"`
+	Replicas   int32  `uri:"replicas"`
+}
+
 type GetOrDeleteOptions struct {
 	ListOptions `json:",inline"`
 

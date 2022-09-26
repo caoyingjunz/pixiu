@@ -77,6 +77,11 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
 
+		// Scale API  can fetch and update scales for
+		// resources in a particular namespace which implement the scale subresource.
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/scales/:object/:object_name/:replicas", s.updateScale)
+		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/scales/:object/:object_name", s.getScale)
+
 		// Job API
 		cloudRoute.POST("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.createJob)
 		cloudRoute.PUT("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.updateJob)
