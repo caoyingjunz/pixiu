@@ -17,13 +17,12 @@ limitations under the License.
 package kubernetes
 
 import (
+	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"strconv"
 	"time"
 
-	"gopkg.in/yaml.v2"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -105,20 +104,20 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 	}
 	configData, err := Load(cloudConfigByte)
 	if err != nil {
+		log.Logger.Error("failed to load kubeConfig: %v", err)
 		return nil, err
 	}
 
 	var (
 		serverUrl string
-		caCert    string
+		caCert    []byte
 	)
 	// TODO: 获取 caCert的方式需要更加严谨
 	for _, cluster := range configData.Clusters {
 		serverUrl = cluster.Server
-		caCert = base64.StdEncoding.EncodeToString(cluster.CertificateAuthorityData)
+		caCert = cluster.CertificateAuthorityData
 		break
 	}
-
 	// TODO: 封装一个k8s的函数，包含 sa，roleBinding 和 token 的封装
 	// 创建 service account
 	if err = c.createServiceAccount(ctx, kubeConfig.ServiceAccount); err != nil {
@@ -136,20 +135,19 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 		log.Logger.Errorf("failed to get token: %v", err)
 		return nil, err
 	}
-
 	// 生成 config
-	// TODO: 优化
-	config := createKubeConfigWithToken(kubeConfig.CloudName, serverUrl, caCert, kubeConfig.ServiceAccount, token.Status.Token)
-	configByte, err := yaml.Marshal(config)
+	config := createConfigWithToken(caCert, kubeConfig.CloudName, serverUrl, kubeConfig.ServiceAccount, token.Status.Token)
+	configBuf, err := ConfigMarshal(config)
 	if err != nil {
-		log.Logger.Error(err)
+		log.Logger.Error("failed to marshal kubeConfig: %v", err)
 		return nil, err
 	}
-	kubeConfig.Config = string(configByte)
+
+	kubeConfig.Config = configBuf.String()
 	kubeConfig.ExpirationTimestamp = token.Status.ExpirationTimestamp.String()
 
 	// 写库, kubeConfig 内容进行加密
-	encryptConfig, err := cipher.Encrypt(configByte)
+	encryptConfig, err := cipher.Encrypt(configBuf.Bytes())
 	if err != nil {
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return nil, err
@@ -186,9 +184,9 @@ func (c *kubeConfigs) Update(ctx context.Context, id int64) (*types.KubeConfigOp
 		return nil, err
 	}
 	// 生成 config 对象
-	config := newKubeConfig()
-	if err = yaml.Unmarshal(configByte, config); err != nil {
-		log.Logger.Error(err)
+	config, err := Load(configByte)
+	if err != nil {
+		log.Logger.Error("failed to load kubeConfig: %v", err)
 		return nil, err
 	}
 	// 重建 service account
@@ -199,33 +197,33 @@ func (c *kubeConfigs) Update(ctx context.Context, id int64) (*types.KubeConfigOp
 		log.Logger.Errorf("failed to create service account: %v", err)
 		return nil, err
 	}
-	// 创建 token
+	// 重建 token
 	token, err := c.createToken(ctx, obj.ServiceAccount)
 	if err != nil {
 		log.Logger.Errorf("failed to get token: %v", err)
 		return nil, err
 	}
-	config.refreshToken(token.Status.Token)
+	setToken(config, obj.ServiceAccount, token.Status.Token)
 	// 写库, kubeConfig 内容进行加密
-	newConfigByte, err := yaml.Marshal(config)
+	configBuf, err := ConfigMarshal(config)
 	if err != nil {
-		log.Logger.Error(err)
+		log.Logger.Error("failed to marshal kubeConfig: %v", err)
 		return nil, err
 	}
-	newConfigEncryptStr, err := cipher.Encrypt(newConfigByte)
+	encryptConfig, err := cipher.Encrypt(configBuf.Bytes())
 	if err != nil {
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return nil, err
 	}
 	if err = c.factory.KubeConfig().Update(ctx, id, obj.ResourceVersion,
-		map[string]interface{}{"config": newConfigEncryptStr},
+		map[string]interface{}{"config": encryptConfig},
 	); err != nil {
 		log.Logger.Errorf("failed to update kubeConfig: %v", err)
 		return nil, err
 	}
 
 	kubeConfig := c.model2Type(obj)
-	kubeConfig.Config = string(newConfigByte)
+	kubeConfig.Config = configBuf.String()
 	kubeConfig.ExpirationTimestamp = token.Status.ExpirationTimestamp.String()
 
 	return kubeConfig, nil
@@ -366,98 +364,6 @@ func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfigOptions {
 	}
 }
 
-type Config struct {
-	APIVersion     string `yaml:"apiVersion"`
-	Kind           string `yaml:"kind"`
-	CurrentContext string `yaml:"current-context"`
-	Clusters       []struct {
-		Name    string `yaml:"name"`
-		Cluster struct {
-			Server                   string `yaml:"server"`
-			CertificateAuthorityData string `yaml:"certificate-authority-data"`
-		} `yaml:"cluster"`
-	} `yaml:"clusters"`
-	Contexts []struct {
-		Name    string `yaml:"name"`
-		Context struct {
-			Cluster string `yaml:"cluster"`
-			User    string `yaml:"user"`
-		} `yaml:"context"`
-	} `yaml:"contexts"`
-	Users []struct {
-		Name string `yaml:"name"`
-		User struct {
-			Token string `yaml:"token"`
-		} `yaml:"user"`
-	} `yaml:"users"`
-}
-
-func newKubeConfig() *Config {
-	return &Config{
-		APIVersion: "v1",
-		Kind:       "Config",
-		Clusters: []struct {
-			Name    string `yaml:"name"`
-			Cluster struct {
-				Server                   string `yaml:"server"`
-				CertificateAuthorityData string `yaml:"certificate-authority-data"`
-			} `yaml:"cluster"`
-		}{
-			{
-				Cluster: struct {
-					Server                   string `yaml:"server"`
-					CertificateAuthorityData string `yaml:"certificate-authority-data"`
-				}{},
-			},
-		},
-		Contexts: []struct {
-			Name    string `yaml:"name"`
-			Context struct {
-				Cluster string `yaml:"cluster"`
-				User    string `yaml:"user"`
-			} `yaml:"context"`
-		}{
-			{
-				Context: struct {
-					Cluster string `yaml:"cluster"`
-					User    string `yaml:"user"`
-				}{},
-			},
-		},
-		Users: []struct {
-			Name string `yaml:"name"`
-			User struct {
-				Token string `yaml:"token"`
-			} `yaml:"user"`
-		}{
-			{
-				User: struct {
-					Token string `yaml:"token"`
-				}{},
-			},
-		},
-	}
-}
-
-func createKubeConfigWithToken(clusterName, serverURL, caCert, userName, token string) *Config {
-	contextName := fmt.Sprintf("%s@%s", userName, clusterName)
-	config := newKubeConfig()
-	config.CurrentContext = contextName
-	config.Clusters[0].Name = clusterName
-	config.Clusters[0].Cluster.Server = serverURL
-	config.Clusters[0].Cluster.CertificateAuthorityData = caCert
-	config.Contexts[0].Name = contextName
-	config.Contexts[0].Context.Cluster = clusterName
-	config.Contexts[0].Context.User = userName
-	config.Users[0].Name = userName
-	config.Users[0].User.Token = token
-	return config
-}
-
-func (c *Config) refreshToken(token string) {
-	c.Users[0].User.Token = token
-}
-
 func Load(data []byte) (*clientcmdapi.Config, error) {
 	config := clientcmdapi.NewConfig()
 	// if there's no data in a file, return the default object instead of failing (DecodeInto reject empty input)
@@ -469,4 +375,35 @@ func Load(data []byte) (*clientcmdapi.Config, error) {
 		return nil, err
 	}
 	return decoded.(*clientcmdapi.Config), nil
+}
+
+func createConfigWithToken(caCert []byte, clusterName, serverURL, userName, token string) *clientcmdapi.Config {
+	contextName := fmt.Sprintf("%s@%s", userName, clusterName)
+	config := clientcmdapi.NewConfig()
+	config.CurrentContext = contextName
+	config.Clusters[clusterName] = &clientcmdapi.Cluster{
+		Server:                   serverURL,
+		CertificateAuthorityData: caCert,
+	}
+	config.Contexts[contextName] = &clientcmdapi.Context{
+		Cluster:  clusterName,
+		AuthInfo: userName,
+	}
+	config.AuthInfos[userName] = &clientcmdapi.AuthInfo{
+		Token: token,
+	}
+
+	return config
+}
+
+func setToken(config *clientcmdapi.Config, userName, token string) {
+	config.AuthInfos[userName].Token = token
+}
+
+func ConfigMarshal(config *clientcmdapi.Config) (*bytes.Buffer, error) {
+	var buf bytes.Buffer
+	if err := clientcmdlatest.Codec.Encode(config, &buf); err != nil {
+		return nil, err
+	}
+	return &buf, nil
 }

@@ -18,6 +18,7 @@ package cloud
 
 import (
 	"context"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -33,7 +34,7 @@ import (
 // @Produce      json
 // @Param        cloud_name  path string  true  "cloud name"  Format(string)
 // @Param        data body types.KubeConfigOptions true "service_account, cluster_role"
-// @Success      200  {object}  httputils.Response
+// @Success      200  {object}  httputils.Response{result=types.KubeConfigOptions}
 // @Failure      400  {object}  httputils.Response
 // @Router       /clouds/v1/{cloud_name}/kubeconfigs [post]
 func (s *cloudRouter) createKubeConfig(c *gin.Context) {
@@ -60,18 +61,28 @@ func (s *cloudRouter) createKubeConfig(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// TODO: docs
+// updateKubeConfig godoc
+// @Summary      Update a cloud custom kubeConfig
+// @Description  Update by cloud kubeConfig
+// @Tags         kubeConfigs
+// @Accept       json
+// @Produce      json
+// @Param        cloud_name  path string  true  "cloud name"  Format(string)
+// @Param        id   path      int  true  "Cloud ID"  Format(int64)
+// @Success      200  {object}  httputils.Response{result=types.KubeConfigOptions}
+// @Failure      400  {object}  httputils.Response
+// @Router       /clouds/v1/{cloud_name}/kubeconfigs [put]
 func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err  error
-		opts types.KubeConfigOptions
+		err         error
+		cloudIdMeta types.CloudIdMeta
 	)
-	if err = c.ShouldBindUri(&opts); err != nil {
+	if err = c.ShouldBindUri(&cloudIdMeta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Update(context.TODO(), opts.Id); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Update(context.TODO(), cloudIdMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -116,7 +127,7 @@ func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 // @Produce      json
 // @Param        cloud_name  path string  true  "cloud name"  Format(string)
 // @Param        id   path      int  true  "kubeConfig ID"  Format(int64)
-// @Success      200  {object}  httputils.Response
+// @Success      200  {object}  httputils.Response{result=types.KubeConfigOptions}
 // @Failure      400  {object}  httputils.Response
 // @Router       /clouds/v1/{cloud_name}/kubeconfigs/{id} [get]
 func (s *cloudRouter) getKubeConfig(c *gin.Context) {
@@ -144,7 +155,7 @@ func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        cloud_name  path string  true  "cloud name"  Format(string)
-// @Success      200  {object}  httputils.Response
+// @Success      200  {object}  httputils.Response{result=[]types.KubeConfigOptions}
 // @Failure      400  {object}  httputils.Response
 // @Router       /clouds/v1/{cloud_name}/kubeconfigs [get]
 func (s *cloudRouter) listKubeConfig(c *gin.Context) {
