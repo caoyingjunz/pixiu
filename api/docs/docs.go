@@ -52,7 +52,79 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/types.KubeConfigOptions"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
                             "$ref": "#/definitions/httputils.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update by cloud kubeConfig",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kubeConfigs"
+                ],
+                "summary": "Update a cloud custom kubeConfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "description": "cloud name",
+                        "name": "cloud_name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Cloud ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/types.KubeConfigOptions"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -98,7 +170,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/types.KubeConfigOptions"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -145,7 +229,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/types.KubeConfigOptions"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
