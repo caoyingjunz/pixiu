@@ -265,7 +265,7 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
 					newStatus = 1
 				}
-				//对比状态是否改变
+				// 对比状态是否改变
 				if status[name] != newStatus {
 					status[name] = newStatus
 					_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
