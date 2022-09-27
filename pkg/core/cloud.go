@@ -252,6 +252,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 
 func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	klog.V(2).Infof("starting cluster health check")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	status := make(map[string]int)
 
 	var wg sync.WaitGroup
@@ -259,18 +260,18 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	for {
 		select {
 		case <-time.After(interval):
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+
 			for name, cs := range clientSets.List() {
-				// TODO: 做并发优化
-				// TODO: 请求的超时设置
 				// TODO: 定时刷新 status 的存量
 				wg.Add(1)
+				//var a int64
+				//a = 0
 				go func() {
 					var newStatus int
 					defer wg.Done()
 
 					_, err := cs.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-
+					cancel()
 					if err != nil {
 						log.Logger.Errorf("failed to check %s cluster11: %v", name, err)
 						newStatus = 1
@@ -280,9 +281,10 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 						status[name] = newStatus
 						_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
 					}
-					cancel()
 				}()
+				cancel()
 			}
+
 			wg.Wait()
 
 		case <-stopCh:
