@@ -258,19 +258,17 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 		select {
 		case <-time.After(interval):
 			for name, cs := range clientSets.List() {
-				//TODO: 增加并发控制
 				// TODO: 定时刷新 status 的存量
 				var newStatus int
 				var timeoutSeconds int64 = 2
-				_, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1})
-				if err != nil {
+				if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {
 					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
 					newStatus = 1
-					//对比状态是否改变
-					if status[name] != newStatus {
-						status[name] = newStatus
-						_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
-					}
+				}
+				//对比状态是否改变
+				if status[name] != newStatus {
+					status[name] = newStatus
+					_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
 				}
 			}
 		case <-stopCh:
