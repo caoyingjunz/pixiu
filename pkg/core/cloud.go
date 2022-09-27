@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -253,26 +254,37 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	klog.V(2).Infof("starting cluster health check")
 	status := make(map[string]int)
 
+	var wg sync.WaitGroup
 	interval := time.Second * 5
 	for {
 		select {
 		case <-time.After(interval):
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 			for name, cs := range clientSets.List() {
 				// TODO: 做并发优化
 				// TODO: 请求的超时设置
 				// TODO: 定时刷新 status 的存量
-				var newStatus int
-				if _, err := cs.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{}); err != nil {
-					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
-					newStatus = 1
-				}
+				wg.Add(1)
+				go func() {
+					var newStatus int
+					defer wg.Done()
 
-				// 对比状态是否发生改变
-				if status[name] != newStatus {
-					status[name] = newStatus
-					_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
-				}
+					_, err := cs.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+
+					if err != nil {
+						log.Logger.Errorf("failed to check %s cluster11: %v", name, err)
+						newStatus = 1
+					}
+					// 对比状态是否发生改变
+					if status[name] != newStatus {
+						status[name] = newStatus
+						_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
+					}
+					cancel()
+				}()
 			}
+			wg.Wait()
+
 		case <-stopCh:
 			klog.Infof("shutting cluster health check")
 			return
