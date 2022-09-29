@@ -110,7 +110,7 @@ type Cloud struct {
 	Id              int64  `json:"id"`
 	ResourceVersion int64  `json:"resource_version"`
 	Name            string `json:"name"`
-	Status          int    `json:"status"` // 0: 正常 1: 异常 2: 正在初始化 3: 正在删除
+	Status          int    `json:"status"` // 0: 正常 1: 异常 2: 正在初始化 3: 删除中
 	CloudType       string `json:"cloud_type"`
 	KubeVersion     string `json:"kube_version"`
 	KubeConfig      []byte `json:"kube_config"`
