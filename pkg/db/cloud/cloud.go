@@ -33,6 +33,7 @@ type CloudInterface interface {
 	List(ctx context.Context) ([]model.Cloud, error)
 
 	SetStatus(ctx context.Context, name string, status int) error
+	RefreshStatus(ctx context.Context, name string) error
 	GetByName(ctx context.Context, name string) (*model.Cloud, error)
 
 	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
@@ -133,6 +134,13 @@ func (s *cloud) SetStatus(ctx context.Context, name string, status int) error {
 	}
 
 	return nil
+}
+
+func (s *cloud) RefreshStatus(ctx context.Context, name string) error {
+	return s.db.
+		Where("name = ?", name).
+		Delete(&model.Cloud{}).
+		Error
 }
 
 func (s *cloud) GetByName(ctx context.Context, name string) (*model.Cloud, error) {

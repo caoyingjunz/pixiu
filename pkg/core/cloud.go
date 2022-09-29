@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -261,6 +262,18 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 				// TODO: 定时刷新 status 的存量
 				var newStatus int
 				var timeoutSeconds int64 = 2
+				// 从cloud表获取最新的数据
+				listname, err := c.factory.Cloud().List(context.TODO())
+				if err != nil {
+					log.Logger.Errorf("failed to list %s cluster", err)
+				}
+				// 对比clientSet与cloud表
+				for _, cloud := range listname {
+					find := strings.Contains(cloud.Name, name)
+					if find == false {
+						c.factory.Cloud().RefreshStatus(context.TODO(), cloud.Name)
+					}
+				}
 				if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {
 					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
 					newStatus = 1
