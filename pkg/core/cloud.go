@@ -251,14 +251,21 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 
 func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	klog.V(2).Infof("starting cluster health check")
+	// 存储旧的检查状态
 	status := make(map[string]int)
 
 	interval := time.Second * 5
 	for {
 		select {
 		case <-time.After(interval):
+			// 定时刷新status map
+			for name := range status {
+				if clientSets.Get(name) == nil {
+					delete(status, name)
+				}
+			}
+			// 定时检查cluster集群状态
 			for name, cs := range clientSets.List() {
-				// TODO: 定时刷新 status 的存量
 				var newStatus int
 				var timeoutSeconds int64 = 2
 				if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {
