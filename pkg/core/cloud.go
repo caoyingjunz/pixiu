@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -252,35 +251,32 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 
 func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	klog.V(2).Infof("starting cluster health check")
+	// 存储旧的检查状态
 	status := make(map[string]int)
 
 	interval := time.Second * 5
 	for {
 		select {
 		case <-time.After(interval):
+			// 定时刷新status map
+			for name := range status {
+				if clientSets.Get(name) == nil {
+					delete(status, name)
+				}
+			}
+			// 定时检查cluster集群状态
 			for name, cs := range clientSets.List() {
-				// TODO: 定时刷新 status 的存量
 				var newStatus int
-				var timeoutSeconds int64 = 2
-				// 从cloud表获取最新的数据
-				listname, err := c.factory.Cloud().List(context.TODO())
+				var timeoutSeconds int64 = 0
+				_, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1})
 				if err != nil {
-					log.Logger.Errorf("failed to list %s cluster", err)
-				}
-				// 对比clientSet与cloud表
-				for _, cloud := range listname {
-					find := strings.Contains(cloud.Name, name)
-					if find == false {
-						c.factory.Cloud().RefreshStatus(context.TODO(), cloud.Name)
-					}
-				}
-				if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {
 					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
 					newStatus = 1
 				}
 				// 对比状态是否改变
 				if status[name] != newStatus {
 					status[name] = newStatus
+
 					_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
 				}
 			}
