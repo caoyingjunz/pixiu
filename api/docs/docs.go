@@ -25,6 +25,44 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/clouds/ping": {
+            "post": {
+                "description": "通过 kubeConfig 检测与 kubernetes 集群的连通性",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clouds"
+                ],
+                "summary": "Ping a cloud",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "kubernetes kubeconfig",
+                        "name": "kubeconfig",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
         "/clouds/v1/{cloud_name}/kubeconfigs": {
             "get": {
                 "description": "get by cloud kubeConfig ID",
@@ -376,6 +414,32 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "httputils.HttpError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 400
+                },
+                "message": {
+                    "type": "string",
+                    "example": "status bad request"
+                }
+            }
+        },
+        "httputils.HttpOK": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 200
+                },
+                "result": {
+                    "type": "string",
+                    "example": "any result"
+                }
+            }
+        },
         "httputils.Response": {
             "type": "object",
             "properties": {
