@@ -18,6 +18,7 @@ package cloud
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -34,11 +35,18 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		err   error
 		cloud types.Cloud
 	)
-	cloud.Name = c.Param("name")
-	if len(cloud.Name) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
+	// 前端约定，k8s 集群的原始数据通过 clusterData 传递
+	// 如果获取data失败，或者data为空，则不允许创建
+	data, err := httputils.ReadFile(c, "clusterData")
+	if err != nil || len(data) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("failed to get cluster raw data"))
 		return
 	}
+	if err = json.Unmarshal(data, &cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	// 获取 kubeConfig 文件
 	if cloud.KubeConfig, err = httputils.ReadFile(c, "kubeconfig"); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

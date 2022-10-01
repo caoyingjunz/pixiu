@@ -18,17 +18,19 @@ package types
 
 import "time"
 
-type IdMeta struct {
+type IdUriMeta struct {
 	Id int64 `uri:"id" binding:"required"`
 }
 
-type CloudMeta struct {
+type CloudUriMeta struct {
+	IdUriMeta `json:",inline"`
+
 	CloudName string `uri:"cloud_name" binding:"required"`
 }
 
-type CloudIdMeta struct {
-	IdMeta    `json:",inline"`
-	CloudMeta `json:",inline"`
+type IdMeta struct {
+	Id              int64 `json:"id"`
+	ResourceVersion int64 `json:"resource_version"`
 }
 
 // PageOptions 分页选项
