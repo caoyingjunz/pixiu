@@ -48,7 +48,10 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
 
-	Load(stopCh chan struct{}) error // 加载已经存在的 cloud 客户端
+	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
+	Ping(ctx context.Context, kubeConfigData []byte) error
+	// 加载已经存在的 cloud 客户端
+	Load(stopCh chan struct{}) error
 
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
@@ -219,6 +222,21 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	}
 
 	return cs, nil
+}
+
+func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
+	// 先构造 clientSet，如果有异常，直接返回
+	clientSet, err := c.newClientSet(kubeConfigData)
+	if err != nil {
+		log.Logger.Errorf("failed to create clientSet: %v", err)
+		return err
+	}
+	_, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
+	if err != nil {
+		return nil
+	}
+
+	return nil
 }
 
 func (c *cloud) Load(stopCh chan struct{}) error {

@@ -127,8 +127,15 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 
 func (s *cloudRouter) pingCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-
-	fmt.Println("dd")
+	data, err := httputils.ReadFile(c, "kubeconfig")
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Ping(context.TODO(), data); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
