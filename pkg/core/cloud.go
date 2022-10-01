@@ -304,7 +304,7 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		NodeNumber:  obj.NodeNumber,
 		Resources:   obj.Resources,
 		Description: obj.Description,
-		TimeSpec: types.TimeSpec{
+		TimeOption: types.TimeOption{
 			GmtCreate:   obj.GmtCreate.Format(timeLayout),
 			GmtModified: obj.GmtModified.Format(timeLayout),
 		},
