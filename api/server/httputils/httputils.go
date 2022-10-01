@@ -57,6 +57,15 @@ func (r *Response) SetMessage(m interface{}) {
 	}
 }
 
+// NewResponse 构造 http 返回值，默认 code 为 400
+// SetSuccess 时会自动设置 code 为 200
+// SetFailed 时不需要设置状态码，SetCode 自定义状态码
+func NewResponse() *Response {
+	return &Response{
+		Code: http.StatusBadRequest,
+	}
+}
+
 // SetSuccess 设置成功返回值
 func SetSuccess(c *gin.Context, r *Response) {
 	r.SetCode(http.StatusOK)
@@ -66,11 +75,5 @@ func SetSuccess(c *gin.Context, r *Response) {
 // SetFailed 设置错误返回值
 func SetFailed(c *gin.Context, r *Response, err error) {
 	r.SetMessage(err)
-	c.JSON(http.StatusBadRequest, r)
-}
-
-func NewResponse() *Response {
-	return &Response{
-		Code: http.StatusBadRequest,
-	}
+	c.JSON(http.StatusOK, r)
 }
