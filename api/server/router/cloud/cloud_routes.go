@@ -124,3 +124,11 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (s *cloudRouter) pingCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	fmt.Println("dd")
+
+	httputils.SetSuccess(c, r)
+}
