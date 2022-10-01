@@ -16,6 +16,19 @@ limitations under the License.
 
 package types
 
+type IdMeta struct {
+	Id int64 `uri:"id" binding:"required"`
+}
+
+type CloudMeta struct {
+	CloudName string `uri:"cloud_name" binding:"required"`
+}
+
+type CloudIdMeta struct {
+	IdMeta    `json:",inline"`
+	CloudMeta `json:",inline"`
+}
+
 // TimeOption 通用时间规格
 type TimeOption struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`
@@ -26,17 +39,4 @@ type TimeOption struct {
 type PageOptions struct {
 	Limit int `form:"limit"`
 	Page  int `form:"page"`
-}
-
-type IdMeta struct {
-	Id int64 `uri:"id" binding:"required"`
-}
-
-type CloudMeta struct {
-	CloudName string `uri:"cloud_name" binding:"required"`
-}
-
-type CloudIdMeta struct {
-	CloudMeta `json:",inline"`
-	IdMeta    `json:",inline"`
 }
