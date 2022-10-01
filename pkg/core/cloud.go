@@ -93,6 +93,11 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 	if len(obj.KubeConfig) == 0 {
 		return fmt.Errorf("invalid empty kubeconfig data")
 	}
+	// 集群类型支持 自建和标准，默认为标准
+	// TODO: 未对类型进行检查
+	if len(obj.CloudType) == 0 {
+		obj.CloudType = "标准"
+	}
 	// TODO: 其他规范创建前检查
 
 	return nil
