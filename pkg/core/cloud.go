@@ -93,11 +93,7 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 	if len(obj.KubeConfig) == 0 {
 		return fmt.Errorf("invalid empty kubeconfig data")
 	}
-	// 集群类型支持 自建和标准，默认为标准
-	// TODO: 未对类型进行检查
-	if len(obj.CloudType) == 0 {
-		obj.CloudType = "标准"
-	}
+	// TODO: 其他规范创建前检查
 
 	return nil
 }
@@ -121,7 +117,7 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 	// 获取 k8s 集群信息: k8s 版本，节点数量，资源信息
-	nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{Limit: 1})
 	if err != nil || len(nodes.Items) == 0 {
 		log.Logger.Errorf("failed to connected to k8s cluster: %v", err)
 		return err
@@ -314,7 +310,10 @@ func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 	return &types.Cloud{
-		Id:          obj.Id,
+		IdMeta: types.IdMeta{
+			Id:              obj.Id,
+			ResourceVersion: obj.ResourceVersion,
+		},
 		Name:        obj.Name,
 		Status:      obj.Status,
 		CloudType:   obj.CloudType,

@@ -34,7 +34,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 	cloudRoute := ginEngine.Group("/clouds")
 	{
 		//  k8s cluster API
-		cloudRoute.POST("/:name", s.createCloud) // TODO: will optimise
+		cloudRoute.POST("", s.createCloud)
 		cloudRoute.PUT("/:id", s.updateCloud)
 		cloudRoute.DELETE("/:id", s.deleteCloud)
 		cloudRoute.GET("/:id", s.getCloud)

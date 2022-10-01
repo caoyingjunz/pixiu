@@ -41,7 +41,7 @@ func (s *cloudRouter) createKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err       error
-		cloudMeta types.CloudMeta
+		cloudMeta types.CloudUriMeta
 		opts      types.KubeConfigOptions
 	)
 	if err = c.ShouldBindUri(&cloudMeta); err != nil {
@@ -76,7 +76,7 @@ func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err         error
-		cloudIdMeta types.CloudIdMeta
+		cloudIdMeta types.CloudUriMeta
 	)
 	if err = c.ShouldBindUri(&cloudIdMeta); err != nil {
 		httputils.SetFailed(c, r, err)
@@ -105,7 +105,7 @@ func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err         error
-		cloudIdMeta types.CloudIdMeta
+		cloudIdMeta types.CloudUriMeta
 	)
 	if err = c.ShouldBindUri(&cloudIdMeta); err != nil {
 		httputils.SetFailed(c, r, err)
@@ -134,7 +134,7 @@ func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err         error
-		cloudIdMeta types.CloudIdMeta
+		cloudIdMeta types.CloudUriMeta
 	)
 	if err = c.ShouldBindUri(&cloudIdMeta); err != nil {
 		httputils.SetFailed(c, r, err)
