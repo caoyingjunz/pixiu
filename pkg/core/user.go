@@ -264,10 +264,7 @@ func model2Type(u *model.User) *types.User {
 		Role:            u.Role,
 		Email:           u.Email,
 		Description:     u.Description,
-		TimeSpec: types.TimeSpec{
-			GmtCreate:   u.GmtCreate.Format(timeLayout),
-			GmtModified: u.GmtModified.Format(timeLayout),
-		},
+		TimeOption:      types.NewTypeTime(u.GmtCreate, u.GmtModified),
 	}
 }
 

@@ -96,7 +96,7 @@ type User struct {
 	Email           string `json:"email"`
 	Description     string `json:"description"`
 
-	TimeSpec
+	TimeOption `json:",inline"`
 }
 
 type Password struct {
@@ -118,13 +118,7 @@ type Cloud struct {
 	Resources       string `json:"resources"`
 	Description     string `json:"description"`
 
-	TimeSpec
-}
-
-// TimeSpec 通用时间规格
-type TimeSpec struct {
-	GmtCreate   interface{} `json:"gmt_create,omitempty"`
-	GmtModified interface{} `json:"gmt_modified,omitempty"`
+	TimeOption `json:",inline"`
 }
 
 // Node k8s node属性
@@ -138,25 +132,6 @@ type Node struct {
 	OsImage          string `json:"osImage"`
 	KernelVersion    string `json:"kernel_version"`
 	ContainerRuntime string `json:"container_runtime"`
-}
-
-// PageOptions 分页选项
-type PageOptions struct {
-	Limit int `form:"limit"`
-	Page  int `form:"page"`
-}
-
-type IdMeta struct {
-	Id int64 `uri:"id" binding:"required"`
-}
-
-type CloudMeta struct {
-	CloudName string `uri:"cloud_name" binding:"required"`
-}
-
-type CloudIdMeta struct {
-	CloudMeta `json:",inline"`
-	IdMeta    `json:",inline"`
 }
 
 type KubeConfigOptions struct {

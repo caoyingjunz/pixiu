@@ -1,4 +1,22 @@
 definitions:
+  httputils.HttpError:
+    properties:
+      code:
+        example: 400
+        type: integer
+      message:
+        example: status bad request
+        type: string
+    type: object
+  httputils.HttpOK:
+    properties:
+      code:
+        example: 200
+        type: integer
+      result:
+        example: any result
+        type: string
+    type: object
   httputils.Response:
     properties:
       code:
@@ -87,6 +105,31 @@ paths:
           schema:
             $ref: '#/definitions/httputils.Response'
       summary: Get a cloud
+      tags:
+      - clouds
+  /clouds/ping:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 通过 kubeConfig 检测与 kubernetes 集群的连通性
+      parameters:
+      - description: kubernetes kubeconfig
+        in: formData
+        name: kubeconfig
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Ping a cloud
       tags:
       - clouds
   /clouds/v1/{cloud_name}/kubeconfigs:

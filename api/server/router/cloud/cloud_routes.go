@@ -51,6 +51,7 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// TODO
 func (s *cloudRouter) updateCloud(c *gin.Context) {
 	r := httputils.NewResponse()
 	httputils.SetSuccess(c, r)
@@ -118,6 +119,31 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 		return
 	}
 	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO(), &pageOption); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+// pingCloud godoc
+// @Summary      Ping a cloud
+// @Description  通过 kubeConfig 检测与 kubernetes 集群的连通性
+// @Tags         clouds
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        kubeconfig  formData  file  true  "kubernetes kubeconfig"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /clouds/ping [post]
+func (s *cloudRouter) pingCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	data, err := httputils.ReadFile(c, "kubeconfig")
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Ping(context.TODO(), data); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
