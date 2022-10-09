@@ -29,6 +29,11 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
+// 自建 k8s 集群
+func (s *cloudRouter) buildCloud(c *gin.Context) {
+
+}
+
 func (s *cloudRouter) createCloud(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
