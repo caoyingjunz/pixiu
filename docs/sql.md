@@ -22,9 +22,10 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=21220801;
 ```
 
-### 创建 `admin` 用户
-```sql
-insert into users(name, password) values ('admin', 'a66abb5684c45962d887564f08346e8d');
+### 创建 `gopixiu` 用户
+```sql 
+# 用户 gopixiu 的初始密码为 gopixiu
+insert into users(name, password) values ('gopixiu', '$2a$10$KsAmVnOI7lzOZwyC8A9bvujTcLqsR7p01qgPmT1cpN6V7Au6OtAKC');
 ```
 
 ## 创建 `roles` 表
