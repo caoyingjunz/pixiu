@@ -25,6 +25,46 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/clouds/build": {
+            "post": {
+                "description": "自建 kubernetes 集群",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clouds"
+                ],
+                "summary": "自建 kubernetes 集群",
+                "parameters": [
+                    {
+                        "description": "build a cloud",
+                        "name": "buildCloud",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.BuildCloud"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
         "/clouds/ping": {
             "post": {
                 "description": "通过 kubeConfig 检测与 kubernetes 集群的连通性",
@@ -453,6 +493,17 @@ const docTemplate = `{
                 },
                 "result": {
                     "description": "正常返回时的数据，可以为任意数据结构"
+                }
+            }
+        },
+        "types.BuildCloud": {
+            "type": "object",
+            "properties": {
+                "create_ns": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
