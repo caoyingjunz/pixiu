@@ -24,7 +24,7 @@ CREATE TABLE `users` (
 
 ### 创建 `gopixiu` 用户
 ```sql
-insert into users(name, password) values ('admin', '$2a$10$KsAmVnOI7lzOZwyC8A9bvujTcLqsR7p01qgPmT1cpN6V7Au6OtAKC');
+insert into users(name, password) values ('gopixiu', '$2a$10$KsAmVnOI7lzOZwyC8A9bvujTcLqsR7p01qgPmT1cpN6V7Au6OtAKC');
 ```
 
 ## 创建 `roles` 表
