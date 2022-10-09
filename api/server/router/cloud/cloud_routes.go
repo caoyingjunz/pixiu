@@ -29,9 +29,32 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
-// 自建 k8s 集群
+// buildCloud godoc
+// @Summary      自建 kubernetes 集群
+// @Description  自建 kubernetes 集群
+// @Tags         clouds
+// @Accept       json
+// @Produce      json
+// @Param        buildCloud body types.BuildCloud true "build a cloud"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /clouds/build [post]
 func (s *cloudRouter) buildCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err   error
+		cloud types.BuildCloud
+	)
+	if err = c.ShouldBindJSON(&cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Build(context.TODO(), &cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
+	httputils.SetSuccess(c, r)
 }
 
 func (s *cloudRouter) createCloud(c *gin.Context) {

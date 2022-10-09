@@ -47,10 +47,11 @@ type CloudInterface interface {
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
+	Build(ctx context.Context, obj *types.BuildCloud) error
 
 	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
 	Ping(ctx context.Context, kubeConfigData []byte) error
-	// 加载已经存在的 cloud 客户端
+	// Load 加载已经存在的 cloud 客户端
 	Load(stopCh chan struct{}) error
 
 	// kubernetes 资源的接口定义
@@ -223,6 +224,10 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	}
 
 	return cs, nil
+}
+
+func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
+	return nil
 }
 
 func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
