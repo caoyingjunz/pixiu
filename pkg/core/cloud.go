@@ -226,7 +226,9 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	return cs, nil
 }
 
+// Build TODO
 func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
+	fmt.Println(obj)
 	return nil
 }
 
