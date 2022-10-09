@@ -23,7 +23,7 @@ CREATE TABLE `users` (
 ```
 
 ### 创建 `gopixiu` 用户
-```sql
+```sql 默认账号和密码为 gopixiu/gopixiu
 insert into users(name, password) values ('gopixiu', '$2a$10$KsAmVnOI7lzOZwyC8A9bvujTcLqsR7p01qgPmT1cpN6V7Au6OtAKC');
 ```
 
