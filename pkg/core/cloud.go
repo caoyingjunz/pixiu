@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -148,6 +149,29 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	}); err != nil {
 		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
 		return err
+	}
+
+	// 创建 pixiu-system 命名空间，用于安装内置的控制器
+	namespace := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pixiu-system",
+		},
+	}
+	nsList, _ := clientSet.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	createNsFlag := true
+	for _, item := range nsList.Items {
+		if item.Name == namespace.Name {
+			createNsFlag = false
+			break
+		}
+	}
+	if createNsFlag {
+		result, err := clientSet.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
+		if err != nil {
+			log.Logger.Errorf("Create ns %s fail: %v", namespace.Name, err)
+			return err
+		}
+		log.Logger.Info("Create ns %s success !", result.ObjectMeta.Name)
 	}
 
 	clientSets.Add(obj.Name, clientSet)
