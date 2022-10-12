@@ -120,6 +120,12 @@ type Cloud struct {
 	Description string `json:"description"`
 }
 
+// BuildCloud 自建 kubernetes 属性
+type BuildCloud struct {
+	Name     string `json:"name"`
+	CreateNs bool   `json:"create_ns"`
+}
+
 // Node k8s node属性
 type Node struct {
 	Name             string `json:"name"`

@@ -34,7 +34,8 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 	cloudRoute := ginEngine.Group("/clouds")
 	{
 		//  k8s cluster API
-		cloudRoute.POST("", s.createCloud)
+		cloudRoute.POST("", s.createCloud)      // 导入已存在的k8s集群，直接导入 kubeConfig 文件
+		cloudRoute.POST("/build", s.buildCloud) // 自建 kubernetes 集群
 		cloudRoute.PUT("/:id", s.updateCloud)
 		cloudRoute.DELETE("/:id", s.deleteCloud)
 		cloudRoute.GET("/:id", s.getCloud)

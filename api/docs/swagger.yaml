@@ -28,6 +28,13 @@ definitions:
       result:
         description: 正常返回时的数据，可以为任意数据结构
     type: object
+  types.BuildCloud:
+    properties:
+      create_ns:
+        type: boolean
+      name:
+        type: string
+    type: object
   types.KubeConfigOptions:
     properties:
       cloud_name:
@@ -105,6 +112,32 @@ paths:
           schema:
             $ref: '#/definitions/httputils.Response'
       summary: Get a cloud
+      tags:
+      - clouds
+  /clouds/build:
+    post:
+      consumes:
+      - application/json
+      description: 自建 kubernetes 集群
+      parameters:
+      - description: build a cloud
+        in: body
+        name: buildCloud
+        required: true
+        schema:
+          $ref: '#/definitions/types.BuildCloud'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: 自建 kubernetes 集群
       tags:
       - clouds
   /clouds/ping:
