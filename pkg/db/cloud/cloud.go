@@ -35,6 +35,11 @@ type CloudInterface interface {
 	SetStatus(ctx context.Context, name string, status int) error
 	GetByName(ctx context.Context, name string) (*model.Cloud, error)
 
+	CreateCluster(ctx context.Context, cluObj *model.Cluster) error
+	UpdateCluster(ctx context.Context, clusterId int64, resourceVersion int64, updates map[string]interface{}) error
+	DeleteCluster(ctx context.Context, clusterId int64) error
+	GetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error)
+
 	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
 	Count(ctx context.Context) (int64, error)
 }
@@ -111,6 +116,22 @@ func (s *cloud) PageList(ctx context.Context, page int, pageSize int) ([]model.C
 	}
 
 	return cs, total, nil
+}
+
+func (s *cloud) CreateCluster(ctx context.Context, cluObj *model.Cluster) error {
+	return nil
+}
+
+func (s *cloud) UpdateCluster(ctx context.Context, clusterId int64, resourceVersion int64, updates map[string]interface{}) error {
+	return nil
+}
+
+func (s *cloud) DeleteCluster(ctx context.Context, clusterId int64) error {
+	return nil
+}
+
+func (s *cloud) GetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error) {
+	return nil, nil
 }
 
 func (s *cloud) Count(ctx context.Context) (int64, error) {

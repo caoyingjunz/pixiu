@@ -203,7 +203,7 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 }
 
 // TODO
-func (c *cloud) buildCluster(ctx context.Context, cid int64, kubeObj *types.BuildCloud) error {
+func (c *cloud) buildCluster(ctx context.Context, cid int64, obj *types.BuildCloud) error {
 	return nil
 }
 
