@@ -168,6 +168,7 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 
 	// step1: 创建 cloud
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
+		Name:        "todo-name",
 		AliasName:   obj.AliasName,
 		Status:      2, // 初始化状态
 		CloudType:   obj.CloudType,
