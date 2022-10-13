@@ -122,12 +122,11 @@ type Cloud struct {
 
 // BuildCloud 自建 kubernetes 属性
 type BuildCloud struct {
-	Name            string          `json:"name"`
-	CloudType       string          `json:"cloud_type"`
-	Region          string          `json:"region"`
-	Kubernetes      *KubernetesSpec `json:"kubernetes"`
-	Masters         []NodeSpec      `json:"masters"`
-	Nodes           []NodeSpec      `json:"nodes"`
+	Name            string          `json:"name"`       // 名称，系统自动生成，只能为字符串
+	AliasName       string          `json:"alias_name"` // 可读性的名称，支持中午
+	CloudType       string          `json:"cloud_type"` // cloud 的类型，支持标准类型和自建类型
+	Region          string          `json:"region"`     // 城市区域
+	Kubernetes      *KubernetesSpec `json:"kubernetes"` // k8s 全部信息
 	CreateNamespace bool            `json:"create_namespace"`
 	Description     string          `json:"description"`
 }
@@ -140,13 +139,15 @@ type NodeSpec struct {
 }
 
 type KubernetesSpec struct {
-	ApiServer   string `json:"api_server"`
-	Version     string `json:"version"`
-	Runtime     string `json:"runtime"`
-	Cni         string `json:"cni"`
-	ServiceCidr string `json:"service_cidr"`
-	PodCider    string `json:"pod_cider"`
-	ProxyMode   string `json:"proxy_mode"`
+	ApiServer   string     `json:"api_server"` // kubernetes 的 apiServer 的 ip 地址
+	Version     string     `json:"version"`    // k8s 的版本
+	Runtime     string     `json:"runtime"`    // 容器运行时，目前支持 docker 和 containerd
+	Cni         string     `json:"cni"`        // 网络 cni，支持 flannel 和 calico
+	ServiceCidr string     `json:"service_cidr"`
+	PodCider    string     `json:"pod_cider"`
+	ProxyMode   string     `json:"proxy_mode"` // kubeProxy 的模式，只能是 iptables 和 ipvs
+	Masters     []NodeSpec `json:"masters"`    // 集群的 master 节点
+	Nodes       []NodeSpec `json:"nodes"`      // 集群的 node 节点
 }
 
 // Node k8s node属性
