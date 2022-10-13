@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	v1 "k8s.io/api/core/v1"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -147,6 +148,20 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		Resources:   resources,
 	}); err != nil {
 		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
+		return err
+	}
+
+	// TODO: 根据传参确定是否创建默认ns
+	// 创建 pixiu-system 命名空间，用于安装内置的控制器
+	namespace := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pixiu-system",
+		},
+	}
+	if _, err := clientSet.CoreV1().Namespaces().Create(context.Background(),
+		namespace,
+		metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("create default namespace error: %v", err)
 		return err
 	}
 
