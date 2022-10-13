@@ -121,9 +121,27 @@ type Cloud struct {
 }
 
 // BuildCloud 自建 kubernetes 属性
+// TODO: 分类
 type BuildCloud struct {
-	Name     string `json:"name"`
-	CreateNs bool   `json:"create_ns"`
+	Name              string     `json:"name"`
+	CloudType         string     `json:"cloud_type"`
+	ApiServer         string     `json:"api_server"`
+	Region            string     `json:"region"`
+	KubernetesVersion string     `json:"kubernetes_version"`
+	KubernetesRuntime string     `json:"kubernetes_runtime"`
+	Cni               string     `json:"cni"`
+	CreateNamespace   bool       `json:"create_namespace"`
+	ServiceCidr       string     `json:"service_cidr"`
+	PodCider          string     `json:"pod_cider"`
+	ProxyMode         string     `json:"proxy_mode"`
+	Masters           []NodeSpec `json:"masters"`
+	Nodes             []NodeSpec `json:"nodes"`
+	Description       string     `json:"description"`
+}
+
+// NodeSpec 构造集群的节点组成
+// TODO
+type NodeSpec struct {
 }
 
 // Node k8s node属性

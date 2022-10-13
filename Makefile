@@ -2,7 +2,7 @@
 
 tag = v0.1
 releaseName = gopixiu
-dockerhubUser = sl01248
+dockerhubUser = jacky06
 
 ALL: run
 
