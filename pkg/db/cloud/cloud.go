@@ -123,6 +123,15 @@ func (s *cloud) PageList(ctx context.Context, page int, pageSize int) ([]model.C
 	return cs, total, nil
 }
 
+func (s *cloud) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := s.db.Model(&model.Cloud{}).Count(&count).Error; err != nil {
+		return count, err
+	}
+
+	return count, nil
+}
+
 func (s *cloud) SetStatus(ctx context.Context, name string, status int) error {
 	updates := make(map[string]interface{})
 	updates["gmt_modified"] = time.Now() // 系统维护字段
@@ -143,15 +152,6 @@ func (s *cloud) GetByName(ctx context.Context, name string) (*model.Cloud, error
 	}
 
 	return &c, nil
-}
-
-func (s *cloud) Count(ctx context.Context) (int64, error) {
-	var count int64
-	if err := s.db.Model(&model.Cloud{}).Count(&count).Error; err != nil {
-		return count, err
-	}
-
-	return count, nil
 }
 
 func (s *cloud) CreateCluster(ctx context.Context, cluObj *model.Cluster) error {
