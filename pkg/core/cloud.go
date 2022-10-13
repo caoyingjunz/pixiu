@@ -156,7 +156,6 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 }
 
 func (c *cloud) preBuild(ctx context.Context, obj *types.BuildCloud) error {
-
 	return nil
 }
 
@@ -179,14 +178,40 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 		log.Logger.Errorf("failed to create cloud %s: %v")
 		return err
 	}
-	cloudId := cloudObj.Id
+	cid := cloudObj.Id
 
 	// step2: 创建 k8s cluster
-	// TODO
-	fmt.Println(cloudId)
+	if err = c.buildCluster(ctx, cid, obj); err != nil {
+		log.Logger.Errorf("failed to build %s cloud cluster: %v", obj.AliasName, err)
+		_ = c.forceDelete(ctx, cid)
+		return err
+	}
 
 	// step3: 创建 nodes
+	if err = c.buildNodes(ctx, cid, obj); err != nil {
+		log.Logger.Errorf("failed to build %s cloud nodes: %v", obj.AliasName, err)
+		_ = c.forceDelete(ctx, cid)
+		return err
+	}
 
+	// 立刻进行部署
+	if obj.Immediate {
+		go c.StartDeployCluster(ctx, cid)
+	}
+	return nil
+}
+
+// TODO
+func (c *cloud) buildCluster(ctx context.Context, cid int64, kubeObj *types.BuildCloud) error {
+	return nil
+}
+
+// TODO
+func (c *cloud) buildNodes(ctx context.Context, cid int64, obj *types.BuildCloud) error {
+	return nil
+}
+
+func (c *cloud) forceDelete(ctx context.Context, cid int64) error {
 	return nil
 }
 
@@ -364,4 +389,9 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		Description: obj.Description,
 		TimeOption:  types.NewTypeTime(obj.GmtCreate, obj.GmtModified),
 	}
+}
+
+// StartDeployCluster TODO
+func (c *cloud) StartDeployCluster(ctx context.Context, cid int64) error {
+	return nil
 }
