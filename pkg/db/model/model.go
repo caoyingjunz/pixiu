@@ -24,6 +24,7 @@ type Cloud struct {
 	gopixiu.Model
 
 	Name        string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
+	AliasName   string `json:"alias_name"`                        // 集群别名，支持中文
 	Status      int    `json:"status"`
 	CloudType   string `json:"cloud_type"`              // 集群类型，支持自建和标准
 	KubeVersion string `json:"kube_version"`            // k8s 的版本

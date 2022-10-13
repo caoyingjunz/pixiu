@@ -115,5 +115,5 @@ CREATE TABLE `nodes` (
     user varchar(128) COMMENT '用户名',
     password varchar(128) COMMENT '节点密码',
     KEY `idx_cloud` (`cloud_id`)
-) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=23220801;
+) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=24220801;
 ```

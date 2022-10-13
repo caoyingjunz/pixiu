@@ -155,6 +155,41 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	return nil
 }
 
+func (c *cloud) preBuild(ctx context.Context, obj *types.BuildCloud) error {
+
+	return nil
+}
+
+// Build 构造 Cloud
+func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
+	if err := c.preBuild(ctx, obj); err != nil {
+		log.Logger.Errorf("failed to pre-check for %s build: %v", obj.Name, err)
+		return err
+	}
+
+	// step1: 创建 cloud
+	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
+		AliasName:   obj.AliasName,
+		Status:      2, // 初始化状态
+		CloudType:   obj.CloudType,
+		KubeVersion: obj.Kubernetes.Version,
+		Description: obj.Description,
+	})
+	if err != nil {
+		log.Logger.Errorf("failed to create cloud %s: %v")
+		return err
+	}
+	cloudId := cloudObj.Id
+
+	// step2: 创建 k8s cluster
+	// TODO
+	fmt.Println(cloudId)
+
+	// step3: 创建 nodes
+
+	return nil
+}
+
 func (c *cloud) Update(ctx context.Context, obj *types.Cloud) error { return nil }
 
 func (c *cloud) Delete(ctx context.Context, cid int64) error {
@@ -224,12 +259,6 @@ func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interf
 	}
 
 	return cs, nil
-}
-
-// Build TODO
-func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
-	fmt.Println(obj)
-	return nil
 }
 
 func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
