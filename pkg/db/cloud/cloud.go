@@ -37,6 +37,16 @@ type CloudInterface interface {
 
 	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
 	Count(ctx context.Context) (int64, error)
+
+	CreateCluster(ctx context.Context, cluObj *model.Cluster) error
+	UpdateCluster(ctx context.Context, clusterId int64, resourceVersion int64, updates map[string]interface{}) error
+	DeleteCluster(ctx context.Context, clusterId int64) error
+	GetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error)
+
+	// CreateNodes 批量创建 nodes
+	CreateNodes(ctx context.Context, clusterId int64, nodesObj []model.Node) error
+	DeleteNodes(ctx context.Context, cid int64) error
+	GetNodes(ctx context.Context, cid int64) ([]model.Node, error)
 }
 
 type cloud struct {
@@ -142,4 +152,32 @@ func (s *cloud) GetByName(ctx context.Context, name string) (*model.Cloud, error
 	}
 
 	return &c, nil
+}
+
+func (s *cloud) CreateCluster(ctx context.Context, cluObj *model.Cluster) error {
+	return nil
+}
+
+func (s *cloud) UpdateCluster(ctx context.Context, clusterId int64, resourceVersion int64, updates map[string]interface{}) error {
+	return nil
+}
+
+func (s *cloud) DeleteCluster(ctx context.Context, clusterId int64) error {
+	return nil
+}
+
+func (s *cloud) GetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error) {
+	return nil, nil
+}
+
+func (s *cloud) CreateNodes(ctx context.Context, clusterId int64, nodesObj []model.Node) error {
+	return nil
+}
+
+func (s *cloud) DeleteNodes(ctx context.Context, cid int64) error {
+	return nil
+}
+
+func (s *cloud) GetNodes(ctx context.Context, cid int64) ([]model.Node, error) {
+	return nil, nil
 }

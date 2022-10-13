@@ -82,3 +82,38 @@ CREATE TABLE `kube_configs` (
     UNIQUE KEY `service_account` (`service_account`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=22220801;
 ```
+
+## 创建 `clusters` 表
+```sql
+CREATE TABLE `clusters` (
+    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
+    gmt_create datetime COMMENT '创建时间',
+    gmt_modified datetime COMMENT '修改时间',
+    resource_version int COMMENT '版本号',
+    cloud_id int COMMENT 'cloud ID',
+    api_server varchar(128) COMMENT 'k8s apiServer 地址',
+    version varchar(128) COMMENT 'k8s 集群版本',
+    runtime varchar(128) COMMENT '容器运行时',
+    cni varchar(128) COMMENT '集群 cni',
+    service_cidr varchar(128) COMMENT 'service 网段',
+    pod_cider varchar(128) COMMENT 'pod 网段',
+    proxy_mode varchar(128) COMMENT 'kubeProxy 模式',
+    KEY `idx_cloud` (`cloud_id`)
+) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=23220801;
+```
+
+## 创建 `nodes` 表
+```sql
+CREATE TABLE `nodes` (
+    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
+    gmt_create datetime COMMENT '创建时间',
+    gmt_modified datetime COMMENT '修改时间',
+    resource_version int COMMENT '版本号',
+    cloud_id int COMMENT 'cloud ID',
+    node_type varchar(128) COMMENT '节点类型',
+    ip_address varchar(128) COMMENT '节点 ip 地址',
+    user varchar(128) COMMENT '用户名',
+    password varchar(128) COMMENT '节点密码',
+    KEY `idx_cloud` (`cloud_id`)
+) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=24220801;
+```
