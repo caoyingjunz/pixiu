@@ -131,7 +131,7 @@ type BuildCloud struct {
 	Description     string          `json:"description"`
 }
 
-// NodeSpec 构造集群的节点组成
+// NodeSpec 构造 kubernetes 集群的节点
 type NodeSpec struct {
 	Host     string `json:"host"`
 	User     string `json:"user"`
