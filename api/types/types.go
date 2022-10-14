@@ -134,9 +134,11 @@ type BuildCloud struct {
 
 // NodeSpec 构造 kubernetes 集群的节点
 type NodeSpec struct {
-	Host     string `json:"host"`
+	HostName string `json:"host_name"`
+	Address  string `json:"address"`
 	User     string `json:"user"`
 	Password string `json:"password"`
+	Role     string `json:"role"` // k8s 节点类型，支持 master 和 node
 }
 
 type KubernetesSpec struct {

@@ -60,11 +60,12 @@ func (*Cluster) TableName() string {
 type Node struct {
 	gopixiu.Model
 
-	CloudId   int64  `gorm:"index:idx_cloud" json:"cloud_id"`
-	NodeType  int    `json:"node_type"` // k8s 节点的类型，master 为 0  和 node 为 1
-	IpAddress string `json:"ip_address"`
-	User      string `json:"user"`
-	Password  string `json:"password"`
+	CloudId  int64  `gorm:"index:idx_cloud" json:"cloud_id"`
+	Role     string `json:"role"` // k8s 节点的角色，master 为 0  和 node 为 1
+	HostName string `json:"host_name"`
+	Address  string `json:"address"`
+	User     string `json:"user"`
+	Password string `json:"password"`
 }
 
 func (*Node) TableName() string {

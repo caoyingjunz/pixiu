@@ -16,6 +16,12 @@ limitations under the License.
 
 package types
 
+// k8s 角色定义
+const (
+	MasterRole = "master"
+	NodeRole   = "node"
+)
+
 const (
 	JobStringConfig = `<?xml version='1.0' encoding='UTF-8'?>
 <project>
