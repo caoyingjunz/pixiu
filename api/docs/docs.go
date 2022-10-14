@@ -403,13 +403,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpOK"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpError"
                         }
                     }
                 }
@@ -440,13 +440,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpOK"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpError"
                         }
                     }
                 }
