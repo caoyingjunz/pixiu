@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -158,9 +159,8 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 			Name: "pixiu-system",
 		},
 	}
-	if _, err := clientSet.CoreV1().Namespaces().Create(context.Background(),
-		namespace,
-		metav1.CreateOptions{}); err != nil {
+	_, err = clientSet.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		log.Logger.Errorf("create default namespace error: %v", err)
 		return err
 	}
