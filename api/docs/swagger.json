@@ -394,13 +394,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpOK"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpError"
                         }
                     }
                 }
@@ -431,13 +431,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpOK"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpError"
                         }
                     }
                 }
@@ -490,10 +490,34 @@
         "types.BuildCloud": {
             "type": "object",
             "properties": {
-                "create_ns": {
+                "alias_name": {
+                    "description": "可读性的名称，支持中午",
+                    "type": "string"
+                },
+                "cloud_type": {
+                    "description": "cloud 的类型，支持标准类型和自建类型",
+                    "type": "string"
+                },
+                "create_namespace": {
                     "type": "boolean"
                 },
+                "description": {
+                    "type": "string"
+                },
+                "immediate": {
+                    "description": "立刻部署",
+                    "type": "boolean"
+                },
+                "kubernetes": {
+                    "description": "k8s 全部信息",
+                    "$ref": "#/definitions/types.KubernetesSpec"
+                },
                 "name": {
+                    "description": "名称，系统自动生成，只能为字符串",
+                    "type": "string"
+                },
+                "region": {
+                    "description": "城市区域",
                     "type": "string"
                 }
             }
@@ -517,6 +541,65 @@
                     "type": "integer"
                 },
                 "service_account": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.KubernetesSpec": {
+            "type": "object",
+            "properties": {
+                "api_server": {
+                    "description": "kubernetes 的 apiServer 的 ip 地址",
+                    "type": "string"
+                },
+                "cni": {
+                    "description": "网络 cni，支持 flannel 和 calico",
+                    "type": "string"
+                },
+                "masters": {
+                    "description": "集群的 master 节点",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.NodeSpec"
+                    }
+                },
+                "nodes": {
+                    "description": "集群的 node 节点",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.NodeSpec"
+                    }
+                },
+                "pod_cider": {
+                    "type": "string"
+                },
+                "proxy_mode": {
+                    "description": "kubeProxy 的模式，只能是 iptables 和 ipvs",
+                    "type": "string"
+                },
+                "runtime": {
+                    "description": "容器运行时，目前支持 docker 和 containerd",
+                    "type": "string"
+                },
+                "service_cidr": {
+                    "type": "string"
+                },
+                "version": {
+                    "description": "k8s 的版本",
+                    "type": "string"
+                }
+            }
+        },
+        "types.NodeSpec": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "user": {
                     "type": "string"
                 }
             }
