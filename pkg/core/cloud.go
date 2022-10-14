@@ -34,6 +34,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 )
 
@@ -197,14 +198,14 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 	cid := cloudObj.Id
 
 	// step2: 创建 k8s cluster
-	if err = c.buildCluster(ctx, cid, obj); err != nil {
+	if err = c.buildCluster(ctx, cid, obj.Kubernetes); err != nil {
 		log.Logger.Errorf("failed to build %s cloud cluster: %v", obj.AliasName, err)
 		_ = c.forceDelete(ctx, cid)
 		return err
 	}
 
 	// step3: 创建 nodes
-	if err = c.buildNodes(ctx, cid, obj); err != nil {
+	if err = c.buildNodes(ctx, cid, obj.Kubernetes); err != nil {
 		log.Logger.Errorf("failed to build %s cloud nodes: %v", obj.AliasName, err)
 		_ = c.forceDelete(ctx, cid)
 		return err
@@ -217,16 +218,57 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 	return nil
 }
 
-// TODO
-func (c *cloud) buildCluster(ctx context.Context, cid int64, obj *types.BuildCloud) error {
+func (c *cloud) buildCluster(ctx context.Context, cid int64, kubeObj *types.KubernetesSpec) error {
+	if err := c.factory.Cloud().CreateCluster(ctx, &model.Cluster{
+		CloudId:     cid,
+		ApiServer:   kubeObj.ApiServer,
+		Version:     kubeObj.Version,
+		Runtime:     kubeObj.Runtime,
+		Cni:         kubeObj.Cni,
+		ServiceCidr: kubeObj.ServiceCidr,
+		PodCider:    kubeObj.PodCider,
+		ProxyMode:   kubeObj.ProxyMode,
+	}); err != nil {
+		log.Logger.Errorf("failed to create cluster: %v", err)
+		return err
+	}
+
 	return nil
 }
 
-// TODO
-func (c *cloud) buildNodes(ctx context.Context, cid int64, obj *types.BuildCloud) error {
+func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.KubernetesSpec) error {
+	var kubeNodes []model.Node
+	// master 节点
+	for _, master := range kubeObj.Masters {
+		kubeNodes = append(kubeNodes, model.Node{
+			CloudId:  cid,
+			Role:     typesv2.MasterRole,
+			HostName: master.HostName,
+			Address:  master.Address,
+			User:     master.User,
+			Password: master.Password,
+		})
+	}
+	// node 节点
+	for _, node := range kubeObj.Nodes {
+		kubeNodes = append(kubeNodes, model.Node{
+			CloudId:  cid,
+			Role:     typesv2.NodeRole,
+			HostName: node.HostName,
+			Address:  node.Address,
+			User:     node.User,
+			Password: node.Password,
+		})
+	}
+	if err := c.factory.Cloud().CreateNodes(ctx, kubeNodes); err != nil {
+		log.Logger.Errorf("failed to create %d nodes: %v", cid, err)
+		return err
+	}
+
 	return nil
 }
 
+// 回滚
 func (c *cloud) forceDelete(ctx context.Context, cid int64) error {
 	return nil
 }

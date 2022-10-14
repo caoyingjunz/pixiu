@@ -44,7 +44,7 @@ type CloudInterface interface {
 	GetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error)
 
 	// CreateNodes 批量创建 nodes
-	CreateNodes(ctx context.Context, clusterId int64, nodesObj []model.Node) error
+	CreateNodes(ctx context.Context, nodesObj []model.Node) error
 	DeleteNodes(ctx context.Context, cid int64) error
 	GetNodes(ctx context.Context, cid int64) ([]model.Node, error)
 }
@@ -170,7 +170,7 @@ func (s *cloud) GetCluster(ctx context.Context, clusterId int64) (*model.Cluster
 	return nil, nil
 }
 
-func (s *cloud) CreateNodes(ctx context.Context, clusterId int64, nodesObj []model.Node) error {
+func (s *cloud) CreateNodes(ctx context.Context, nodesObj []model.Node) error {
 	return nil
 }
 
