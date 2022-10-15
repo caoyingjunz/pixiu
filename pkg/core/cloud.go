@@ -36,6 +36,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
+	"github.com/caoyingjunz/gopixiu/pkg/util/uuid"
 )
 
 var clientError = fmt.Errorf("failed to found clout client")
@@ -184,7 +185,7 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 
 	// step1: 创建 cloud
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        "todo-name",
+		Name:        "pix-" + uuid.NewUUID()[:8],
 		AliasName:   obj.AliasName,
 		Status:      2, // 初始化状态
 		CloudType:   obj.CloudType,
@@ -192,7 +193,7 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 		Description: obj.Description,
 	})
 	if err != nil {
-		log.Logger.Errorf("failed to create cloud %s: %v")
+		log.Logger.Errorf("failed to create cloud %s: %v", obj.AliasName, err)
 		return err
 	}
 	cid := cloudObj.Id
@@ -369,6 +370,10 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
+		// TODO: 仅加载状态正常的集群，异常的加入到异常列表
+		if cloudObj.Status != 0 {
+			continue
+		}
 		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
 		if err != nil {
 			return err

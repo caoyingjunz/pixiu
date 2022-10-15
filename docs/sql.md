@@ -53,6 +53,7 @@ CREATE TABLE `clouds` (
     gmt_modified datetime COMMENT '修改时间',
     resource_version int COMMENT '版本号',
     name varchar(128) COMMENT '用户名',
+    alias_name varchar(128) COMMENT '别名',
     status int COMMENT '集群状态',
     cloud_type varchar(128) COMMENT '集群类型',
     kube_version varchar(128) COMMENT 'k8s 集群版本',

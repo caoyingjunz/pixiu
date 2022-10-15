@@ -16,6 +16,7 @@ require (
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-cmp v0.5.8 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/juju/ratelimit v1.0.2
 	github.com/mattn/go-isatty v0.0.16 // indirect
