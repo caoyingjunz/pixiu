@@ -456,6 +456,7 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 			ResourceVersion: obj.ResourceVersion,
 		},
 		Name:        obj.Name,
+		AliasName:   obj.AliasName,
 		Status:      obj.Status,
 		CloudType:   obj.CloudType,
 		KubeVersion: obj.KubeVersion,
