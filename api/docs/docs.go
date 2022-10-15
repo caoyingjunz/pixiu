@@ -451,6 +451,575 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/roles": {
+            "get": {
+                "description": "list roles",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "list roles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/model.Role"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a role",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Create a role",
+                "parameters": [
+                    {
+                        "description": "role info",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.RoleReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/{id}": {
+            "get": {
+                "description": "get role by role id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "get role by role id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "update role",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "update role",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "role info",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.RoleReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "delete role",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "delete role",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/{id}/menus": {
+            "get": {
+                "description": "get permissions by role id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "get permissions by role id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/model.Menu"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "set permissions for role",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "set permissions for role",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "menu ids",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.Menus"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/model.Menu"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users": {
+            "get": {
+                "description": "List user info",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "List user info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/types.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update a user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Update  user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "user info",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.User"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Login",
+                "parameters": [
+                    {
+                        "description": "user info",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.User"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}": {
+            "get": {
+                "description": "Get user info by user id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get user info by user id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/types.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Change user password",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Change user password",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "password info",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.Password"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete user by user id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Delete user by user id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -496,13 +1065,139 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Menu": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Menu"
+                    }
+                },
+                "gmt_create": {
+                    "type": "string"
+                },
+                "gmt_modified": {
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "icon",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "memo": {
+                    "description": "备注",
+                    "type": "string"
+                },
+                "menu_type": {
+                    "description": "菜单类型 1 左侧菜单,2 按钮, 3 非展示权限",
+                    "type": "integer"
+                },
+                "method": {
+                    "description": "操作类型 none/GET/POST/PUT/DELETE",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "菜单名称",
+                    "type": "string"
+                },
+                "parent_id": {
+                    "description": "父级ID",
+                    "type": "integer"
+                },
+                "resource_version": {
+                    "type": "integer"
+                },
+                "sequence": {
+                    "description": "排序值",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "状态(1:启用 2:不启用)",
+                    "type": "integer"
+                },
+                "url": {
+                    "description": "菜单URL",
+                    "type": "string"
+                }
+            }
+        },
+        "model.Role": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Role"
+                    }
+                },
+                "gmt_create": {
+                    "type": "string"
+                },
+                "gmt_modified": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "memo": {
+                    "description": "备注",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "名称",
+                    "type": "string"
+                },
+                "parent_id": {
+                    "description": "父级ID",
+                    "type": "integer"
+                },
+                "resource_version": {
+                    "type": "integer"
+                },
+                "sequence": {
+                    "description": "排序值",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "0 表示禁用，1 表示启用",
+                    "type": "integer"
+                }
+            }
+        },
         "types.BuildCloud": {
             "type": "object",
             "properties": {
-                "create_ns": {
+                "alias_name": {
+                    "description": "可读性的名称，支持中午",
+                    "type": "string"
+                },
+                "cloud_type": {
+                    "description": "cloud 的类型，支持标准类型和自建类型",
+                    "type": "string"
+                },
+                "create_namespace": {
                     "type": "boolean"
                 },
+                "description": {
+                    "type": "string"
+                },
+                "immediate": {
+                    "description": "立刻部署",
+                    "type": "boolean"
+                },
+                "kubernetes": {
+                    "description": "k8s 全部信息",
+                    "$ref": "#/definitions/types.KubernetesSpec"
+                },
                 "name": {
+                    "description": "名称，系统自动生成，只能为字符串",
+                    "type": "string"
+                },
+                "region": {
+                    "description": "城市区域",
                     "type": "string"
                 }
             }
@@ -527,6 +1222,149 @@ const docTemplate = `{
                 },
                 "service_account": {
                     "type": "string"
+                }
+            }
+        },
+        "types.KubernetesSpec": {
+            "type": "object",
+            "properties": {
+                "api_server": {
+                    "description": "kubernetes 的 apiServer 的 ip 地址",
+                    "type": "string"
+                },
+                "cni": {
+                    "description": "网络 cni，支持 flannel 和 calico",
+                    "type": "string"
+                },
+                "masters": {
+                    "description": "集群的 master 节点",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.NodeSpec"
+                    }
+                },
+                "nodes": {
+                    "description": "集群的 node 节点",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.NodeSpec"
+                    }
+                },
+                "pod_cider": {
+                    "type": "string"
+                },
+                "proxy_mode": {
+                    "description": "kubeProxy 的模式，只能是 iptables 和 ipvs",
+                    "type": "string"
+                },
+                "runtime": {
+                    "description": "容器运行时，目前支持 docker 和 containerd",
+                    "type": "string"
+                },
+                "service_cidr": {
+                    "type": "string"
+                },
+                "version": {
+                    "description": "k8s 的版本",
+                    "type": "string"
+                }
+            }
+        },
+        "types.Menus": {
+            "type": "object",
+            "properties": {
+                "menu_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "types.NodeSpec": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.Password": {
+            "type": "object",
+            "properties": {
+                "confirm_password": {
+                    "type": "string"
+                },
+                "origin_password": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "types.RoleReq": {
+            "type": "object",
+            "properties": {
+                "memo": {
+                    "description": "备注",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "名称",
+                    "type": "string"
+                },
+                "parent_id": {
+                    "description": "父级ID",
+                    "type": "integer"
+                },
+                "sequence": {
+                    "description": "排序值",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "0 表示禁用，1 表示启用",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.User": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "gmt_create": {},
+                "gmt_modified": {},
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "resource_version": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
                 }
             }
         }

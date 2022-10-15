@@ -19,7 +19,7 @@ package core
 import (
 	"context"
 	"errors"
-
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -31,7 +31,7 @@ type RoleGetter interface {
 
 // RoleInterface 角色操作接口
 type RoleInterface interface {
-	Create(c context.Context, obj *model.Role) (role *model.Role, err error)
+	Create(c context.Context, obj *types.RoleReq) (role *model.Role, err error)
 	Update(c context.Context, role *model.Role, rid int64) error
 	Delete(c context.Context, rId int64) error
 	Get(c context.Context, rid int64) (roles *[]model.Role, err error)
@@ -56,8 +56,15 @@ func newRole(c *pixiu) *role {
 	}
 }
 
-func (r *role) Create(c context.Context, obj *model.Role) (role *model.Role, err error) {
-	if role, err = r.factory.Role().Create(c, obj); err != nil {
+func (r *role) Create(c context.Context, obj *types.RoleReq) (role *model.Role, err error) {
+
+	if role, err = r.factory.Role().Create(c, &model.Role{
+		Name:     obj.Name,
+		Memo:     obj.Memo,
+		ParentID: obj.ParentID,
+		Sequence: obj.Sequence,
+		Status:   obj.Status,
+	}); err != nil {
 		log.Logger.Error(err)
 		return
 	}
@@ -173,7 +180,7 @@ func (r *role) CheckRoleIsExist(ctx context.Context, name string) bool {
 		return false
 	}
 
-	if res == nil {
+	if res.Id == 0 {
 		log.Logger.Error(errors.New("role is existed"))
 		return false
 	}

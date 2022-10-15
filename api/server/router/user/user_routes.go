@@ -28,6 +28,15 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
+// @Summary      Create a user
+// @Description  Create a user
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        data body types.User true "user info"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users [post]
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 	var user types.User
@@ -47,6 +56,16 @@ func (u *userRouter) createUser(c *gin.Context) {
 // 不允许更改字段:
 // 1. 用户名
 // 2. 用户密码 —— 通过修改密码API进行修改
+// @Summary      Update  user
+// @Description  Update a user
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Param        data body types.User true "user info"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users [put]
 func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -70,6 +89,15 @@ func (u *userRouter) updateUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Delete user by user id
+// @Description  Delete user by user id
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/{id} [delete]
 func (u *userRouter) deleteUser(c *gin.Context) {
 	r := httputils.NewResponse()
 	uid, err := util.ParseInt64(c.Param("id"))
@@ -85,6 +113,15 @@ func (u *userRouter) deleteUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Get user info by user id
+// @Description  Get user info by user id
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Success      200  {object}  httputils.Response{result=types.User}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/{id} [get]
 func (u *userRouter) getUser(c *gin.Context) {
 	r := httputils.NewResponse()
 	uid, err := util.ParseInt64(c.Param("id"))
@@ -101,6 +138,14 @@ func (u *userRouter) getUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      List user info
+// @Description  List user info
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  httputils.Response{result=types.User}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users [get]
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
@@ -115,6 +160,15 @@ func (u *userRouter) listUsers(c *gin.Context) {
 // login
 // 1. 检验用户名和密码是否正确，
 // 2. 返回 token
+// @Summary      Login
+// @Description  Login
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        data body types.User true "user info"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/login [post]
 func (u *userRouter) login(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -138,6 +192,16 @@ func (u *userRouter) logout(c *gin.Context) {}
 
 func (u *userRouter) resetPassword(c *gin.Context) {}
 
+// @Summary      Change user password
+// @Description  Change user password
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Param        data body types.Password true "password info"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/{id} [post]
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -165,6 +229,15 @@ func (u *userRouter) changePassword(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Get buttons by menus id
+// @Description  Get buttons by menus id
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "menus ID"  Format(int64)
+// @Success      200  {object}  httputils.Response{result=[]model.Menu}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/menus/{id}/buttons [get]
 func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 	r := httputils.NewResponse()
 	uidStr, exist := c.Get("userId")
