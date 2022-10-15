@@ -91,7 +91,7 @@ func (o *roleRouter) updateRole(c *gin.Context) {
 		return
 	}
 
-	if err = pixiu.CoreV1.Role().Update(context.TODO(), &role, roleId); err != nil {
+	if err = pixiu.CoreV1.Role().Update(c, &role, roleId); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
