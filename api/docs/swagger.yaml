@@ -179,6 +179,36 @@ definitions:
           type: integer
         type: array
     type: object
+  types.MenusReq:
+    properties:
+      icon:
+        description: icon
+        type: string
+      memo:
+        description: 备注
+        type: string
+      menu_type:
+        description: 菜单类型 1 左侧菜单,2 按钮, 3 非展示权限
+        type: integer
+      method:
+        description: 操作类型 none/GET/POST/PUT/DELETE
+        type: string
+      name:
+        description: 菜单名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 状态(1:启用 2:不启用)
+        type: integer
+      url:
+        description: 菜单URL
+        type: string
+    type: object
   types.NodeSpec:
     properties:
       host:
@@ -216,6 +246,13 @@ definitions:
       status:
         description: 0 表示禁用，1 表示启用
         type: integer
+    type: object
+  types.Roles:
+    properties:
+      role_ids:
+        items:
+          type: integer
+        type: array
     type: object
   types.User:
     properties:
@@ -526,6 +563,119 @@ paths:
       summary: get a cloud custom kubeConfig
       tags:
       - kubeConfigs
+  /menus:
+    get:
+      consumes:
+      - application/json
+      description: List menus
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/model.Menu'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: List menus
+      tags:
+      - menus
+  /menus/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete menu by menu id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Delete menu by menu id
+      tags:
+      - menus
+    get:
+      consumes:
+      - application/json
+      description: Get menu by menu id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/model.Menu'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get menu by menu id
+      tags:
+      - menus
+    put:
+      consumes:
+      - application/json
+      description: Update a menu by menu id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: menu info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.MenusReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update a menu by menu id
+      tags:
+      - menus
   /roles:
     get:
       consumes:
@@ -751,7 +901,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Login
+      description: Create a user
       parameters:
       - description: user info
         in: body
@@ -770,7 +920,7 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/httputils.HttpError'
-      summary: Login
+      summary: Create a user
       tags:
       - users
     put:
@@ -889,6 +1039,153 @@ paths:
           schema:
             $ref: '#/definitions/httputils.HttpError'
       summary: Change user password
+      tags:
+      - users
+  /users/{id}/roles:
+    get:
+      consumes:
+      - application/json
+      description: Get users roles by user id
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/model.Role'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get user roles by user id
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Assign User Roles base on user id
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: role ids
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.Roles'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Assign User Roles base on user id
+      tags:
+      - users
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: Login
+      parameters:
+      - description: user info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Login
+      tags:
+      - users
+  /users/menus:
+    get:
+      consumes:
+      - application/json
+      description: Get left menus  by current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/model.Menu'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get left menus by current user
+      tags:
+      - users
+  /users/menus/{id}/buttons:
+    get:
+      consumes:
+      - application/json
+      description: Get buttons by menus id
+      parameters:
+      - description: menus ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/model.Menu'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get buttons by menus id
       tags:
       - users
 swagger: "2.0"

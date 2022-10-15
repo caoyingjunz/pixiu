@@ -261,6 +261,14 @@ func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Get left menus by current user
+// @Description  Get left menus  by current user
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  httputils.Response{result=[]model.Menu}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/menus [get]
 func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
 	uidStr, exist := c.Get("userId")
 	r := httputils.NewResponse()
@@ -279,6 +287,15 @@ func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Get user roles by user id
+// @Description  Get users roles by user id
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Success      200  {object}  httputils.Response{result=model.Role}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/{id}/roles [get]
 func (u *userRouter) getUserRoles(c *gin.Context) {
 	r := httputils.NewResponse()
 	uid, err := util.ParseInt64(c.Param("id"))
@@ -295,6 +312,16 @@ func (u *userRouter) getUserRoles(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Assign User Roles base on user id
+// @Description  Assign User Roles base on user id
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Param        data body types.Roles true "role ids"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/{id}/roles [post]
 func (u *userRouter) setUserRoles(c *gin.Context) {
 	var roles types.Roles
 	r := httputils.NewResponse()
