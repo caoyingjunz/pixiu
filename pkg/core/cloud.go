@@ -36,6 +36,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
+	"github.com/caoyingjunz/gopixiu/pkg/util/uuid"
 )
 
 var clientError = fmt.Errorf("failed to found clout client")
@@ -184,7 +185,7 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 
 	// step1: 创建 cloud
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        "todo-name",
+		Name:        "pix-" + uuid.NewUUID()[:8],
 		AliasName:   obj.AliasName,
 		Status:      2, // 初始化状态
 		CloudType:   obj.CloudType,
@@ -192,7 +193,7 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 		Description: obj.Description,
 	})
 	if err != nil {
-		log.Logger.Errorf("failed to create cloud %s: %v")
+		log.Logger.Errorf("failed to create cloud %s: %v", obj.AliasName, err)
 		return err
 	}
 	cid := cloudObj.Id
@@ -226,7 +227,7 @@ func (c *cloud) buildCluster(ctx context.Context, cid int64, kubeObj *types.Kube
 		Runtime:     kubeObj.Runtime,
 		Cni:         kubeObj.Cni,
 		ServiceCidr: kubeObj.ServiceCidr,
-		PodCider:    kubeObj.PodCider,
+		PodCidr:     kubeObj.PodCidr,
 		ProxyMode:   kubeObj.ProxyMode,
 	}); err != nil {
 		log.Logger.Errorf("failed to create cluster: %v", err)
@@ -268,26 +269,40 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 	return nil
 }
 
-// 回滚
+// 回滚 TODO
 func (c *cloud) forceDelete(ctx context.Context, cid int64) error {
 	return nil
 }
 
 func (c *cloud) Update(ctx context.Context, obj *types.Cloud) error { return nil }
 
+// Delete 删除 cloud
+// 同时根据 cloud 的类型，清除级联资源，标准资源直接删除，自建资源删除 cluster 和 nodes
 func (c *cloud) Delete(ctx context.Context, cid int64) error {
-	// TODO: 删除cloud的同时，直接返回，避免一次查询
-	obj, err := c.factory.Cloud().Get(ctx, cid)
+	obj, err := c.factory.Cloud().Delete(ctx, cid)
 	if err != nil {
-		log.Logger.Errorf("failed to get %s cloud: %v", cid, err)
-		return err
-	}
-	if err = c.factory.Cloud().Delete(ctx, cid); err != nil {
 		log.Logger.Errorf("failed to delete %s cloud: %v", cid, err)
 		return err
 	}
-
 	clientSets.Delete(obj.Name)
+
+	// 目前，仅自建的k8s集群需要清理下属资源，下属资源有 cluster 和 nodes
+	if obj.CloudType == "2" {
+		_ = c.internalDelete(ctx, cid)
+	}
+	return nil
+}
+
+// TODO: 可以并发操作
+// 清理 cloud 下属资源
+func (c *cloud) internalDelete(ctx context.Context, cid int64) error {
+	if err := c.factory.Cloud().DeleteCluster(ctx, cid); err != nil {
+		return err
+	}
+	if err := c.factory.Cloud().DeleteNodes(ctx, cid); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -369,6 +384,10 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		return err
 	}
 	for _, cloudObj := range cloudObjs {
+		// TODO: 仅加载状态正常的集群，异常的加入到异常列表
+		if cloudObj.Status != 0 {
+			continue
+		}
 		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
 		if err != nil {
 			return err
