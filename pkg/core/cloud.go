@@ -227,7 +227,7 @@ func (c *cloud) buildCluster(ctx context.Context, cid int64, kubeObj *types.Kube
 		Runtime:     kubeObj.Runtime,
 		Cni:         kubeObj.Cni,
 		ServiceCidr: kubeObj.ServiceCidr,
-		PodCider:    kubeObj.PodCider,
+		PodCidr:     kubeObj.PodCidr,
 		ProxyMode:   kubeObj.ProxyMode,
 	}); err != nil {
 		log.Logger.Errorf("failed to create cluster: %v", err)

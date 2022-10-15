@@ -39,9 +39,9 @@ type CloudInterface interface {
 	Count(ctx context.Context) (int64, error)
 
 	CreateCluster(ctx context.Context, cluObj *model.Cluster) error
-	UpdateCluster(ctx context.Context, clusterId int64, resourceVersion int64, updates map[string]interface{}) error
-	DeleteCluster(ctx context.Context, clusterId int64) error
-	GetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error)
+	UpdateCluster(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
+	DeleteCluster(ctx context.Context, cid int64) error
+	GetCluster(ctx context.Context, cid int64) (*model.Cluster, error)
 
 	// CreateNodes 批量创建 nodes
 	CreateNodes(ctx context.Context, nodesObj []model.Node) error
@@ -155,15 +155,22 @@ func (s *cloud) GetByName(ctx context.Context, name string) (*model.Cloud, error
 }
 
 func (s *cloud) CreateCluster(ctx context.Context, cluObj *model.Cluster) error {
-	return nil
+	now := time.Now()
+	cluObj.GmtCreate = now
+	cluObj.GmtModified = now
+
+	return s.db.Create(cluObj).Error
 }
 
 func (s *cloud) UpdateCluster(ctx context.Context, clusterId int64, resourceVersion int64, updates map[string]interface{}) error {
 	return nil
 }
 
-func (s *cloud) DeleteCluster(ctx context.Context, clusterId int64) error {
-	return nil
+func (s *cloud) DeleteCluster(ctx context.Context, cid int64) error {
+	return s.db.
+		Where("cloud_id = ?", cid).
+		Delete(&model.Cluster{}).
+		Error
 }
 
 func (s *cloud) GetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error) {

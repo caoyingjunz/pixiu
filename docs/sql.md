@@ -97,9 +97,10 @@ CREATE TABLE `clusters` (
     runtime varchar(128) COMMENT '容器运行时',
     cni varchar(128) COMMENT '集群 cni',
     service_cidr varchar(128) COMMENT 'service 网段',
-    pod_cider varchar(128) COMMENT 'pod 网段',
+    pod_cidr varchar(128) COMMENT 'pod 网段',
     proxy_mode varchar(128) COMMENT 'kubeProxy 模式',
-    KEY `idx_cloud` (`cloud_id`)
+    KEY `idx_cloud` (`cloud_id`),
+    UNIQUE KEY `cloud_id` (`cloud_id`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=23220801;
 ```
 
