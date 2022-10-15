@@ -138,7 +138,6 @@ type NodeSpec struct {
 	Address  string `json:"address"`
 	User     string `json:"user"`
 	Password string `json:"password"`
-	Role     string `json:"role"` // k8s 节点类型，支持 master 和 node
 }
 
 type KubernetesSpec struct {
@@ -147,7 +146,7 @@ type KubernetesSpec struct {
 	Runtime     string     `json:"runtime"`    // 容器运行时，目前支持 docker 和 containerd
 	Cni         string     `json:"cni"`        // 网络 cni，支持 flannel 和 calico
 	ServiceCidr string     `json:"service_cidr"`
-	PodCider    string     `json:"pod_cider"`
+	PodCidr     string     `json:"pod_cidr"`
 	ProxyMode   string     `json:"proxy_mode"` // kubeProxy 的模式，只能是 iptables 和 ipvs
 	Masters     []NodeSpec `json:"masters"`    // 集群的 master 节点
 	Nodes       []NodeSpec `json:"nodes"`      // 集群的 node 节点
