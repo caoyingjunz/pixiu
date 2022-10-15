@@ -276,19 +276,17 @@ func (c *cloud) forceDelete(ctx context.Context, cid int64) error {
 
 func (c *cloud) Update(ctx context.Context, obj *types.Cloud) error { return nil }
 
+// Delete 删除 cloud
+// 同时根据 cloud 的类型，清除级联资源，标准资源直接删除，自建资源删除 cluster 和 nodes
 func (c *cloud) Delete(ctx context.Context, cid int64) error {
-	// TODO: 删除cloud的同时，直接返回，避免一次查询
-	obj, err := c.factory.Cloud().Get(ctx, cid)
+	obj, err := c.factory.Cloud().Delete(ctx, cid)
 	if err != nil {
-		log.Logger.Errorf("failed to get %s cloud: %v", cid, err)
-		return err
-	}
-	if err = c.factory.Cloud().Delete(ctx, cid); err != nil {
 		log.Logger.Errorf("failed to delete %s cloud: %v", cid, err)
 		return err
 	}
-
 	clientSets.Delete(obj.Name)
+
+	// TODO: 删除下属资源
 	return nil
 }
 
