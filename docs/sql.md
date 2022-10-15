@@ -53,6 +53,7 @@ CREATE TABLE `clouds` (
     gmt_modified datetime COMMENT '修改时间',
     resource_version int COMMENT '版本号',
     name varchar(128) COMMENT '用户名',
+    alias_name varchar(128) COMMENT '别名',
     status int COMMENT '集群状态',
     cloud_type varchar(128) COMMENT '集群类型',
     kube_version varchar(128) COMMENT 'k8s 集群版本',
@@ -96,9 +97,10 @@ CREATE TABLE `clusters` (
     runtime varchar(128) COMMENT '容器运行时',
     cni varchar(128) COMMENT '集群 cni',
     service_cidr varchar(128) COMMENT 'service 网段',
-    pod_cider varchar(128) COMMENT 'pod 网段',
+    pod_cidr varchar(128) COMMENT 'pod 网段',
     proxy_mode varchar(128) COMMENT 'kubeProxy 模式',
-    KEY `idx_cloud` (`cloud_id`)
+    KEY `idx_cloud` (`cloud_id`),
+    UNIQUE KEY `cloud_id` (`cloud_id`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=23220801;
 ```
 
@@ -110,8 +112,9 @@ CREATE TABLE `nodes` (
     gmt_modified datetime COMMENT '修改时间',
     resource_version int COMMENT '版本号',
     cloud_id int COMMENT 'cloud ID',
-    node_type varchar(128) COMMENT '节点类型',
-    ip_address varchar(128) COMMENT '节点 ip 地址',
+    role varchar(128) COMMENT '节点类型',
+    host_name varchar(128) COMMENT '节点名称',
+    address varchar(128) COMMENT '节点 ip 地址',
     user varchar(128) COMMENT '用户名',
     password varchar(128) COMMENT '节点密码',
     KEY `idx_cloud` (`cloud_id`)

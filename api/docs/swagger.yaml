@@ -158,7 +158,7 @@ definitions:
         items:
           $ref: '#/definitions/types.NodeSpec'
         type: array
-      pod_cider:
+      pod_cidr:
         type: string
       proxy_mode:
         description: kubeProxy 的模式，只能是 iptables 和 ipvs
@@ -211,9 +211,14 @@ definitions:
     type: object
   types.NodeSpec:
     properties:
-      host:
+      address:
+        type: string
+      host_name:
         type: string
       password:
+        type: string
+      role:
+        description: k8s 节点类型，支持 master 和 node
         type: string
       user:
         type: string
@@ -306,11 +311,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputils.Response'
+            $ref: '#/definitions/httputils.HttpOK'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/httputils.Response'
+            $ref: '#/definitions/httputils.HttpError'
       summary: Delete a cloud
       tags:
       - clouds
@@ -331,11 +336,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputils.Response'
+            $ref: '#/definitions/httputils.HttpOK'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/httputils.Response'
+            $ref: '#/definitions/httputils.HttpError'
       summary: Get a cloud
       tags:
       - clouds

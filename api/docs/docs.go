@@ -403,13 +403,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpOK"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpError"
                         }
                     }
                 }
@@ -440,13 +440,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpOK"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "$ref": "#/definitions/httputils.HttpError"
                         }
                     }
                 }
@@ -1663,7 +1663,7 @@ const docTemplate = `{
                         "$ref": "#/definitions/types.NodeSpec"
                     }
                 },
-                "pod_cider": {
+                "pod_cidr": {
                     "type": "string"
                 },
                 "proxy_mode": {
@@ -1738,10 +1738,17 @@ const docTemplate = `{
         "types.NodeSpec": {
             "type": "object",
             "properties": {
-                "host": {
+                "address": {
+                    "type": "string"
+                },
+                "host_name": {
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                },
+                "role": {
+                    "description": "k8s 节点类型，支持 master 和 node",
                     "type": "string"
                 },
                 "user": {
