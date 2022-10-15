@@ -409,12 +409,11 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 				if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {
 					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
 					newStatus = 1
+				} else {
+					newStatus = 0
 				}
-				// 对比状态是否改变
-				if status[name] != newStatus {
-					status[name] = newStatus
-					_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
-				}
+				// 更新集群存活状态
+				_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
 			}
 		case <-stopCh:
 			klog.Infof("shutting cluster health check")
