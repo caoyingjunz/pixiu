@@ -126,7 +126,7 @@ type BuildCloud struct {
 	Name            string          `json:"name"`       // 名称，系统自动生成，只能为字符串
 	AliasName       string          `json:"alias_name"` // 可读性的名称，支持中午
 	Immediate       bool            `json:"immediate"`  // 立刻部署
-	CloudType       string          `json:"cloud_type"` // cloud 的类型，支持标准类型和自建类型
+	CloudType       int             `json:"cloud_type"` // cloud 的类型，支持标准类型和自建类型
 	Region          string          `json:"region"`     // 城市区域
 	Kubernetes      *KubernetesSpec `json:"kubernetes"` // k8s 全部信息
 	CreateNamespace bool            `json:"create_namespace"`
