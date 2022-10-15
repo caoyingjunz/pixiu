@@ -99,10 +99,7 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 		return fmt.Errorf("invalid empty kubeconfig data")
 	}
 	// 集群类型支持 自建和标准，默认为标准
-	// TODO: 未对类型进行检查
-	if len(obj.CloudType) == 0 {
-		obj.CloudType = "标准"
-	}
+
 	// TODO: 其他规范创建前检查
 
 	return nil
@@ -144,8 +141,9 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 
 	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        obj.Name,
-		CloudType:   obj.CloudType,
+		Name:        "pix-" + uuid.NewUUID()[:8],
+		AliasName:   obj.Name,
+		CloudType:   typesv2.StandardCloud,
 		KubeVersion: kubeVersion,
 		KubeConfig:  encryptData,
 		NodeNumber:  len(nodes.Items),
@@ -187,8 +185,8 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:        "pix-" + uuid.NewUUID()[:8],
 		AliasName:   obj.AliasName,
-		Status:      2, // 初始化状态
-		CloudType:   obj.CloudType,
+		Status:      typesv2.InitializeStatus, // 初始化状态
+		CloudType:   typesv2.BuildCloud,
 		KubeVersion: obj.Kubernetes.Version,
 		Description: obj.Description,
 	})
@@ -287,7 +285,7 @@ func (c *cloud) Delete(ctx context.Context, cid int64) error {
 	clientSets.Delete(obj.Name)
 
 	// 目前，仅自建的k8s集群需要清理下属资源，下属资源有 cluster 和 nodes
-	if obj.CloudType == "2" {
+	if obj.CloudType == typesv2.BuildCloud {
 		_ = c.internalDelete(ctx, cid)
 	}
 	return nil

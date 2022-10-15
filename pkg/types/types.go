@@ -28,7 +28,13 @@ const (
 	ErrorStatus             // 集群异常
 	BuildingStatus          // 构建中
 	DeletingStatus          // 删除中
-	initializeStatus        // 等待构建
+	InitializeStatus        // 等待构建
+)
+
+const (
+	_             = iota
+	StandardCloud // 标准集群（导入集群）
+	BuildCloud    // 自建集群
 )
 
 const (
