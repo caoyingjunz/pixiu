@@ -22,6 +22,15 @@ const (
 	NodeRole   = "node"
 )
 
+// 集群状态定义
+const (
+	RunningStatus    = iota // 运行中
+	ErrorStatus             // 集群异常
+	BuildingStatus          // 构建中
+	DeletingStatus          // 删除中
+	initializeStatus        // 等待构建
+)
+
 const (
 	JobStringConfig = `<?xml version='1.0' encoding='UTF-8'?>
 <project>
