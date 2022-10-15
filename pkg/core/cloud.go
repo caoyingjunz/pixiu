@@ -269,7 +269,7 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 	return nil
 }
 
-// 回滚
+// 回滚 TODO
 func (c *cloud) forceDelete(ctx context.Context, cid int64) error {
 	return nil
 }
@@ -286,7 +286,23 @@ func (c *cloud) Delete(ctx context.Context, cid int64) error {
 	}
 	clientSets.Delete(obj.Name)
 
-	// TODO: 删除下属资源
+	// 目前，仅自建的k8s集群需要清理下属资源，下属资源有 cluster 和 nodes
+	if obj.CloudType == "2" {
+		_ = c.internalDelete(ctx, cid)
+	}
+	return nil
+}
+
+// TODO: 可以并发操作
+// 清理 cloud 下属资源
+func (c *cloud) internalDelete(ctx context.Context, cid int64) error {
+	if err := c.factory.Cloud().DeleteCluster(ctx, cid); err != nil {
+		return err
+	}
+	if err := c.factory.Cloud().DeleteNodes(ctx, cid); err != nil {
+		return err
+	}
+
 	return nil
 }
 
