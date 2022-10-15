@@ -23,14 +23,24 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
+// @Summary      Add a menus
+// @Description  Add a menus
+// @Tags         menus
+// @Accept       json
+// @Produce      json
+// @Param        data body types.MenusReq true "menu info"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /menus [get]
 func (*menuRouter) addMenu(c *gin.Context) {
 	r := httputils.NewResponse()
-	var menu model.Menu
+	var menu types.MenusReq
 	if err := c.ShouldBindJSON(&menu); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
@@ -49,6 +59,16 @@ func (*menuRouter) addMenu(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Update a menu by menu id
+// @Description  Update a menu by menu id
+// @Tags         menus
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "menu ID"  Format(int64)
+// @Param        data body types.MenusReq true "menu info"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /menus/{id} [put]
 func (*menuRouter) updateMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	var menu model.Menu
@@ -77,6 +97,15 @@ func (*menuRouter) updateMenu(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Delete menu by menu id
+// @Description  Delete menu by menu id
+// @Tags         menus
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "menu ID"  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /menus/{id} [delete]
 func (*menuRouter) deleteMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	mid, err := util.ParseInt64(c.Param("id"))
@@ -98,6 +127,15 @@ func (*menuRouter) deleteMenu(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      Get menu by menu id
+// @Description  Get menu by menu id
+// @Tags         menus
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "menu ID"  Format(int64)
+// @Success      200  {object}  httputils.Response{result=model.Menu}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /menus/{id} [get]
 func (*menuRouter) getMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	mid, err := util.ParseInt64(c.Param("id"))
@@ -113,6 +151,14 @@ func (*menuRouter) getMenu(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// @Summary      List menus
+// @Description  List menus
+// @Tags         menus
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  httputils.Response{result=[]model.Menu}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /menus [get]
 func (*menuRouter) listMenus(c *gin.Context) {
 	r := httputils.NewResponse()
 	res, err := pixiu.CoreV1.Menu().List(context.TODO())

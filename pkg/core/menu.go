@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -30,7 +31,7 @@ type MenuGetter interface {
 
 // MenuInterface 菜单操作接口
 type MenuInterface interface {
-	Create(c context.Context, obj *model.Menu) (menu *model.Menu, err error)
+	Create(c context.Context, obj *types.MenusReq) (menu *model.Menu, err error)
 	Update(c context.Context, menu *model.Menu, mId int64) error
 	Delete(c context.Context, mId int64) error
 	Get(c context.Context, mId int64) (menu *model.Menu, err error)
@@ -53,8 +54,18 @@ func newMenu(c *pixiu) *menu {
 	}
 }
 
-func (m *menu) Create(c context.Context, obj *model.Menu) (menu *model.Menu, err error) {
-	if menu, err = m.factory.Menu().Create(c, obj); err != nil {
+func (m *menu) Create(c context.Context, obj *types.MenusReq) (menu *model.Menu, err error) {
+	if menu, err = m.factory.Menu().Create(c, &model.Menu{
+		Name:     obj.Name,
+		Memo:     obj.Memo,
+		ParentID: obj.ParentID,
+		Status:   obj.Status,
+		URL:      obj.URL,
+		Icon:     obj.Icon,
+		Sequence: obj.Sequence,
+		MenuType: obj.MenuType,
+		Method:   obj.Method,
+	}); err != nil {
 		log.Logger.Error(err)
 		return
 	}
@@ -127,7 +138,7 @@ func (m *menu) GetMenuByMenuNameUrl(c context.Context, url, method string) (menu
 
 func (m *menu) CheckMenusIsExist(c context.Context, menuId int64) bool {
 	res, err := m.factory.Menu().Get(c, menuId)
-	if err != nil || res == nil {
+	if err != nil || res.Id == 0 {
 		log.Logger.Error(err)
 		return false
 	}

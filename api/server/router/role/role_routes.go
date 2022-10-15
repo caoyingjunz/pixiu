@@ -29,9 +29,19 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
+// roles godoc
+// @Summary      Create a role
+// @Description  Create a role
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        data body types.RoleReq true "role info"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles [post]
 func (o *roleRouter) addRole(c *gin.Context) {
 	r := httputils.NewResponse()
-	var role model.Role // TODO 后续优化
+	var role types.RoleReq
 	if err := c.ShouldBindJSON(&role); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
@@ -43,13 +53,24 @@ func (o *roleRouter) addRole(c *gin.Context) {
 		return
 	}
 
-	if _, err := pixiu.CoreV1.Role().Create(context.TODO(), &role); err != nil {
+	if _, err := pixiu.CoreV1.Role().Create(c, &role); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
 	httputils.SetSuccess(c, r)
 }
 
+// roles godoc
+// @Summary      update role
+// @Description  update role
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "role ID"  Format(int64)
+// @Param        data body types.RoleReq true "role info"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles/{id} [put]
 func (o *roleRouter) updateRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role model.Role // TODO 后续优化
@@ -70,7 +91,7 @@ func (o *roleRouter) updateRole(c *gin.Context) {
 		return
 	}
 
-	if err = pixiu.CoreV1.Role().Update(context.TODO(), &role, roleId); err != nil {
+	if err = pixiu.CoreV1.Role().Update(c, &role, roleId); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
@@ -78,7 +99,16 @@ func (o *roleRouter) updateRole(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// 删除前弹窗提示检查该角色是否已经与用户绑定，如果绑定，删除后用户将没有此角色权限
+// roles godoc
+// @Summary      delete role
+// @Description  delete role
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "role ID"  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles/{id} [delete]
 func (o *roleRouter) deleteRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
@@ -101,6 +131,16 @@ func (o *roleRouter) deleteRole(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// roles godoc
+// @Summary      get role by role id
+// @Description  get role by role id
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "role ID"  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles/{id} [get]
 func (o *roleRouter) getRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
@@ -118,6 +158,15 @@ func (o *roleRouter) getRole(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// roles godoc
+// @Summary      list roles
+// @Description  list roles
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  httputils.Response{result=model.Role}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles [get]
 func (o *roleRouter) listRoles(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
@@ -129,6 +178,16 @@ func (o *roleRouter) listRoles(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// roles godoc
+// @Summary      get permissions by role id
+// @Description  get permissions by role id
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "role ID"  Format(int64)
+// @Success      200  {object}  httputils.Response{result=model.Menu}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles/{id}/menus [get]
 func (o *roleRouter) getMenusByRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
@@ -150,6 +209,17 @@ func (o *roleRouter) getMenusByRole(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// roles godoc
+// @Summary      set permissions for role
+// @Description  set permissions for role
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "role ID"  Format(int64)
+// @Param        data body types.Menus true "menu ids"
+// @Success      200  {object}  httputils.Response{result=model.Menu}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles/{id}/menus [post]
 func (o *roleRouter) setRoleMenus(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))

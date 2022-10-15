@@ -33,7 +33,7 @@ type Role struct {
 	Sequence int    `gorm:"column:sequence;not null;" json:"sequence" form:"sequence"`                         // 排序值
 	ParentID int64  `gorm:"column:parent_id;not null;" json:"parent_id" form:"parent_id"`                      // 父级ID
 	Status   int8   `gorm:"column:status" json:"status" form:"status"`                                         // 0 表示禁用，1 表示启用
-	Children []Role `gorm:"-"`
+	Children []Role `gorm:"-" json:"children"`
 }
 
 // TableName 自定义表名
