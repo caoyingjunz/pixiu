@@ -111,8 +111,9 @@ type Cloud struct {
 	TimeOption `json:",inline"`
 
 	Name        string `json:"name"`
-	Status      int    `json:"status"`     // 0: 正常 1: 异常 2: 正在初始化 3: 删除中
-	CloudType   string `json:"cloud_type"` // 0：导入集群（前端又名标准集群） 1: 自建集群
+	AliasName   string `json:"alias_name"`
+	Status      int    `json:"status"`     // 0: 运行中 1: 集群异常 2: 构建中 3: 删除中 4: 等待构建
+	CloudType   int    `json:"cloud_type"` // 1：导入集群（前端又名标准集群） 2: 自建集群
 	KubeVersion string `json:"kube_version"`
 	KubeConfig  []byte `json:"kube_config"`
 	NodeNumber  int    `json:"node_number"`
@@ -125,7 +126,7 @@ type BuildCloud struct {
 	Name            string          `json:"name"`       // 名称，系统自动生成，只能为字符串
 	AliasName       string          `json:"alias_name"` // 可读性的名称，支持中午
 	Immediate       bool            `json:"immediate"`  // 立刻部署
-	CloudType       string          `json:"cloud_type"` // cloud 的类型，支持标准类型和自建类型
+	CloudType       int             `json:"cloud_type"` // cloud 的类型，支持标准类型和自建类型
 	Region          string          `json:"region"`     // 城市区域
 	Kubernetes      *KubernetesSpec `json:"kubernetes"` // k8s 全部信息
 	CreateNamespace bool            `json:"create_namespace"`

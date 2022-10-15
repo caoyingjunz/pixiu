@@ -1589,7 +1589,7 @@ const docTemplate = `{
                 },
                 "cloud_type": {
                     "description": "cloud 的类型，支持标准类型和自建类型",
-                    "type": "string"
+                    "type": "integer"
                 },
                 "create_namespace": {
                     "type": "boolean"
@@ -1745,10 +1745,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
-                    "type": "string"
-                },
-                "role": {
-                    "description": "k8s 节点类型，支持 master 和 node",
                     "type": "string"
                 },
                 "user": {
