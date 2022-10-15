@@ -141,7 +141,7 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 
 	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        "pix-" + uuid.NewUUID()[:8],
+		Name:        "atm-" + uuid.NewUUID()[:8],
 		AliasName:   obj.Name,
 		CloudType:   typesv2.StandardCloud,
 		KubeVersion: kubeVersion,
@@ -157,7 +157,7 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	// 创建 pixiu-system 命名空间，用于安装内置的控制器
 	namespace := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "pixiu-system",
+			Name: typesv2.PixiuNamespace,
 		},
 	}
 	_, err = clientSet.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
