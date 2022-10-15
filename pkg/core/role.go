@@ -58,7 +58,6 @@ func newRole(c *pixiu) *role {
 }
 
 func (r *role) Create(c context.Context, obj *types.RoleReq) (role *model.Role, err error) {
-
 	if role, err = r.factory.Role().Create(c, &model.Role{
 		Name:     obj.Name,
 		Memo:     obj.Memo,
