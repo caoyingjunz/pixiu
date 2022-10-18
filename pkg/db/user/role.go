@@ -123,8 +123,8 @@ func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, er
 		return nil, err
 	}
 
-	res := getTreeMenus(menus, 0)
-	return &res, nil
+	//res := getTreeMenus(menus, 0)
+	return &menus, nil
 }
 
 // SetRole 设置角色菜单权限
