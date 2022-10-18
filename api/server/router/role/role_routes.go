@@ -18,6 +18,7 @@ package role
 
 import (
 	"context"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 
 	"github.com/gin-gonic/gin"
 
@@ -43,6 +44,7 @@ func (o *roleRouter) addRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role types.RoleReq
 	if err := c.ShouldBindJSON(&role); err != nil {
+		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
@@ -118,7 +120,9 @@ func (o *roleRouter) deleteRole(c *gin.Context) {
 	}
 
 	role, err := pixiu.CoreV1.Role().Get(c, rid)
-	if err != nil || len(*role) == 0 {
+	log.Logger.Error(err)
+	log.Logger.Info(role)
+	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
 		return
 	}

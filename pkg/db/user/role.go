@@ -88,12 +88,15 @@ func (r *role) Delete(c context.Context, rId int64) error {
 }
 
 func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error) {
-	if err := r.db.Where("id = ?", rid).
+	err = r.db.Where("id = ?", rid).
 		Or("parent_id = ?", rid).
 		Order("sequence DESC").
-		Find(&roles).Error; err != nil {
+		First(&roles).Error
+
+	if err != nil {
 		return nil, err
 	}
+
 	res := getTreeRoles(*roles, 0)
 
 	return &res, err
