@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -46,12 +47,11 @@ func (*menuRouter) addMenu(c *gin.Context) {
 		return
 	}
 	// 判断权限是否已存在
-	res, err := pixiu.CoreV1.Menu().GetMenuByMenuNameUrl(c, menu.URL, menu.Method)
-	if err != nil || res != nil {
+	_, err := pixiu.CoreV1.Menu().GetMenuByMenuNameUrl(c, menu.URL, menu.Method)
+	if err != gorm.ErrRecordNotFound {
 		httputils.SetFailed(c, r, httpstatus.MenusExistError)
 		return
 	}
-
 	if _, err := pixiu.CoreV1.Menu().Create(c, &menu); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return

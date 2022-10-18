@@ -37,6 +37,7 @@ type Menu struct {
 	MenuType int8   `gorm:"column:menu_type;type:tinyint(1);not null;" json:"menu_type" form:"menu_type"` // 菜单类型 1 左侧菜单,2 按钮, 3 非展示权限
 	Icon     string `gorm:"column:icon;size:32;" json:"icon,omitempty" form:"icon"`                       // icon
 	Method   string `gorm:"column:method;size:32;not null;" json:"method,omitempty" form:"method"`        // 操作类型 none/GET/POST/PUT/DELETE
+	Code     string `gorm:"column:code;size:128;not null;" json:"code"`                                   // 前端鉴权code 例： user:role:add, user:role:delete
 	Children []Menu `gorm:"-" json:"children"`
 }
 

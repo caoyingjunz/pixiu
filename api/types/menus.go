@@ -10,4 +10,5 @@ type MenusReq struct {
 	MenuType int8   `json:"menu_type"` // 菜单类型 1 左侧菜单,2 按钮, 3 非展示权限
 	Icon     string `json:"icon"`      // icon
 	Method   string `json:"method"`    // 操作类型 none/GET/POST/PUT/DELETE
+	Code     string `json:"code"`      // 前端鉴权code 例： user:role:add, user:role:delete
 }

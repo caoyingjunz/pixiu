@@ -167,7 +167,7 @@ func (r *role) GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]i
 }
 
 func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *model.Role, err error) {
-	err = r.db.Where("name = ?", roleName).Find(&role).Error
+	err = r.db.Where("name = ?", roleName).First(&role).Error
 	return
 }
 

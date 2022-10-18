@@ -100,7 +100,7 @@ func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, e
 }
 
 func (m *menu) GetMenuByMenuNameUrl(c context.Context, url, method string) (menu *model.Menu, err error) {
-	err = m.db.Where("url = ? and method = ?", url, method).Find(&menu).Error
+	err = m.db.Where("url = ? and method = ?", url, method).First(&menu).Error
 	return
 }
 

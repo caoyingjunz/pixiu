@@ -18,8 +18,6 @@ package core
 
 import (
 	"context"
-	"errors"
-
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
@@ -174,15 +172,11 @@ func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *mo
 
 // CheckRoleIsExist 判断角色是否存在
 func (r *role) CheckRoleIsExist(ctx context.Context, name string) bool {
-	res, err := r.factory.Role().GetRoleByRoleName(ctx, name)
+	_, err := r.factory.Role().GetRoleByRoleName(ctx, name)
 	if err != nil {
 		log.Logger.Error(err)
 		return false
 	}
 
-	if res.Id == 0 {
-		log.Logger.Error(errors.New("role is existed"))
-		return false
-	}
 	return true
 }
