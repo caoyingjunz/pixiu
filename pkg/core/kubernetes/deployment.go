@@ -18,7 +18,6 @@ package kubernetes
 
 import (
 	"context"
-
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -34,7 +33,7 @@ type DeploymentsGetter interface {
 type DeploymentInterface interface {
 	Create(ctx context.Context, deployment *v1.Deployment) error
 	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
+	List(ctx context.Context, listOptions types.ListOptions) (map[string]interface{}, error)
 }
 
 type deployments struct {
@@ -78,7 +77,9 @@ func (c *deployments) Delete(ctx context.Context, deleteOptions types.GetOrDelet
 	return nil
 }
 
-func (c *deployments) List(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error) {
+func (c *deployments) List(ctx context.Context, listOptions types.ListOptions) (map[string]interface{}, error) {
+	var deploymentList = make(map[string]interface{})
+
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -89,6 +90,15 @@ func (c *deployments) List(ctx context.Context, listOptions types.ListOptions) (
 		log.Logger.Errorf("failed to list %s deployments: %v", listOptions.Namespace, err)
 		return nil, err
 	}
+	for _, v := range deploy.Items {
+		for _, container := range v.Spec.Template.Spec.Containers {
+			deploymentList["Name"] = v.ObjectMeta.Name
+			deploymentList["Ready"] = v.Status.ReadyReplicas
+			deploymentList["Images"] = container.Image
+			deploymentList["Container"] = container.Name
+			deploymentList["CreateTime"] = v.ObjectMeta.CreationTimestamp.Time
+		}
+	}
 
-	return deploy.Items, nil
+	return deploymentList, nil
 }

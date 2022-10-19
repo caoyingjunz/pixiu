@@ -41,7 +41,7 @@ const (
 	maxIdleConns = 10
 	maxOpenConns = 100
 
-	defaultConfigFile = "/etc/gopixiu/config.yaml"
+	defaultConfigFile = "D:\\go-work1\\gopixiu\\config.yaml"
 )
 
 // Options has all the params needed to run a pixiu

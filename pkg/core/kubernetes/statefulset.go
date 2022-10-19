@@ -36,7 +36,7 @@ type StatefulSetInterface interface {
 	Update(ctx context.Context, statefulSet *v1.StatefulSet) error
 	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error)
-	List(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
+	List(ctx context.Context, listOptions types.ListOptions) (map[string]interface{}, error)
 }
 
 type statefulSets struct {
@@ -108,7 +108,9 @@ func (c *statefulSets) Get(ctx context.Context, getOptions types.GetOrDeleteOpti
 	return sts, err
 }
 
-func (c *statefulSets) List(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error) {
+func (c *statefulSets) List(ctx context.Context, listOptions types.ListOptions) (map[string]interface{}, error) {
+	var StatefulsetList = make(map[string]interface{})
+
 	if c.client == nil {
 		return nil, clientError
 	}
@@ -119,6 +121,15 @@ func (c *statefulSets) List(ctx context.Context, listOptions types.ListOptions) 
 		log.Logger.Errorf("failed to list statefulsets: %v", listOptions.Namespace, err)
 		return nil, err
 	}
+	for _, v := range sts.Items {
+		for _, container := range v.Spec.Template.Spec.Containers {
+			StatefulsetList["Name"] = v.ObjectMeta.Name
+			StatefulsetList["Ready"] = v.Status.ReadyReplicas
+			StatefulsetList["Images"] = container.Image
+			StatefulsetList["Container"] = container.Name
+			StatefulsetList["CreateTime"] = v.ObjectMeta.CreationTimestamp.Time
+		}
+	}
 
-	return sts.Items, err
+	return StatefulsetList, err
 }
