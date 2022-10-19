@@ -31,6 +31,7 @@ type KubeConfigInterface interface {
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*model.KubeConfig, error)
 	List(ctx context.Context, cloudName string) ([]model.KubeConfig, error)
+	ListByIds(ctx context.Context, ids []int64) ([]model.KubeConfig, error)
 }
 
 type kubeConfig struct {
@@ -87,5 +88,16 @@ func (s *kubeConfig) List(ctx context.Context, cloudName string) ([]model.KubeCo
 		return nil, err
 	}
 
+	return objs, nil
+}
+
+func (s *kubeConfig) ListByIds(ctx context.Context, ids []int64) ([]model.KubeConfig, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var objs []model.KubeConfig
+	if err := s.db.Where("id IN ?", ids).Find(&objs).Error; err != nil {
+		return nil, err
+	}
 	return objs, nil
 }

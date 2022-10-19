@@ -139,15 +139,26 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
 
+	// TODO: 添加事务支持
+	kubeConfig, err := c.factory.KubeConfig().Create(ctx, &model.KubeConfig{
+		Config:              encryptData,
+		ServiceAccount:      typesv2.KubeConfigFlag + uuid.NewUUID()[:8],
+		ExpirationTimestamp: time.Now().AddDate(typesv2.NeverExpire, 0, 0).String(),
+	})
+	if err != nil {
+		log.Logger.Errorf("failed to save kubeConfig: %v", err)
+		return err
+	}
+
 	// TODO: 未处理 resources
 	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        "atm-" + uuid.NewUUID()[:8],
-		AliasName:   obj.Name,
-		CloudType:   typesv2.StandardCloud,
-		KubeVersion: kubeVersion,
-		KubeConfig:  encryptData,
-		NodeNumber:  len(nodes.Items),
-		Resources:   resources,
+		Name:          "atm-" + uuid.NewUUID()[:8],
+		AliasName:     obj.Name,
+		CloudType:     typesv2.StandardCloud,
+		KubeVersion:   kubeVersion,
+		KubeConfigsID: kubeConfig.Id,
+		NodeNumber:    len(nodes.Items),
+		Resources:     resources,
 	}); err != nil {
 		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
 		return err
@@ -381,12 +392,32 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		log.Logger.Errorf("failed to list exist clouds: %v", err)
 		return err
 	}
+
+	if len(cloudObjs) == 0 {
+		return nil
+	}
+	// 通过id获取kubeConfigs
+	var ids []int64
+	for _, cloudObj := range cloudObjs {
+		ids = append(ids, cloudObj.KubeConfigsID)
+	}
+	kubeConfigs, err := c.factory.KubeConfig().ListByIds(context.TODO(), ids)
+
+	// 转为map对象
+	var kubeConfigIdConfigMap = map[int64]model.KubeConfig{}
+	for _, kubeConfig := range kubeConfigs {
+		kubeConfigIdConfigMap[kubeConfig.Id] = kubeConfig
+	}
+	if len(kubeConfigIdConfigMap) == 0 {
+		return nil
+	}
+
 	for _, cloudObj := range cloudObjs {
 		// TODO: 仅加载状态正常的集群，异常的加入到异常列表
 		if cloudObj.Status != 0 {
 			continue
 		}
-		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
+		kubeConfig, err := cipher.Decrypt(kubeConfigIdConfigMap[cloudObj.KubeConfigsID].Config)
 		if err != nil {
 			return err
 		}
