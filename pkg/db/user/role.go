@@ -103,7 +103,7 @@ func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error
 }
 
 func (r *role) List(c context.Context) (roles *[]model.Role, err error) {
-	if tx := r.db.Find(&roles); tx.Error != nil {
+	if tx := r.db.Order("sequence DESC").Find(&roles); tx.Error != nil {
 		return nil, tx.Error
 	}
 	res := getTreeRoles(*roles, 0)

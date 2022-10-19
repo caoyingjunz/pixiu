@@ -87,7 +87,7 @@ func (m *menu) Get(c context.Context, mId int64) (menu *model.Menu, err error) {
 
 func (m *menu) List(c context.Context) (treeMenusList []model.Menu, err error) {
 	var menus []model.Menu
-	err = m.db.Find(&menus).Error
+	err = m.db.Order("sequence DESC").Find(&menus).Error
 	treeMenusList = getTreeMenus(menus, 0)
 	return
 }
