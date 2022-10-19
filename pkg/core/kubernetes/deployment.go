@@ -34,6 +34,7 @@ type DeploymentInterface interface {
 	Create(ctx context.Context, deployment *v1.Deployment) error
 	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	List(ctx context.Context, listOptions types.ListOptions) (map[string]interface{}, error)
+	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Deployment, error)
 }
 
 type deployments struct {
@@ -101,4 +102,19 @@ func (c *deployments) List(ctx context.Context, listOptions types.ListOptions) (
 	}
 
 	return deploymentList, nil
+}
+
+func (c *deployments) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Deployment, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	deploy, err := c.client.AppsV1().
+		Deployments(getOptions.Namespace).
+		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to get %s statefulSets: %v", getOptions.CloudName, err)
+		return nil, err
+	}
+
+	return deploy, err
 }

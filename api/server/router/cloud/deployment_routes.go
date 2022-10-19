@@ -87,3 +87,22 @@ func (s *cloudRouter) listDeployments(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (s *cloudRouter) getDeployments(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err        error
+		getOptions types.GetOrDeleteOptions
+	)
+	if err = c.ShouldBindUri(&getOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().Deployments(getOptions.CloudName).Get(context.TODO(), getOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
