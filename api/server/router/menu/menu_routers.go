@@ -18,9 +18,7 @@ package menu
 
 import (
 	"context"
-
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
+	"github.com/caoyingjunz/gopixiu/pkg/db/errors"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -28,6 +26,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/gin-gonic/gin"
 )
 
 // @Summary      Add a menus
@@ -48,10 +47,11 @@ func (*menuRouter) addMenu(c *gin.Context) {
 	}
 	// 判断权限是否已存在
 	_, err := pixiu.CoreV1.Menu().GetMenuByMenuNameUrl(c, menu.URL, menu.Method)
-	if err != gorm.ErrRecordNotFound {
+	if !errors.IsNotFound(err) {
 		httputils.SetFailed(c, r, httpstatus.MenusExistError)
 		return
 	}
+
 	if _, err := pixiu.CoreV1.Menu().Create(c, &menu); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return

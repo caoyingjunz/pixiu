@@ -19,8 +19,6 @@ package role
 import (
 	"context"
 
-	"github.com/caoyingjunz/gopixiu/pkg/log"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
@@ -45,7 +43,6 @@ func (o *roleRouter) addRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role types.RoleReq
 	if err := c.ShouldBindJSON(&role); err != nil {
-		log.Logger.Error(err)
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
