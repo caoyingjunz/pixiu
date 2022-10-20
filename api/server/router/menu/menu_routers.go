@@ -19,6 +19,8 @@ package menu
 import (
 	"context"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
@@ -26,7 +28,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
-	"github.com/gin-gonic/gin"
 )
 
 // @Summary      Add a menus

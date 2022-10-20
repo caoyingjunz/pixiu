@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
@@ -140,7 +141,7 @@ func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 		log.Logger.Error(err)
 		//清除rule表中规则
 		for _, menu := range *menus {
-			err := r.factory.Authentication().DeleteRolePermission(ctx, menu.URL, menu.Method)
+			err := r.factory.Authentication().DeleteRolePermissionWithRole(ctx, roleId, menu.URL, menu.Method)
 			if err != nil {
 				log.Logger.Error(err)
 				break

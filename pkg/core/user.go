@@ -307,9 +307,8 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 	err = u.factory.User().SetUserRoles(ctx, uid, rids)
 	if err != nil { // 如果失败,则清除rules已添加的规则
 		log.Logger.Error(err)
-
 		for _, roleId := range rids {
-			err = u.factory.Authentication().DeleteRole(ctx, roleId)
+			err = u.factory.Authentication().DeleteRoleWithUser(ctx, uid, roleId)
 			if err != nil {
 				log.Logger.Error(err)
 				break
