@@ -56,12 +56,12 @@ func (c *authentication) GetEnforce() *casbin.Enforcer {
 // AddRoleForUser 分配用户角色
 func (c *authentication) AddRoleForUser(ctx context.Context, userid int64, roleIds []int64) (err error) {
 	uidStr := strconv.FormatInt(userid, 10)
-	ok, err := c.enforcer.DeleteRolesForUser(uidStr)
-	if err != nil || !ok {
+	_, err = c.enforcer.DeleteRolesForUser(uidStr)
+	if err != nil {
 		return
 	}
 	for _, roleId := range roleIds {
-		ok, err = c.enforcer.AddRoleForUser(uidStr, strconv.FormatInt(roleId, 10))
+		ok, err := c.enforcer.AddRoleForUser(uidStr, strconv.FormatInt(roleId, 10))
 		if err != nil || !ok {
 			break
 		}
