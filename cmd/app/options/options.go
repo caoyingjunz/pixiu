@@ -44,6 +44,8 @@ const (
 	defaultConfigFile = "/etc/gopixiu/config.yaml"
 )
 
+var _db *gorm.DB
+
 // Options has all the params needed to run a pixiu
 type Options struct {
 	// The default values.
@@ -141,6 +143,7 @@ func (o *Options) registerDatabase() error {
 	if o.DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{}); err != nil {
 		return err
 	}
+	_db = o.DB
 	// 设置数据库连接池
 	sqlDB, err := o.DB.DB()
 	if err != nil {
@@ -177,4 +180,8 @@ func (o *Options) registerCicdDriver() error {
 // TODO
 func (o *Options) Validate() error {
 	return nil
+}
+
+func GetDB() *gorm.DB {
+	return _db
 }

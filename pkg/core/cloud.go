@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"strings"
 	"time"
 
@@ -139,19 +140,21 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
 
-	// TODO: 添加事务支持
-	kubeConfig, err := c.factory.KubeConfig().Create(ctx, &model.KubeConfig{
+	tx := options.GetDB().Begin()
+	kubeConfig := &model.KubeConfig{
 		Config:              encryptData,
 		ServiceAccount:      typesv2.KubeConfigFlag + uuid.NewUUID()[:8],
 		ExpirationTimestamp: time.Now().AddDate(typesv2.NeverExpire, 0, 0).String(),
-	})
-	if err != nil {
-		log.Logger.Errorf("failed to save kubeConfig: %v", err)
-		return err
+	}
+	kubeConfig.GmtCreate = time.Now()
+	if res := tx.Create(kubeConfig); res.Error != nil {
+		tx.Rollback()
+		log.Logger.Errorf("failed to save kubeConfig: %v", res)
+		return res.Error
 	}
 
 	// TODO: 未处理 resources
-	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
+	if res := tx.Create(&model.Cloud{
 		Name:          "atm-" + uuid.NewUUID()[:8],
 		AliasName:     obj.Name,
 		CloudType:     typesv2.StandardCloud,
@@ -159,9 +162,10 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		KubeConfigsID: kubeConfig.Id,
 		NodeNumber:    len(nodes.Items),
 		Resources:     resources,
-	}); err != nil {
-		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
-		return err
+	}); res.Error != nil {
+		tx.Rollback()
+		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, res)
+		return res.Error
 	}
 
 	// TODO: 根据传参确定是否创建默认ns
@@ -178,7 +182,7 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	}
 
 	clientSets.Add(obj.Name, clientSet)
-	return nil
+	return tx.Commit().Error
 }
 
 func (c *cloud) preBuild(ctx context.Context, obj *types.BuildCloud) error {
