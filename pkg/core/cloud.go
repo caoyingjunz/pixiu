@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"strings"
 	"time"
 
@@ -30,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
 	pixiukubernetes "github.com/caoyingjunz/gopixiu/pkg/core/kubernetes"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
