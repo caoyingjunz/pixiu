@@ -66,6 +66,11 @@ CREATE TABLE `clouds` (
     UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=22220801;
 ```
+### 更改表结构
+
+```sql
+ALTER TABLE `clouds` CHANGE COLUMN `kube_config` `kube_configs_id` int NULL DEFAULT NULL COMMENT 'kubeConfigsId' AFTER `kube_version`;
+```
 
 ## 创建 `kube_configs` 表
 ```sql
@@ -119,11 +124,4 @@ CREATE TABLE `nodes` (
     password varchar(128) COMMENT '节点密码',
     KEY `idx_cloud` (`cloud_id`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=24220801;
-```
-
-## 更改表结构
-
-```sql
-ALTER TABLE `clouds` 
-CHANGE COLUMN `kube_config` `kube_configs_id` int NULL DEFAULT NULL COMMENT 'kubeConfigsId' AFTER `kube_version`;
 ```
