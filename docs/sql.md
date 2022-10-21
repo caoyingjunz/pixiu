@@ -120,10 +120,3 @@ CREATE TABLE `nodes` (
     KEY `idx_cloud` (`cloud_id`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=24220801;
 ```
-
-## 更改表结构
-
-```sql
-ALTER TABLE `clouds` 
-CHANGE COLUMN `kube_config` `kube_configs_id` int NULL DEFAULT NULL COMMENT 'kubeConfigsId' AFTER `kube_version`;
-```
