@@ -139,13 +139,14 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
 
-	// TODO: 添加事务支持
-	kubeConfig, err := c.factory.KubeConfig().Create(ctx, &model.KubeConfig{
+	// kube_configs 数据落盘
+	kubeConfig := &model.KubeConfig{
 		Config:              encryptData,
 		ServiceAccount:      typesv2.KubeConfigFlag + uuid.NewUUID()[:8],
 		ExpirationTimestamp: time.Now().AddDate(typesv2.NeverExpire, 0, 0).String(),
-	})
-	if err != nil {
+	}
+	kubeConfig.Model.GmtCreate = time.Now()
+	if _, err = c.factory.KubeConfig().Create(ctx, kubeConfig); err != nil {
 		log.Logger.Errorf("failed to save kubeConfig: %v", err)
 		return err
 	}
