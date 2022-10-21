@@ -88,19 +88,22 @@ func (r *role) Delete(c context.Context, rId int64) error {
 }
 
 func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error) {
-	if err := r.db.Where("id = ?", rid).
+	err = r.db.Where("id = ?", rid).
 		Or("parent_id = ?", rid).
 		Order("sequence DESC").
-		Find(&roles).Error; err != nil {
+		First(&roles).Error
+
+	if err != nil {
 		return nil, err
 	}
+
 	res := getTreeRoles(*roles, 0)
 
 	return &res, err
 }
 
 func (r *role) List(c context.Context) (roles *[]model.Role, err error) {
-	if tx := r.db.Find(&roles); tx.Error != nil {
+	if tx := r.db.Order("sequence DESC").Find(&roles); tx.Error != nil {
 		return nil, tx.Error
 	}
 	res := getTreeRoles(*roles, 0)
@@ -120,8 +123,8 @@ func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, er
 		return nil, err
 	}
 
-	res := getTreeMenus(menus, 0)
-	return &res, nil
+	//res := getTreeMenus(menus, 0)
+	return &menus, nil
 }
 
 // SetRole 设置角色菜单权限
@@ -167,7 +170,7 @@ func (r *role) GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]i
 }
 
 func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *model.Role, err error) {
-	err = r.db.Where("name = ?", roleName).Find(&role).Error
+	err = r.db.Where("name = ?", roleName).First(&role).Error
 	return
 }
 

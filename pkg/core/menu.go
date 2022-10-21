@@ -65,6 +65,7 @@ func (m *menu) Create(c context.Context, obj *types.MenusReq) (menu *model.Menu,
 		Sequence: obj.Sequence,
 		MenuType: obj.MenuType,
 		Method:   obj.Method,
+		Code:     obj.Code,
 	}); err != nil {
 		log.Logger.Error(err)
 		return
@@ -137,8 +138,8 @@ func (m *menu) GetMenuByMenuNameUrl(c context.Context, url, method string) (menu
 }
 
 func (m *menu) CheckMenusIsExist(c context.Context, menuId int64) bool {
-	res, err := m.factory.Menu().Get(c, menuId)
-	if err != nil || res.Id == 0 {
+	_, err := m.factory.Menu().Get(c, menuId)
+	if err != nil {
 		log.Logger.Error(err)
 		return false
 	}

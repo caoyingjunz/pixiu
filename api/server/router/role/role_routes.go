@@ -85,8 +85,8 @@ func (o *roleRouter) updateRole(c *gin.Context) {
 		return
 	}
 
-	res, err := pixiu.CoreV1.Role().Get(c, roleId)
-	if err != nil || len(*res) == 0 {
+	_, err = pixiu.CoreV1.Role().Get(c, roleId)
+	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
 		return
 	}
@@ -117,8 +117,8 @@ func (o *roleRouter) deleteRole(c *gin.Context) {
 		return
 	}
 
-	role, err := pixiu.CoreV1.Role().Get(c, rid)
-	if err != nil || len(*role) == 0 {
+	_, err = pixiu.CoreV1.Role().Get(c, rid)
+	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
 		return
 	}
@@ -196,8 +196,8 @@ func (o *roleRouter) getMenusByRole(c *gin.Context) {
 		return
 	}
 
-	role, err := pixiu.CoreV1.Role().Get(c, rid)
-	if err != nil || len(*role) == 0 {
+	_, err = pixiu.CoreV1.Role().Get(c, rid)
+	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
 		return
 	}
@@ -228,8 +228,8 @@ func (o *roleRouter) setRoleMenus(c *gin.Context) {
 		return
 	}
 
-	role, err := pixiu.CoreV1.Role().Get(c, rid)
-	if err != nil || len(*role) == 0 {
+	_, err = pixiu.CoreV1.Role().Get(c, rid)
+	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
