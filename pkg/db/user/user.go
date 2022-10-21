@@ -190,7 +190,7 @@ func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]mo
 		Order("sequence ASC").
 		Scan(&menus).Error
 
-	if err != nil || menus == nil {
+	if err != nil {
 		return nil, err
 	}
 	return &menus, nil
@@ -209,9 +209,12 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Me
 		Order("sequence DESC").
 		Scan(&menus).Error
 
-	if err != nil || menus == nil {
-		log.Logger.Errorf(err.Error())
+	if err != nil {
+		log.Logger.Error(err)
 		return nil, err
+	}
+	if len(menus) == 0 {
+		return &menus, nil
 	}
 
 	treeMenusList := getTreeMenus(menus, 0)
