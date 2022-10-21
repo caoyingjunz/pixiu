@@ -88,6 +88,12 @@ CREATE TABLE `kube_configs` (
     UNIQUE KEY `service_account` (`service_account`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=22220801;
 ```
+### 更改表结构
+
+```sql
+ALTER TABLE `clouds` 
+CHANGE COLUMN `kube_config` `kube_configs_id` int NULL DEFAULT NULL COMMENT 'kubeConfigsId' AFTER `kube_version`;
+```
 
 ## 创建 `clusters` 表
 ```sql
