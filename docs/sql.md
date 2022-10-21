@@ -57,7 +57,7 @@ CREATE TABLE `clouds` (
     status int COMMENT '集群状态',
     cloud_type int COMMENT '集群类型',
     kube_version varchar(128) COMMENT 'k8s 集群版本',
-    kube_config text COMMENT 'kubeConfig',
+    kube_configs_id bigint COMMENT 'kube_configs主键',
     node_number int COMMENT '集群节点数量',
     resources varchar(128) COMMENT '资源数量',
     description text COMMENT '描述',
