@@ -20,6 +20,7 @@ type MenuInterface interface {
 
 	GetByIds(context.Context, []int64) (*[]model.Menu, error)
 	GetMenuByMenuNameUrl(context.Context, string, string) (*model.Menu, error)
+	UpdateStatus(c context.Context, menuId, status int64) error
 }
 
 type menu struct {
@@ -102,6 +103,10 @@ func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, e
 func (m *menu) GetMenuByMenuNameUrl(c context.Context, url, method string) (menu *model.Menu, err error) {
 	err = m.db.Where("url = ? and method = ?", url, method).First(&menu).Error
 	return
+}
+
+func (m *menu) UpdateStatus(c context.Context, menuId, status int64) error {
+	return m.db.Model(&model.Menu{}).Where("id = ?", menuId).Update("status", status).Error
 }
 
 func getTreeMenus(menusList []model.Menu, pid int64) (treeMenusList []model.Menu) {

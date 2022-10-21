@@ -50,5 +50,7 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		userRoute.GET("/menus/:id/buttons", u.getButtonsByCurrentUser)
 		// 根据用户ID获取用户的菜单
 		userRoute.GET("/menus", u.getLeftMenusByCurrentUser)
+		//修改用户状态
+		userRoute.PUT("/:id/status/:status", u.updateUserStatus)
 	}
 }

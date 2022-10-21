@@ -21,6 +21,7 @@ type RoleInterface interface {
 	SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 	GetRolesByMenuID(ctx context.Context, menuId int64) (*[]int64, error)
 	GetRoleByRoleName(ctx context.Context, roleName string) (*model.Role, error)
+	UpdateStatus(c context.Context, roleId, status int64) error
 }
 
 type role struct {
@@ -183,4 +184,8 @@ func getTreeRoles(rolesList []model.Role, pid int64) (treeRolesList []model.Role
 		}
 	}
 	return treeRolesList
+}
+
+func (r *role) UpdateStatus(c context.Context, roleId, status int64) error {
+	return r.db.Model(&model.Role{}).Where("id = ?", roleId).Update("status", status).Error
 }

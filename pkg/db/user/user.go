@@ -39,6 +39,7 @@ type UserInterface interface {
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
 	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
+	UpdateStatus(c context.Context, userId, status int64) error
 }
 
 type user struct {
@@ -219,4 +220,8 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Me
 
 	treeMenusList := getTreeMenus(menus, 0)
 	return &treeMenusList, nil
+}
+
+func (u *user) UpdateStatus(c context.Context, userId, status int64) error {
+	return u.db.Model(&model.User{}).Where("id = ?", userId).Update("status", status).Error
 }

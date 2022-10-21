@@ -201,7 +201,7 @@ func (u *userRouter) resetPassword(c *gin.Context) {}
 // @Param        data body types.Password true "password info"
 // @Success      200  {object}  httputils.HttpOK
 // @Failure      400  {object}  httputils.HttpError
-// @Router       /users/{id} [post]
+// @Router       /users/{id} [put]
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -348,5 +348,37 @@ func (u *userRouter) setUserRoles(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
+	httputils.SetSuccess(c, r)
+}
+
+// @Summary      Update  user status
+// @Description  Update  user status
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Param        status   path      int  true  "status"  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/:id/status/:status [put]
+func (u *userRouter) updateUserStatus(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	userId, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	status, err := util.ParseInt64(c.Param("status"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if err = pixiu.CoreV1.User().UpdateStatus(c, userId, status); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }

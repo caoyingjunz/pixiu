@@ -247,3 +247,41 @@ func (o *roleRouter) setRoleMenus(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+// @Summary      Update role status by role id
+// @Description  Update role status by role id
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "menu ID"  Format(int64)
+// @Param        status   path      int  true  "status "  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles/{id}/status/{status} [put]
+func (*roleRouter) updateRoleStatus(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	status, err := util.ParseInt64(c.Param("status"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+	roleId, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	_, err = pixiu.CoreV1.Role().Get(c, roleId)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
+		return
+	}
+
+	if err = pixiu.CoreV1.Role().UpdateStatus(c, roleId, status); err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}

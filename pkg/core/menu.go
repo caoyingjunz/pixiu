@@ -40,6 +40,7 @@ type MenuInterface interface {
 	GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error)
 	GetMenuByMenuNameUrl(context.Context, string, string) (*model.Menu, error)
 	CheckMenusIsExist(c context.Context, menuId int64) bool
+	UpdateStatus(c context.Context, menuId, status int64) error
 }
 
 type menu struct {
@@ -144,4 +145,8 @@ func (m *menu) CheckMenusIsExist(c context.Context, menuId int64) bool {
 		return false
 	}
 	return true
+}
+
+func (m *menu) UpdateStatus(c context.Context, menuId, status int64) error {
+	return m.factory.Menu().UpdateStatus(c, menuId, status)
 }

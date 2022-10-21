@@ -18,7 +18,6 @@ package menu
 
 import (
 	"context"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
@@ -168,6 +167,44 @@ func (*menuRouter) listMenus(c *gin.Context) {
 		return
 	}
 	r.Result = res
+
+	httputils.SetSuccess(c, r)
+}
+
+// @Summary      Update a menu status by menu id
+// @Description  Update a menu status by menu id
+// @Tags         menus
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "menu ID"  Format(int64)
+// @Param        status   path      int  true  "status "  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /menus/{id}/status/{status} [put]
+func (*menuRouter) updateMenuStatus(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	menuId, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	status, err := util.ParseInt64(c.Param("status"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	if !pixiu.CoreV1.Menu().CheckMenusIsExist(c, menuId) {
+		httputils.SetFailed(c, r, httpstatus.MenusNtoExistError)
+		return
+	}
+
+	if err = pixiu.CoreV1.Menu().UpdateStatus(c, menuId, status); err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }

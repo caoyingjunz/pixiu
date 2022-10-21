@@ -42,6 +42,7 @@ type RoleInterface interface {
 	GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]int64, err error)
 	GetRoleByRoleName(ctx context.Context, roleName string) (*model.Role, error)
 	CheckRoleIsExist(ctx context.Context, name string) bool
+	UpdateStatus(c context.Context, roleId, status int64) error
 }
 
 type role struct {
@@ -169,6 +170,10 @@ func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *mo
 		return
 	}
 	return
+}
+
+func (r *role) UpdateStatus(c context.Context, roleId, status int64) error {
+	return r.factory.Role().UpdateStatus(c, roleId, status)
 }
 
 // CheckRoleIsExist 判断角色是否存在

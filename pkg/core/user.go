@@ -54,6 +54,7 @@ type UserInterface interface {
 	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
 	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
+	UpdateStatus(c context.Context, userId, status int64) error
 }
 
 type user struct {
@@ -334,4 +335,8 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]mo
 		log.Logger.Error(err)
 	}
 	return
+}
+
+func (u *user) UpdateStatus(c context.Context, userId, status int64) error {
+	return u.factory.User().UpdateStatus(c, userId, status)
 }
