@@ -77,7 +77,7 @@ CREATE TABLE `kube_configs` (
     service_account varchar(128) COMMENT 'k8s service account',
     cloud_name varchar(128) COMMENT '集群名',
     cluster_role varchar(128) COMMENT 'k8s cluster role',
-    config text COMMENT 'k8s kube_config',
+    kube_configs_id int COMMENT 'kube_configs 主键',
     expiration_timestamp text COMMENT '过期时间',
     KEY `idx_cloud_name` (`cloud_name`),
     UNIQUE KEY `service_account` (`service_account`)

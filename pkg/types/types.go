@@ -39,7 +39,7 @@ const (
 
 const (
 	PixiuNamespace = "pixiu-system" // 默认ns
-	KubeConfigFlag = "kubeConfig-"  // 配置文件前缀
+	KubeConfigFlag = "kubeConfig-"  // 配置文件前缀, 与带有生成有效期的kube_config做区分
 	NeverExpire    = 999            // 永不过期的标记
 )
 

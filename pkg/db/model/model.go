@@ -28,7 +28,7 @@ type Cloud struct {
 	Status        int    `json:"status"`                            // 集群状态
 	CloudType     int    `json:"cloud_type"`                        // 集群类型，支持自建和标准
 	KubeVersion   string `json:"kube_version"`                      // k8s 的版本
-	KubeConfigsID int64  `json:"kube_configs_id"`                   // 集群 config
+	KubeConfigsID int64  `json:"kube_configs_id"`                   // kube_configs 主键
 	NodeNumber    int    `json:"node_number"`
 	Resources     string `json:"resources"`
 	Description   string `gorm:"type:text" json:"description"`

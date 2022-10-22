@@ -139,13 +139,14 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
 
-	// TODO: 添加事务支持
-	kubeConfig, err := c.factory.KubeConfig().Create(ctx, &model.KubeConfig{
+	// kube_configs 数据落盘
+	kubeConfig := &model.KubeConfig{
 		Config:              encryptData,
 		ServiceAccount:      typesv2.KubeConfigFlag + uuid.NewUUID()[:8],
 		ExpirationTimestamp: time.Now().AddDate(typesv2.NeverExpire, 0, 0).String(),
-	})
-	if err != nil {
+	}
+	kubeConfig.Model.GmtCreate = time.Now()
+	if _, err := c.factory.KubeConfig().Create(ctx, kubeConfig); err != nil {
 		log.Logger.Errorf("failed to save kubeConfig: %v", err)
 		return err
 	}
@@ -288,6 +289,23 @@ func (c *cloud) Update(ctx context.Context, obj *types.Cloud) error { return nil
 // Delete 删除 cloud
 // 同时根据 cloud 的类型，清除级联资源，标准资源直接删除，自建资源删除 cluster 和 nodes
 func (c *cloud) Delete(ctx context.Context, cid int64) error {
+	cloudObj, err := c.factory.Cloud().Get(ctx, cid)
+	if cloudObj == nil || err != nil {
+		log.Logger.Errorf("failed to get %s cloud: %v", cid, err)
+		return err
+	}
+
+	kubeConfigsID := cloudObj.KubeConfigsID
+	kubeConfigObj, err := c.factory.KubeConfig().Get(ctx, kubeConfigsID)
+	if kubeConfigObj == nil || err != nil {
+		log.Logger.Errorf("failed to get %s cloud: %v", kubeConfigsID, err)
+		return err
+	}
+
+	if err = c.factory.KubeConfig().Delete(ctx, kubeConfigsID); err != nil {
+		log.Logger.Errorf("failed to delete %s kubeConfigs: %v", kubeConfigsID, err)
+	}
+
 	obj, err := c.factory.Cloud().Delete(ctx, cid)
 	if err != nil {
 		log.Logger.Errorf("failed to delete %s cloud: %v", cid, err)
