@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 
+	"github.com/fatih/structs"
 	"gorm.io/gorm"
 
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 )
 
 // RoleInterface 角色操作接口
 type RoleInterface interface {
 	Create(context.Context, *model.Role) (*model.Role, error)
-	Update(context.Context, *model.Role, int64) error
+	Update(context.Context, *types.UpdateRoleReq, int64) error
 	Delete(context.Context, int64) error
 	Get(context.Context, int64) (*[]model.Role, error)
 	List(context.Context) (*[]model.Role, error)
@@ -40,10 +42,11 @@ func (r *role) Create(c context.Context, obj *model.Role) (*model.Role, error) {
 	return obj, nil
 }
 
-func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
+func (r *role) Update(c context.Context, role *types.UpdateRoleReq, rid int64) error {
 	resourceVersion := role.ResourceVersion
 	role.ResourceVersion++
-	tx := r.db.Where("id = ? and resource_version = ? ", rid, resourceVersion).Updates(role)
+	roleMap := structs.Map(role)
+	tx := r.db.Debug().Model(&model.Role{}).Where("id = ? and resource_version = ? ", rid, resourceVersion).Updates(roleMap)
 	if tx.RowsAffected == 0 {
 		return errors.New("update failed")
 	}

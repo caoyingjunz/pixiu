@@ -24,7 +24,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -67,13 +66,13 @@ func (o *roleRouter) addRole(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id   path      int  true  "role ID"  Format(int64)
-// @Param        data body types.RoleReq true "role info"
+// @Param        data body types.UpdateRoleReq true "role info"
 // @Success      200  {object}  httputils.HttpOK
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /roles/{id} [put]
 func (o *roleRouter) updateRole(c *gin.Context) {
 	r := httputils.NewResponse()
-	var role model.Role // TODO 后续优化
+	var role types.UpdateRoleReq
 	if err := c.ShouldBindJSON(&role); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return

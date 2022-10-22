@@ -32,7 +32,7 @@ type MenuGetter interface {
 // MenuInterface 菜单操作接口
 type MenuInterface interface {
 	Create(c context.Context, obj *types.MenusReq) (menu *model.Menu, err error)
-	Update(c context.Context, menu *model.Menu, mId int64) error
+	Update(c context.Context, menu *types.UpdateMenusReq, mId int64) error
 	Delete(c context.Context, mId int64) error
 	Get(c context.Context, mId int64) (menu *model.Menu, err error)
 	List(c context.Context) (menus []model.Menu, err error)
@@ -74,7 +74,7 @@ func (m *menu) Create(c context.Context, obj *types.MenusReq) (menu *model.Menu,
 	return
 }
 
-func (m *menu) Update(c context.Context, menu *model.Menu, mId int64) error {
+func (m *menu) Update(c context.Context, menu *types.UpdateMenusReq, mId int64) error {
 	err := m.factory.Menu().Update(c, menu, mId)
 	if err != nil {
 		log.Logger.Error(err)

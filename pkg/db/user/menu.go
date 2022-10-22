@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 
+	"github.com/fatih/structs"
 	"gorm.io/gorm"
 
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
@@ -13,7 +15,7 @@ import (
 // MenuInterface 菜单操作接口
 type MenuInterface interface {
 	Create(context.Context, *model.Menu) (*model.Menu, error)
-	Update(context.Context, *model.Menu, int64) error
+	Update(context.Context, *types.UpdateMenusReq, int64) error
 	Delete(context.Context, int64) error
 	Get(context.Context, int64) (*model.Menu, error)
 	List(context.Context) ([]model.Menu, error)
@@ -38,10 +40,11 @@ func (m *menu) Create(c context.Context, obj *model.Menu) (*model.Menu, error) {
 	return obj, nil
 }
 
-func (m *menu) Update(c context.Context, obj *model.Menu, mId int64) error {
+func (m *menu) Update(c context.Context, obj *types.UpdateMenusReq, mId int64) error {
 	resourceVersion := obj.ResourceVersion
 	obj.ResourceVersion++
-	tx := m.db.Where("id = ? and resource_version = ? ", mId, resourceVersion).Updates(obj)
+	objMap := structs.Map(obj)
+	tx := m.db.Model(&model.Menu{}).Where("id = ? and resource_version = ? ", mId, resourceVersion).Updates(objMap)
 	if tx.RowsAffected == 0 {
 		return errors.New("update failed")
 	}

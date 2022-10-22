@@ -24,7 +24,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db/errors"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -65,13 +64,13 @@ func (*menuRouter) addMenu(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id   path      int  true  "menu ID"  Format(int64)
-// @Param        data body types.MenusReq true "menu info"
+// @Param        data body types.UpdateMenusReq true "menu info"
 // @Success      200  {object}  httputils.HttpOK
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /menus/{id} [put]
 func (*menuRouter) updateMenu(c *gin.Context) {
 	r := httputils.NewResponse()
-	var menu model.Menu
+	var menu types.UpdateMenusReq
 
 	if err := c.ShouldBindJSON(&menu); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
@@ -200,7 +199,6 @@ func (*menuRouter) updateMenuStatus(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.MenusNtoExistError)
 		return
 	}
-
 	if err = pixiu.CoreV1.Menu().UpdateStatus(c, menuId, status); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return

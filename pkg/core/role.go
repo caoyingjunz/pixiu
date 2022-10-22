@@ -32,7 +32,7 @@ type RoleGetter interface {
 // RoleInterface 角色操作接口
 type RoleInterface interface {
 	Create(c context.Context, obj *types.RoleReq) (role *model.Role, err error)
-	Update(c context.Context, role *model.Role, rid int64) error
+	Update(c context.Context, role *types.UpdateRoleReq, rid int64) error
 	Delete(c context.Context, rId int64) error
 	Get(c context.Context, rid int64) (roles *[]model.Role, err error)
 	List(c context.Context) (roles *[]model.Role, err error)
@@ -71,7 +71,7 @@ func (r *role) Create(c context.Context, obj *types.RoleReq) (role *model.Role, 
 	return
 }
 
-func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
+func (r *role) Update(c context.Context, role *types.UpdateRoleReq, rid int64) error {
 	if err := r.factory.Role().Update(c, role, rid); err != nil {
 		log.Logger.Error(err)
 		return err
