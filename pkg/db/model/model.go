@@ -76,7 +76,7 @@ type User struct {
 	gopixiu.Model
 
 	Name        string `gorm:"index:idx_name,unique" json:"name"`
-	Password    string `gorm:"type:varchar(256)" json:"password"`
+	Password    string `gorm:"type:varchar(256)" json:"-"`
 	Status      int8   `gorm:"type:tinyint" json:"status"`
 	Role        string `gorm:"type:varchar(128)" json:"role"`
 	Email       string `gorm:"type:varchar(128)" json:"email"`
@@ -86,6 +86,11 @@ type User struct {
 
 func (user *User) TableName() string {
 	return "users"
+}
+
+type PageUser struct {
+	Users []User `json:"users"`
+	Total int64  `json:"total"`
 }
 
 type KubeConfig struct {

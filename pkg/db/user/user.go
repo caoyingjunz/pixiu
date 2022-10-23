@@ -32,12 +32,12 @@ type UserInterface interface {
 	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
-	List(ctx context.Context) ([]model.User, error)
+	List(ctx context.Context, page, limit int) (*model.PageUser, error)
 
 	GetByName(ctx context.Context, name string) (*model.User, error)
 	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
-	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
+	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 	UpdateStatus(c context.Context, userId, status int64) error
 }
@@ -97,13 +97,46 @@ func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 	return &obj, nil
 }
 
-func (u *user) List(ctx context.Context) ([]model.User, error) {
-	var us []model.User
-	if err := u.db.Find(&us).Error; err != nil {
+func (u *user) List(ctx context.Context, page, limit int) (*model.PageUser, error) {
+	var (
+		userList []model.User
+		total    int64
+		err      error
+	)
+
+	// 全量查询
+	if page == 0 && limit == 0 {
+		if tx := u.db.Find(&userList); tx.Error != nil {
+			return nil, tx.Error
+		}
+
+		if err := u.db.Model(&model.User{}).Count(&total).Error; err != nil {
+			return nil, err
+		}
+
+		res := &model.PageUser{
+			Users: userList,
+			Total: total,
+		}
+		return res, err
+	}
+
+	//分页数据
+	if err := u.db.Limit(limit).Offset((page - 1) * limit).
+		Find(&userList).Error; err != nil {
 		return nil, err
 	}
 
-	return us, nil
+	if err := u.db.Model(&model.User{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
+
+	res := &model.PageUser{
+		Users: userList,
+		Total: total,
+	}
+	return res, err
+
 }
 
 func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
@@ -178,34 +211,31 @@ func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (roles *[]model.R
 }
 
 // GetButtonsByUserID 获取菜单按钮
-func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error) {
-	var menus []model.Menu
-	err := u.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name,menus.memo, menus.url, menus.icon,menus.sequence,"+
-		"menus.method, menus.menu_type").
-		Joins("left join role_menus on menus.id = role_menus.menu_id ").
-		Joins("left join user_roles on user_roles.role_id = role_menus.role_id  ").
-		Where("menus.menu_type = 2 and menus.status = 1 and menus.parent_id = ?", menuId).
-		Where(" user_roles.user_id = ?", uid).
-		Group("menus.id").
-		Order("parent_id ASC").
-		Order("sequence ASC").
-		Scan(&menus).Error
+func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
+	var permissions []model.Menu
 
+	err := u.db.Debug().Table("menus").Select(" menus.id, menus.code,menus.menu_type,menus.status").
+		Joins("left join role_menus on menus.id = role_menus.menu_id ").
+		Joins("left join user_roles on user_roles.role_id = role_menus.role_id where role_menus.role_id in (?) and menus.menu_type in (2,3) and menus.status = 1",
+			u.db.Table("roles").Select("roles.id").
+				Joins("left join user_roles on user_roles.role_id = roles.id where  user_roles.user_id = ? and roles.status = 1", uid)).
+		Group("id").
+		Scan(&permissions).Error
 	if err != nil {
 		return nil, err
 	}
-	return &menus, nil
+	return &permissions, nil
 }
 
 // GetLeftMenusByUserID 根据用户ID获取左侧菜单
 func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
 	var menus []model.Menu
-	err := u.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name,menus.memo, menus.url, menus.icon,menus.sequence,"+
-		"menus.method, menus.menu_type").
-		Joins("left join role_menus on menus.id = role_menus.menu_id ").
-		Joins("left join user_roles on user_roles.role_id = role_menus.role_id ").
-		Where("menus.menu_type = 1 and menus.status = 1 and user_roles.user_id = ?", uid).
-		Group("menus.id").
+	err := u.db.Debug().Table("menus").Select(" menus.id, menus.parent_id,menus.name,menus.memo, menus.url, menus.icon,menus.sequence,"+
+		"menus.method, menus.menu_type, menus.status").
+		Joins("left join role_menus on menus.id = role_menus.menu_id where role_menus.role_id in (?) and menus.menu_type = 1 and menus.status = 1",
+			u.db.Table("roles").Select("roles.id").
+				Joins("left join user_roles on user_roles.role_id = roles.id where  user_roles.user_id = ? and roles.status = 1", uid)).
+		Group("id").
 		Order("parent_id ASC").
 		Order("sequence DESC").
 		Scan(&menus).Error

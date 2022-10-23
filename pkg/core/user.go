@@ -41,7 +41,7 @@ type UserInterface interface {
 	Update(ctx context.Context, obj *types.User) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*types.User, error)
-	List(ctx context.Context) ([]types.User, error)
+	List(ctx context.Context, page, limit int) (*model.PageUser, error)
 
 	Login(ctx context.Context, obj *types.User) (string, error)
 
@@ -52,7 +52,7 @@ type UserInterface interface {
 
 	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
 	SetUserRoles(ctx context.Context, uid int64, rids []int64) (err error)
-	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
+	GetButtonsByUserID(ctx context.Context, uid int64) (*[]string, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 	UpdateStatus(c context.Context, userId, status int64) error
 }
@@ -147,18 +147,13 @@ func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
 	return model2Type(modelUser), nil
 }
 
-func (u *user) List(ctx context.Context) ([]types.User, error) {
-	objs, err := u.factory.User().List(ctx)
+func (u *user) List(ctx context.Context, page, limit int) (*model.PageUser, error) {
+	res, err := u.factory.User().List(ctx, page, limit)
 	if err != nil {
-		log.Logger.Errorf("failed to get user list: %v", err)
+		log.Logger.Error(err)
 		return nil, err
 	}
-
-	var users []types.User
-	for _, obj := range objs {
-		users = append(users, *model2Type(&obj))
-	}
-	return users, nil
+	return res, nil
 }
 
 func (u *user) preLogin(ctx context.Context, obj *types.User) error {
@@ -321,12 +316,18 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 	return
 }
 
-func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (menus *[]model.Menu, err error) {
-	menus, err = u.factory.User().GetButtonsByUserID(ctx, uid, menuId)
+func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (*[]string, error) {
+	res, err := u.factory.User().GetButtonsByUserID(ctx, uid)
 	if err != nil {
 		log.Logger.Error(err)
+		return nil, err
 	}
-	return
+	var menus []string
+	for _, v := range *res {
+		menus = append(menus, v.Code)
+	}
+
+	return &menus, nil
 }
 
 func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {

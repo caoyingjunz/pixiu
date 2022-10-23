@@ -17,7 +17,9 @@ limitations under the License.
 package menu
 
 import (
-	"context"
+	"strconv"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
@@ -155,12 +157,43 @@ func (*menuRouter) getMenu(c *gin.Context) {
 // @Tags         menus
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  httputils.Response{result=[]model.Menu}
+// @Param        menu_type   query      []int  false  "menu_type 1: 菜单,2： 按钮, 3：API,可填写多个； 默认为： 1,2,3"
+// @Param        page   query      int  false  "pageSize"
+// @Param        limit   query      int  false  "page limit"
+// @Success      200  {object}  httputils.Response{result=[]model.PageMenu}
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /menus [get]
 func (*menuRouter) listMenus(c *gin.Context) {
 	r := httputils.NewResponse()
-	res, err := pixiu.CoreV1.Menu().List(context.TODO())
+
+	var menuType []int8
+	// menu_type类型为[int]string
+	menuTypeStr := c.DefaultQuery("menu_type", "1,2,3")
+	menuTypeSlice := strings.Split(menuTypeStr, ",")
+	for _, t := range menuTypeSlice {
+		res, err := strconv.Atoi(t)
+		if err != nil {
+			httputils.SetFailed(c, r, httpstatus.ParamsError)
+			return
+		}
+		menuType = append(menuType, int8(res))
+	}
+
+	pageStr := c.DefaultQuery("page", "0")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "0")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	res, err := pixiu.CoreV1.Menu().List(c, page, limit, menuType)
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return

@@ -35,7 +35,7 @@ type MenuInterface interface {
 	Update(c context.Context, menu *types.UpdateMenusReq, mId int64) error
 	Delete(c context.Context, mId int64) error
 	Get(c context.Context, mId int64) (menu *model.Menu, err error)
-	List(c context.Context) (menus []model.Menu, err error)
+	List(c context.Context, page, limit int, menuType []int8) (res *model.PageMenu, err error)
 
 	GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error)
 	GetMenuByMenuNameUrl(context.Context, string, string) (*model.Menu, error)
@@ -116,8 +116,8 @@ func (m *menu) Get(c context.Context, mId int64) (menu *model.Menu, err error) {
 	return
 }
 
-func (m *menu) List(c context.Context) (menus []model.Menu, err error) {
-	if menus, err = m.factory.Menu().List(c); err != nil {
+func (m *menu) List(c context.Context, page, limit int, menuType []int8) (res *model.PageMenu, err error) {
+	if res, err = m.factory.Menu().List(c, page, limit, menuType); err != nil {
 		log.Logger.Error(err)
 		return
 	}

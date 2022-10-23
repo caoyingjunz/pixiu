@@ -18,7 +18,7 @@ type MenuInterface interface {
 	Update(context.Context, *types.UpdateMenusReq, int64) error
 	Delete(context.Context, int64) error
 	Get(context.Context, int64) (*model.Menu, error)
-	List(context.Context) ([]model.Menu, error)
+	List(c context.Context, page, limit int, menuType []int8) (res *model.PageMenu, err error)
 
 	GetByIds(context.Context, []int64) (*[]model.Menu, error)
 	GetMenuByMenuNameUrl(context.Context, string, string) (*model.Menu, error)
@@ -89,11 +89,77 @@ func (m *menu) Get(c context.Context, mId int64) (menu *model.Menu, err error) {
 	return
 }
 
-func (m *menu) List(c context.Context) (treeMenusList []model.Menu, err error) {
-	var menus []model.Menu
-	err = m.db.Order("sequence DESC").Find(&menus).Error
-	treeMenusList = getTreeMenus(menus, 0)
+func (m *menu) List(c context.Context, page, limit int, menuType []int8) (res *model.PageMenu, err error) {
+
+	var (
+		menuList []model.Menu
+		total    int64
+	)
+
+	// 全量查询
+	if page == 0 && limit == 0 {
+		if tx := m.db.Order("sequence DESC").Where("menu_type in (?)", menuType).Find(&menuList); tx.Error != nil {
+			return nil, tx.Error
+		}
+		treeMenu := getTreeMenus(menuList, 0)
+
+		if err := m.db.Model(&model.Menu{}).Where("menu_type in (?)", menuType).Count(&total).Error; err != nil {
+			return nil, err
+		}
+
+		res = &model.PageMenu{
+			Menus: treeMenu,
+			Total: total,
+		}
+		return res, err
+	}
+
+	//分页数据
+	if err := m.db.Order("sequence DESC").Where("parent_id = 0").Where("menu_type in (?)", menuType).Limit(limit).Offset((page - 1) * limit).
+		Find(&menuList).Error; err != nil {
+		return nil, err
+	}
+
+	var menuIds []int64
+	for _, menuInfo := range menuList {
+		menuIds = append(menuIds, menuInfo.Id)
+	}
+
+	// 查询子角色
+	if len(menuIds) != 0 {
+		var menus []model.Menu
+		if err := m.db.Where("parent_id in ?", menuIds).Where("menu_type in (?)", menuType).Find(&menus).Error; err != nil {
+			return nil, err
+		}
+		menuList = append(menuList, menus...)
+
+		// 查询子角色的按钮及API
+		var ids []int64
+		for _, menuInfo := range menus {
+			ids = append(ids, menuInfo.Id)
+		}
+		if len(ids) != 0 {
+			var ms []model.Menu
+			if err := m.db.Where("parent_id in ?", ids).Where("menu_type in (?)", menuType).Find(&ms).Error; err != nil {
+				return nil, err
+			}
+			menuList = append(menuList, ms...)
+		}
+
+	}
+
+	if err := m.db.Model(&model.Menu{}).Where("parent_id = 0").Where("menu_type in (?)", menuType).Count(&total).Error; err != nil {
+		return nil, err
+	}
+
+	treeMenus := getTreeMenus(menuList, 0)
+	res = &model.PageMenu{
+		Menus: treeMenus,
+		Total: total,
+	}
+
 	return
+
 }
 
 func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error) {

@@ -137,7 +137,7 @@ func (o *roleRouter) deleteRole(c *gin.Context) {
 // @Tags         roles
 // @Accept       json
 // @Produce      json
-// @Param        id   path      int  true  "role ID"  Format(int64)
+// @Param        id   path      int  true  "role ID"
 // @Success      200  {object}  httputils.HttpOK
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /roles/{id} [get]
@@ -164,29 +164,25 @@ func (o *roleRouter) getRole(c *gin.Context) {
 // @Tags         roles
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  httputils.Response{result=model.Role}
+// @Param        page   query      int  false  "pageSize"
+// @Param        limit   query      int  false  "page limit"
+// @Success      200  {object}  httputils.Response{result=model.PageRole}
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /roles [get]
 func (o *roleRouter) listRoles(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	pageStr, ok := c.GetQuery("page")
-	if !ok {
-		pageStr = "0"
-	}
+	pageStr := c.DefaultQuery("page", "0")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
 
-	limitStr, _ := c.GetQuery("limit")
-	if !ok {
-		limitStr = "0"
-	}
+	limitStr := c.DefaultQuery("limit", "0")
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
 	}
 
