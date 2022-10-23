@@ -35,7 +35,7 @@ type RoleInterface interface {
 	Update(c context.Context, role *types.UpdateRoleReq, rid int64) error
 	Delete(c context.Context, rId int64) error
 	Get(c context.Context, rid int64) (roles *[]model.Role, err error)
-	List(c context.Context) (roles *[]model.Role, err error)
+	List(c context.Context, page, limit int) (res interface{}, err error)
 
 	GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error)
 	SetRole(ctx context.Context, roleId int64, menuIds []int64) error
@@ -104,8 +104,8 @@ func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error
 	return
 }
 
-func (r *role) List(c context.Context) (roles *[]model.Role, err error) {
-	if roles, err = r.factory.Role().List(c); err != nil {
+func (r *role) List(c context.Context, page, limit int) (res interface{}, err error) {
+	if res, err = r.factory.Role().List(c, page, limit); err != nil {
 		log.Logger.Error(err)
 		return
 	}

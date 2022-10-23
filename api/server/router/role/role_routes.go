@@ -18,6 +18,7 @@ package role
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -168,8 +169,28 @@ func (o *roleRouter) getRole(c *gin.Context) {
 // @Router       /roles [get]
 func (o *roleRouter) listRoles(c *gin.Context) {
 	r := httputils.NewResponse()
-	var err error
-	if r.Result, err = pixiu.CoreV1.Role().List(c); err != nil {
+
+	pageStr, ok := c.GetQuery("page")
+	if !ok {
+		pageStr = "0"
+	}
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
+
+	limitStr, _ := c.GetQuery("limit")
+	if !ok {
+		limitStr = "0"
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
+
+	if r.Result, err = pixiu.CoreV1.Role().List(c, page, limit); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}

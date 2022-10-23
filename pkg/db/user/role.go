@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 
 	"github.com/fatih/structs"
 	"gorm.io/gorm"
@@ -17,7 +18,7 @@ type RoleInterface interface {
 	Update(context.Context, *types.UpdateRoleReq, int64) error
 	Delete(context.Context, int64) error
 	Get(context.Context, int64) (*[]model.Role, error)
-	List(context.Context) (*[]model.Role, error)
+	List(c context.Context, page, limit int) (res interface{}, err error)
 
 	GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error)
 	SetRole(ctx context.Context, roleId int64, menuIds []int64) error
@@ -106,12 +107,35 @@ func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error
 	return &res, err
 }
 
-func (r *role) List(c context.Context) (roles *[]model.Role, err error) {
-	if tx := r.db.Order("sequence DESC").Find(&roles); tx.Error != nil {
-		return nil, tx.Error
+func (r *role) List(c context.Context, page, limit int) (res interface{}, err error) {
+	var roleList []model.Role
+	// 全量查询
+	if page <= 0 && limit <= 0 {
+		if tx := r.db.Order("sequence DESC").Find(&roleList); tx.Error != nil {
+			return nil, tx.Error
+		}
+		res := getTreeRoles(roleList, 0)
+		return &res, err
 	}
-	res := getTreeRoles(*roles, 0)
-	return &res, err
+
+	//分页数据
+	if err := r.db.Limit(limit).Offset((page - 1) * limit).
+		Find(&roleList).Error; err != nil {
+		return nil, err
+	}
+	res = getTreeRoles(roleList, 0)
+	var total int64
+	if err := r.db.Model(&model.Role{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
+	treeRoles := getTreeRoles(roleList, 0)
+	log.Logger.Info(treeRoles)
+	res = &model.PageRole{
+		Roles: treeRoles,
+		Total: total,
+	}
+
+	return
 }
 
 func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error) {
