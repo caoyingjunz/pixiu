@@ -63,3 +63,7 @@ func (c *cloud) Pods(cloud string) pixiukubernetes.PodInterface {
 func (c *cloud) KubeConfigs(cloud string) pixiukubernetes.KubeConfigInterface {
 	return pixiukubernetes.NewKubeConfigs(clientSets.Get(cloud), cloud, c.factory)
 }
+
+func (c *cloud) WebShell(cloud string) pixiukubernetes.WebShellInterface {
+	return pixiukubernetes.NewWebShell(clientSets.Get(cloud), cloud)
+}

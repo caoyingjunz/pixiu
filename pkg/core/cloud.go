@@ -70,6 +70,7 @@ type CloudInterface interface {
 	pixiukubernetes.NodesGetter
 	pixiukubernetes.PodsGetter
 	pixiukubernetes.KubeConfigGetter
+	pixiukubernetes.WebShellGetter
 }
 
 const (
@@ -386,6 +387,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		if cloudObj.Status != 0 {
 			continue
 		}
+
 		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
 		if err != nil {
 			return err
@@ -421,6 +423,13 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 			}
 			// 定时检查cluster集群状态
 			for name, cs := range clientSets.List() {
+				//byName, _ := c.factory.Cloud().GetByName(context.TODO(), "atm-06300499")
+				//fmt.Println("11111111")
+				//fmt.Println(byName.KubeConfig)
+				//fmt.Println("22222222")
+				//decrypt, _ := cipher.Decrypt(byName.KubeConfig)
+				//fmt.Println(string(decrypt))
+
 				var newStatus int
 				var timeoutSeconds int64 = 2
 				if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {

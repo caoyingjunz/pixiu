@@ -16,6 +16,49 @@ limitations under the License.
 
 package types
 
+import (
+	"encoding/json"
+
+	"github.com/igm/sockjs-go/v3/sockjs"
+	"k8s.io/client-go/tools/remotecommand"
+)
+
+type WebShell struct {
+	Conn     sockjs.Session
+	SizeChan chan *remotecommand.TerminalSize
+
+	Namespace string
+	Pod       string
+	Container string
+}
+
+func (w *WebShell) Write(p []byte) (int, error) {
+	err := w.Conn.Send(string(p))
+	return len(p), err
+}
+
+func (w *WebShell) Read(p []byte) (int, error) {
+	var msg map[string]uint16
+	reply, err := w.Conn.Recv()
+	if err != nil {
+		return 0, err
+	}
+	if err = json.Unmarshal([]byte(reply), &msg); err != nil {
+		return copy(p, reply), nil
+	} else {
+		w.SizeChan <- &remotecommand.TerminalSize{
+			Height: msg["rows"],
+			Width:  msg["cols"],
+		}
+		return 0, nil
+	}
+}
+
+func (w *WebShell) Next() *remotecommand.TerminalSize {
+	size := <-w.SizeChan
+	return size
+}
+
 type IdOptions struct {
 	Id int64 `uri:"id" binding:"required"`
 }
@@ -32,6 +75,13 @@ type NamespaceOptions struct {
 	CloudOptions `json:",inline"`
 
 	ObjectOptions `json:",inline"`
+}
+
+type WebShellOptions struct {
+	CloudName string
+	Namespace string `uri:"namespace" binding:"required"`
+	Pod       string `uri:"namespace" binding:"required"`
+	Container string `uri:"namespace" binding:"required"`
 }
 
 // NodeOptions todo: 后续整合优化

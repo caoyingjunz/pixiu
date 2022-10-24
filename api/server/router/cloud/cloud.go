@@ -105,6 +105,9 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		// Pod API
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/pods/:object_name/logs", s.getLog)
 
+		//webShell APi
+		cloudRoute.GET("/webshell/ws", s.webShell)
+
 		//Ingress API
 		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)
 		cloudRoute.DELETE("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.deleteIngress)
