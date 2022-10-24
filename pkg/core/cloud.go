@@ -387,7 +387,6 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		if cloudObj.Status != 0 {
 			continue
 		}
-
 		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
 		if err != nil {
 			return err
