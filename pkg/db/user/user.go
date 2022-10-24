@@ -163,14 +163,17 @@ func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (roles *[]model.R
 		Order("id asc").
 		Order("sequence desc").
 		Scan(&roles).Error
-
-	if err != nil || roles == nil {
+	if err != nil {
 		log.Logger.Errorf(err.Error())
 		return nil, err
 	}
 
-	res := getTreeRoles(*roles, 0)
-	return &res, err
+	if roles != nil {
+		res := getTreeRoles(*roles, 0)
+		return &res, err
+	}
+
+	return nil, err
 }
 
 // GetButtonsByUserID 获取菜单按钮

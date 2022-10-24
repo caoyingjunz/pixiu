@@ -18,7 +18,6 @@ package core
 
 import (
 	"context"
-	"errors"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -142,7 +141,7 @@ func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 		log.Logger.Error(err)
 		//清除rule表中规则
 		for _, menu := range *menus {
-			err := r.factory.Authentication().DeleteRolePermission(ctx, menu.URL, menu.Method)
+			err := r.factory.Authentication().DeleteRolePermissionWithRole(ctx, roleId, menu.URL, menu.Method)
 			if err != nil {
 				log.Logger.Error(err)
 				break
@@ -174,15 +173,11 @@ func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *mo
 
 // CheckRoleIsExist 判断角色是否存在
 func (r *role) CheckRoleIsExist(ctx context.Context, name string) bool {
-	res, err := r.factory.Role().GetRoleByRoleName(ctx, name)
+	_, err := r.factory.Role().GetRoleByRoleName(ctx, name)
 	if err != nil {
 		log.Logger.Error(err)
 		return false
 	}
 
-	if res.Id == 0 {
-		log.Logger.Error(errors.New("role is existed"))
-		return false
-	}
 	return true
 }

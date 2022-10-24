@@ -38,6 +38,8 @@ type AuthenticationInterface interface {
 	SetRolePermission(ctx context.Context, roleId int64, menus *[]model.Menu) (bool, error)
 	DeleteRole(ctx context.Context, roleId int64) error
 	DeleteRolePermission(ctx context.Context, resource ...string) error
+	DeleteRoleWithUser(ctx context.Context, uid, roleId int64) error
+	DeleteRolePermissionWithRole(ctx context.Context, roleId int64, resource ...string) error
 }
 
 type authentication struct {
@@ -56,12 +58,12 @@ func (c *authentication) GetEnforce() *casbin.Enforcer {
 // AddRoleForUser 分配用户角色
 func (c *authentication) AddRoleForUser(ctx context.Context, userid int64, roleIds []int64) (err error) {
 	uidStr := strconv.FormatInt(userid, 10)
-	ok, err := c.enforcer.DeleteRolesForUser(uidStr)
-	if err != nil || !ok {
+	_, err = c.enforcer.DeleteRolesForUser(uidStr)
+	if err != nil {
 		return
 	}
 	for _, roleId := range roleIds {
-		ok, err = c.enforcer.AddRoleForUser(uidStr, strconv.FormatInt(roleId, 10))
+		ok, err := c.enforcer.AddRoleForUser(uidStr, strconv.FormatInt(roleId, 10))
 		if err != nil || !ok {
 			break
 		}
@@ -110,9 +112,28 @@ func (c *authentication) DeleteRole(ctx context.Context, roleId int64) error {
 	return nil
 }
 
+// DeleteRoleWithUser 删除角色
+func (c *authentication) DeleteRoleWithUser(ctx context.Context, uid, roleId int64) error {
+	ok, err := c.enforcer.DeleteRoleForUser(strconv.FormatInt(uid, 10), strconv.FormatInt(roleId, 10))
+	if err != nil || !ok {
+		return err
+	}
+
+	return nil
+}
+
 // DeleteRolePermission 删除角色权限
 func (c *authentication) DeleteRolePermission(ctx context.Context, resource ...string) error {
 	_, err := c.enforcer.DeletePermission(resource...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteRolePermissionWithRole 删除角色的权限
+func (c *authentication) DeleteRolePermissionWithRole(ctx context.Context, roleId int64, resource ...string) error {
+	_, err := c.enforcer.DeletePermissionForUser(strconv.FormatInt(roleId, 10), resource...)
 	if err != nil {
 		return err
 	}

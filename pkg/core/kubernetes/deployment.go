@@ -33,6 +33,7 @@ type DeploymentsGetter interface {
 
 type DeploymentInterface interface {
 	Create(ctx context.Context, deployment *v1.Deployment) error
+	Update(ctx context.Context, deployment *v1.Deployment) error
 	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
 	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
 }
@@ -58,6 +59,20 @@ func (c *deployments) Create(ctx context.Context, deployment *v1.Deployment) err
 		Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		log.Logger.Errorf("failed to create %s namespace %s: %v", c.cloud, deployment.Namespace, err)
 
+		return err
+	}
+
+	return nil
+}
+
+func (c *deployments) Update(ctx context.Context, deployment *v1.Deployment) error {
+	if c.client == nil {
+		return clientError
+	}
+	if _, err := c.client.AppsV1().
+		Deployments(deployment.Namespace).
+		Update(ctx, deployment, metav1.UpdateOptions{}); err != nil {
+		log.Logger.Errorf("failed to update %s deployment: %v", c.cloud, err)
 		return err
 	}
 

@@ -24,6 +24,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/db/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
@@ -46,8 +47,8 @@ func (*menuRouter) addMenu(c *gin.Context) {
 		return
 	}
 	// 判断权限是否已存在
-	res, err := pixiu.CoreV1.Menu().GetMenuByMenuNameUrl(c, menu.URL, menu.Method)
-	if err != nil || res != nil {
+	_, err := pixiu.CoreV1.Menu().GetMenuByMenuNameUrl(c, menu.URL, menu.Method)
+	if !errors.IsNotFound(err) {
 		httputils.SetFailed(c, r, httpstatus.MenusExistError)
 		return
 	}
