@@ -41,3 +41,19 @@ func (s *cloudRouter) getLog(c *gin.Context) {
 		return
 	}
 }
+
+func (s *cloudRouter) webShell(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		WebShellOptions types.WebShellOptions
+	)
+	if err := c.ShouldBindUri(&WebShellOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	err := pixiu.CoreV1.Cloud().Pods(WebShellOptions.CloudName).NewHandler(&WebShellOptions)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+}
