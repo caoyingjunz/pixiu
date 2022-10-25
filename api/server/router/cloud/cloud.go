@@ -53,6 +53,9 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/v1/:cloud_name/kubeconfigs", s.listKubeConfig)
 
 		// Node API
+		cloudRoute.POST("/v1/:cloud_name/nodes/:object_name", s.createNode)
+		cloudRoute.PUT("/v1/:cloud_name/nodes/:object_name", s.updateNode)
+		cloudRoute.DELETE("/v1/:cloud_name/nodes/:object_name", s.deleteNode)
 		cloudRoute.GET("/v1/:cloud_name/nodes/:object_name", s.getNode)
 		cloudRoute.GET("/v1/:cloud_name/nodes", s.listNodes)
 
@@ -108,6 +111,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 
 		//Ingress API
 		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)
+		cloudRoute.PUT("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.updateIngress)
 		cloudRoute.DELETE("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.deleteIngress)
 		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.getIngress)
 		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress", s.listIngress)

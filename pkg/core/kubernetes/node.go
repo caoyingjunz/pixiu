@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -37,6 +38,9 @@ type NodesGetter interface {
 }
 
 type NodeInterface interface {
+	Create(ctx context.Context, node corev1.Node) error
+	Update(ctx context.Context, node *corev1.Node) (*v1.Node, error)
+	Delete(ctx context.Context, node string) error
 	Get(ctx context.Context, nodeOptions types.NodeOptions) (*v1.Node, error)
 	List(ctx context.Context) ([]types.Node, error)
 }
@@ -51,6 +55,45 @@ func NewNodes(c *kubernetes.Clientset, cloud string) *nodes {
 		client: c,
 		cloud:  cloud,
 	}
+}
+
+func (c *nodes) Create(ctx context.Context, node corev1.Node) error {
+	if c.client == nil {
+		return clientError
+	}
+	if _, err := c.client.CoreV1().
+		Nodes().
+		Create(ctx, &node, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to create %s node %s: %v", c.cloud, node.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *nodes) Update(ctx context.Context, node *corev1.Node) (*v1.Node, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	node, err := c.client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to update node: %v", err)
+		return nil, err
+	}
+
+	return node, nil
+}
+
+func (c *nodes) Delete(ctx context.Context, node string) error {
+	if c.client == nil {
+		return clientError
+	}
+	if err := c.client.CoreV1().Nodes().Delete(ctx, node, metav1.DeleteOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete %s node %s: %v", c.cloud, node, err)
+		return err
+	}
+
+	return nil
 }
 
 func (c *nodes) Get(ctx context.Context, nodeOptions types.NodeOptions) (*v1.Node, error) {

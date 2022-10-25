@@ -2,13 +2,12 @@ package kubernetes
 
 import (
 	"context"
-	
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/log"	
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type IngressGetter interface {
@@ -16,10 +15,11 @@ type IngressGetter interface {
 }
 
 type IngressInterface interface {
-	List(ctx context.Context, listOptions types.ListOptions) (*networkingv1.IngressList, error)
 	Create(ctx context.Context, listOptions *networkingv1.Ingress) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*networkingv1.Ingress, error)
+	Update(ctx context.Context, ingress *networkingv1.Ingress) (*networkingv1.Ingress, error)
 	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
+	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*networkingv1.Ingress, error)
+	List(ctx context.Context, listOptions types.ListOptions) (*networkingv1.IngressList, error)
 }
 
 type ingress struct {
@@ -34,6 +34,32 @@ func NewIngress(c *kubernetes.Clientset, cloud string) *ingress {
 	}
 }
 
+func (c *ingress) Create(ctx context.Context, ingress *networkingv1.Ingress) error {
+	if c.client == nil {
+		return clientError
+	}
+	ingress, err := c.client.NetworkingV1().Ingresses(ingress.Namespace).Create(ctx, ingress, metav1.CreateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to create %s %s Ingress: %v", ingress.Namespace, ingress.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *ingress) Update(ctx context.Context, ingress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
+	if c.client == nil {
+		return nil, clientError
+	}
+	ing, err := c.client.NetworkingV1().Ingresses(ingress.Namespace).Update(ctx, ingress, metav1.UpdateOptions{})
+	if err != nil {
+		log.Logger.Errorf("failed to update %s Ingress: %v", c.cloud, err)
+		return nil, err
+	}
+
+	return ing, err
+}
+
 func (c *ingress) List(ctx context.Context, listOptions types.ListOptions) (*networkingv1.IngressList, error) {
 	if c.client == nil {
 		return nil, clientError
@@ -46,19 +72,6 @@ func (c *ingress) List(ctx context.Context, listOptions types.ListOptions) (*net
 	}
 
 	return ing, err
-}
-
-func (c *ingress) Create(ctx context.Context, ingress *networkingv1.Ingress) error {
-	if c.client == nil {
-		return clientError
-	}
-	ingress, err := c.client.NetworkingV1().Ingresses(ingress.Namespace).Create(ctx, ingress, metav1.CreateOptions{})
-	if err != nil {
-		log.Logger.Errorf("failed to create %s %s ingress: %v", ingress.Namespace, ingress.Name, err)
-		return err
-	}
-
-	return nil
 }
 
 func (c *ingress) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*networkingv1.Ingress, error) {

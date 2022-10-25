@@ -20,11 +20,76 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
+
+func (s *cloudRouter) createNode(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		nodeOptions types.NodeOptions
+		nodes       corev1.Node
+	)
+	if err = c.ShouldBindUri(&nodeOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&nodes); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Nodes(nodeOptions.CloudName).Create(context.TODO(), nodes); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) updateNode(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		nodeOptions types.NodeOptions
+		nodes       corev1.Node
+	)
+	if err = c.ShouldBindUri(&nodeOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&nodeOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result, err = pixiu.CoreV1.Cloud().Nodes(nodeOptions.CloudName).Update(context.TODO(), &nodes)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) deleteNode(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err         error
+		nodeOptions types.NodeOptions
+	)
+	if err = c.ShouldBindUri(&nodeOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Nodes(nodeOptions.CloudName).Delete(context.TODO(), nodeOptions.ObjectName); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
 
 func (s *cloudRouter) getNode(c *gin.Context) {
 	r := httputils.NewResponse()

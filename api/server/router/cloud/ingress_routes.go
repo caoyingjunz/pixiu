@@ -55,6 +55,28 @@ func (s *cloudRouter) createIngress(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (s *cloudRouter) updateIngress(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err           error
+		createOptions types.GetOrCreateOptions
+		ingress       v1.Ingress
+	)
+	if err = c.ShouldBindUri(&createOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	ingress.Name = createOptions.ObjectName
+	ingress.Namespace = createOptions.Namespace
+	r.Result, err = pixiu.CoreV1.Cloud().Ingress(createOptions.CloudName).Update(context.TODO(), &ingress)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 func (s *cloudRouter) getIngress(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
