@@ -465,6 +465,29 @@ const docTemplate = `{
                     "menus"
                 ],
                 "summary": "List menus",
+                "parameters": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "description": "menu_type 1: 菜单,2： 按钮, 3：API,可填写多个； 默认为： 1,2,3",
+                        "name": "menu_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "pageSize",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -479,7 +502,7 @@ const docTemplate = `{
                                         "result": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/model.Menu"
+                                                "$ref": "#/definitions/model.PageMenu"
                                             }
                                         }
                                     }
@@ -573,7 +596,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/types.MenusReq"
+                            "$ref": "#/definitions/types.UpdateMenusReq"
                         }
                     }
                 ],
@@ -630,6 +653,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/menus/{id}/status/{status}": {
+            "put": {
+                "description": "Update a menu status by menu id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "menus"
+                ],
+                "summary": "Update a menu status by menu id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "menu ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "status ",
+                        "name": "status",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
         "/roles": {
             "get": {
                 "description": "list roles",
@@ -643,6 +713,20 @@ const docTemplate = `{
                     "roles"
                 ],
                 "summary": "list roles",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "pageSize",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -655,7 +739,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "result": {
-                                            "$ref": "#/definitions/model.Role"
+                                            "$ref": "#/definitions/model.PageRole"
                                         }
                                     }
                                 }
@@ -725,7 +809,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "format": "int64",
                         "description": "role ID",
                         "name": "id",
                         "in": "path",
@@ -774,7 +857,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/types.RoleReq"
+                            "$ref": "#/definitions/types.UpdateRoleReq"
                         }
                     }
                 ],
@@ -940,6 +1023,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/roles/{id}/status/{status}": {
+            "put": {
+                "description": "Update role status by role id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Update role status by role id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "menu ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "status ",
+                        "name": "status",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
         "/users": {
             "get": {
                 "description": "List user info",
@@ -953,6 +1083,20 @@ const docTemplate = `{
                     "users"
                 ],
                 "summary": "List user info",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "pageSize",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -965,7 +1109,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "result": {
-                                            "$ref": "#/definitions/types.User"
+                                            "$ref": "#/definitions/model.PageUser"
                                         }
                                     }
                                 }
@@ -1047,6 +1191,53 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/types.User"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpOK"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.HttpError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/:id/status/:status": {
+            "put": {
+                "description": "Update  user status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Update  user status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "status",
+                        "name": "status",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -1162,16 +1353,6 @@ const docTemplate = `{
                     "users"
                 ],
                 "summary": "Get buttons by menus id",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "format": "int64",
-                        "description": "menus ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1186,7 +1367,7 @@ const docTemplate = `{
                                         "result": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/model.Menu"
+                                                "type": "string"
                                             }
                                         }
                                     }
@@ -1253,7 +1434,7 @@ const docTemplate = `{
                     }
                 }
             },
-            "post": {
+            "put": {
                 "description": "Change user password",
                 "consumes": [
                     "application/json"
@@ -1487,6 +1668,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/model.Menu"
                     }
                 },
+                "code": {
+                    "description": "前端鉴权code 例： user:role:add, user:role:delete",
+                    "type": "string"
+                },
                 "gmt_create": {
                     "type": "string"
                 },
@@ -1537,6 +1722,48 @@ const docTemplate = `{
                 }
             }
         },
+        "model.PageMenu": {
+            "type": "object",
+            "properties": {
+                "menus": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Menu"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.PageRole": {
+            "type": "object",
+            "properties": {
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Role"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.PageUser": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer"
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.User"
+                    }
+                }
+            }
+        },
         "model.Role": {
             "type": "object",
             "properties": {
@@ -1576,6 +1803,41 @@ const docTemplate = `{
                 },
                 "status": {
                     "description": "0 表示禁用，1 表示启用",
+                    "type": "integer"
+                }
+            }
+        },
+        "model.User": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "extension": {
+                    "type": "string"
+                },
+                "gmt_create": {
+                    "type": "string"
+                },
+                "gmt_modified": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "resource_version": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "integer"
                 }
             }
@@ -1697,6 +1959,10 @@ const docTemplate = `{
         "types.MenusReq": {
             "type": "object",
             "properties": {
+                "code": {
+                    "description": "前端鉴权code 例： user:role:add, user:role:delete",
+                    "type": "string"
+                },
                 "icon": {
                     "description": "icon",
                     "type": "string"
@@ -1805,6 +2071,82 @@ const docTemplate = `{
                 }
             }
         },
+        "types.UpdateMenusReq": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "前端鉴权code 例： user:role:add, user:role:delete",
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "icon",
+                    "type": "string"
+                },
+                "memo": {
+                    "description": "备注",
+                    "type": "string"
+                },
+                "menu_type": {
+                    "description": "菜单类型 1 左侧菜单,2 按钮, 3 非展示权限",
+                    "type": "integer"
+                },
+                "method": {
+                    "description": "操作类型 none/GET/POST/PUT/DELETE",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "菜单名称",
+                    "type": "string"
+                },
+                "parent_id": {
+                    "description": "父级ID",
+                    "type": "integer"
+                },
+                "resource_version": {
+                    "type": "integer"
+                },
+                "sequence": {
+                    "description": "排序值",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "状态(1:启用 2:不启用)",
+                    "type": "integer"
+                },
+                "url": {
+                    "description": "菜单URL",
+                    "type": "string"
+                }
+            }
+        },
+        "types.UpdateRoleReq": {
+            "type": "object",
+            "properties": {
+                "memo": {
+                    "description": "备注",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "名称",
+                    "type": "string"
+                },
+                "parent_id": {
+                    "description": "父级ID",
+                    "type": "integer"
+                },
+                "resource_version": {
+                    "type": "integer"
+                },
+                "sequence": {
+                    "description": "排序值",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "0 表示禁用，1 表示启用",
+                    "type": "integer"
+                }
+            }
+        },
         "types.User": {
             "type": "object",
             "properties": {
@@ -1842,7 +2184,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "",
+	Host:             "localhost:8090",
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "Pixiu API Documentation",

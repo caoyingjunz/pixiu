@@ -33,5 +33,6 @@ func (m *menuRouter) initRoutes(ginEngine *gin.Engine) {
 		menuRoute.DELETE("/:id", m.deleteMenu)
 		menuRoute.GET("/:id", m.getMenu)
 		menuRoute.GET("", m.listMenus)
+		menuRoute.PUT("/:id/status/:status", m.updateMenuStatus)
 	}
 }

@@ -32,16 +32,17 @@ type RoleGetter interface {
 // RoleInterface 角色操作接口
 type RoleInterface interface {
 	Create(c context.Context, obj *types.RoleReq) (role *model.Role, err error)
-	Update(c context.Context, role *model.Role, rid int64) error
+	Update(c context.Context, role *types.UpdateRoleReq, rid int64) error
 	Delete(c context.Context, rId int64) error
 	Get(c context.Context, rid int64) (roles *[]model.Role, err error)
-	List(c context.Context) (roles *[]model.Role, err error)
+	List(c context.Context, page, limit int) (res *model.PageRole, err error)
 
 	GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error)
 	SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 	GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]int64, err error)
 	GetRoleByRoleName(ctx context.Context, roleName string) (*model.Role, error)
 	CheckRoleIsExist(ctx context.Context, name string) bool
+	UpdateStatus(c context.Context, roleId, status int64) error
 }
 
 type role struct {
@@ -70,7 +71,7 @@ func (r *role) Create(c context.Context, obj *types.RoleReq) (role *model.Role, 
 	return
 }
 
-func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
+func (r *role) Update(c context.Context, role *types.UpdateRoleReq, rid int64) error {
 	if err := r.factory.Role().Update(c, role, rid); err != nil {
 		log.Logger.Error(err)
 		return err
@@ -103,8 +104,8 @@ func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error
 	return
 }
 
-func (r *role) List(c context.Context) (roles *[]model.Role, err error) {
-	if roles, err = r.factory.Role().List(c); err != nil {
+func (r *role) List(c context.Context, page, limit int) (res *model.PageRole, err error) {
+	if res, err = r.factory.Role().List(c, page, limit); err != nil {
 		log.Logger.Error(err)
 		return
 	}
@@ -169,6 +170,10 @@ func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *mo
 		return
 	}
 	return
+}
+
+func (r *role) UpdateStatus(c context.Context, roleId, status int64) error {
+	return r.factory.Role().UpdateStatus(c, roleId, status)
 }
 
 // CheckRoleIsExist 判断角色是否存在

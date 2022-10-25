@@ -18,13 +18,13 @@ package role
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -67,13 +67,13 @@ func (o *roleRouter) addRole(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id   path      int  true  "role ID"  Format(int64)
-// @Param        data body types.RoleReq true "role info"
+// @Param        data body types.UpdateRoleReq true "role info"
 // @Success      200  {object}  httputils.HttpOK
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /roles/{id} [put]
 func (o *roleRouter) updateRole(c *gin.Context) {
 	r := httputils.NewResponse()
-	var role model.Role // TODO 后续优化
+	var role types.UpdateRoleReq
 	if err := c.ShouldBindJSON(&role); err != nil {
 		httputils.SetFailed(c, r, httpstatus.ParamsError)
 		return
@@ -137,7 +137,7 @@ func (o *roleRouter) deleteRole(c *gin.Context) {
 // @Tags         roles
 // @Accept       json
 // @Produce      json
-// @Param        id   path      int  true  "role ID"  Format(int64)
+// @Param        id   path      int  true  "role ID"
 // @Success      200  {object}  httputils.HttpOK
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /roles/{id} [get]
@@ -164,13 +164,29 @@ func (o *roleRouter) getRole(c *gin.Context) {
 // @Tags         roles
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  httputils.Response{result=model.Role}
+// @Param        page   query      int  false  "pageSize"
+// @Param        limit   query      int  false  "page limit"
+// @Success      200  {object}  httputils.Response{result=model.PageRole}
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /roles [get]
 func (o *roleRouter) listRoles(c *gin.Context) {
 	r := httputils.NewResponse()
-	var err error
-	if r.Result, err = pixiu.CoreV1.Role().List(c); err != nil {
+
+	pageStr := c.DefaultQuery("page", "0")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "0")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	if r.Result, err = pixiu.CoreV1.Role().List(c, page, limit); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
@@ -241,6 +257,44 @@ func (o *roleRouter) setRoleMenus(c *gin.Context) {
 	}
 
 	if err = pixiu.CoreV1.Role().SetRole(c, rid, menuIds.MenuIDS); err != nil {
+		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+// @Summary      Update role status by role id
+// @Description  Update role status by role id
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "menu ID"  Format(int64)
+// @Param        status   path      int  true  "status "  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /roles/{id}/status/{status} [put]
+func (*roleRouter) updateRoleStatus(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	status, err := util.ParseInt64(c.Param("status"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+	roleId, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	_, err = pixiu.CoreV1.Role().Get(c, roleId)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
+		return
+	}
+
+	if err = pixiu.CoreV1.Role().UpdateStatus(c, roleId, status); err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}

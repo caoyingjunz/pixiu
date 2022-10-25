@@ -107,3 +107,8 @@ func (u *UserRole) BeforeUpdate(*gorm.DB) error {
 	u.GmtModified = time.Now()
 	return nil
 }
+
+type PageRole struct {
+	Roles []Role `json:"roles"`
+	Total int64  `json:"total"`
+}

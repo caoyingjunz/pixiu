@@ -46,9 +46,11 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		userRoute.GET("/:id/roles", u.getUserRoles)  // 查询当前用户角色
 		userRoute.POST("/:id/roles", u.setUserRoles) // 根据用户id分配角色
 
-		// 根据菜单ID获取当前用户的菜单的按钮
-		userRoute.GET("/menus/:id/buttons", u.getButtonsByCurrentUser)
+		// 根据菜单ID获取当前用户的权限
+		userRoute.GET("/permissions", u.getButtonsByCurrentUser)
 		// 根据用户ID获取用户的菜单
 		userRoute.GET("/menus", u.getLeftMenusByCurrentUser)
+		//修改用户状态
+		userRoute.PUT("/:id/status/:status", u.updateUserStatus)
 	}
 }
