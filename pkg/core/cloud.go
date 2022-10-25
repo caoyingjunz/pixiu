@@ -70,7 +70,6 @@ type CloudInterface interface {
 	pixiukubernetes.NodesGetter
 	pixiukubernetes.PodsGetter
 	pixiukubernetes.KubeConfigGetter
-	pixiukubernetes.WebShellGetter
 }
 
 const (
