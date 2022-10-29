@@ -38,7 +38,7 @@ const (
 )
 
 const (
-	PixiuNamespace = "pixiu-system" // 默认ns
+	PixiuNamespace = "pixiu-system" // pixiu 命名空间
 )
 
 const (

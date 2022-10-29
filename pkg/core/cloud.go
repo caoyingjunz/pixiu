@@ -138,6 +138,8 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	node := nodes.Items[0]
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
+
+	// TODO: 未处理 resources
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:        "atm-" + uuid.NewUUID()[:8],
 		AliasName:   obj.Name,
@@ -405,7 +407,6 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		if cloudObj.Status != 0 {
 			continue
 		}
-
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
 		kubeConfigObj, err := c.factory.KubeConfig().GetByCloud(context.TODO(), cloudObj.Id)
