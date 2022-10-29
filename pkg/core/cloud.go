@@ -138,30 +138,27 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	node := nodes.Items[0]
 	nodeStatus := node.Status
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
-
-	// kube_configs 数据落盘
-	kubeConfig := &model.KubeConfig{
-		Config:              encryptData,
-		ServiceAccount:      typesv2.KubeConfigFlag + uuid.NewUUID()[:8],
-		ExpirationTimestamp: time.Now().AddDate(typesv2.NeverExpire, 0, 0).String(),
-	}
-	kubeConfig.Model.GmtCreate = time.Now()
-	if _, err := c.factory.KubeConfig().Create(ctx, kubeConfig); err != nil {
-		log.Logger.Errorf("failed to save kubeConfig: %v", err)
+	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
+		Name:        "atm-" + uuid.NewUUID()[:8],
+		AliasName:   obj.Name,
+		CloudType:   typesv2.StandardCloud,
+		KubeVersion: kubeVersion,
+		NodeNumber:  len(nodes.Items),
+		Resources:   resources, // TODO: 未处理 resources
+	})
+	if err != nil {
+		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
 		return err
 	}
-
-	// TODO: 未处理 resources
-	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:          "atm-" + uuid.NewUUID()[:8],
-		AliasName:     obj.Name,
-		CloudType:     typesv2.StandardCloud,
-		KubeVersion:   kubeVersion,
-		KubeConfigsID: kubeConfig.Id,
-		NodeNumber:    len(nodes.Items),
-		Resources:     resources,
+	// kubeConfig 数据落盘
+	if _, err = c.factory.KubeConfig().Create(ctx, &model.KubeConfig{
+		ServiceAccount: cloudObj.Name,
+		ClusterRole:    "cloud-admin",
+		CloudName:      cloudObj.Name,
+		CloudId:        cloudObj.Id,
+		Config:         encryptData,
 	}); err != nil {
-		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
+		log.Logger.Errorf("failed to save kubeConfig: %v", err)
 		return err
 	}
 
@@ -195,7 +192,7 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 
 	// step1: 创建 cloud
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        "pix-" + uuid.NewUUID()[:8],
+		Name:        "pix-" + uuid.NewUUID()[:8], // TODO: 前缀作为常量引入
 		AliasName:   obj.AliasName,
 		Status:      typesv2.InitializeStatus, // 初始化状态
 		CloudType:   typesv2.BuildCloud,
@@ -287,30 +284,21 @@ func (c *cloud) forceDelete(ctx context.Context, cid int64) error {
 func (c *cloud) Update(ctx context.Context, obj *types.Cloud) error { return nil }
 
 // Delete 删除 cloud
-// 同时根据 cloud 的类型，清除级联资源，标准资源直接删除，自建资源删除 cluster 和 nodes
+// 1. 删除 kubeConfig
+// 2. 同时根据 cloud 的类型，清除级联资源，标准资源直接删除，自建资源删除 cluster 和 nodes
 func (c *cloud) Delete(ctx context.Context, cid int64) error {
-	cloudObj, err := c.factory.Cloud().Get(ctx, cid)
-	if cloudObj == nil || err != nil {
-		log.Logger.Errorf("failed to get %s cloud: %v", cid, err)
+	// 删除 kubeConfig
+	if err := c.factory.KubeConfig().DeleteByCloud(ctx, cid); err != nil {
+		log.Logger.Errorf("failed to delete %d kubeConfig content: %v", cid, err)
 		return err
 	}
-
-	kubeConfigsID := cloudObj.KubeConfigsID
-	kubeConfigObj, err := c.factory.KubeConfig().Get(ctx, kubeConfigsID)
-	if kubeConfigObj == nil || err != nil {
-		log.Logger.Errorf("failed to get %s cloud: %v", kubeConfigsID, err)
-		return err
-	}
-
-	if err = c.factory.KubeConfig().Delete(ctx, kubeConfigsID); err != nil {
-		log.Logger.Errorf("failed to delete %s kubeConfigs: %v", kubeConfigsID, err)
-	}
-
+	// 删除集群记录
 	obj, err := c.factory.Cloud().Delete(ctx, cid)
 	if err != nil {
 		log.Logger.Errorf("failed to delete %s cloud: %v", cid, err)
 		return err
 	}
+	// 清理 kube client
 	clientSets.Delete(obj.Name)
 
 	// 目前，仅自建的k8s集群需要清理下属资源，下属资源有 cluster 和 nodes
@@ -405,29 +393,11 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
+	// 获取待加载的 cloud 列表
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
 		log.Logger.Errorf("failed to list exist clouds: %v", err)
 		return err
-	}
-
-	if len(cloudObjs) == 0 {
-		return nil
-	}
-	// 通过id获取kubeConfigs
-	var ids []int64
-	for _, cloudObj := range cloudObjs {
-		ids = append(ids, cloudObj.KubeConfigsID)
-	}
-	kubeConfigs, err := c.factory.KubeConfig().ListByIds(context.TODO(), ids)
-
-	// 转为map对象
-	var kubeConfigIdConfigMap = map[int64]model.KubeConfig{}
-	for _, kubeConfig := range kubeConfigs {
-		kubeConfigIdConfigMap[kubeConfig.Id] = kubeConfig
-	}
-	if len(kubeConfigIdConfigMap) == 0 {
-		return nil
 	}
 
 	for _, cloudObj := range cloudObjs {
@@ -435,8 +405,17 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		if cloudObj.Status != 0 {
 			continue
 		}
-		kubeConfig, err := cipher.Decrypt(kubeConfigIdConfigMap[cloudObj.KubeConfigsID].Config)
+
+		// Note:
+		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
+		kubeConfigObj, err := c.factory.KubeConfig().GetByCloud(context.TODO(), cloudObj.Id)
 		if err != nil {
+			log.Logger.Errorf("failed to get %s cloud kubeConfigs :%v", cloudObj.Name, err)
+			return err
+		}
+		kubeConfig, err := cipher.Decrypt(kubeConfigObj.Config)
+		if err != nil {
+			log.Logger.Errorf("failed to decrypt % cloud kubeConfig: %v", cloudObj.Name, err)
 			return err
 		}
 		clientSet, err := c.newClientSet(kubeConfig)

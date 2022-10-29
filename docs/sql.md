@@ -57,7 +57,6 @@ CREATE TABLE `clouds` (
     status int COMMENT '集群状态',
     cloud_type int COMMENT '集群类型',
     kube_version varchar(128) COMMENT 'k8s 集群版本',
-    kube_config text COMMENT 'kubeConfig',
     node_number int COMMENT '集群节点数量',
     resources varchar(128) COMMENT '资源数量',
     description text COMMENT '描述',
@@ -76,8 +75,9 @@ CREATE TABLE `kube_configs` (
     resource_version int COMMENT '版本号',
     service_account varchar(128) COMMENT 'k8s service account',
     cloud_name varchar(128) COMMENT '集群名',
+    cloud_id int COMMENT '所属 cloud id',
     cluster_role varchar(128) COMMENT 'k8s cluster role',
-    kube_configs_id int COMMENT 'kube_configs 主键',
+    config text COMMENT 'k8s kube_config',
     expiration_timestamp text COMMENT '过期时间',
     KEY `idx_cloud_name` (`cloud_name`),
     UNIQUE KEY `service_account` (`service_account`)

@@ -98,7 +98,7 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 	}
 
 	// 获取kubeConfig文件
-	kubeConfigObj, err := c.factory.KubeConfig().Get(ctx, cloudObj.KubeConfigsID)
+	kubeConfigObj, err := c.factory.KubeConfig().GetByCloud(ctx, cloudObj.Id)
 	if err != nil {
 		return nil, err
 	}

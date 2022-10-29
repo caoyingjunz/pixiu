@@ -23,16 +23,15 @@ import (
 type Cloud struct {
 	gopixiu.Model
 
-	Name          string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
-	AliasName     string `json:"alias_name"`                        // 集群别名，支持中文
-	Status        int    `json:"status"`                            // 集群状态
-	CloudType     int    `json:"cloud_type"`                        // 集群类型，支持自建和标准
-	KubeVersion   string `json:"kube_version"`                      // k8s 的版本
-	KubeConfigsID int64  `json:"kube_configs_id"`                   // kube_configs 主键
-	NodeNumber    int    `json:"node_number"`
-	Resources     string `json:"resources"`
-	Description   string `gorm:"type:text" json:"description"`
-	Extension     string `gorm:"type:text" json:"extension"`
+	Name        string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
+	AliasName   string `json:"alias_name"`                        // 集群别名，支持中文
+	Status      int    `json:"status"`                            // 集群状态
+	CloudType   int    `json:"cloud_type"`                        // 集群类型，支持自建和标准
+	KubeVersion string `json:"kube_version"`                      // k8s 的版本
+	NodeNumber  int    `json:"node_number"`
+	Resources   string `json:"resources"`
+	Description string `gorm:"type:text" json:"description"`
+	Extension   string `gorm:"type:text" json:"extension"`
 }
 
 func (*Cloud) TableName() string {
@@ -92,6 +91,7 @@ type KubeConfig struct {
 	gopixiu.Model
 
 	ServiceAccount      string `gorm:"unique" json:"service_account"`
+	CloudId             int64  `json:"cloud_id"`
 	CloudName           string `gorm:"index:idx_cloud_name" json:"cloud_name"`
 	ClusterRole         string `json:"cluster_role"`
 	Config              string `gorm:"type:text" json:"config"`
