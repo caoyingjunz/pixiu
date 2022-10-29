@@ -96,8 +96,14 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 	if err != nil {
 		return nil, err
 	}
+
+	// 获取kubeConfig文件
+	kubeConfigObj, err := c.factory.KubeConfig().GetByCloud(ctx, cloudObj.Id)
+	if err != nil {
+		return nil, err
+	}
 	// 解密集群 config
-	cloudConfigByte, err := cipher.Decrypt(cloudObj.KubeConfig)
+	cloudConfigByte, err := cipher.Decrypt(kubeConfigObj.Config)
 	if err != nil {
 		log.Logger.Errorf("failed to Decrypt cloud KubeConfig: %v", err)
 		return nil, err
