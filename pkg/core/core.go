@@ -18,7 +18,6 @@ package core
 
 import (
 	"github.com/bndr/gojenkins"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
