@@ -89,7 +89,7 @@ func (c *deployments) Delete(ctx context.Context, deleteOptions types.GetOrDelet
 		log.Logger.Errorf("failed to delete %s deployment: %v", deleteOptions.Namespace, err)
 		return err
 	}
-	
+
 	return nil
 }
 
