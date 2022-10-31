@@ -47,12 +47,11 @@ func (s *cloudRouter) webShell(c *gin.Context) {
 	var (
 		test types.Test
 	)
-
 	if err := c.ShouldBindQuery(&test); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().Pods(test.CloudName).NewHandler(&test)
+	err := pixiu.CoreV1.Cloud().Pods(test.CloudName).NewHandler(&test, c.Writer, c.Request)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

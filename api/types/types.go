@@ -66,6 +66,7 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 		sizeChan: make(chan remotecommand.TerminalSize),
 		doneChan: make(chan struct{}),
 	}
+
 	return session, nil
 }
 
