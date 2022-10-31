@@ -25,7 +25,8 @@ type PodsGetter interface {
 
 type PodInterface interface {
 	Logs(ctx context.Context, ws *websocket.Conn, options *types.LogsOptions) error
-	NewHandler(webShellOptions *types.Test, w http.ResponseWriter, r *http.Request) error
+
+	NewWebShellHandler(webShellOptions *types.Test, w http.ResponseWriter, r *http.Request) error
 }
 
 type pods struct {
@@ -69,7 +70,8 @@ func (c *pods) Logs(ctx context.Context, ws *websocket.Conn, options *types.Logs
 	}
 }
 
-func (c *pods) NewHandler(test *types.Test, w http.ResponseWriter, r *http.Request) error {
+// TODO: 后续优化
+func (c *pods) NewWebShellHandler(test *types.Test, w http.ResponseWriter, r *http.Request) error {
 	// 加载 ClientSet
 	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
 	if err != nil {

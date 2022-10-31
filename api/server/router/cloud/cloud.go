@@ -73,6 +73,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		// Event API
 		// TODO: 事件的优化，精细化输出
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/events", s.listEvents)
+
 		//webShell API
 		cloudRoute.GET("/webshell/ws", s.webShell)
 

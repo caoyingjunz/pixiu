@@ -45,14 +45,14 @@ func (s *cloudRouter) getLog(c *gin.Context) {
 func (s *cloudRouter) webShell(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
+		// TODO: 优化
 		test types.Test
 	)
 	if err := c.ShouldBindQuery(&test); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().Pods(test.CloudName).NewHandler(&test, c.Writer, c.Request)
-	if err != nil {
+	if err := pixiu.CoreV1.Cloud().Pods(test.CloudName).NewWebShellHandler(&test, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
