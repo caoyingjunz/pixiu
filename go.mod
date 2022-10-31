@@ -47,22 +47,7 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.2.0 // indirect
-	github.com/go-openapi/spec v0.20.7 // indirect
-	github.com/go-openapi/swag v0.22.3 // indirect
-	github.com/go-playground/validator/v10 v10.11.1 // indirect
-	github.com/goccy/go-json v0.9.11 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/imdario/mergo v0.3.13 // indirect
-	github.com/jackc/pgconn v1.13.0 // indirect
-	github.com/jackc/pgtype v1.12.0 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
-	github.com/rogpeppe/go-internal v1.8.1 // indirect
-	golang.org/x/oauth2 v0.1.0 // indirect
-	golang.org/x/time v0.1.0 // indirect
-	google.golang.org/protobuf v1.28.1 // indirect
+	golang.org/x/tools v0.1.12 // indirect
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
