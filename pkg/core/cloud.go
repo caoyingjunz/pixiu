@@ -140,16 +140,27 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
 
 	// TODO: 未处理 resources
-	if _, err = c.factory.Cloud().Create(ctx, &model.Cloud{
+	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:        "atm-" + uuid.NewUUID()[:8],
 		AliasName:   obj.Name,
 		CloudType:   typesv2.StandardCloud,
 		KubeVersion: kubeVersion,
-		KubeConfig:  encryptData,
 		NodeNumber:  len(nodes.Items),
-		Resources:   resources,
-	}); err != nil {
+		Resources:   resources, // TODO: 未处理 resources
+	})
+	if err != nil {
 		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
+		return err
+	}
+	// kubeConfig 数据落盘
+	if _, err = c.factory.KubeConfig().Create(ctx, &model.KubeConfig{
+		ServiceAccount: cloudObj.Name,
+		ClusterRole:    "cloud-admin",
+		CloudName:      cloudObj.Name,
+		CloudId:        cloudObj.Id,
+		Config:         encryptData,
+	}); err != nil {
+		log.Logger.Errorf("failed to save kubeConfig: %v", err)
 		return err
 	}
 
@@ -183,7 +194,7 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 
 	// step1: 创建 cloud
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        "pix-" + uuid.NewUUID()[:8],
+		Name:        "pix-" + uuid.NewUUID()[:8], // TODO: 前缀作为常量引入
 		AliasName:   obj.AliasName,
 		Status:      typesv2.InitializeStatus, // 初始化状态
 		CloudType:   typesv2.BuildCloud,
@@ -275,13 +286,21 @@ func (c *cloud) forceDelete(ctx context.Context, cid int64) error {
 func (c *cloud) Update(ctx context.Context, obj *types.Cloud) error { return nil }
 
 // Delete 删除 cloud
-// 同时根据 cloud 的类型，清除级联资源，标准资源直接删除，自建资源删除 cluster 和 nodes
+// 1. 删除 kubeConfig
+// 2. 同时根据 cloud 的类型，清除级联资源，标准资源直接删除，自建资源删除 cluster 和 nodes
 func (c *cloud) Delete(ctx context.Context, cid int64) error {
+	// 删除 kubeConfig
+	if err := c.factory.KubeConfig().DeleteByCloud(ctx, cid); err != nil {
+		log.Logger.Errorf("failed to delete %d kubeConfig content: %v", cid, err)
+		return err
+	}
+	// 删除集群记录
 	obj, err := c.factory.Cloud().Delete(ctx, cid)
 	if err != nil {
 		log.Logger.Errorf("failed to delete %s cloud: %v", cid, err)
 		return err
 	}
+	// 清理 kube client
 	clientSets.Delete(obj.Name)
 
 	// 目前，仅自建的k8s集群需要清理下属资源，下属资源有 cluster 和 nodes
@@ -376,18 +395,28 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
 
+	// 获取待加载的 cloud 列表
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
 		log.Logger.Errorf("failed to list exist clouds: %v", err)
 		return err
 	}
+
 	for _, cloudObj := range cloudObjs {
 		// TODO: 仅加载状态正常的集群，异常的加入到异常列表
 		if cloudObj.Status != 0 {
 			continue
 		}
-		kubeConfig, err := cipher.Decrypt(cloudObj.KubeConfig)
+		// Note:
+		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
+		kubeConfigObj, err := c.factory.KubeConfig().GetByCloud(context.TODO(), cloudObj.Id)
 		if err != nil {
+			log.Logger.Errorf("failed to get %s cloud kubeConfigs :%v", cloudObj.Name, err)
+			return err
+		}
+		kubeConfig, err := cipher.Decrypt(kubeConfigObj.Config)
+		if err != nil {
+			log.Logger.Errorf("failed to decrypt % cloud kubeConfig: %v", cloudObj.Name, err)
 			return err
 		}
 		clientSet, err := c.newClientSet(kubeConfig)

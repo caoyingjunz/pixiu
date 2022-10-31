@@ -84,3 +84,9 @@ func (m *RoleMenu) BeforeUpdate(*gorm.DB) error {
 	m.GmtModified = time.Now()
 	return nil
 }
+
+// PageMenu 分页菜单
+type PageMenu struct {
+	Menus []Menu `json:"menus"`
+	Total int64  `json:"total"`
+}

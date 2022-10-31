@@ -18,6 +18,7 @@ package user
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -143,13 +144,27 @@ func (u *userRouter) getUser(c *gin.Context) {
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  httputils.Response{result=types.User}
+// @Param        page   query      int  false  "pageSize"
+// @Param        limit   query      int  false  "page limit"
+// @Success      200  {object}  httputils.Response{result=model.PageUser}
 // @Failure      400  {object}  httputils.HttpError
 // @Router       /users [get]
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
-	var err error
-	if r.Result, err = pixiu.CoreV1.User().List(context.TODO()); err != nil {
+	pageStr := c.DefaultQuery("page", "0")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "0")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		return
+	}
+	if r.Result, err = pixiu.CoreV1.User().List(c, page, limit); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -201,7 +216,7 @@ func (u *userRouter) resetPassword(c *gin.Context) {}
 // @Param        data body types.Password true "password info"
 // @Success      200  {object}  httputils.HttpOK
 // @Failure      400  {object}  httputils.HttpError
-// @Router       /users/{id} [post]
+// @Router       /users/{id} [put]
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -229,15 +244,14 @@ func (u *userRouter) changePassword(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// @Summary      Get buttons by menus id
-// @Description  Get buttons by menus id
+// @Summary      Get user permission
+// @Description  Get user permission
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        id   path      int  true  "menus ID"  Format(int64)
-// @Success      200  {object}  httputils.Response{result=[]model.Menu}
+// @Success      200  {object}  httputils.Response{result=[]string}
 // @Failure      400  {object}  httputils.HttpError
-// @Router       /users/menus/{id}/buttons [get]
+// @Router       /users/permissions [get]
 func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 	r := httputils.NewResponse()
 	uidStr, exist := c.Get("userId")
@@ -245,14 +259,9 @@ func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.NoUserIdError)
 		return
 	}
-
-	menuId, err := util.ParseInt64(c.Param("id"))
-	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
-		return
-	}
 	uid := uidStr.(int64)
-	res, err := pixiu.CoreV1.User().GetButtonsByUserID(c, uid, menuId)
+
+	res, err := pixiu.CoreV1.User().GetButtonsByUserID(c, uid)
 	if err != nil {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
@@ -348,5 +357,37 @@ func (u *userRouter) setUserRoles(c *gin.Context) {
 		httputils.SetFailed(c, r, httpstatus.OperateFailed)
 		return
 	}
+	httputils.SetSuccess(c, r)
+}
+
+// @Summary      Update  user status
+// @Description  Update  user status
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Param        status   path      int  true  "status"  Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/:id/status/:status [put]
+func (u *userRouter) updateUserStatus(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	userId, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	status, err := util.ParseInt64(c.Param("status"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if err = pixiu.CoreV1.User().UpdateStatus(c, userId, status); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
