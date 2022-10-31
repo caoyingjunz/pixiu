@@ -48,9 +48,10 @@ func IsFileExists(path string) bool {
 }
 
 // EnsureDirectoryExists 不存在则创建指定目录
-func EnsureDirectoryExists(path string) (err error) {
+func EnsureDirectoryExists(path string) error {
 	if !IsDirectoryExists(path) {
-		err = os.MkdirAll(path, 0755)
+		return os.MkdirAll(path, 0755)
 	}
-	return
+
+	return nil
 }

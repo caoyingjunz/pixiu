@@ -41,6 +41,8 @@ const (
 	PixiuNamespace = "pixiu-system" // pixiu 命名空间
 )
 
+const Jenkins = "jenkins"
+
 const (
 	JobStringConfig = `<?xml version='1.0' encoding='UTF-8'?>
 <project>
@@ -130,5 +132,3 @@ const (
 </flow-definition>
 `
 )
-
-const Jenkins = "jenkins"
