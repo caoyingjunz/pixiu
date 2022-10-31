@@ -54,7 +54,7 @@ type CloudInterface interface {
 	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
 	Build(ctx context.Context, obj *types.BuildCloud) error
 
-	// Healthz 主进程健康检查
+	// Healthz main process healthz check
 	Healthz(ctx context.Context) error
 
 	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
