@@ -32,6 +32,5 @@ func (h *healthzRouter) initRoutes(ginEngine *gin.Engine) {
 	{
 		// main process healthz check
 		healthzRoute.GET("", h.healthz)
-
 	}
 }
