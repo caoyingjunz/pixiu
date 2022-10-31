@@ -26,7 +26,7 @@ type PodsGetter interface {
 
 type PodInterface interface {
 	Logs(ctx context.Context, ws *websocket.Conn, options *types.LogsOptions) error
-	NewHandler(webShellOptions *types.WebShellOptions) error
+	NewHandler(webShellOptions *types.Test) error
 }
 
 type pods struct {
@@ -72,21 +72,21 @@ func (c *pods) Logs(ctx context.Context, ws *websocket.Conn, options *types.Logs
 	}
 }
 
-func (c *pods) NewHandler(webShellOptions *types.WebShellOptions) error {
+func (c *pods) NewHandler(test *types.Test) error {
 	sockjs.NewHandler("/webshell/ws", sockjs.DefaultOptions, func(session sockjs.Session) {
 		if err := c.WebShellHandler(&types.WebShell{
 			Conn:      session,
 			SizeChan:  make(chan *remotecommand.TerminalSize),
-			Namespace: webShellOptions.Namespace,
-			Pod:       webShellOptions.Pod,
-			Container: webShellOptions.Container,
-		}, "/bin/bash", webShellOptions); err != nil {
+			Namespace: test.Namespace,
+			Pod:       test.Pod,
+			Container: test.Container,
+		}, "/bin/bash", test); err != nil {
 		}
 	}).ServeHTTP(c.Writer, c.Request)
 	return nil
 }
 
-func (c *pods) WebShellHandler(w *types.WebShell, cmd string, webShellOptions *types.WebShellOptions) error {
+func (c *pods) WebShellHandler(w *types.WebShell, cmd string, webShellOptions *types.Test) error {
 
 	EncryptKubeConfig, err := c.factory.Cloud().GetByName(context.TODO(), webShellOptions.CloudName)
 	if err != nil {

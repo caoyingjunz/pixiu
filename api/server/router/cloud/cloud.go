@@ -73,6 +73,8 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		// Event API
 		// TODO: 事件的优化，精细化输出
 		cloudRoute.GET("/core/v1/:cloud_name/namespaces/:namespace/events", s.listEvents)
+		//webShell API
+		cloudRoute.GET("/webshell/ws/test", s.webShell)
 
 		// Deployments API
 		// 创建 deployments
@@ -105,9 +107,6 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 
 		// Pod API
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/pods/:object_name/logs", s.getLog)
-
-		//webShell API
-		cloudRoute.GET("/webshell/ws", s.webShell)
 
 		//Ingress API
 		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)

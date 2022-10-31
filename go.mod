@@ -39,9 +39,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/jackc/pgconn v1.13.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.3.1 // indirect
 	github.com/jackc/pgtype v1.12.0 // indirect
-	github.com/jackc/pgx/v4 v4.15.0 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect

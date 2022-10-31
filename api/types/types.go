@@ -77,6 +77,13 @@ type NamespaceOptions struct {
 	ObjectOptions `json:",inline"`
 }
 
+type Test struct {
+	CloudName string
+	Namespace string `form:"namespace"`
+	Pod       string `form:"pod"`
+	Container string `form:"container"`
+}
+
 type WebShellOptions struct {
 	CloudName string
 	Namespace string `uri:"namespace" binding:"required"`
