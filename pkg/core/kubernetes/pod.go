@@ -88,54 +88,57 @@ func (c *pods) NewHandler(test *types.Test) error {
 
 func (c *pods) WebShellHandler(w *types.WebShell, cmd string, webShellOptions *types.Test) error {
 
-	EncryptKubeConfig, err := c.factory.Cloud().GetByName(context.TODO(), webShellOptions.CloudName)
+	EncryptKubeConfig, err := c.factory.KubeConfig().List(context.TODO(), webShellOptions.CloudName)
 	if err != nil {
 		log.Logger.Errorf("failed to get %s EncryptKubeConfig: %v", webShellOptions.CloudName, err)
 	}
-	decrypt, err := cipher.Decrypt(EncryptKubeConfig.KubeConfig)
-	if err != nil {
-		log.Logger.Errorf("failed to get  %s decrypt: %v", EncryptKubeConfig.KubeConfig, err)
-	}
-	config, err := clientcmd.RESTConfigFromKubeConfig(decrypt)
-	if err != nil {
-		log.Logger.Errorf("failed to get %s config: %v", decrypt, err)
-	}
+	for _, config := range EncryptKubeConfig {
+		decrypt, err := cipher.Decrypt(config.Config)
+		if err != nil {
+			log.Logger.Errorf("failed to get  %s decrypt: %v", config.Config, err)
+		}
+		newconfig, err := clientcmd.RESTConfigFromKubeConfig(decrypt)
+		if err != nil {
+			log.Logger.Errorf("failed to get %s config: %v", decrypt, err)
+		}
+		req := c.client.RESTClient().Post().
+			Resource("pods").
+			Name(w.Pod).
+			Namespace(w.Namespace).
+			SubResource("exec").
+			Param("container", w.Container).
+			Param("stdin", "true").
+			Param("stdout", "true").
+			Param("stderr", "true").
+			Param("command", cmd).
+			Param("tty", "true")
+		if err != nil {
+			return err
+		}
+		req.VersionedParams(&v1.PodExecOptions{
+			Container: w.Container,
+			Command:   []string{},
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       true,
+		},
+			scheme.ParameterCodec,
+		)
+		executor, err := remotecommand.NewSPDYExecutor(
+			newconfig, http.MethodPost, req.URL(),
+		)
+		if err != nil {
+			return err
+		}
+		return executor.Stream(remotecommand.StreamOptions{
+			Stdin:             w,
+			Stdout:            w,
+			Stderr:            w,
+			Tty:               true,
+			TerminalSizeQueue: w,
+		})
 
-	req := c.client.RESTClient().Post().
-		Resource("pods").
-		Name(w.Pod).
-		Namespace(w.Namespace).
-		SubResource("exec").
-		Param("container", w.Container).
-		Param("stdin", "true").
-		Param("stdout", "true").
-		Param("stderr", "true").
-		Param("command", cmd).
-		Param("tty", "true")
-	if err != nil {
-		return err
 	}
-	req.VersionedParams(&v1.PodExecOptions{
-		Container: w.Container,
-		Command:   []string{},
-		Stdin:     true,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       true,
-	},
-		scheme.ParameterCodec,
-	)
-	executor, err := remotecommand.NewSPDYExecutor(
-		config, http.MethodPost, req.URL(),
-	)
-	if err != nil {
-		return err
-	}
-	return executor.Stream(remotecommand.StreamOptions{
-		Stdin:             w,
-		Stdout:            w,
-		Stderr:            w,
-		Tty:               true,
-		TerminalSizeQueue: w,
-	})
+	return nil
 }
