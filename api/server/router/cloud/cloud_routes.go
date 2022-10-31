@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 
@@ -56,15 +55,6 @@ func (s *cloudRouter) buildCloud(c *gin.Context) {
 	}
 
 	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) healthz(c *gin.Context) {
-	r := httputils.NewResponse()
-	if err := pixiu.CoreV1.Cloud().Healthz(context.TODO()); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	c.String(http.StatusOK, "ok")
 }
 
 func (s *cloudRouter) createCloud(c *gin.Context) {

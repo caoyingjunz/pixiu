@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -53,9 +52,6 @@ type CloudInterface interface {
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
 	Build(ctx context.Context, obj *types.BuildCloud) error
-
-	// Healthz main process healthz check
-	Healthz(ctx context.Context) error
 
 	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
 	Ping(ctx context.Context, kubeConfigData []byte) error
@@ -186,14 +182,6 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 }
 
 func (c *cloud) preBuild(ctx context.Context, obj *types.BuildCloud) error {
-	return nil
-}
-
-func (c *cloud) Healthz(ctx context.Context) error {
-	_, err := net.DialTimeout("tcp", ":8080", 3*time.Second)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
