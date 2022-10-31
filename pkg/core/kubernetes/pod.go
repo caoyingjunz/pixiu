@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/gorilla/websocket"
-	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
@@ -16,7 +16,6 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
 )
 
 type PodsGetter interface {
@@ -30,9 +29,8 @@ type PodInterface interface {
 }
 
 type pods struct {
-	client  *kubernetes.Clientset
-	cloud   string
-	factory db.ShareDaoFactory
+	client *kubernetes.Clientset
+	cloud  string
 }
 
 func NewPods(c *kubernetes.Clientset, cloud string) *pods {
@@ -43,7 +41,7 @@ func NewPods(c *kubernetes.Clientset, cloud string) *pods {
 }
 
 func (c *pods) Logs(ctx context.Context, ws *websocket.Conn, options *types.LogsOptions) error {
-	opts := &coreV1.PodLogOptions{
+	opts := &v1.PodLogOptions{
 		Follow:    true,
 		Container: options.ContainerName,
 	}
@@ -97,7 +95,7 @@ func (c *pods) NewWebShellHandler(test *types.Test, w http.ResponseWriter, r *ht
 		Name(test.Pod).
 		Namespace(test.Namespace).
 		SubResource("exec").
-		VersionedParams(&coreV1.PodExecOptions{
+		VersionedParams(&v1.PodExecOptions{
 			Container: test.Container,
 			Command:   []string{"/bin/bash"},
 			Stderr:    true,
