@@ -17,22 +17,11 @@ limitations under the License.
 package healthz
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 func (h *healthzRouter) healthz(c *gin.Context) {
-	r := httputils.NewResponse()
-	if err := pixiu.CoreV1.Healthz().GetHealthz(context.TODO()); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
 	c.String(http.StatusOK, "ok")
-
 }
