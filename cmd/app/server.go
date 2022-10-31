@@ -80,12 +80,12 @@ func NewServerCommand() *cobra.Command {
 func InitRouters(opt *options.Options) {
 	middleware.InitMiddlewares(opt.GinEngine) // 注册中间件
 
-	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
 	cloud.NewRouter(opt.GinEngine)   // 注册 cloud 路由
 	user.NewRouter(opt.GinEngine)    // 注册 user 路由
 	cicd.NewRouter(opt.GinEngine)    // 注册 cicd 路由
 	role.NewRouter(opt.GinEngine)    // 注册 role 路由
 	menu.NewRouter(opt.GinEngine)    // 注册 menu 路由
+	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
 }
 
 func Run(opt *options.Options) error {
