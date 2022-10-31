@@ -36,6 +36,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
+	"github.com/caoyingjunz/gopixiu/pkg/util/intstr"
 	"github.com/caoyingjunz/gopixiu/pkg/util/uuid"
 )
 
@@ -408,7 +409,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		}
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
-		kubeConfig, err := c.parseKubeConfigData(context.TODO(), cloudObj.Id)
+		kubeConfig, err := c.parseKubeConfigData(context.TODO(), intstr.FromInt64(cloudObj.Id))
 		if err != nil {
 			log.Logger.Errorf("failed to parse % cloud kubeConfig: %v", cloudObj.Name, err)
 			return err
@@ -464,14 +465,23 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	}
 }
 
-func (c *cloud) parseKubeConfigData(ctx context.Context, cloudId int64) ([]byte, error) {
-	kubeConfigObj, err := c.factory.KubeConfig().GetByCloud(ctx, cloudId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %d cloud kubeConfigs :%v", cloudId, err)
+func (c *cloud) parseKubeConfigData(ctx context.Context, cloudIntStr intstr.IntOrString) ([]byte, error) {
+	var kubeConfigObj *model.KubeConfig
+	var err error
+
+	switch cloudIntStr.Type {
+	case intstr.Int64:
+		if kubeConfigObj, err = c.factory.KubeConfig().GetByCloud(ctx, cloudIntStr.Int64()); err != nil {
+			return nil, fmt.Errorf("failed to get %d cloud kubeConfigs :%v", cloudIntStr.Int64(), err)
+		}
+	case intstr.String:
+		// TODO
+		return nil, fmt.Errorf("unsupported cloud type")
 	}
+
 	kubeConfig, err := cipher.Decrypt(kubeConfigObj.Config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt %d cloud kubeConfig: %v", cloudId, err)
+		return nil, fmt.Errorf("failed to decrypt cloud kubeConfig: %v", err)
 	}
 
 	return kubeConfig, nil
