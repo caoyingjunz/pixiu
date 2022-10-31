@@ -31,6 +31,10 @@ type KubeConfigInterface interface {
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*model.KubeConfig, error)
 	List(ctx context.Context, cloudName string) ([]model.KubeConfig, error)
+
+	DeleteByCloud(ctx context.Context, cloudId int64) error
+	GetByCloud(ctx context.Context, cloudId int64) (*model.KubeConfig, error)
+	ListByClouds(ctx context.Context, cloudIds []int64) ([]model.KubeConfig, error)
 }
 
 type kubeConfig struct {
@@ -84,6 +88,28 @@ func (s *kubeConfig) Get(ctx context.Context, id int64) (*model.KubeConfig, erro
 func (s *kubeConfig) List(ctx context.Context, cloudName string) ([]model.KubeConfig, error) {
 	var objs []model.KubeConfig
 	if err := s.db.Where("cloud_name = ?", cloudName).Find(&objs).Error; err != nil {
+		return nil, err
+	}
+
+	return objs, nil
+}
+
+func (s *kubeConfig) DeleteByCloud(ctx context.Context, cloudId int64) error {
+	return s.db.Where("cloud_id = ?", cloudId).Delete(&model.KubeConfig{}).Error
+}
+
+func (s *kubeConfig) GetByCloud(ctx context.Context, cloudId int64) (*model.KubeConfig, error) {
+	var kc model.KubeConfig
+	if err := s.db.Where("cloud_id = ?", cloudId).First(&kc).Error; err != nil {
+		return nil, err
+	}
+
+	return &kc, nil
+}
+
+func (s *kubeConfig) ListByClouds(ctx context.Context, cloudIds []int64) ([]model.KubeConfig, error) {
+	var objs []model.KubeConfig
+	if err := s.db.Where("cloud_id in ?", cloudIds).Find(&objs).Error; err != nil {
 		return nil, err
 	}
 

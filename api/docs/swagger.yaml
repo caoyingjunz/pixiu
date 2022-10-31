@@ -34,6 +34,9 @@ definitions:
         items:
           $ref: '#/definitions/model.Menu'
         type: array
+      code:
+        description: 前端鉴权code 例： user:role:add, user:role:delete
+        type: string
       gmt_create:
         type: string
       gmt_modified:
@@ -70,6 +73,33 @@ definitions:
         description: 菜单URL
         type: string
     type: object
+  model.PageMenu:
+    properties:
+      menus:
+        items:
+          $ref: '#/definitions/model.Menu'
+        type: array
+      total:
+        type: integer
+    type: object
+  model.PageRole:
+    properties:
+      roles:
+        items:
+          $ref: '#/definitions/model.Role'
+        type: array
+      total:
+        type: integer
+    type: object
+  model.PageUser:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/model.User'
+        type: array
+    type: object
   model.Role:
     properties:
       children:
@@ -98,6 +128,29 @@ definitions:
         type: integer
       status:
         description: 0 表示禁用，1 表示启用
+        type: integer
+    type: object
+  model.User:
+    properties:
+      description:
+        type: string
+      email:
+        type: string
+      extension:
+        type: string
+      gmt_create:
+        type: string
+      gmt_modified:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      resource_version:
+        type: integer
+      role:
+        type: string
+      status:
         type: integer
     type: object
   types.BuildCloud:
@@ -181,6 +234,9 @@ definitions:
     type: object
   types.MenusReq:
     properties:
+      code:
+        description: 前端鉴权code 例： user:role:add, user:role:delete
+        type: string
       icon:
         description: icon
         type: string
@@ -256,6 +312,61 @@ definitions:
           type: integer
         type: array
     type: object
+  types.UpdateMenusReq:
+    properties:
+      code:
+        description: 前端鉴权code 例： user:role:add, user:role:delete
+        type: string
+      icon:
+        description: icon
+        type: string
+      memo:
+        description: 备注
+        type: string
+      menu_type:
+        description: 菜单类型 1 左侧菜单,2 按钮, 3 非展示权限
+        type: integer
+      method:
+        description: 操作类型 none/GET/POST/PUT/DELETE
+        type: string
+      name:
+        description: 菜单名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      resource_version:
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 状态(1:启用 2:不启用)
+        type: integer
+      url:
+        description: 菜单URL
+        type: string
+    type: object
+  types.UpdateRoleReq:
+    properties:
+      memo:
+        description: 备注
+        type: string
+      name:
+        description: 名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      resource_version:
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 0 表示禁用，1 表示启用
+        type: integer
+    type: object
   types.User:
     properties:
       description:
@@ -277,6 +388,7 @@ definitions:
       status:
         type: integer
     type: object
+host: localhost:8090
 info:
   contact:
     email: support@gopixiu.io
@@ -570,6 +682,21 @@ paths:
       consumes:
       - application/json
       description: List menus
+      parameters:
+      - description: 'menu_type 1: 菜单,2： 按钮, 3：API,可填写多个； 默认为： 1,2,3'
+        in: query
+        items:
+          type: integer
+        name: menu_type
+        type: array
+      - description: pageSize
+        in: query
+        name: page
+        type: integer
+      - description: page limit
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
@@ -581,7 +708,7 @@ paths:
             - properties:
                 result:
                   items:
-                    $ref: '#/definitions/model.Menu'
+                    $ref: '#/definitions/model.PageMenu'
                   type: array
               type: object
         "400":
@@ -663,7 +790,7 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/types.MenusReq'
+          $ref: '#/definitions/types.UpdateMenusReq'
       produces:
       - application/json
       responses:
@@ -678,11 +805,52 @@ paths:
       summary: Update a menu by menu id
       tags:
       - menus
+  /menus/{id}/status/{status}:
+    put:
+      consumes:
+      - application/json
+      description: Update a menu status by menu id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'status '
+        format: int64
+        in: path
+        name: status
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update a menu status by menu id
+      tags:
+      - menus
   /roles:
     get:
       consumes:
       - application/json
       description: list roles
+      parameters:
+      - description: pageSize
+        in: query
+        name: page
+        type: integer
+      - description: page limit
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
@@ -693,7 +861,7 @@ paths:
             - $ref: '#/definitions/httputils.Response'
             - properties:
                 result:
-                  $ref: '#/definitions/model.Role'
+                  $ref: '#/definitions/model.PageRole'
               type: object
         "400":
           description: Bad Request
@@ -759,7 +927,6 @@ paths:
       description: get role by role id
       parameters:
       - description: role ID
-        format: int64
         in: path
         name: id
         required: true
@@ -794,7 +961,7 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/types.RoleReq'
+          $ref: '#/definitions/types.UpdateRoleReq'
       produces:
       - application/json
       responses:
@@ -876,11 +1043,52 @@ paths:
       summary: set permissions for role
       tags:
       - roles
+  /roles/{id}/status/{status}:
+    put:
+      consumes:
+      - application/json
+      description: Update role status by role id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'status '
+        format: int64
+        in: path
+        name: status
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update role status by role id
+      tags:
+      - roles
   /users:
     get:
       consumes:
       - application/json
       description: List user info
+      parameters:
+      - description: pageSize
+        in: query
+        name: page
+        type: integer
+      - description: page limit
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
@@ -891,7 +1099,7 @@ paths:
             - $ref: '#/definitions/httputils.Response'
             - properties:
                 result:
-                  $ref: '#/definitions/types.User'
+                  $ref: '#/definitions/model.PageUser'
               type: object
         "400":
           description: Bad Request
@@ -956,6 +1164,38 @@ paths:
       summary: Update  user
       tags:
       - users
+  /users/:id/status/:status:
+    put:
+      consumes:
+      - application/json
+      description: Update  user status
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: status
+        format: int64
+        in: path
+        name: status
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update  user status
+      tags:
+      - users
   /users/{id}:
     delete:
       consumes:
@@ -1012,7 +1252,7 @@ paths:
       summary: Get user info by user id
       tags:
       - users
-    post:
+    put:
       consumes:
       - application/json
       description: Change user password
@@ -1162,13 +1402,6 @@ paths:
       consumes:
       - application/json
       description: Get buttons by menus id
-      parameters:
-      - description: menus ID
-        format: int64
-        in: path
-        name: id
-        required: true
-        type: integer
       produces:
       - application/json
       responses:
@@ -1180,7 +1413,7 @@ paths:
             - properties:
                 result:
                   items:
-                    $ref: '#/definitions/model.Menu'
+                    type: string
                   type: array
               type: object
         "400":
