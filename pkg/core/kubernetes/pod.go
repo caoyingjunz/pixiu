@@ -3,21 +3,18 @@ package kubernetes
 import (
 	"bufio"
 	"context"
-	"io"
-	"net/http"
-
-	"github.com/gorilla/websocket"
-	"github.com/igm/sockjs-go/v3/sockjs"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/remotecommand"
-
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
+	"github.com/gorilla/websocket"
+	"io"
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
+	"net/http"
 )
 
 type PodsGetter interface {
@@ -45,7 +42,7 @@ func NewPods(c *kubernetes.Clientset, cloud string) *pods {
 }
 
 func (c *pods) Logs(ctx context.Context, ws *websocket.Conn, options *types.LogsOptions) error {
-	opts := &v1.PodLogOptions{
+	opts := &coreV1.PodLogOptions{
 		Follow:    true,
 		Container: options.ContainerName,
 	}
@@ -73,24 +70,10 @@ func (c *pods) Logs(ctx context.Context, ws *websocket.Conn, options *types.Logs
 }
 
 func (c *pods) NewHandler(test *types.Test) error {
-	sockjs.NewHandler("/webshell/ws", sockjs.DefaultOptions, func(session sockjs.Session) {
-		if err := c.WebShellHandler(&types.WebShell{
-			Conn:      session,
-			SizeChan:  make(chan *remotecommand.TerminalSize),
-			Namespace: test.Namespace,
-			Pod:       test.Pod,
-			Container: test.Container,
-		}, "/bin/bash", test); err != nil {
-		}
-	}).ServeHTTP(c.Writer, c.Request)
-	return nil
-}
-
-func (c *pods) WebShellHandler(w *types.WebShell, cmd string, webShellOptions *types.Test) error {
-
-	EncryptKubeConfig, err := c.factory.KubeConfig().List(context.TODO(), webShellOptions.CloudName)
+	// 加载ClientSet
+	EncryptKubeConfig, err := c.factory.KubeConfig().List(context.TODO(), test.CloudName)
 	if err != nil {
-		log.Logger.Errorf("failed to get %s EncryptKubeConfig: %v", webShellOptions.CloudName, err)
+		log.Logger.Errorf("failed to get %s EncryptKubeConfig: %v", test.CloudName, err)
 	}
 	for _, config := range EncryptKubeConfig {
 		decrypt, err := cipher.Decrypt(config.Config)
@@ -101,44 +84,48 @@ func (c *pods) WebShellHandler(w *types.WebShell, cmd string, webShellOptions *t
 		if err != nil {
 			log.Logger.Errorf("failed to get %s config: %v", decrypt, err)
 		}
-		req := c.client.RESTClient().Post().
+		// new一个TerminalSession类型的pty实例
+		pty, err := types.NewTerminalSession(c.Writer, c.Request, nil)
+		if err != nil {
+			return err
+		}
+		// 处理关闭
+		defer func() {
+			pty.Close()
+		}()
+		// 组装POST请求
+		req := c.client.CoreV1().RESTClient().Post().
 			Resource("pods").
-			Name(w.Pod).
-			Namespace(w.Namespace).
+			Name(test.Pod).
+			Namespace(namespace).
 			SubResource("exec").
-			Param("container", w.Container).
-			Param("stdin", "true").
-			Param("stdout", "true").
-			Param("stderr", "true").
-			Param("command", cmd).
-			Param("tty", "true")
+			VersionedParams(&coreV1.PodExecOptions{
+				Container: test.Container,
+				Command:   []string{"/bin/bash"},
+				Stderr:    true,
+				Stdin:     true,
+				Stdout:    true,
+				TTY:       true,
+			}, scheme.ParameterCodec)
+		// remotecommand 主要实现了http 转 SPDY 添加X-Stream-Protocol-Version相关header 并发送请求
+		executor, err := remotecommand.NewSPDYExecutor(newconfig, "POST", req.URL())
 		if err != nil {
 			return err
 		}
-		req.VersionedParams(&v1.PodExecOptions{
-			Container: w.Container,
-			Command:   []string{},
-			Stdin:     true,
-			Stdout:    true,
-			Stderr:    true,
-			TTY:       true,
-		},
-			scheme.ParameterCodec,
-		)
-		executor, err := remotecommand.NewSPDYExecutor(
-			newconfig, http.MethodPost, req.URL(),
-		)
-		if err != nil {
-			return err
-		}
-		return executor.Stream(remotecommand.StreamOptions{
-			Stdin:             w,
-			Stdout:            w,
-			Stderr:            w,
+		// 与 kubelet 建立 stream 连接
+		err = executor.Stream(remotecommand.StreamOptions{
+			Stdout:            pty,
+			Stdin:             pty,
+			Stderr:            pty,
+			TerminalSizeQueue: pty,
 			Tty:               true,
-			TerminalSizeQueue: w,
 		})
-
+		if err != nil {
+			// 将报错返回给web端
+			pty.Write([]byte("exec pod command failed," + err.Error()))
+			// 标记关闭terminal
+			pty.Done()
+		}
 	}
 	return nil
 }

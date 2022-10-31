@@ -18,45 +18,124 @@ package types
 
 import (
 	"encoding/json"
-
-	"github.com/igm/sockjs-go/v3/sockjs"
+	"errors"
+	"fmt"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/gorilla/websocket"
 	"k8s.io/client-go/tools/remotecommand"
+	"net/http"
+	"time"
 )
 
-type WebShell struct {
-	Conn     sockjs.Session
-	SizeChan chan *remotecommand.TerminalSize
+// TerminalMessage 定义了终端和容器 shell 交互内容的格式 Operation 是操作类型
+// Data 是具体数据内容 Rows和Cols 可以理解为终端的行数和列数，也就是宽、高
 
-	Namespace string
-	Pod       string
-	Container string
+type TerminalMessage struct {
+	Operation string `json:"operation"`
+	Data      string `json:"data"`
+	Rows      uint16 `json:"rows"`
+	Cols      uint16 `json:"cols"`
 }
 
-func (w *WebShell) Write(p []byte) (int, error) {
-	err := w.Conn.Send(string(p))
-	return len(p), err
+// 初始化一个 websocket.Upgrader 类型的对象，用于http协议升级为websocket协议
+
+var upgrader = func() websocket.Upgrader {
+	upgrader := websocket.Upgrader{}
+	upgrader.HandshakeTimeout = time.Second * 2
+	upgrader.CheckOrigin = func(r *http.Request) bool {
+		return true
+	}
+	return upgrader
+}()
+
+// TerminalSession 定义 TerminalSession 结构体，实现 PtyHandler 接口 // wsConn 是 websocket 连接 // sizeChan 用来定义终端输入和输出的宽和高 // doneChan 用于标记退出终端
+type TerminalSession struct {
+	wsConn   *websocket.Conn
+	sizeChan chan remotecommand.TerminalSize
+	doneChan chan struct{}
 }
 
-func (w *WebShell) Read(p []byte) (int, error) {
-	var msg map[string]uint16
-	reply, err := w.Conn.Recv()
+// NewTerminalSession 该方法用于升级http协议至websocket，并new一个TerminalSession类型的对象返回
+func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*TerminalSession, error) {
+	conn, err := upgrader.Upgrade(w, r, responseHeader)
+	if err != nil {
+		return nil, err
+	}
+	session := &TerminalSession{
+		wsConn:   conn,
+		sizeChan: make(chan remotecommand.TerminalSize),
+		doneChan: make(chan struct{}),
+	}
+	return session, nil
+}
+
+// 用于读取web端的输入，接收web端输入的指令内容
+func (t *TerminalSession) Read(p []byte) (int, error) {
+	_, message, err := t.wsConn.ReadMessage()
+	if err != nil {
+		log.Logger.Error(errors.New("读取信息失败," + err.Error()))
+		return copy(p, "\u0004"), err
+	}
+	// 反序列化
+	var msg TerminalMessage
+	if err := json.Unmarshal(message, &msg); err != nil {
+		log.Logger.Error(errors.New("读取信息失败," + err.Error()))
+		// return 0, nil
+		return copy(p, "\u0004"), err
+	}
+	// 逻辑判断
+	switch msg.Operation {
+	// 如果是标准输入
+	case "stdin":
+		return copy(p, msg.Data), nil
+	// 窗口调整大小
+	case "resize":
+		t.sizeChan <- remotecommand.TerminalSize{Width: msg.Cols, Height: msg.Rows}
+		return 0, nil
+	// ping	无内容交互
+	case "ping":
+		return 0, nil
+	default:
+		log.Logger.Error(errors.New("无法确认的message类型,当前类型为 " + msg.Operation))
+		// return 0, nil
+		return copy(p, "\u0004"), fmt.Errorf("unknown message type '%s'",
+			msg.Operation)
+	}
+}
+
+// 写数据的方法，拿到 api-server 的返回内容，向web端输出
+func (t *TerminalSession) Write(p []byte) (int, error) {
+	msg, err := json.Marshal(TerminalMessage{
+		Operation: "stdout",
+		Data:      string(p),
+	})
 	if err != nil {
 		return 0, err
 	}
-	if err = json.Unmarshal([]byte(reply), &msg); err != nil {
-		return copy(p, reply), nil
-	} else {
-		w.SizeChan <- &remotecommand.TerminalSize{
-			Height: msg["rows"],
-			Width:  msg["cols"],
-		}
-		return 0, nil
+	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
+		return 0, err
 	}
+	return len(p), nil
 }
 
-func (w *WebShell) Next() *remotecommand.TerminalSize {
-	size := <-w.SizeChan
-	return size
+// Done 标记关闭doneChan,关闭后触发退出终端
+func (t *TerminalSession) Done() {
+	close(t.doneChan)
+}
+
+// Close 用于关闭websocket连接
+func (t *TerminalSession) Close() error {
+	return t.wsConn.Close()
+}
+
+// Next 获取web端是否resize,以及是否退出终端
+func (t *TerminalSession) Next() *remotecommand.TerminalSize {
+	select {
+	case size := <-t.sizeChan:
+		return &size
+	case <-t.doneChan:
+		return nil
+	}
 }
 
 type IdOptions struct {
