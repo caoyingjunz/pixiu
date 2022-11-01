@@ -13,13 +13,13 @@ require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-openapi/spec v0.20.7 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
-	github.com/go-playground/validator/v10 v10.11.1 // indirect
+	github.com/go-playground/validator/v10 v10.11.0 // indirect
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.3.0
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/jackc/pgconn v1.13.0 // indirect
 	github.com/jackc/pgtype v1.12.0 // indirect
@@ -41,7 +41,7 @@ require (
 	gorm.io/gorm v1.23.8
 	k8s.io/api v0.21.2
 	k8s.io/apimachinery v0.21.2
-	k8s.io/client-go v0.21.2
+	k8s.io/client-go v0.21.1
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
