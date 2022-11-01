@@ -22,6 +22,7 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
@@ -60,13 +61,14 @@ func (s *cloudRouter) webShell(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		// TODO: 优化
-		test types.Test
+		webshellOps types.WebShellOptions
 	)
-	if err := c.ShouldBindQuery(&test); err != nil {
+	if err := c.ShouldBindQuery(&webshellOps); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := pixiu.CoreV1.Cloud().Pods(test.CloudName).NewWebShellHandler(&test, c.Writer, c.Request); err != nil {
+	if err := pixiu.CoreV1.Cloud().Pods(webshellOps.CloudName).NewWebShellHandler(&webshellOps, c.Writer, c.Request); err != nil {
+		log.Logger.Error("webshell error", err)
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -156,18 +156,11 @@ type NamespaceOptions struct {
 	ObjectOptions `json:",inline"`
 }
 
-type Test struct {
-	CloudName string
+type WebShellOptions struct {
+	CloudName string `form:"cloud_name"`
 	Namespace string `form:"namespace"`
 	Pod       string `form:"pod"`
 	Container string `form:"container"`
-}
-
-type WebShellOptions struct {
-	CloudName string
-	Namespace string `uri:"namespace" binding:"required"`
-	Pod       string `uri:"namespace" binding:"required"`
-	Container string `uri:"namespace" binding:"required"`
 }
 
 // NodeOptions todo: 后续整合优化

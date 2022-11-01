@@ -19,6 +19,7 @@ package kubernetes
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -42,7 +43,7 @@ type PodsGetter interface {
 type PodInterface interface {
 	Logs(ctx context.Context, ws *websocket.Conn, options *types.LogsOptions) error
 
-	NewWebShellHandler(webShellOptions *types.Test, w http.ResponseWriter, r *http.Request) error
+	NewWebShellHandler(webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
 }
 
 type pods struct {
@@ -86,7 +87,7 @@ func (c *pods) Logs(ctx context.Context, ws *websocket.Conn, options *types.Logs
 }
 
 // TODO: 后续优化
-func (c *pods) NewWebShellHandler(test *types.Test, w http.ResponseWriter, r *http.Request) error {
+func (c *pods) NewWebShellHandler(webshellOps *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error {
 	// 加载 ClientSet
 	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
 	if err != nil {
@@ -96,6 +97,7 @@ func (c *pods) NewWebShellHandler(test *types.Test, w http.ResponseWriter, r *ht
 	if err != nil {
 		return err
 	}
+	fmt.Println("获取clientset 成功")
 	// new一个TerminalSession类型的pty实例
 	pty, err := types.NewTerminalSession(w, r)
 	if err != nil {
@@ -105,16 +107,16 @@ func (c *pods) NewWebShellHandler(test *types.Test, w http.ResponseWriter, r *ht
 	defer func() {
 		_ = pty.Close()
 	}()
-	log.Logger.Infof("exec pod: %s, container: %s, namespace: %s", test.Pod, test.Container, test.Namespace)
+	log.Logger.Infof("webshell exec pod: %s, container: %s, namespace: %s", webshellOps.Pod, webshellOps.Container, webshellOps.Namespace)
 	// 组装 POST 请求
 	req := ClientSet.CoreV1().RESTClient().Post().
 		Resource("pods").
-		Name(test.Pod).
-		Namespace(test.Namespace).
+		Name(webshellOps.Pod).
+		Namespace(webshellOps.Namespace).
 		SubResource("exec").
 		VersionedParams(&v1.PodExecOptions{
-			Container: test.Container,
-			Command:   []string{"/bin/bash", "sh"},
+			Container: webshellOps.Container,
+			Command:   []string{"/bin/bash"},
 			Stderr:    true,
 			Stdin:     true,
 			Stdout:    true,
