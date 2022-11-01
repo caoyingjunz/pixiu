@@ -19,7 +19,6 @@ package middleware
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -28,13 +27,9 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func Auth(c *gin.Context) {
-	if os.Getenv("DEBUG") == "true" {
-		return
-	}
-
-	// Authentication 身份认证
-	if c.Request.URL.Path == "/users/login" {
+// Authentication 身份认证
+func Authentication(c *gin.Context) {
+	if AlwaysAllowPath.Has(c.Request.URL.Path) {
 		return
 	}
 
