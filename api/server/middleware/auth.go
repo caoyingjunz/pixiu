@@ -38,11 +38,6 @@ func Auth(c *gin.Context) {
 		return
 	}
 
-	// webshell 容器 shell 客户端
-	if c.Request.URL.Path == "/clouds/webshell/ws" {
-		return
-	}
-
 	r := httputils.NewResponse()
 	token := c.GetHeader("Authorization")
 	if len(token) == 0 {
