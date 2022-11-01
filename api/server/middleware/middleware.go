@@ -17,13 +17,15 @@ limitations under the License.
 package middleware
 
 import (
+	"os"
+
 	"github.com/gin-gonic/gin"
 )
 
 func InitMiddlewares(ginEngine *gin.Engine) {
 	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20), Auth)
 	// 临时关闭
-	//if os.Getenv("DEBUG") != "true" {
-	//	ginEngine.Use(Rbac())
-	//}
+	if os.Getenv("DEBUG") != "true" {
+		ginEngine.Use(Rbac())
+	}
 }
