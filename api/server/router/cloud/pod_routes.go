@@ -49,8 +49,23 @@ func (s *cloudRouter) getLog(c *gin.Context) {
 	}
 	defer ws.Close()
 
-	err = pixiu.CoreV1.Cloud().Pods(logsOptions.CloudName).Logs(c, ws, &logsOptions)
-	if err != nil {
+	if err = pixiu.CoreV1.Cloud().Pods(logsOptions.CloudName).Logs(c, ws, &logsOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+}
+
+func (s *cloudRouter) webShell(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err             error
+		webShellOptions types.WebShellOptions
+	)
+	if err = c.ShouldBindQuery(&webShellOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Pods(webShellOptions.CloudName).WebShellHandler(&webShellOptions, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
