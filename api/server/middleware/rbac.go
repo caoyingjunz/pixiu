@@ -31,9 +31,10 @@ import (
 func Rbac() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
-		if path == "/users/login" {
+		if AlwaysAllowPath.Has(path) {
 			return
 		}
+
 		// 用户ID
 		uid, exist := c.Get("userId")
 		r := httputils.NewResponse()
