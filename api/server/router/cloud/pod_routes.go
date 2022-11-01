@@ -22,7 +22,6 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
@@ -50,8 +49,7 @@ func (s *cloudRouter) getLog(c *gin.Context) {
 	}
 	defer ws.Close()
 
-	err = pixiu.CoreV1.Cloud().Pods(logsOptions.CloudName).Logs(c, ws, &logsOptions)
-	if err != nil {
+	if err = pixiu.CoreV1.Cloud().Pods(logsOptions.CloudName).Logs(c, ws, &logsOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -60,15 +58,14 @@ func (s *cloudRouter) getLog(c *gin.Context) {
 func (s *cloudRouter) webShell(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		// TODO: 优化
-		webshellOps types.WebShellOptions
+		err             error
+		webShellOptions types.WebShellOptions
 	)
-	if err := c.ShouldBindQuery(&webshellOps); err != nil {
+	if err = c.ShouldBindQuery(&webShellOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := pixiu.CoreV1.Cloud().Pods(webshellOps.CloudName).NewWebShellHandler(&webshellOps, c.Writer, c.Request); err != nil {
-		log.Logger.Error("webshell error", err)
+	if err = pixiu.CoreV1.Cloud().Pods(webShellOptions.CloudName).WebShellHandler(&webShellOptions, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

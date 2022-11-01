@@ -411,7 +411,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
 		kubeConfig, err := c.parseKubeConfigData(context.TODO(), intstr.FromInt64(cloudObj.Id))
 		if err != nil {
-			log.Logger.Errorf("failed to parse % cloud kubeConfig: %v", cloudObj.Name, err)
+			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", cloudObj.Name, err)
 			return err
 		}
 		clientSet, err := c.newClientSet(kubeConfig)
