@@ -30,7 +30,7 @@ func InitMiddlewares(ginEngine *gin.Engine) {
 	AlwaysAllowPath = sets.NewString("/healthz", "/users/login", "/users/logout")
 
 	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20))
-	// 临时关闭
+	// TODO: 临时关闭
 	if os.Getenv("DEBUG") != "true" {
 		ginEngine.Use(Authentication)
 		ginEngine.Use(Rbac())
