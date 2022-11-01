@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package kubernetes
 
 import (
@@ -16,6 +32,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type PodsGetter interface {
@@ -80,16 +97,16 @@ func (c *pods) NewWebShellHandler(test *types.Test, w http.ResponseWriter, r *ht
 		return err
 	}
 	// new一个TerminalSession类型的pty实例
-	pty, err := types.NewTerminalSession(w, r, nil)
+	pty, err := types.NewTerminalSession(w, r)
 	if err != nil {
 		return err
 	}
 	// 处理关闭
 	defer func() {
-		pty.Close()
+		_ = pty.Close()
 	}()
-
-	// 组装POST请求
+	log.Logger.Infof("exec pod: %s, container: %s, namespace: %s", test.Pod, test.Container, test.Namespace)
+	// 组装 POST 请求
 	req := ClientSet.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(test.Pod).
@@ -97,7 +114,7 @@ func (c *pods) NewWebShellHandler(test *types.Test, w http.ResponseWriter, r *ht
 		SubResource("exec").
 		VersionedParams(&v1.PodExecOptions{
 			Container: test.Container,
-			Command:   []string{"/bin/bash"},
+			Command:   []string{"/bin/bash", "sh"},
 			Stderr:    true,
 			Stdin:     true,
 			Stdout:    true,
@@ -109,16 +126,14 @@ func (c *pods) NewWebShellHandler(test *types.Test, w http.ResponseWriter, r *ht
 		return err
 	}
 	// 与 kubelet 建立 stream 连接
-	err = executor.Stream(remotecommand.StreamOptions{
+	if err = executor.Stream(remotecommand.StreamOptions{
 		Stdout:            pty,
 		Stdin:             pty,
 		Stderr:            pty,
 		TerminalSizeQueue: pty,
 		Tty:               true,
-	})
-	if err != nil {
-		// 将报错返回给web端
-		pty.Write([]byte("exec pod command failed," + err.Error()))
+	}); err != nil {
+		_, _ = pty.Write([]byte("exec pod command failed," + err.Error()))
 		// 标记关闭terminal
 		pty.Done()
 	}

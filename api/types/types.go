@@ -19,12 +19,13 @@ package types
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"github.com/gorilla/websocket"
-	"k8s.io/client-go/tools/remotecommand"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 // TerminalMessage 定义了终端和容器 shell 交互内容的格式 Operation 是操作类型
@@ -37,7 +38,7 @@ type TerminalMessage struct {
 	Cols      uint16 `json:"cols"`
 }
 
-// 初始化一个 websocket.Upgrader 类型的对象，用于http协议升级为websocket协议
+// 初始化 Upgrader 类型的对象，用于http协议升级为 websocket 协议
 
 var upgrader = func() websocket.Upgrader {
 	upgrader := websocket.Upgrader{}
@@ -55,9 +56,9 @@ type TerminalSession struct {
 	doneChan chan struct{}
 }
 
-// NewTerminalSession 该方法用于升级http协议至websocket，并new一个TerminalSession类型的对象返回
-func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*TerminalSession, error) {
-	conn, err := upgrader.Upgrade(w, r, responseHeader)
+// NewTerminalSession 该方法用于升级 http 协议至 websocket，并new一个 TerminalSession 类型的对象返回
+func NewTerminalSession(w http.ResponseWriter, r *http.Request) (*TerminalSession, error) {
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -74,14 +75,13 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 func (t *TerminalSession) Read(p []byte) (int, error) {
 	_, message, err := t.wsConn.ReadMessage()
 	if err != nil {
-		log.Logger.Error(errors.New("读取信息失败," + err.Error()))
+		log.Logger.Error(errors.New("Failed to read information," + err.Error()))
 		return copy(p, "\u0004"), err
 	}
 	// 反序列化
 	var msg TerminalMessage
-	if err := json.Unmarshal(message, &msg); err != nil {
-		log.Logger.Error(errors.New("读取信息失败," + err.Error()))
-		// return 0, nil
+	if err = json.Unmarshal(message, &msg); err != nil {
+		log.Logger.Error(errors.New("json decoding failure," + err.Error()))
 		return copy(p, "\u0004"), err
 	}
 	// 逻辑判断
@@ -97,10 +97,7 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 	case "ping":
 		return 0, nil
 	default:
-		log.Logger.Error(errors.New("无法确认的message类型,当前类型为 " + msg.Operation))
-		// return 0, nil
-		return copy(p, "\u0004"), fmt.Errorf("unknown message type '%s'",
-			msg.Operation)
+		return copy(p, "\u0004"), errors.New("unknown message type")
 	}
 }
 
@@ -111,9 +108,11 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 		Data:      string(p),
 	})
 	if err != nil {
+		log.Logger.Error("Json Marshal err", err)
 		return 0, err
 	}
-	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err = t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
+		log.Logger.Error("Terminal write message err", err)
 		return 0, err
 	}
 	return len(p), nil
