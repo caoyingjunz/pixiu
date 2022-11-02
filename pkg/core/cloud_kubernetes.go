@@ -57,7 +57,7 @@ func (c *cloud) Nodes(cloud string) pixiukubernetes.NodeInterface {
 }
 
 func (c *cloud) Pods(cloud string) pixiukubernetes.PodInterface {
-	return pixiukubernetes.NewPods(clientSets.Get(cloud), cloud, c.factory)
+	return pixiukubernetes.NewPods(clientSets.Get(cloud), cloud, c)
 }
 
 func (c *cloud) KubeConfigs(cloud string) pixiukubernetes.KubeConfigInterface {

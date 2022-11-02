@@ -38,6 +38,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
+	"github.com/caoyingjunz/gopixiu/pkg/util/intstr"
 )
 
 type KubeConfigGetter interface {
@@ -50,6 +51,9 @@ type KubeConfigInterface interface {
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*types.KubeConfigOptions, error)
 	List(ctx context.Context) ([]types.KubeConfigOptions, error)
+
+	// ParseKubeConfigData 获取 kube config 解密之后的内容
+	ParseKubeConfigData(ctx context.Context, cloudIntStr intstr.IntOrString) ([]byte, error)
 }
 
 type kubeConfigs struct {
@@ -357,6 +361,36 @@ func (c *kubeConfigs) createClusterRoleBinding(ctx context.Context, saName, clus
 	}
 
 	return nil
+}
+
+func (c *kubeConfigs) ParseKubeConfigData(ctx context.Context, cloudIntStr intstr.IntOrString) ([]byte, error) {
+	var (
+		err           error
+		kubeConfigObj *model.KubeConfig
+		cloudId       int64
+	)
+	switch cloudIntStr.Type {
+	case intstr.Int64:
+		cloudId = cloudIntStr.Int64()
+	case intstr.String:
+		cloudObj, err := c.factory.Cloud().GetByName(ctx, cloudIntStr.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cloud: %v", err)
+		}
+		cloudId = cloudObj.Id
+	default:
+		return nil, fmt.Errorf("failed to get cloud: %v", err)
+	}
+
+	if kubeConfigObj, err = c.factory.KubeConfig().GetByCloud(ctx, cloudId); err != nil {
+		return nil, fmt.Errorf("failed to get %d cloud kubeConfigs :%v", cloudId, err)
+	}
+	kubeConfig, err := cipher.Decrypt(kubeConfigObj.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt cloud kubeConfig: %v", err)
+	}
+
+	return kubeConfig, nil
 }
 
 func (c *kubeConfigs) model2Type(m *model.KubeConfig) *types.KubeConfigOptions {
