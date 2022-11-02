@@ -27,7 +27,7 @@ var AlwaysAllowPath sets.String
 
 func InitMiddlewares(ginEngine *gin.Engine) {
 	// 初始化可忽略的请求路径
-	AlwaysAllowPath = sets.NewString("/healthz", "/users/login", "/users/logout", "/clouds/webshell/ws")
+	AlwaysAllowPath = sets.NewString("/healthz", "/users/login", "/users/logout")
 
 	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20))
 	// TODO: 临时关闭
