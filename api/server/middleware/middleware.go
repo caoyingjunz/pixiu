@@ -21,13 +21,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 var AlwaysAllowPath sets.String
 
 func InitMiddlewares(ginEngine *gin.Engine) {
 	// 初始化可忽略的请求路径
-	AlwaysAllowPath = sets.NewString("/healthz", "/users/login", "/users/logout")
+	AlwaysAllowPath = sets.NewString(types.HealthURL, types.LoginURL, types.LogoutURL)
 
 	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20))
 	// TODO: 临时关闭
