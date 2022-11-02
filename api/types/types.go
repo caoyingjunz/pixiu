@@ -16,6 +16,11 @@ limitations under the License.
 
 package types
 
+import (
+	"github.com/gorilla/websocket"
+	"k8s.io/client-go/tools/remotecommand"
+)
+
 type IdOptions struct {
 	Id int64 `uri:"id" binding:"required"`
 }
@@ -32,6 +37,13 @@ type NamespaceOptions struct {
 	CloudOptions `json:",inline"`
 
 	ObjectOptions `json:",inline"`
+}
+
+type WebShellOptions struct {
+	CloudName string `form:"cloud"` // 需要连接的 k8s 唯一名称
+	Namespace string `form:"namespace"`
+	Pod       string `form:"pod"`
+	Container string `form:"container"`
 }
 
 // NodeOptions todo: 后续整合优化
@@ -173,4 +185,20 @@ type KubeConfigOptions struct {
 	ClusterRole         string `json:"cluster_role"`
 	Config              string `json:"config"`
 	ExpirationTimestamp string `json:"expiration_timestamp"`
+}
+
+// TerminalMessage 定义了终端和容器 shell 交互内容的格式 Operation 是操作类型
+// Data 是具体数据内容 Rows和Cols 可以理解为终端的行数和列数，也就是宽、高
+type TerminalMessage struct {
+	Operation string `json:"operation"`
+	Data      string `json:"data"`
+	Rows      uint16 `json:"rows"`
+	Cols      uint16 `json:"cols"`
+}
+
+// TerminalSession 定义 TerminalSession 结构体，实现 PtyHandler 接口 // wsConn 是 websocket 连接 // sizeChan 用来定义终端输入和输出的宽和高 // doneChan 用于标记退出终端
+type TerminalSession struct {
+	wsConn   *websocket.Conn
+	sizeChan chan remotecommand.TerminalSize
+	doneChan chan struct{}
 }

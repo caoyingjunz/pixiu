@@ -36,6 +36,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
+	"github.com/caoyingjunz/gopixiu/pkg/util/intstr"
 	"github.com/caoyingjunz/gopixiu/pkg/util/uuid"
 )
 
@@ -394,7 +395,6 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 func (c *cloud) Load(stopCh chan struct{}) error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
-
 	// 获取待加载的 cloud 列表
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
@@ -409,14 +409,9 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		}
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
-		kubeConfigObj, err := c.factory.KubeConfig().GetByCloud(context.TODO(), cloudObj.Id)
+		kubeConfig, err := c.parseKubeConfigData(context.TODO(), intstr.FromInt64(cloudObj.Id))
 		if err != nil {
-			log.Logger.Errorf("failed to get %s cloud kubeConfigs :%v", cloudObj.Name, err)
-			return err
-		}
-		kubeConfig, err := cipher.Decrypt(kubeConfigObj.Config)
-		if err != nil {
-			log.Logger.Errorf("failed to decrypt % cloud kubeConfig: %v", cloudObj.Name, err)
+			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", cloudObj.Name, err)
 			return err
 		}
 		clientSet, err := c.newClientSet(kubeConfig)
@@ -424,6 +419,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
 			return err
 		}
+
 		clientSets.Add(cloudObj.Name, clientSet)
 		klog.V(2).Infof("load cloud %s success", cloudObj.Name)
 	}
@@ -467,6 +463,28 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 			return
 		}
 	}
+}
+
+func (c *cloud) parseKubeConfigData(ctx context.Context, cloudIntStr intstr.IntOrString) ([]byte, error) {
+	var kubeConfigObj *model.KubeConfig
+	var err error
+
+	switch cloudIntStr.Type {
+	case intstr.Int64:
+		if kubeConfigObj, err = c.factory.KubeConfig().GetByCloud(ctx, cloudIntStr.Int64()); err != nil {
+			return nil, fmt.Errorf("failed to get %d cloud kubeConfigs :%v", cloudIntStr.Int64(), err)
+		}
+	case intstr.String:
+		// TODO
+		return nil, fmt.Errorf("unsupported cloud type")
+	}
+
+	kubeConfig, err := cipher.Decrypt(kubeConfigObj.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt cloud kubeConfig: %v", err)
+	}
+
+	return kubeConfig, nil
 }
 
 func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {

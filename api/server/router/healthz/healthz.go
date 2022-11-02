@@ -14,25 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package middleware
+package healthz
 
-import (
-	"os"
+import "github.com/gin-gonic/gin"
 
-	"github.com/gin-gonic/gin"
-	"k8s.io/apimachinery/pkg/util/sets"
-)
+// healthzRouter is a router to talk with the healthz controller
+type healthzRouter struct{}
 
-var AlwaysAllowPath sets.String
+// NewRouter initializes a new healthz router
+func NewRouter(ginEngine *gin.Engine) {
+	s := &healthzRouter{}
+	s.initRoutes(ginEngine)
+}
 
-func InitMiddlewares(ginEngine *gin.Engine) {
-	// 初始化可忽略的请求路径
-	AlwaysAllowPath = sets.NewString("/healthz", "/users/login", "/users/logout", "/clouds/webshell/ws")
-
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20))
-	// TODO: 临时关闭
-	if os.Getenv("DEBUG") != "true" {
-		ginEngine.Use(Authentication)
-		ginEngine.Use(Rbac())
+func (h *healthzRouter) initRoutes(ginEngine *gin.Engine) {
+	healthzRoute := ginEngine.Group("/healthz")
+	{
+		// main process healthz check
+		healthzRoute.GET("", h.healthz)
 	}
 }
