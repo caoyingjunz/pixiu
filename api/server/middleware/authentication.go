@@ -35,6 +35,15 @@ func Authentication(c *gin.Context) {
 
 	r := httputils.NewResponse()
 	token := c.GetHeader("Authorization")
+
+	// 读取ws协议的请求token
+	if c.Request.URL.Path == "/clouds/webshell/ws" {
+		unPrefixToken := c.GetHeader("Sec-WebSocket-Protocol")
+		if len(unPrefixToken) != 0 {
+			token = "Bearer " + unPrefixToken
+		}
+	}
+
 	if len(token) == 0 {
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, fmt.Errorf("authorization header is not provided"))
