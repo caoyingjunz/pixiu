@@ -25,6 +25,7 @@ import (
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 // Authentication 身份认证
@@ -34,32 +35,14 @@ func Authentication(c *gin.Context) {
 	}
 
 	r := httputils.NewResponse()
-	token := c.GetHeader("Authorization")
-	if len(token) == 0 {
+	token, err := extractToken(c, c.Request.URL.Path == types.WebShellURL)
+	if err != nil {
 		r.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, r, fmt.Errorf("authorization header is not provided"))
+		httputils.SetFailed(c, r, err)
 		c.Abort()
 		return
 	}
-
-	fields := strings.Fields(token)
-	if len(fields) != 2 {
-		r.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, r, fmt.Errorf("invalid authorization header format"))
-		c.Abort()
-		return
-	}
-
-	if fields[0] != "Bearer" {
-		r.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, r, fmt.Errorf("unsupported authorization type"))
-		c.Abort()
-		return
-	}
-
-	accessToken := fields[1]
-	jwtKey := pixiu.CoreV1.User().GetJWTKey()
-	claims, err := httputils.ParseToken(accessToken, jwtKey)
+	claims, err := httputils.ParseToken(token, pixiu.CoreV1.User().GetJWTKey())
 	if err != nil {
 		r.SetCode(http.StatusUnauthorized)
 		httputils.SetFailed(c, r, err)
@@ -67,5 +50,32 @@ func Authentication(c *gin.Context) {
 		return
 	}
 
-	c.Set("userId", claims.Id)
+	// 保存用户id
+	c.Set(types.UserId, claims.Id)
+}
+
+// 从请求头中获取 token
+func extractToken(c *gin.Context, ws bool) (string, error) {
+	emptyFunc := func(t string) bool { return len(t) == 0 }
+	if ws {
+		wsToken := c.GetHeader("Sec-WebSocket-Protocol")
+		if emptyFunc(wsToken) {
+			return "", fmt.Errorf("authorization header is not provided")
+		}
+		return wsToken, nil
+	}
+
+	token := c.GetHeader("Authorization")
+	if emptyFunc(token) {
+		return "", fmt.Errorf("authorization header is not provided")
+	}
+	fields := strings.Fields(token)
+	if len(fields) != 2 {
+		return "", fmt.Errorf("invalid authorization header format")
+	}
+	if fields[0] != "Bearer" {
+		return "", fmt.Errorf("unsupported authorization type")
+	}
+
+	return fields[1], nil
 }
