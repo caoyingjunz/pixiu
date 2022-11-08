@@ -180,6 +180,7 @@ type KubeConfigOptions struct {
 	ExpirationTimestamp string `json:"expiration_timestamp"`
 }
 
+// WebShellOptions ws API 参数定义
 type WebShellOptions struct {
 	CloudName string `form:"cloud"` // 需要连接的 k8s 唯一名称
 	Namespace string `form:"namespace"`
