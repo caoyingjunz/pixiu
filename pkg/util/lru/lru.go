@@ -82,6 +82,4 @@ func (c *LRUCache) Get(key interface{}) (value interface{}) {
 	return
 }
 
-func (c *LRUCache) Len() int {
-	return c.evictList.Len()
-}
+func (c *LRUCache) Len() int { return c.evictList.Len() }

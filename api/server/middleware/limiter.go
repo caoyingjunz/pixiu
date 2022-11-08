@@ -28,14 +28,20 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util/lru"
 )
 
+const (
+	capacity = 100
+	quantum  = 20
+	cap      = 200
+)
+
 // Limiter TODO
 func Limiter(c *gin.Context) {}
 
 // UserRateLimiter 针对每个用户的请求进行限速
 // TODO 限速大小从配置中读取
-func UserRateLimiter(capacity int64, quantum int64) gin.HandlerFunc {
+func UserRateLimiter() gin.HandlerFunc {
 	// 初始化一个 LRU Cache
-	cache, _ := lru.NewLRUCache(200)
+	cache, _ := lru.NewLRUCache(cap)
 
 	return func(c *gin.Context) {
 		r := httputils.NewResponse()
