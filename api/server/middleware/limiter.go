@@ -34,9 +34,6 @@ const (
 	cap      = 200
 )
 
-// Limiter TODO
-func Limiter(c *gin.Context) {}
-
 // UserRateLimiter 针对每个用户的请求进行限速
 // TODO 限速大小从配置中读取
 func UserRateLimiter() gin.HandlerFunc {
@@ -51,7 +48,6 @@ func UserRateLimiter() gin.HandlerFunc {
 			cache.Add(clientIP, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum))
 			return
 		}
-
 		// 通过 ClientIP 取出 bucket
 		val := cache.Get(clientIP)
 		if val == nil {
@@ -66,5 +62,12 @@ func UserRateLimiter() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+	}
+}
+
+// Limiter TODO 总量限速
+func Limiter() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fmt.Println("TODO")
 	}
 }
