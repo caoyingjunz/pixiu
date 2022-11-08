@@ -18,6 +18,7 @@ package cloud
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
@@ -109,11 +110,14 @@ func (s *cloudRouter) getNamespace(c *gin.Context) {
 }
 
 func (s *cloudRouter) listNamespaces(c *gin.Context) {
+	fmt.Println("cloudOptions")
 	r := httputils.NewResponse()
 	var (
 		err          error
 		cloudOptions types.CloudOptions
 	)
+	fmt.Println(cloudOptions)
+
 	if err = c.ShouldBindUri(&cloudOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
