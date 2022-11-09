@@ -39,13 +39,6 @@ type NamespaceOptions struct {
 	ObjectOptions `json:",inline"`
 }
 
-type WebShellOptions struct {
-	CloudName string `form:"cloud"` // 需要连接的 k8s 唯一名称
-	Namespace string `form:"namespace"`
-	Pod       string `form:"pod"`
-	Container string `form:"container"`
-}
-
 // NodeOptions todo: 后续整合优化
 type NodeOptions struct {
 	CloudOptions `json:",inline"`
@@ -185,6 +178,14 @@ type KubeConfigOptions struct {
 	ClusterRole         string `json:"cluster_role"`
 	Config              string `json:"config"`
 	ExpirationTimestamp string `json:"expiration_timestamp"`
+}
+
+// WebShellOptions ws API 参数定义
+type WebShellOptions struct {
+	CloudName string `form:"cloud"` // 需要连接的 k8s 唯一名称
+	Namespace string `form:"namespace"`
+	Pod       string `form:"pod"`
+	Container string `form:"container"`
 }
 
 // TerminalMessage 定义了终端和容器 shell 交互内容的格式 Operation 是操作类型

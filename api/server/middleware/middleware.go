@@ -31,10 +31,10 @@ func InitMiddlewares(ginEngine *gin.Engine) {
 	// 初始化可忽略的请求路径
 	AlwaysAllowPath = sets.NewString(types.HealthURL, types.LoginURL, types.LogoutURL)
 
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20))
+	// 依次进行跨域，日志，单用户限速，总量限速，验证，和鉴权
+	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication())
 	// TODO: 临时关闭
 	if os.Getenv("DEBUG") != "true" {
-		ginEngine.Use(Authentication)
 		ginEngine.Use(Rbac())
 	}
 }

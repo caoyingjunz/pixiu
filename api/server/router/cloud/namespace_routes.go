@@ -114,6 +114,7 @@ func (s *cloudRouter) listNamespaces(c *gin.Context) {
 		err          error
 		cloudOptions types.CloudOptions
 	)
+
 	if err = c.ShouldBindUri(&cloudOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

@@ -32,10 +32,10 @@ type NamespacesGetter interface {
 
 type NamespaceInterface interface {
 	Create(ctx context.Context, namespace v1.Namespace) error
+	Update(ctx context.Context, namespace v1.Namespace) (*v1.Namespace, error)
 	Delete(ctx context.Context, namespace string) error
 	Get(ctx context.Context, namespace string) (*v1.Namespace, error)
 	List(ctx context.Context) ([]v1.Namespace, error)
-	Update(ctx context.Context, namespace v1.Namespace) (*v1.Namespace, error)
 }
 
 type namespaces struct {
