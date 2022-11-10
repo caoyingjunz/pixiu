@@ -22,12 +22,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Response struct {
-	Code    int         `json:"code"`              // 返回的状态码
-	Result  interface{} `json:"result,omitempty"`  // 正常返回时的数据，可以为任意数据结构
-	Message string      `json:"message,omitempty"` // 异常返回时的错误信息
-}
-
 // HttpOK 正常返回
 type HttpOK struct {
 	Code   int    `json:"code" example:"200"`
@@ -40,8 +34,10 @@ type HttpError struct {
 	Message string `json:"message" example:"status bad request"`
 }
 
-func (r *Response) Error() string {
-	return r.Message
+type Response struct {
+	Code    int         `json:"code"`              // 返回的状态码
+	Result  interface{} `json:"result,omitempty"`  // 正常返回时的数据，可以为任意数据结构
+	Message string      `json:"message,omitempty"` // 异常返回时的错误信息
 }
 
 func (r *Response) SetCode(c int) {
@@ -55,6 +51,19 @@ func (r *Response) SetMessage(m interface{}) {
 	case string:
 		r.Message = msg
 	}
+}
+
+func (r *Response) SetMessageWithCode(m interface{}, c int) {
+	r.SetCode(c)
+	r.SetMessage(m)
+}
+
+func (r *Response) Error() string {
+	return r.Message
+}
+
+func (r *Response) String() string {
+	return ""
 }
 
 // NewResponse 构造 http 返回值，默认 code 为 400
@@ -76,4 +85,19 @@ func SetSuccess(c *gin.Context, r *Response) {
 func SetFailed(c *gin.Context, r *Response, err error) {
 	r.SetMessage(err)
 	c.JSON(http.StatusOK, r)
+}
+
+// SetFailedWithCode 设置错误返回值
+func SetFailedWithCode(c *gin.Context, r *Response, code int, err error) {
+	r.SetMessage(err)
+	r.SetCode(code)
+	c.JSON(http.StatusOK, r)
+}
+
+// SetFailedWithAbortCode 设置错误，code 返回值并终止请求
+func SetFailedWithAbortCode(c *gin.Context, r *Response, code int, err error) {
+	r.SetMessage(err)
+	r.SetCode(code)
+	c.JSON(http.StatusOK, r)
+	c.Abort()
 }
