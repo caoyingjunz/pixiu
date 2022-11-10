@@ -89,15 +89,13 @@ func SetFailed(c *gin.Context, r *Response, err error) {
 
 // SetFailedWithCode 设置错误返回值
 func SetFailedWithCode(c *gin.Context, r *Response, code int, err error) {
-	r.SetMessage(err)
-	r.SetCode(code)
+	r.SetMessageWithCode(err, code)
 	c.JSON(http.StatusOK, r)
 }
 
 // SetFailedWithAbortCode 设置错误，code 返回值并终止请求
 func SetFailedWithAbortCode(c *gin.Context, r *Response, code int, err error) {
-	r.SetMessage(err)
-	r.SetCode(code)
+	r.SetMessageWithCode(err, code)
 	c.JSON(http.StatusOK, r)
 	c.Abort()
 }
