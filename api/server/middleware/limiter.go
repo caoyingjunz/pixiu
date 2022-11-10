@@ -67,8 +67,9 @@ func UserRateLimiter() gin.HandlerFunc {
 }
 
 func Limiter() gin.HandlerFunc {
-	// 初始化一个限速器，每秒产生1000个令牌，桶的大小为1000个
+	// 初始化一个限速器，每秒产生 1000 个令牌，桶的大小为 1000 个
 	// 初始化状态桶是满的
+	// TODO: 限速的值从配置或者环境变量中获取
 	limiter := rate.NewLimiter(1000, 1000)
 
 	return func(c *gin.Context) {
