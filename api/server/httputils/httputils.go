@@ -22,18 +22,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// HttpOK 正常返回
-type HttpOK struct {
-	Code   int    `json:"code" example:"200"`
-	Result string `json:"result" example:"any result"`
-}
-
-// HttpError 异常返回
-type HttpError struct {
-	Code    int    `json:"code" example:"400"`
-	Message string `json:"message" example:"status bad request"`
-}
-
 type Response struct {
 	Code    int         `json:"code"`              // 返回的状态码
 	Result  interface{} `json:"result,omitempty"`  // 正常返回时的数据，可以为任意数据结构
@@ -66,13 +54,11 @@ func (r *Response) String() string {
 	return ""
 }
 
-// NewResponse 构造 http 返回值，默认 code 为 400
+// NewResponse 构造 http 返回值
 // SetSuccess 时会自动设置 code 为 200
 // SetFailed 时不需要设置状态码，SetCode 自定义状态码
 func NewResponse() *Response {
-	return &Response{
-		Code: http.StatusBadRequest,
-	}
+	return &Response{}
 }
 
 // SetSuccess 设置成功返回值
@@ -83,7 +69,7 @@ func SetSuccess(c *gin.Context, r *Response) {
 
 // SetFailed 设置错误返回值
 func SetFailed(c *gin.Context, r *Response, err error) {
-	r.SetMessage(err)
+	r.SetMessageWithCode(err, http.StatusBadRequest)
 	c.JSON(http.StatusOK, r)
 }
 
