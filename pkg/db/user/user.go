@@ -22,8 +22,8 @@ import (
 
 	"gorm.io/gorm"
 
-	dberrors "github.com/caoyingjunz/gopixiu/pkg/db/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	dberrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 

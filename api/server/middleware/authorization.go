@@ -22,8 +22,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
@@ -38,26 +38,23 @@ func Authorization() gin.HandlerFunc {
 
 		// 用户 ID
 		uid, exist := c.Get("userId")
-		r := httputils.NewResponse()
 		if !exist {
-			httputils.SetFailedWithAbortCode(c, r, http.StatusUnauthorized, httpstatus.NoPermission)
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, errors.NoPermission)
+			return
+		}
+		enforcer := pixiu.CoreV1.Policy().GetEnforce()
+		if enforcer == nil {
+			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, errors.InnerError)
 			return
 		}
 
-		enforcer := pixiu.CoreV1.Policy().GetEnforce()
-		if enforcer == nil {
-			httputils.SetFailedWithAbortCode(c, r, http.StatusInternalServerError, httpstatus.InnerError)
-			return
-		}
-		uidStr := strconv.FormatInt(uid.(int64), 10)
-		ok, err := enforcer.Enforce(uidStr, path, c.Request.Method)
+		ok, err := enforcer.Enforce(strconv.FormatInt(uid.(int64), 10), path, c.Request.Method)
 		if err != nil {
-			httputils.SetFailedWithAbortCode(c, r, http.StatusInternalServerError, httpstatus.InnerError)
+			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, errors.InnerError)
 			return
 		}
 		if !ok {
-			httputils.SetFailedWithAbortCode(c, r, http.StatusUnauthorized, httpstatus.NoPermission)
-			return
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, errors.NoPermission)
 		}
 	}
 }

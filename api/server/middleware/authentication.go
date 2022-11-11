@@ -35,19 +35,14 @@ func Authentication() gin.HandlerFunc {
 			return
 		}
 
-		r := httputils.NewResponse()
 		token, err := extractToken(c, c.Request.URL.Path == types.WebShellURL)
 		if err != nil {
-			r.SetCode(http.StatusUnauthorized)
-			httputils.SetFailed(c, r, err)
-			c.Abort()
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
 			return
 		}
 		claims, err := httputils.ParseToken(token, pixiu.CoreV1.User().GetJWTKey())
 		if err != nil {
-			r.SetCode(http.StatusUnauthorized)
-			httputils.SetFailed(c, r, err)
-			c.Abort()
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
 			return
 		}
 

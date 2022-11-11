@@ -17,7 +17,6 @@ limitations under the License.
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -26,6 +25,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/util/lru"
 )
 
@@ -42,7 +42,6 @@ func UserRateLimiter() gin.HandlerFunc {
 	cache, _ := lru.NewLRUCache(cap)
 
 	return func(c *gin.Context) {
-		r := httputils.NewResponse()
 		// 把 key: clientIP value: *ratelimit.Bucket 存入 LRU Cache 中
 		clientIP := c.ClientIP()
 		if !cache.Contains(clientIP) {
@@ -58,10 +57,7 @@ func UserRateLimiter() gin.HandlerFunc {
 		// 判断是否还有可用的 bucket
 		bucket := val.(*ratelimit.Bucket)
 		if bucket.TakeAvailable(1) == 0 {
-			r.SetCode(http.StatusGatewayTimeout)
-			httputils.SetFailed(c, r, fmt.Errorf("the system is busy. please try again later"))
-			c.Abort()
-			return
+			httputils.AbortFailedWithCode(c, http.StatusForbidden, errors.ErrBusySystem)
 		}
 	}
 }
@@ -74,11 +70,7 @@ func Limiter() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		if !limiter.Allow() {
-			r := httputils.NewResponse()
-			r.SetCode(http.StatusForbidden)
-			httputils.SetFailed(c, r, fmt.Errorf("the system is busy. please try again later"))
-			c.Abort()
-			return
+			httputils.AbortFailedWithCode(c, http.StatusForbidden, errors.ErrBusySystem)
 		}
 	}
 }

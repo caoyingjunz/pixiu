@@ -51,6 +51,8 @@ func (r *Response) Error() string {
 }
 
 func (r *Response) String() string {
+	//data, _ := json.Marshal(r)
+	//return string(data)
 	return ""
 }
 
@@ -79,8 +81,9 @@ func SetFailedWithCode(c *gin.Context, r *Response, code int, err error) {
 	c.JSON(http.StatusOK, r)
 }
 
-// SetFailedWithAbortCode 设置错误，code 返回值并终止请求
-func SetFailedWithAbortCode(c *gin.Context, r *Response, code int, err error) {
+// AbortFailedWithCode 设置错误，code 返回值并终止请求
+func AbortFailedWithCode(c *gin.Context, code int, err error) {
+	r := NewResponse()
 	r.SetMessageWithCode(err, code)
 	c.JSON(http.StatusOK, r)
 	c.Abort()
