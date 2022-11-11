@@ -28,22 +28,6 @@ type Response struct {
 	Message string      `json:"message,omitempty"` // 异常返回时的错误信息
 }
 
-// HttpOK 正常返回
-type HttpOK struct {
-	Code   int    `json:"code" example:"200"`
-	Result string `json:"result" example:"any result"`
-}
-
-// HttpError 异常返回
-type HttpError struct {
-	Code    int    `json:"code" example:"400"`
-	Message string `json:"message" example:"status bad request"`
-}
-
-func (r *Response) Error() string {
-	return r.Message
-}
-
 func (r *Response) SetCode(c int) {
 	r.Code = c
 }
@@ -57,13 +41,26 @@ func (r *Response) SetMessage(m interface{}) {
 	}
 }
 
-// NewResponse 构造 http 返回值，默认 code 为 400
+func (r *Response) SetMessageWithCode(m interface{}, c int) {
+	r.SetCode(c)
+	r.SetMessage(m)
+}
+
+func (r *Response) Error() string {
+	return r.Message
+}
+
+func (r *Response) String() string {
+	//data, _ := json.Marshal(r)
+	//return string(data)
+	return ""
+}
+
+// NewResponse 构造 http 返回值
 // SetSuccess 时会自动设置 code 为 200
 // SetFailed 时不需要设置状态码，SetCode 自定义状态码
 func NewResponse() *Response {
-	return &Response{
-		Code: http.StatusBadRequest,
-	}
+	return &Response{}
 }
 
 // SetSuccess 设置成功返回值
@@ -74,6 +71,20 @@ func SetSuccess(c *gin.Context, r *Response) {
 
 // SetFailed 设置错误返回值
 func SetFailed(c *gin.Context, r *Response, err error) {
-	r.SetMessage(err)
+	r.SetMessageWithCode(err, http.StatusBadRequest)
 	c.JSON(http.StatusOK, r)
+}
+
+// SetFailedWithCode 设置错误返回值
+func SetFailedWithCode(c *gin.Context, r *Response, code int, err error) {
+	r.SetMessageWithCode(err, code)
+	c.JSON(http.StatusOK, r)
+}
+
+// AbortFailedWithCode 设置错误，code 返回值并终止请求
+func AbortFailedWithCode(c *gin.Context, code int, err error) {
+	r := NewResponse()
+	r.SetMessageWithCode(err, code)
+	c.JSON(http.StatusOK, r)
+	c.Abort()
 }

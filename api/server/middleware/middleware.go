@@ -35,6 +35,8 @@ func InitMiddlewares(ginEngine *gin.Engine) {
 	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication())
 	// TODO: 临时关闭
 	if os.Getenv("DEBUG") != "true" {
-		ginEngine.Use(Rbac())
+		ginEngine.Use(Authorization())
 	}
+
+	ginEngine.Use(Admission())
 }
