@@ -31,6 +31,7 @@ import (
 )
 
 const defaultJWTKey string = "gopixiu"
+const defaultPassWord = "pixiu123"
 
 type UserGetter interface {
 	User() UserInterface
@@ -47,6 +48,9 @@ type UserInterface interface {
 
 	// ChangePassword 修改密码
 	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error
+
+	// ResetPassword 重置密码
+	ResetPassword(ctx context.Context, uid int64) error
 
 	GetJWTKey() []byte
 
@@ -242,6 +246,26 @@ func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Passwor
 	return nil
 }
 
+func (u *user) ResetPassword(ctx context.Context, uid int64) error {
+	// 获取当前用户
+	userObj, err := u.factory.User().Get(ctx, uid)
+	if err != nil {
+		log.Logger.Errorf("failed to get user by id %d: %v", uid, err)
+		return err
+	}
+
+	// 密码加密存储
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(defaultPassWord), bcrypt.DefaultCost)
+	if err != nil {
+		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
+		return err
+	}
+	if err = u.factory.User().Update(ctx, uid, userObj.ResourceVersion, map[string]interface{}{"password": encryptedPassword}); err != nil {
+		log.Logger.Errorf("failed to reset %d password %d: %v", uid, err)
+		return err
+	}
+	return nil
+}
 func (u *user) GetJWTKey() []byte {
 	jwtKey := u.ComponentConfig.Default.JWTKey
 	if len(jwtKey) == 0 {

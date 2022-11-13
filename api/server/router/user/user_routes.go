@@ -205,7 +205,29 @@ func (u *userRouter) login(c *gin.Context) {
 // TODO
 func (u *userRouter) logout(c *gin.Context) {}
 
-func (u *userRouter) resetPassword(c *gin.Context) {}
+// @Summary      reset password by user id
+// @Description  reset password by user id
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Success      200  {object}  httputils.Response{result=types.User}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/{id} [put]
+func (u *userRouter) resetPassword(c *gin.Context) {
+	r := httputils.NewResponse()
+	uid, err := util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	err = pixiu.CoreV1.User().ResetPassword(context.TODO(), uid)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
 
 // @Summary      Change user password
 // @Description  Change user password
