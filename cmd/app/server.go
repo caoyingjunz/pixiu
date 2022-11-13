@@ -19,7 +19,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/gopixiu/api/server/router/audit"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
+	"github.com/caoyingjunz/gopixiu/api/server/router/audit"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/gopixiu/api/server/router/healthz"

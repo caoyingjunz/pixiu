@@ -17,8 +17,9 @@ limitations under the License.
 package model
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type OperationLog struct {

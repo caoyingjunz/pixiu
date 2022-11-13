@@ -18,15 +18,17 @@ package middleware
 
 import (
 	"bytes"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
-	"github.com/gin-gonic/gin"
-	"io"
-	"net/http"
-	"time"
 )
 
 // OperationLog 操作记录

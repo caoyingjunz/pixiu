@@ -17,12 +17,14 @@ limitations under the License.
 package audit
 
 import (
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	"github.com/gin-gonic/gin"
-	"strconv"
 )
 
 func (u *auditRouter) deleteOperationLog(c *gin.Context) {
@@ -35,16 +37,6 @@ func (u *auditRouter) deleteOperationLog(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// @Summary      List operationLog info
-// @Description  List operationLog info
-// @Tags         audit
-// @Accept       json
-// @Produce      json
-// @Param        page   query      int  false  "pageSize"
-// @Param        limit   query      int  false  "page limit"
-// @Success      200  {object}  httputils.Response{result=model.PageUser}
-// @Failure      400  {object}  httputils.HttpError
-// @Router       /operation_logs [get]
 func (u *auditRouter) listOperationLog(c *gin.Context) {
 	r := httputils.NewResponse()
 	pageStr := c.DefaultQuery("page", "0")

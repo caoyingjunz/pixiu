@@ -18,6 +18,7 @@ package core
 
 import (
 	"github.com/bndr/gojenkins"
+
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 )
