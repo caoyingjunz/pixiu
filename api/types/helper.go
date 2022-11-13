@@ -34,12 +34,6 @@ type IdMeta struct {
 	ResourceVersion int64 `json:"resource_version"`
 }
 
-// PageOptions 分页选项
-type PageOptions struct {
-	Limit int `form:"limit"`
-	Page  int `form:"page"`
-}
-
 // TimeOption 通用时间规格
 type TimeOption struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`

@@ -51,7 +51,7 @@ type CloudInterface interface {
 	Update(ctx context.Context, obj *types.Cloud) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
-	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
+	List(ctx context.Context, paging *types.ParamsOption) (interface{}, error)
 	Build(ctx context.Context, obj *types.BuildCloud) error
 
 	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
@@ -335,7 +335,7 @@ func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 }
 
 // List 返回全量查询或者分页查询
-func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interface{}, error) {
+func (c *cloud) List(ctx context.Context, pageOption *types.ParamsOption) (interface{}, error) {
 	var cs []types.Cloud
 
 	// 根据是否有 Page 判断是全量查询还是分页查询，如果没有则判定为全量查询，如果有，判定为分页查询
