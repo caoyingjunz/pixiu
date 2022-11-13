@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -34,9 +33,9 @@ type StatefulSetGetter interface {
 type StatefulSetInterface interface {
 	Create(ctx context.Context, statefulSet *v1.StatefulSet) error
 	Update(ctx context.Context, statefulSet *v1.StatefulSet) error
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error)
-	List(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error)
+	Delete(ctx context.Context, namespace string, objectName string) error
+	Get(ctx context.Context, namespace string, objectName string) (*v1.StatefulSet, error)
+	List(ctx context.Context, namespace string) ([]v1.StatefulSet, error)
 }
 
 type statefulSets struct {
@@ -69,9 +68,7 @@ func (c *statefulSets) Update(ctx context.Context, statefulSet *v1.StatefulSet) 
 	if c.client == nil {
 		return clientError
 	}
-	if _, err := c.client.AppsV1().
-		StatefulSets(statefulSet.Namespace).
-		Update(ctx, statefulSet, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.client.AppsV1().StatefulSets(statefulSet.Namespace).Update(ctx, statefulSet, metav1.UpdateOptions{}); err != nil {
 		log.Logger.Errorf("failed to update %s statefulSet: %v", c.cloud, err)
 		return err
 	}
@@ -79,44 +76,38 @@ func (c *statefulSets) Update(ctx context.Context, statefulSet *v1.StatefulSet) 
 	return nil
 }
 
-func (c *statefulSets) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *statefulSets) Delete(ctx context.Context, namespace string, objectName string) error {
 	if c.client == nil {
 		return clientError
 	}
-	if err := c.client.AppsV1().
-		StatefulSets(deleteOptions.Namespace).
-		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
-		log.Logger.Errorf("failed to delete %s statefulSet: %v", deleteOptions.CloudName, err)
+	if err := c.client.AppsV1().StatefulSets(namespace).Delete(ctx, objectName, metav1.DeleteOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete %s statefulSet: %v", c.cloud, objectName, err)
 		return err
 	}
 
 	return nil
 }
 
-func (c *statefulSets) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.StatefulSet, error) {
+func (c *statefulSets) Get(ctx context.Context, namespace string, objectName string) (*v1.StatefulSet, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
-	sts, err := c.client.AppsV1().
-		StatefulSets(getOptions.Namespace).
-		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
+	sts, err := c.client.AppsV1().StatefulSets(namespace).Get(ctx, objectName, metav1.GetOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to get %s statefulSets: %v", getOptions.CloudName, err)
+		log.Logger.Errorf("failed to get %s statefulSets: %v", c.cloud, err)
 		return nil, err
 	}
 
 	return sts, err
 }
 
-func (c *statefulSets) List(ctx context.Context, listOptions types.ListOptions) ([]v1.StatefulSet, error) {
+func (c *statefulSets) List(ctx context.Context, namespace string) ([]v1.StatefulSet, error) {
 	if c.client == nil {
 		return nil, clientError
 	}
-	sts, err := c.client.AppsV1().
-		StatefulSets(listOptions.Namespace).
-		List(ctx, metav1.ListOptions{})
+	sts, err := c.client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to list statefulsets: %v", listOptions.Namespace, err)
+		log.Logger.Errorf("failed to list %s statefulsets: %v", c.cloud, namespace, err)
 		return nil, err
 	}
 
