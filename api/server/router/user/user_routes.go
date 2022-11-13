@@ -216,13 +216,13 @@ func (u *userRouter) logout(c *gin.Context) {}
 // @Router       /users/{id} [put]
 func (u *userRouter) resetPassword(c *gin.Context) {
 	r := httputils.NewResponse()
-	uid, err := util.ParseInt64(c.Param("id"))
-	if err != nil {
+	var idOptions types.IdOptions
+	if err := c.ShouldBindUri(&idOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err = pixiu.CoreV1.User().ResetPassword(context.TODO(), uid)
-	if err != nil {
+	//只有管理员才能重置密码
+	if err := pixiu.CoreV1.User().ResetPassword(context.TODO(), idOptions.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

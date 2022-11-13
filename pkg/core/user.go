@@ -260,6 +260,8 @@ func (u *user) ResetPassword(ctx context.Context, uid int64) error {
 		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err
 	}
+	// TODO - 管理员可以重置他人的密码
+
 	if err = u.factory.User().Update(ctx, uid, userObj.ResourceVersion, map[string]interface{}{"password": encryptedPassword}); err != nil {
 		log.Logger.Errorf("failed to reset %d password %d: %v", uid, err)
 		return err

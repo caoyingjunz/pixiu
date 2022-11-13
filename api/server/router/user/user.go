@@ -41,7 +41,7 @@ func (u *userRouter) initRoutes(ginEngine *gin.Engine) {
 		// 修改密码
 		userRoute.PUT("/change/:id/password", u.changePassword)
 		// 重置密码
-		userRoute.PUT("/reset/:id", u.resetPassword)
+		userRoute.PUT("/reset/:id/password", u.resetPassword)
 
 		userRoute.GET("/:id/roles", u.getUserRoles)  // 查询当前用户角色
 		userRoute.POST("/:id/roles", u.setUserRoles) // 根据用户id分配角色
