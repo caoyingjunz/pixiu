@@ -38,6 +38,10 @@ func (s *cloudRouter) createStatefulSet(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = c.ShouldBindJSON(&sts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	sts.Name = opts.ObjectName
 	sts.Namespace = opts.Namespace
@@ -57,6 +61,10 @@ func (s *cloudRouter) updateStatefulSet(c *gin.Context) {
 		sts  v1.StatefulSet
 	)
 	if err = c.ShouldBindUri(&opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&sts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
