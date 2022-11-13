@@ -510,7 +510,7 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		NodeNumber:  obj.NodeNumber,
 		Resources:   obj.Resources,
 		Description: obj.Description,
-		TimeOption:  types.NewTypeTime(obj.GmtCreate, obj.GmtModified),
+		TimeOption:  types.FormatTime(obj.GmtCreate, obj.GmtModified),
 	}
 }
 

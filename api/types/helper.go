@@ -49,7 +49,7 @@ const (
 	timeLayout = "2006-01-02 15:04:05.999999999"
 )
 
-func NewTypeTime(GmtCreate time.Time, GmtModified time.Time) TimeOption {
+func FormatTime(GmtCreate time.Time, GmtModified time.Time) TimeOption {
 	return TimeOption{
 		GmtCreate:   GmtCreate.Format(timeLayout),
 		GmtModified: GmtModified.Format(timeLayout),
