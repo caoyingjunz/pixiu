@@ -42,7 +42,7 @@ func (s *cloudRouter) createDeployment(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	d.Name = opts.ObjectName
+
 	d.Namespace = opts.Namespace
 	if err = pixiu.CoreV1.Cloud().Deployments(opts.Cloud).Create(context.TODO(), &d); err != nil {
 		httputils.SetFailed(c, r, err)

@@ -43,7 +43,6 @@ func (s *cloudRouter) createStatefulSet(c *gin.Context) {
 		return
 	}
 
-	sts.Name = opts.ObjectName
 	sts.Namespace = opts.Namespace
 	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Create(context.TODO(), &sts); err != nil {
 		httputils.SetFailed(c, r, err)

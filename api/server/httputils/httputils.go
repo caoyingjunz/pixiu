@@ -57,22 +57,21 @@ func (r *Response) String() string {
 }
 
 // NewResponse 构造 http 返回值
-// SetSuccess 时会自动设置 code 为 200
-// SetFailed 时不需要设置状态码，SetCode 自定义状态码
+// SetSuccess 时设置 code 为 200 并追加 success 的标识
+// SetFailed 时设置 code 为 400，也可以自定义设置错误码，并追加报错信息
 func NewResponse() *Response {
 	return &Response{}
 }
 
 // SetSuccess 设置成功返回值
 func SetSuccess(c *gin.Context, r *Response) {
-	r.SetCode(http.StatusOK)
+	r.SetMessageWithCode("success", http.StatusOK)
 	c.JSON(http.StatusOK, r)
 }
 
 // SetFailed 设置错误返回值
 func SetFailed(c *gin.Context, r *Response, err error) {
-	r.SetMessageWithCode(err, http.StatusBadRequest)
-	c.JSON(http.StatusOK, r)
+	SetFailedWithCode(c, r, http.StatusBadRequest, err)
 }
 
 // SetFailedWithCode 设置错误返回值
