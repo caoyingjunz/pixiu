@@ -28,6 +28,7 @@ type CloudUriMeta struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 }
 
+// TODO: 合并 IdUriMeta
 type IdMeta struct {
 	Id              int64 `json:"id"`
 	ResourceVersion int64 `json:"resource_version"`
