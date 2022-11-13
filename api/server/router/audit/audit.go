@@ -14,27 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package middleware
+package audit
 
 import (
-	"os"
-
 	"github.com/gin-gonic/gin"
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
-var AlwaysAllowPath sets.String
+type auditRouter struct{}
 
-func InitMiddlewares(ginEngine *gin.Engine) {
-	// 初始化可忽略的请求路径
-	AlwaysAllowPath = sets.NewString(types.HealthURL, types.LoginURL, types.LogoutURL)
+func NewRouter(ginEngine *gin.Engine) {
+	a := &auditRouter{}
+	a.initRoutes(ginEngine)
+}
 
-	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication(), OperationLog())
-	// TODO: 临时关闭
-	if os.Getenv("DEBUG") != "true" {
-		ginEngine.Use(Rbac())
+func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
+	auditRouter := ginEngine.Group("/audit")
+	{
+		// 逻辑删除操作记录
+		auditRouter.DELETE("/operation_log", a.deleteOperationLog)
+		// 分页查询操作记录
+		auditRouter.GET("/operation_logs", a.listOperationLog)
 	}
 }

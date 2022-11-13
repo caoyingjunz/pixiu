@@ -18,11 +18,15 @@ package httputils
 
 import (
 	"fmt"
-	"io/ioutil"
+	"net"
+	"strings"
 	"time"
 
+	geoip2db "github.com/cc14514/go-geoip2-db"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/mssola/user_agent"
+	"io/ioutil"
 )
 
 type Claims struct {
@@ -80,4 +84,35 @@ func ReadFile(c *gin.Context, f string) ([]byte, error) {
 	defer file.Close()
 
 	return ioutil.ReadAll(file)
+}
+
+// GetCityByIp 通过ip获取城市信息 类库
+func GetCityByIp(ip string) string {
+	if ip == "" {
+		return ""
+	}
+	if ip == "[::1]" || ip == "127.0.0.1" {
+		return "内网IP"
+	}
+	db, err := geoip2db.NewGeoipDbByStatik()
+	defer db.Close()
+	if err != nil {
+		return ""
+	}
+	record, err := db.City(net.ParseIP(ip))
+	if err != nil {
+		return ""
+	}
+	city := fmt.Sprintf("%s %s", record.Subdivisions[0].Names["zh-CN"], record.City.Names["zh-CN"])
+	return strings.TrimSpace(city)
+}
+
+// GetUserAgent 获取浏览器简称
+func GetUserAgent(rawUserAgent string) string {
+	if len(rawUserAgent) == 0 {
+		return ""
+	}
+	ua := user_agent.New(rawUserAgent)
+	name, version := ua.Browser()
+	return fmt.Sprintf("%s %s", name, version)
 }

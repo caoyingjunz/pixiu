@@ -19,6 +19,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/caoyingjunz/gopixiu/api/server/router/audit"
 	"net/http"
 	"os"
 	"os/signal"
@@ -86,6 +87,7 @@ func InitRouters(opt *options.Options) {
 	role.NewRouter(opt.GinEngine)    // 注册 role 路由
 	menu.NewRouter(opt.GinEngine)    // 注册 menu 路由
 	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
+	audit.NewRouter(opt.GinEngine)   // 注册 audit 路由
 }
 
 func Run(opt *options.Options) error {

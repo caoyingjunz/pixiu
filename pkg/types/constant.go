@@ -16,7 +16,11 @@ limitations under the License.
 
 package types
 
-const UserId = "userId"
+const (
+	UserId  = "userId"
+	Deleted = 1
+	Normal  = 0
+)
 
 const (
 	HealthURL   = "/healthz"
