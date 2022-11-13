@@ -78,12 +78,11 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/webshell/ws", s.webShell)
 
 		// Deployments API
-		// 创建 deployments
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.updateDeployment)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
 		// listDeployments API: apps/v1/<cloud_name>/namespaces/<ns>/deployments
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
-		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.updatetDeployments)
-		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
 
 		// StatefulSet API
 		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.createStatefulSet)
