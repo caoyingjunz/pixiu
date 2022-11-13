@@ -38,8 +38,11 @@ func (s *cloudRouter) createStatefulSet(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = c.ShouldBindJSON(&sts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
-	sts.Name = opts.ObjectName
 	sts.Namespace = opts.Namespace
 	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Create(context.TODO(), &sts); err != nil {
 		httputils.SetFailed(c, r, err)
@@ -57,6 +60,10 @@ func (s *cloudRouter) updateStatefulSet(c *gin.Context) {
 		sts  v1.StatefulSet
 	)
 	if err = c.ShouldBindUri(&opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&sts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -30,8 +30,7 @@ type KubeMeta struct {
 type CreateOptions struct {
 	CloudMeta `json:",inline"`
 
-	Namespace  string `uri:"namespace" binding:"required"`
-	ObjectName string `uri:"object_name" binding:"required"`
+	Namespace string `uri:"namespace" binding:"required"`
 }
 
 type UpdateOptions struct {
