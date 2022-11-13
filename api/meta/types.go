@@ -18,22 +18,40 @@ package meta
 
 type IdMeta struct{}
 
+type CloudMeta struct {
+	Cloud string `uri:"cloud_name" binding:"required"`
+}
+
 type CreateOptions struct {
-	IdMeta `json:",inline"`
+	CloudMeta `json:",inline"`
+
+	Namespace  string `uri:"namespace" binding:"required"`
+	ObjectName string `uri:"object_name" binding:"required"`
 }
 
 type UpdateOptions struct {
-	IdMeta `json:",inline"`
+	CloudMeta `json:",inline"`
+
+	Namespace  string `uri:"namespace" binding:"required"`
+	ObjectName string `uri:"object_name" binding:"required"`
 }
 
 type DeleteOptions struct {
-	IdMeta `json:",inline"`
+	CloudMeta `json:",inline"`
+
+	Namespace  string `uri:"namespace" binding:"required"`
+	ObjectName string `uri:"object_name" binding:"required"`
 }
 
 type GetOptions struct {
-	IdMeta `json:",inline"`
+	CloudMeta `json:",inline"`
+
+	Namespace  string `uri:"namespace" binding:"required"`
+	ObjectName string `uri:"object_name" binding:"required"`
 }
 
 type ListOptions struct {
-	IdMeta `json:",inline"`
+	CloudMeta `json:",inline"`
+
+	Namespace string `uri:"namespace" binding:"required"`
 }

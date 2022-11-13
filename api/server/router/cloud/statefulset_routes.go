@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package cloud
 
 import (
@@ -6,26 +22,26 @@ import (
 	"github.com/gin-gonic/gin"
 	v1 "k8s.io/api/apps/v1"
 
+	"github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 func (s *cloudRouter) createStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		createOptions types.GetOrCreateOptions
-		statefulset   v1.StatefulSet
+		err  error
+		opts meta.CreateOptions
+		sts  v1.StatefulSet
 	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	statefulset.Name = createOptions.ObjectName
-	statefulset.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().StatefulSets(createOptions.CloudName).Create(context.TODO(), &statefulset)
-	if err != nil {
+
+	sts.Name = opts.ObjectName
+	sts.Namespace = opts.Namespace
+	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Create(context.TODO(), &sts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -36,18 +52,18 @@ func (s *cloudRouter) createStatefulSet(c *gin.Context) {
 func (s *cloudRouter) updateStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		createOptions types.GetOrCreateOptions
-		statefulset   v1.StatefulSet
+		err  error
+		opts meta.UpdateOptions
+		sts  v1.StatefulSet
 	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	statefulset.Name = createOptions.ObjectName
-	statefulset.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().StatefulSets(createOptions.CloudName).Update(context.TODO(), &statefulset)
-	if err != nil {
+
+	sts.Name = opts.ObjectName
+	sts.Namespace = opts.Namespace
+	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Update(context.TODO(), &sts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -58,15 +74,14 @@ func (s *cloudRouter) updateStatefulSet(c *gin.Context) {
 func (s *cloudRouter) deleteStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		delOptions types.GetOrDeleteOptions
+		err  error
+		opts meta.DeleteOptions
 	)
-	if err = c.ShouldBindUri(&delOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err = pixiu.CoreV1.Cloud().StatefulSets(delOptions.CloudName).Delete(context.TODO(), delOptions)
-	if err != nil {
+	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Delete(context.TODO(), opts.Namespace, opts.ObjectName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -77,14 +92,14 @@ func (s *cloudRouter) deleteStatefulSet(c *gin.Context) {
 func (s *cloudRouter) getStatefulSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions types.GetOrDeleteOptions
+		err  error
+		opts meta.GetOptions
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(getOptions.CloudName).Get(context.TODO(), getOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Get(context.TODO(), opts.Namespace, opts.ObjectName)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -96,14 +111,14 @@ func (s *cloudRouter) getStatefulSet(c *gin.Context) {
 func (s *cloudRouter) listStatefulSets(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions types.ListOptions
+		err  error
+		opts meta.ListOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(listOptions.CloudName).List(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).List(context.TODO(), opts.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

@@ -27,7 +27,7 @@ import (
 
 var AlwaysAllowPath sets.String
 
-func InitMiddlewares(ginEngine *gin.Engine) {
+func InstallMiddlewares(ginEngine *gin.Engine) {
 	// 初始化可忽略的请求路径
 	AlwaysAllowPath = sets.NewString(types.HealthURL, types.LoginURL, types.LogoutURL)
 
