@@ -429,6 +429,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 	return nil
 }
 
+// TODO: 多集群共用检查队列
 func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	klog.V(2).Infof("starting cluster health check")
 	// 存储旧的检查状态

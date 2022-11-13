@@ -264,6 +264,7 @@ func model2Type(u *model.User) *types.User {
 	}
 }
 
+// TODO: 后续调整为全量更新
 func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[string]interface{} {
 	updates := make(map[string]interface{})
 
