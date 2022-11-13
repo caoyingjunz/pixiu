@@ -260,10 +260,11 @@ func model2Type(u *model.User) *types.User {
 		Role:            u.Role,
 		Email:           u.Email,
 		Description:     u.Description,
-		TimeOption:      types.NewTypeTime(u.GmtCreate, u.GmtModified),
+		TimeOption:      types.FormatTime(u.GmtCreate, u.GmtModified),
 	}
 }
 
+// TODO: 后续调整为全量更新
 func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[string]interface{} {
 	updates := make(map[string]interface{})
 

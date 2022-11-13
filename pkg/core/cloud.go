@@ -429,6 +429,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 	return nil
 }
 
+// TODO: 多集群共用检查队列
 func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	klog.V(2).Infof("starting cluster health check")
 	// 存储旧的检查状态
@@ -510,7 +511,7 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		NodeNumber:  obj.NodeNumber,
 		Resources:   obj.Resources,
 		Description: obj.Description,
-		TimeOption:  types.NewTypeTime(obj.GmtCreate, obj.GmtModified),
+		TimeOption:  types.FormatTime(obj.GmtCreate, obj.GmtModified),
 	}
 }
 
