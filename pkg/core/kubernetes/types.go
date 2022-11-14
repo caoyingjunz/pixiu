@@ -15,7 +15,3 @@ limitations under the License.
 */
 
 package kubernetes
-
-import "fmt"
-
-var clientError = fmt.Errorf("failed to found clout client")

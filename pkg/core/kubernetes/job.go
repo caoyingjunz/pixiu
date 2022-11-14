@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -53,7 +54,7 @@ func NewJobs(c *kubernetes.Clientset, cloud string) *jobs {
 
 func (c *jobs) Create(ctx context.Context, job *batchv1.Job) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.BatchV1().
 		Jobs(job.Namespace).
@@ -68,7 +69,7 @@ func (c *jobs) Create(ctx context.Context, job *batchv1.Job) error {
 
 func (c *jobs) Update(ctx context.Context, job *batchv1.Job) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.BatchV1().
 		Jobs(job.Namespace).
@@ -82,7 +83,7 @@ func (c *jobs) Update(ctx context.Context, job *batchv1.Job) error {
 
 func (c *jobs) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if err := c.client.BatchV1().
 		Jobs(deleteOptions.Namespace).
@@ -96,7 +97,7 @@ func (c *jobs) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOption
 
 func (c *jobs) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*batchv1.Job, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	job, err := c.client.BatchV1().
 		Jobs(getOptions.Namespace).
@@ -111,7 +112,7 @@ func (c *jobs) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*b
 
 func (c *jobs) List(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	job, err := c.client.BatchV1().
 		Jobs(listOptions.Namespace).

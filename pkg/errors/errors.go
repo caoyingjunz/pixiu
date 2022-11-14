@@ -22,10 +22,11 @@ import (
 )
 
 var (
-	ErrRecordNotFound  = gorm.ErrRecordNotFound
-	ErrRecordNotUpdate = errors.New("record not updated")
-	ErrBusySystem      = errors.New("系统繁忙，请稍后再试")
-	ErrReqParams       = errors.New("请求参数错误")
+	ErrRecordNotFound   = gorm.ErrRecordNotFound
+	ErrRecordNotUpdate  = errors.New("record not updated")
+	ErrBusySystem       = errors.New("系统繁忙，请稍后再试")
+	ErrReqParams        = errors.New("请求参数错误")
+	ErrCloudNotRegister = errors.New("cloud 集群未注册")
 
 	ParamsError        = errors.New("参数错误")
 	OperateFailed      = errors.New("操作失败")

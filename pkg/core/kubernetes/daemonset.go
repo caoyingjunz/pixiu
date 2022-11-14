@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -37,7 +38,7 @@ func NewDaemonSets(client *kubernetes.Clientset, cloud string) DaemonSetInterfac
 
 func (c *daemonSets) Create(ctx context.Context, daemonset *v1.DaemonSet) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.AppsV1().
 		DaemonSets(daemonset.Namespace).
@@ -52,7 +53,7 @@ func (c *daemonSets) Create(ctx context.Context, daemonset *v1.DaemonSet) error 
 
 func (c *daemonSets) Update(ctx context.Context, daemonset *v1.DaemonSet) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.AppsV1().
 		DaemonSets(daemonset.Namespace).
@@ -66,7 +67,7 @@ func (c *daemonSets) Update(ctx context.Context, daemonset *v1.DaemonSet) error 
 
 func (c *daemonSets) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if err := c.client.AppsV1().
 		DaemonSets(deleteOptions.Namespace).
@@ -80,7 +81,7 @@ func (c *daemonSets) Delete(ctx context.Context, deleteOptions types.GetOrDelete
 
 func (c *daemonSets) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.DaemonSet, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	ds, err := c.client.AppsV1().
 		DaemonSets(getOptions.Namespace).
@@ -95,7 +96,7 @@ func (c *daemonSets) Get(ctx context.Context, getOptions types.GetOrDeleteOption
 
 func (c *daemonSets) List(ctx context.Context, listOptions types.ListOptions) ([]v1.DaemonSet, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	ds, err := c.client.AppsV1().
 		DaemonSets(listOptions.Namespace).

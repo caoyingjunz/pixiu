@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -52,7 +53,7 @@ func NewStatefulSets(c *kubernetes.Clientset, cloud string) *statefulSets {
 
 func (c *statefulSets) Create(ctx context.Context, statefulSet *v1.StatefulSet) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.AppsV1().
 		StatefulSets(statefulSet.Namespace).
@@ -66,7 +67,7 @@ func (c *statefulSets) Create(ctx context.Context, statefulSet *v1.StatefulSet) 
 
 func (c *statefulSets) Update(ctx context.Context, statefulSet *v1.StatefulSet) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.AppsV1().StatefulSets(statefulSet.Namespace).Update(ctx, statefulSet, metav1.UpdateOptions{}); err != nil {
 		log.Logger.Errorf("failed to update %s statefulSet: %v", c.cloud, err)
@@ -78,7 +79,7 @@ func (c *statefulSets) Update(ctx context.Context, statefulSet *v1.StatefulSet) 
 
 func (c *statefulSets) Delete(ctx context.Context, namespace string, objectName string) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if err := c.client.AppsV1().StatefulSets(namespace).Delete(ctx, objectName, metav1.DeleteOptions{}); err != nil {
 		log.Logger.Errorf("failed to delete %s statefulSet: %v", c.cloud, objectName, err)
@@ -90,7 +91,7 @@ func (c *statefulSets) Delete(ctx context.Context, namespace string, objectName 
 
 func (c *statefulSets) Get(ctx context.Context, namespace string, objectName string) (*v1.StatefulSet, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	sts, err := c.client.AppsV1().StatefulSets(namespace).Get(ctx, objectName, metav1.GetOptions{})
 	if err != nil {
@@ -103,7 +104,7 @@ func (c *statefulSets) Get(ctx context.Context, namespace string, objectName str
 
 func (c *statefulSets) List(ctx context.Context, namespace string) ([]v1.StatefulSet, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	sts, err := c.client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {

@@ -22,6 +22,11 @@ type CloudMeta struct {
 	Cloud string `uri:"cloud_name" binding:"required"`
 }
 
+type KubeMeta struct {
+	Namespace  string `uri:"namespace" binding:"required"`
+	ObjectName string `uri:"object_name" binding:"required"`
+}
+
 type CreateOptions struct {
 	CloudMeta `json:",inline"`
 
@@ -53,4 +58,6 @@ type ListOptions struct {
 	CloudMeta `json:",inline"`
 
 	Namespace string `uri:"namespace" binding:"required"`
+
+	Selector *ListSelector
 }
