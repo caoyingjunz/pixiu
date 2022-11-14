@@ -19,7 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
-	pkgtypes "github.com/caoyingjunz/gopixiu/pkg/types"
+
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -29,6 +29,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	pkgtypes "github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 const defaultJWTKey string = "gopixiu"
@@ -257,7 +258,7 @@ func (u *user) ResetPassword(ctx context.Context, uid int64, currentLoginUserId 
 	// 获取当前登陆用户
 	currentLoginUserObj, err := u.factory.User().Get(ctx, currentLoginUserId)
 	if err != nil {
-		log.Logger.Errorf("failed to get admin by id %d: %v", uid, err)
+		log.Logger.Errorf("failed to get admin by id %d: %v", currentLoginUserId, err)
 		return err
 	}
 
