@@ -330,12 +330,12 @@ func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 
 // List 返回分页查询
 func (c *cloud) List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error) {
-	// 分页查询
 	cloudObjs, total, err := c.factory.Cloud().PageList(ctx, selector.Page, selector.Limit)
 	if err != nil {
-		log.Logger.Errorf("failed to page %d limit %d list  clouds: %v", selector.Page, selector.Limit, err)
+		log.Logger.Errorf("failed to list page %d size %d clouds: %v", selector.Page, selector.Limit, err)
 		return nil, err
 	}
+
 	var cs []types.Cloud
 	for _, cloudObj := range cloudObjs {
 		cs = append(cs, *c.model2Type(&cloudObj))
