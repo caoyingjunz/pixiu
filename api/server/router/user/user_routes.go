@@ -221,8 +221,7 @@ func (u *userRouter) resetPassword(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	//只有管理员才能重置密码
-	if err := pixiu.CoreV1.User().ResetPassword(context.TODO(), idOptions.Id); err != nil {
+	if err := pixiu.CoreV1.User().ResetPassword(context.TODO(), idOptions.Id, c.GetInt64("userId")); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
