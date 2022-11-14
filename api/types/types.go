@@ -33,12 +33,6 @@ type ObjectOptions struct {
 	ObjectName string `uri:"object_name" binding:"required"`
 }
 
-type NamespaceOptions struct {
-	CloudOptions `json:",inline"`
-
-	ObjectOptions `json:",inline"`
-}
-
 // NodeOptions todo: 后续整合优化
 type NodeOptions struct {
 	CloudOptions `json:",inline"`
