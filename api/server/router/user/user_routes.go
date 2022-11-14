@@ -213,8 +213,8 @@ func (u *userRouter) logout(c *gin.Context) {}
 // @Param        id   path      int  true  "user ID"  Format(int64)
 // @Success      200  {object}  httputils.Response{result=types.User}
 // @Failure      400  {object}  httputils.HttpError
-// @Router       /users/{id} [put]
-func (u *userRouter) resetPassword(c *gin.Context) {
+// @Router       /users/{id}/password [put]
+func (u *userRouter) resetpassword(c *gin.Context) {
 	r := httputils.NewResponse()
 	var idOptions types.IdOptions
 	if err := c.ShouldBindUri(&idOptions); err != nil {
