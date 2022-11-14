@@ -58,4 +58,6 @@ type ListOptions struct {
 	CloudMeta `json:",inline"`
 
 	Namespace string `uri:"namespace" binding:"required"`
+
+	Selector *ListSelector
 }

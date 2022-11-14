@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
@@ -146,15 +147,8 @@ func (s *cloudRouter) getCloud(c *gin.Context) {
 
 func (s *cloudRouter) listClouds(c *gin.Context) {
 	r := httputils.NewResponse()
-	var (
-		err        error
-		pageOption types.PageOptions
-	)
-	if err = c.ShouldBindQuery(&pageOption); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO(), &pageOption); err != nil {
+	var err error
+	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO(), pixiumeta.ParseListSelector(c)); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
