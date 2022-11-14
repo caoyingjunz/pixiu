@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	pkgtypes "github.com/caoyingjunz/gopixiu/pkg/types"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -31,7 +32,6 @@ import (
 )
 
 const defaultJWTKey string = "gopixiu"
-const defaultPassWord = "pixiu123"
 
 type UserGetter interface {
 	User() UserInterface
@@ -50,7 +50,7 @@ type UserInterface interface {
 	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error
 
 	// ResetPassword 重置密码
-	ResetPassword(ctx context.Context, uid int64) error
+	ResetPassword(ctx context.Context, uid int64, currentLoginUserId int64) error
 
 	GetJWTKey() []byte
 
@@ -246,21 +246,32 @@ func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Passwor
 	return nil
 }
 
-func (u *user) ResetPassword(ctx context.Context, uid int64) error {
-	// 获取当前用户
+func (u *user) ResetPassword(ctx context.Context, uid int64, currentLoginUserId int64) error {
+	// 获取被修改用户
 	userObj, err := u.factory.User().Get(ctx, uid)
 	if err != nil {
 		log.Logger.Errorf("failed to get user by id %d: %v", uid, err)
 		return err
 	}
 
+	// 获取当前登陆用户
+	currentLoginUserObj, err := u.factory.User().Get(ctx, currentLoginUserId)
+	if err != nil {
+		log.Logger.Errorf("failed to get admin by id %d: %v", uid, err)
+		return err
+	}
+
+	// 管理员角色可以重置密码
+	if pkgtypes.AdminRoleName != currentLoginUserObj.Role {
+		return fmt.Errorf("only admin can reset password")
+	}
+
 	// 密码加密存储
-	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(defaultPassWord), bcrypt.DefaultCost)
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(pkgtypes.DefaultPassWord), bcrypt.DefaultCost)
 	if err != nil {
 		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err
 	}
-	// TODO - 管理员可以重置他人的密码
 
 	if err = u.factory.User().Update(ctx, uid, userObj.ResourceVersion, map[string]interface{}{"password": encryptedPassword}); err != nil {
 		log.Logger.Errorf("failed to reset %d password %d: %v", uid, err)
