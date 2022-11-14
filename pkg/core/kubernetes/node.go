@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -55,7 +56,7 @@ func NewNodes(c *kubernetes.Clientset, cloud string) *nodes {
 
 func (c *nodes) Get(ctx context.Context, nodeOptions types.NodeOptions) (*v1.Node, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	node, err := c.client.CoreV1().
 		Nodes().
@@ -70,7 +71,7 @@ func (c *nodes) Get(ctx context.Context, nodeOptions types.NodeOptions) (*v1.Nod
 
 func (c *nodes) List(ctx context.Context) ([]types.Node, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	nodeList, err := c.client.CoreV1().
 		Nodes().

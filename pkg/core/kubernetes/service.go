@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -54,7 +55,7 @@ func NewServices(c *kubernetes.Clientset, cloud string) *services {
 
 func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	svc, err := c.client.CoreV1().
 		Services(listOptions.Namespace).
@@ -69,7 +70,7 @@ func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]v
 
 func (c *services) Create(ctx context.Context, service *v1.Service) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.CoreV1().
 		Services(service.Namespace).
@@ -84,7 +85,7 @@ func (c *services) Create(ctx context.Context, service *v1.Service) error {
 
 func (c *services) Update(ctx context.Context, service *v1.Service) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	servicesClient := c.client.CoreV1().Services(service.Namespace)
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -107,7 +108,7 @@ func (c *services) Update(ctx context.Context, service *v1.Service) error {
 
 func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	err := c.client.CoreV1().
 		Services(deleteOptions.Namespace).
@@ -122,7 +123,7 @@ func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOp
 
 func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	svc, err := c.client.CoreV1().
 		Services(getOptions.Namespace).

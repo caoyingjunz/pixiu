@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/api/types"
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -49,7 +50,7 @@ func NewEvents(c *kubernetes.Clientset, cloud string) *events {
 
 func (c *events) List(ctx context.Context, listOptions types.ListOptions) ([]corev1.Event, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	event, err := c.client.CoreV1().
 		Events(listOptions.Namespace).

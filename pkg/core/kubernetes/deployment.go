@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -51,7 +52,7 @@ func NewDeployments(c *kubernetes.Clientset, cloud string) *deployments {
 
 func (c *deployments) Create(ctx context.Context, deployment *v1.Deployment) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		log.Logger.Errorf("failed to create %s namespace %s: %v", c.cloud, deployment.Namespace, err)
@@ -63,7 +64,7 @@ func (c *deployments) Create(ctx context.Context, deployment *v1.Deployment) err
 
 func (c *deployments) Update(ctx context.Context, deployment *v1.Deployment) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.AppsV1().
 		Deployments(deployment.Namespace).
@@ -77,7 +78,7 @@ func (c *deployments) Update(ctx context.Context, deployment *v1.Deployment) err
 
 func (c *deployments) Delete(ctx context.Context, namespace string, objectName string) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if err := c.client.AppsV1().Deployments(namespace).Delete(ctx, objectName, metav1.DeleteOptions{}); err != nil {
 		log.Logger.Errorf("failed to delete %s deployment: %v", c.cloud, objectName, err)
@@ -89,7 +90,7 @@ func (c *deployments) Delete(ctx context.Context, namespace string, objectName s
 
 func (c *deployments) List(ctx context.Context, namespace string) ([]v1.Deployment, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	d, err := c.client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
