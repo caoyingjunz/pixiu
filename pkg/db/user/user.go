@@ -34,12 +34,15 @@ type UserInterface interface {
 	Get(ctx context.Context, uid int64) (*model.User, error)
 	List(ctx context.Context, page, limit int) (*model.PageUser, error)
 
+	// UpdateInternal 忽略 resourceVersion 直接更新，用于内部更新
+	UpdateInternal(ctx context.Context, uid int64, updates map[string]interface{}) error
+	UpdateStatus(c context.Context, userId, status int64) error
+
 	GetByName(ctx context.Context, name string) (*model.User, error)
 	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
 	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
-	UpdateStatus(c context.Context, userId, status int64) error
 }
 
 type user struct {
@@ -137,6 +140,25 @@ func (u *user) List(ctx context.Context, page, limit int) (*model.PageUser, erro
 	}
 	return res, err
 
+}
+
+func (u *user) UpdateStatus(c context.Context, userId, status int64) error {
+	return u.db.Model(&model.User{}).Where("id = ?", userId).Update("status", status).Error
+}
+
+func (u *user) UpdateInternal(ctx context.Context, uid int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+
+	f := u.db.Model(&model.User{}).Where("id = ?", uid).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return dberrors.ErrRecordNotUpdate
+	}
+
+	return nil
 }
 
 func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
@@ -250,8 +272,4 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Me
 
 	treeMenusList := getTreeMenus(menus, 0)
 	return &treeMenusList, nil
-}
-
-func (u *user) UpdateStatus(c context.Context, userId, status int64) error {
-	return u.db.Model(&model.User{}).Where("id = ?", userId).Update("status", status).Error
 }

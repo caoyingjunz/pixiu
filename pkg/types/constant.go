@@ -16,7 +16,11 @@ limitations under the License.
 
 package types
 
-const UserId = "userId"
+const (
+	UserId = "userId"
+	AdminRole = "admin"
+	DefaultPassword = "pixiu123456"
+)
 
 const (
 	HealthURL   = "/healthz"
