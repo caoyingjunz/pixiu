@@ -22,6 +22,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
@@ -42,7 +43,8 @@ type UserInterface interface {
 	Update(ctx context.Context, obj *types.User) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*types.User, error)
-	List(ctx context.Context, page, limit int) (*model.PageUser, error)
+	// List 分页查询
+	List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error)
 
 	Login(ctx context.Context, obj *types.User) (string, error)
 
@@ -149,13 +151,21 @@ func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
 	return model2Type(modelUser), nil
 }
 
-func (u *user) List(ctx context.Context, page, limit int) (*model.PageUser, error) {
-	res, err := u.factory.User().List(ctx, page, limit)
+func (u *user) List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error) {
+	userObjs, total, err := u.factory.User().List(ctx, selector.Page, selector.Limit)
 	if err != nil {
-		log.Logger.Error(err)
+		log.Logger.Errorf("failed to list page %d size %d usrs: %v", selector.Page, selector.Limit, err)
 		return nil, err
 	}
-	return res, nil
+	var us []types.User
+	for _, userObj := range userObjs {
+		us = append(us, *model2Type(&userObj))
+	}
+
+	return map[string]interface{}{
+		"data":  us,
+		"total": total,
+	}, nil
 }
 
 func (u *user) preLogin(ctx context.Context, obj *types.User) error {
