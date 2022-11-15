@@ -14,14 +14,14 @@ import (
 func (s *cloudRouter) listIngress(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions meta.ListOptions
+		err  error
+		opts meta.ListOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Ingress(listOptions.Cloud).List(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Ingress(opts.Cloud).List(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -33,11 +33,11 @@ func (s *cloudRouter) listIngress(c *gin.Context) {
 func (s *cloudRouter) createIngress(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		createOptions meta.CreateOptions
-		ingress       v1.Ingress
+		err     error
+		opts    meta.CreateOptions
+		ingress v1.Ingress
 	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -46,8 +46,8 @@ func (s *cloudRouter) createIngress(c *gin.Context) {
 		return
 	}
 
-	ingress.Namespace = createOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().Ingress(createOptions.Cloud).Create(context.TODO(), &ingress); err != nil {
+	ingress.Namespace = opts.Namespace
+	if err = pixiu.CoreV1.Cloud().Ingress(opts.Cloud).Create(context.TODO(), &ingress); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -58,14 +58,14 @@ func (s *cloudRouter) createIngress(c *gin.Context) {
 func (s *cloudRouter) getIngress(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions meta.GetOptions
+		err  error
+		opts meta.GetOptions
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Ingress(getOptions.Cloud).Get(context.TODO(), getOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Ingress(opts.Cloud).Get(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -75,12 +75,12 @@ func (s *cloudRouter) getIngress(c *gin.Context) {
 
 func (s *cloudRouter) deleteIngress(c *gin.Context) {
 	r := httputils.NewResponse()
-	var deleteOptions meta.DeleteOptions
-	if err := c.ShouldBindUri(&deleteOptions); err != nil {
+	var opts meta.DeleteOptions
+	if err := c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().Ingress(deleteOptions.Cloud).Delete(context.TODO(), deleteOptions)
+	err := pixiu.CoreV1.Cloud().Ingress(opts.Cloud).Delete(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

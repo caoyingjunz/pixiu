@@ -14,11 +14,11 @@ import (
 func (s *cloudRouter) createJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions meta.CreateOptions
-		job        batchv1.Job
+		err  error
+		opts meta.CreateOptions
+		job  batchv1.Job
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -26,8 +26,8 @@ func (s *cloudRouter) createJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	job.Namespace = getOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().Jobs(getOptions.Cloud).Create(context.TODO(), &job); err != nil {
+	job.Namespace = opts.Namespace
+	if err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Create(context.TODO(), &job); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -38,17 +38,17 @@ func (s *cloudRouter) createJob(c *gin.Context) {
 func (s *cloudRouter) updateJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		createOptions meta.UpdateOptions
-		job           batchv1.Job
+		err  error
+		opts meta.UpdateOptions
+		job  batchv1.Job
 	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	job.Name = createOptions.ObjectName
-	job.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().Jobs(createOptions.Cloud).Update(context.TODO(), &job)
+	job.Name = opts.ObjectName
+	job.Namespace = opts.Namespace
+	err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Update(context.TODO(), &job)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -59,12 +59,12 @@ func (s *cloudRouter) updateJob(c *gin.Context) {
 
 func (s *cloudRouter) deleteJob(c *gin.Context) {
 	r := httputils.NewResponse()
-	var deleteOptions meta.DeleteOptions
-	if err := c.ShouldBindUri(&deleteOptions); err != nil {
+	var opts meta.DeleteOptions
+	if err := c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().Jobs(deleteOptions.Cloud).Delete(context.TODO(), deleteOptions)
+	err := pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Delete(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -76,14 +76,14 @@ func (s *cloudRouter) deleteJob(c *gin.Context) {
 func (s *cloudRouter) getJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions meta.GetOptions
+		err  error
+		opts meta.GetOptions
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Jobs(getOptions.Cloud).Get(context.TODO(), getOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Get(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -95,14 +95,14 @@ func (s *cloudRouter) getJob(c *gin.Context) {
 func (s *cloudRouter) listJobs(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions meta.ListOptions
+		err  error
+		opts meta.ListOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Jobs(listOptions.Cloud).List(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).List(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

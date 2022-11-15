@@ -28,14 +28,14 @@ import (
 func (s *cloudRouter) listEvents(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions meta.ListOptions
+		err  error
+		opts meta.ListOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Events(listOptions.Cloud).List(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Events(opts.Cloud).List(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
