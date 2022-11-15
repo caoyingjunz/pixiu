@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -29,7 +28,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
-	pkgtypes "github.com/caoyingjunz/gopixiu/pkg/types"
+	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 const defaultJWTKey string = "gopixiu"
@@ -263,12 +262,12 @@ func (u *user) ResetPassword(ctx context.Context, uid int64, currentLoginUserId 
 	}
 
 	// 管理员角色可以重置密码
-	if pkgtypes.AdminRoleName != currentLoginUserObj.Role {
+	if typesv2.AdminRoleName != currentLoginUserObj.Role {
 		return fmt.Errorf("only admin can reset password")
 	}
 
 	// 密码加密存储
-	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(pkgtypes.DefaultPassWord), bcrypt.DefaultCost)
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(typesv2.DefaultPassWord), bcrypt.DefaultCost)
 	if err != nil {
 		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err
