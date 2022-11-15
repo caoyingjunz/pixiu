@@ -22,9 +22,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -154,14 +154,14 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "0")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	limitStr := c.DefaultQuery("limit", "0")
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 	if r.Result, err = pixiu.CoreV1.User().List(c, page, limit); err != nil {
@@ -256,14 +256,14 @@ func (u *userRouter) getButtonsByCurrentUser(c *gin.Context) {
 	r := httputils.NewResponse()
 	uidStr, exist := c.Get("userId")
 	if !exist {
-		httputils.SetFailed(c, r, httpstatus.NoUserIdError)
+		httputils.SetFailed(c, r, errors.NoUserIdError)
 		return
 	}
 	uid := uidStr.(int64)
 
 	res, err := pixiu.CoreV1.User().GetButtonsByUserID(c, uid)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 	r.Result = res
@@ -282,14 +282,14 @@ func (u *userRouter) getLeftMenusByCurrentUser(c *gin.Context) {
 	uidStr, exist := c.Get("userId")
 	r := httputils.NewResponse()
 	if !exist {
-		httputils.SetFailed(c, r, httpstatus.NoUserIdError)
+		httputils.SetFailed(c, r, errors.NoUserIdError)
 		return
 	}
 	var err error
 	uid := uidStr.(int64)
 	r.Result, err = pixiu.CoreV1.User().GetLeftMenusByUserID(c, uid)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
@@ -309,12 +309,12 @@ func (u *userRouter) getUserRoles(c *gin.Context) {
 	r := httputils.NewResponse()
 	uid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 	result, err := pixiu.CoreV1.User().GetRoleIDByUser(c, uid)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 	r.Result = result
@@ -336,25 +336,25 @@ func (u *userRouter) setUserRoles(c *gin.Context) {
 	r := httputils.NewResponse()
 	err := c.ShouldBindJSON(&roles)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	uid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	res, err := pixiu.CoreV1.User().Get(c, uid)
 	if err != nil || res == nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	err = pixiu.CoreV1.User().SetUserRoles(c, uid, roles.RoleIds)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 	httputils.SetSuccess(c, r)

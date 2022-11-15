@@ -117,8 +117,7 @@ func (s *cloud) List(ctx context.Context) ([]model.Cloud, error) {
 
 func (s *cloud) PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error) {
 	var cs []model.Cloud
-	if err := s.db.Limit(pageSize).Offset((page - 1) * pageSize).
-		Find(&cs).Error; err != nil {
+	if err := s.db.Limit(pageSize).Offset((page - 1) * pageSize).Find(&cs).Error; err != nil {
 		return nil, 0, err
 	}
 	total, err := s.Count(ctx)

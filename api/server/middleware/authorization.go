@@ -22,47 +22,39 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func Rbac() gin.HandlerFunc {
+// Authorization 使用 rbac 授权策略
+// TODO: 后续优化
+func Authorization() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if AlwaysAllowPath.Has(path) {
 			return
 		}
 
-		// 用户ID
+		// 用户 ID
 		uid, exist := c.Get("userId")
-		r := httputils.NewResponse()
 		if !exist {
-			r.SetCode(http.StatusUnauthorized)
-			httputils.SetFailed(c, r, httpstatus.NoPermission)
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, errors.NoPermission)
+			return
+		}
+		enforcer := pixiu.CoreV1.Policy().GetEnforce()
+		if enforcer == nil {
+			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, errors.InnerError)
 			return
 		}
 
-		method := c.Request.Method
-		enforcer := pixiu.CoreV1.Policy().GetEnforce()
-		if enforcer == nil {
-			log.Logger.Errorf("failed to get enforce.")
-			return
-		}
-		uidStr := strconv.FormatInt(uid.(int64), 10)
-		ok, err := enforcer.Enforce(uidStr, path, method)
+		ok, err := enforcer.Enforce(strconv.FormatInt(uid.(int64), 10), path, c.Request.Method)
 		if err != nil {
-			r.SetCode(http.StatusInternalServerError)
-			httputils.SetFailed(c, r, httpstatus.InnerError)
-			c.Abort()
+			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, errors.InnerError)
 			return
 		}
 		if !ok {
-			r.SetCode(http.StatusUnauthorized)
-			httputils.SetFailed(c, r, httpstatus.NoPermission)
-			c.Abort()
-			return
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, errors.NoPermission)
 		}
 	}
 }

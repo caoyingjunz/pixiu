@@ -34,7 +34,7 @@ require (
 	go.uber.org/zap v1.22.0
 	golang.org/x/crypto v0.1.0
 	golang.org/x/oauth2 v0.1.0 // indirect
-	golang.org/x/time v0.1.0 // indirect
+	golang.org/x/time v0.1.0
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gorm.io/driver/mysql v1.3.6
