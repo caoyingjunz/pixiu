@@ -18,7 +18,6 @@ package user
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -152,20 +151,8 @@ func (u *userRouter) getUser(c *gin.Context) {
 // @Router       /users [get]
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
-	pageStr := c.DefaultQuery("page", "0")
-	page, err := strconv.Atoi(pageStr)
-	if err != nil {
-		httputils.SetFailed(c, r, errors.ParamsError)
-		return
-	}
-
-	limitStr := c.DefaultQuery("limit", "0")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
-		httputils.SetFailed(c, r, errors.ParamsError)
-		return
-	}
-	if r.Result, err = pixiu.CoreV1.User().List(c, page, limit); err != nil {
+	var err error
+	if r.Result, err = pixiu.CoreV1.User().List(c, pixiumeta.ParseListSelector(c)); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
