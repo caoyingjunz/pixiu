@@ -42,7 +42,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("", s.listClouds)
 
 		// 检查 kubernetes 的连通性
-		cloudRoute.POST("/", s.pingCloud)
+		cloudRoute.POST("/ping", s.pingCloud)
 
 		// kubeConfig API
 		// 点击生成指定权限的 kubeConfig，支持用完销毁
