@@ -16,7 +16,9 @@ limitations under the License.
 
 package meta
 
-type IdMeta struct{}
+type IdMeta struct {
+	Id int64 `uri:"id" binding:"required"`
+}
 
 type CloudMeta struct {
 	Cloud string `uri:"cloud_name" binding:"required"`

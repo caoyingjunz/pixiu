@@ -46,12 +46,10 @@ type UserInterface interface {
 
 	Login(ctx context.Context, obj *types.User) (string, error)
 
-	// ChangePassword 修改密码
-	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error
+	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error // ChangePassword 修改密码
+	ResetPassword(ctx context.Context, uid int64, loginId int64) error        // ResetPassword 重置密码
 
-	// ResetPassword 重置密码
-	ResetPassword(ctx context.Context, uid int64, currentLoginUserId int64) error
-
+	// GetJWTKey 获取 jwt key
 	GetJWTKey() []byte
 
 	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
@@ -246,7 +244,7 @@ func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Passwor
 	return nil
 }
 
-func (u *user) ResetPassword(ctx context.Context, uid int64, currentLoginUserId int64) error {
+func (u *user) ResetPassword(ctx context.Context, uid int64, loginId int64) error {
 	// 获取被修改用户
 	userObj, err := u.factory.User().Get(ctx, uid)
 	if err != nil {
@@ -255,19 +253,18 @@ func (u *user) ResetPassword(ctx context.Context, uid int64, currentLoginUserId 
 	}
 
 	// 获取当前登陆用户
-	currentLoginUserObj, err := u.factory.User().Get(ctx, currentLoginUserId)
+	loginObj, err := u.factory.User().Get(ctx, loginId)
 	if err != nil {
-		log.Logger.Errorf("failed to get admin by id %d: %v", currentLoginUserId, err)
+		log.Logger.Errorf("failed to get admin by id %d: %v", loginId, err)
 		return err
 	}
-
 	// 管理员角色可以重置密码
-	if typesv2.AdminRoleName != currentLoginUserObj.Role {
+	if typesv2.AdminRole != loginObj.Role {
 		return fmt.Errorf("only admin can reset password")
 	}
 
 	// 密码加密存储
-	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(typesv2.DefaultPassWord), bcrypt.DefaultCost)
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(typesv2.DefaultPassword), bcrypt.DefaultCost)
 	if err != nil {
 		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err

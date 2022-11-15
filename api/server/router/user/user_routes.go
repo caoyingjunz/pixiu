@@ -22,6 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/errors"
@@ -216,15 +217,19 @@ func (u *userRouter) logout(c *gin.Context) {}
 // @Router       /users/{id}/password [put]
 func (u *userRouter) resetPassword(c *gin.Context) {
 	r := httputils.NewResponse()
-	var idOptions types.IdOptions
-	if err := c.ShouldBindUri(&idOptions); err != nil {
+	var (
+		err  error
+		opts pixiumeta.IdMeta
+	)
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := pixiu.CoreV1.User().ResetPassword(context.TODO(), idOptions.Id, c.GetInt64("userId")); err != nil {
+	if err = pixiu.CoreV1.User().ResetPassword(context.TODO(), opts.Id, c.GetInt64("userId")); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	httputils.SetSuccess(c, r)
 }
 
@@ -240,9 +245,8 @@ func (u *userRouter) resetPassword(c *gin.Context) {
 // @Router       /users/{id} [put]
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
-
-	var idOptions types.IdOptions
-	if err := c.ShouldBindUri(&idOptions); err != nil {
+	var opts pixiumeta.IdMeta
+	if err := c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -253,7 +257,7 @@ func (u *userRouter) changePassword(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	password.UserId = idOptions.Id
+	password.UserId = opts.Id
 
 	// 需要通过 token 中的 id 判断当前操作的用户和需要修改密码的用户是否是同一个
 	// Get the uid from token
