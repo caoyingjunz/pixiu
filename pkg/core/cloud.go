@@ -356,7 +356,7 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 	}
 	_, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return nil
