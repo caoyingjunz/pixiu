@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/api/meta"
 	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
@@ -35,9 +35,9 @@ type JobsGetter interface {
 type JobInterface interface {
 	Create(ctx context.Context, job *batchv1.Job) error
 	Update(ctx context.Context, job *batchv1.Job) error
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*batchv1.Job, error)
-	List(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error)
+	Delete(ctx context.Context, deleteOptions meta.DeleteOptions) error
+	Get(ctx context.Context, getOptions meta.GetOptions) (*batchv1.Job, error)
+	List(ctx context.Context, listOptions meta.ListOptions) ([]batchv1.Job, error)
 }
 
 type jobs struct {
@@ -81,7 +81,7 @@ func (c *jobs) Update(ctx context.Context, job *batchv1.Job) error {
 	return nil
 }
 
-func (c *jobs) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *jobs) Delete(ctx context.Context, deleteOptions meta.DeleteOptions) error {
 	if c.client == nil {
 		return pixiuerrors.ErrCloudNotRegister
 	}
@@ -95,7 +95,7 @@ func (c *jobs) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOption
 	return nil
 }
 
-func (c *jobs) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*batchv1.Job, error) {
+func (c *jobs) Get(ctx context.Context, getOptions meta.GetOptions) (*batchv1.Job, error) {
 	if c.client == nil {
 		return nil, pixiuerrors.ErrCloudNotRegister
 	}
@@ -103,14 +103,14 @@ func (c *jobs) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*b
 		Jobs(getOptions.Namespace).
 		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to get %s statefulSets: %v", getOptions.CloudName, err)
+		log.Logger.Errorf("failed to get %s statefulSets: %v", getOptions.Cloud, err)
 		return nil, err
 	}
 
 	return job, err
 }
 
-func (c *jobs) List(ctx context.Context, listOptions types.ListOptions) ([]batchv1.Job, error) {
+func (c *jobs) List(ctx context.Context, listOptions meta.ListOptions) ([]batchv1.Job, error) {
 	if c.client == nil {
 		return nil, pixiuerrors.ErrCloudNotRegister
 	}

@@ -56,10 +56,14 @@ func (s *cloudRouter) updateDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err  error
-		opts meta.UpdateOptions
+		opts meta.DeleteOptions
 		d    v1.Deployment
 	)
 	if err = c.ShouldBindUri(&opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&d); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

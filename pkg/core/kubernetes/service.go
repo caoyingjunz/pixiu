@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/api/meta"
 	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
@@ -36,9 +36,9 @@ type ServicesGetter interface {
 type ServiceInterface interface {
 	Create(ctx context.Context, service *v1.Service) error
 	Update(ctx context.Context, service *v1.Service) error
-	Delete(ctx context.Context, getOptions types.GetOrDeleteOptions) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error)
-	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error)
+	Delete(ctx context.Context, getOptions meta.DeleteOptions) error
+	Get(ctx context.Context, getOptions meta.GetOptions) (*v1.Service, error)
+	List(ctx context.Context, listOptions meta.ListOptions) ([]v1.Service, error)
 }
 
 type services struct {
@@ -53,7 +53,7 @@ func NewServices(c *kubernetes.Clientset, cloud string) *services {
 	}
 }
 
-func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]v1.Service, error) {
+func (c *services) List(ctx context.Context, listOptions meta.ListOptions) ([]v1.Service, error) {
 	if c.client == nil {
 		return nil, pixiuerrors.ErrCloudNotRegister
 	}
@@ -61,7 +61,7 @@ func (c *services) List(ctx context.Context, listOptions types.ListOptions) ([]v
 		Services(listOptions.Namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to list %s %s services: %v", listOptions.CloudName, listOptions.Namespace, err)
+		log.Logger.Errorf("failed to list %s %s services: %v", listOptions.Cloud, listOptions.Namespace, err)
 		return nil, err
 	}
 
@@ -106,7 +106,7 @@ func (c *services) Update(ctx context.Context, service *v1.Service) error {
 	return nil
 }
 
-func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *services) Delete(ctx context.Context, deleteOptions meta.DeleteOptions) error {
 	if c.client == nil {
 		return pixiuerrors.ErrCloudNotRegister
 	}
@@ -121,7 +121,7 @@ func (c *services) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOp
 	return err
 }
 
-func (c *services) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.Service, error) {
+func (c *services) Get(ctx context.Context, getOptions meta.GetOptions) (*v1.Service, error) {
 	if c.client == nil {
 		return nil, pixiuerrors.ErrCloudNotRegister
 	}

@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/api/meta"
 	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
@@ -19,9 +19,9 @@ type DaemonSetGetter interface {
 type DaemonSetInterface interface {
 	Create(ctx context.Context, daemonset *v1.DaemonSet) error
 	Update(ctx context.Context, daemonset *v1.DaemonSet) error
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.DaemonSet, error)
-	List(ctx context.Context, listOptions types.ListOptions) ([]v1.DaemonSet, error)
+	Delete(ctx context.Context, deleteOptions meta.DeleteOptions) error
+	Get(ctx context.Context, getOptions meta.GetOptions) (*v1.DaemonSet, error)
+	List(ctx context.Context, listOptions meta.ListOptions) ([]v1.DaemonSet, error)
 }
 
 type daemonSets struct {
@@ -65,7 +65,7 @@ func (c *daemonSets) Update(ctx context.Context, daemonset *v1.DaemonSet) error 
 	return nil
 }
 
-func (c *daemonSets) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *daemonSets) Delete(ctx context.Context, deleteOptions meta.DeleteOptions) error {
 	if c.client == nil {
 		return pixiuerrors.ErrCloudNotRegister
 	}
@@ -79,7 +79,7 @@ func (c *daemonSets) Delete(ctx context.Context, deleteOptions types.GetOrDelete
 	return nil
 }
 
-func (c *daemonSets) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*v1.DaemonSet, error) {
+func (c *daemonSets) Get(ctx context.Context, getOptions meta.GetOptions) (*v1.DaemonSet, error) {
 	if c.client == nil {
 		return nil, pixiuerrors.ErrCloudNotRegister
 	}
@@ -87,14 +87,14 @@ func (c *daemonSets) Get(ctx context.Context, getOptions types.GetOrDeleteOption
 		DaemonSets(getOptions.Namespace).
 		Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to get %s daemonsets: %v", getOptions.CloudName, err)
+		log.Logger.Errorf("failed to get %s daemonsets: %v", getOptions.Cloud, err)
 		return nil, err
 	}
 
 	return ds, err
 }
 
-func (c *daemonSets) List(ctx context.Context, listOptions types.ListOptions) ([]v1.DaemonSet, error) {
+func (c *daemonSets) List(ctx context.Context, listOptions meta.ListOptions) ([]v1.DaemonSet, error) {
 	if c.client == nil {
 		return nil, pixiuerrors.ErrCloudNotRegister
 	}
