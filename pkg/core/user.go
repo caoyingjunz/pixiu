@@ -163,7 +163,7 @@ func (u *user) List(ctx context.Context, selector *pixiumeta.ListSelector) (inte
 	}
 
 	return map[string]interface{}{
-		"data":  us,
+		"users": us,
 		"total": total,
 	}, nil
 }
