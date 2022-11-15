@@ -354,8 +354,7 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 		log.Logger.Errorf("failed to create clientSet: %v", err)
 		return err
 	}
-	_, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
-	if err != nil {
+	if _, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{}); err != nil {
 		return err
 	}
 
