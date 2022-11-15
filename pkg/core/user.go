@@ -245,13 +245,6 @@ func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Passwor
 }
 
 func (u *user) ResetPassword(ctx context.Context, uid int64, loginId int64) error {
-	// 获取被修改用户
-	userObj, err := u.factory.User().Get(ctx, uid)
-	if err != nil {
-		log.Logger.Errorf("failed to get user by id %d: %v", uid, err)
-		return err
-	}
-
 	// 获取当前登陆用户
 	loginObj, err := u.factory.User().Get(ctx, loginId)
 	if err != nil {
@@ -269,11 +262,11 @@ func (u *user) ResetPassword(ctx context.Context, uid int64, loginId int64) erro
 		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err
 	}
-
-	if err = u.factory.User().Update(ctx, uid, userObj.ResourceVersion, map[string]interface{}{"password": encryptedPassword}); err != nil {
+	if err = u.factory.User().UpdateInternal(ctx, uid, map[string]interface{}{"password": encryptedPassword}); err != nil {
 		log.Logger.Errorf("failed to reset %d password %d: %v", uid, err)
 		return err
 	}
+
 	return nil
 }
 func (u *user) GetJWTKey() []byte {
