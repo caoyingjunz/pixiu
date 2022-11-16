@@ -18,10 +18,10 @@ package user
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/errors"
@@ -151,20 +151,8 @@ func (u *userRouter) getUser(c *gin.Context) {
 // @Router       /users [get]
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
-	pageStr := c.DefaultQuery("page", "0")
-	page, err := strconv.Atoi(pageStr)
-	if err != nil {
-		httputils.SetFailed(c, r, errors.ParamsError)
-		return
-	}
-
-	limitStr := c.DefaultQuery("limit", "0")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
-		httputils.SetFailed(c, r, errors.ParamsError)
-		return
-	}
-	if r.Result, err = pixiu.CoreV1.User().List(c, page, limit); err != nil {
+	var err error
+	if r.Result, err = pixiu.CoreV1.User().List(c, pixiumeta.ParseListSelector(c)); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -205,7 +193,32 @@ func (u *userRouter) login(c *gin.Context) {
 // TODO
 func (u *userRouter) logout(c *gin.Context) {}
 
-func (u *userRouter) resetPassword(c *gin.Context) {}
+// @Summary      reset password by user id
+// @Description  reset password by user id
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "user ID"  Format(int64)
+// @Success      200  {object}  httputils.Response{result=types.User}
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/{id}/password [put]
+func (u *userRouter) resetPassword(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err  error
+		opts pixiumeta.IdMeta
+	)
+	if err = c.ShouldBindUri(&opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.User().ResetPassword(context.TODO(), opts.Id, c.GetInt64("userId")); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
 
 // @Summary      Change user password
 // @Description  Change user password
@@ -219,9 +232,8 @@ func (u *userRouter) resetPassword(c *gin.Context) {}
 // @Router       /users/{id} [put]
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
-
-	var idOptions types.IdOptions
-	if err := c.ShouldBindUri(&idOptions); err != nil {
+	var opts pixiumeta.IdMeta
+	if err := c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -232,7 +244,7 @@ func (u *userRouter) changePassword(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	password.UserId = idOptions.Id
+	password.UserId = opts.Id
 
 	// 需要通过 token 中的 id 判断当前操作的用户和需要修改密码的用户是否是同一个
 	// Get the uid from token

@@ -247,7 +247,7 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 	for _, master := range kubeObj.Masters {
 		kubeNodes = append(kubeNodes, model.Node{
 			CloudId:  cid,
-			Role:     typesv2.MasterRole,
+			Role:     string(typesv2.MasterRole),
 			HostName: master.HostName,
 			Address:  master.Address,
 			User:     master.User,
@@ -258,7 +258,7 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 	for _, node := range kubeObj.Nodes {
 		kubeNodes = append(kubeNodes, model.Node{
 			CloudId:  cid,
-			Role:     typesv2.NodeRole,
+			Role:     string(typesv2.NodeRole),
 			HostName: node.HostName,
 			Address:  node.Address,
 			User:     node.User,
@@ -354,9 +354,8 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 		log.Logger.Errorf("failed to create clientSet: %v", err)
 		return err
 	}
-	_, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
-	if err != nil {
-		return nil
+	if _, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{}); err != nil {
+		return err
 	}
 
 	return nil
