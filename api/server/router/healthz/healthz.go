@@ -14,22 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package errors
+package healthz
 
-import (
-	"errors"
+import "github.com/gin-gonic/gin"
 
-	"gorm.io/gorm"
-)
+// healthzRouter is a router to talk with the healthz controller
+type healthzRouter struct{}
 
-var (
-	ErrRecordNotUpdate = errors.New("record not updated")
-)
-
-func IsNotFound(err error) bool {
-	return errors.Is(err, gorm.ErrRecordNotFound)
+// NewRouter initializes a new healthz router
+func NewRouter(ginEngine *gin.Engine) {
+	s := &healthzRouter{}
+	s.initRoutes(ginEngine)
 }
 
-func IsNotUpdate(err error) bool {
-	return errors.Is(err, ErrRecordNotUpdate)
+func (h *healthzRouter) initRoutes(ginEngine *gin.Engine) {
+	healthzRoute := ginEngine.Group("/healthz")
+	{
+		// main process healthz check
+		healthzRoute.GET("", h.healthz)
+	}
 }

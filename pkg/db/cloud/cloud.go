@@ -28,12 +28,25 @@ import (
 type CloudInterface interface {
 	Create(ctx context.Context, obj *model.Cloud) (*model.Cloud, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, cid int64) error
+	Delete(ctx context.Context, cid int64) (*model.Cloud, error)
 	Get(ctx context.Context, cid int64) (*model.Cloud, error)
 	List(ctx context.Context) ([]model.Cloud, error)
 
+	SetStatus(ctx context.Context, name string, status int) error
+	GetByName(ctx context.Context, name string) (*model.Cloud, error)
+
 	PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error)
 	Count(ctx context.Context) (int64, error)
+
+	CreateCluster(ctx context.Context, cluObj *model.Cluster) error
+	UpdateCluster(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
+	DeleteCluster(ctx context.Context, cid int64) error
+	GetCluster(ctx context.Context, cid int64) (*model.Cluster, error)
+
+	// CreateNodes 批量创建 nodes
+	CreateNodes(ctx context.Context, nodesObj []model.Node) error
+	DeleteNodes(ctx context.Context, cid int64) error
+	GetNodes(ctx context.Context, cid int64) ([]model.Node, error)
 }
 
 type cloud struct {
@@ -71,11 +84,17 @@ func (s *cloud) Update(ctx context.Context, uid int64, resourceVersion int64, up
 	return nil
 }
 
-func (s *cloud) Delete(ctx context.Context, cid int64) error {
-	return s.db.
-		Where("id = ?", cid).
-		Delete(&model.Cloud{}).
-		Error
+func (s *cloud) Delete(ctx context.Context, cid int64) (*model.Cloud, error) {
+	// mysql 不支持在删除的时候直接返回删除数据，新增一次查询规避
+	obj, err := s.Get(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.db.Where("id = ?", cid).Delete(&model.Cloud{}).Error; err != nil {
+		return nil, err
+	}
+
+	return obj, nil
 }
 
 func (s *cloud) Get(ctx context.Context, cid int64) (*model.Cloud, error) {
@@ -98,8 +117,7 @@ func (s *cloud) List(ctx context.Context) ([]model.Cloud, error) {
 
 func (s *cloud) PageList(ctx context.Context, page int, pageSize int) ([]model.Cloud, int64, error) {
 	var cs []model.Cloud
-	if err := s.db.Limit(pageSize).Offset((page - 1) * pageSize).
-		Find(&cs).Error; err != nil {
+	if err := s.db.Limit(pageSize).Offset((page - 1) * pageSize).Find(&cs).Error; err != nil {
 		return nil, 0, err
 	}
 	total, err := s.Count(ctx)
@@ -117,4 +135,75 @@ func (s *cloud) Count(ctx context.Context) (int64, error) {
 	}
 
 	return count, nil
+}
+
+func (s *cloud) SetStatus(ctx context.Context, name string, status int) error {
+	updates := make(map[string]interface{})
+	updates["gmt_modified"] = time.Now() // 系统维护字段
+
+	updates["status"] = status
+	f := s.db.Model(&model.Cloud{}).Where("name = ?", name).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+
+	return nil
+}
+
+func (s *cloud) GetByName(ctx context.Context, name string) (*model.Cloud, error) {
+	var c model.Cloud
+	if err := s.db.Where("name = ?", name).First(&c).Error; err != nil {
+		return nil, err
+	}
+
+	return &c, nil
+}
+
+func (s *cloud) CreateCluster(ctx context.Context, cluObj *model.Cluster) error {
+	now := time.Now()
+	cluObj.GmtCreate = now
+	cluObj.GmtModified = now
+
+	return s.db.Create(cluObj).Error
+}
+
+func (s *cloud) UpdateCluster(ctx context.Context, clusterId int64, resourceVersion int64, updates map[string]interface{}) error {
+	return nil
+}
+
+func (s *cloud) DeleteCluster(ctx context.Context, cid int64) error {
+	return s.db.
+		Where("cloud_id = ?", cid).
+		Delete(&model.Cluster{}).
+		Error
+}
+
+func (s *cloud) GetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error) {
+	return nil, nil
+}
+
+func (s *cloud) CreateNodes(ctx context.Context, nodesObj []model.Node) error {
+	now := time.Now()
+	for index := range nodesObj {
+		nodesObj[index].GmtCreate = now
+		nodesObj[index].GmtModified = now
+	}
+
+	return s.db.Create(nodesObj).Error
+}
+
+func (s *cloud) DeleteNodes(ctx context.Context, cid int64) error {
+	return s.db.
+		Where("cloud_id = ?", cid).
+		Delete(&model.Node{}).
+		Error
+}
+
+func (s *cloud) GetNodes(ctx context.Context, cid int64) ([]model.Node, error) {
+	var nodes []model.Node
+	if err := s.db.Where("cloud_id = ?", cid).Find(&nodes).Error; err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
 }

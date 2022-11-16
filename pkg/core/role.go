@@ -18,8 +18,8 @@ package core
 
 import (
 	"context"
-	"errors"
 
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -31,17 +31,18 @@ type RoleGetter interface {
 
 // RoleInterface 角色操作接口
 type RoleInterface interface {
-	Create(c context.Context, obj *model.Role) (role *model.Role, err error)
-	Update(c context.Context, role *model.Role, rid int64) error
+	Create(c context.Context, obj *types.RoleReq) (role *model.Role, err error)
+	Update(c context.Context, role *types.UpdateRoleReq, rid int64) error
 	Delete(c context.Context, rId int64) error
 	Get(c context.Context, rid int64) (roles *[]model.Role, err error)
-	List(c context.Context) (roles *[]model.Role, err error)
+	List(c context.Context, page, limit int) (res *model.PageRole, err error)
 
 	GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error)
 	SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 	GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]int64, err error)
 	GetRoleByRoleName(ctx context.Context, roleName string) (*model.Role, error)
 	CheckRoleIsExist(ctx context.Context, name string) bool
+	UpdateStatus(c context.Context, roleId, status int64) error
 }
 
 type role struct {
@@ -56,15 +57,21 @@ func newRole(c *pixiu) *role {
 	}
 }
 
-func (r *role) Create(c context.Context, obj *model.Role) (role *model.Role, err error) {
-	if role, err = r.factory.Role().Create(c, obj); err != nil {
+func (r *role) Create(c context.Context, obj *types.RoleReq) (role *model.Role, err error) {
+	if role, err = r.factory.Role().Create(c, &model.Role{
+		Name:     obj.Name,
+		Memo:     obj.Memo,
+		ParentID: obj.ParentID,
+		Sequence: obj.Sequence,
+		Status:   obj.Status,
+	}); err != nil {
 		log.Logger.Error(err)
 		return
 	}
 	return
 }
 
-func (r *role) Update(c context.Context, role *model.Role, rid int64) error {
+func (r *role) Update(c context.Context, role *types.UpdateRoleReq, rid int64) error {
 	if err := r.factory.Role().Update(c, role, rid); err != nil {
 		log.Logger.Error(err)
 		return err
@@ -97,8 +104,8 @@ func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error
 	return
 }
 
-func (r *role) List(c context.Context) (roles *[]model.Role, err error) {
-	if roles, err = r.factory.Role().List(c); err != nil {
+func (r *role) List(c context.Context, page, limit int) (res *model.PageRole, err error) {
+	if res, err = r.factory.Role().List(c, page, limit); err != nil {
 		log.Logger.Error(err)
 		return
 	}
@@ -135,7 +142,7 @@ func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 		log.Logger.Error(err)
 		//清除rule表中规则
 		for _, menu := range *menus {
-			err := r.factory.Authentication().DeleteRolePermission(ctx, menu.URL, menu.Method)
+			err := r.factory.Authentication().DeleteRolePermissionWithRole(ctx, roleId, menu.URL, menu.Method)
 			if err != nil {
 				log.Logger.Error(err)
 				break
@@ -165,17 +172,17 @@ func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *mo
 	return
 }
 
+func (r *role) UpdateStatus(c context.Context, roleId, status int64) error {
+	return r.factory.Role().UpdateStatus(c, roleId, status)
+}
+
 // CheckRoleIsExist 判断角色是否存在
 func (r *role) CheckRoleIsExist(ctx context.Context, name string) bool {
-	res, err := r.factory.Role().GetRoleByRoleName(ctx, name)
+	_, err := r.factory.Role().GetRoleByRoleName(ctx, name)
 	if err != nil {
 		log.Logger.Error(err)
 		return false
 	}
 
-	if res == nil {
-		log.Logger.Error(errors.New("role is existed"))
-		return false
-	}
 	return true
 }

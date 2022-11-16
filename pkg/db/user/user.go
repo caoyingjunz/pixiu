@@ -22,8 +22,8 @@ import (
 
 	"gorm.io/gorm"
 
-	dberrors "github.com/caoyingjunz/gopixiu/pkg/db/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	dberrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -32,12 +32,16 @@ type UserInterface interface {
 	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
-	List(ctx context.Context) ([]model.User, error)
+	List(ctx context.Context, page int, pageSize int) ([]model.User, int64, error)
+
+	// UpdateInternal 忽略 resourceVersion 直接更新，用于内部更新
+	UpdateInternal(ctx context.Context, uid int64, updates map[string]interface{}) error
+	UpdateStatus(c context.Context, userId, status int64) error
 
 	GetByName(ctx context.Context, name string) (*model.User, error)
 	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
-	GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error)
+	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 }
 
@@ -96,13 +100,39 @@ func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 	return &obj, nil
 }
 
-func (u *user) List(ctx context.Context) ([]model.User, error) {
-	var us []model.User
-	if err := u.db.Find(&us).Error; err != nil {
-		return nil, err
+// List 分页查询
+func (u *user) List(ctx context.Context, page, pageSize int) ([]model.User, int64, error) {
+	var (
+		us    []model.User
+		total int64
+	)
+	if err := u.db.Limit(pageSize).Offset((page - 1) * pageSize).Find(&us).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := u.db.Model(&model.User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 
-	return us, nil
+	return us, total, nil
+}
+
+func (u *user) UpdateStatus(c context.Context, userId, status int64) error {
+	return u.db.Model(&model.User{}).Where("id = ?", userId).Update("status", status).Error
+}
+
+func (u *user) UpdateInternal(ctx context.Context, uid int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+
+	f := u.db.Model(&model.User{}).Where("id = ?", uid).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return dberrors.ErrRecordNotUpdate
+	}
+
+	return nil
 }
 
 func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
@@ -163,52 +193,55 @@ func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (roles *[]model.R
 		Order("id asc").
 		Order("sequence desc").
 		Scan(&roles).Error
-
-	if err != nil || roles == nil {
+	if err != nil {
 		log.Logger.Errorf(err.Error())
 		return nil, err
 	}
 
-	res := getTreeRoles(*roles, 0)
-	return &res, err
+	if roles != nil {
+		res := getTreeRoles(*roles, 0)
+		return &res, err
+	}
+
+	return nil, err
 }
 
 // GetButtonsByUserID 获取菜单按钮
-func (u *user) GetButtonsByUserID(ctx context.Context, uid, menuId int64) (*[]model.Menu, error) {
-	var menus []model.Menu
-	err := u.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name,menus.memo, menus.url, menus.icon,menus.sequence,"+
-		"menus.method, menus.menu_type").
-		Joins("left join role_menus on menus.id = role_menus.menu_id ").
-		Joins("left join user_roles on user_roles.role_id = role_menus.role_id  ").
-		Where("menus.menu_type = 2 and menus.status = 1 and menus.parent_id = ?", menuId).
-		Where(" user_roles.user_id = ?", uid).
-		Group("menus.id").
-		Order("parent_id ASC").
-		Order("sequence ASC").
-		Scan(&menus).Error
+func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
+	var permissions []model.Menu
 
-	if err != nil || menus == nil {
+	err := u.db.Debug().Table("menus").Select(" menus.id, menus.code,menus.menu_type,menus.status").
+		Joins("left join role_menus on menus.id = role_menus.menu_id ").
+		Joins("left join user_roles on user_roles.role_id = role_menus.role_id where role_menus.role_id in (?) and menus.menu_type in (2,3) and menus.status = 1",
+			u.db.Table("roles").Select("roles.id").
+				Joins("left join user_roles on user_roles.role_id = roles.id where  user_roles.user_id = ? and roles.status = 1", uid)).
+		Group("id").
+		Scan(&permissions).Error
+	if err != nil {
 		return nil, err
 	}
-	return &menus, nil
+	return &permissions, nil
 }
 
 // GetLeftMenusByUserID 根据用户ID获取左侧菜单
 func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error) {
 	var menus []model.Menu
-	err := u.db.Table("menus").Select(" menus.id, menus.parent_id,menus.name,menus.memo, menus.url, menus.icon,menus.sequence,"+
-		"menus.method, menus.menu_type").
-		Joins("left join role_menus on menus.id = role_menus.menu_id ").
-		Joins("left join user_roles on user_roles.role_id = role_menus.role_id ").
-		Where("menus.menu_type = 1 and menus.status = 1 and user_roles.user_id = ?", uid).
-		Group("menus.id").
+	err := u.db.Debug().Table("menus").Select(" menus.id, menus.parent_id,menus.name,menus.memo, menus.url, menus.icon,menus.sequence,"+
+		"menus.method, menus.menu_type, menus.status").
+		Joins("left join role_menus on menus.id = role_menus.menu_id where role_menus.role_id in (?) and menus.menu_type = 1 and menus.status = 1",
+			u.db.Table("roles").Select("roles.id").
+				Joins("left join user_roles on user_roles.role_id = roles.id where  user_roles.user_id = ? and roles.status = 1", uid)).
+		Group("id").
 		Order("parent_id ASC").
 		Order("sequence DESC").
 		Scan(&menus).Error
 
-	if err != nil || menus == nil {
-		log.Logger.Errorf(err.Error())
+	if err != nil {
+		log.Logger.Error(err)
 		return nil, err
+	}
+	if len(menus) == 0 {
+		return &menus, nil
 	}
 
 	treeMenusList := getTreeMenus(menus, 0)

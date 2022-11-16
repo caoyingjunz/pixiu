@@ -14,8 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kubernetes
+package middleware
 
-import "fmt"
+import "github.com/gin-gonic/gin"
 
-var clientError = fmt.Errorf("failed to found clout client")
+// Admission 准入控制
+func Admission() gin.HandlerFunc {
+	return func(c *gin.Context) {}
+}

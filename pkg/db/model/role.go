@@ -33,7 +33,7 @@ type Role struct {
 	Sequence int    `gorm:"column:sequence;not null;" json:"sequence" form:"sequence"`                         // 排序值
 	ParentID int64  `gorm:"column:parent_id;not null;" json:"parent_id" form:"parent_id"`                      // 父级ID
 	Status   int8   `gorm:"column:status" json:"status" form:"status"`                                         // 0 表示禁用，1 表示启用
-	Children []Role `gorm:"-"`
+	Children []Role `gorm:"-" json:"children"`
 }
 
 // TableName 自定义表名
@@ -106,4 +106,9 @@ func (u *UserRole) BeforeCreate(*gorm.DB) error {
 func (u *UserRole) BeforeUpdate(*gorm.DB) error {
 	u.GmtModified = time.Now()
 	return nil
+}
+
+type PageRole struct {
+	Roles []Role `json:"roles"`
+	Total int64  `json:"total"`
 }

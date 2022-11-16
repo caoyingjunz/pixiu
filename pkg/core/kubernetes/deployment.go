@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -33,8 +33,9 @@ type DeploymentsGetter interface {
 
 type DeploymentInterface interface {
 	Create(ctx context.Context, deployment *v1.Deployment) error
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
-	List(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error)
+	Update(ctx context.Context, deployment *v1.Deployment) error
+	Delete(ctx context.Context, namespaces string, objectName string) error
+	List(ctx context.Context, namespaces string) ([]v1.Deployment, error)
 }
 
 type deployments struct {
@@ -51,44 +52,51 @@ func NewDeployments(c *kubernetes.Clientset, cloud string) *deployments {
 
 func (c *deployments) Create(ctx context.Context, deployment *v1.Deployment) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
+	}
+	if _, err := c.client.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
+		log.Logger.Errorf("failed to create %s namespace %s: %v", c.cloud, deployment.Namespace, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *deployments) Update(ctx context.Context, deployment *v1.Deployment) error {
+	if c.client == nil {
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.AppsV1().
 		Deployments(deployment.Namespace).
-		Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
-		log.Logger.Errorf("failed to create %s namespace %s: %v", c.cloud, deployment.Namespace, err)
-
+		Update(ctx, deployment, metav1.UpdateOptions{}); err != nil {
+		log.Logger.Errorf("failed to update %s deployment: %v", c.cloud, err)
 		return err
 	}
 
 	return nil
 }
 
-func (c *deployments) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *deployments) Delete(ctx context.Context, namespace string, objectName string) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
-	if err := c.client.AppsV1().
-		Deployments(deleteOptions.Namespace).
-		Delete(ctx, deleteOptions.ObjectName, metav1.DeleteOptions{}); err != nil {
-		log.Logger.Errorf("failed to delete %s deployment: %v", deleteOptions.Namespace, err)
+	if err := c.client.AppsV1().Deployments(namespace).Delete(ctx, objectName, metav1.DeleteOptions{}); err != nil {
+		log.Logger.Errorf("failed to delete %s deployment: %v", c.cloud, objectName, err)
 		return err
 	}
 
 	return nil
 }
 
-func (c *deployments) List(ctx context.Context, listOptions types.ListOptions) ([]v1.Deployment, error) {
+func (c *deployments) List(ctx context.Context, namespace string) ([]v1.Deployment, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
-	deploy, err := c.client.AppsV1().
-		Deployments(listOptions.Namespace).
-		List(ctx, metav1.ListOptions{})
+	d, err := c.client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to list %s deployments: %v", listOptions.Namespace, err)
+		log.Logger.Errorf("failed to list %s deployments: %v", c.cloud, namespace, err)
 		return nil, err
 	}
 
-	return deploy.Items, nil
+	return d.Items, nil
 }

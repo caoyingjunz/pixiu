@@ -22,29 +22,55 @@ import (
 	"github.com/gin-gonic/gin"
 	v1 "k8s.io/api/apps/v1"
 
+	"github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 func (s *cloudRouter) createDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions types.GetOrCreateOptions
-		deployment v1.Deployment
+		err  error
+		opts meta.CreateOptions
+		d    v1.Deployment
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = c.ShouldBindJSON(&deployment); err != nil {
+	if err = c.ShouldBindJSON(&d); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	deployment.Name = getOptions.ObjectName
-	deployment.Namespace = getOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().Deployments(getOptions.CloudName).Create(context.TODO(), &deployment); err != nil {
+
+	d.Namespace = opts.Namespace
+	if err = pixiu.CoreV1.Cloud().Deployments(opts.Cloud).Create(context.TODO(), &d); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) updateDeployment(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err  error
+		opts meta.DeleteOptions
+		d    v1.Deployment
+	)
+	if err = c.ShouldBindUri(&opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = c.ShouldBindJSON(&d); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	d.Name = opts.ObjectName
+	d.Namespace = opts.Namespace
+	err = pixiu.CoreV1.Cloud().Deployments(opts.Cloud).Update(context.TODO(), &d)
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -54,13 +80,15 @@ func (s *cloudRouter) createDeployment(c *gin.Context) {
 
 func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 	r := httputils.NewResponse()
-	var deleteOptions types.GetOrDeleteOptions
-	if err := c.ShouldBindUri(&deleteOptions); err != nil {
+	var (
+		err  error
+		opts meta.UpdateOptions
+	)
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().Deployments(deleteOptions.CloudName).Delete(context.TODO(), deleteOptions)
-	if err != nil {
+	if err = pixiu.CoreV1.Cloud().Deployments(opts.Cloud).Delete(context.TODO(), opts.Namespace, opts.ObjectName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -72,15 +100,14 @@ func (s *cloudRouter) deleteDeployment(c *gin.Context) {
 func (s *cloudRouter) listDeployments(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions types.ListOptions
+		err  error
+		opts meta.ListOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Deployments(listOptions.CloudName).List(context.TODO(), listOptions)
-	if err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().Deployments(opts.Cloud).List(context.TODO(), opts.Namespace); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

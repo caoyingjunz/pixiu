@@ -18,7 +18,6 @@ package core
 
 import (
 	"github.com/bndr/gojenkins"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -37,7 +36,6 @@ type pixiu struct {
 	cfg        config.Config
 	factory    db.ShareDaoFactory
 	cicdDriver *gojenkins.Jenkins
-	clientSets map[string]*kubernetes.Clientset
 }
 
 func (pixiu *pixiu) User() UserInterface {
@@ -71,7 +69,3 @@ func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Je
 		cicdDriver: cicdDriver,
 	}
 }
-
-const (
-	timeLayout = "2006-01-02 15:04:05.999999999"
-)

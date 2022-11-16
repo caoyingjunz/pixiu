@@ -18,15 +18,45 @@ package cloud
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
+
+// buildCloud godoc
+// @Summary      自建 kubernetes 集群
+// @Description  自建 kubernetes 集群
+// @Tags         clouds
+// @Accept       json
+// @Produce      json
+// @Param        buildCloud body types.BuildCloud true "build a cloud"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /clouds/build [post]
+func (s *cloudRouter) buildCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err   error
+		cloud types.BuildCloud
+	)
+	if err = c.ShouldBindJSON(&cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Build(context.TODO(), &cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
 
 func (s *cloudRouter) createCloud(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -34,11 +64,18 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		err   error
 		cloud types.Cloud
 	)
-	cloud.Name = c.Param("name")
-	if len(cloud.Name) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("invaild empty cloud name"))
+	// 前端约定，k8s 集群的原始数据通过 clusterData 传递
+	// 如果获取data失败，或者data为空，则不允许创建
+	data, err := httputils.ReadFile(c, "clusterData")
+	if err != nil || len(data) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("failed to get cluster raw data"))
 		return
 	}
+	if err = json.Unmarshal(data, &cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	// 获取 kubeConfig 文件
 	if cloud.KubeConfig, err = httputils.ReadFile(c, "kubeconfig"); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -51,6 +88,7 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// TODO
 func (s *cloudRouter) updateCloud(c *gin.Context) {
 	r := httputils.NewResponse()
 	httputils.SetSuccess(c, r)
@@ -63,8 +101,8 @@ func (s *cloudRouter) updateCloud(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id   path      int  true  "Cloud ID"  Format(int64)
-// @Success      200  {object}  httputils.Response
-// @Failure      400  {object}  httputils.Response
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
 // @Router       /clouds/{id} [delete]
 func (s *cloudRouter) deleteCloud(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -88,8 +126,8 @@ func (s *cloudRouter) deleteCloud(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id   path      int  true  "Cloud ID" Format(int64)
-// @Success      200  {object}  httputils.Response
-// @Failure      400  {object}  httputils.Response
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
 // @Router       /clouds/{id} [get]
 func (s *cloudRouter) getCloud(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -109,15 +147,33 @@ func (s *cloudRouter) getCloud(c *gin.Context) {
 
 func (s *cloudRouter) listClouds(c *gin.Context) {
 	r := httputils.NewResponse()
-	var (
-		err        error
-		pageOption types.PageOptions
-	)
-	if err = c.ShouldBindQuery(&pageOption); err != nil {
+	var err error
+	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO(), pixiumeta.ParseListSelector(c)); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO(), &pageOption); err != nil {
+
+	httputils.SetSuccess(c, r)
+}
+
+// pingCloud godoc
+// @Summary      Ping a cloud
+// @Description  通过 kubeConfig 检测与 kubernetes 集群的连通性
+// @Tags         clouds
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        kubeconfig  formData  file  true  "kubernetes kubeconfig"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /clouds/ping [post]
+func (s *cloudRouter) pingCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	data, err := httputils.ReadFile(c, "kubeconfig")
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Ping(context.TODO(), data); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

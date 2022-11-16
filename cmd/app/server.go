@@ -31,6 +31,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
+	"github.com/caoyingjunz/gopixiu/api/server/router/healthz"
 	"github.com/caoyingjunz/gopixiu/api/server/router/menu"
 	"github.com/caoyingjunz/gopixiu/api/server/router/role"
 	"github.com/caoyingjunz/gopixiu/api/server/router/user"
@@ -77,22 +78,19 @@ func NewServerCommand() *cobra.Command {
 }
 
 func InitRouters(opt *options.Options) {
-	middleware.InitMiddlewares(opt.GinEngine) // 注册中间件
+	middleware.InstallMiddlewares(opt.GinEngine) // 安装中间件
 
-	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
-	user.NewRouter(opt.GinEngine)  // 注册 user 路由
-	cicd.NewRouter(opt.GinEngine)  // 注册 cicd 路由
-	role.NewRouter(opt.GinEngine)  // 注册 role 路由
-	menu.NewRouter(opt.GinEngine)  // 注册 menu 路由
+	cloud.NewRouter(opt.GinEngine)   // 注册 cloud 路由
+	user.NewRouter(opt.GinEngine)    // 注册 user 路由
+	cicd.NewRouter(opt.GinEngine)    // 注册 cicd 路由
+	role.NewRouter(opt.GinEngine)    // 注册 role 路由
+	menu.NewRouter(opt.GinEngine)    // 注册 menu 路由
+	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
 }
 
 func Run(opt *options.Options) error {
 	// 设置核心应用接口
 	pixiu.Setup(opt)
-	// 加载已经存在 cloud 客户端
-	if err := pixiu.CoreV1.Cloud().Load(); err != nil {
-		return err
-	}
 
 	// 初始化 api 路由
 	InitRouters(opt)
@@ -109,6 +107,12 @@ func runGraceServer(opt *options.Options) {
 		Handler: opt.GinEngine,
 	}
 
+	stopCh := make(chan struct{})
+	// 加载已经存在 cloud 客户端
+	if err := pixiu.CoreV1.Cloud().Load(stopCh); err != nil {
+		klog.Fatal("failed to load cloud driver: ", err)
+	}
+
 	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
 	go func() {
 		klog.Infof("starting pixiu server")
@@ -122,6 +126,7 @@ func runGraceServer(opt *options.Options) {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	klog.Infof("shutting pixiu server down ...")
+	stopCh <- struct{}{}
 
 	// The context is used to inform the server it has 5 seconds to finish the request
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

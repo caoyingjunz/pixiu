@@ -23,7 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/api/meta"
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -32,7 +33,7 @@ type EventsGetter interface {
 }
 
 type EventInterface interface {
-	List(ctx context.Context, listOptions types.ListOptions) ([]corev1.Event, error)
+	List(ctx context.Context, listOptions meta.ListOptions) ([]corev1.Event, error)
 }
 
 type events struct {
@@ -47,9 +48,9 @@ func NewEvents(c *kubernetes.Clientset, cloud string) *events {
 	}
 }
 
-func (c *events) List(ctx context.Context, listOptions types.ListOptions) ([]corev1.Event, error) {
+func (c *events) List(ctx context.Context, listOptions meta.ListOptions) ([]corev1.Event, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	event, err := c.client.CoreV1().
 		Events(listOptions.Namespace).
@@ -57,7 +58,7 @@ func (c *events) List(ctx context.Context, listOptions types.ListOptions) ([]cor
 			// todo
 		})
 	if err != nil {
-		log.Logger.Errorf("failed to list %s %s events: %v", listOptions.CloudName, listOptions.Namespace, err)
+		log.Logger.Errorf("failed to list %s %s events: %v", listOptions.Cloud, listOptions.Namespace, err)
 		return nil, err
 	}
 

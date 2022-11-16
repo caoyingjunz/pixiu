@@ -17,9 +17,26 @@ limitations under the License.
 package middleware
 
 import (
+	"os"
+
 	"github.com/gin-gonic/gin"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
-func InitMiddlewares(ginEngine *gin.Engine) {
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(100, 20), Auth, Rbac())
+var AlwaysAllowPath sets.String
+
+func InstallMiddlewares(ginEngine *gin.Engine) {
+	// 初始化可忽略的请求路径
+	AlwaysAllowPath = sets.NewString(types.HealthURL, types.LoginURL, types.LogoutURL)
+
+	// 依次进行跨域，日志，单用户限速，总量限速，验证，和鉴权
+	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication())
+	// TODO: 临时关闭
+	if os.Getenv("DEBUG") != "true" {
+		ginEngine.Use(Authorization())
+	}
+
+	ginEngine.Use(Admission())
 }

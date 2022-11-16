@@ -1,4 +1,22 @@
 definitions:
+  httputils.HttpError:
+    properties:
+      code:
+        example: 400
+        type: integer
+      message:
+        example: status bad request
+        type: string
+    type: object
+  httputils.HttpOK:
+    properties:
+      code:
+        example: 200
+        type: integer
+      result:
+        example: any result
+        type: string
+    type: object
   httputils.Response:
     properties:
       code:
@@ -10,6 +28,367 @@ definitions:
       result:
         description: 正常返回时的数据，可以为任意数据结构
     type: object
+  model.Menu:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/model.Menu'
+        type: array
+      code:
+        description: 前端鉴权code 例： user:role:add, user:role:delete
+        type: string
+      gmt_create:
+        type: string
+      gmt_modified:
+        type: string
+      icon:
+        description: icon
+        type: string
+      id:
+        type: integer
+      memo:
+        description: 备注
+        type: string
+      menu_type:
+        description: 菜单类型 1 左侧菜单,2 按钮, 3 非展示权限
+        type: integer
+      method:
+        description: 操作类型 none/GET/POST/PUT/DELETE
+        type: string
+      name:
+        description: 菜单名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      resource_version:
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 状态(1:启用 2:不启用)
+        type: integer
+      url:
+        description: 菜单URL
+        type: string
+    type: object
+  model.PageMenu:
+    properties:
+      menus:
+        items:
+          $ref: '#/definitions/model.Menu'
+        type: array
+      total:
+        type: integer
+    type: object
+  model.PageRole:
+    properties:
+      roles:
+        items:
+          $ref: '#/definitions/model.Role'
+        type: array
+      total:
+        type: integer
+    type: object
+  model.PageUser:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/model.User'
+        type: array
+    type: object
+  model.Role:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/model.Role'
+        type: array
+      gmt_create:
+        type: string
+      gmt_modified:
+        type: string
+      id:
+        type: integer
+      memo:
+        description: 备注
+        type: string
+      name:
+        description: 名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      resource_version:
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 0 表示禁用，1 表示启用
+        type: integer
+    type: object
+  model.User:
+    properties:
+      description:
+        type: string
+      email:
+        type: string
+      extension:
+        type: string
+      gmt_create:
+        type: string
+      gmt_modified:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      resource_version:
+        type: integer
+      role:
+        type: string
+      status:
+        type: integer
+    type: object
+  types.BuildCloud:
+    properties:
+      alias_name:
+        description: 可读性的名称，支持中午
+        type: string
+      cloud_type:
+        description: cloud 的类型，支持标准类型和自建类型
+        type: integer
+      create_namespace:
+        type: boolean
+      description:
+        type: string
+      immediate:
+        description: 立刻部署
+        type: boolean
+      kubernetes:
+        $ref: '#/definitions/types.KubernetesSpec'
+        description: k8s 全部信息
+      name:
+        description: 名称，系统自动生成，只能为字符串
+        type: string
+      region:
+        description: 城市区域
+        type: string
+    type: object
+  types.KubeConfigOptions:
+    properties:
+      cloud_name:
+        type: string
+      cluster_role:
+        type: string
+      config:
+        type: string
+      expiration_timestamp:
+        type: string
+      id:
+        type: integer
+      service_account:
+        type: string
+    type: object
+  types.KubernetesSpec:
+    properties:
+      api_server:
+        description: kubernetes 的 apiServer 的 ip 地址
+        type: string
+      cni:
+        description: 网络 cni，支持 flannel 和 calico
+        type: string
+      masters:
+        description: 集群的 master 节点
+        items:
+          $ref: '#/definitions/types.NodeSpec'
+        type: array
+      nodes:
+        description: 集群的 node 节点
+        items:
+          $ref: '#/definitions/types.NodeSpec'
+        type: array
+      pod_cidr:
+        type: string
+      proxy_mode:
+        description: kubeProxy 的模式，只能是 iptables 和 ipvs
+        type: string
+      runtime:
+        description: 容器运行时，目前支持 docker 和 containerd
+        type: string
+      service_cidr:
+        type: string
+      version:
+        description: k8s 的版本
+        type: string
+    type: object
+  types.Menus:
+    properties:
+      menu_ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  types.MenusReq:
+    properties:
+      code:
+        description: 前端鉴权code 例： user:role:add, user:role:delete
+        type: string
+      icon:
+        description: icon
+        type: string
+      memo:
+        description: 备注
+        type: string
+      menu_type:
+        description: 菜单类型 1 左侧菜单,2 按钮, 3 非展示权限
+        type: integer
+      method:
+        description: 操作类型 none/GET/POST/PUT/DELETE
+        type: string
+      name:
+        description: 菜单名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 状态(1:启用 2:不启用)
+        type: integer
+      url:
+        description: 菜单URL
+        type: string
+    type: object
+  types.NodeSpec:
+    properties:
+      address:
+        type: string
+      host_name:
+        type: string
+      password:
+        type: string
+      user:
+        type: string
+    type: object
+  types.Password:
+    properties:
+      confirm_password:
+        type: string
+      origin_password:
+        type: string
+      password:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  types.RoleReq:
+    properties:
+      memo:
+        description: 备注
+        type: string
+      name:
+        description: 名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 0 表示禁用，1 表示启用
+        type: integer
+    type: object
+  types.Roles:
+    properties:
+      role_ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  types.UpdateMenusReq:
+    properties:
+      code:
+        description: 前端鉴权code 例： user:role:add, user:role:delete
+        type: string
+      icon:
+        description: icon
+        type: string
+      memo:
+        description: 备注
+        type: string
+      menu_type:
+        description: 菜单类型 1 左侧菜单,2 按钮, 3 非展示权限
+        type: integer
+      method:
+        description: 操作类型 none/GET/POST/PUT/DELETE
+        type: string
+      name:
+        description: 菜单名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      resource_version:
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 状态(1:启用 2:不启用)
+        type: integer
+      url:
+        description: 菜单URL
+        type: string
+    type: object
+  types.UpdateRoleReq:
+    properties:
+      memo:
+        description: 备注
+        type: string
+      name:
+        description: 名称
+        type: string
+      parent_id:
+        description: 父级ID
+        type: integer
+      resource_version:
+        type: integer
+      sequence:
+        description: 排序值
+        type: integer
+      status:
+        description: 0 表示禁用，1 表示启用
+        type: integer
+    type: object
+  types.User:
+    properties:
+      description:
+        type: string
+      email:
+        type: string
+      gmt_create: {}
+      gmt_modified: {}
+      id:
+        type: integer
+      name:
+        type: string
+      password:
+        type: string
+      resource_version:
+        type: integer
+      role:
+        type: string
+      status:
+        type: integer
+    type: object
+host: localhost:8090
 info:
   contact:
     email: support@gopixiu.io
@@ -41,11 +420,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputils.Response'
+            $ref: '#/definitions/httputils.HttpOK'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/httputils.Response'
+            $ref: '#/definitions/httputils.HttpError'
       summary: Delete a cloud
       tags:
       - clouds
@@ -66,12 +445,992 @@ paths:
         "200":
           description: OK
           schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get a cloud
+      tags:
+      - clouds
+  /clouds/build:
+    post:
+      consumes:
+      - application/json
+      description: 自建 kubernetes 集群
+      parameters:
+      - description: build a cloud
+        in: body
+        name: buildCloud
+        required: true
+        schema:
+          $ref: '#/definitions/types.BuildCloud'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: 自建 kubernetes 集群
+      tags:
+      - clouds
+  /clouds/ping:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 通过 kubeConfig 检测与 kubernetes 集群的连通性
+      parameters:
+      - description: kubernetes kubeconfig
+        in: formData
+        name: kubeconfig
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Ping a cloud
+      tags:
+      - clouds
+  /clouds/v1/{cloud_name}/kubeconfigs:
+    get:
+      consumes:
+      - application/json
+      description: get by cloud kubeConfig ID
+      parameters:
+      - description: cloud name
+        format: string
+        in: path
+        name: cloud_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/types.KubeConfigOptions'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      summary: get a cloud custom kubeConfig
+      tags:
+      - kubeConfigs
+    post:
+      consumes:
+      - application/json
+      description: Create by cloud kubeConfig
+      parameters:
+      - description: cloud name
+        format: string
+        in: path
+        name: cloud_name
+        required: true
+        type: string
+      - description: service_account, cluster_role
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.KubeConfigOptions'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.KubeConfigOptions'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      summary: Create a cloud custom kubeConfig
+      tags:
+      - kubeConfigs
+    put:
+      consumes:
+      - application/json
+      description: Update by cloud kubeConfig
+      parameters:
+      - description: cloud name
+        format: string
+        in: path
+        name: cloud_name
+        required: true
+        type: string
+      - description: Cloud ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.KubeConfigOptions'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      summary: Update a cloud custom kubeConfig
+      tags:
+      - kubeConfigs
+  /clouds/v1/{cloud_name}/kubeconfigs/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete by cloud kubeConfig ID
+      parameters:
+      - description: cloud name
+        format: string
+        in: path
+        name: cloud_name
+        required: true
+        type: string
+      - description: Cloud ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
             $ref: '#/definitions/httputils.Response'
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/httputils.Response'
-      summary: Get a cloud
+      summary: Delete a cloud custom kubeConfig
       tags:
-      - clouds
+      - kubeConfigs
+    get:
+      consumes:
+      - application/json
+      description: get by cloud kubeConfig ID
+      parameters:
+      - description: cloud name
+        format: string
+        in: path
+        name: cloud_name
+        required: true
+        type: string
+      - description: kubeConfig ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.KubeConfigOptions'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      summary: get a cloud custom kubeConfig
+      tags:
+      - kubeConfigs
+  /healthz:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+      summary: health check
+  /menus:
+    get:
+      consumes:
+      - application/json
+      description: List menus
+      parameters:
+      - description: 'menu_type 1: 菜单,2： 按钮, 3：API,可填写多个； 默认为： 1,2,3'
+        in: query
+        items:
+          type: integer
+        name: menu_type
+        type: array
+      - description: pageSize
+        in: query
+        name: page
+        type: integer
+      - description: page limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/model.PageMenu'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: List menus
+      tags:
+      - menus
+  /menus/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete menu by menu id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Delete menu by menu id
+      tags:
+      - menus
+    get:
+      consumes:
+      - application/json
+      description: Get menu by menu id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/model.Menu'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get menu by menu id
+      tags:
+      - menus
+    put:
+      consumes:
+      - application/json
+      description: Update a menu by menu id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: menu info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateMenusReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update a menu by menu id
+      tags:
+      - menus
+  /menus/{id}/status/{status}:
+    put:
+      consumes:
+      - application/json
+      description: Update a menu status by menu id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'status '
+        format: int64
+        in: path
+        name: status
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update a menu status by menu id
+      tags:
+      - menus
+  /roles:
+    get:
+      consumes:
+      - application/json
+      description: list roles
+      parameters:
+      - description: pageSize
+        in: query
+        name: page
+        type: integer
+      - description: page limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/model.PageRole'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: list roles
+      tags:
+      - roles
+    post:
+      consumes:
+      - application/json
+      description: Create a role
+      parameters:
+      - description: role info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.RoleReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Create a role
+      tags:
+      - roles
+  /roles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete role
+      parameters:
+      - description: role ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: delete role
+      tags:
+      - roles
+    get:
+      consumes:
+      - application/json
+      description: get role by role id
+      parameters:
+      - description: role ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: get role by role id
+      tags:
+      - roles
+    put:
+      consumes:
+      - application/json
+      description: update role
+      parameters:
+      - description: role ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: role info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateRoleReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: update role
+      tags:
+      - roles
+  /roles/{id}/menus:
+    get:
+      consumes:
+      - application/json
+      description: get permissions by role id
+      parameters:
+      - description: role ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/model.Menu'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: get permissions by role id
+      tags:
+      - roles
+    post:
+      consumes:
+      - application/json
+      description: set permissions for role
+      parameters:
+      - description: role ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: menu ids
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.Menus'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/model.Menu'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: set permissions for role
+      tags:
+      - roles
+  /roles/{id}/status/{status}:
+    put:
+      consumes:
+      - application/json
+      description: Update role status by role id
+      parameters:
+      - description: menu ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'status '
+        format: int64
+        in: path
+        name: status
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update role status by role id
+      tags:
+      - roles
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: List user info
+      parameters:
+      - description: pageSize
+        in: query
+        name: page
+        type: integer
+      - description: page limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/model.PageUser'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: List user info
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Create a user
+      parameters:
+      - description: user info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Create a user
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update a user
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: user info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update  user
+      tags:
+      - users
+  /users/:id/status/:status:
+    put:
+      consumes:
+      - application/json
+      description: Update  user status
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: status
+        format: int64
+        in: path
+        name: status
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Update  user status
+      tags:
+      - users
+  /users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete user by user id
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Delete user by user id
+      tags:
+      - users
+    get:
+      consumes:
+      - application/json
+      description: Get user info by user id
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get user info by user id
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Change user password
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: password info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.Password'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Change user password
+      tags:
+      - users
+  /users/{id}/roles:
+    get:
+      consumes:
+      - application/json
+      description: Get users roles by user id
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/model.Role'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get user roles by user id
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Assign User Roles base on user id
+      parameters:
+      - description: user ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: role ids
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.Roles'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Assign User Roles base on user id
+      tags:
+      - users
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: Login
+      parameters:
+      - description: user info
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.HttpOK'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Login
+      tags:
+      - users
+  /users/menus:
+    get:
+      consumes:
+      - application/json
+      description: Get left menus  by current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/model.Menu'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get left menus by current user
+      tags:
+      - users
+  /users/permissions:
+    get:
+      consumes:
+      - application/json
+      description: Get user permission
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  items:
+                    type: string
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.HttpError'
+      summary: Get user permission
+      tags:
+      - users
 swagger: "2.0"

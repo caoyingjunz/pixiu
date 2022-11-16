@@ -2,7 +2,7 @@
 
 tag = v0.1
 releaseName = gopixiu
-dockerhubUser = sl01248
+dockerhubUser = jacky06
 
 ALL: run
 
@@ -21,6 +21,6 @@ push: image
 clean:
 	-rm -f ./$(releaseName)
 
-.PHONY: swagger-docs
-swagger-docs: ## generate the api docs
+.PHONY: api-docs
+api-docs: ## generate the api docs
 	swag init --generalInfo ./cmd/main.go --output ./api/docs
