@@ -22,6 +22,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// @Summary health check
+// @Produce json
+// @Success 200 {string} string "ok"
+// @Router /healthz [get]
 func (h *healthzRouter) healthz(c *gin.Context) {
 	c.String(http.StatusOK, "ok")
 }
