@@ -38,7 +38,6 @@ import (
 	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 	"github.com/caoyingjunz/gopixiu/pkg/util/intstr"
-	kubeutils "github.com/caoyingjunz/gopixiu/pkg/util/kubeconfig"
 	"github.com/caoyingjunz/gopixiu/pkg/util/uuid"
 )
 
@@ -379,7 +378,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		}
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
-		kubeConfig, err := kubeutils.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
+		kubeConfig, err := pixiukubernetes.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
 		if err != nil {
 			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", cloudObj.Name, err)
 			return err
