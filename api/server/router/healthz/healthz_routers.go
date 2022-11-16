@@ -23,7 +23,7 @@ import (
 )
 
 // @Summary health check
-// @Produce  json
+// @Produce json
 // @Success 200 {string} string "ok"
 // @Router /healthz [get]
 func (h *healthzRouter) healthz(c *gin.Context) {
