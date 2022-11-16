@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 	"github.com/caoyingjunz/gopixiu/pkg/util/intstr"
 )
@@ -29,10 +28,9 @@ import (
 // ParseKubeConfigData 获取 kube config 解密之后的内容
 func ParseKubeConfigData(ctx context.Context, factory db.ShareDaoFactory, cloudIntStr intstr.IntOrString) ([]byte, error) {
 	var (
-		err           error
-		kubeConfigObj *model.KubeConfig
-		cloudId       int64
+		cloudId int64
 	)
+
 	switch cloudIntStr.Type {
 	case intstr.Int64:
 		cloudId = cloudIntStr.Int64()
@@ -43,10 +41,11 @@ func ParseKubeConfigData(ctx context.Context, factory db.ShareDaoFactory, cloudI
 		}
 		cloudId = cloudObj.Id
 	default:
-		return nil, fmt.Errorf("failed to get cloud: %v", err)
+		return nil, fmt.Errorf("failed to get cloud: %s", cloudIntStr.String())
 	}
 
-	if kubeConfigObj, err = factory.KubeConfig().GetByCloud(ctx, cloudId); err != nil {
+	kubeConfigObj, err := factory.KubeConfig().GetByCloud(ctx, cloudId)
+	if err != nil {
 		return nil, fmt.Errorf("failed to get %d cloud kubeConfigs :%v", cloudId, err)
 	}
 
