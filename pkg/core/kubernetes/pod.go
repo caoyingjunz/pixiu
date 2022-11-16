@@ -91,7 +91,6 @@ func (c *pods) Logs(ctx context.Context, ws *websocket.Conn, options *types.Logs
 }
 
 func (c *pods) WebShellHandler(webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error {
-
 	kubeConfig, err := c.parseKubeConfigData(context.TODO(), intstr.FromString(c.cloud))
 	if err != nil {
 		log.Logger.Errorf("failed to parse %s cloud kubeConfig: %v", c.cloud, err)
