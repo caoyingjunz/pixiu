@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -32,10 +33,10 @@ type NamespacesGetter interface {
 
 type NamespaceInterface interface {
 	Create(ctx context.Context, namespace v1.Namespace) error
+	Update(ctx context.Context, namespace v1.Namespace) (*v1.Namespace, error)
 	Delete(ctx context.Context, namespace string) error
 	Get(ctx context.Context, namespace string) (*v1.Namespace, error)
 	List(ctx context.Context) ([]v1.Namespace, error)
-	Update(ctx context.Context, namespace v1.Namespace) (*v1.Namespace, error)
 }
 
 type namespaces struct {
@@ -52,7 +53,7 @@ func NewNamespaces(c *kubernetes.Clientset, cloud string) *namespaces {
 
 func (c *namespaces) Create(ctx context.Context, namespace v1.Namespace) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if _, err := c.client.CoreV1().
 		Namespaces().
@@ -66,7 +67,7 @@ func (c *namespaces) Create(ctx context.Context, namespace v1.Namespace) error {
 
 func (c *namespaces) Delete(ctx context.Context, namespace string) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if err := c.client.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{}); err != nil {
 		log.Logger.Errorf("failed to delete %s namespace %s: %v", c.cloud, namespace, err)
@@ -78,7 +79,7 @@ func (c *namespaces) Delete(ctx context.Context, namespace string) error {
 
 func (c *namespaces) Get(ctx context.Context, namespace string) (*v1.Namespace, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	ns, err := c.client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 	if err != nil {
@@ -91,7 +92,7 @@ func (c *namespaces) Get(ctx context.Context, namespace string) (*v1.Namespace, 
 
 func (c *namespaces) List(ctx context.Context) ([]v1.Namespace, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 
 	ns, err := c.client.CoreV1().
@@ -107,7 +108,7 @@ func (c *namespaces) List(ctx context.Context) ([]v1.Namespace, error) {
 
 func (c *namespaces) Update(ctx context.Context, namespace v1.Namespace) (*v1.Namespace, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	ns, err := c.client.CoreV1().Namespaces().Update(ctx, &namespace, metav1.UpdateOptions{})
 	if err != nil {

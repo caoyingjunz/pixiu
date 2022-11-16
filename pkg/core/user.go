@@ -22,12 +22,14 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
+	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 const defaultJWTKey string = "gopixiu"
@@ -41,13 +43,15 @@ type UserInterface interface {
 	Update(ctx context.Context, obj *types.User) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*types.User, error)
-	List(ctx context.Context, page, limit int) (*model.PageUser, error)
+	// List 分页查询
+	List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error)
 
 	Login(ctx context.Context, obj *types.User) (string, error)
 
-	// ChangePassword 修改密码
-	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error
+	ChangePassword(ctx context.Context, uid int64, obj *types.Password) error // ChangePassword 修改密码
+	ResetPassword(ctx context.Context, uid int64, loginId int64) error        // ResetPassword 重置密码
 
+	// GetJWTKey 获取 jwt key
 	GetJWTKey() []byte
 
 	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
@@ -147,13 +151,21 @@ func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
 	return model2Type(modelUser), nil
 }
 
-func (u *user) List(ctx context.Context, page, limit int) (*model.PageUser, error) {
-	res, err := u.factory.User().List(ctx, page, limit)
+func (u *user) List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error) {
+	userObjs, total, err := u.factory.User().List(ctx, selector.Page, selector.Limit)
 	if err != nil {
-		log.Logger.Error(err)
+		log.Logger.Errorf("failed to list page %d size %d usrs: %v", selector.Page, selector.Limit, err)
 		return nil, err
 	}
-	return res, nil
+	var us []types.User
+	for _, userObj := range userObjs {
+		us = append(us, *model2Type(&userObj))
+	}
+
+	return map[string]interface{}{
+		"users": us,
+		"total": total,
+	}, nil
 }
 
 func (u *user) preLogin(ctx context.Context, obj *types.User) error {
@@ -242,6 +254,31 @@ func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Passwor
 	return nil
 }
 
+func (u *user) ResetPassword(ctx context.Context, uid int64, loginId int64) error {
+	// 获取当前登陆用户
+	loginObj, err := u.factory.User().Get(ctx, loginId)
+	if err != nil {
+		log.Logger.Errorf("failed to get admin by id %d: %v", loginId, err)
+		return err
+	}
+	// 管理员角色可以重置密码
+	if typesv2.AdminRole != loginObj.Role {
+		return fmt.Errorf("only admin can reset password")
+	}
+
+	// 密码加密存储
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(typesv2.DefaultPassword), bcrypt.DefaultCost)
+	if err != nil {
+		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
+		return err
+	}
+	if err = u.factory.User().UpdateInternal(ctx, uid, map[string]interface{}{"password": encryptedPassword}); err != nil {
+		log.Logger.Errorf("failed to reset %d password %d: %v", uid, err)
+		return err
+	}
+
+	return nil
+}
 func (u *user) GetJWTKey() []byte {
 	jwtKey := u.ComponentConfig.Default.JWTKey
 	if len(jwtKey) == 0 {
@@ -260,10 +297,11 @@ func model2Type(u *model.User) *types.User {
 		Role:            u.Role,
 		Email:           u.Email,
 		Description:     u.Description,
-		TimeOption:      types.NewTypeTime(u.GmtCreate, u.GmtModified),
+		TimeOption:      types.FormatTime(u.GmtCreate, u.GmtModified),
 	}
 }
 
+// TODO: 后续调整为全量更新
 func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[string]interface{} {
 	updates := make(map[string]interface{})
 

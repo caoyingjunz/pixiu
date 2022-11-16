@@ -29,29 +29,26 @@ import (
 )
 
 // Authentication 身份认证
-func Authentication(c *gin.Context) {
-	if AlwaysAllowPath.Has(c.Request.URL.Path) {
-		return
-	}
+func Authentication() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if AlwaysAllowPath.Has(c.Request.URL.Path) {
+			return
+		}
 
-	r := httputils.NewResponse()
-	token, err := extractToken(c, c.Request.URL.Path == types.WebShellURL)
-	if err != nil {
-		r.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, r, err)
-		c.Abort()
-		return
-	}
-	claims, err := httputils.ParseToken(token, pixiu.CoreV1.User().GetJWTKey())
-	if err != nil {
-		r.SetCode(http.StatusUnauthorized)
-		httputils.SetFailed(c, r, err)
-		c.Abort()
-		return
-	}
+		token, err := extractToken(c, c.Request.URL.Path == types.WebShellURL)
+		if err != nil {
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
+			return
+		}
+		claims, err := httputils.ParseToken(token, pixiu.CoreV1.User().GetJWTKey())
+		if err != nil {
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
+			return
+		}
 
-	// 保存用户id
-	c.Set(types.UserId, claims.Id)
+		// 保存用户id
+		c.Set(types.UserId, claims.Id)
+	}
 }
 
 // 从请求头中获取 token

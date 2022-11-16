@@ -28,15 +28,10 @@ type CloudUriMeta struct {
 	CloudName string `uri:"cloud_name" binding:"required"`
 }
 
+// TODO: 合并 IdUriMeta
 type IdMeta struct {
 	Id              int64 `json:"id"`
 	ResourceVersion int64 `json:"resource_version"`
-}
-
-// PageOptions 分页选项
-type PageOptions struct {
-	Limit int `form:"limit"`
-	Page  int `form:"page"`
 }
 
 // TimeOption 通用时间规格
@@ -49,7 +44,7 @@ const (
 	timeLayout = "2006-01-02 15:04:05.999999999"
 )
 
-func NewTypeTime(GmtCreate time.Time, GmtModified time.Time) TimeOption {
+func FormatTime(GmtCreate time.Time, GmtModified time.Time) TimeOption {
 	return TimeOption{
 		GmtCreate:   GmtCreate.Format(timeLayout),
 		GmtModified: GmtModified.Format(timeLayout),
