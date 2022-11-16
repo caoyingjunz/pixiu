@@ -93,7 +93,6 @@ func (c *pods) WebShellHandler(webShellOptions *types.WebShellOptions, w http.Re
 		log.Logger.Errorf("failed to parse %s cloud kubeConfig: %v", c.cloud, err)
 		return err
 	}
-
 	config, err := clientcmd.RESTConfigFromKubeConfig(kubeConfig)
 	if err != nil {
 		log.Logger.Errorf("failed to build kubeConfig from data: %v", err)
