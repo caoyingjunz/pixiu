@@ -46,7 +46,7 @@ func ParseKubeConfigData(ctx context.Context, factory db.ShareDaoFactory, cloudI
 
 	kubeConfigData, err := factory.KubeConfig().GetByCloud(ctx, cloudId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get %d cloud kubeConfigs :%v", cloudId, err)
+		return nil, fmt.Errorf("failed to get %d cloud kubeConfig data: %v", cloudId, err)
 	}
 
 	return cipher.Decrypt(kubeConfigData.Config)
