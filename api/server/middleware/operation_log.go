@@ -23,25 +23,27 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	apiTypes "github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
-// OperationLog 操作记录
-func OperationLog() gin.HandlerFunc {
+// Audit 操作记录
+func Audit() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if types.HealthURL == (c.Request.URL.Path) || types.LoginURL == (c.Request.URL.Path) {
+		urlPath := c.Request.URL.Path
+		if AuditAllowPath.Has(urlPath) {
 			return
 		}
-		// cCp := c.Copy()
 		var param []byte
 		var ip string
 		var userId int64
-		if c.Request.Method != http.MethodGet {
+		if c.Request.Method != http.MethodGet && urlPath != types.LoginURL {
 			var err error
 			param, err = io.ReadAll(c.Request.Body)
 			if err != nil {
@@ -52,16 +54,31 @@ func OperationLog() gin.HandlerFunc {
 		}
 		uId, _ := c.Get(types.UserId)
 		if uId == nil {
-			userId = 0
+			userId = types.CanNotFindUserId
 		} else {
 			userId = uId.(int64)
+		}
+		// 登录请求, 查询用户id
+		if urlPath == types.LoginURL {
+			var (
+				user apiTypes.User
+				err  error
+			)
+			if err = c.ShouldBindBodyWith(&user, binding.JSON); err != nil {
+				userId = types.CanNotFindUserId
+			}
+			userInfo, err := pixiu.CoreV1.User().GetUserIdByName(c, user.Name)
+			if err != nil {
+				userId = types.CanNotFindUserId
+			}
+			userId = userInfo.Id
 		}
 		ip = c.ClientIP()
 		operationLog := model.OperationLog{
 			Ip:       ip,
 			Location: httputils.GetCityByIp(ip),
 			Agent:    httputils.GetUserAgent(c.Request.UserAgent()),
-			Path:     c.Request.URL.Path,
+			Path:     urlPath,
 			Method:   c.Request.Method,
 			Param:    string(param),
 			UserID:   userId,
@@ -79,11 +96,13 @@ func OperationLog() gin.HandlerFunc {
 		operationLog.ErrMsg = c.Errors.ByType(gin.ErrorTypePrivate).String()
 		operationLog.Status = c.Writer.Status()
 		operationLog.Latency = latency
-		operationLog.Pesp_result = writer.body.String()
+		operationLog.PespResult = writer.body.String()
 
-		if err := pixiu.CoreV1.OperationLog().Create(c, &operationLog); err != nil {
-			log.Logger.Errorf("save operationLog error: %v", err)
-		}
+		go func() {
+			if err := pixiu.CoreV1.OperationLog().Create(c, &operationLog); err != nil {
+				log.Logger.Errorf("save operationLog error: %v", err)
+			}
+		}()
 	}
 }
 

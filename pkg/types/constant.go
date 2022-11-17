@@ -17,9 +17,10 @@ limitations under the License.
 package types
 
 const (
-	UserId  = "userId"
-	Deleted = 1
-	Normal  = 0
+	UserId           = "userId"
+	Deleted          = 1
+	Normal           = 0
+	CanNotFindUserId = 0
 )
 
 const (

@@ -18,6 +18,7 @@ package user
 
 import (
 	"context"
+	"github.com/gin-gonic/gin/binding"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -190,7 +191,7 @@ func (u *userRouter) login(c *gin.Context) {
 		user types.User
 		err  error
 	)
-	if err = c.ShouldBindJSON(&user); err != nil {
+	if err = c.ShouldBindBodyWith(&user, binding.JSON); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

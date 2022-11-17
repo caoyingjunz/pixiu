@@ -23,22 +23,22 @@ import (
 )
 
 type OperationLog struct {
-	Id          int64         `gorm:"column:id;primary_key;AUTO_INCREMENT;not null" json:"id"`                // 主键
-	UserID      int64         `json:"user_id" form:"user_id" gorm:"column:user_id"`                           // 用户id
-	GmtCreate   time.Time     `json:"gmt_create"`                                                             // 操作时间
-	Ip          string        `json:"ip" form:"ip" gorm:"column:ip"`                                          // 客户端ip
-	Location    string        `json:"location" form:"location" gorm:"column:location"`                        // 操作地址
-	Agent       string        `json:"agent" form:"agent" gorm:"column:agent"`                                 // 浏览器类型
-	Path        string        `json:"path" form:"path" gorm:"column:path"`                                    // 请求路径
-	Method      string        `json:"method" form:"method" gorm:"column:method"`                              // 请求方法
-	Param       string        `json:"param" form:"param" gorm:"type:longtext;column:param"`                   // 入参
-	Status      int           `json:"status" form:"status" gorm:"column:status"`                              // 请求状态
-	Latency     time.Duration `json:"latency" form:"latency" gorm:"column:latency"`                           // 延迟
-	Pesp_result string        `json:"resp_result" form:"resp_result" gorm:"type:longtext;column:resp_result"` // 返回值
-	ErrMsg      string        `json:"err_msg" form:"err_msg" gorm:"column:err_msg"`                           // 错误信息
-	GmtDelete   time.Time     `json:"gmt_delete"  form:"gmt_delete" gorm:"column:gmt_delete"`                 // 删除时间
-	DelFlag     int8          `json:"del_flag" form:"del_flag" gorm:"column:del_flag"`                        // 删除标记(0正常 1删除)
-	User        User          `json:"user"`
+	Id         int64         `gorm:"column:id;primary_key;AUTO_INCREMENT;not null" json:"id"`                // 主键
+	UserID     int64         `json:"user_id" form:"user_id" gorm:"column:user_id"`                           // 用户id
+	GmtCreate  time.Time     `json:"gmt_create"`                                                             // 操作时间
+	Ip         string        `json:"ip" form:"ip" gorm:"column:ip"`                                          // 客户端ip
+	Location   string        `json:"location" form:"location" gorm:"column:location"`                        // 操作地址
+	Agent      string        `json:"agent" form:"agent" gorm:"column:agent"`                                 // 浏览器类型
+	Path       string        `json:"path" form:"path" gorm:"column:path"`                                    // 请求路径
+	Method     string        `json:"method" form:"method" gorm:"column:method"`                              // 请求方法
+	Param      string        `json:"param" form:"param" gorm:"type:longtext;column:param"`                   // 入参
+	Status     int           `json:"status" form:"status" gorm:"column:status"`                              // 请求状态
+	Latency    time.Duration `json:"latency" form:"latency" gorm:"column:latency"`                           // 延迟
+	PespResult string        `json:"resp_result" form:"resp_result" gorm:"type:longtext;column:resp_result"` // 返回值
+	ErrMsg     string        `json:"err_msg" form:"err_msg" gorm:"column:err_msg"`                           // 错误信息
+	GmtDelete  time.Time     `json:"gmt_delete"  form:"gmt_delete" gorm:"column:gmt_delete"`                 // 删除时间
+	DelFlag    int8          `json:"del_flag" form:"del_flag" gorm:"column:del_flag"`                        // 删除标记(0正常 1删除)
+	User       User          `json:"user"`
 }
 
 // TableName 表名

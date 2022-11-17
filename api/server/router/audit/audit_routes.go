@@ -30,7 +30,10 @@ import (
 func (u *auditRouter) deleteOperationLog(c *gin.Context) {
 	r := httputils.NewResponse()
 	var idsReq model.IdsReq
-	_ = c.ShouldBindJSON(&idsReq)
+	err := c.ShouldBindJSON(&idsReq)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+	}
 	if err := pixiu.CoreV1.OperationLog().Delete(c, idsReq.Ids); err != nil {
 		httputils.SetFailed(c, r, err)
 	}
