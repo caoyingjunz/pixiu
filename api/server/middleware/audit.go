@@ -74,7 +74,7 @@ func Audit() gin.HandlerFunc {
 			userId = userInfo.Id
 		}
 		ip = c.ClientIP()
-		operationLog := model.Audit{
+		audit := model.Audit{
 			Ip:     ip,
 			Agent:  httputils.GetUserAgent(c.Request.UserAgent()),
 			Path:   urlPath,
@@ -92,14 +92,14 @@ func Audit() gin.HandlerFunc {
 		c.Next()
 
 		latency := time.Now().Sub(now)
-		operationLog.ErrMsg = c.Errors.ByType(gin.ErrorTypePrivate).String()
-		operationLog.Status = c.Writer.Status()
-		operationLog.Latency = latency
-		operationLog.PespResult = writer.body.String()
+		audit.ErrMsg = c.Errors.ByType(gin.ErrorTypePrivate).String()
+		audit.Status = c.Writer.Status()
+		audit.Latency = latency
+		audit.PespResult = writer.body.String()
 
 		go func() {
-			if err := pixiu.CoreV1.Audit().Create(c, &operationLog); err != nil {
-				log.Logger.Errorf("save operationLog error: %v", err)
+			if err := pixiu.CoreV1.Audit().Create(c, &audit); err != nil {
+				log.Logger.Errorf("save audit error: %v", err)
 			}
 		}()
 	}
