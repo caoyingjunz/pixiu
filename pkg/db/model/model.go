@@ -87,11 +87,6 @@ func (user *User) TableName() string {
 	return "users"
 }
 
-type PageUser struct {
-	Users []User `json:"users"`
-	Total int64  `json:"total"`
-}
-
 type KubeConfig struct {
 	gopixiu.Model
 

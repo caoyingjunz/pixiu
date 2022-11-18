@@ -14,8 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kubernetes
+package env
 
-import "fmt"
+import (
+	"os"
+	"strings"
+)
 
-var clientError = fmt.Errorf("failed to found clout client")
+func EnableDebug() bool {
+	debug := os.Getenv("DEBUG")
+	if len(debug) == 0 {
+		return false
+	}
+
+	return strings.ToLower(debug) == "true"
+}

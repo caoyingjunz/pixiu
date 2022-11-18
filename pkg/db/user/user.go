@@ -22,8 +22,8 @@ import (
 
 	"gorm.io/gorm"
 
-	dberrors "github.com/caoyingjunz/gopixiu/pkg/db/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	dberrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
@@ -32,14 +32,17 @@ type UserInterface interface {
 	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
-	List(ctx context.Context, page, limit int) (*model.PageUser, error)
+	List(ctx context.Context, page int, pageSize int) ([]model.User, int64, error)
+
+	// UpdateInternal 忽略 resourceVersion 直接更新，用于内部更新
+	UpdateInternal(ctx context.Context, uid int64, updates map[string]interface{}) error
+	UpdateStatus(c context.Context, userId, status int64) error
 
 	GetByName(ctx context.Context, name string) (*model.User, error)
 	GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error)
 	SetUserRoles(ctx context.Context, uid int64, rid []int64) error
 	GetButtonsByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
-	UpdateStatus(c context.Context, userId, status int64) error
 }
 
 type user struct {
@@ -97,46 +100,39 @@ func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 	return &obj, nil
 }
 
-func (u *user) List(ctx context.Context, page, limit int) (*model.PageUser, error) {
+// List 分页查询
+func (u *user) List(ctx context.Context, page, pageSize int) ([]model.User, int64, error) {
 	var (
-		userList []model.User
-		total    int64
-		err      error
+		us    []model.User
+		total int64
 	)
-
-	// 全量查询
-	if page == 0 && limit == 0 {
-		if tx := u.db.Find(&userList); tx.Error != nil {
-			return nil, tx.Error
-		}
-
-		if err := u.db.Model(&model.User{}).Count(&total).Error; err != nil {
-			return nil, err
-		}
-
-		res := &model.PageUser{
-			Users: userList,
-			Total: total,
-		}
-		return res, err
+	if err := u.db.Limit(pageSize).Offset((page - 1) * pageSize).Find(&us).Error; err != nil {
+		return nil, 0, err
 	}
-
-	//分页数据
-	if err := u.db.Limit(limit).Offset((page - 1) * limit).
-		Find(&userList).Error; err != nil {
-		return nil, err
-	}
-
 	if err := u.db.Model(&model.User{}).Count(&total).Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	res := &model.PageUser{
-		Users: userList,
-		Total: total,
-	}
-	return res, err
+	return us, total, nil
+}
 
+func (u *user) UpdateStatus(c context.Context, userId, status int64) error {
+	return u.db.Model(&model.User{}).Where("id = ?", userId).Update("status", status).Error
+}
+
+func (u *user) UpdateInternal(ctx context.Context, uid int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+
+	f := u.db.Model(&model.User{}).Where("id = ?", uid).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return dberrors.ErrRecordNotUpdate
+	}
+
+	return nil
 }
 
 func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
@@ -250,8 +246,4 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Me
 
 	treeMenusList := getTreeMenus(menus, 0)
 	return &treeMenusList, nil
-}
-
-func (u *user) UpdateStatus(c context.Context, userId, status int64) error {
-	return u.db.Model(&model.User{}).Where("id = ?", userId).Update("status", status).Error
 }

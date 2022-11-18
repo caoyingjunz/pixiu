@@ -17,14 +17,15 @@ limitations under the License.
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/juju/ratelimit"
+	"golang.org/x/time/rate"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/util/lru"
 )
 
@@ -41,7 +42,6 @@ func UserRateLimiter() gin.HandlerFunc {
 	cache, _ := lru.NewLRUCache(cap)
 
 	return func(c *gin.Context) {
-		r := httputils.NewResponse()
 		// 把 key: clientIP value: *ratelimit.Bucket 存入 LRU Cache 中
 		clientIP := c.ClientIP()
 		if !cache.Contains(clientIP) {
@@ -57,17 +57,20 @@ func UserRateLimiter() gin.HandlerFunc {
 		// 判断是否还有可用的 bucket
 		bucket := val.(*ratelimit.Bucket)
 		if bucket.TakeAvailable(1) == 0 {
-			r.SetCode(http.StatusGatewayTimeout)
-			httputils.SetFailed(c, r, fmt.Errorf("the system is busy. please try again later"))
-			c.Abort()
-			return
+			httputils.AbortFailedWithCode(c, http.StatusForbidden, errors.ErrBusySystem)
 		}
 	}
 }
 
-// Limiter TODO 总量限速
 func Limiter() gin.HandlerFunc {
+	// 初始化一个限速器，每秒产生 1000 个令牌，桶的大小为 1000 个
+	// 初始化状态桶是满的
+	// TODO: 限速的值从配置或者环境变量中获取
+	limiter := rate.NewLimiter(1000, 1000)
+
 	return func(c *gin.Context) {
-		fmt.Println("TODO")
+		if !limiter.Allow() {
+			httputils.AbortFailedWithCode(c, http.StatusForbidden, errors.ErrBusySystem)
+		}
 	}
 }

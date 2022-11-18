@@ -2,13 +2,14 @@ package kubernetes
 
 import (
 	"context"
-	
+	"github.com/caoyingjunz/gopixiu/api/meta"
+
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/log"	
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
 type IngressGetter interface {
@@ -16,10 +17,10 @@ type IngressGetter interface {
 }
 
 type IngressInterface interface {
-	List(ctx context.Context, listOptions types.ListOptions) (*networkingv1.IngressList, error)
+	List(ctx context.Context, listOptions meta.ListOptions) (*networkingv1.IngressList, error)
 	Create(ctx context.Context, listOptions *networkingv1.Ingress) error
-	Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*networkingv1.Ingress, error)
-	Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error
+	Get(ctx context.Context, getOptions meta.GetOptions) (*networkingv1.Ingress, error)
+	Delete(ctx context.Context, deleteOptions meta.DeleteOptions) error
 }
 
 type ingress struct {
@@ -34,14 +35,14 @@ func NewIngress(c *kubernetes.Clientset, cloud string) *ingress {
 	}
 }
 
-func (c *ingress) List(ctx context.Context, listOptions types.ListOptions) (*networkingv1.IngressList, error) {
+func (c *ingress) List(ctx context.Context, listOptions meta.ListOptions) (*networkingv1.IngressList, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 
 	ing, err := c.client.NetworkingV1().Ingresses(listOptions.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Logger.Errorf("failed to list %s %s Ingress: %v", listOptions.CloudName, listOptions.Namespace, err)
+		log.Logger.Errorf("failed to list %s %s Ingress: %v", listOptions.Cloud, listOptions.Namespace, err)
 		return nil, err
 	}
 
@@ -50,7 +51,7 @@ func (c *ingress) List(ctx context.Context, listOptions types.ListOptions) (*net
 
 func (c *ingress) Create(ctx context.Context, ingress *networkingv1.Ingress) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	ingress, err := c.client.NetworkingV1().Ingresses(ingress.Namespace).Create(ctx, ingress, metav1.CreateOptions{})
 	if err != nil {
@@ -61,9 +62,9 @@ func (c *ingress) Create(ctx context.Context, ingress *networkingv1.Ingress) err
 	return nil
 }
 
-func (c *ingress) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) (*networkingv1.Ingress, error) {
+func (c *ingress) Get(ctx context.Context, getOptions meta.GetOptions) (*networkingv1.Ingress, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	ingress, err := c.client.NetworkingV1().Ingresses(getOptions.Namespace).Get(ctx, getOptions.ObjectName, metav1.GetOptions{})
 	if err != nil {
@@ -73,9 +74,9 @@ func (c *ingress) Get(ctx context.Context, getOptions types.GetOrDeleteOptions) 
 	return ingress, nil
 }
 
-func (c *ingress) Delete(ctx context.Context, deleteOptions types.GetOrDeleteOptions) error {
+func (c *ingress) Delete(ctx context.Context, deleteOptions meta.DeleteOptions) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 	if err := c.client.NetworkingV1().
 		Ingresses(deleteOptions.Namespace).

@@ -6,19 +6,19 @@ import (
 	"github.com/gin-gonic/gin"
 	v1 "k8s.io/api/apps/v1"
 
+	"github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 func (s *cloudRouter) createDaemonSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions types.GetOrCreateOptions
-		daemonset  v1.DaemonSet
+		err       error
+		opts      meta.CreateOptions
+		daemonset v1.DaemonSet
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -26,9 +26,8 @@ func (s *cloudRouter) createDaemonSet(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	daemonset.Name = getOptions.ObjectName
-	daemonset.Namespace = getOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().DaemonSets(getOptions.CloudName).Create(context.TODO(), &daemonset); err != nil {
+	daemonset.Namespace = opts.Namespace
+	if err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Create(context.TODO(), &daemonset); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -39,17 +38,17 @@ func (s *cloudRouter) createDaemonSet(c *gin.Context) {
 func (s *cloudRouter) updateDaemonSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		createOptions types.GetOrCreateOptions
-		daemonset     v1.DaemonSet
+		err       error
+		opts      meta.UpdateOptions
+		daemonset v1.DaemonSet
 	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	daemonset.Name = createOptions.ObjectName
-	daemonset.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().DaemonSets(createOptions.CloudName).Update(context.TODO(), &daemonset)
+	daemonset.Name = opts.ObjectName
+	daemonset.Namespace = opts.Namespace
+	err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Update(context.TODO(), &daemonset)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -60,12 +59,12 @@ func (s *cloudRouter) updateDaemonSet(c *gin.Context) {
 
 func (s *cloudRouter) deleteDaemonSet(c *gin.Context) {
 	r := httputils.NewResponse()
-	var deleteOptions types.GetOrDeleteOptions
-	if err := c.ShouldBindUri(&deleteOptions); err != nil {
+	var opts meta.DeleteOptions
+	if err := c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().DaemonSets(deleteOptions.CloudName).Delete(context.TODO(), deleteOptions)
+	err := pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Delete(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -77,14 +76,14 @@ func (s *cloudRouter) deleteDaemonSet(c *gin.Context) {
 func (s *cloudRouter) getDaemonSet(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions types.GetOrDeleteOptions
+		err  error
+		opts meta.GetOptions
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(getOptions.CloudName).Get(context.TODO(), getOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Get(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -97,14 +96,14 @@ func (s *cloudRouter) getDaemonSet(c *gin.Context) {
 func (s *cloudRouter) listDaemonsets(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions types.ListOptions
+		err  error
+		opts meta.ListOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(listOptions.CloudName).List(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).List(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

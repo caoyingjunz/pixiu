@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
 	pixiukubernetes "github.com/caoyingjunz/gopixiu/pkg/core/kubernetes"
@@ -40,8 +41,6 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/util/uuid"
 )
 
-var clientError = fmt.Errorf("failed to found clout client")
-
 type CloudGetter interface {
 	Cloud() CloudInterface
 }
@@ -51,7 +50,7 @@ type CloudInterface interface {
 	Update(ctx context.Context, obj *types.Cloud) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
-	List(ctx context.Context, paging *types.PageOptions) (interface{}, error)
+	List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error)
 	Build(ctx context.Context, obj *types.BuildCloud) error
 
 	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
@@ -72,11 +71,6 @@ type CloudInterface interface {
 	pixiukubernetes.PodsGetter
 	pixiukubernetes.KubeConfigGetter
 }
-
-const (
-	page     = 1
-	pageSize = 10
-)
 
 var clientSets client.ClientsInterface
 
@@ -253,7 +247,7 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 	for _, master := range kubeObj.Masters {
 		kubeNodes = append(kubeNodes, model.Node{
 			CloudId:  cid,
-			Role:     typesv2.MasterRole,
+			Role:     string(typesv2.MasterRole),
 			HostName: master.HostName,
 			Address:  master.Address,
 			User:     master.User,
@@ -264,7 +258,7 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 	for _, node := range kubeObj.Nodes {
 		kubeNodes = append(kubeNodes, model.Node{
 			CloudId:  cid,
-			Role:     typesv2.NodeRole,
+			Role:     string(typesv2.NodeRole),
 			HostName: node.HostName,
 			Address:  node.Address,
 			User:     node.User,
@@ -334,47 +328,23 @@ func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 	return c.model2Type(cloudObj), nil
 }
 
-// List 返回全量查询或者分页查询
-func (c *cloud) List(ctx context.Context, pageOption *types.PageOptions) (interface{}, error) {
-	var cs []types.Cloud
-
-	// 根据是否有 Page 判断是全量查询还是分页查询，如果没有则判定为全量查询，如果有，判定为分页查询
-	// TODO: 判断方法略显粗糙，后续优化
-	// 分页查询
-	if pageOption.Page != 0 {
-		if pageOption.Page < 0 {
-			pageOption.Page = page
-		}
-		if pageOption.Limit <= 0 {
-			pageOption.Limit = pageSize
-		}
-		cloudObjs, total, err := c.factory.Cloud().PageList(ctx, pageOption.Page, pageOption.Limit)
-		if err != nil {
-			log.Logger.Errorf("failed to page %d limit %d list  clouds: %v", pageOption.Page, pageOption.Limit, err)
-			return nil, err
-		}
-		// 类型转换
-		for _, cloudObj := range cloudObjs {
-			cs = append(cs, *c.model2Type(&cloudObj))
-		}
-
-		pageClouds := make(map[string]interface{})
-		pageClouds["data"] = cs
-		pageClouds["total"] = total
-		return pageClouds, nil
-	}
-
-	// 全量查询
-	cloudObjs, err := c.factory.Cloud().List(ctx)
+// List 返回分页查询
+func (c *cloud) List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error) {
+	cloudObjs, total, err := c.factory.Cloud().PageList(ctx, selector.Page, selector.Limit)
 	if err != nil {
-		log.Logger.Errorf("failed to list clouds: %v", err)
+		log.Logger.Errorf("failed to list page %d size %d clouds: %v", selector.Page, selector.Limit, err)
 		return nil, err
 	}
+
+	var cs []types.Cloud
 	for _, cloudObj := range cloudObjs {
 		cs = append(cs, *c.model2Type(&cloudObj))
 	}
 
-	return cs, nil
+	return map[string]interface{}{
+		"data":  cs,
+		"total": total,
+	}, nil
 }
 
 func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
@@ -384,9 +354,8 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 		log.Logger.Errorf("failed to create clientSet: %v", err)
 		return err
 	}
-	_, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
-	if err != nil {
-		return nil
+	if _, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{}); err != nil {
+		return err
 	}
 
 	return nil
@@ -409,7 +378,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		}
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
-		kubeConfig, err := c.parseKubeConfigData(context.TODO(), intstr.FromInt64(cloudObj.Id))
+		kubeConfig, err := pixiukubernetes.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
 		if err != nil {
 			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", cloudObj.Name, err)
 			return err
@@ -429,6 +398,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 	return nil
 }
 
+// TODO: 多集群共用检查队列
 func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	klog.V(2).Infof("starting cluster health check")
 	// 存储旧的检查状态
@@ -465,28 +435,6 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	}
 }
 
-func (c *cloud) parseKubeConfigData(ctx context.Context, cloudIntStr intstr.IntOrString) ([]byte, error) {
-	var kubeConfigObj *model.KubeConfig
-	var err error
-
-	switch cloudIntStr.Type {
-	case intstr.Int64:
-		if kubeConfigObj, err = c.factory.KubeConfig().GetByCloud(ctx, cloudIntStr.Int64()); err != nil {
-			return nil, fmt.Errorf("failed to get %d cloud kubeConfigs :%v", cloudIntStr.Int64(), err)
-		}
-	case intstr.String:
-		// TODO
-		return nil, fmt.Errorf("unsupported cloud type")
-	}
-
-	kubeConfig, err := cipher.Decrypt(kubeConfigObj.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt cloud kubeConfig: %v", err)
-	}
-
-	return kubeConfig, nil
-}
-
 func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
 	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
@@ -510,7 +458,7 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		NodeNumber:  obj.NodeNumber,
 		Resources:   obj.Resources,
 		Description: obj.Description,
-		TimeOption:  types.NewTypeTime(obj.GmtCreate, obj.GmtModified),
+		TimeOption:  types.FormatTime(obj.GmtCreate, obj.GmtModified),
 	}
 }
 

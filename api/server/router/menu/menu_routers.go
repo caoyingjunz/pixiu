@@ -22,10 +22,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/db/errors"
+	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -43,18 +42,18 @@ func (*menuRouter) addMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	var menu types.MenusReq
 	if err := c.ShouldBindJSON(&menu); err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 	// 判断权限是否已存在
 	_, err := pixiu.CoreV1.Menu().GetMenuByMenuNameUrl(c, menu.URL, menu.Method)
 	if !errors.IsNotFound(err) {
-		httputils.SetFailed(c, r, httpstatus.MenusExistError)
+		httputils.SetFailed(c, r, errors.MenusExistError)
 		return
 	}
 
 	if _, err := pixiu.CoreV1.Menu().Create(c, &menu); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 	httputils.SetSuccess(c, r)
@@ -75,23 +74,23 @@ func (*menuRouter) updateMenu(c *gin.Context) {
 	var menu types.UpdateMenusReq
 
 	if err := c.ShouldBindJSON(&menu); err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	menuId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	if !pixiu.CoreV1.Menu().CheckMenusIsExist(c, menuId) {
-		httputils.SetFailed(c, r, httpstatus.MenusNtoExistError)
+		httputils.SetFailed(c, r, errors.MenusNtoExistError)
 		return
 	}
 
 	if err = pixiu.CoreV1.Menu().Update(c, &menu, menuId); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
@@ -111,17 +110,17 @@ func (*menuRouter) deleteMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	mid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	if !pixiu.CoreV1.Menu().CheckMenusIsExist(c, mid) {
-		httputils.SetFailed(c, r, httpstatus.MenusNtoExistError)
+		httputils.SetFailed(c, r, errors.MenusNtoExistError)
 		return
 	}
 
 	if err = pixiu.CoreV1.Menu().Delete(c, mid); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
@@ -141,12 +140,12 @@ func (*menuRouter) getMenu(c *gin.Context) {
 	r := httputils.NewResponse()
 	mid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 	r.Result, err = pixiu.CoreV1.Menu().Get(c, mid)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 	httputils.SetSuccess(c, r)
@@ -173,7 +172,7 @@ func (*menuRouter) listMenus(c *gin.Context) {
 	for _, t := range menuTypeSlice {
 		res, err := strconv.Atoi(t)
 		if err != nil {
-			httputils.SetFailed(c, r, httpstatus.ParamsError)
+			httputils.SetFailed(c, r, errors.ParamsError)
 			return
 		}
 		menuType = append(menuType, int8(res))
@@ -182,20 +181,20 @@ func (*menuRouter) listMenus(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "0")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	limitStr := c.DefaultQuery("limit", "0")
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	res, err := pixiu.CoreV1.Menu().List(c, page, limit, menuType)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 	r.Result = res
@@ -218,22 +217,22 @@ func (*menuRouter) updateMenuStatus(c *gin.Context) {
 
 	menuId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	status, err := util.ParseInt64(c.Param("status"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	if !pixiu.CoreV1.Menu().CheckMenusIsExist(c, menuId) {
-		httputils.SetFailed(c, r, httpstatus.MenusNtoExistError)
+		httputils.SetFailed(c, r, errors.MenusNtoExistError)
 		return
 	}
 	if err = pixiu.CoreV1.Menu().UpdateStatus(c, menuId, status); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
