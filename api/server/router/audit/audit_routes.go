@@ -17,7 +17,9 @@ limitations under the License.
 package audit
 
 import (
-	"github.com/caoyingjunz/gopixiu/api/types"
+	"context"
+
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -40,17 +42,11 @@ func (u *auditRouter) deleteAudit(c *gin.Context) {
 
 func (u *auditRouter) listAudit(c *gin.Context) {
 	r := httputils.NewResponse()
-	var (
-		err        error
-		pageOption types.PageOptions
-	)
-	if err = c.ShouldBindQuery(&pageOption); err != nil {
+	var err error
+	if r.Result, err = pixiu.CoreV1.Audit().List(context.TODO(), pixiumeta.ParseListSelector(c)); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Audit().List(c, pageOption.Page, pageOption.Limit); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+
 	httputils.SetSuccess(c, r)
 }

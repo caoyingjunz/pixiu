@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
@@ -31,7 +32,7 @@ type AuditGetter interface {
 type AuditInterface interface {
 	Create(ctx context.Context, obj *model.Audit) error
 	Delete(c context.Context, ids []int64) error
-	List(c context.Context, page, limit int) (res *model.PageAudit, err error)
+	List(c context.Context, selector *pixiumeta.ListSelector) (res *model.PageAudit, err error)
 }
 
 type audit struct {
@@ -64,12 +65,12 @@ func (a audit) Delete(c context.Context, ids []int64) error {
 	return nil
 }
 
-func (a audit) List(c context.Context, page, limit int) (res *model.PageAudit, err error) {
-	operationLogs, err := a.factory.Audit().List(c, page, limit)
+func (a audit) List(c context.Context, selector *pixiumeta.ListSelector) (res *model.PageAudit, err error) {
+	audits, err := a.factory.Audit().List(c, selector.Page, selector.Limit)
 	if err != nil {
 		log.Logger.Errorf("list audit error: %v", err)
 		return nil, err
 	}
-	return operationLogs, nil
+	return audits, nil
 
 }
