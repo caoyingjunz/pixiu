@@ -17,45 +17,38 @@ limitations under the License.
 package audit
 
 import (
-	"strconv"
-
+	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (u *auditRouter) deleteOperationLog(c *gin.Context) {
+func (u *auditRouter) deleteAudit(c *gin.Context) {
 	r := httputils.NewResponse()
 	var idsReq model.IdsReq
 	err := c.ShouldBindJSON(&idsReq)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 	}
-	if err := pixiu.CoreV1.OperationLog().Delete(c, idsReq.Ids); err != nil {
+	if err := pixiu.CoreV1.Audit().Delete(c, idsReq.Ids); err != nil {
 		httputils.SetFailed(c, r, err)
 	}
 	httputils.SetSuccess(c, r)
 }
 
-func (u *auditRouter) listOperationLog(c *gin.Context) {
+func (u *auditRouter) listAudit(c *gin.Context) {
 	r := httputils.NewResponse()
-	pageStr := c.DefaultQuery("page", "0")
-	page, err := strconv.Atoi(pageStr)
-	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+	var (
+		err        error
+		pageOption types.PageOptions
+	)
+	if err = c.ShouldBindQuery(&pageOption); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	limitStr := c.DefaultQuery("limit", "0")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
-		return
-	}
-	if r.Result, err = pixiu.CoreV1.OperationLog().List(c, page, limit); err != nil {
+	if r.Result, err = pixiu.CoreV1.Audit().List(c, pageOption.Page, pageOption.Limit); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

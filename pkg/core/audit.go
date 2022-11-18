@@ -24,50 +24,50 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 )
 
-type OperationLogGetter interface {
-	OperationLog() OperationLogInterface
+type AuditGetter interface {
+	Audit() AuditInterface
 }
 
-type OperationLogInterface interface {
-	Create(ctx context.Context, obj *model.OperationLog) error
+type AuditInterface interface {
+	Create(ctx context.Context, obj *model.Audit) error
 	Delete(c context.Context, ids []int64) error
-	List(c context.Context, page, limit int) (res *model.PageOperationLog, err error)
+	List(c context.Context, page, limit int) (res *model.PageAudit, err error)
 }
 
-type operationLog struct {
+type audit struct {
 	ComponentConfig config.Config
 	app             *pixiu
 	factory         db.ShareDaoFactory
 }
 
-func newOperationLog(c *pixiu) OperationLogInterface {
-	return &operationLog{
+func newAudit(c *pixiu) AuditInterface {
+	return &audit{
 		ComponentConfig: c.cfg,
 		app:             c,
 		factory:         c.factory,
 	}
 }
 
-func (ol operationLog) Create(c context.Context, obj *model.OperationLog) error {
-	if _, err := ol.factory.OperationLog().Create(c, obj); err != nil {
-		log.Logger.Errorf("failed to save operation log %s: %v", obj.UserID, err)
+func (a audit) Create(c context.Context, obj *model.Audit) error {
+	if _, err := a.factory.Audit().Create(c, obj); err != nil {
+		log.Logger.Errorf("failed to save audit %s: %v", obj.UserID, err)
 		return err
 	}
 	return nil
 }
 
-func (ol operationLog) Delete(c context.Context, ids []int64) error {
-	if err := ol.factory.OperationLog().Delete(c, ids); err != nil {
-		log.Logger.Errorf("batch delete %s operationLog error: %v", ids, err)
+func (a audit) Delete(c context.Context, ids []int64) error {
+	if err := a.factory.Audit().Delete(c, ids); err != nil {
+		log.Logger.Errorf("batch delete %s audit error: %v", ids, err)
 		return err
 	}
 	return nil
 }
 
-func (ol operationLog) List(c context.Context, page, limit int) (res *model.PageOperationLog, err error) {
-	operationLogs, err := ol.factory.OperationLog().List(c, page, limit)
+func (a audit) List(c context.Context, page, limit int) (res *model.PageAudit, err error) {
+	operationLogs, err := a.factory.Audit().List(c, page, limit)
 	if err != nil {
-		log.Logger.Errorf("list operationLog error: %v", err)
+		log.Logger.Errorf("list audit error: %v", err)
 		return nil, err
 	}
 	return operationLogs, nil

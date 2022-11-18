@@ -31,7 +31,7 @@ type ShareDaoFactory interface {
 	Role() user.RoleInterface
 	Menu() user.MenuInterface
 	Authentication() user.AuthenticationInterface
-	OperationLog() model.OperationLogInterface
+	Audit() model.AuditInterface
 }
 
 type shareDaoFactory struct {
@@ -63,8 +63,8 @@ func (f *shareDaoFactory) Authentication() user.AuthenticationInterface {
 	return user.NewAuthentication(f.db)
 }
 
-func (f *shareDaoFactory) OperationLog() model.OperationLogInterface {
-	return model.NewOperationLog(f.db)
+func (f *shareDaoFactory) Audit() model.AuditInterface {
+	return model.NewAudit(f.db)
 }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {

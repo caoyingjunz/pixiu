@@ -30,9 +30,9 @@ func NewRouter(ginEngine *gin.Engine) {
 func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
 	auditRouter := ginEngine.Group("/audit")
 	{
-		// 逻辑删除操作记录
-		auditRouter.DELETE("/operation_log", a.deleteOperationLog)
-		// 分页查询操作记录
-		auditRouter.GET("/operation_logs", a.listOperationLog)
+		// 逻辑删除audit记录
+		auditRouter.DELETE("", a.deleteAudit)
+		// 分页查询audit记录
+		auditRouter.GET("", a.listAudit)
 	}
 }

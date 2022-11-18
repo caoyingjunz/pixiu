@@ -30,7 +30,7 @@ type CoreV1Interface interface {
 	RoleGetter
 	MenuGetter
 	PolicyGetter
-	OperationLogGetter
+	AuditGetter
 }
 
 type pixiu struct {
@@ -63,8 +63,8 @@ func (pixiu *pixiu) Policy() PolicyInterface {
 	return newPolicy(pixiu)
 }
 
-func (pixiu *pixiu) OperationLog() OperationLogInterface {
-	return newOperationLog(pixiu)
+func (pixiu *pixiu) Audit() AuditInterface {
+	return newAudit(pixiu)
 }
 
 func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {

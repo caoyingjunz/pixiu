@@ -74,14 +74,13 @@ func Audit() gin.HandlerFunc {
 			userId = userInfo.Id
 		}
 		ip = c.ClientIP()
-		operationLog := model.OperationLog{
-			Ip:       ip,
-			Location: httputils.GetCityByIp(ip),
-			Agent:    httputils.GetUserAgent(c.Request.UserAgent()),
-			Path:     urlPath,
-			Method:   c.Request.Method,
-			Param:    string(param),
-			UserID:   userId,
+		operationLog := model.Audit{
+			Ip:     ip,
+			Agent:  httputils.GetUserAgent(c.Request.UserAgent()),
+			Path:   urlPath,
+			Method: c.Request.Method,
+			Param:  string(param),
+			UserID: userId,
 		}
 		writer := responseBodyWriter{
 			ResponseWriter: c.Writer,
@@ -99,7 +98,7 @@ func Audit() gin.HandlerFunc {
 		operationLog.PespResult = writer.body.String()
 
 		go func() {
-			if err := pixiu.CoreV1.OperationLog().Create(c, &operationLog); err != nil {
+			if err := pixiu.CoreV1.Audit().Create(c, &operationLog); err != nil {
 				log.Logger.Errorf("save operationLog error: %v", err)
 			}
 		}()

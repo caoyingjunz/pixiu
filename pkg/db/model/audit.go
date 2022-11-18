@@ -22,12 +22,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type OperationLog struct {
+type Audit struct {
 	Id         int64         `gorm:"column:id;primary_key;AUTO_INCREMENT;not null" json:"id"`                // 主键
 	UserID     int64         `json:"user_id" form:"user_id" gorm:"column:user_id"`                           // 用户id
 	GmtCreate  time.Time     `json:"gmt_create"`                                                             // 操作时间
 	Ip         string        `json:"ip" form:"ip" gorm:"column:ip"`                                          // 客户端ip
-	Location   string        `json:"location" form:"location" gorm:"column:location"`                        // 操作地址
 	Agent      string        `json:"agent" form:"agent" gorm:"column:agent"`                                 // 浏览器类型
 	Path       string        `json:"path" form:"path" gorm:"column:path"`                                    // 请求路径
 	Method     string        `json:"method" form:"method" gorm:"column:method"`                              // 请求方法
@@ -42,20 +41,20 @@ type OperationLog struct {
 }
 
 // TableName 表名
-func (a *OperationLog) TableName() string {
-	return "audit_operation_log"
+func (a *Audit) TableName() string {
+	return "audit"
 }
 
 // BeforeCreate 添加前
-func (ol *OperationLog) BeforeCreate(*gorm.DB) error {
+func (ol *Audit) BeforeCreate(*gorm.DB) error {
 	ol.GmtCreate = time.Now()
 	return nil
 }
 
-// PageOperationLog 分页操作日志
-type PageOperationLog struct {
-	OperationLogs []OperationLog `json:"OperationLogs"`
-	Total         int64          `json:"total"`
+// PageAudit 分页审计日志
+type PageAudit struct {
+	Audits []Audit `json:"Audits"`
+	Total  int64   `json:"total"`
 }
 
 type IdsReq struct {

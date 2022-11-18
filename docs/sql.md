@@ -121,14 +121,13 @@ CREATE TABLE `nodes` (
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=24220801;
 ```
 
-## 创建 `audit_operation_log` 表
+## 创建 `audit` 表
 ```sql
-CREATE TABLE `audit_operation_log` (
+CREATE TABLE `audit` (
 `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
 `user_id` bigint DEFAULT NULL COMMENT '用户id',
 `gmt_create` datetime DEFAULT NULL COMMENT '操作时间',
 `ip` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '客户端ip',
-`location` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '操作地址',
 `agent` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '浏览器类型',
 `path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '请求路径',
 `method` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '请求方式',
