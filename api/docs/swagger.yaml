@@ -677,6 +677,16 @@ paths:
       summary: get a cloud custom kubeConfig
       tags:
       - kubeConfigs
+  /healthz:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+      summary: health check
   /menus:
     get:
       consumes:
@@ -1397,11 +1407,11 @@ paths:
       summary: Get left menus by current user
       tags:
       - users
-  /users/menus/{id}/buttons:
+  /users/permissions:
     get:
       consumes:
       - application/json
-      description: Get buttons by menus id
+      description: Get user permission
       produces:
       - application/json
       responses:
@@ -1420,7 +1430,7 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/httputils.HttpError'
-      summary: Get buttons by menus id
+      summary: Get user permission
       tags:
       - users
 swagger: "2.0"

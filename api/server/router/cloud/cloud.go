@@ -78,29 +78,21 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.GET("/webshell/ws", s.webShell)
 
 		// Deployments API
-		// 创建 deployments
-		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.createDeployment)
+		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/deployments", s.createDeployment)
+		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.updateDeployment)
+		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
 		// listDeployments API: apps/v1/<cloud_name>/namespaces/<ns>/deployments
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/deployments", s.listDeployments)
-		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.updatetDeployments)
-		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/deployments/:object_name", s.deleteDeployment)
-
-		// Job API
-		cloudRoute.POST("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.createJob)
-		cloudRoute.PUT("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.updateJob)
-		cloudRoute.DELETE("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.deleteJob)
-		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.getJob)
-		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
 
 		// StatefulSet API
-		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.createStatefulSet)
+		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.createStatefulSet)
 		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.updateStatefulSet)
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.deleteStatefulSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets/:object_name", s.getStatefulSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/statefulsets", s.listStatefulSets)
 
 		// DaemonSet API
-		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.createDaemonSet)
+		cloudRoute.POST("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets", s.createDaemonSet)
 		cloudRoute.PUT("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.updateDaemonSet)
 		cloudRoute.DELETE("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.deleteDaemonSet)
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/daemonsets/:object_name", s.getDaemonSet)
@@ -109,10 +101,18 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		// Pod API
 		cloudRoute.GET("/apps/v1/:cloud_name/namespaces/:namespace/pods/:object_name/logs", s.getLog)
 
-		//Ingress API
-		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.createIngress)
+		// Ingress API
+		cloudRoute.POST("/network/v1/:cloud_name/namespaces/:namespace/ingress", s.createIngress)
 		cloudRoute.DELETE("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.deleteIngress)
 		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress/:object_name", s.getIngress)
 		cloudRoute.GET("/network/v1/:cloud_name/namespaces/:namespace/ingress", s.listIngress)
+
+		// Job API
+		cloudRoute.POST("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.createJob)
+		cloudRoute.PUT("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.updateJob)
+		cloudRoute.DELETE("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.deleteJob)
+		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs/:object_name", s.getJob)
+		cloudRoute.GET("/batch/v1/:cloud_name/namespaces/:namespace/jobs", s.listJobs)
+
 	}
 }

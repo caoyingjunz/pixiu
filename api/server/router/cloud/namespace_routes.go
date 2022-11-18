@@ -22,27 +22,27 @@ import (
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 func (s *cloudRouter) createNamespace(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions types.CloudOptions
-		namespace   corev1.Namespace
+		err  error
+		opts pixiumeta.CloudMeta
+		ns   corev1.Namespace
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = c.ShouldBindJSON(&namespace); err != nil {
+	if err = c.ShouldBindJSON(&ns); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Namespaces(listOptions.CloudName).Create(context.TODO(), namespace); err != nil {
+	if err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Create(context.TODO(), ns); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -53,19 +53,20 @@ func (s *cloudRouter) createNamespace(c *gin.Context) {
 func (s *cloudRouter) updateNamespace(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err          error
-		cloudOptions types.CloudOptions
-		namespace    corev1.Namespace
+		err  error
+		opts pixiumeta.NamespaceMeta
+		ns   corev1.Namespace
 	)
-	if err = c.ShouldBindUri(&cloudOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = c.ShouldBindJSON(&namespace); err != nil {
+	if err = c.ShouldBindJSON(&ns); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Namespaces(cloudOptions.CloudName).Update(context.TODO(), namespace)
+	ns.Name = opts.ObjectName
+	r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Update(context.TODO(), ns)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -76,14 +77,14 @@ func (s *cloudRouter) updateNamespace(c *gin.Context) {
 func (s *cloudRouter) deleteNamespace(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err              error
-		namespaceOptions types.NamespaceOptions
+		err  error
+		opts pixiumeta.NamespaceMeta
 	)
-	if err = c.ShouldBindUri(&namespaceOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Namespaces(namespaceOptions.CloudName).Delete(context.TODO(), namespaceOptions.ObjectName); err != nil {
+	if err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Delete(context.TODO(), opts.ObjectName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -94,32 +95,33 @@ func (s *cloudRouter) deleteNamespace(c *gin.Context) {
 func (s *cloudRouter) getNamespace(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err              error
-		namespaceOptions types.NamespaceOptions
+		err  error
+		opts pixiumeta.NamespaceMeta
 	)
-	if err = c.ShouldBindUri(&namespaceOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Namespaces(namespaceOptions.CloudName).Get(context.TODO(), namespaceOptions.ObjectName)
+	r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Get(context.TODO(), opts.ObjectName)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (s *cloudRouter) listNamespaces(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err          error
-		cloudOptions types.CloudOptions
+		err  error
+		opts pixiumeta.CloudMeta
 	)
 
-	if err = c.ShouldBindUri(&cloudOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().Namespaces(cloudOptions.CloudName).List(context.TODO()); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).List(context.TODO()); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

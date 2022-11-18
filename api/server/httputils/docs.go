@@ -14,22 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package errors
+package httputils
 
-import (
-	"errors"
-
-	"gorm.io/gorm"
-)
-
-var (
-	ErrRecordNotUpdate = errors.New("record not updated")
-)
-
-func IsNotFound(err error) bool {
-	return errors.Is(err, gorm.ErrRecordNotFound)
+// HttpOK 正常返回
+type HttpOK struct {
+	Code   int    `json:"code" example:"200"`
+	Result string `json:"result" example:"any result"`
 }
 
-func IsNotUpdate(err error) bool {
-	return errors.Is(err, ErrRecordNotUpdate)
+// HttpError 异常返回
+type HttpError struct {
+	Code    int    `json:"code" example:"400"`
+	Message string `json:"message" example:"status bad request"`
 }

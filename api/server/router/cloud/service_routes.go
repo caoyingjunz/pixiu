@@ -22,19 +22,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/api/core/v1"
 
+	"github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 func (s *cloudRouter) createService(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		createOptions types.CreateOptions
-		service       v1.Service
+		err     error
+		opts    meta.CreateOptions
+		service v1.Service
 	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -42,8 +42,8 @@ func (s *cloudRouter) createService(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	service.Namespace = createOptions.Namespace
-	if err = pixiu.CoreV1.Cloud().Services(createOptions.CloudName).Create(context.TODO(), &service); err != nil {
+	service.Namespace = opts.Namespace
+	if err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Create(context.TODO(), &service); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -54,11 +54,11 @@ func (s *cloudRouter) createService(c *gin.Context) {
 func (s *cloudRouter) updateService(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		createOptions types.GetOrCreateOptions
-		service       v1.Service
+		err     error
+		opts    meta.UpdateOptions
+		service v1.Service
 	)
-	if err = c.ShouldBindUri(&createOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -66,9 +66,9 @@ func (s *cloudRouter) updateService(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	service.Name = createOptions.ObjectName
-	service.Namespace = createOptions.Namespace
-	err = pixiu.CoreV1.Cloud().Services(createOptions.CloudName).Update(context.TODO(), &service)
+	service.Name = opts.ObjectName
+	service.Namespace = opts.Namespace
+	err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Update(context.TODO(), &service)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -80,14 +80,14 @@ func (s *cloudRouter) updateService(c *gin.Context) {
 func (s *cloudRouter) deleteService(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err           error
-		deleteOptions types.GetOrDeleteOptions
+		err  error
+		opts meta.DeleteOptions
 	)
-	if err = c.ShouldBindUri(&deleteOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err = pixiu.CoreV1.Cloud().Services(deleteOptions.CloudName).Delete(context.TODO(), deleteOptions)
+	err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Delete(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -98,14 +98,14 @@ func (s *cloudRouter) deleteService(c *gin.Context) {
 func (s *cloudRouter) getService(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err        error
-		getOptions types.GetOrDeleteOptions
+		err  error
+		opts meta.GetOptions
 	)
-	if err = c.ShouldBindUri(&getOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Services(getOptions.CloudName).Get(context.TODO(), getOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Get(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -118,14 +118,14 @@ func (s *cloudRouter) getService(c *gin.Context) {
 func (s *cloudRouter) listServices(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		listOptions types.ListOptions
+		err  error
+		opts meta.ListOptions
 	)
-	if err = c.ShouldBindUri(&listOptions); err != nil {
+	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Services(listOptions.CloudName).List(context.TODO(), listOptions)
+	r.Result, err = pixiu.CoreV1.Cloud().Services(opts.Cloud).List(context.TODO(), opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

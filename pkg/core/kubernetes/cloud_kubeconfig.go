@@ -36,6 +36,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	pixiuerrors "github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 )
@@ -85,7 +86,7 @@ func (c *kubeConfigs) preCreate(ctx context.Context, kubeConfig *types.KubeConfi
 
 func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOptions) (*types.KubeConfigOptions, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	// 创建前检查
 	if err := c.preCreate(ctx, kubeConfig); err != nil {
@@ -176,7 +177,7 @@ func (c *kubeConfigs) Create(ctx context.Context, kubeConfig *types.KubeConfigOp
 
 func (c *kubeConfigs) Update(ctx context.Context, id int64) (*types.KubeConfigOptions, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	obj, err := c.factory.KubeConfig().Get(ctx, id)
 	if err != nil {
@@ -237,7 +238,7 @@ func (c *kubeConfigs) Update(ctx context.Context, id int64) (*types.KubeConfigOp
 
 func (c *kubeConfigs) Delete(ctx context.Context, id int64) error {
 	if c.client == nil {
-		return clientError
+		return pixiuerrors.ErrCloudNotRegister
 	}
 
 	obj, err := c.factory.KubeConfig().Get(ctx, id)
@@ -262,7 +263,7 @@ func (c *kubeConfigs) Delete(ctx context.Context, id int64) error {
 
 func (c *kubeConfigs) Get(ctx context.Context, id int64) (*types.KubeConfigOptions, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 	obj, err := c.factory.KubeConfig().Get(ctx, id)
 	if err != nil {
@@ -282,7 +283,7 @@ func (c *kubeConfigs) Get(ctx context.Context, id int64) (*types.KubeConfigOptio
 
 func (c *kubeConfigs) List(ctx context.Context) ([]types.KubeConfigOptions, error) {
 	if c.client == nil {
-		return nil, clientError
+		return nil, pixiuerrors.ErrCloudNotRegister
 	}
 
 	objs, err := c.factory.KubeConfig().List(ctx, c.cloud)

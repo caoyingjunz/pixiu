@@ -79,7 +79,7 @@ func NewServerCommand() *cobra.Command {
 }
 
 func InitRouters(opt *options.Options) {
-	middleware.InitMiddlewares(opt.GinEngine) // 注册中间件
+	middleware.InstallMiddlewares(opt.GinEngine) // 安装中间件
 
 	cloud.NewRouter(opt.GinEngine)   // 注册 cloud 路由
 	user.NewRouter(opt.GinEngine)    // 注册 user 路由

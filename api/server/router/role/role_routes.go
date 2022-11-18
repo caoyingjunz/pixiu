@@ -22,9 +22,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httpstatus"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
@@ -43,18 +43,18 @@ func (o *roleRouter) addRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role types.RoleReq
 	if err := c.ShouldBindJSON(&role); err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	exist := pixiu.CoreV1.Role().CheckRoleIsExist(c, role.Name)
 	if exist {
-		httputils.SetFailed(c, r, httpstatus.RoleExistError)
+		httputils.SetFailed(c, r, errors.RoleExistError)
 		return
 	}
 
 	if _, err := pixiu.CoreV1.Role().Create(c, &role); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 	httputils.SetSuccess(c, r)
@@ -75,24 +75,24 @@ func (o *roleRouter) updateRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	var role types.UpdateRoleReq
 	if err := c.ShouldBindJSON(&role); err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	roleId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	_, err = pixiu.CoreV1.Role().Get(c, roleId)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
+		httputils.SetFailed(c, r, errors.RoleNotExistError)
 		return
 	}
 
 	if err = pixiu.CoreV1.Role().Update(c, &role, roleId); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
@@ -113,18 +113,18 @@ func (o *roleRouter) deleteRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	_, err = pixiu.CoreV1.Role().Get(c, rid)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
+		httputils.SetFailed(c, r, errors.RoleNotExistError)
 		return
 	}
 
 	if err = pixiu.CoreV1.Role().Delete(c, rid); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
@@ -145,13 +145,13 @@ func (o *roleRouter) getRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	r.Result, err = pixiu.CoreV1.Role().Get(context.TODO(), rid)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
@@ -175,19 +175,19 @@ func (o *roleRouter) listRoles(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "0")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	limitStr := c.DefaultQuery("limit", "0")
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	if r.Result, err = pixiu.CoreV1.Role().List(c, page, limit); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
@@ -208,18 +208,18 @@ func (o *roleRouter) getMenusByRole(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	_, err = pixiu.CoreV1.Role().Get(c, rid)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
+		httputils.SetFailed(c, r, errors.RoleNotExistError)
 		return
 	}
 
 	if r.Result, err = pixiu.CoreV1.Role().GetMenusByRoleID(c, rid); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 	httputils.SetSuccess(c, r)
@@ -240,24 +240,24 @@ func (o *roleRouter) setRoleMenus(c *gin.Context) {
 	r := httputils.NewResponse()
 	rid, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	_, err = pixiu.CoreV1.Role().Get(c, rid)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
 	var menuIds types.Menus
 	if err = c.ShouldBindJSON(&menuIds); err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	if err = pixiu.CoreV1.Role().SetRole(c, rid, menuIds.MenuIDS); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
@@ -279,23 +279,23 @@ func (*roleRouter) updateRoleStatus(c *gin.Context) {
 
 	status, err := util.ParseInt64(c.Param("status"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 	roleId, err := util.ParseInt64(c.Param("id"))
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.ParamsError)
+		httputils.SetFailed(c, r, errors.ParamsError)
 		return
 	}
 
 	_, err = pixiu.CoreV1.Role().Get(c, roleId)
 	if err != nil {
-		httputils.SetFailed(c, r, httpstatus.RoleNotExistError)
+		httputils.SetFailed(c, r, errors.RoleNotExistError)
 		return
 	}
 
 	if err = pixiu.CoreV1.Role().UpdateStatus(c, roleId, status); err != nil {
-		httputils.SetFailed(c, r, httpstatus.OperateFailed)
+		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
 	}
 
