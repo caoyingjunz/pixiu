@@ -23,5 +23,14 @@ import (
 // Audit 操作记录
 func Audit() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Next()
+
+		go func(c *gin.Context) {
+			handleEvent(c)
+		}(c)
 	}
+}
+
+func handleEvent(c *gin.Context) {
+
 }
