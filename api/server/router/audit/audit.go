@@ -23,16 +23,14 @@ import (
 type auditRouter struct{}
 
 func NewRouter(ginEngine *gin.Engine) {
-	a := &auditRouter{}
-	a.initRoutes(ginEngine)
+	s := &auditRouter{}
+	s.initRoutes(ginEngine)
 }
 
-func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
-	auditRouter := ginEngine.Group("/audit")
+func (audit *auditRouter) initRoutes(ginEngine *gin.Engine) {
+	auditRoute := ginEngine.Group("/audits")
 	{
-		// 逻辑删除audit记录
-		auditRouter.DELETE("", a.deleteAudit)
 		// 分页查询audit记录
-		auditRouter.GET("", a.listAudit)
+		auditRoute.GET("", audit.listAuditEvents)
 	}
 }

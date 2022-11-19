@@ -19,28 +19,14 @@ package audit
 import (
 	"context"
 
-	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/gin-gonic/gin"
 
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-func (u *auditRouter) deleteAudit(c *gin.Context) {
-	r := httputils.NewResponse()
-	var idsReq model.IdsReq
-	err := c.ShouldBindJSON(&idsReq)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-	}
-	if err := pixiu.CoreV1.Audit().Delete(c, idsReq.Ids); err != nil {
-		httputils.SetFailed(c, r, err)
-	}
-	httputils.SetSuccess(c, r)
-}
-
-func (u *auditRouter) listAudit(c *gin.Context) {
+func (audit *auditRouter) listAuditEvents(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
 	if r.Result, err = pixiu.CoreV1.Audit().List(context.TODO(), pixiumeta.ParseListSelector(c)); err != nil {

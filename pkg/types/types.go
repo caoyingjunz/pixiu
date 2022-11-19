@@ -23,3 +23,22 @@ var (
 	MasterRole Role = "master"
 	NodeRole   Role = "node"
 )
+
+// EventType 审计事件类型
+type EventType string
+
+var (
+	CreateEvent EventType = "create"
+	UpdateEvent EventType = "update"
+	DeleteEvent EventType = "delete"
+	GetEvent    EventType = "get"
+)
+
+type Event struct {
+	User      string    `json:"user"`
+	EventType EventType `json:"event_type"`
+	ClientIP  string    `json:"client_ip"`
+	Operator  string    `json:"operator"`
+	Object    string    `json:"object"`
+	Message   string    `json:"message"`
+}

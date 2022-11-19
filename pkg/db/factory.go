@@ -19,7 +19,7 @@ package db
 import (
 	"gorm.io/gorm"
 
-	model "github.com/caoyingjunz/gopixiu/pkg/db/audit"
+	"github.com/caoyingjunz/gopixiu/pkg/db/audit"
 	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
 	"github.com/caoyingjunz/gopixiu/pkg/db/user"
 )
@@ -30,8 +30,8 @@ type ShareDaoFactory interface {
 	KubeConfig() cloud.KubeConfigInterface
 	Role() user.RoleInterface
 	Menu() user.MenuInterface
+	Audit() audit.Interface
 	Authentication() user.AuthenticationInterface
-	Audit() model.AuditInterface
 }
 
 type shareDaoFactory struct {
@@ -58,13 +58,13 @@ func (f *shareDaoFactory) Menu() user.MenuInterface {
 	return user.NewMenu(f.db)
 }
 
+func (f *shareDaoFactory) Audit() audit.Interface {
+	return audit.NewAudit(f.db)
+}
+
 // TODO： 优化
 func (f *shareDaoFactory) Authentication() user.AuthenticationInterface {
 	return user.NewAuthentication(f.db)
-}
-
-func (f *shareDaoFactory) Audit() model.AuditInterface {
-	return model.NewAudit(f.db)
 }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {

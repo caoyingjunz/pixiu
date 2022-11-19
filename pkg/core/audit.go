@@ -18,11 +18,11 @@ package core
 
 import (
 	"context"
+
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 type AuditGetter interface {
@@ -30,9 +30,9 @@ type AuditGetter interface {
 }
 
 type AuditInterface interface {
-	Create(ctx context.Context, obj *model.Audit) error
-	Delete(c context.Context, ids []int64) error
-	List(c context.Context, selector *pixiumeta.ListSelector) (res *model.PageAudit, err error)
+	Create(ctx context.Context, event *types.Event) error
+	Delete(ctx context.Context) error
+	List(c context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error)
 }
 
 type audit struct {
@@ -49,28 +49,14 @@ func newAudit(c *pixiu) AuditInterface {
 	}
 }
 
-func (a audit) Create(c context.Context, obj *model.Audit) error {
-	if _, err := a.factory.Audit().Create(c, obj); err != nil {
-		log.Logger.Errorf("failed to save audit %s: %v", obj.UserID, err)
-		return err
-	}
+func (ad *audit) Create(c context.Context, event *types.Event) error {
 	return nil
 }
 
-func (a audit) Delete(c context.Context, ids []int64) error {
-	if err := a.factory.Audit().Delete(c, ids); err != nil {
-		log.Logger.Errorf("batch delete %s audit error: %v", ids, err)
-		return err
-	}
+func (ad *audit) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (a audit) List(c context.Context, selector *pixiumeta.ListSelector) (res *model.PageAudit, err error) {
-	audits, err := a.factory.Audit().List(c, selector.Page, selector.Limit)
-	if err != nil {
-		log.Logger.Errorf("list audit error: %v", err)
-		return nil, err
-	}
-	return audits, nil
-
+func (ad *audit) List(c context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error) {
+	return nil, nil
 }

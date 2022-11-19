@@ -25,19 +25,17 @@ import (
 )
 
 var AlwaysAllowPath sets.String
-var AuditAllowPath sets.String
 
 func InstallMiddlewares(ginEngine *gin.Engine) {
 	// 初始化可忽略的请求路径
 	AlwaysAllowPath = sets.NewString(types.HealthURL, types.LoginURL, types.LogoutURL)
-	AuditAllowPath = sets.NewString(types.HealthURL)
 
 	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication(), Audit())
+	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication())
 	// TODO: 临时关闭
 	if env.EnableDebug() {
 		ginEngine.Use(Authorization())
 	}
 
-	ginEngine.Use(Admission())
+	ginEngine.Use(Admission(), Audit())
 }
