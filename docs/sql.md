@@ -121,24 +121,16 @@ CREATE TABLE `nodes` (
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=24220801;
 ```
 
-## 创建 `audit` 表
+## 创建 `events` 表
 ```sql
-CREATE TABLE `audit` (
-`id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
-`user_id` bigint DEFAULT NULL COMMENT '用户id',
-`gmt_create` datetime DEFAULT NULL COMMENT '操作时间',
-`ip` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '客户端ip',
-`agent` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '浏览器类型',
-`path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '请求路径',
-`method` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '请求方式',
-`param` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci COMMENT '入参',
-`status` int DEFAULT '0' COMMENT '状态',
-`latency` bigint DEFAULT NULL COMMENT '延迟',
-`resp_result` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci COMMENT '返回值',
-`err_msg` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '错误消息',
-`gmt_delete` datetime DEFAULT NULL COMMENT '删除时间',
-`del_flag` tinyint DEFAULT '0' COMMENT '删除标记(0正常 1删除)',
-PRIMARY KEY (`id`) USING BTREE,
-KEY `idx_delFlag` (`del_flag`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC COMMENT='操作记录表';
+CREATE TABLE `events` (
+    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
+    gmt_create datetime COMMENT '创建时间',
+    gmt_modified datetime COMMENT '修改时间',
+    resource_version int COMMENT '版本号',
+    user varchar(128) COMMENT '用户名称',
+    operator varchar(128) COMMENT '操作类型',
+    object varchar(128) COMMENT '操作对象',
+    message varchar(128) COMMENT '消息',
+) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=26220801;
 ```

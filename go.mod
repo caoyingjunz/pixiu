@@ -25,7 +25,6 @@ require (
 	github.com/jackc/pgtype v1.12.0 // indirect
 	github.com/juju/ratelimit v1.0.2
 	github.com/mattn/go-isatty v0.0.16 // indirect
-	github.com/mssola/user_agent v0.5.3
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/spf13/cobra v1.5.0
