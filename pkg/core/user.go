@@ -59,7 +59,6 @@ type UserInterface interface {
 	GetButtonsByUserID(ctx context.Context, uid int64) (*[]string, error)
 	GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Menu, error)
 	UpdateStatus(c context.Context, userId, status int64) error
-	GetUserIdByName(ctx context.Context, name string) (*model.User, error)
 }
 
 type user struct {
@@ -379,12 +378,4 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]mo
 
 func (u *user) UpdateStatus(c context.Context, userId, status int64) error {
 	return u.factory.User().UpdateStatus(c, userId, status)
-}
-
-func (u *user) GetUserIdByName(ctx context.Context, name string) (*model.User, error) {
-	user, err := u.factory.User().GetByName(ctx, name)
-	if err != nil {
-		log.Logger.Error(err)
-	}
-	return user, err
 }
