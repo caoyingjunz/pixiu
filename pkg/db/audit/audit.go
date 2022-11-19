@@ -26,7 +26,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
-// AuditInterface 审计数据访问层
+// Interface 审计数据访问层
 type AuditInterface interface {
 	Create(c context.Context, obj *model.Audit) (audit *model.Audit, err error)
 	Delete(c context.Context, ids []int64) error

@@ -19,15 +19,13 @@ package user
 import (
 	"context"
 
-	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/gin-gonic/gin"
 )
 
 // @Summary      Create a user
@@ -179,7 +177,7 @@ func (u *userRouter) login(c *gin.Context) {
 		user types.User
 		err  error
 	)
-	if err = c.ShouldBindBodyWith(&user, binding.JSON); err != nil {
+	if err = c.ShouldBindJSON(&user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
