@@ -131,6 +131,6 @@ CREATE TABLE `events` (
     user varchar(128) COMMENT '用户名称',
     operator varchar(128) COMMENT '操作类型',
     object varchar(128) COMMENT '操作对象',
-    message varchar(128) COMMENT '消息',
+    message varchar(128) COMMENT '消息'
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=26220801;
 ```
