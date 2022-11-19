@@ -18,6 +18,8 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
 // Audit 操作记录
@@ -26,11 +28,11 @@ func Audit() gin.HandlerFunc {
 		c.Next()
 
 		go func(c *gin.Context) {
-			handleEvent(c)
+			handleEvent(&types.Event{})
 		}(c)
 	}
 }
 
-func handleEvent(c *gin.Context) {
+func handleEvent(event *types.Event) {
 
 }
