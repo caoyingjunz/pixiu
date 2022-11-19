@@ -35,10 +35,9 @@ var (
 )
 
 type Event struct {
-	User      string    `json:"user"`
-	EventType EventType `json:"event_type"`
-	ClientIP  string    `json:"client_ip"`
-	Operator  string    `json:"operator"`
-	Object    string    `json:"object"`
-	Message   string    `json:"message"`
+	User     string    `json:"user"`
+	ClientIP string    `json:"client_ip"`
+	Operator EventType `json:"operator"`
+	Object   string    `json:"object"`
+	Message  string    `json:"message"`
 }
