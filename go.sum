@@ -92,10 +92,6 @@ github.com/casbin/casbin/v2 v2.55.0 h1:RyU+OacnVzjxof1U3bmxHM7oCRdx9+gNnkclrvof/
 github.com/casbin/casbin/v2 v2.55.0/go.mod h1:vByNa/Fchek0KZUgG5wEsl7iFsiviAYKRtgrQfcJqHg=
 github.com/casbin/gorm-adapter/v3 v3.10.0 h1:cs13p6ZOD24e3qo3497R8STp1wOGCBy7DkLY5yXBDg0=
 github.com/casbin/gorm-adapter/v3 v3.10.0/go.mod h1:7mwHmC2phiw6N4gDWlzi+c4DUX7zaVmQC/hINsRgBDg=
-github.com/cc14514/go-geoip2 v0.0.0-20190105051856-0a1854480a11 h1:smFM+R9NconJ5FHiMyQsq/fIjtYE0jxVJwX8ZxAmWF0=
-github.com/cc14514/go-geoip2 v0.0.0-20190105051856-0a1854480a11/go.mod h1:gC4wJD6T+unJtW078G4ugNE2UNbk4/oYwQKteOaybQE=
-github.com/cc14514/go-geoip2-db v0.0.0-20190106063142-7b6408a9812a h1:tc57+CsbpTjJLvcp2AyVAvaYmS0FFxSaRCQeUa4jcHg=
-github.com/cc14514/go-geoip2-db v0.0.0-20190106063142-7b6408a9812a/go.mod h1:MBxCt6+ltWZRodx2FgXuQm7LQweWyPofmXsuhX3D6Zo=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
@@ -461,8 +457,6 @@ github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
-github.com/rakyll/statik v0.1.7 h1:OF3QCZUuyPxuGEP7B4ypUa7sB/iHtqOTDYZXGM8KOdQ=
-github.com/rakyll/statik v0.1.7/go.mod h1:AlZONWzMtEnMs7W4e/1LURLiI49pIMmp6V9Unghqrcc=
 github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 h1:OdAsTTz6OkFY5QxjkYwrChwuRruF69c169dPK26NUlk=
 github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=

@@ -8,8 +8,6 @@ require (
 	github.com/caoyingjunz/pixiulib v0.0.0-20220819163605-c3c10ec3ed3c
 	github.com/casbin/casbin/v2 v2.55.0
 	github.com/casbin/gorm-adapter/v3 v3.10.0
-	github.com/cc14514/go-geoip2 v0.0.0-20190105051856-0a1854480a11 // indirect
-	github.com/cc14514/go-geoip2-db v0.0.0-20190106063142-7b6408a9812a
 	github.com/fatih/structs v1.1.0
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.8.1
@@ -29,7 +27,6 @@ require (
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mssola/user_agent v0.5.3
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
-	github.com/rakyll/statik v0.1.7 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/spf13/cobra v1.5.0
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
