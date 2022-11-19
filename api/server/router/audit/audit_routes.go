@@ -26,6 +26,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
+// TODO: 根据发生事件获取审计事件列表
 func (audit *auditRouter) listAuditEvents(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
