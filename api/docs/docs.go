@@ -452,6 +452,22 @@ const docTemplate = `{
                 }
             }
         },
+        "/healthz": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "health check",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/menus": {
             "get": {
                 "description": "List menus",
@@ -1340,9 +1356,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/users/menus/{id}/buttons": {
+        "/users/permissions": {
             "get": {
-                "description": "Get buttons by menus id",
+                "description": "Get user permission",
                 "consumes": [
                     "application/json"
                 ],
@@ -1352,7 +1368,7 @@ const docTemplate = `{
                 "tags": [
                     "users"
                 ],
-                "summary": "Get buttons by menus id",
+                "summary": "Get user permission",
                 "responses": {
                     "200": {
                         "description": "OK",

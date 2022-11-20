@@ -17,12 +17,11 @@ limitations under the License.
 package middleware
 
 import (
-	"os"
-
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/caoyingjunz/gopixiu/pkg/types"
+	"github.com/caoyingjunz/gopixiu/pkg/util/env"
 )
 
 var AlwaysAllowPath sets.String
@@ -34,7 +33,7 @@ func InstallMiddlewares(ginEngine *gin.Engine) {
 	// 依次进行跨域，日志，单用户限速，总量限速，验证，和鉴权
 	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication())
 	// TODO: 临时关闭
-	if os.Getenv("DEBUG") != "true" {
+	if env.EnableDebug() {
 		ginEngine.Use(Authorization())
 	}
 
