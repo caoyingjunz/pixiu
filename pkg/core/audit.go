@@ -32,7 +32,7 @@ type AuditGetter interface {
 type AuditInterface interface {
 	Create(ctx context.Context, event *types.Event) error
 	Delete(ctx context.Context) error
-	List(c context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error)
+	List(ctx context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error)
 }
 
 type audit struct {
@@ -49,7 +49,7 @@ func newAudit(c *pixiu) AuditInterface {
 	}
 }
 
-func (ad *audit) Create(c context.Context, event *types.Event) error {
+func (ad *audit) Create(ctx context.Context, event *types.Event) error {
 	return nil
 }
 
@@ -57,6 +57,11 @@ func (ad *audit) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (ad *audit) List(c context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error) {
+func (ad *audit) List(ctx context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error) {
 	return nil, nil
+}
+
+// Start 启动定时清理
+func (ad *audit) Start(ctx context.Context) {
+
 }
