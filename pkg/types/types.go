@@ -16,7 +16,7 @@ limitations under the License.
 
 package types
 
-// Role k8s 角色定义
+// Role kubernetes 角色定义
 type Role string
 
 var (

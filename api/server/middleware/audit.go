@@ -17,8 +17,11 @@ limitations under the License.
 package middleware
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
@@ -28,11 +31,16 @@ func Audit() gin.HandlerFunc {
 		c.Next()
 
 		go func(c *gin.Context) {
-			handleEvent(&types.Event{})
+			// TODO: 继续实现
+			handleEvent(&types.Event{
+				ClientIP: c.ClientIP(),
+				Operator: c.Value("create").(types.EventType),
+				Message:  c.Value("message").(string),
+			})
 		}(c)
 	}
 }
 
 func handleEvent(event *types.Event) {
-
+	_ = pixiu.CoreV1.Audit().Create(context.TODO(), event)
 }
