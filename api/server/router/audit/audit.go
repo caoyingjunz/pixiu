@@ -14,30 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package audit
 
-// Role kubernetes 角色定义
-type Role string
-
-var (
-	MasterRole Role = "master"
-	NodeRole   Role = "node"
+import (
+	"github.com/gin-gonic/gin"
 )
 
-// EventType 审计事件类型
-type EventType string
+type auditRouter struct{}
 
-var (
-	CreateEvent EventType = "create"
-	UpdateEvent EventType = "update"
-	DeleteEvent EventType = "delete"
-	GetEvent    EventType = "get"
-)
+func NewRouter(ginEngine *gin.Engine) {
+	s := &auditRouter{}
+	s.initRoutes(ginEngine)
+}
 
-type Event struct {
-	User     string    `json:"user"`
-	ClientIP string    `json:"client_ip"`
-	Operator EventType `json:"operator"`
-	Object   string    `json:"object"`
-	Message  string    `json:"message"`
+func (audit *auditRouter) initRoutes(ginEngine *gin.Engine) {
+	auditRoute := ginEngine.Group("/audits")
+	{
+		// 分页查询audit记录
+		auditRoute.GET("", audit.listAuditEvents)
+	}
 }

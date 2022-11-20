@@ -120,3 +120,17 @@ CREATE TABLE `nodes` (
     KEY `idx_cloud` (`cloud_id`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=24220801;
 ```
+
+## 创建 `events` 表
+```sql
+CREATE TABLE `events` (
+    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
+    gmt_create datetime COMMENT '创建时间',
+    gmt_modified datetime COMMENT '修改时间',
+    resource_version int COMMENT '版本号',
+    user varchar(128) COMMENT '用户名称',
+    operator varchar(128) COMMENT '操作类型',
+    object varchar(128) COMMENT '操作对象',
+    message varchar(128) COMMENT '消息'
+) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=26220801;
+```
