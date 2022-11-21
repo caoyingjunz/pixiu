@@ -14,30 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package audit
 
-// Role kubernetes 角色定义
-type Role string
+import (
+	"context"
 
-var (
-	MasterRole Role = "master"
-	NodeRole   Role = "node"
+	"github.com/gin-gonic/gin"
+
+	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
-// EventType 审计事件类型
-type EventType string
+// TODO: 根据发生事件获取审计事件列表
+func (audit *auditRouter) listAuditEvents(c *gin.Context) {
+	r := httputils.NewResponse()
+	var err error
+	if r.Result, err = pixiu.CoreV1.Audit().List(context.TODO(), pixiumeta.ParseListSelector(c)); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
-var (
-	CreateEvent EventType = "create"
-	UpdateEvent EventType = "update"
-	DeleteEvent EventType = "delete"
-	GetEvent    EventType = "get"
-)
-
-type Event struct {
-	User     string    `json:"user"`
-	ClientIP string    `json:"client_ip"`
-	Operator EventType `json:"operator"`
-	Object   string    `json:"object"`
-	Message  string    `json:"message"`
+	httputils.SetSuccess(c, r)
 }

@@ -18,8 +18,9 @@ package httputils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"time"
+
+	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"

@@ -101,3 +101,17 @@ type KubeConfig struct {
 func (*KubeConfig) TableName() string {
 	return "kube_configs"
 }
+
+type Event struct {
+	gopixiu.Model
+
+	User     string `json:"user"`
+	ClientIP string `json:"client_ip"`
+	Operator string `json:"operator"`
+	Object   string `json:"object"`
+	Message  string `json:"message"`
+}
+
+func (event *Event) TableName() string {
+	return "events"
+}

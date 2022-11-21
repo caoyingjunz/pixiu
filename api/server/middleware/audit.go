@@ -17,25 +17,30 @@ limitations under the License.
 package middleware
 
 import (
-	"github.com/gin-gonic/gin"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"context"
 
+	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
-	"github.com/caoyingjunz/gopixiu/pkg/util/env"
 )
 
-var AlwaysAllowPath sets.String
+// Audit 操作记录
+func Audit() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
 
-func InstallMiddlewares(ginEngine *gin.Engine) {
-	// 初始化可忽略的请求路径
-	AlwaysAllowPath = sets.NewString(types.HealthURL, types.LoginURL, types.LogoutURL)
-
-	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication())
-	// TODO: 临时关闭
-	if env.EnableDebug() {
-		ginEngine.Use(Authorization())
+		go func(c *gin.Context) {
+			// TODO: 继续实现
+			handleEvent(&types.Event{
+				ClientIP: c.ClientIP(),
+				Operator: c.Value("create").(types.EventType),
+				Message:  c.Value("message").(string),
+			})
+		}(c)
 	}
+}
 
-	ginEngine.Use(Admission(), Audit())
+func handleEvent(event *types.Event) {
+	_ = pixiu.CoreV1.Audit().Create(context.TODO(), event)
 }
