@@ -18,6 +18,8 @@ package user
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -138,6 +140,9 @@ func (u *user) UpdateInternal(ctx context.Context, uid int64, updates map[string
 func (u *user) GetByName(ctx context.Context, name string) (*model.User, error) {
 	var obj model.User
 	if err := u.db.Where("name = ?", name).First(&obj).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("用户不存在")
+		}
 		return nil, err
 	}
 
