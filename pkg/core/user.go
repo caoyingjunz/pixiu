@@ -28,6 +28,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/gopixiu/pkg/errors"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 )
@@ -187,6 +188,9 @@ func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 
 	userObj, err := u.factory.User().GetByName(context.TODO(), obj.Name)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", errors.ErrUserNotFound
+		}
 		return "", err
 	}
 	// To ensure login password is correct

@@ -33,6 +33,7 @@ var (
 	NoPermission       = errors.New("无权限")
 	InnerError         = errors.New("内部错误")
 	NoUserIdError      = errors.New("请登录")
+	ErrUserNotFound    = errors.New("用户不存在")
 	RoleExistError     = errors.New("角色已存在")
 	RoleNotExistError  = errors.New("角色不存在")
 	MenusExistError    = errors.New("权限已存在")
