@@ -58,6 +58,17 @@ func ParseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
 		return jwtKey, nil
 	})
 	if err != nil {
+		if ve, ok := err.(*jwt.ValidationError); ok {
+			if ve.Errors == jwt.ValidationErrorMalformed {
+				return nil, fmt.Errorf("token格式错误," + err.Error())
+			} else if ve.Errors == jwt.ValidationErrorExpired {
+				return nil, fmt.Errorf("登录已过期，请重新登录")
+			} else if ve.Errors == jwt.ValidationErrorNotValidYet {
+				return nil, fmt.Errorf("token还不可用," + err.Error())
+			} else {
+				return nil, fmt.Errorf("token不可用," + err.Error())
+			}
+		}
 		return nil, err
 	}
 
