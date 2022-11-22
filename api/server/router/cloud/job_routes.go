@@ -1,8 +1,6 @@
 package cloud
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 	batchv1 "k8s.io/api/batch/v1"
 
@@ -27,7 +25,7 @@ func (s *cloudRouter) createJob(c *gin.Context) {
 		return
 	}
 	job.Namespace = opts.Namespace
-	if err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Create(context.TODO(), &job); err != nil {
+	if err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Create(c, &job); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -48,7 +46,7 @@ func (s *cloudRouter) updateJob(c *gin.Context) {
 	}
 	job.Name = opts.ObjectName
 	job.Namespace = opts.Namespace
-	err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Update(context.TODO(), &job)
+	err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Update(c, &job)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -64,7 +62,7 @@ func (s *cloudRouter) deleteJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Delete(context.TODO(), opts)
+	err := pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Delete(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -83,7 +81,7 @@ func (s *cloudRouter) getJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Get(context.TODO(), opts)
+	r.Result, err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).Get(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -102,7 +100,7 @@ func (s *cloudRouter) listJobs(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).List(context.TODO(), opts)
+	r.Result, err = pixiu.CoreV1.Cloud().Jobs(opts.Cloud).List(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

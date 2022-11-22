@@ -17,8 +17,6 @@ limitations under the License.
 package cloud
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
@@ -53,7 +51,7 @@ func (s *cloudRouter) createKubeConfig(c *gin.Context) {
 		return
 	}
 	opts.CloudName = cloudMeta.CloudName
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Create(context.TODO(), &opts); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).Create(c, &opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -82,7 +80,7 @@ func (s *cloudRouter) updateKubeConfig(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Update(context.TODO(), cloudIdMeta.Id); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Update(c, cloudIdMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -111,7 +109,7 @@ func (s *cloudRouter) deleteKubeConfig(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Delete(context.TODO(), cloudIdMeta.Id); err != nil {
+	if err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Delete(c, cloudIdMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -140,7 +138,7 @@ func (s *cloudRouter) getKubeConfig(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Get(context.TODO(), cloudIdMeta.Id); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(cloudIdMeta.CloudName).Get(c, cloudIdMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -165,7 +163,7 @@ func (s *cloudRouter) listKubeConfig(c *gin.Context) {
 		opts types.KubeConfigOptions
 	)
 	opts.CloudName = c.Param("cloud_name")
-	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).List(context.TODO()); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().KubeConfigs(opts.CloudName).List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

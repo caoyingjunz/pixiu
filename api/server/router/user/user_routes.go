@@ -17,8 +17,6 @@ limitations under the License.
 package user
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
@@ -45,7 +43,7 @@ func (u *userRouter) createUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := pixiu.CoreV1.User().Create(context.TODO(), &user); err != nil {
+	if err := pixiu.CoreV1.User().Create(c, &user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -82,7 +80,7 @@ func (u *userRouter) updateUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.User().Update(context.TODO(), &user); err != nil {
+	if err = pixiu.CoreV1.User().Update(c, &user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -106,7 +104,7 @@ func (u *userRouter) deleteUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.User().Delete(context.TODO(), uid); err != nil {
+	if err = pixiu.CoreV1.User().Delete(c, uid); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -130,7 +128,7 @@ func (u *userRouter) getUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.User().Get(context.TODO(), uid)
+	r.Result, err = pixiu.CoreV1.User().Get(c, uid)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -182,7 +180,7 @@ func (u *userRouter) login(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.User().Login(context.TODO(), &user); err != nil {
+	if r.Result, err = pixiu.CoreV1.User().Login(c, &user); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -212,7 +210,7 @@ func (u *userRouter) resetPassword(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.User().ResetPassword(context.TODO(), opts.Id, c.GetInt64("userId")); err != nil {
+	if err = pixiu.CoreV1.User().ResetPassword(c, opts.Id, c.GetInt64("userId")); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -248,7 +246,7 @@ func (u *userRouter) changePassword(c *gin.Context) {
 
 	// 需要通过 token 中的 id 判断当前操作的用户和需要修改密码的用户是否是同一个
 	// Get the uid from token
-	if err := pixiu.CoreV1.User().ChangePassword(context.TODO(), c.GetInt64("userId"), &password); err != nil {
+	if err := pixiu.CoreV1.User().ChangePassword(c, c.GetInt64("userId"), &password); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

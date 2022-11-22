@@ -17,8 +17,6 @@ limitations under the License.
 package audit
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
@@ -30,7 +28,7 @@ import (
 func (audit *auditRouter) listAuditEvents(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
-	if r.Result, err = pixiu.CoreV1.Audit().List(context.TODO(), pixiumeta.ParseListSelector(c)); err != nil {
+	if r.Result, err = pixiu.CoreV1.Audit().List(c, pixiumeta.ParseListSelector(c)); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

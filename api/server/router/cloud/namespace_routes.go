@@ -17,8 +17,6 @@ limitations under the License.
 package cloud
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
 
@@ -42,7 +40,7 @@ func (s *cloudRouter) createNamespace(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Create(context.TODO(), ns); err != nil {
+	if err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Create(c, ns); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -66,7 +64,7 @@ func (s *cloudRouter) updateNamespace(c *gin.Context) {
 		return
 	}
 	ns.Name = opts.ObjectName
-	r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Update(context.TODO(), ns)
+	r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Update(c, ns)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -84,7 +82,7 @@ func (s *cloudRouter) deleteNamespace(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Delete(context.TODO(), opts.ObjectName); err != nil {
+	if err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Delete(c, opts.ObjectName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -101,7 +99,7 @@ func (s *cloudRouter) getNamespace(c *gin.Context) {
 	if err = c.ShouldBindUri(&opts); err != nil {
 		httputils.SetFailed(c, r, err)
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Get(context.TODO(), opts.ObjectName)
+	r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).Get(c, opts.ObjectName)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -121,7 +119,7 @@ func (s *cloudRouter) listNamespaces(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).List(context.TODO()); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().Namespaces(opts.Cloud).List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
