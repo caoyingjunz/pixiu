@@ -17,8 +17,6 @@ limitations under the License.
 package cloud
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 	v1 "k8s.io/api/apps/v1"
 
@@ -44,7 +42,7 @@ func (s *cloudRouter) createStatefulSet(c *gin.Context) {
 	}
 
 	sts.Namespace = opts.Namespace
-	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Create(context.TODO(), &sts); err != nil {
+	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Create(c, &sts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -70,7 +68,7 @@ func (s *cloudRouter) updateStatefulSet(c *gin.Context) {
 
 	sts.Name = opts.ObjectName
 	sts.Namespace = opts.Namespace
-	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Update(context.TODO(), &sts); err != nil {
+	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Update(c, &sts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -88,7 +86,7 @@ func (s *cloudRouter) deleteStatefulSet(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Delete(context.TODO(), opts.Namespace, opts.ObjectName); err != nil {
+	if err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Delete(c, opts.Namespace, opts.ObjectName); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -106,7 +104,7 @@ func (s *cloudRouter) getStatefulSet(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Get(context.TODO(), opts.Namespace, opts.ObjectName)
+	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).Get(c, opts.Namespace, opts.ObjectName)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -125,7 +123,7 @@ func (s *cloudRouter) listStatefulSets(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).List(context.TODO(), opts.Namespace)
+	r.Result, err = pixiu.CoreV1.Cloud().StatefulSets(opts.Cloud).List(c, opts.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

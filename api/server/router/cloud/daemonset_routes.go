@@ -1,8 +1,6 @@
 package cloud
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 	v1 "k8s.io/api/apps/v1"
 
@@ -27,7 +25,7 @@ func (s *cloudRouter) createDaemonSet(c *gin.Context) {
 		return
 	}
 	daemonset.Namespace = opts.Namespace
-	if err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Create(context.TODO(), &daemonset); err != nil {
+	if err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Create(c, &daemonset); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -48,7 +46,7 @@ func (s *cloudRouter) updateDaemonSet(c *gin.Context) {
 	}
 	daemonset.Name = opts.ObjectName
 	daemonset.Namespace = opts.Namespace
-	err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Update(context.TODO(), &daemonset)
+	err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Update(c, &daemonset)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -64,7 +62,7 @@ func (s *cloudRouter) deleteDaemonSet(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err := pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Delete(context.TODO(), opts)
+	err := pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Delete(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -83,7 +81,7 @@ func (s *cloudRouter) getDaemonSet(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Get(context.TODO(), opts)
+	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).Get(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -103,7 +101,7 @@ func (s *cloudRouter) listDaemonsets(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).List(context.TODO(), opts)
+	r.Result, err = pixiu.CoreV1.Cloud().DaemonSets(opts.Cloud).List(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

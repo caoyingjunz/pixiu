@@ -17,7 +17,6 @@ limitations under the License.
 package cloud
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -50,7 +49,7 @@ func (s *cloudRouter) buildCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Build(context.TODO(), &cloud); err != nil {
+	if err = pixiu.CoreV1.Cloud().Build(c, &cloud); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -80,7 +79,7 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Create(context.TODO(), &cloud); err != nil {
+	if err = pixiu.CoreV1.Cloud().Create(c, &cloud); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -111,7 +110,7 @@ func (s *cloudRouter) deleteCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Delete(context.TODO(), cid); err != nil {
+	if err = pixiu.CoreV1.Cloud().Delete(c, cid); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -136,7 +135,7 @@ func (s *cloudRouter) getCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Get(context.TODO(), cid)
+	r.Result, err = pixiu.CoreV1.Cloud().Get(c, cid)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -148,7 +147,7 @@ func (s *cloudRouter) getCloud(c *gin.Context) {
 func (s *cloudRouter) listClouds(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
-	if r.Result, err = pixiu.CoreV1.Cloud().List(context.TODO(), pixiumeta.ParseListSelector(c)); err != nil {
+	if r.Result, err = pixiu.CoreV1.Cloud().List(c, pixiumeta.ParseListSelector(c)); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -173,7 +172,7 @@ func (s *cloudRouter) pingCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Ping(context.TODO(), data); err != nil {
+	if err = pixiu.CoreV1.Cloud().Ping(c, data); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

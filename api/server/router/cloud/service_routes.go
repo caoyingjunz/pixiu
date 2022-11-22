@@ -17,8 +17,6 @@ limitations under the License.
 package cloud
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 	"k8s.io/api/core/v1"
 
@@ -43,7 +41,7 @@ func (s *cloudRouter) createService(c *gin.Context) {
 		return
 	}
 	service.Namespace = opts.Namespace
-	if err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Create(context.TODO(), &service); err != nil {
+	if err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Create(c, &service); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -68,7 +66,7 @@ func (s *cloudRouter) updateService(c *gin.Context) {
 	}
 	service.Name = opts.ObjectName
 	service.Namespace = opts.Namespace
-	err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Update(context.TODO(), &service)
+	err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Update(c, &service)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -87,7 +85,7 @@ func (s *cloudRouter) deleteService(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Delete(context.TODO(), opts)
+	err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Delete(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -105,7 +103,7 @@ func (s *cloudRouter) getService(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Get(context.TODO(), opts)
+	r.Result, err = pixiu.CoreV1.Cloud().Services(opts.Cloud).Get(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -125,7 +123,7 @@ func (s *cloudRouter) listServices(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Services(opts.Cloud).List(context.TODO(), opts)
+	r.Result, err = pixiu.CoreV1.Cloud().Services(opts.Cloud).List(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

@@ -17,7 +17,6 @@ limitations under the License.
 package role
 
 import (
-	"context"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -149,7 +148,7 @@ func (o *roleRouter) getRole(c *gin.Context) {
 		return
 	}
 
-	r.Result, err = pixiu.CoreV1.Role().Get(context.TODO(), rid)
+	r.Result, err = pixiu.CoreV1.Role().Get(c, rid)
 	if err != nil {
 		httputils.SetFailed(c, r, errors.OperateFailed)
 		return
