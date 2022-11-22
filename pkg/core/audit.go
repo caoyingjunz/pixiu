@@ -22,6 +22,8 @@ import (
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
+	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/gopixiu/pkg/log"
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
@@ -33,6 +35,8 @@ type AuditInterface interface {
 	Create(ctx context.Context, event *types.Event) error
 	Delete(ctx context.Context) error
 	List(ctx context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error)
+
+	Run(ctx context.Context)
 }
 
 type audit struct {
@@ -49,19 +53,30 @@ func newAudit(c *pixiu) AuditInterface {
 	}
 }
 
-func (ad *audit) Create(ctx context.Context, event *types.Event) error {
+func (audit *audit) Create(ctx context.Context, event *types.Event) error {
+	if _, err := audit.factory.Audit().Create(ctx, &model.Event{
+		User:     event.User,
+		ClientIP: event.ClientIP,
+		Operator: string(event.Operator),
+		Object:   event.Object,
+		Message:  event.Message,
+	}); err != nil {
+		log.Logger.Errorf("failed to create event %s: %s: %v", event.User, event.ClientIP, err)
+		return err
+	}
+
 	return nil
 }
 
-func (ad *audit) Delete(ctx context.Context) error {
+func (audit *audit) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (ad *audit) List(ctx context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error) {
+func (audit *audit) List(ctx context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error) {
 	return nil, nil
 }
 
-// Start 启动定时清理
-func (ad *audit) Start(ctx context.Context) {
+// Run 启动定时清理
+func (audit *audit) Run(ctx context.Context) {
 
 }

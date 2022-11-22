@@ -26,9 +26,9 @@ import (
 
 // Interface 审计数据访问层
 type Interface interface {
-	Create(c context.Context, obj *model.Event) (*model.Event, error)
-	Delete(c context.Context, eventId int64) error
-	List(c context.Context, page, limit int) ([]model.Event, error)
+	Create(ctx context.Context, obj *model.Event) (*model.Event, error)
+	Delete(ctx context.Context, eventId int64) error
+	List(ctx context.Context, page, limit int) ([]model.Event, error)
 }
 
 type audit struct {
@@ -39,17 +39,17 @@ func NewAudit(db *gorm.DB) Interface {
 	return &audit{db}
 }
 
-func (audit *audit) Create(c context.Context, obj *model.Event) (*model.Event, error) {
+func (audit *audit) Create(ctx context.Context, obj *model.Event) (*model.Event, error) {
 	if err := audit.db.Create(obj).Error; err != nil {
 		return nil, err
 	}
 	return obj, nil
 }
 
-func (audit *audit) Delete(c context.Context, eventId int64) error {
+func (audit *audit) Delete(ctx context.Context, eventId int64) error {
 	return nil
 }
 
-func (audit *audit) List(c context.Context, page, limit int) ([]model.Event, error) {
+func (audit *audit) List(ctx context.Context, page, limit int) ([]model.Event, error) {
 	return nil, nil
 }

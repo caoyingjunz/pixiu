@@ -23,6 +23,10 @@ const (
 )
 
 const (
+	AuditEventKey = "auditEventKey"
+)
+
+const (
 	HealthURL   = "/healthz"
 	LoginURL    = "/users/login"
 	LogoutURL   = "/users/logout"
