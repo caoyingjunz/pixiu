@@ -17,7 +17,6 @@ limitations under the License.
 package cloud
 
 import (
-	"context"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/gopixiu/api/meta"
@@ -35,7 +34,7 @@ func (s *cloudRouter) listEvents(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Cloud().Events(opts.Cloud).List(context.TODO(), opts)
+	r.Result, err = pixiu.CoreV1.Cloud().Events(opts.Cloud).List(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
