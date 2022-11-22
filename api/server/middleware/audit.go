@@ -31,10 +31,6 @@ func Audit() gin.HandlerFunc {
 		c.Next()
 
 		go func(c *gin.Context) {
-			// 临时关闭
-			if true {
-				return
-			}
 			// TODO: 继续实现
 			handleEvent(&types.Event{
 				ClientIP: c.ClientIP(),
