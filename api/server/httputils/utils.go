@@ -59,15 +59,8 @@ func ParseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
 	})
 	if err != nil {
 		if ve, ok := err.(*jwt.ValidationError); ok {
-			switch ve.Errors {
-			case jwt.ValidationErrorExpired:
+			if ve.Errors == jwt.ValidationErrorExpired {
 				return nil, fmt.Errorf("登录已过期，请重新登录")
-			case jwt.ValidationErrorMalformed:
-				return nil, fmt.Errorf("token格式错误," + err.Error())
-			case jwt.ValidationErrorNotValidYet:
-				return nil, fmt.Errorf("token还不可用," + err.Error())
-			default:
-				return nil, err
 			}
 		}
 		return nil, err
@@ -77,7 +70,7 @@ func ParseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
 		return claims, nil
 	}
 
-	return nil, fmt.Errorf("failed to parse invailed token")
+	return nil, fmt.Errorf("failed to parse token")
 }
 
 // ReadFile 从请求中获取指定文件内容

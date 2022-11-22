@@ -195,9 +195,8 @@ func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 	}
 	// To ensure login password is correct
 	if err = bcrypt.CompareHashAndPassword([]byte(userObj.Password), []byte(obj.Password)); err != nil {
-		return "", fmt.Errorf("wrong password")
+		return "", errors.ErrUserPassword
 	}
-
 	// TODO: 根据用户的登陆状态
 
 	// 生成 token，并返回

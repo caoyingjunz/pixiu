@@ -19,10 +19,10 @@ package core
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -159,15 +159,13 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 
-	// TODO: 根据传参确定是否创建默认ns
+	// TODO: 根据传参确定是否创建默认 ns
 	// 创建 pixiu-system 命名空间，用于安装内置的控制器
-	namespace := &v1.Namespace{
+	if _, err = clientSet.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: typesv2.PixiuNamespace,
 		},
-	}
-	_, err = clientSet.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
 		log.Logger.Errorf("create default namespace error: %v", err)
 		return err
 	}
