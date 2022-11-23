@@ -28,14 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
-	"github.com/caoyingjunz/gopixiu/api/server/middleware"
-	"github.com/caoyingjunz/gopixiu/api/server/router/audit"
-	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
-	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
-	"github.com/caoyingjunz/gopixiu/api/server/router/healthz"
-	"github.com/caoyingjunz/gopixiu/api/server/router/menu"
-	"github.com/caoyingjunz/gopixiu/api/server/router/role"
-	"github.com/caoyingjunz/gopixiu/api/server/router/user"
+	"github.com/caoyingjunz/gopixiu/api/server/router"
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
@@ -78,28 +71,15 @@ func NewServerCommand() *cobra.Command {
 	return cmd
 }
 
-func InitRouters(opt *options.Options) {
-	middleware.InstallMiddlewares(opt.GinEngine) // 安装中间件
-
-	cloud.NewRouter(opt.GinEngine)   // 注册 cloud 路由
-	user.NewRouter(opt.GinEngine)    // 注册 user 路由
-	cicd.NewRouter(opt.GinEngine)    // 注册 cicd 路由
-	role.NewRouter(opt.GinEngine)    // 注册 role 路由
-	menu.NewRouter(opt.GinEngine)    // 注册 menu 路由
-	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
-	audit.NewRouter(opt.GinEngine)   // 注册 audit 路由
-}
-
 func Run(opt *options.Options) error {
 	// 设置核心应用接口
 	pixiu.Setup(opt)
 
-	// 初始化 api 路由
-	InitRouters(opt)
+	// 初始化 APIs 路由
+	router.InstallRouters(opt)
 
 	// 启动优雅服务
 	runGraceServer(opt)
-
 	return nil
 }
 
