@@ -28,8 +28,9 @@ import (
 // Interface 审计数据访问层
 type Interface interface {
 	Create(ctx context.Context, obj *model.Event) (*model.Event, error)
-	Delete(ctx context.Context, eventId int64) error
-	List(ctx context.Context, page, limit int) ([]model.Event, error)
+	// Delete 批量删除指定时间之前的所有事件
+	Delete(ctx context.Context, timestamp time.Time) error
+	List(ctx context.Context, timestamp time.Time) ([]model.Event, error)
 }
 
 type audit struct {
@@ -50,10 +51,19 @@ func (audit *audit) Create(ctx context.Context, obj *model.Event) (*model.Event,
 	return obj, nil
 }
 
-func (audit *audit) Delete(ctx context.Context, eventId int64) error {
-	return nil
+// Delete 批量删除指定时间之前的所有事件
+func (audit *audit) Delete(ctx context.Context, timestamp time.Time) error {
+	return audit.db.
+		Where("gmt_create < ?", timestamp).
+		Delete(&model.Event{}).
+		Error
 }
 
-func (audit *audit) List(ctx context.Context, page, limit int) ([]model.Event, error) {
-	return nil, nil
+func (audit *audit) List(ctx context.Context, timestamp time.Time) ([]model.Event, error) {
+	var es []model.Event
+	if err := audit.db.Where("gmt_create > ?", timestamp).Find(&es).Error; err != nil {
+		return nil, err
+	}
+
+	return es, nil
 }

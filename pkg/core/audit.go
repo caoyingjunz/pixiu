@@ -18,9 +18,8 @@ package core
 
 import (
 	"context"
+	"time"
 
-	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -33,23 +32,18 @@ type AuditGetter interface {
 
 type AuditInterface interface {
 	Create(ctx context.Context, event *types.Event) error
-	Delete(ctx context.Context) error
-	List(ctx context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error)
+	List(ctx context.Context, duration string) ([]types.Event, error)
 
 	Run(ctx context.Context)
 }
 
 type audit struct {
-	ComponentConfig config.Config
-	app             *pixiu
-	factory         db.ShareDaoFactory
+	factory db.ShareDaoFactory
 }
 
 func newAudit(c *pixiu) AuditInterface {
 	return &audit{
-		ComponentConfig: c.cfg,
-		app:             c,
-		factory:         c.factory,
+		factory: c.factory,
 	}
 }
 
@@ -68,12 +62,37 @@ func (audit *audit) Create(ctx context.Context, event *types.Event) error {
 	return nil
 }
 
-func (audit *audit) Delete(ctx context.Context) error {
-	return nil
+// List duration 以小时为单位
+func (audit *audit) List(ctx context.Context, duration string) ([]types.Event, error) {
+	now := time.Now()
+	t, err := time.ParseDuration("-" + duration)
+	if err != nil {
+		log.Logger.Errorf("failed to parse % duration: %v", duration, err)
+		return nil, err
+	}
+	now.Add(t)
+
+	events, err := audit.factory.Audit().List(ctx, now)
+	if err != nil {
+		log.Logger.Errorf("failed to list recently %s events: %v", duration, err)
+		return nil, err
+	}
+	var es []types.Event
+	for _, e := range events {
+		es = append(es, *audit.model2Type(&e))
+	}
+
+	return es, nil
 }
 
-func (audit *audit) List(ctx context.Context, selector *pixiumeta.ListSelector) ([]types.Event, error) {
-	return nil, nil
+func (audit *audit) model2Type(obj *model.Event) *types.Event {
+	return &types.Event{
+		User:     obj.User,
+		ClientIP: obj.ClientIP,
+		Operator: types.EventType(obj.Operator),
+		Object:   types.ResourceType(obj.Object),
+		Message:  obj.Message,
+	}
 }
 
 // Run 启动定时清理
