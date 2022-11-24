@@ -58,7 +58,7 @@ func (audit *audit) Create(ctx context.Context, event *types.Event) error {
 		User:     event.User,
 		ClientIP: event.ClientIP,
 		Operator: string(event.Operator),
-		Object:   event.Object,
+		Object:   string(event.Object),
 		Message:  event.Message,
 	}); err != nil {
 		log.Logger.Errorf("failed to create event %s: %s: %v", event.User, event.ClientIP, err)
