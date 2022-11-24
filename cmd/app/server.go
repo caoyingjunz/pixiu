@@ -79,11 +79,11 @@ func Run(opt *options.Options) error {
 	router.InstallRouters(opt)
 
 	// 启动优雅服务
-	runGraceServer(opt)
+	runServer(opt)
 	return nil
 }
 
-func bootstrap(stopCh chan struct{}) {
+func runBootstrap(stopCh chan struct{}) {
 	// 加载已经存在 cloud 客户端
 	if err := pixiu.CoreV1.Cloud().Load(stopCh); err != nil {
 		klog.Fatal("failed to load cloud driver: ", err)
@@ -93,7 +93,8 @@ func bootstrap(stopCh chan struct{}) {
 	pixiu.CoreV1.Audit().Run(stopCh)
 }
 
-func runGraceServer(opt *options.Options) {
+// 优雅启动貔貅服务
+func runServer(opt *options.Options) {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
 		Handler: opt.GinEngine,
@@ -101,7 +102,7 @@ func runGraceServer(opt *options.Options) {
 	stopCh := make(chan struct{})
 
 	// 启动初始化任务
-	bootstrap(stopCh)
+	runBootstrap(stopCh)
 	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
 	go func() {
 		klog.Infof("starting pixiu server")
@@ -120,9 +121,9 @@ func runGraceServer(opt *options.Options) {
 	// The context is used to inform the server it has 5 seconds to finish the request
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
 	if err := srv.Shutdown(ctx); err != nil {
 		klog.Fatal("pixiu server forced to shutdown: ", err)
 	}
-
 	klog.Infof("pixiu server exit successful")
 }
