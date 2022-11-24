@@ -46,8 +46,8 @@ func Authentication() gin.HandlerFunc {
 			return
 		}
 
-		// 保存用户id
-		c.Set(types.UserId, claims.Id)
+		c.Set(types.UserId, claims.Id)     // 保存用户id
+		c.Set(types.UserName, claims.Name) // 保存用户名
 	}
 }
 

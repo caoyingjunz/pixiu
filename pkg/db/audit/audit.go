@@ -18,6 +18,7 @@ package audit
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -26,9 +27,10 @@ import (
 
 // Interface 审计数据访问层
 type Interface interface {
-	Create(c context.Context, obj *model.Event) (*model.Event, error)
-	Delete(c context.Context, eventId int64) error
-	List(c context.Context, page, limit int) ([]model.Event, error)
+	Create(ctx context.Context, obj *model.Event) (*model.Event, error)
+	// Delete 批量删除指定时间之前的所有事件
+	Delete(ctx context.Context, timestamp time.Time) error
+	List(ctx context.Context, timestamp time.Time) ([]model.Event, error)
 }
 
 type audit struct {
@@ -39,17 +41,29 @@ func NewAudit(db *gorm.DB) Interface {
 	return &audit{db}
 }
 
-func (audit *audit) Create(c context.Context, obj *model.Event) (*model.Event, error) {
+func (audit *audit) Create(ctx context.Context, obj *model.Event) (*model.Event, error) {
+	now := time.Now()
+	obj.GmtCreate = now
+	obj.GmtModified = now
 	if err := audit.db.Create(obj).Error; err != nil {
 		return nil, err
 	}
 	return obj, nil
 }
 
-func (audit *audit) Delete(c context.Context, eventId int64) error {
-	return nil
+// Delete 批量删除指定时间之前的所有事件
+func (audit *audit) Delete(ctx context.Context, timestamp time.Time) error {
+	return audit.db.
+		Where("gmt_create < ?", timestamp).
+		Delete(&model.Event{}).
+		Error
 }
 
-func (audit *audit) List(c context.Context, page, limit int) ([]model.Event, error) {
-	return nil, nil
+func (audit *audit) List(ctx context.Context, timestamp time.Time) ([]model.Event, error) {
+	var es []model.Event
+	if err := audit.db.Where("gmt_create > ?", timestamp).Find(&es).Error; err != nil {
+		return nil, err
+	}
+
+	return es, nil
 }

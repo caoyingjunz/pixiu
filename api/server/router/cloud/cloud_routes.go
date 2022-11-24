@@ -26,7 +26,9 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
+	"github.com/caoyingjunz/gopixiu/pkg/util/audit"
 )
 
 // buildCloud godoc
@@ -84,6 +86,7 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		return
 	}
 
+	audit.SetAuditEvent(c, typesv2.CreateEvent, typesv2.CloudResource, "")
 	httputils.SetSuccess(c, r)
 }
 

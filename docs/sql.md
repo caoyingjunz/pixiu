@@ -129,6 +129,7 @@ CREATE TABLE `events` (
     gmt_modified datetime COMMENT '修改时间',
     resource_version int COMMENT '版本号',
     user varchar(128) COMMENT '用户名称',
+    client_ip varchar(128) COMMENT '登陆地址',
     operator varchar(128) COMMENT '操作类型',
     object varchar(128) COMMENT '操作对象',
     message varchar(128) COMMENT '消息'

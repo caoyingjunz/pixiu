@@ -19,18 +19,15 @@ package audit
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
-// TODO: 根据发生事件获取审计事件列表
-func (audit *auditRouter) listAuditEvents(c *gin.Context) {
-	r := httputils.NewResponse()
-	var err error
-	if r.Result, err = pixiu.CoreV1.Audit().List(c, "1h"); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
+// SetAuditEvent
+// TODO: 追加更多信息
+func SetAuditEvent(c *gin.Context, op types.EventType, obj types.ResourceType, msg string) {
+	c.Set(types.AuditEventKey, &types.Event{
+		Operator: op,
+		Object:   obj,
+		Message:  msg,
+	})
 }
