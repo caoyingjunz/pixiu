@@ -34,7 +34,7 @@ type AuditInterface interface {
 	Create(ctx context.Context, event *types.Event) error
 	List(ctx context.Context, duration string) ([]types.Event, error)
 
-	Run(ctx context.Context)
+	Run(stopCh chan struct{})
 }
 
 type audit struct {
@@ -96,6 +96,28 @@ func (audit *audit) model2Type(obj *model.Event) *types.Event {
 }
 
 // Run 启动定时清理
-func (audit *audit) Run(ctx context.Context) {
+// 默认保留 7 天的审计事件
+func (audit *audit) Run(stopCh chan struct{}) {
+	// 每天清理一次
+	go audit.run(time.Second*3600*24, stopCh)
+}
 
+func (audit *audit) run(duration time.Duration, stopCh chan struct{}) {
+	log.Logger.Infof("starting audit clean job")
+
+	for {
+		select {
+		case <-time.After(duration): // 每天清理一次
+			now := time.Now()
+			log.Logger.Infof("starting to clean audit events at %v", now)
+
+			// 默认保留 7 天的审计事件
+			cleanTime := now.AddDate(0, 0, -7)
+			if err := audit.factory.Audit().Delete(context.TODO(), cleanTime); err != nil {
+				log.Logger.Errorf("failed to delete audit events: %v", err)
+			}
+		case <-stopCh:
+			return
+		}
+	}
 }

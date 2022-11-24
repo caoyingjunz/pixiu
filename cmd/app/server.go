@@ -83,18 +83,25 @@ func Run(opt *options.Options) error {
 	return nil
 }
 
-func runGraceServer(opt *options.Options) {
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
-		Handler: opt.GinEngine,
-	}
-
-	stopCh := make(chan struct{})
+func bootstrap(stopCh chan struct{}) {
 	// 加载已经存在 cloud 客户端
 	if err := pixiu.CoreV1.Cloud().Load(stopCh); err != nil {
 		klog.Fatal("failed to load cloud driver: ", err)
 	}
 
+	// 启动审计事件的清理任务
+	pixiu.CoreV1.Audit().Run(stopCh)
+}
+
+func runGraceServer(opt *options.Options) {
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
+		Handler: opt.GinEngine,
+	}
+	stopCh := make(chan struct{})
+
+	// 启动初始化任务
+	bootstrap(stopCh)
 	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
 	go func() {
 		klog.Infof("starting pixiu server")
