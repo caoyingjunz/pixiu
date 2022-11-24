@@ -39,13 +39,14 @@ func Audit() gin.HandlerFunc {
 			if !exists {
 				return
 			}
-			event, ok := value.(types.Event)
+			event, ok := value.(*types.Event)
 			if !ok {
 				return
 			}
 
 			event.ClientIP = c.ClientIP()
-			_ = pixiu.CoreV1.Audit().Create(context.TODO(), &event)
+			event.User = c.Value(types.UserName).(string)
+			_ = pixiu.CoreV1.Audit().Create(context.TODO(), event)
 		}(c)
 	}
 }

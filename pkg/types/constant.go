@@ -18,6 +18,7 @@ package types
 
 const (
 	UserId          = "userId"
+	UserName        = "userName"
 	AdminRole       = "admin"
 	DefaultPassword = "pixiu123456"
 )

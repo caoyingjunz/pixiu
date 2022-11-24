@@ -85,7 +85,7 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		return
 	}
 
-	c.Set(typesv2.AuditEventKey, typesv2.Event{User: "caoyingjun"})
+	c.Set(typesv2.AuditEventKey, &typesv2.Event{User: "caoyingjun"})
 
 	httputils.SetSuccess(c, r)
 }
