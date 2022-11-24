@@ -19,7 +19,6 @@ package audit
 import (
 	"github.com/gin-gonic/gin"
 
-	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
@@ -28,7 +27,7 @@ import (
 func (audit *auditRouter) listAuditEvents(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error
-	if r.Result, err = pixiu.CoreV1.Audit().List(c, pixiumeta.ParseListSelector(c)); err != nil {
+	if r.Result, err = pixiu.CoreV1.Audit().List(c, "1h"); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
