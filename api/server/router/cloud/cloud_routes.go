@@ -86,7 +86,7 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		return
 	}
 
-	audit.SetAuditEvent(c, typesv2.CreateEvent, typesv2.CloudObject, "")
+	audit.SetAuditEvent(c, typesv2.CreateEvent, typesv2.CloudResource, "")
 	httputils.SetSuccess(c, r)
 }
 

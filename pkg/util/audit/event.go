@@ -22,7 +22,9 @@ import (
 	"github.com/caoyingjunz/gopixiu/pkg/types"
 )
 
-func SetAuditEvent(c *gin.Context, op types.EventType, obj types.ObjectType, msg string) {
+// SetAuditEvent
+// TODO: 追加更多信息
+func SetAuditEvent(c *gin.Context, op types.EventType, obj types.ResourceType, msg string) {
 	c.Set(types.AuditEventKey, &types.Event{
 		Operator: op,
 		Object:   obj,

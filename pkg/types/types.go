@@ -24,10 +24,11 @@ var (
 	NodeRole   Role = "node"
 )
 
-type ObjectType string
+// ResourceType 貔貅的资源类型
+type ResourceType string
 
 var (
-	CloudObject ObjectType = "cloud"
+	CloudResource ResourceType = "cloud"
 )
 
 // EventType 审计事件类型
@@ -41,9 +42,9 @@ var (
 )
 
 type Event struct {
-	User     string     `json:"user"`      // 用户名称
-	ClientIP string     `json:"client_ip"` // 登陆 ip 地址
-	Operator EventType  `json:"operator"`  // 操作类型，新增，更新，删除
-	Object   ObjectType `json:"object"`    // 资源类型，比如 cloud，user，kubernetes
-	Message  string     `json:"message"`
+	User     string       `json:"user"`      // 用户名称
+	ClientIP string       `json:"client_ip"` // 登陆 ip 地址
+	Operator EventType    `json:"operator"`  // 操作类型，新增，更新，删除
+	Object   ResourceType `json:"object"`    // 资源类型，比如 cloud，user，kubernetes
+	Message  string       `json:"message"`
 }
