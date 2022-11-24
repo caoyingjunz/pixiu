@@ -18,6 +18,7 @@ package audit
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -40,6 +41,9 @@ func NewAudit(db *gorm.DB) Interface {
 }
 
 func (audit *audit) Create(ctx context.Context, obj *model.Event) (*model.Event, error) {
+	now := time.Now()
+	obj.GmtCreate = now
+	obj.GmtModified = now
 	if err := audit.db.Create(obj).Error; err != nil {
 		return nil, err
 	}

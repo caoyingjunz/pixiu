@@ -18,6 +18,7 @@ package middleware
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 
@@ -31,16 +32,20 @@ func Audit() gin.HandlerFunc {
 		c.Next()
 
 		go func(c *gin.Context) {
+			if c.Request.Method == http.MethodGet {
+				return
+			}
 			value, exists := c.Get(types.AuditEventKey)
 			if !exists {
 				return
 			}
-			event, ok := value.(*types.Event)
+			event, ok := value.(types.Event)
 			if !ok {
 				return
 			}
 
-			_ = pixiu.CoreV1.Audit().Create(context.TODO(), event)
+			event.ClientIP = c.ClientIP()
+			_ = pixiu.CoreV1.Audit().Create(context.TODO(), &event)
 		}(c)
 	}
 }

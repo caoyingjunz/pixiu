@@ -26,6 +26,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 )
 
@@ -83,6 +84,8 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
+	c.Set(typesv2.AuditEventKey, typesv2.Event{User: "caoyingjun"})
 
 	httputils.SetSuccess(c, r)
 }
