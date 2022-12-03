@@ -1,0 +1,22 @@
+apiVersion: v2
+appVersion: "0.1.0"
+dependencies:
+#- condition: pixiu-dashboard.enabled
+#  name: pixiu-dashboard
+#  repository: https://xx/pixiu-dashboard/
+#  version: xx
+description: pixiu is a container management platform based on kubernetes
+type: application 
+home: https://github.com/caoyingjunz/gopixiu
+icon: xx
+keywords:
+- kubernetes
+- container-management
+kubeVersion: '>=1.19.0-0'
+maintainers:
+- email: cao.yingjunz@gmail.com
+  name: cao.yingjunz
+name: gopixiu
+sources:
+- https://github.com/caoyingjunz/gopixiu
+version: 0.1.0
