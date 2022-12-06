@@ -144,7 +144,7 @@ resources:
 protocolHttp: true
 
 service:
-#  type: NodePort
+  #  type: NodePort
   type: ClusterIP
   # gopixiu service port
   externalPort: 8090
@@ -173,7 +173,7 @@ service:
 ingress:
   ## If true, gopixiu Ingress will be created.
   ##
-  enabled: false
+  enabled: true
 
   ## gopixiu Ingress labels
   # labels:
@@ -230,19 +230,25 @@ ingress:
   #     hosts:
   #       - kubernetes-gopixiu.domain.com
 
-# Global gopixiu settings
+# gopixiu settings
 settings:
-  {}
-  ## Cluster name that appears in the browser window title if it is set
-  # clusterName: ""
-  ## Max number of items that can be displayed on each list page
-  # itemsPerPage: 10
-  ## Number of seconds between every auto-refresh of logs
-  # logsAutoRefreshTimeInterval: 5
-  ## Number of seconds between every auto-refresh of every resource. Set 0 to disable
-  # resourceAutoRefreshTimeInterval: 5
-  ## Hide all access denied warnings in the notification panel
-  # disableAccessDeniedNotifications: false
+  default:
+    listen: 8090
+    log_type: file
+    log_level: INFO
+    log_dir: /var/log/pixiu
+    jwt_key: gopixiu
+  mysql:
+    host: 124.223.70.75
+    user: root
+    password: GoPixiu868686
+    port: 3306
+    name: gopixiu
+  cicd:
+    driver: jenkins
+    host: http://8.140.165.201:9090
+    user: adminops
+    password: adminops@321
 
 ## Pinned CRDs that will be displayed in gopixiu's menu
 pinnedCRDs:
@@ -253,7 +259,7 @@ pinnedCRDs:
   ##  Display name
   #   displayName: Prometheus
   ##  Is this CRD namespaced?
-  #   namespaced: true
+#   namespaced: true
 
 metrics-server:
   enabled: false
