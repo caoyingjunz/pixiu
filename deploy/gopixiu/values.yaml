@@ -30,27 +30,20 @@ replicaCount: 1
 ## @param commonLabels Labels to add to all deployed objects
 ##
 commonLabels: {}
-# eg: commonLabels: {"gopixu": "starred", "easy-to-use": "yes"}
+# eg: commonLabels: {"key1": "value1", "key2": "value2"}
 
 ## Here labels can be added to the gopixiu deployment
 labels: {}
-# eg: labels: {"gopixu": "starred", "easy-to-use": "yes"}
+# eg: labels: {"key1": "value1", "key2": "value2"}
 
 ## @param commonAnnotations Annotations to add to all deployed objects
 ##
 commonAnnotations: {}
-# eg: commonAnnotations: {"gopixu": "starred", "easy-to-use": "yes"}
+# eg: commonAnnotations: {"key1": "value1", "key2": "value2"}
 
 ## Here annotations can be added to the gopixiu deployment
 annotations: {}
-# eg: annotations: {"gopixu": "starred", "easy-to-use": "yes"}
-
-## Additional container arguments
-##
-# extraArgs:
-#   - --enable-skip-login
-#   - --enable-insecure-login
-#   - --system-banner="Welcome to Kubernetes"
+# eg: annotations: {"key1": "value1", "key2": "value2"}
 
 ## Additional container environment variables
 ##
@@ -81,10 +74,7 @@ extraManifests: []
 #   metadata:
 #     name: additional-configmap
 #   data:
-#     mykey: myvalue
-
-## Annotations to be added to gopixiu pods
-# podAnnotations:
+#     key: value
 
 ## SecurityContext to be added to gopixiu pods
 ## To enable set the following configuration to "":
@@ -106,6 +96,7 @@ containerSecurityContext: null
 ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 ##
 podLabels: {}
+
 ## @param podAnnotations Annotations for OAuth2 Proxy pods
 ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 ##
@@ -126,9 +117,6 @@ tolerations: []
 ## Affinity for pod assignment
 ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
 affinity: {}
-
-## Name of Priority Class of pods
-# priorityClassName: ""
 
 ## Pod resource requests & limits
 resources:
@@ -250,24 +238,6 @@ settings:
     user: adminops
     password: adminops@321
 
-## Pinned CRDs that will be displayed in gopixiu's menu
-pinnedCRDs:
-  []
-  # - kind: customresourcedefinition
-  ##  Fully qualified name of a CRD
-  #   name: prometheuses.monitoring.coreos.com
-  ##  Display name
-  #   displayName: Prometheus
-  ##  Is this CRD namespaced?
-#   namespaced: true
-
-metrics-server:
-  enabled: false
-  ## Example for additional args
-  # args:
-  #  - --kubelet-preferred-address-types=InternalIP
-  #  - --kubelet-insecure-tls
-
 rbac:
   # Specifies whether namespaced RBAC resources (Role, Rolebinding) should be created
   create: true
@@ -309,34 +279,3 @@ livenessProbe:
   initialDelaySeconds: 30
   # Number of seconds to wait for probe response
   timeoutSeconds: 30
-
-## podDisruptionBudget
-## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
-podDisruptionBudget:
-  enabled: false
-  ## Minimum available instances; ignored if there is no PodDisruptionBudget
-  minAvailable:
-  ## Maximum unavailable instances; ignored if there is no PodDisruptionBudget
-  maxUnavailable:
-
-## PodSecurityContext for pod level securityContext
-# securityContext:
-#   runAsUser: 1001
-#   runAsGroup: 2001
-
-networkPolicy:
-  # Whether to create a network policy that allows/restricts access to the service
-  enabled: false
-
-## podSecurityPolicy for fine-grained authorization of pod creation and updates
-podSecurityPolicy:
-  # Specifies whether a pod security policy should be created
-  enabled: false
-
-serviceMonitor:
-  # Whether or not to create a Prometheus Operator service monitor.
-  enabled: false
-  ## Here labels can be added to the serviceMonitor
-  labels: {}
-  ## Here annotations can be added to the serviceMonitor
-  annotations: {}
