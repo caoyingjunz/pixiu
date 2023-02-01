@@ -17,8 +17,12 @@ limitations under the License.
 package log
 
 import (
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Configuration struct {
@@ -44,6 +48,7 @@ type LoggerInterface interface {
 var (
 	Logger    LoggerInterface
 	AccessLog LoggerInterface
+	ginLog    *os.File
 )
 
 func Register(logType, logDir, logLevel string) {
@@ -54,7 +59,9 @@ func Register(logType, logDir, logLevel string) {
 	} else if strings.ToLower(logLevel) == "warn" {
 		Level = "warn"
 	}
-
+	// 使用gin自己的log，重定向到gin.log中
+	ginLog, _ := os.Create(filepath.Join(logDir, "gin.log"))
+	gin.DefaultWriter = io.MultiWriter(ginLog)
 	AccessLog, _ = NewZapLogger(Configuration{
 		LogType:          logType,
 		LogFile:          filepath.Join(logDir, "access.log"), // 使用文件类型时生效
