@@ -33,3 +33,23 @@ type action struct {
 	Path   string               // The path of the action
 	Params []*restful.Parameter // List of parameters associated with the action.
 }
+
+// Install handlers for API resources.
+func (a *APIInstaller) Install() (*restful.WebService, error) {
+	ws := a.newWebService()
+	return ws, nil
+}
+
+// newWebService creates a new restful webservice with the api installer's prefix and version.
+func (a *APIInstaller) newWebService() *restful.WebService {
+	ws := new(restful.WebService)
+	ws.Path(a.prefix)
+	// a.prefix contains "prefix/group/version"
+	ws.Doc("API at " + a.prefix)
+	// Backwards compatibility, we accepted objects with empty content-type at V1.
+	// If we stop using go-restful, we can default empty content-type to application/json on an
+	// endpoint by endpoint basis
+	ws.Consumes("*/*")
+
+	return ws
+}
