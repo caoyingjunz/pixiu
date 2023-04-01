@@ -12,19 +12,15 @@ env:
   GO_VERSION: '1.17.5'
 
 jobs:
-
-  misspell-check:
+  markdown-lint:
     runs-on: ubuntu-latest
     container: pouchcontainer/pouchlinter:v0.1.2
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    # - name: Run markdownlint misspell
-    #   run: find  ./* -name  "*"  | xargs misspell -error
-
-    - name: Lint markdown files
-      run: find  ./ -name  "*.md" | xargs mdl -r ~MD010,~MD013,~MD022,~MD024,~MD029,~MD031,~MD032,~MD033,~MD034,~MD036
+      - name: Lint markdown files
+        run: find  ./ -name  "*.md" | xargs mdl -r ~MD001,~MD004,~MD005,~MD006,~MD007,~MD010,~MD013,~MD022,~MD023,~MD024,~MD029,~MD031,~MD032,~MD033,~MD034,~MD036
 
   golang-lint:
     runs-on: ubuntu-latest
