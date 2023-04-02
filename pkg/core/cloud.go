@@ -31,7 +31,6 @@ import (
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
-	pixiukubernetes "github.com/caoyingjunz/gopixiu/pkg/core/kubernetes"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -57,19 +56,6 @@ type CloudInterface interface {
 	Ping(ctx context.Context, kubeConfigData []byte) error
 	// Load 加载已经存在的 cloud 客户端
 	Load(stopCh chan struct{}) error
-
-	// kubernetes 资源的接口定义
-	pixiukubernetes.NamespacesGetter
-	pixiukubernetes.ServicesGetter
-	pixiukubernetes.StatefulSetGetter
-	pixiukubernetes.DeploymentsGetter
-	pixiukubernetes.DaemonSetGetter
-	pixiukubernetes.JobsGetter
-	pixiukubernetes.IngressGetter
-	pixiukubernetes.EventsGetter
-	pixiukubernetes.NodesGetter
-	pixiukubernetes.PodsGetter
-	pixiukubernetes.KubeConfigGetter
 }
 
 var clientSets client.ClientsInterface
