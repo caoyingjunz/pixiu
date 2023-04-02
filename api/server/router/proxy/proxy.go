@@ -19,6 +19,7 @@ package proxy
 import (
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/proxy"
@@ -27,11 +28,22 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
+const (
+	proxyURL = "/proxy/pixiu"
+)
+
 type proxyRouter struct{}
 
 func NewRouter(ginEngine *gin.Engine) {
 	s := &proxyRouter{}
 	s.initRoutes(ginEngine)
+}
+
+func (proxy *proxyRouter) initRoutes(ginEngine *gin.Engine) {
+	auditRoute := ginEngine.Group("/proxy")
+	{
+		auditRoute.Any("/pixiu/*act", proxyHandler)
+	}
 }
 
 func proxyHandler(c *gin.Context) {
@@ -60,14 +72,13 @@ func parseTarget(target url.URL, host string) (*url.URL, error) {
 		return nil, err
 	}
 
+	path := strings.TrimLeft(target.Path, proxyURL)
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	target.Path = path
+
 	target.Host = kubeURL.Host
 	target.Scheme = kubeURL.Scheme
 	return &target, nil
-}
-
-func (proxy *proxyRouter) initRoutes(ginEngine *gin.Engine) {
-	auditRoute := ginEngine.Group("/proxy")
-	{
-		auditRoute.GET("/pixiu", proxyHandler)
-	}
 }
