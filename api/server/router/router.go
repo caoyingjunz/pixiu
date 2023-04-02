@@ -39,5 +39,5 @@ func InstallRouters(opt *options.Options) {
 	menu.NewRouter(opt.GinEngine)    // 注册 menu 路由
 	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
 	audit.NewRouter(opt.GinEngine)   // 注册 audit 路由
-	proxy.NewRouter(opt.GinEngine)   // 注册 k8s proxy
+	proxy.NewRouter(opt.GinEngine)   // 注册 proxy
 }
