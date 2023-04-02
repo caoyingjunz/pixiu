@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+
+	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 )
 
 const (
@@ -47,18 +49,22 @@ func (proxy *proxyRouter) initRoutes(ginEngine *gin.Engine) {
 }
 
 func proxyHandler(c *gin.Context) {
+	resp := httputils.NewResponse()
 	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
 	if err != nil {
-		panic(err)
+		httputils.SetFailed(c, resp, err)
+		return
 	}
 
 	transport, err := rest.TransportFor(config)
 	if err != nil {
-		panic(err)
+		httputils.SetFailed(c, resp, err)
+		return
 	}
 	target, err := parseTarget(*c.Request.URL, config.Host)
 	if err != nil {
-		panic(err)
+		httputils.SetFailed(c, resp, err)
+		return
 	}
 
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
