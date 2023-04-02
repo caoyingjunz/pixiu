@@ -23,6 +23,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/gopixiu/api/server/router/healthz"
 	"github.com/caoyingjunz/gopixiu/api/server/router/menu"
+	"github.com/caoyingjunz/gopixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/gopixiu/api/server/router/role"
 	"github.com/caoyingjunz/gopixiu/api/server/router/user"
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
@@ -38,4 +39,5 @@ func InstallRouters(opt *options.Options) {
 	menu.NewRouter(opt.GinEngine)    // 注册 menu 路由
 	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
 	audit.NewRouter(opt.GinEngine)   // 注册 audit 路由
+	proxy.NewRouter(opt.GinEngine)   // 注册 proxy
 }
