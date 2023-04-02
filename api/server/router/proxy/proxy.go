@@ -17,39 +17,50 @@ limitations under the License.
 package proxy
 
 import (
-	"net/url"
-	"path/filepath"
-	"strings"
-
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/proxy"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"net/url"
+	"path/filepath"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 )
 
 const (
-	proxyURL = "/proxy/pixiu"
+	proxyBaseURL = "/proxy/pixiu"
 )
 
 type proxyRouter struct{}
+
+type Cloud struct {
+	Name string `uri:"cloud_name" binding:"required"`
+}
 
 func NewRouter(ginEngine *gin.Engine) {
 	s := &proxyRouter{}
 	s.initRoutes(ginEngine)
 }
 
-func (proxy *proxyRouter) initRoutes(ginEngine *gin.Engine) {
+func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
 	auditRoute := ginEngine.Group("/proxy")
 	{
-		auditRoute.Any("/pixiu/*act", proxyHandler)
+		auditRoute.Any("/pixiu/:cloud_name/*act", p.proxyHandler)
 	}
 }
 
-func proxyHandler(c *gin.Context) {
+func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	resp := httputils.NewResponse()
+
+	var cloud Cloud
+	if err := c.ShouldBindUri(&cloud); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	name := cloud.Name
+
+	// TODO: 从缓存中获取 kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
 	if err != nil {
 		httputils.SetFailed(c, resp, err)
@@ -61,7 +72,7 @@ func proxyHandler(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	target, err := parseTarget(*c.Request.URL, config.Host)
+	target, err := p.parseTarget(*c.Request.URL, config.Host, name)
 	if err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
@@ -72,17 +83,14 @@ func proxyHandler(c *gin.Context) {
 	httpProxy.ServeHTTP(c.Writer, c.Request)
 }
 
-func parseTarget(target url.URL, host string) (*url.URL, error) {
+func (p *proxyRouter) parseTarget(target url.URL, host string, cloud string) (*url.URL, error) {
 	kubeURL, err := url.Parse(host)
 	if err != nil {
 		return nil, err
 	}
 
-	path := strings.TrimLeft(target.Path, proxyURL)
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-	target.Path = path
+	// TODO: 检查 URL 是否规范
+	target.Path = target.Path[len(proxyBaseURL+"/"+cloud):]
 
 	target.Host = kubeURL.Host
 	target.Scheme = kubeURL.Scheme

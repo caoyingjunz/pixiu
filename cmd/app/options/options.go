@@ -107,9 +107,9 @@ func (o *Options) register() error {
 	if err := o.registerDatabase(); err != nil { // 注册数据库
 		return err
 	}
-	//if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
-	//	return err
-	//}
+	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
+		return err
+	}
 
 	return nil
 }
