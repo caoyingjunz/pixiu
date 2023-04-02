@@ -13,7 +13,6 @@ For UI issues please also add a screenshot that shows the issue.
 KubeSphere:
 Kubernetes: (If KubeSphere installer used, you can skip this)
 
-
 **Environment**
 How many nodes and their hardware configuration:
 
