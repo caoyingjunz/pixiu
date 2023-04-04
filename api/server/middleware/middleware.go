@@ -31,10 +31,10 @@ func InstallMiddlewares(ginEngine *gin.Engine) {
 	AlwaysAllowPath = sets.NewString(types.HealthURL, types.LoginURL, types.LogoutURL)
 
 	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
-	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter(), Authentication())
+	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter())
 	// TODO: 临时关闭
 	if env.EnableDebug() {
-		ginEngine.Use(Authorization())
+		ginEngine.Use(Authentication(), Authorization())
 	}
 
 	ginEngine.Use(Admission(), Audit())
