@@ -162,11 +162,13 @@ func (o *Options) registerDatabase() error {
 
 func (o *Options) registerCicdDriver() error {
 	jenkinsOption := o.ComponentConfig.Cicd.Jenkins
-	switch o.ComponentConfig.Cicd.Driver {
-	case "", types.Jenkins:
-		o.CicdDriver = gojenkins.CreateJenkins(nil, jenkinsOption.Host, jenkinsOption.User, jenkinsOption.Password)
-		if _, err := o.CicdDriver.Init(context.TODO()); err != nil {
-			return err
+	if o.ComponentConfig.Cicd.Enable {
+		switch o.ComponentConfig.Cicd.Driver {
+		case "", types.Jenkins:
+			o.CicdDriver = gojenkins.CreateJenkins(nil, jenkinsOption.Host, jenkinsOption.User, jenkinsOption.Password)
+			if _, err := o.CicdDriver.Init(context.TODO()); err != nil {
+				return err
+			}
 		}
 	}
 
