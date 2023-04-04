@@ -34,7 +34,7 @@ func InstallMiddlewares(ginEngine *gin.Engine) {
 	ginEngine.Use(Cors(), UserRateLimiter(), Limiter(), Authentication())
 	// TODO: 临时关闭
 	if env.EnableDebug() {
-		ginEngine.Use(Authorization())
+		ginEngine.Use(Authentication(), Authorization())
 	}
 
 	ginEngine.Use(Admission(), Audit())

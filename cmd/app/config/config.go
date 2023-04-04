@@ -46,6 +46,7 @@ type MysqlOptions struct {
 }
 
 type CicdOptions struct {
+	Enable  bool            `yaml:"enable"`
 	Driver  string          `yaml:"driver"`
 	Jenkins *JenkinsOptions `yaml:"jenkins"`
 }

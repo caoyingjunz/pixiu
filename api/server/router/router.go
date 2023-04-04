@@ -23,6 +23,7 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/gopixiu/api/server/router/healthz"
 	"github.com/caoyingjunz/gopixiu/api/server/router/menu"
+	"github.com/caoyingjunz/gopixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/gopixiu/api/server/router/role"
 	"github.com/caoyingjunz/gopixiu/api/server/router/user"
 	"github.com/caoyingjunz/gopixiu/cmd/app/options"
@@ -33,9 +34,13 @@ func InstallRouters(opt *options.Options) {
 
 	cloud.NewRouter(opt.GinEngine)   // 注册 cloud 路由
 	user.NewRouter(opt.GinEngine)    // 注册 user 路由
-	cicd.NewRouter(opt.GinEngine)    // 注册 cicd 路由
 	role.NewRouter(opt.GinEngine)    // 注册 role 路由
 	menu.NewRouter(opt.GinEngine)    // 注册 menu 路由
 	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
 	audit.NewRouter(opt.GinEngine)   // 注册 audit 路由
+	proxy.NewRouter(opt.GinEngine)   // 注册 proxy
+
+	if opt.ComponentConfig.Cicd.Enable {
+		cicd.NewRouter(opt.GinEngine) // 注册 cicd 路由
+	}
 }

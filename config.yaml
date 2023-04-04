@@ -19,6 +19,7 @@ mysql:
   name: gopixiu
 
 cicd:
+  enable: false
   driver: jenkins
   jenkins:
     host: http://8.140.165.201:9090
