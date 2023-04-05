@@ -62,7 +62,7 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 
 	config, exists := pixiu.CoreV1.Cloud().GetClusterConfig(c, name)
 	if !exists {
-		httputils.SetFailed(c, resp, fmt.Errorf("cluster %s not register", name))
+		httputils.SetFailed(c, resp, fmt.Errorf("cluster %q not register", name))
 		return
 	}
 	transport, err := rest.TransportFor(config)
