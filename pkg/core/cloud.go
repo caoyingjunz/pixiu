@@ -19,18 +19,19 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/gopixiu/pkg/cache"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/cache"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
 	pixiukubernetes "github.com/caoyingjunz/gopixiu/pkg/core/kubernetes"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
@@ -58,6 +59,9 @@ type CloudInterface interface {
 	Ping(ctx context.Context, kubeConfigData []byte) error
 	// Load 加载已经存在的 cloud 客户端
 	Load(stopCh chan struct{}) error
+
+	// GetClusterConfig 获取 kubeconfig 对象
+	GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool)
 
 	// kubernetes 资源的接口定义
 	pixiukubernetes.NamespacesGetter
@@ -402,7 +406,6 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", name, err)
 			return err
 		}
-
 		kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigData)
 		if err != nil {
 			return err
@@ -492,4 +495,13 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 // StartDeployCluster TODO
 func (c *cloud) StartDeployCluster(ctx context.Context, cid int64) error {
 	return nil
+}
+
+func (c *cloud) GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool) {
+	cluster, exists := clusterSets.Get(clusterName)
+	if !exists {
+		return nil, false
+	}
+
+	return cluster.KubeConfig, true
 }
