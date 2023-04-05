@@ -33,11 +33,11 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/cache"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
-	pixiukubernetes "github.com/caoyingjunz/gopixiu/pkg/core/kubernetes"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
 	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
+	"github.com/caoyingjunz/gopixiu/pkg/util"
 	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
 	"github.com/caoyingjunz/gopixiu/pkg/util/intstr"
 	"github.com/caoyingjunz/gopixiu/pkg/util/uuid"
@@ -62,19 +62,6 @@ type CloudInterface interface {
 
 	// GetClusterConfig 获取 kubeconfig 对象
 	GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool)
-
-	// kubernetes 资源的接口定义
-	pixiukubernetes.NamespacesGetter
-	pixiukubernetes.ServicesGetter
-	pixiukubernetes.StatefulSetGetter
-	pixiukubernetes.DeploymentsGetter
-	pixiukubernetes.DaemonSetGetter
-	pixiukubernetes.JobsGetter
-	pixiukubernetes.IngressGetter
-	pixiukubernetes.EventsGetter
-	pixiukubernetes.NodesGetter
-	pixiukubernetes.PodsGetter
-	pixiukubernetes.KubeConfigGetter
 }
 
 var (
@@ -401,7 +388,7 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
-		kubeConfigData, err := pixiukubernetes.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
+		kubeConfigData, err := util.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
 		if err != nil {
 			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", name, err)
 			return err
