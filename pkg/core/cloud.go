@@ -25,11 +25,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/types"
+	"github.com/caoyingjunz/gopixiu/pkg/cache"
 	"github.com/caoyingjunz/gopixiu/pkg/core/client"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
@@ -56,9 +58,15 @@ type CloudInterface interface {
 	Ping(ctx context.Context, kubeConfigData []byte) error
 	// Load 加载已经存在的 cloud 客户端
 	Load(stopCh chan struct{}) error
+
+	// GetClusterConfig 获取 kubeconfig 对象
+	GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool)
 }
 
-var clientSets client.ClientsInterface
+var (
+	clientSets  client.ClientsInterface
+	clusterSets cache.ClustersStore
+)
 
 type cloud struct {
 	app     *pixiu
@@ -87,8 +95,9 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 }
 
 func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
+	name := obj.Name
 	if err := c.preCreate(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for %s created: %v", obj.Name, err)
+		log.Logger.Errorf("failed to pre-check for %s created: %v", name, err)
 		return err
 	}
 	// 直接对 kubeConfig 内容进行加密
@@ -99,11 +108,15 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	}
 
 	// 先构造 clientSet，如果有异常，直接返回
-	clientSet, err := c.newClientSet(obj.KubeConfig)
+	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(obj.KubeConfig)
 	if err != nil {
-		log.Logger.Errorf("failed to create %s clientSet: %v", obj.Name, err)
-		return err
+		return fmt.Errorf("failed to build %s kubeconfig: %v", name, err)
 	}
+	clientSet, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to new %s clientSet: %v", name, err)
+	}
+
 	// 获取 k8s 集群信息: k8s 版本，节点数量，资源信息
 	nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{Limit: 1})
 	if err != nil || len(nodes.Items) == 0 {
@@ -156,7 +169,13 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 
+	// TODO: 后续删除
 	clientSets.Add(obj.Name, clientSet)
+
+	clusterSets.Set(obj.Name, cache.Cluster{
+		ClientSet:  clientSet,
+		KubeConfig: kubeConfig,
+	})
 	return nil
 }
 
@@ -282,6 +301,8 @@ func (c *cloud) Delete(ctx context.Context, cid int64) error {
 	// 清理 kube client
 	clientSets.Delete(obj.Name)
 
+	clusterSets.Delete(obj.Name)
+
 	// 目前，仅自建的k8s集群需要清理下属资源，下属资源有 cluster 和 nodes
 	if obj.CloudType == typesv2.BuildCloud {
 		_ = c.internalDelete(ctx, cid)
@@ -348,6 +369,8 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 func (c *cloud) Load(stopCh chan struct{}) error {
 	// 初始化云客户端
 	clientSets = client.NewCloudClients()
+	clusterSets = cache.ClustersStore{}
+
 	// 获取待加载的 cloud 列表
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
@@ -360,21 +383,30 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 		if cloudObj.Status != 0 {
 			continue
 		}
+		name := cloudObj.Name
+
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
-		kubeConfig, err := pixiukubernetes.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
+		kubeConfigData, err := pixiukubernetes.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
 		if err != nil {
-			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", cloudObj.Name, err)
+			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", name, err)
 			return err
 		}
-		clientSet, err := c.newClientSet(kubeConfig)
+		kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigData)
 		if err != nil {
-			log.Logger.Errorf("failed to create %s clientSet: %v", cloudObj.Name, err)
+			return err
+		}
+		clientSet, err := kubernetes.NewForConfig(kubeConfig)
+		if err != nil {
 			return err
 		}
 
-		clientSets.Add(cloudObj.Name, clientSet)
-		klog.V(2).Infof("load cloud %s success", cloudObj.Name)
+		clientSets.Add(name, clientSet)
+		clusterSets.Set(name, cache.Cluster{
+			ClientSet:  clientSet,
+			KubeConfig: kubeConfig,
+		})
+		klog.V(2).Infof("load cloud %s success", name)
 	}
 
 	// 启动集群检查状态检查
@@ -449,4 +481,13 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 // StartDeployCluster TODO
 func (c *cloud) StartDeployCluster(ctx context.Context, cid int64) error {
 	return nil
+}
+
+func (c *cloud) GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool) {
+	cluster, exists := clusterSets.Get(clusterName)
+	if !exists {
+		return nil, false
+	}
+
+	return cluster.KubeConfig, true
 }
