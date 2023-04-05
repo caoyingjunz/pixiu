@@ -17,15 +17,15 @@ limitations under the License.
 package proxy
 
 import (
+	"fmt"
+	"net/url"
+
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/proxy"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
-	"net/url"
-	"path/filepath"
 
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
+	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
 )
 
 const (
@@ -60,13 +60,11 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	}
 	name := cloud.Name
 
-	// TODO: 从缓存中获取 kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
-	if err != nil {
-		httputils.SetFailed(c, resp, err)
+	config, exists := pixiu.CoreV1.Cloud().GetClusterConfig(c, name)
+	if !exists {
+		httputils.SetFailed(c, resp, fmt.Errorf("cluster %q not register", name))
 		return
 	}
-
 	transport, err := rest.TransportFor(config)
 	if err != nil {
 		httputils.SetFailed(c, resp, err)

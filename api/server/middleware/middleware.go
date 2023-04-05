@@ -33,7 +33,7 @@ func InstallMiddlewares(ginEngine *gin.Engine) {
 	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
 	ginEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter())
 	// TODO: 临时关闭
-	if env.EnableDebug() {
+	if !env.EnableDebug() {
 		ginEngine.Use(Authentication(), Authorization())
 	}
 
