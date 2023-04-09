@@ -59,7 +59,8 @@ func (s *cloudRouter) buildCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) createCloud(c *gin.Context) {
+// 上传已存在的k8s集群，直接导入 kubeConfig 文件
+func (s *cloudRouter) loadCloud(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err   error
@@ -87,12 +88,6 @@ func (s *cloudRouter) createCloud(c *gin.Context) {
 	}
 
 	audit.SetAuditEvent(c, typesv2.CreateEvent, typesv2.CloudResource, "")
-	httputils.SetSuccess(c, r)
-}
-
-// TODO
-func (s *cloudRouter) updateCloud(c *gin.Context) {
-	r := httputils.NewResponse()
 	httputils.SetSuccess(c, r)
 }
 

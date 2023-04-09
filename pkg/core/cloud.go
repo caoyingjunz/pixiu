@@ -50,6 +50,7 @@ type CloudGetter interface {
 type CloudInterface interface {
 	Create(ctx context.Context, obj *types.Cloud) error
 	Update(ctx context.Context, obj *types.Cloud) error
+
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error)

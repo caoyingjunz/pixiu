@@ -17,11 +17,13 @@ limitations under the License.
 package router
 
 import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+
 	"github.com/caoyingjunz/gopixiu/api/server/middleware"
 	"github.com/caoyingjunz/gopixiu/api/server/router/audit"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
-	"github.com/caoyingjunz/gopixiu/api/server/router/healthz"
 	"github.com/caoyingjunz/gopixiu/api/server/router/menu"
 	"github.com/caoyingjunz/gopixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/gopixiu/api/server/router/role"
@@ -32,15 +34,21 @@ import (
 func InstallRouters(opt *options.Options) {
 	middleware.InstallMiddlewares(opt.GinEngine) // 安装中间件
 
-	cloud.NewRouter(opt.GinEngine)   // 注册 cloud 路由
-	user.NewRouter(opt.GinEngine)    // 注册 user 路由
-	role.NewRouter(opt.GinEngine)    // 注册 role 路由
-	menu.NewRouter(opt.GinEngine)    // 注册 menu 路由
-	healthz.NewRouter(opt.GinEngine) // 注册 healthz 路由
-	audit.NewRouter(opt.GinEngine)   // 注册 audit 路由
-	proxy.NewRouter(opt.GinEngine)   // 注册 proxy
+	user.NewRouter(opt.GinEngine)  // 注册 user 路由
+	role.NewRouter(opt.GinEngine)  // 注册 role 路由
+	menu.NewRouter(opt.GinEngine)  // 注册 menu 路由
+	audit.NewRouter(opt.GinEngine) // 注册 audit 路由
 
+	// 注册 cicd 路由，根据配置文件中的开关判断是否注册
 	if opt.ComponentConfig.Cicd.Enable {
-		cicd.NewRouter(opt.GinEngine) // 注册 cicd 路由
+		cicd.NewRouter(opt.GinEngine)
 	}
+
+	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
+	proxy.NewRouter(opt.GinEngine) // 注册 kubernetes proxy
+
+	// 启动检查检查
+	opt.GinEngine.GET("/healthz", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
 }
