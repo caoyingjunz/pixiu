@@ -103,14 +103,14 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 	// 直接对 kubeConfig 内容进行加密
-	encryptData, err := cipher.Encrypt(obj.KubeConfig)
+	encryptData, err := cipher.Encrypt(obj.RawData)
 	if err != nil {
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return err
 	}
 
 	// 先构造 clientSet，如果有异常，直接返回
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(obj.KubeConfig)
+	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(obj.RawData)
 	if err != nil {
 		return fmt.Errorf("failed to build %s kubeconfig: %v", name, err)
 	}
