@@ -86,7 +86,7 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 	if len(obj.Name) == 0 {
 		return fmt.Errorf("invalid empty cloud name")
 	}
-	if len(obj.KubeConfig) == 0 {
+	if len(obj.RawData) == 0 {
 		return fmt.Errorf("invalid empty kubeconfig data")
 	}
 	// 集群类型支持 自建和标准，默认为标准
