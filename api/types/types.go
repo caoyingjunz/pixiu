@@ -114,7 +114,7 @@ type Cloud struct {
 	Status      int    `json:"status"`     // 0: 运行中 1: 集群异常 2: 构建中 3: 删除中 4: 等待构建
 	CloudType   int    `json:"cloud_type"` // 1：导入集群（前端又名标准集群） 2: 自建集群
 	KubeVersion string `json:"kube_version"`
-	KubeConfig  []byte `json:"kube_config"`
+	RawData     []byte `json:"raw_data"`
 	NodeNumber  int    `json:"node_number"`
 	Resources   string `json:"resources"`
 	Description string `json:"description"`

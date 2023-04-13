@@ -60,6 +60,13 @@ func (s *ClustersStore) Delete(clusterName string) {
 	delete(s.store, clusterName)
 }
 
+func (s *ClustersStore) List() store {
+	s.Lock()
+	defer s.Unlock()
+
+	return s.store
+}
+
 func (s *ClustersStore) Clear() {
 	s.Lock()
 	defer s.Unlock()

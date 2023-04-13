@@ -26,10 +26,42 @@ import (
 	"github.com/caoyingjunz/gopixiu/api/server/httputils"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
+	pixiutypes "github.com/caoyingjunz/gopixiu/pkg/types"
 	"github.com/caoyingjunz/gopixiu/pkg/util"
 	"github.com/caoyingjunz/gopixiu/pkg/util/audit"
 )
+
+// 上传已存在的k8s集群，直接导入 kubeConfig 文件
+func (s *cloudRouter) loadCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		err   error
+		cloud types.Cloud
+	)
+	// k8s 集群的原始数据通过 clusterData 传递
+	// 如果获取 data 失败或者data为空，则判定为异常，直接返回报错
+	data, err := httputils.ReadFile(c, "clusterData")
+	if err != nil || len(data) == 0 {
+		httputils.SetFailed(c, r, fmt.Errorf("failed to get raw cluster data"))
+		return
+	}
+	if err = json.Unmarshal(data, &cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	// 获取 kubeConfig 原始数据
+	if cloud.RawData, err = httputils.ReadFile(c, "kubeconfig"); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = pixiu.CoreV1.Cloud().Create(c, &cloud); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	audit.SetAuditEvent(c, pixiutypes.CreateEvent, pixiutypes.CloudResource, "")
+	httputils.SetSuccess(c, r)
+}
 
 // buildCloud godoc
 // @Summary      自建 kubernetes 集群
@@ -56,43 +88,6 @@ func (s *cloudRouter) buildCloud(c *gin.Context) {
 		return
 	}
 
-	httputils.SetSuccess(c, r)
-}
-
-func (s *cloudRouter) createCloud(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err   error
-		cloud types.Cloud
-	)
-	// 前端约定，k8s 集群的原始数据通过 clusterData 传递
-	// 如果获取data失败，或者data为空，则不允许创建
-	data, err := httputils.ReadFile(c, "clusterData")
-	if err != nil || len(data) == 0 {
-		httputils.SetFailed(c, r, fmt.Errorf("failed to get cluster raw data"))
-		return
-	}
-	if err = json.Unmarshal(data, &cloud); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	// 获取 kubeConfig 文件
-	if cloud.KubeConfig, err = httputils.ReadFile(c, "kubeconfig"); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = pixiu.CoreV1.Cloud().Create(c, &cloud); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	audit.SetAuditEvent(c, typesv2.CreateEvent, typesv2.CloudResource, "")
-	httputils.SetSuccess(c, r)
-}
-
-// TODO
-func (s *cloudRouter) updateCloud(c *gin.Context) {
-	r := httputils.NewResponse()
 	httputils.SetSuccess(c, r)
 }
 

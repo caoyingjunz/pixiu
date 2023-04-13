@@ -19,8 +19,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"time"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,7 +30,6 @@ import (
 	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
 	"github.com/caoyingjunz/gopixiu/api/types"
 	"github.com/caoyingjunz/gopixiu/pkg/cache"
-	"github.com/caoyingjunz/gopixiu/pkg/core/client"
 	"github.com/caoyingjunz/gopixiu/pkg/db"
 	"github.com/caoyingjunz/gopixiu/pkg/db/model"
 	"github.com/caoyingjunz/gopixiu/pkg/log"
@@ -50,6 +47,7 @@ type CloudGetter interface {
 type CloudInterface interface {
 	Create(ctx context.Context, obj *types.Cloud) error
 	Update(ctx context.Context, obj *types.Cloud) error
+
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error)
@@ -65,7 +63,6 @@ type CloudInterface interface {
 }
 
 var (
-	clientSets  client.ClientsInterface
 	clusterSets cache.ClustersStore
 )
 
@@ -85,7 +82,7 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 	if len(obj.Name) == 0 {
 		return fmt.Errorf("invalid empty cloud name")
 	}
-	if len(obj.KubeConfig) == 0 {
+	if len(obj.RawData) == 0 {
 		return fmt.Errorf("invalid empty kubeconfig data")
 	}
 	// 集群类型支持 自建和标准，默认为标准
@@ -102,14 +99,14 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 	// 直接对 kubeConfig 内容进行加密
-	encryptData, err := cipher.Encrypt(obj.KubeConfig)
+	encryptData, err := cipher.Encrypt(obj.RawData)
 	if err != nil {
 		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return err
 	}
 
 	// 先构造 clientSet，如果有异常，直接返回
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(obj.KubeConfig)
+	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(obj.RawData)
 	if err != nil {
 		return fmt.Errorf("failed to build %s kubeconfig: %v", name, err)
 	}
@@ -169,9 +166,6 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		log.Logger.Errorf("create default namespace error: %v", err)
 		return err
 	}
-
-	// TODO: 后续删除
-	clientSets.Add(obj.Name, clientSet)
 
 	clusterSets.Set(obj.Name, cache.Cluster{
 		ClientSet:  clientSet,
@@ -299,8 +293,6 @@ func (c *cloud) Delete(ctx context.Context, cid int64) error {
 		log.Logger.Errorf("failed to delete %s cloud: %v", cid, err)
 		return err
 	}
-	// 清理 kube client
-	clientSets.Delete(obj.Name)
 
 	clusterSets.Delete(obj.Name)
 
@@ -369,7 +361,6 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 
 func (c *cloud) Load(stopCh chan struct{}) error {
 	// 初始化云客户端
-	clientSets = client.NewCloudClients()
 	clusterSets = cache.ClustersStore{}
 
 	// 获取待加载的 cloud 列表
@@ -402,7 +393,6 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 			return err
 		}
 
-		clientSets.Add(name, clientSet)
 		clusterSets.Set(name, cache.Cluster{
 			ClientSet:  clientSet,
 			KubeConfig: kubeConfig,
@@ -415,41 +405,41 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 	return nil
 }
 
-// TODO: 多集群共用检查队列
+// ClusterHealthCheck TODO: 多集群共用检查队列
 func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
-	klog.V(2).Infof("starting cluster health check")
-	// 存储旧的检查状态
-	status := make(map[string]int)
-
-	interval := time.Second * 5
-	for {
-		select {
-		case <-time.After(interval):
-			// 定时刷新status map
-			for name := range status {
-				if clientSets.Get(name) == nil {
-					delete(status, name)
-				}
-			}
-			// 定时检查cluster集群状态
-			for name, cs := range clientSets.List() {
-				var newStatus int
-				var timeoutSeconds int64 = 2
-				if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {
-					log.Logger.Errorf("failed to check %s cluster: %v", name, err)
-					newStatus = 1
-				}
-				// 对比状态是否改变
-				if status[name] != newStatus {
-					status[name] = newStatus
-					_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
-				}
-			}
-		case <-stopCh:
-			klog.Infof("shutting cluster health check")
-			return
-		}
-	}
+	//klog.V(2).Infof("starting cluster health check")
+	//// 存储旧的检查状态
+	//status := make(map[string]int)
+	//
+	//interval := time.Second * 5
+	//for {
+	//	select {
+	//	case <-time.After(interval):
+	//		// 定时刷新 status map
+	//		for name := range status {
+	//			if clusterSets.Get(name) == nil {
+	//				delete(status, name)
+	//			}
+	//		}
+	//		// 定时检查cluster集群状态
+	//		for name, cs := range clientSets.List() {
+	//			var newStatus int
+	//			var timeoutSeconds int64 = 2
+	//			if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {
+	//				log.Logger.Errorf("failed to check %s cluster: %v", name, err)
+	//				newStatus = 1
+	//			}
+	//			// 对比状态是否改变
+	//			if status[name] != newStatus {
+	//				status[name] = newStatus
+	//				_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
+	//			}
+	//		}
+	//	case <-stopCh:
+	//		klog.Infof("shutting cluster health check")
+	//		return
+	//	}
+	//}
 }
 
 func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
