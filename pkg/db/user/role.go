@@ -7,8 +7,8 @@ import (
 	"github.com/fatih/structs"
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/api/types"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 // RoleInterface 角色操作接口

@@ -20,15 +20,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 
-	"github.com/caoyingjunz/gopixiu/api/server/middleware"
-	"github.com/caoyingjunz/gopixiu/api/server/router/audit"
-	"github.com/caoyingjunz/gopixiu/api/server/router/cicd"
-	"github.com/caoyingjunz/gopixiu/api/server/router/cloud"
-	"github.com/caoyingjunz/gopixiu/api/server/router/menu"
-	"github.com/caoyingjunz/gopixiu/api/server/router/proxy"
-	"github.com/caoyingjunz/gopixiu/api/server/router/role"
-	"github.com/caoyingjunz/gopixiu/api/server/router/user"
-	"github.com/caoyingjunz/gopixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/api/server/middleware"
+	"github.com/caoyingjunz/pixiu/api/server/router/audit"
+	"github.com/caoyingjunz/pixiu/api/server/router/cicd"
+	"github.com/caoyingjunz/pixiu/api/server/router/cloud"
+	"github.com/caoyingjunz/pixiu/api/server/router/menu"
+	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
+	"github.com/caoyingjunz/pixiu/api/server/router/role"
+	"github.com/caoyingjunz/pixiu/api/server/router/user"
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
 func InstallRouters(opt *options.Options) {

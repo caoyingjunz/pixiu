@@ -20,10 +20,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
-	"github.com/caoyingjunz/gopixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/log"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type AuditGetter interface {

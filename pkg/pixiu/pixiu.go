@@ -17,8 +17,8 @@ limitations under the License.
 package pixiu
 
 import (
-	"github.com/caoyingjunz/gopixiu/cmd/app/options"
-	"github.com/caoyingjunz/gopixiu/pkg/core"
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/core"
 )
 
 var CoreV1 core.CoreV1Interface

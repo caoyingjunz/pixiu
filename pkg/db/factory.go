@@ -19,9 +19,9 @@ package db
 import (
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/audit"
-	"github.com/caoyingjunz/gopixiu/pkg/db/cloud"
-	"github.com/caoyingjunz/gopixiu/pkg/db/user"
+	"github.com/caoyingjunz/pixiu/pkg/db/audit"
+	"github.com/caoyingjunz/pixiu/pkg/db/cloud"
+	"github.com/caoyingjunz/pixiu/pkg/db/user"
 )
 
 type ShareDaoFactory interface {

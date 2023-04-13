@@ -22,7 +22,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 // Interface 审计数据访问层

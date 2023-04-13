@@ -19,12 +19,12 @@ package user
 import (
 	"github.com/gin-gonic/gin"
 
-	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/errors"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
+	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/types"
+	"github.com/caoyingjunz/pixiu/pkg/errors"
+	"github.com/caoyingjunz/pixiu/pkg/pixiu"
+	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
 // @Summary      Create a user

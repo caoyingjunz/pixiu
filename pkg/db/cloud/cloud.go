@@ -22,7 +22,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 type CloudInterface interface {

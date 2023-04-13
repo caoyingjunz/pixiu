@@ -22,15 +22,15 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/errors"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
-	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
+	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/types"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/errors"
+	"github.com/caoyingjunz/pixiu/pkg/log"
+	typesv2 "github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const defaultJWTKey string = "gopixiu"

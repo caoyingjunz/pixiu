@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/proxy"
 	"k8s.io/client-go/rest"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
 const (

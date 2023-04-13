@@ -22,9 +22,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/errors"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/errors"
+	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
 // Authorization 使用 rbac 授权策略

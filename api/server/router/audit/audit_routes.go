@@ -19,8 +19,8 @@ package audit
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
 // TODO: 根据发生事件获取审计事件列表

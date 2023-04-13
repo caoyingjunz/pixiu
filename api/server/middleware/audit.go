@@ -22,8 +22,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	"github.com/caoyingjunz/gopixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/pixiu"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 // Audit 操作记录

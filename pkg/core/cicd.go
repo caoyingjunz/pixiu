@@ -25,11 +25,11 @@ import (
 
 	"github.com/bndr/gojenkins"
 
-	"github.com/caoyingjunz/gopixiu/pkg/types"
-	types2 "github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/pixiu/pkg/types"
+	types2 "github.com/caoyingjunz/pixiu/api/types"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 type CicdGetter interface {

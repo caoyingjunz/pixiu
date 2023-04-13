@@ -21,7 +21,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
+	"github.com/caoyingjunz/pixiu/pkg/db/gopixiu"
 )
 
 // Menu 菜单

@@ -28,9 +28,9 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
-	"github.com/caoyingjunz/gopixiu/api/server/router"
-	"github.com/caoyingjunz/gopixiu/cmd/app/options"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
+	"github.com/caoyingjunz/pixiu/api/server/router"
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
 func NewServerCommand() *cobra.Command {

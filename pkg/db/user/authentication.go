@@ -25,7 +25,7 @@ import (
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 // TODO: 整体优化

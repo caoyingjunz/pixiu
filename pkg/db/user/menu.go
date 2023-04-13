@@ -7,9 +7,9 @@ import (
 	"github.com/fatih/structs"
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/pixiu/api/types"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 // MenuInterface 菜单操作接口
