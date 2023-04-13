@@ -27,17 +27,17 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/cache"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
-	typesv2 "github.com/caoyingjunz/gopixiu/pkg/types"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
-	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
-	"github.com/caoyingjunz/gopixiu/pkg/util/intstr"
-	"github.com/caoyingjunz/gopixiu/pkg/util/uuid"
+	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
+	"github.com/caoyingjunz/pixiu/api/types"
+	"github.com/caoyingjunz/pixiu/pkg/cache"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/log"
+	typesv2 "github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util"
+	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
+	"github.com/caoyingjunz/pixiu/pkg/util/intstr"
+	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
 type CloudGetter interface {

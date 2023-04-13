@@ -22,13 +22,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	pixiumeta "github.com/caoyingjunz/gopixiu/api/meta"
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/api/types"
-	"github.com/caoyingjunz/gopixiu/pkg/pixiu"
-	pixiutypes "github.com/caoyingjunz/gopixiu/pkg/types"
-	"github.com/caoyingjunz/gopixiu/pkg/util"
-	"github.com/caoyingjunz/gopixiu/pkg/util/audit"
+	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/types"
+	"github.com/caoyingjunz/pixiu/pkg/pixiu"
+	pixiutypes "github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util"
+	"github.com/caoyingjunz/pixiu/pkg/util/audit"
 )
 
 // 上传已存在的k8s集群，直接导入 kubeConfig 文件

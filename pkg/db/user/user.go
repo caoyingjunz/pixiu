@@ -22,9 +22,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db/model"
-	dberrors "github.com/caoyingjunz/gopixiu/pkg/errors"
-	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	dberrors "github.com/caoyingjunz/pixiu/pkg/errors"
+	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 type UserInterface interface {

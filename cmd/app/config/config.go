@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/caoyingjunz/gopixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type Config struct {

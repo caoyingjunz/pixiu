@@ -21,7 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/pkg/log"
+	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 func LoggerToFile() gin.HandlerFunc {

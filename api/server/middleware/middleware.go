@@ -20,8 +20,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/caoyingjunz/gopixiu/pkg/types"
-	"github.com/caoyingjunz/gopixiu/pkg/util/env"
+	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/env"
 )
 
 var AlwaysAllowPath sets.String

@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/caoyingjunz/gopixiu/pkg/db"
-	"github.com/caoyingjunz/gopixiu/pkg/util/cipher"
-	"github.com/caoyingjunz/gopixiu/pkg/util/intstr"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
+	"github.com/caoyingjunz/pixiu/pkg/util/intstr"
 )
 
 // ParseKubeConfigData 获取 kube config 解密之后的内容

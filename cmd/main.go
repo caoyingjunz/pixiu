@@ -21,16 +21,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/gopixiu/cmd/app"
+	"github.com/caoyingjunz/pixiu/cmd/app"
 )
 
 // @title           Pixiu API Documentation
 // @version         1.0
 // @description     Use the Pixiu APIs to your cloud
-// @termsOfService  https://github.com/caoyingjunz/gopixiu
+// @termsOfService  https://github.com/caoyingjunz/pixiu
 
 // @contact.name   API Support
-// @contact.url    https://github.com/caoyingjunz/gopixiu
+// @contact.url    https://github.com/caoyingjunz/pixiu
 // @contact.email  support@gopixiu.io
 
 // @license.name  Apache 2.0

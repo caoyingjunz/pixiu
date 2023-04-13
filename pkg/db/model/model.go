@@ -17,7 +17,7 @@ limitations under the License.
 package model
 
 import (
-	"github.com/caoyingjunz/gopixiu/pkg/db/gopixiu"
+	"github.com/caoyingjunz/pixiu/pkg/db/gopixiu"
 )
 
 type Cloud struct {

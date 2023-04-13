@@ -19,8 +19,8 @@ package core
 import (
 	"github.com/bndr/gojenkins"
 
-	"github.com/caoyingjunz/gopixiu/cmd/app/config"
-	"github.com/caoyingjunz/gopixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
 type CoreV1Interface interface {

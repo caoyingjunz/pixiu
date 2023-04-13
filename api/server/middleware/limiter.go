@@ -24,9 +24,9 @@ import (
 	"github.com/juju/ratelimit"
 	"golang.org/x/time/rate"
 
-	"github.com/caoyingjunz/gopixiu/api/server/httputils"
-	"github.com/caoyingjunz/gopixiu/pkg/errors"
-	"github.com/caoyingjunz/gopixiu/pkg/util/lru"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/errors"
+	"github.com/caoyingjunz/pixiu/pkg/util/lru"
 )
 
 const (
