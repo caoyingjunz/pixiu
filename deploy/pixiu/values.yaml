@@ -1,0 +1,112 @@
+# Default values for pixiu.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+
+default:
+  # 服务监听端口
+  listen: 8090
+  # 日志类型，支持 stdout, stderr 和 file, 默认为 stdout
+  log_type: stdout
+  # 日志级别，支持 INFO, WARN 和 ERROR, 默认为 INFO
+  log_level: INFO
+  # 日志路径，在日志类型为 file 的时候生效
+  log_dir: /var/log/pixiu
+  # jwt 签名的 key
+  jwt_key: pixiu
+
+# 数据库地址信息
+mysql:
+  host: pixiu
+  user: root
+  password: GoPixiu868686
+  port: 3306
+  name: gopixiu
+
+cicd:
+  enable: false
+  driver: jenkins
+  jenkins:
+    host: http://127.0.0.1:9090
+    user: adminops
+    password: adminops@321
+
+replicaCount: 1
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false 
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+      - path: /
+        backend:
+          serviceName: chart-example.local
+          servicePort: 80
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
