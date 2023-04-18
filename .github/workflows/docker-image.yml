@@ -3,8 +3,6 @@ name: Publish pixiu image
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
 
 jobs:
   build:
@@ -12,9 +10,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - name: dd
-        run: echo ${{ github.event_name }}  ${{ secrets.DOCKER_NAME }}
 
       - name: Login in dockerhub
         uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
