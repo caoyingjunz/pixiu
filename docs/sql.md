@@ -1,6 +1,6 @@
-# 创建 `gopixiu` 数据库
+# 创建 `pixiu` 数据库
 ```sql
-CREATE DATABASE gopixiu;
+CREATE DATABASE pixiu;
 ```
 
 ## 创建 `users` 表
