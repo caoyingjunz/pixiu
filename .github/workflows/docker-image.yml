@@ -1,0 +1,26 @@
+name: Publish pixiu image
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: dd
+        run: echo ${{ github.event_name }}
+
+      - name: Login in dockerhub
+        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+        with:
+          username: ${{ secrets.actor }}
+          password: ${{ secrets.actor }}
+
+      - name: Build and push the pixiu image
+        run: make image && make push
