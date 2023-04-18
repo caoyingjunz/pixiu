@@ -20,7 +20,7 @@ mysql:
   user: root
   password: GoPixiu868686
   port: 3306
-  name: gopixiu
+  name: pixiu
 
 cicd:
   enable: false
