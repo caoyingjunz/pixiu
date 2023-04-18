@@ -1,13 +1,13 @@
 .PHONY: run build image push clean
 
 tag = v0.1
-releaseName = gopixiu
+releaseName = pixiu
 dockerhubUser = jacky06
 
 ALL: run
 
 run: build
-	./gopixiu --configfile ./config.yaml
+	./pixiu --configfile ./config.yaml
 
 build:
 	go build -o $(releaseName) ./cmd/
