@@ -116,7 +116,7 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 	}
 
 	// 获取 k8s 集群信息: k8s 版本，节点数量，资源信息
-	nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{Limit: 1})
+	nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil || len(nodes.Items) == 0 {
 		log.Logger.Errorf("failed to connected to k8s cluster: %v", err)
 		return err
@@ -167,7 +167,7 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 
-	clusterSets.Set(obj.Name, cache.Cluster{
+	clusterSets.Set(cloudObj.Name, cache.Cluster{
 		ClientSet:  clientSet,
 		KubeConfig: kubeConfig,
 	})
