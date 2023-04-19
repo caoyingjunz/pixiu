@@ -167,7 +167,7 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 
-	clusterSets.Set(obj.Name, cache.Cluster{
+	clusterSets.Set(cloudObj.Name, cache.Cluster{
 		ClientSet:  clientSet,
 		KubeConfig: kubeConfig,
 	})
