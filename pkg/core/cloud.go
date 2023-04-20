@@ -367,6 +367,7 @@ func (c *cloud) process(ctx context.Context) error {
 		return fmt.Errorf("failed to get exists clouds: %v", err)
 	}
 
+	// TODO: 实现同步逻辑
 	fmt.Println(cs)
 	return nil
 }
