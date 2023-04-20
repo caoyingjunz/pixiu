@@ -19,6 +19,8 @@ package core
 import (
 	"context"
 	"fmt"
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -96,10 +98,10 @@ func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
 	if err := c.preLoad(ctx, obj); err != nil {
 		return err
 	}
-	name := obj.Name
+	aliasName := obj.AliasName
 	cs, err := util.NewCloudSet(obj.RawData)
 	if err != nil {
-		return fmt.Errorf("failed to new %s clusterSet: %v", name, err)
+		return fmt.Errorf("failed to new %s clusterSet: %v", aliasName, err)
 	}
 	// 直接对 kubeConfig 内容进行加密
 	encryptData, err := cipher.Encrypt(obj.RawData)
@@ -110,7 +112,7 @@ func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
 
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:      util.NewCloudName(pixiutypes.StandardCloudPrefix),
-		AliasName: obj.Name,
+		AliasName: obj.AliasName,
 		CloudType: pixiutypes.StandardCloud,
 		Status:    pixiutypes.RunningStatus,
 	})
@@ -365,12 +367,29 @@ func (c *cloud) process(ctx context.Context) error {
 		return fmt.Errorf("failed to get exists clouds: %v", err)
 	}
 
+	// TODO: 实现同步逻辑
 	fmt.Println(cs)
 	return nil
 }
 
 // SyncStatus 定时同步集群状态
 func (c *cloud) SyncStatus(ctx context.Context, stopCh chan struct{}) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := c.process(ctx); err != nil {
+					klog.Errorf("sync status failed：%v", err)
+				}
+			case <-stopCh:
+				klog.Infof("shutting cluster sync status")
+				return
+			}
+		}
+	}()
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
