@@ -30,6 +30,35 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
+func NewCloudSet(configBytes []byte) (*cache.Cluster, error) {
+	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
+	if err != nil {
+		return nil, err
+	}
+	clientSet, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cache.Cluster{
+		ClientSet:  clientSet,
+		KubeConfig: kubeConfig,
+	}, nil
+}
+
+func NewClientSet(data []byte) (*kubernetes.Clientset, error) {
+	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(kubeConfig)
+}
+
+func NewCloudName(prefix string) string {
+	return prefix + uuid.NewUUID()[:8]
+}
+
 // ParseKubeConfigData 获取 kube config 解密之后的内容
 func ParseKubeConfigData(ctx context.Context, factory db.ShareDaoFactory, cloudIntStr intstr.IntOrString) ([]byte, error) {
 	var (
@@ -55,24 +84,4 @@ func ParseKubeConfigData(ctx context.Context, factory db.ShareDaoFactory, cloudI
 	}
 
 	return cipher.Decrypt(kubeConfigData.Config)
-}
-
-func NewCloudSet(configBytes []byte) (*cache.Cluster, error) {
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
-	if err != nil {
-		return nil, err
-	}
-	clientSet, err := kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cache.Cluster{
-		ClientSet:  clientSet,
-		KubeConfig: kubeConfig,
-	}, nil
-}
-
-func NewCloudName(prefix string) string {
-	return prefix + uuid.NewUUID()[:8]
 }

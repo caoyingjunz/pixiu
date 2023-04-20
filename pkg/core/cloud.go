@@ -21,9 +21,7 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
@@ -54,8 +52,9 @@ type CloudInterface interface {
 	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
 	Ping(ctx context.Context, kubeConfigData []byte) error
 
-	// Load 加载已经存在的 cloud 客户端
-	Load(stopCh chan struct{}) error
+	// Restore 加载已经存在的 cloud 客户端
+	Restore(ctx context.Context) error
+	SyncStatus(ctx context.Context, stopCh chan struct{})
 
 	// GetClusterConfig 获取 kubeconfig 对象
 	GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool)
@@ -309,7 +308,7 @@ func (c *cloud) List(ctx context.Context, selector *pixiumeta.ListSelector) (int
 
 func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 	// 先构造 clientSet，如果有异常，直接返回
-	clientSet, err := c.newClientSet(kubeConfigData)
+	clientSet, err := util.NewClientSet(kubeConfigData)
 	if err != nil {
 		log.Logger.Errorf("failed to create clientSet: %v", err)
 		return err
@@ -321,15 +320,14 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 	return nil
 }
 
-func (c *cloud) Load(stopCh chan struct{}) error {
+func (c *cloud) Restore(ctx context.Context) error {
 	// 初始化云客户端
 	clusterSets = cache.ClustersStore{}
 
 	// 获取待加载的 cloud 列表
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
-		log.Logger.Errorf("failed to list exist clouds: %v", err)
-		return err
+		return fmt.Errorf("failed to list exist clouds: %v", err)
 	}
 
 	for _, cloudObj := range cloudObjs {
@@ -341,34 +339,26 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
-		kubeConfigData, err := util.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
+		configBytes, err := util.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
 		if err != nil {
 			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", name, err)
 			return err
 		}
-		kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigData)
-		if err != nil {
-			return err
-		}
-		clientSet, err := kubernetes.NewForConfig(kubeConfig)
+
+		cs, err := util.NewCloudSet(configBytes)
 		if err != nil {
 			return err
 		}
 
-		clusterSets.Set(name, cache.Cluster{
-			ClientSet:  clientSet,
-			KubeConfig: kubeConfig,
-		})
-		klog.V(2).Infof("load cloud %s success", name)
+		clusterSets.Set(name, *cs)
+		klog.V(2).Infof("restore clouds %s success", name)
 	}
 
-	// 启动集群检查状态检查
-	go c.ClusterHealthCheck(stopCh)
 	return nil
 }
 
-// ClusterHealthCheck TODO: 多集群共用检查队列
-func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
+// SyncStatus 定时同步集群状态
+func (c *cloud) SyncStatus(ctx context.Context, stopCh chan struct{}) {
 	//klog.V(2).Infof("starting cluster health check")
 	//// 存储旧的检查状态
 	//status := make(map[string]int)
@@ -402,15 +392,6 @@ func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
 	//		return
 	//	}
 	//}
-}
-
-func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubernetes.NewForConfig(kubeConfig)
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {

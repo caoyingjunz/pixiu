@@ -83,11 +83,12 @@ func Run(opt *options.Options) error {
 	return nil
 }
 
-func runBootstrap(stopCh chan struct{}) {
+func runBootstrap(ctx context.Context, stopCh chan struct{}) {
 	// 加载已经存在 cloud 客户端
-	if err := pixiu.CoreV1.Cloud().Load(stopCh); err != nil {
+	if err := pixiu.CoreV1.Cloud().Restore(ctx); err != nil {
 		klog.Fatal("failed to load cloud driver: ", err)
 	}
+	pixiu.CoreV1.Cloud().SyncStatus(ctx, stopCh)
 
 	// 启动审计事件的清理任务
 	pixiu.CoreV1.Audit().Run(stopCh)
@@ -102,7 +103,7 @@ func runServer(opt *options.Options) {
 	stopCh := make(chan struct{})
 
 	// 启动初始化任务
-	runBootstrap(stopCh)
+	runBootstrap(context.TODO(), stopCh)
 	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
 	go func() {
 		klog.Infof("starting pixiu server")
