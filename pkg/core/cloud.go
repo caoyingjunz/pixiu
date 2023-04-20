@@ -58,13 +58,9 @@ type CloudInterface interface {
 
 	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
 	Ping(ctx context.Context, kubeConfigData []byte) error
-	// GetClusterConfig 获取 kubeconfig 对象
-	GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool)
+	// GetKubeConfig 获取 kubeconfig 对象
+	GetKubeConfig(ctx context.Context, clusterName string) (*restclient.Config, bool)
 }
-
-var (
-	clusterSets cache.ClustersStore
-)
 
 type cloud struct {
 	app     *pixiu
@@ -133,7 +129,7 @@ func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
 		return err
 	}
 
-	clusterSets.Set(cloudObj.Name, *cs)
+	c.store.Set(cloudObj.Name, *cs)
 	return nil
 }
 
@@ -256,8 +252,7 @@ func (c *cloud) Delete(ctx context.Context, cid int64) error {
 		log.Logger.Errorf("failed to delete %s cloud: %v", cid, err)
 		return err
 	}
-
-	clusterSets.Delete(obj.Name)
+	c.store.Delete(obj.Name)
 
 	// 目前，仅自建的k8s集群需要清理下属资源，下属资源有 cluster 和 nodes
 	if obj.CloudType == pixiutypes.BuildCloud {
@@ -324,7 +319,7 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 
 func (c *cloud) Restore(ctx context.Context) error {
 	// 初始化云客户端
-	clusterSets = cache.ClustersStore{}
+	c.store = cache.ClustersStore{}
 
 	// 获取待加载的 cloud 列表
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
@@ -352,7 +347,7 @@ func (c *cloud) Restore(ctx context.Context) error {
 			return err
 		}
 
-		clusterSets.Set(name, *cs)
+		c.store.Set(name, *cs)
 		klog.V(2).Infof("restore clouds %s success", name)
 	}
 
@@ -414,8 +409,8 @@ func (c *cloud) StartDeployCluster(ctx context.Context, cid int64) error {
 	return nil
 }
 
-func (c *cloud) GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool) {
-	cluster, exists := clusterSets.Get(clusterName)
+func (c *cloud) GetKubeConfig(ctx context.Context, clusterName string) (*restclient.Config, bool) {
+	cluster, exists := c.store.Get(clusterName)
 	if !exists {
 		return nil, false
 	}

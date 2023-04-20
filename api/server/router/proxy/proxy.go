@@ -60,7 +60,7 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	}
 	name := cloud.Name
 
-	config, exists := pixiu.CoreV1.Cloud().GetClusterConfig(c, name)
+	config, exists := pixiu.CoreV1.Cloud().GetKubeConfig(c, name)
 	if !exists {
 		httputils.SetFailed(c, resp, fmt.Errorf("cluster %q not register", name))
 		return
