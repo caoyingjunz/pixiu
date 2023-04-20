@@ -50,6 +50,11 @@ const (
 )
 
 const (
+	StandardCloudPrefix = "atm-"
+	BuildCloudPrefix    = "pix-"
+)
+
+const (
 	PixiuNamespace = "pixiu-system" // pixiu 命名空间
 )
 

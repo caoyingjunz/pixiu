@@ -19,12 +19,8 @@ package core
 import (
 	"context"
 	"fmt"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
@@ -33,11 +29,10 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/log"
-	typesv2 "github.com/caoyingjunz/pixiu/pkg/types"
+	pixiutypes "github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
 	"github.com/caoyingjunz/pixiu/pkg/util/intstr"
-	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
 type CloudGetter interface {
@@ -45,19 +40,22 @@ type CloudGetter interface {
 }
 
 type CloudInterface interface {
-	Create(ctx context.Context, obj *types.Cloud) error
-	Update(ctx context.Context, obj *types.Cloud) error
+	// Load 上传已存在的 kubernetes 集群，直接导入 kubeConfig 文件
+	Load(ctx context.Context, obj *types.LoadCloud) error
+	// Build 自建 kubernetes 集群，需要更多的集群配置
+	Build(ctx context.Context, obj *types.BuildCloud) error
 
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cloud, error)
 	List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error)
-	Build(ctx context.Context, obj *types.BuildCloud) error
+
+	// Restore 加载已经存在的 cloud 客户端
+	Restore(ctx context.Context) error
+	// SyncStatus 集群状态，
+	SyncStatus(ctx context.Context, stopCh chan struct{})
 
 	// Ping 检查 kubeConfig 与 kubernetes 集群的连通状态
 	Ping(ctx context.Context, kubeConfigData []byte) error
-	// Load 加载已经存在的 cloud 客户端
-	Load(stopCh chan struct{}) error
-
 	// GetClusterConfig 获取 kubeconfig 对象
 	GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool)
 }
@@ -69,6 +67,8 @@ var (
 type cloud struct {
 	app     *pixiu
 	factory db.ShareDaoFactory
+
+	store cache.ClustersStore
 }
 
 func newCloud(c *pixiu) CloudInterface {
@@ -78,9 +78,9 @@ func newCloud(c *pixiu) CloudInterface {
 	}
 }
 
-func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
-	if len(obj.Name) == 0 {
-		return fmt.Errorf("invalid empty cloud name")
+func (c *cloud) preLoad(ctx context.Context, obj *types.LoadCloud) error {
+	if len(obj.AliasName) == 0 {
+		return fmt.Errorf("invalid empty alias cloud name")
 	}
 	if len(obj.RawData) == 0 {
 		return fmt.Errorf("invalid empty kubeconfig data")
@@ -92,11 +92,14 @@ func (c *cloud) preCreate(ctx context.Context, obj *types.Cloud) error {
 	return nil
 }
 
-func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
-	name := obj.Name
-	if err := c.preCreate(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for %s created: %v", name, err)
+func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
+	if err := c.preLoad(ctx, obj); err != nil {
 		return err
+	}
+	name := obj.Name
+	cs, err := util.NewCloudSet(obj.RawData)
+	if err != nil {
+		return fmt.Errorf("failed to new %s clusterSet: %v", name, err)
 	}
 	// 直接对 kubeConfig 内容进行加密
 	encryptData, err := cipher.Encrypt(obj.RawData)
@@ -105,40 +108,11 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		return err
 	}
 
-	// 先构造 clientSet，如果有异常，直接返回
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(obj.RawData)
-	if err != nil {
-		return fmt.Errorf("failed to build %s kubeconfig: %v", name, err)
-	}
-	clientSet, err := kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		return fmt.Errorf("failed to new %s clientSet: %v", name, err)
-	}
-
-	// 获取 k8s 集群信息: k8s 版本，节点数量，资源信息
-	nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{Limit: 1})
-	if err != nil || len(nodes.Items) == 0 {
-		log.Logger.Errorf("failed to connected to k8s cluster: %v", err)
-		return err
-	}
-
-	var (
-		kubeVersion string
-		resources   string
-	)
-	// 第一个节点的版本作为集群版本
-	node := nodes.Items[0]
-	nodeStatus := node.Status
-	kubeVersion = nodeStatus.NodeInfo.KubeletVersion
-
-	// TODO: 未处理 resources
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        "atm-" + uuid.NewUUID()[:8],
-		AliasName:   obj.Name,
-		CloudType:   typesv2.StandardCloud,
-		KubeVersion: kubeVersion,
-		NodeNumber:  len(nodes.Items),
-		Resources:   resources, // TODO: 未处理 resources
+		Name:      util.NewCloudName(pixiutypes.StandardCloudPrefix),
+		AliasName: obj.Name,
+		CloudType: pixiutypes.StandardCloud,
+		Status:    pixiutypes.RunningStatus,
 	})
 	if err != nil {
 		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
@@ -153,24 +127,11 @@ func (c *cloud) Create(ctx context.Context, obj *types.Cloud) error {
 		Config:         encryptData,
 	}); err != nil {
 		log.Logger.Errorf("failed to save kubeConfig: %v", err)
+		_, _ = c.factory.Cloud().Delete(ctx, cloudObj.Id)
 		return err
 	}
 
-	// TODO: 根据传参确定是否创建默认 ns
-	// 创建 pixiu-system 命名空间，用于安装内置的控制器
-	if _, err = clientSet.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: typesv2.PixiuNamespace,
-		},
-	}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
-		log.Logger.Errorf("create default namespace error: %v", err)
-		return err
-	}
-
-	clusterSets.Set(cloudObj.Name, cache.Cluster{
-		ClientSet:  clientSet,
-		KubeConfig: kubeConfig,
-	})
+	clusterSets.Set(cloudObj.Name, *cs)
 	return nil
 }
 
@@ -187,10 +148,10 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 
 	// step1: 创建 cloud
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
-		Name:        "pix-" + uuid.NewUUID()[:8], // TODO: 前缀作为常量引入
+		Name:        util.NewCloudName(pixiutypes.BuildCloudPrefix),
 		AliasName:   obj.AliasName,
-		Status:      typesv2.InitializeStatus, // 初始化状态
-		CloudType:   typesv2.BuildCloud,
+		Status:      pixiutypes.InitializeStatus, // 初始化状态
+		CloudType:   pixiutypes.BuildCloud,
 		KubeVersion: obj.Kubernetes.Version,
 		Description: obj.Description,
 	})
@@ -245,7 +206,7 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 	for _, master := range kubeObj.Masters {
 		kubeNodes = append(kubeNodes, model.Node{
 			CloudId:  cid,
-			Role:     string(typesv2.MasterRole),
+			Role:     string(pixiutypes.MasterRole),
 			HostName: master.HostName,
 			Address:  master.Address,
 			User:     master.User,
@@ -256,7 +217,7 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 	for _, node := range kubeObj.Nodes {
 		kubeNodes = append(kubeNodes, model.Node{
 			CloudId:  cid,
-			Role:     string(typesv2.NodeRole),
+			Role:     string(pixiutypes.NodeRole),
 			HostName: node.HostName,
 			Address:  node.Address,
 			User:     node.User,
@@ -297,7 +258,7 @@ func (c *cloud) Delete(ctx context.Context, cid int64) error {
 	clusterSets.Delete(obj.Name)
 
 	// 目前，仅自建的k8s集群需要清理下属资源，下属资源有 cluster 和 nodes
-	if obj.CloudType == typesv2.BuildCloud {
+	if obj.CloudType == pixiutypes.BuildCloud {
 		_ = c.internalDelete(ctx, cid)
 	}
 	return nil
@@ -347,7 +308,7 @@ func (c *cloud) List(ctx context.Context, selector *pixiumeta.ListSelector) (int
 
 func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 	// 先构造 clientSet，如果有异常，直接返回
-	clientSet, err := c.newClientSet(kubeConfigData)
+	clientSet, err := util.NewClientSet(kubeConfigData)
 	if err != nil {
 		log.Logger.Errorf("failed to create clientSet: %v", err)
 		return err
@@ -359,15 +320,14 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 	return nil
 }
 
-func (c *cloud) Load(stopCh chan struct{}) error {
+func (c *cloud) Restore(ctx context.Context) error {
 	// 初始化云客户端
 	clusterSets = cache.ClustersStore{}
 
 	// 获取待加载的 cloud 列表
 	cloudObjs, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
-		log.Logger.Errorf("failed to list exist clouds: %v", err)
-		return err
+		return fmt.Errorf("failed to list exist clouds: %v", err)
 	}
 
 	for _, cloudObj := range cloudObjs {
@@ -379,76 +339,38 @@ func (c *cloud) Load(stopCh chan struct{}) error {
 
 		// Note:
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
-		kubeConfigData, err := util.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
+		configBytes, err := util.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
 		if err != nil {
 			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", name, err)
 			return err
 		}
-		kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigData)
-		if err != nil {
-			return err
-		}
-		clientSet, err := kubernetes.NewForConfig(kubeConfig)
+
+		cs, err := util.NewCloudSet(configBytes)
 		if err != nil {
 			return err
 		}
 
-		clusterSets.Set(name, cache.Cluster{
-			ClientSet:  clientSet,
-			KubeConfig: kubeConfig,
-		})
-		klog.V(2).Infof("load cloud %s success", name)
+		clusterSets.Set(name, *cs)
+		klog.V(2).Infof("restore clouds %s success", name)
 	}
 
-	// 启动集群检查状态检查
-	go c.ClusterHealthCheck(stopCh)
 	return nil
 }
 
-// ClusterHealthCheck TODO: 多集群共用检查队列
-func (c *cloud) ClusterHealthCheck(stopCh chan struct{}) {
-	//klog.V(2).Infof("starting cluster health check")
-	//// 存储旧的检查状态
-	//status := make(map[string]int)
-	//
-	//interval := time.Second * 5
-	//for {
-	//	select {
-	//	case <-time.After(interval):
-	//		// 定时刷新 status map
-	//		for name := range status {
-	//			if clusterSets.Get(name) == nil {
-	//				delete(status, name)
-	//			}
-	//		}
-	//		// 定时检查cluster集群状态
-	//		for name, cs := range clientSets.List() {
-	//			var newStatus int
-	//			var timeoutSeconds int64 = 2
-	//			if _, err := cs.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds, Limit: 1}); err != nil {
-	//				log.Logger.Errorf("failed to check %s cluster: %v", name, err)
-	//				newStatus = 1
-	//			}
-	//			// 对比状态是否改变
-	//			if status[name] != newStatus {
-	//				status[name] = newStatus
-	//				_ = c.factory.Cloud().SetStatus(context.TODO(), name, newStatus)
-	//			}
-	//		}
-	//	case <-stopCh:
-	//		klog.Infof("shutting cluster health check")
-	//		return
-	//	}
-	//}
-}
-
-func (c *cloud) newClientSet(data []byte) (*kubernetes.Clientset, error) {
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
+// 间隔时间内获获取最新的集群列表，和缓存进行对比，如果有差异则进行更新
+func (c *cloud) process(ctx context.Context) error {
+	// 间隔时间内获获取最新的集群列表
+	cs, err := c.factory.Cloud().List(ctx)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("failed to get exists clouds: %v", err)
 	}
 
-	return kubernetes.NewForConfig(kubeConfig)
+	fmt.Println(cs)
+	return nil
+}
+
+// SyncStatus 定时同步集群状态
+func (c *cloud) SyncStatus(ctx context.Context, stopCh chan struct{}) {
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
@@ -460,7 +382,7 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		Name:        obj.Name,
 		AliasName:   obj.AliasName,
 		Status:      obj.Status,
-		CloudType:   obj.CloudType,
+		CloudType:   types.CloudType(obj.CloudType),
 		KubeVersion: obj.KubeVersion,
 		NodeNumber:  obj.NodeNumber,
 		Resources:   obj.Resources,
