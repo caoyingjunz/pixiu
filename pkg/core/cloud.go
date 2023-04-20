@@ -98,10 +98,10 @@ func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
 	if err := c.preLoad(ctx, obj); err != nil {
 		return err
 	}
-	name := obj.Name
+	aliasName := obj.AliasName
 	cs, err := util.NewCloudSet(obj.RawData)
 	if err != nil {
-		return fmt.Errorf("failed to new %s clusterSet: %v", name, err)
+		return fmt.Errorf("failed to new %s clusterSet: %v", aliasName, err)
 	}
 	// 直接对 kubeConfig 内容进行加密
 	encryptData, err := cipher.Encrypt(obj.RawData)
@@ -112,7 +112,7 @@ func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
 
 	cloudObj, err := c.factory.Cloud().Create(ctx, &model.Cloud{
 		Name:      util.NewCloudName(pixiutypes.StandardCloudPrefix),
-		AliasName: obj.Name,
+		AliasName: obj.AliasName,
 		CloudType: pixiutypes.StandardCloud,
 		Status:    pixiutypes.RunningStatus,
 	})
