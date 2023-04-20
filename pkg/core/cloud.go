@@ -19,9 +19,11 @@ package core
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
 	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
 	"github.com/caoyingjunz/pixiu/api/types"
@@ -371,6 +373,22 @@ func (c *cloud) process(ctx context.Context) error {
 
 // SyncStatus 定时同步集群状态
 func (c *cloud) SyncStatus(ctx context.Context, stopCh chan struct{}) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := c.process(ctx); err != nil {
+					klog.Errorf("sync status failed：%v", err)
+				}
+			case <-stopCh:
+				klog.Infof("shutting cluster sync status")
+				return
+			}
+		}
+	}()
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
