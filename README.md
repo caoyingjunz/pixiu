@@ -10,12 +10,12 @@ Pixiu is an open source container platform for cloud-native application manageme
 - [go-learning](https://github.com/caoyingjunz/go-learning)
 
 ## 沟通交流
-- 搜索微信号 `yingjuncz`, 备注（gopixiu）, 验证通过会加入群聊
+- 搜索微信号 `yingjuncz`, 备注（pixiu）, 验证通过会加入群聊
 - [bilibili](https://space.bilibili.com/3493104248162809?spm_id_from=333.1007.0.0) 技术分享
 
 Copyright 2019 caoyingjun (cao.yingjunz@gmail.com) Apache License 2.0
 
-[build-url]: https://github.com/gopixiu-io/kubez-ansible/actions/workflows/ci.yml/badge.svg
+[build-url]: https://github.com/pixiu-io/kubez-ansible/actions/workflows/ci.yml/badge.svg
 [release-image]: https://img.shields.io/badge/release-download-orange.svg
 [release-url]: https://www.apache.org/licenses/LICENSE-2.0.html
 [license-image]: https://img.shields.io/badge/license-Apache%202-4EB1BA.svg

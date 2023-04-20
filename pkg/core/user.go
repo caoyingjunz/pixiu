@@ -33,7 +33,7 @@ import (
 	typesv2 "github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-const defaultJWTKey string = "gopixiu"
+const defaultJWTKey string = "pixiu"
 
 type UserGetter interface {
 	User() UserInterface

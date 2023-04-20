@@ -10,11 +10,11 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "https://github.com/caoyingjunz/gopixiu",
+        "termsOfService": "https://github.com/caoyingjunz/pixiu",
         "contact": {
             "name": "API Support",
-            "url": "https://github.com/caoyingjunz/gopixiu",
-            "email": "support@gopixiu.io"
+            "url": "https://github.com/caoyingjunz/pixiu",
+            "email": "support@pixiu.io"
         },
         "license": {
             "name": "Apache 2.0",

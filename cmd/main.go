@@ -31,7 +31,7 @@ import (
 
 // @contact.name   API Support
 // @contact.url    https://github.com/caoyingjunz/pixiu
-// @contact.email  support@gopixiu.io
+// @contact.email  support@pixiu.io
 
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
