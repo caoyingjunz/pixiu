@@ -20,9 +20,14 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/caoyingjunz/pixiu/pkg/cache"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
 	"github.com/caoyingjunz/pixiu/pkg/util/intstr"
+	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
 // ParseKubeConfigData 获取 kube config 解密之后的内容
@@ -50,4 +55,24 @@ func ParseKubeConfigData(ctx context.Context, factory db.ShareDaoFactory, cloudI
 	}
 
 	return cipher.Decrypt(kubeConfigData.Config)
+}
+
+func NewCloudSet(configBytes []byte) (*cache.Cluster, error) {
+	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
+	if err != nil {
+		return nil, err
+	}
+	clientSet, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cache.Cluster{
+		ClientSet:  clientSet,
+		KubeConfig: kubeConfig,
+	}, nil
+}
+
+func NewCloudName(prefix string) string {
+	return prefix + uuid.NewUUID()[:8]
 }
