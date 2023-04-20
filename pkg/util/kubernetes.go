@@ -61,9 +61,7 @@ func NewCloudName(prefix string) string {
 
 // ParseKubeConfigData 获取 kube config 解密之后的内容
 func ParseKubeConfigData(ctx context.Context, factory db.ShareDaoFactory, cloudIntStr intstr.IntOrString) ([]byte, error) {
-	var (
-		cloudId int64
-	)
+	var cloudId int64
 
 	switch cloudIntStr.Type {
 	case intstr.Int64:

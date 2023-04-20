@@ -36,7 +36,7 @@ func (s *cloudRouter) loadCloud(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err   error
-		cloud types.Cloud
+		cloud types.LoadCloud
 	)
 	// k8s 集群的原始数据通过 clusterData 传递
 	// 如果获取 data 失败或者data为空，则判定为异常，直接返回报错
@@ -54,7 +54,7 @@ func (s *cloudRouter) loadCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Create(c, &cloud); err != nil {
+	if err = pixiu.CoreV1.Cloud().Load(c, &cloud); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
