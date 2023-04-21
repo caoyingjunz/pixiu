@@ -21,12 +21,12 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/gopixiu"
+	"github.com/caoyingjunz/pixiu/pkg/db/pixiu"
 )
 
 // Menu 菜单
 type Menu struct {
-	gopixiu.Model
+	pixiu.Model
 
 	Status   int8   `gorm:"column:status;type:tinyint(1);not null;" json:"status" form:"status"`          // 状态(1:启用 2:不启用)
 	Memo     string `gorm:"column:memo;size:128;" json:"memo" form:"memo"`                                // 备注
@@ -61,7 +61,7 @@ func (m *Menu) BeforeUpdate(tx *gorm.DB) error {
 
 // RoleMenu 角色-菜单
 type RoleMenu struct {
-	gopixiu.Model
+	pixiu.Model
 
 	RoleID int64 `gorm:"column:role_id;unique_index:uk_role_menu_role_id;not null;" json:"role_id"`  // 角色ID
 	MenuID int64 `gorm:"column:menu_id;unique_index:uk_role_menu_role_id;not null;" json:"menu_id'"` // 菜单ID
