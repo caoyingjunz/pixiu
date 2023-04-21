@@ -17,6 +17,7 @@ limitations under the License.
 package router
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/gin-gonic/gin"
 	"net/http"
 
@@ -47,6 +48,7 @@ func InstallRouters(opt *options.Options) {
 	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
 	proxy.NewRouter(opt.GinEngine) // 注册 kubernetes proxy
 
+	helm.NewRouter(opt.GinEngine) //注册helm功能相关路由
 	// 启动检查检查
 	opt.GinEngine.GET("/healthz", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
