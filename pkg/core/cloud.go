@@ -362,13 +362,12 @@ func (c *cloud) Restore(ctx context.Context) error {
 // 间隔时间内获获取最新的集群列表，和缓存进行对比，如果有差异则进行更新
 func (c *cloud) process(ctx context.Context) error {
 	// 间隔时间内获获取最新的集群列表
-	cs, err := c.factory.Cloud().List(ctx)
+	// TODO: 实现同步逻辑
+	_, err := c.factory.Cloud().List(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get exists clouds: %v", err)
 	}
 
-	// TODO: 实现同步逻辑
-	fmt.Println(cs)
 	return nil
 }
 
