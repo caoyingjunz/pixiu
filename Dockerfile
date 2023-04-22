@@ -5,8 +5,8 @@ COPY ./go.mod ./
 COPY ./go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o gopixiu ./cmd
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o pixiu ./cmd
 
 FROM busybox as runner
-COPY --from=builder /app/gopixiu /app
+COPY --from=builder /app/pixiu /app
 ENTRYPOINT ["/app"]
