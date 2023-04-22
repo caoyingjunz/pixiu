@@ -17,11 +17,11 @@ limitations under the License.
 package model
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/gopixiu"
+	"github.com/caoyingjunz/pixiu/pkg/db/pixiu"
 )
 
 type Cloud struct {
-	gopixiu.Model
+	pixiu.Model
 
 	Name        string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
 	AliasName   string `json:"alias_name"`                        // 集群别名，支持中文
@@ -40,7 +40,7 @@ func (*Cloud) TableName() string {
 
 // Cluster k8s 集群的部署信息
 type Cluster struct {
-	gopixiu.Model
+	pixiu.Model
 
 	CloudId     int64  `gorm:"index:idx_cloud,unique" json:"cloud_id"`
 	ApiServer   string `json:"api_server"` // kubernetes 的 apiServer 的 ip 地址
@@ -57,7 +57,7 @@ func (*Cluster) TableName() string {
 }
 
 type Node struct {
-	gopixiu.Model
+	pixiu.Model
 
 	CloudId  int64  `gorm:"index:idx_cloud" json:"cloud_id"`
 	Role     string `json:"role"` // k8s 节点的角色，master 为 0  和 node 为 1
@@ -72,7 +72,7 @@ func (*Node) TableName() string {
 }
 
 type User struct {
-	gopixiu.Model
+	pixiu.Model
 
 	Name        string `gorm:"index:idx_name,unique" json:"name"`
 	Password    string `gorm:"type:varchar(256)" json:"-"`
@@ -88,7 +88,7 @@ func (user *User) TableName() string {
 }
 
 type KubeConfig struct {
-	gopixiu.Model
+	pixiu.Model
 
 	ServiceAccount      string `gorm:"unique" json:"service_account"`
 	CloudId             int64  `json:"cloud_id"`
@@ -103,7 +103,7 @@ func (*KubeConfig) TableName() string {
 }
 
 type Event struct {
-	gopixiu.Model
+	pixiu.Model
 
 	User     string `json:"user"`
 	ClientIP string `json:"client_ip"`

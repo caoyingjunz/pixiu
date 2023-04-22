@@ -21,12 +21,12 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/gopixiu"
+	"github.com/caoyingjunz/pixiu/pkg/db/pixiu"
 )
 
 // Role 角色
 type Role struct {
-	gopixiu.Model
+	pixiu.Model
 
 	Memo     string `gorm:"column:memo;size:128;" json:"memo" form:"memo"`                                     // 备注
 	Name     string `gorm:"column:name;size:128;not null;unique_index:uk_role_name;;" json:"name" form:"name"` // 名称
@@ -55,7 +55,7 @@ func (r *Role) BeforeUpdate(*gorm.DB) error {
 }
 
 type Rule struct {
-	gopixiu.Model
+	pixiu.Model
 
 	PType  string `json:"ptype" gorm:"column:ptype;size:100" description:"策略类型"`
 	Role   string `json:"role" gorm:"column:v0;size:100" description:"角色"`
@@ -84,7 +84,7 @@ func (r *Rule) BeforeUpdate(*gorm.DB) error {
 }
 
 type UserRole struct {
-	gopixiu.Model
+	pixiu.Model
 
 	UserID int64 `gorm:"column:user_id;unique_index:uk_user_role_user_id;not null;" json:"user_id"` // 管理员ID
 	RoleID int64 `gorm:"column:role_id;unique_index:uk_user_role_user_id;not null;" json:"role_id"` // 角色ID

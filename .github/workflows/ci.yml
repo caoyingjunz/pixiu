@@ -35,8 +35,8 @@ jobs:
       with:
         go-version: ${{ env.GO_VERSION }}
 
-    - name: Build the gopixiu binariy
+    - name: Build the pixiu binariy
       run: go build -v ./...
 
-    - name: Run gopixiu unit test
+    - name: Run pixiu unit test
       run: go test -v ./...

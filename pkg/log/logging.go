@@ -66,7 +66,7 @@ func Register(logType, logDir, logLevel string) {
 
 	Logger, _ = NewZapLogger(Configuration{
 		LogType:          logType,
-		LogFile:          filepath.Join(logDir, "gopixiu.log"), // 使用文件类型时生效
+		LogFile:          filepath.Join(logDir, "pixiu.log"), // 使用文件类型时生效
 		LogLevel:         Level,
 		RotateMaxSize:    500,
 		RotateMaxAge:     7,
