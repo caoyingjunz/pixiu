@@ -18,10 +18,13 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
@@ -66,11 +69,24 @@ var (
 	clusterSets cache.ClustersStore
 )
 
+const (
+	processPeriod time.Duration = time.Second * 5
+)
+
 type cloud struct {
 	app     *pixiu
 	factory db.ShareDaoFactory
 
 	store cache.ClustersStore
+}
+
+type cloudResourceInfo struct {
+	NodeName     string              `json:"node_name"`
+	NodeResource corev1.ResourceList `json:"resources"`
+}
+
+type cloudResourceInfos struct {
+	Items []cloudResourceInfo `json:"items"`
 }
 
 func newCloud(c *pixiu) CloudInterface {
@@ -359,37 +375,88 @@ func (c *cloud) Restore(ctx context.Context) error {
 	return nil
 }
 
+// 疑问: 数据库操作的时候为什么没有锁？
 // 间隔时间内获获取最新的集群列表，和缓存进行对比，如果有差异则进行更新
-func (c *cloud) process(ctx context.Context) error {
-	// 间隔时间内获获取最新的集群列表
-	cs, err := c.factory.Cloud().List(ctx)
+func (c *cloud) process(ctx context.Context) {
+	// 获取内存中全部 Cloud
+	clouds, err := c.factory.Cloud().List(context.TODO())
 	if err != nil {
-		return fmt.Errorf("failed to get exists clouds: %v", err)
+		log.Logger.Errorf("failed to get exists clouds: %v", err)
 	}
 
-	// TODO: 实现同步逻辑
-	fmt.Println(cs)
-	return nil
+	// 对单个 Cloud 的 field 进行更新
+	for _, cloudObj := range clouds {
+		// 获取 Cluster, 即获取 Clientset 与 KubeConfig
+		configBytes, err := util.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
+		if err != nil {
+			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", cloudObj.Name, err)
+			continue
+		}
+		cluster, err := util.NewCloudSet(configBytes)
+		if err != nil {
+			log.Logger.Errorf("failed to create cluster struct: %v", err)
+			continue
+		}
+
+		crinfos := cloudResourceInfos{
+			Items: make([]cloudResourceInfo, 0),
+		}
+
+		updates := make(map[string]interface{})
+
+		// 使用 k8s api 获取集群的 node info
+		nodeList, err := cluster.ClientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			log.Logger.Errorf("failed to list %d cloud nodes: %v", cloudObj.Name, err)
+			// 获取集群的 node 失败时, 视集群为异常
+			// 异常时, 除 Status 外其余字段不维护
+			// 1. Status
+			updates["status"] = pixiutypes.ErrorStatus
+			if cloudObj.Status == updates["status"] {
+				continue
+			}
+			err := c.factory.Cloud().Update(context.TODO(), cloudObj.Id, cloudObj.ResourceVersion, updates)
+			if err != nil {
+				log.Logger.Errorf("failed to update %d cloud: %v", cloudObj.Name, err)
+				continue
+			}
+			continue
+		}
+		// 1. Status
+		// 2. KubeVersion
+		// 3. NodeNumber
+		updates["status"] = pixiutypes.RunningStatus
+		updates["kube_version"] = nodeList.Items[0].Status.NodeInfo.KubeletVersion
+		updates["node_number"] = len(nodeList.Items)
+		// 4. Resources
+		for _, node := range nodeList.Items {
+			crinfo := cloudResourceInfo{
+				NodeName:     node.Name,
+				NodeResource: node.Status.Capacity,
+			}
+			crinfos.Items = append(crinfos.Items, crinfo)
+		}
+		byteDate, err := json.Marshal(crinfos)
+		if err != nil {
+			log.Logger.Errorf("failed to marshal: %v", err)
+			continue
+		}
+		updates["resources"] = string(byteDate)
+		if cloudObj.Status == updates["status"] && cloudObj.KubeVersion == updates["kube_version"] && cloudObj.NodeNumber == updates["node_number"] && cloudObj.Resources == updates["resources"] {
+			continue
+		}
+		err = c.factory.Cloud().Update(context.TODO(), cloudObj.Id, cloudObj.ResourceVersion, updates)
+		if err != nil {
+			log.Logger.Errorf("failed to update %d cloud: %v", cloudObj.Name, err)
+			continue
+		}
+	}
 }
 
 // SyncStatus 定时同步集群状态
 func (c *cloud) SyncStatus(ctx context.Context, stopCh chan struct{}) {
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if err := c.process(ctx); err != nil {
-					klog.Errorf("sync status failed：%v", err)
-				}
-			case <-stopCh:
-				klog.Infof("shutting cluster sync status")
-				return
-			}
-		}
-	}()
+	go wait.UntilWithContext(ctx, c.process, processPeriod)
+	<-stopCh
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
