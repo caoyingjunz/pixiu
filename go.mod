@@ -25,6 +25,7 @@ require (
 	github.com/jackc/pgtype v1.12.0 // indirect
 	github.com/juju/ratelimit v1.0.2
 	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mittwald/go-helm-client v0.8.1
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/spf13/cobra v1.5.0
@@ -39,9 +40,8 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gorm.io/driver/mysql v1.3.6
 	gorm.io/gorm v1.23.8
-	k8s.io/api v0.21.2
-	k8s.io/apimachinery v0.21.2
-	k8s.io/client-go v0.21.1
+	k8s.io/apimachinery v0.22.1
+	k8s.io/client-go v0.22.1
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
