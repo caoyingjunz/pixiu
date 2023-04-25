@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -361,14 +362,89 @@ func (c *cloud) Restore(ctx context.Context) error {
 
 // 间隔时间内获获取最新的集群列表，和缓存进行对比，如果有差异则进行更新
 func (c *cloud) process(ctx context.Context) error {
-	// 间隔时间内获获取最新的集群列表
-	cs, err := c.factory.Cloud().List(ctx)
+	// 获取数据库中全部 Cloud
+	clouds, err := c.factory.Cloud().List(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get exists clouds: %v", err)
+		log.Logger.Errorf("failed to get exists clouds: %v", err)
+		return err
 	}
 
-	// TODO: 实现同步逻辑
-	fmt.Println(cs)
+	// TODO: 后续考虑是否对数据库和缓存的数据进行一致性订正
+	// 1. 删除缓存中多余的 clusterSet
+	// 2. 新增缓存中缺少的 clusterSet
+
+	// 对单个 Cloud 的 field 进行更新
+	for _, cloudObj := range clouds {
+		cluster, ok := clusterSets.Get(cloudObj.Name)
+		if !ok {
+			klog.Warningf("failed to find cluster set by name: %s, ignoring", cloudObj.Name)
+			continue
+		}
+
+		updates := make(map[string]interface{})
+
+		// 使用 k8s api 获取集群的 node info
+		nodeList, err := cluster.ClientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			klog.Errorf("failed to list %s cloud nodes: %v", cloudObj.Name, err)
+			// 获取集群的 node 失败时, 视集群为异常
+			// 异常时, 除 Status 外其余字段不维护
+			// 1. Status
+			if cloudObj.Status != pixiutypes.ErrorStatus {
+				updates["status"] = pixiutypes.ErrorStatus
+			}
+		} else {
+			nodes := nodeList.Items
+			nodeNum := len(nodes)
+
+			// 1. KubeVersion
+			var kubeVersion string
+			if len(nodes) != 0 {
+				// 在部署过程中，可能出现节点数为0的情况
+				kubeVersion = nodeList.Items[0].Status.NodeInfo.KubeletVersion
+			}
+			if cloudObj.KubeVersion != kubeVersion {
+				updates["kube_version"] = kubeVersion
+			}
+
+			// 2. node numbers
+			if cloudObj.NodeNumber != nodeNum {
+				updates["node_number"] = nodeNum
+			}
+
+			// 3. Resources
+			var cpus, mems, pods int64
+			for _, node := range nodeList.Items {
+				cpus += node.Status.Capacity.Cpu().Value()
+				mems += node.Status.Capacity.Memory().Value()
+				pods += node.Status.Capacity.Pods().Value()
+			}
+
+			memGi := fmt.Sprintf("%dGi", mems/int64(math.Pow(10, 9)))
+			csr := pixiutypes.CloudSubResources{
+				Cpu:    cpus,
+				Memory: memGi,
+				Pods:   pods,
+			}
+			resources, _ := csr.Marshal()
+			if cloudObj.Resources != resources {
+				updates["resources"] = resources
+			}
+
+			//  4. Status
+			if cloudObj.Status != pixiutypes.RunningStatus {
+				updates["status"] = pixiutypes.RunningStatus
+			}
+		}
+
+		// 仅在有改动时更新
+		if len(updates) != 0 {
+			if err := c.factory.Cloud().Update(ctx, cloudObj.Id, cloudObj.ResourceVersion, updates); err != nil {
+				klog.Errorf("failed to update %s cloud: %v", cloudObj.Name, err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -382,7 +458,7 @@ func (c *cloud) SyncStatus(ctx context.Context, stopCh chan struct{}) {
 			select {
 			case <-ticker.C:
 				if err := c.process(ctx); err != nil {
-					klog.Errorf("sync status failed：%v", err)
+					klog.Errorf("sync status failed: %v", err)
 				}
 			case <-stopCh:
 				klog.Infof("shutting cluster sync status")
@@ -393,6 +469,9 @@ func (c *cloud) SyncStatus(ctx context.Context, stopCh chan struct{}) {
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
+	csr := &pixiutypes.CloudSubResources{}
+	_ = csr.Unmarshal(obj.Resources)
+
 	return &types.Cloud{
 		IdMeta: types.IdMeta{
 			Id:              obj.Id,
@@ -404,7 +483,7 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		CloudType:   types.CloudType(obj.CloudType),
 		KubeVersion: obj.KubeVersion,
 		NodeNumber:  obj.NodeNumber,
-		Resources:   obj.Resources,
+		Resources:   *csr,
 		Description: obj.Description,
 		TimeOption:  types.FormatTime(obj.GmtCreate, obj.GmtModified),
 	}
