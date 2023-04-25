@@ -20,9 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -75,13 +75,10 @@ type cloud struct {
 	store cache.ClustersStore
 }
 
-type cloudResourceInfo struct {
-	NodeName     string              `json:"node_name"`
-	NodeResource corev1.ResourceList `json:"resources"`
-}
-
-type cloudResourceInfos struct {
-	Items []cloudResourceInfo `json:"items"`
+type cloudResources struct {
+	Cpu    int64  `json:"cpu"`
+	Memory string `json:"memory"`
+	Pods   int64  `json:"pods"`
 }
 
 func newCloud(c *pixiu) CloudInterface {
@@ -394,10 +391,6 @@ func (c *cloud) process(ctx context.Context) error {
 			continue
 		}
 
-		crinfos := cloudResourceInfos{
-			Items: make([]cloudResourceInfo, 0),
-		}
-
 		updates := make(map[string]interface{})
 
 		// 使用 k8s api 获取集群的 node info
@@ -425,14 +418,20 @@ func (c *cloud) process(ctx context.Context) error {
 		updates["kube_version"] = nodeList.Items[0].Status.NodeInfo.KubeletVersion
 		updates["node_number"] = len(nodeList.Items)
 		// 4. Resources
+		var cpus, memorys, pods int64
 		for _, node := range nodeList.Items {
-			crinfo := cloudResourceInfo{
-				NodeName:     node.Name,
-				NodeResource: node.Status.Capacity,
-			}
-			crinfos.Items = append(crinfos.Items, crinfo)
+			cpus += node.Status.Capacity.Cpu().Value()
+			memorys += node.Status.Capacity.Memory().Value()
+			pods += node.Status.Capacity.Pods().Value()
 		}
-		byteDate, err := json.Marshal(crinfos)
+		memorysG := memorys / int64(math.Pow(10, 9))
+		memorysGi := fmt.Sprintf("%dGi", memorysG)
+		crs := cloudResources{
+			Cpu:    cpus,
+			Memory: memorysGi,
+			Pods:   pods,
+		}
+		byteDate, err := json.Marshal(crs)
 		if err != nil {
 			log.Logger.Errorf("failed to marshal: %v", err)
 			continue
