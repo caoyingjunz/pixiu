@@ -31,6 +31,7 @@ type CoreV1Interface interface {
 	MenuGetter
 	PolicyGetter
 	AuditGetter
+	HelmGetter
 }
 
 type pixiu struct {
@@ -65,6 +66,10 @@ func (pixiu *pixiu) Policy() PolicyInterface {
 
 func (pixiu *pixiu) Audit() AuditInterface {
 	return newAudit(pixiu)
+}
+
+func (pixiu *pixiu) Helm() HelmInterface {
+	return newHelm(pixiu)
 }
 
 func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
