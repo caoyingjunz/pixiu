@@ -469,6 +469,9 @@ func (c *cloud) SyncStatus(ctx context.Context, stopCh chan struct{}) {
 }
 
 func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
+	csr := &pixiutypes.CloudSubResources{}
+	_ = csr.Unmarshal(obj.Resources)
+
 	return &types.Cloud{
 		IdMeta: types.IdMeta{
 			Id:              obj.Id,
@@ -480,7 +483,7 @@ func (c *cloud) model2Type(obj *model.Cloud) *types.Cloud {
 		CloudType:   types.CloudType(obj.CloudType),
 		KubeVersion: obj.KubeVersion,
 		NodeNumber:  obj.NodeNumber,
-		Resources:   obj.Resources,
+		Resources:   *csr,
 		Description: obj.Description,
 		TimeOption:  types.FormatTime(obj.GmtCreate, obj.GmtModified),
 	}

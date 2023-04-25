@@ -67,3 +67,8 @@ func (csr *CloudSubResources) Marshal() (string, error) {
 
 	return string(data), nil
 }
+
+func (csr *CloudSubResources) Unmarshal(data string) error {
+	err := json.Unmarshal([]byte(data), csr)
+	return err
+}

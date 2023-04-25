@@ -19,6 +19,8 @@ package types
 import (
 	"github.com/gorilla/websocket"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type IdOptions struct {
@@ -113,15 +115,15 @@ type CloudType int
 type Cloud struct {
 	IdMeta `json:",inline"`
 
-	Name        string    `json:"name"`
-	AliasName   string    `json:"alias_name"`
-	Status      int       `json:"status"`     // 0: 运行中 1: 集群异常 2: 构建中 3: 删除中 4: 等待构建
-	CloudType   CloudType `json:"cloud_type"` // 1：导入集群（前端又名标准集群） 2: 自建集群
-	KubeVersion string    `json:"kube_version"`
-	RawData     []byte    `json:"raw_data"`
-	NodeNumber  int       `json:"node_number"`
-	Resources   string    `json:"resources"`
-	Description string    `json:"description"`
+	Name        string                  `json:"name"`
+	AliasName   string                  `json:"alias_name"`
+	Status      int                     `json:"status"`     // 0: 运行中 1: 集群异常 2: 构建中 3: 删除中 4: 等待构建
+	CloudType   CloudType               `json:"cloud_type"` // 1：导入集群（前端又名标准集群） 2: 自建集群
+	KubeVersion string                  `json:"kube_version"`
+	RawData     []byte                  `json:"raw_data,omitempty"` // 查询时，忽略空
+	NodeNumber  int                     `json:"node_number"`
+	Resources   types.CloudSubResources `json:"resources"`
+	Description string                  `json:"description"`
 
 	TimeOption `json:",inline"`
 }
