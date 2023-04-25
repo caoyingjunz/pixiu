@@ -74,12 +74,6 @@ type cloud struct {
 	store cache.ClustersStore
 }
 
-type cloudResources struct {
-	Cpu    int64  `json:"cpu"`
-	Memory string `json:"memory"`
-	Pods   int64  `json:"pods"`
-}
-
 func newCloud(c *pixiu) CloudInterface {
 	return &cloud{
 		app:     c,
