@@ -16,6 +16,10 @@ limitations under the License.
 
 package types
 
+import (
+	"encoding/json"
+)
+
 // Role kubernetes 角色定义
 type Role string
 
@@ -47,4 +51,19 @@ type Event struct {
 	Operator EventType    `json:"operator"`  // 操作类型，新增，更新，删除
 	Object   ResourceType `json:"object"`    // 资源类型，比如 cloud，user，kubernetes
 	Message  string       `json:"message"`
+}
+
+type CloudSubResources struct {
+	Cpu    int64  `json:"cpu"`
+	Memory string `json:"memory"`
+	Pods   int64  `json:"pods"`
+}
+
+func (csr *CloudSubResources) Marshal() (string, error) {
+	data, err := json.Marshal(csr)
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
 }

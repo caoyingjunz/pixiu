@@ -18,7 +18,6 @@ package core
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -367,21 +366,24 @@ func (c *cloud) Restore(ctx context.Context) error {
 	return nil
 }
 
-// 疑问: 数据库操作的时候为什么没有锁？
 // 间隔时间内获获取最新的集群列表，和缓存进行对比，如果有差异则进行更新
 func (c *cloud) process(ctx context.Context) error {
-	// 获取内存中全部 Cloud
+	// 获取数据库中全部 Cloud
 	clouds, err := c.factory.Cloud().List(ctx)
 	if err != nil {
 		log.Logger.Errorf("failed to get exists clouds: %v", err)
 		return err
 	}
 
+	// TODO: 后续考虑是否对数据库和缓存的数据进行一致性订正
+	// 1. 删除缓存中多余的 clusterSet
+	// 2. 新增缓存中缺少的 clusterSet
+
 	// 对单个 Cloud 的 field 进行更新
 	for _, cloudObj := range clouds {
 		cluster, ok := clusterSets.Get(cloudObj.Name)
 		if !ok {
-			klog.Errorf("failed to get cluster by name: %s, err: %v", cloudObj.Name, err)
+			klog.Warningf("failed to find cluster set by name: %s, ignoring", cloudObj.Name)
 			continue
 		}
 
@@ -394,52 +396,61 @@ func (c *cloud) process(ctx context.Context) error {
 			// 获取集群的 node 失败时, 视集群为异常
 			// 异常时, 除 Status 外其余字段不维护
 			// 1. Status
-			updates["status"] = pixiutypes.ErrorStatus
-			if cloudObj.Status == updates["status"] {
-				continue
+			if cloudObj.Status != pixiutypes.ErrorStatus {
+				updates["status"] = pixiutypes.ErrorStatus
 			}
-			err := c.factory.Cloud().Update(ctx, cloudObj.Id, cloudObj.ResourceVersion, updates)
-			if err != nil {
+		} else {
+			nodes := nodeList.Items
+			nodeNum := len(nodes)
+
+			// 1. KubeVersion
+			var kubeVersion string
+			if len(nodes) != 0 {
+				// 在部署过程中，可能出现节点数为0的情况
+				kubeVersion = nodeList.Items[0].Status.NodeInfo.KubeletVersion
+			}
+			if cloudObj.KubeVersion != kubeVersion {
+				updates["kube_version"] = kubeVersion
+			}
+
+			// 2. node numbers
+			if cloudObj.NodeNumber != nodeNum {
+				updates["node_number"] = nodeNum
+			}
+
+			// 3. Resources
+			var cpus, mems, pods int64
+			for _, node := range nodeList.Items {
+				cpus += node.Status.Capacity.Cpu().Value()
+				mems += node.Status.Capacity.Memory().Value()
+				pods += node.Status.Capacity.Pods().Value()
+			}
+
+			memGi := fmt.Sprintf("%dGi", mems/int64(math.Pow(10, 9)))
+			csr := pixiutypes.CloudSubResources{
+				Cpu:    cpus,
+				Memory: memGi,
+				Pods:   pods,
+			}
+			resources, _ := csr.Marshal()
+			if cloudObj.Resources != resources {
+				updates["resources"] = resources
+			}
+
+			//  4. Status
+			if cloudObj.Status != pixiutypes.RunningStatus {
+				updates["status"] = pixiutypes.RunningStatus
+			}
+		}
+
+		// 仅在有改动时更新
+		if len(updates) != 0 {
+			if err := c.factory.Cloud().Update(ctx, cloudObj.Id, cloudObj.ResourceVersion, updates); err != nil {
 				klog.Errorf("failed to update %s cloud: %v", cloudObj.Name, err)
-				continue
 			}
-			continue
-		}
-		// 1. Status
-		// 2. KubeVersion
-		// 3. NodeNumber
-		updates["status"] = pixiutypes.RunningStatus
-		updates["kube_version"] = nodeList.Items[0].Status.NodeInfo.KubeletVersion
-		updates["node_number"] = len(nodeList.Items)
-		// 4. Resources
-		var cpus, memorys, pods int64
-		for _, node := range nodeList.Items {
-			cpus += node.Status.Capacity.Cpu().Value()
-			memorys += node.Status.Capacity.Memory().Value()
-			pods += node.Status.Capacity.Pods().Value()
-		}
-		memorysG := memorys / int64(math.Pow(10, 9))
-		memorysGi := fmt.Sprintf("%dGi", memorysG)
-		crs := cloudResources{
-			Cpu:    cpus,
-			Memory: memorysGi,
-			Pods:   pods,
-		}
-		byteDate, err := json.Marshal(crs)
-		if err != nil {
-			klog.Errorf("failed to marshal: %v", err)
-			continue
-		}
-		updates["resources"] = string(byteDate)
-		if cloudObj.Status == updates["status"] && cloudObj.KubeVersion == updates["kube_version"] && cloudObj.NodeNumber == updates["node_number"] && cloudObj.Resources == updates["resources"] {
-			continue
-		}
-		err = c.factory.Cloud().Update(ctx, cloudObj.Id, cloudObj.ResourceVersion, updates)
-		if err != nil {
-			klog.Errorf("failed to update %s cloud: %v", cloudObj.Name, err)
-			continue
 		}
 	}
+
 	return nil
 }
 
