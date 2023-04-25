@@ -381,7 +381,7 @@ func (c *cloud) process(ctx context.Context) error {
 	for _, cloudObj := range clouds {
 		cluster, ok := clusterSets.Get(cloudObj.Name)
 		if !ok {
-			klog.Errorf("failed to get cluster by name: %d, err: %v", cloudObj.Name, err)
+			klog.Errorf("failed to get cluster by name: %s, err: %v", cloudObj.Name, err)
 			continue
 		}
 
@@ -390,7 +390,7 @@ func (c *cloud) process(ctx context.Context) error {
 		// 使用 k8s api 获取集群的 node info
 		nodeList, err := cluster.ClientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
-			klog.Errorf("failed to list %d cloud nodes: %v", cloudObj.Name, err)
+			klog.Errorf("failed to list %s cloud nodes: %v", cloudObj.Name, err)
 			// 获取集群的 node 失败时, 视集群为异常
 			// 异常时, 除 Status 外其余字段不维护
 			// 1. Status
@@ -400,7 +400,7 @@ func (c *cloud) process(ctx context.Context) error {
 			}
 			err := c.factory.Cloud().Update(ctx, cloudObj.Id, cloudObj.ResourceVersion, updates)
 			if err != nil {
-				klog.Errorf("failed to update %d cloud: %v", cloudObj.Name, err)
+				klog.Errorf("failed to update %s cloud: %v", cloudObj.Name, err)
 				continue
 			}
 			continue
@@ -436,7 +436,7 @@ func (c *cloud) process(ctx context.Context) error {
 		}
 		err = c.factory.Cloud().Update(ctx, cloudObj.Id, cloudObj.ResourceVersion, updates)
 		if err != nil {
-			klog.Errorf("failed to update %d cloud: %v", cloudObj.Name, err)
+			klog.Errorf("failed to update %s cloud: %v", cloudObj.Name, err)
 			continue
 		}
 	}
