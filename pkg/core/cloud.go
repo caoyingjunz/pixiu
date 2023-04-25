@@ -379,15 +379,9 @@ func (c *cloud) process(ctx context.Context) error {
 
 	// 对单个 Cloud 的 field 进行更新
 	for _, cloudObj := range clouds {
-		// 获取 Cluster, 即获取 Clientset 与 KubeConfig
-		configBytes, err := util.ParseKubeConfigData(ctx, c.factory, intstr.FromInt64(cloudObj.Id))
-		if err != nil {
-			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", cloudObj.Name, err)
-			continue
-		}
-		cluster, err := util.NewCloudSet(configBytes)
-		if err != nil {
-			log.Logger.Errorf("failed to create cluster struct: %v", err)
+		cluster, ok := clusterSets.Get(cloudObj.Name)
+		if !ok {
+			klog.Errorf("failed to get cluster by name: %d, err: %v", cloudObj.Name, err)
 			continue
 		}
 
@@ -396,7 +390,7 @@ func (c *cloud) process(ctx context.Context) error {
 		// 使用 k8s api 获取集群的 node info
 		nodeList, err := cluster.ClientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
-			log.Logger.Errorf("failed to list %d cloud nodes: %v", cloudObj.Name, err)
+			klog.Errorf("failed to list %d cloud nodes: %v", cloudObj.Name, err)
 			// 获取集群的 node 失败时, 视集群为异常
 			// 异常时, 除 Status 外其余字段不维护
 			// 1. Status
@@ -406,7 +400,7 @@ func (c *cloud) process(ctx context.Context) error {
 			}
 			err := c.factory.Cloud().Update(ctx, cloudObj.Id, cloudObj.ResourceVersion, updates)
 			if err != nil {
-				log.Logger.Errorf("failed to update %d cloud: %v", cloudObj.Name, err)
+				klog.Errorf("failed to update %d cloud: %v", cloudObj.Name, err)
 				continue
 			}
 			continue
@@ -433,7 +427,7 @@ func (c *cloud) process(ctx context.Context) error {
 		}
 		byteDate, err := json.Marshal(crs)
 		if err != nil {
-			log.Logger.Errorf("failed to marshal: %v", err)
+			klog.Errorf("failed to marshal: %v", err)
 			continue
 		}
 		updates["resources"] = string(byteDate)
@@ -442,7 +436,7 @@ func (c *cloud) process(ctx context.Context) error {
 		}
 		err = c.factory.Cloud().Update(ctx, cloudObj.Id, cloudObj.ResourceVersion, updates)
 		if err != nil {
-			log.Logger.Errorf("failed to update %d cloud: %v", cloudObj.Name, err)
+			klog.Errorf("failed to update %d cloud: %v", cloudObj.Name, err)
 			continue
 		}
 	}
