@@ -18,6 +18,7 @@ package cloud
 
 import (
 	"context"
+	dberrors "github.com/caoyingjunz/pixiu/pkg/errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -79,6 +80,9 @@ func (s *cloud) Update(ctx context.Context, uid int64, resourceVersion int64, up
 		Updates(updates)
 	if f.Error != nil {
 		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return dberrors.ErrRecordNotUpdate
 	}
 
 	return nil

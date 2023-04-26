@@ -12,9 +12,9 @@ default:
 
 # 数据库地址信息
 mysql:
-  host: pixiu
+  host: 127.0.0.1
   user: root
-  password: GoPixiu868686
+  password: 123456
   port: 3306
   name: pixiu
 

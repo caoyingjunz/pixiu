@@ -19,9 +19,6 @@ package cloud
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/gin-gonic/gin"
-
 	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/api/types"
@@ -29,6 +26,7 @@ import (
 	pixiutypes "github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 	"github.com/caoyingjunz/pixiu/pkg/util/audit"
+	"github.com/gin-gonic/gin"
 )
 
 // 上传已存在的k8s集群，直接导入 kubeConfig 文件
@@ -176,4 +174,30 @@ func (s *cloudRouter) pingCloud(c *gin.Context) {
 	}
 
 	httputils.SetSuccess(c, r)
+}
+
+func (s *cloudRouter) updateCloud(c *gin.Context) {
+	r := httputils.NewResponse()
+	cloud := newCloud()
+
+	err := c.BindJSON(&cloud)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	cloud.Id, err = util.ParseInt64(c.Param("id"))
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	err = pixiu.CoreV1.Cloud().Update(c, cloud)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func newCloud() *types.Cloud {
+	return &types.Cloud{}
 }
