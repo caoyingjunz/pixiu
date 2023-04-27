@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package core
 
 import (
@@ -6,7 +22,6 @@ import (
 	client "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/release"
 
-	"github.com/caoyingjunz/pixiu/pkg/cache"
 	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
@@ -17,10 +32,6 @@ type HelmGetter interface {
 type HelmInterface interface {
 	ListDeployedReleases(cloudName string, namespace string) ([]*release.Release, error)
 }
-
-var (
-	helmClientSet cache.HelmClientStore
-)
 
 type helm struct {
 	app *pixiu
@@ -42,23 +53,6 @@ func (h helm) ListDeployedReleases(cloudName string, namespace string) ([]*relea
 }
 
 func getHelmClient(cloudName string, namespace string) (client.Client, error) {
-	var (
-		client    client.Client
-		present   bool
-		err       error
-		cachedKey = fmt.Sprintf("%s-%s", cloudName, namespace)
-	)
-	if client, present = helmClientSet.Get(cachedKey); !present {
-		//create helmClient and cached
-		if client, err = createHelmClient(cloudName, namespace); err != nil {
-			return client, err
-		}
-		helmClientSet.Set(cachedKey, client)
-	}
-	return client, nil
-}
-
-func createHelmClient(cloudName string, namespace string) (client.Client, error) {
 	cluster, exists := clusterSets.Get(cloudName)
 	if !exists {
 		return nil, fmt.Errorf("cluster %q not register", cloudName)
