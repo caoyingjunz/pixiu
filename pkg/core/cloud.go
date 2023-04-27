@@ -250,10 +250,10 @@ func (c *cloud) Update(ctx context.Context, new *types.Cloud) error {
 		return err
 	}
 	updates := parseCloudUpdates(old, new)
-	fmt.Println(new)
-	fmt.Println(old)
-	fmt.Println(updates)
-	c.factory.Cloud().Update(ctx, old.Id, old.ResourceVersion, updates)
+	if err := c.factory.Cloud().Update(ctx, old.Id, old.ResourceVersion, updates); err != nil {
+		log.Logger.Errorf("failed to update %d cloud: %v", new.Id, err)
+		return err
+	}
 	return nil
 }
 
