@@ -63,7 +63,7 @@ type CloudInterface interface {
 	Ping(ctx context.Context, kubeConfigData []byte) error
 	// GetClusterConfig 获取 kubeconfig 对象
 	GetClusterConfig(ctx context.Context, clusterName string) (*restclient.Config, bool)
-	Update(ctx context.Context, new *types.Cloud) error
+	UpdateByAliasName(ctx context.Context, new *types.Cloud) error
 }
 
 var (
@@ -242,14 +242,14 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 func (c *cloud) forceDelete(ctx context.Context, cid int64) error {
 	return nil
 }
-
-func (c *cloud) Update(ctx context.Context, new *types.Cloud) error {
+func (c *cloud) Update(ctx context.Context, obj *types.Cloud) error { return nil }
+func (c *cloud) UpdateByAliasName(ctx context.Context, new *types.Cloud) error {
 
 	old, err := c.factory.Cloud().Get(ctx, new.Id)
 	if err != nil {
 		return err
 	}
-	updates := parseCloudUpdates(old, new)
+	updates := parseCloudAliasNameUpdates(old, new)
 	if err := c.factory.Cloud().Update(ctx, old.Id, old.ResourceVersion, updates); err != nil {
 		log.Logger.Errorf("failed to update %d cloud: %v", new.Id, err)
 		return err
@@ -518,31 +518,11 @@ func (c *cloud) GetClusterConfig(ctx context.Context, clusterName string) (*rest
 	return cluster.KubeConfig, true
 }
 
-func parseCloudUpdates(oldObj *model.Cloud, newObj *types.Cloud) map[string]interface{} {
+func (u *user) parseCloudAliasNameUpdates(oldObj *model.Cloud, newObj *types.Cloud) map[string]interface{} {
 	updates := make(map[string]interface{})
-	old_v := reflect.ValueOf(oldObj).Elem()
-	old_t := reflect.TypeOf(oldObj).Elem()
-	new_v := reflect.ValueOf(newObj).Elem()
-	new_t := reflect.TypeOf(newObj).Elem()
-	for i := 0; i < old_t.NumField(); i++ {
 
-		for l := 0; l < new_t.NumField(); l++ {
-			if strings.ToUpper(old_t.Field(i).Name) == strings.ToUpper(new_t.Field(l).Name) {
-
-				if !new_v.Field(l).IsZero() {
-					old_v.Field(i).Set(new_v.Field(l))
-				}
-			}
-		}
-	}
-	for i := 0; i < old_t.NumField(); i++ {
-		if !old_v.Field(i).IsZero() {
-			if old_t.Field(i).Name == "Model" {
-				continue
-			}
-			updates[(old_t.Field(i).Name)] = old_v.Field(i).Interface()
-		}
-
+	if oldObj.AliasName != newObj.AliasName { // 更新状态
+		updates["alias_name"] = newObj.AliasName
 	}
 
 	return updates
