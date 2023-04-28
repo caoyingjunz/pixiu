@@ -48,8 +48,7 @@ func (h helm) ListDeployedReleases(cloudName string, namespace string) ([]*relea
 	if err != nil {
 		return nil, err
 	}
-	releases, err := helmClient.ListDeployedReleases()
-	return releases, err
+	return helmClient.ListDeployedReleases()
 }
 
 func getHelmClient(cloudName string, namespace string) (client.Client, error) {
@@ -59,17 +58,14 @@ func getHelmClient(cloudName string, namespace string) (client.Client, error) {
 	}
 	opt := &client.RestConfClientOptions{
 		Options: &client.Options{
-			Namespace:        namespace,
-			RepositoryCache:  "/tmp/.helmcache",
-			RepositoryConfig: "/tmp/.helmrepo",
-			Debug:            true,
-			Linting:          false,
+			Namespace: namespace,
+			Debug:     true,
+			Linting:   false,
 			DebugLog: func(format string, v ...interface{}) {
 				log.Logger.Infof(format, v)
 			},
 		},
 		RestConfig: cluster.KubeConfig,
 	}
-	client, err := client.NewClientFromRestConf(opt)
-	return client, err
+	return client.NewClientFromRestConf(opt)
 }
