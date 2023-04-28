@@ -19,9 +19,9 @@ package cloud
 import (
 	"encoding/json"
 	"fmt"
-	
+
 	"github.com/gin-gonic/gin"
-	
+
 	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/api/types"
@@ -178,9 +178,9 @@ func (s *cloudRouter) pingCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (s *cloudRouter) updateCloud(c *gin.Context) {
+func (s *cloudRouter) updateCloudByAliasName(c *gin.Context) {
 	r := httputils.NewResponse()
-	cloud := newCloud()
+	var cloud *types.Cloud 
 
 	err := c.BindJSON(&cloud)
 	if err != nil {
@@ -198,8 +198,4 @@ func (s *cloudRouter) updateCloud(c *gin.Context) {
 		return
 	}
 	httputils.SetSuccess(c, r)
-}
-
-func newCloud() *types.Cloud {
-	return &types.Cloud{}
 }
