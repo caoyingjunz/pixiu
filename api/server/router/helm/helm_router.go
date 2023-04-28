@@ -24,10 +24,13 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
-func (h helmRouter) ListReleasesHandler(c *gin.Context) {
+func (h helmRouter) ListReleases(c *gin.Context) {
 	r := httputils.NewResponse()
-	var err error
-	var listOptions types.ListOptions
+	var (
+		err         error
+		listOptions types.ListOptions
+	)
+
 	if err = c.ShouldBindUri(&listOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -37,5 +40,6 @@ func (h helmRouter) ListReleasesHandler(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	httputils.SetSuccess(c, r)
 }

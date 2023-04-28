@@ -30,6 +30,6 @@ func NewRouter(ginEngine *gin.Engine) {
 func (h helmRouter) initRoutes(ginEngine *gin.Engine) {
 	menuRoute := ginEngine.Group("/pixiu/helm")
 	{
-		menuRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleasesHandler)
+		menuRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleases)
 	}
 }
