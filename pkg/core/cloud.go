@@ -249,7 +249,7 @@ func (c *cloud) UpdateByAliasName(ctx context.Context, new *types.Cloud) error {
 	if err != nil {
 		return err
 	}
-	updates := parseCloudAliasNameUpdates(old, new)
+	updates := c.parseCloudAliasNameUpdates(old, new)
 	if err := c.factory.Cloud().Update(ctx, old.Id, old.ResourceVersion, updates); err != nil {
 		log.Logger.Errorf("failed to update %d cloud: %v", new.Id, err)
 		return err
@@ -518,7 +518,7 @@ func (c *cloud) GetClusterConfig(ctx context.Context, clusterName string) (*rest
 	return cluster.KubeConfig, true
 }
 
-func (u *user) parseCloudAliasNameUpdates(oldObj *model.Cloud, newObj *types.Cloud) map[string]interface{} {
+func (c *cloud) parseCloudAliasNameUpdates(oldObj *model.Cloud, newObj *types.Cloud) map[string]interface{} {
 	updates := make(map[string]interface{})
 
 	if oldObj.AliasName != newObj.AliasName { // 更新状态
