@@ -40,7 +40,7 @@ func (s *cloudRouter) initRoutes(ginEngine *gin.Engine) {
 		cloudRoute.DELETE("/:id", s.deleteCloud)
 		cloudRoute.GET("/:id", s.getCloud)
 		cloudRoute.GET("", s.listClouds)
-		cloudRoute.PATCH("/:id", s.updateCloud)
+		cloudRoute.PATCH("/aliasname/:id", s.updateCloudByAliasName)
 
 		// 检查 kubernetes 的连通性
 		cloudRoute.POST("/ping", s.pingCloud)
