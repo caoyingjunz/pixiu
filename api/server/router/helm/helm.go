@@ -27,9 +27,9 @@ func NewRouter(ginEngine *gin.Engine) {
 	router.initRoutes(ginEngine)
 }
 
-func (h helmRouter) initRoutes(ginEngine *gin.Engine) {
-	menuRoute := ginEngine.Group("/pixiu/helm")
+func (h *helmRouter) initRoutes(ginEngine *gin.Engine) {
+	helmRoute := ginEngine.Group("/pixiu/helm")
 	{
-		menuRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleases)
+		helmRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleases)
 	}
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
-func (h helmRouter) ListReleases(c *gin.Context) {
+func (h *helmRouter) ListReleases(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err         error
@@ -35,8 +35,7 @@ func (h helmRouter) ListReleases(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = pixiu.CoreV1.Helm().ListDeployedReleases(listOptions.CloudName, listOptions.Namespace)
-	if err != nil {
+	if r.Result, err = pixiu.CoreV1.Helm().ListDeployedReleases(listOptions.CloudName, listOptions.Namespace);err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

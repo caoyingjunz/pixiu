@@ -19,10 +19,10 @@ package core
 import (
 	"fmt"
 
-	client "github.com/mittwald/go-helm-client"
+	helmClient "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/release"
 
-	"github.com/caoyingjunz/pixiu/pkg/log"
+	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
 type HelmGetter interface {
@@ -48,24 +48,16 @@ func (h helm) ListDeployedReleases(cloudName string, namespace string) ([]*relea
 	if err != nil {
 		return nil, err
 	}
+
 	return helmClient.ListDeployedReleases()
 }
 
-func getHelmClient(cloudName string, namespace string) (client.Client, error) {
-	cluster, exists := clusterSets.Get(cloudName)
+func getHelmClient(cloudName string, namespace string) (helmClient.Client, error) {
+	clusterSet, exists := clusterSets.Get(cloudName)
 	if !exists {
 		return nil, fmt.Errorf("cluster %q not register", cloudName)
 	}
-	opt := &client.RestConfClientOptions{
-		Options: &client.Options{
-			Namespace: namespace,
-			Debug:     true,
-			Linting:   false,
-			DebugLog: func(format string, v ...interface{}) {
-				log.Logger.Infof(format, v)
-			},
-		},
-		RestConfig: cluster.KubeConfig,
-	}
-	return client.NewClientFromRestConf(opt)
+
+	// TODO: 目前helm 的官方库，不支持在实例化之后修改 namespace，目前只能每个请求重新构造 helm client 实例
+	return util.NewHelmClient(namespace, clusterSet.KubeConfig)
 }
