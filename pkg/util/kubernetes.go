@@ -20,11 +20,14 @@ import (
 	"context"
 	"fmt"
 
+	helmclient "github.com/mittwald/go-helm-client"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/caoyingjunz/pixiu/pkg/cache"
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/log"
 	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
 	"github.com/caoyingjunz/pixiu/pkg/util/intstr"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
@@ -57,6 +60,22 @@ func NewClientSet(data []byte) (*kubernetes.Clientset, error) {
 
 func NewCloudName(prefix string) string {
 	return prefix + uuid.NewUUID()[:8]
+}
+
+func NewHelmClient(namespace string, kubeConfig *rest.Config) (helmclient.Client, error) {
+	opt := &helmclient.RestConfClientOptions{
+		Options: &helmclient.Options{
+			Namespace: namespace,
+			Debug:     true,
+			Linting:   false,
+			DebugLog: func(format string, v ...interface{}) {
+				log.Logger.Infof(format, v)
+			},
+		},
+		RestConfig: kubeConfig,
+	}
+
+	return helmclient.NewClientFromRestConf(opt)
 }
 
 // ParseKubeConfigData 获取 kube config 解密之后的内容

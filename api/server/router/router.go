@@ -17,13 +17,15 @@ limitations under the License.
 package router
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/pixiu/api/server/router/cloud"
+	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/menu"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/api/server/router/role"
@@ -46,6 +48,7 @@ func InstallRouters(opt *options.Options) {
 
 	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
 	proxy.NewRouter(opt.GinEngine) // 注册 kubernetes proxy
+	helm.NewRouter(opt.GinEngine)  // 注册 helm 路由
 
 	// 启动检查检查
 	opt.GinEngine.GET("/healthz", func(c *gin.Context) {
