@@ -192,7 +192,7 @@ func (s *cloudRouter) updateCloudByAliasName(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	err = pixiu.CoreV1.Cloud().Update(c, cloud)
+	err = pixiu.CoreV1.Cloud().UpdateByAliasName(c, cloud)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
