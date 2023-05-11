@@ -62,3 +62,11 @@ func ListResources(informer informers.GenericInformer) ([]runtime.Object, error)
 
 	return objs, nil
 }
+
+// TODO: 根据 http 请求解析 gvr
+func ParseHttp() (schema.GroupVersionResource, error) {
+	var resource schema.GroupVersionResource
+	return resource, nil
+}
+
+//

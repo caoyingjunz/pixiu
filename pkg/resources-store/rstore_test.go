@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/cache"
 )
 
 func TestScoop(t *testing.T) {
@@ -59,6 +60,13 @@ func TestGetPod(t *testing.T) {
 	clientset, _ := NewClientSet()
 	informer, _ := NewInformerForResource(ctx, clientset, gvr)
 	objs, _ := ListResources(informer)
-	byteData, _ := json.Marshal(objs)
-	fmt.Println(string(byteData))
+	// byteData, _ := json.Marshal(objs)
+	// fmt.Println(string(byteData))
+
+	obj := objs[0]
+	str, _ := cache.MetaNamespaceKeyFunc(obj)
+	fmt.Println(str)
+
+	// gvk := obj.GetObjectKind().GroupVersionKind()
+	// restmapper.
 }
