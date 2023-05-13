@@ -24,8 +24,8 @@ func TestWorker(t *testing.T) {
 		Version:  "v1",
 		Resource: "services",
 	}
-	v1, _ := StoreObj.Get(gvr1, "kube-system", "coredns")
+	v1, _ := StoreObj.GetByNamespaceAndName(gvr1, "kube-system", "coredns")
 	fmt.Println(v1)
-	v2, _ := StoreObj.Get(gvr2, "kube-system", "kube-dns")
+	v2, _ := StoreObj.GetByNamespaceAndName(gvr2, "kube-system", "kube-dns")
 	fmt.Println(v2)
 }

@@ -1,5 +1,13 @@
 package resourcesstore
 
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
 // func TestStore(t *testing.T) {
 // 	// 获取 pod 资源
 // 	ctx := context.Background()
@@ -38,3 +46,21 @@ package resourcesstore
 // 	v, _ := store.Get(gvr, "default", "nginx-deployment-86dd747df5-9rtms")
 // 	fmt.Println(v)
 // }
+
+func TestListByNamespace(t *testing.T) {
+	config, _ := NewConfig()
+	ctx := context.Background()
+
+	rg := NewResourceGetter(ctx, config)
+	Worker(rg)
+
+	gvr1 := schema.GroupVersionResource{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	}
+
+	v1 := StoreObj.ListByNamespace(gvr1, "kube-system")
+	fmt.Println(v1)
+	fmt.Println(len(v1))
+}

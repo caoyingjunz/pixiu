@@ -2,6 +2,7 @@ package resourcesstore
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -117,7 +118,7 @@ func entryValueFunc(obj runtime.Object) (entryValue, error) {
 	return entryValue(string(byteData)), nil
 }
 
-func (store *Store) Get(gvr schema.GroupVersionResource, ns, name string) (entryValue, bool) {
+func (store *Store) GetByNamespaceAndName(gvr schema.GroupVersionResource, ns, name string) (entryValue, bool) {
 	storeKey := storeKeyFunc(gvr)
 
 	store.mu.RLock()
@@ -163,5 +164,36 @@ func (store *Store) ListAll(gvr schema.GroupVersionResource) []string {
 	for _, entryObjValue := range entryObj.m {
 		strs = append(strs, string(entryObjValue))
 	}
+	return strs
+}
+
+// 获取某个 namespace 下的某种资源
+// eg: kubectl get pod -n default
+func (store *Store) ListByNamespace(gvr schema.GroupVersionResource, ns string) []string {
+	storeKey := storeKeyFunc(gvr)
+
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	entryObj, ok := store.m[storeKey]
+	if !ok {
+		return nil
+	}
+
+	strs := make([]string, 0)
+
+	for entryObjKey, entryObjValue := range entryObj.m {
+		// 分割 entryObjKey
+		keys := strings.Split(string(entryObjKey), "/")
+		// 长度为 2 说明是区分 ns 的资源
+		if len(keys) == 2 {
+			keyNS := keys[0]
+			if keyNS == ns {
+				strs = append(strs, string(entryObjValue))
+				continue
+			}
+		}
+	}
+
 	return strs
 }
