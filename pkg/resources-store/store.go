@@ -35,6 +35,12 @@ type entryKey string
 
 type entryValue string
 
+var StoreObj *Store
+
+func init() {
+	StoreObj = NewStore()
+}
+
 func NewStore() *Store {
 	return &Store{
 		m: make(map[storeKey]*entry),
@@ -54,10 +60,6 @@ func (store *Store) Add(gvr schema.GroupVersionResource, objs []runtime.Object) 
 	key := storeKeyFunc(gvr)
 
 	entry, ok := store.m[key]
-
-	// 打印
-	// fmt.Println(entry)
-	// fmt.Println(ok)
 
 	if ok {
 		entry.add(objs)
@@ -88,9 +90,6 @@ func (e *entry) add(objs []runtime.Object) {
 
 		e.m[key] = value
 	}
-
-	// 打印
-	// fmt.Printf("%v\n", len(e.m))
 }
 
 func storeKeyFunc(gvr schema.GroupVersionResource) storeKey {
@@ -105,9 +104,6 @@ func entryKeyFunc(obj runtime.Object) (entryKey, error) {
 		return "", nil
 	}
 
-	// 打印
-	// fmt.Println(key)
-
 	return entryKey(key), nil
 }
 
@@ -117,9 +113,6 @@ func entryValueFunc(obj runtime.Object) (entryValue, error) {
 		klog.Errorf("get entry value failed, obj: %v, err: %v", obj, err)
 		return "", err
 	}
-
-	// 打印
-	// fmt.Println(string(byteData))
 
 	return entryValue(string(byteData)), nil
 }
