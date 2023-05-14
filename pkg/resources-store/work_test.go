@@ -14,6 +14,8 @@ func TestWorker(t *testing.T) {
 
 	rg := NewResourceGetter(ctx, config)
 	Worker(rg)
+	// fmt.Println(rg)
+	// fmt.Println(StoreObj)
 
 	gvr1 := schema.GroupVersionResource{
 		Group:    "apps",
@@ -28,4 +30,8 @@ func TestWorker(t *testing.T) {
 	fmt.Println(v1)
 	v2, _ := StoreObj.GetByNamespaceAndName(gvr2, "kube-system", "kube-dns")
 	fmt.Println(v2)
+	v3 := StoreObj.ListByNamespace(gvr2, "default")
+	fmt.Println(v3)
+	v4 := StoreObj.ListAll(gvr1)
+	fmt.Println(v4)
 }

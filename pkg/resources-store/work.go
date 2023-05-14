@@ -32,6 +32,12 @@ func Worker(rg *resourceGetter) {
 		// TODO: 后续优化 store 的逻辑
 		StoreObj.Add(gvr, objs)
 	}
+	// flag 处理
+	if StoreObj.flag == writeM {
+		StoreObj.flag = writeMbk
+	} else {
+		StoreObj.flag = writeM
+	}
 }
 
 func Process() {
