@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package resourcesstore
 
 import (
@@ -10,8 +26,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
-
-var StoreObj *Store
 
 // 监测哪个表存放的是最新的数据
 type writeFlag int
@@ -30,16 +44,15 @@ const (
 // 这里为什么用两个表呢？
 // 考虑是在集群的资源有变化时，可以响应出来，增加资源一个表可以体现，如果一个资源少了，一直往一个表放就无法体现，这里用每次全量获取放入另一个表的方法来响应
 type Store struct {
-	mu, mbku sync.RWMutex
-	m        map[storeKey]*entry
-	mbk      map[storeKey]*entry
-	flag     writeFlag
+	mu   sync.RWMutex
+	m    map[storeKey]*entry
+	mbk  map[storeKey]*entry
+	flag writeFlag
 }
 
 // 每种 gvr 对应一个 entry
 // runtime.Object 是指针类型的数据
 type entry struct {
-	// mu sync.RWMutex
 	m map[entryKey]entryValue
 }
 
@@ -48,10 +61,6 @@ type storeKey string
 type entryKey string
 
 type entryValue string
-
-func init() {
-	StoreObj = NewStore()
-}
 
 func NewStore() *Store {
 	return &Store{
@@ -78,12 +87,12 @@ func (store *Store) Add(gvr schema.GroupVersionResource, objs []runtime.Object) 
 
 // flag 以及另一个 map 处理
 func (store *Store) PostAdd() {
-	if StoreObj.flag == writeM {
-		StoreObj.flag = writeMbk
-		StoreObj.m = make(map[storeKey]*entry)
+	if store.flag == writeM {
+		store.flag = writeMbk
+		store.m = make(map[storeKey]*entry)
 	} else {
-		StoreObj.flag = writeM
-		StoreObj.mbk = make(map[storeKey]*entry)
+		store.flag = writeM
+		store.mbk = make(map[storeKey]*entry)
 	}
 }
 
@@ -105,8 +114,8 @@ func (store *Store) addm(gvr schema.GroupVersionResource, objs []runtime.Object)
 }
 
 func (store *Store) addmbk(gvr schema.GroupVersionResource, objs []runtime.Object) {
-	store.mbku.Lock()
-	defer store.mbku.Unlock()
+	store.mu.Lock()
+	defer store.mu.Unlock()
 
 	key := storeKeyFunc(gvr)
 
@@ -124,9 +133,6 @@ func (store *Store) addmbk(gvr schema.GroupVersionResource, objs []runtime.Objec
 // 将 kubernetes 的资源存放进 entry
 // 由于资源是一直变化的，所以这里直接进行重写操作，不检查原本是否存在
 func (e *entry) add(objs []runtime.Object) {
-	// e.mu.Lock()
-	// defer e.mu.Unlock()
-
 	for _, obj := range objs {
 		key, err := entryKeyFunc(obj)
 		if err != nil {
@@ -144,7 +150,6 @@ func (e *entry) add(objs []runtime.Object) {
 }
 
 func storeKeyFunc(gvr schema.GroupVersionResource) storeKey {
-	// fmt.Println(gvr.String())
 	return storeKey(gvr.String())
 }
 
@@ -188,11 +193,6 @@ func (store *Store) GetByNamespaceAndName(gvr schema.GroupVersionResource, ns, n
 		}
 	}
 
-	// entryObj, ok := store.m[storeKey]
-	// if !ok {
-	// 	return "", ok
-	// }
-
 	entryObjValue, ok := entryObj.get(ns, name)
 
 	return entryObjValue, ok
@@ -232,11 +232,6 @@ func (store *Store) ListAll(gvr schema.GroupVersionResource) []string {
 		}
 	}
 
-	// entryObj, ok := store.m[key]
-	// if !ok {
-	// 	return nil
-	// }
-
 	strs := make([]string, len(entryObj.m))
 
 	for _, entryObjValue := range entryObj.m {
@@ -266,11 +261,6 @@ func (store *Store) ListByNamespace(gvr schema.GroupVersionResource, ns string) 
 			return nil
 		}
 	}
-
-	// entryObj, ok := store.m[storeKey]
-	// if !ok {
-	// 	return nil
-	// }
 
 	strs := entryObj.list(ns)
 

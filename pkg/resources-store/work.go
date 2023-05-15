@@ -1,7 +1,22 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package resourcesstore
 
 import (
-	"context"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -12,16 +27,6 @@ func Worker(rg *resourceGetter) {
 	rg.sharedInformerFactory.Start(rg.ctx.Done())
 	rg.sharedInformerFactory.WaitForCacheSync(rg.ctx.Done())
 
-	// 先看一个gvr的获取--测试 pass
-	// gvr := schema.GroupVersionResource{
-	// 	Group:    "apps",
-	// 	Version:  "v1",
-	// 	Resource: "deployments",
-	// }
-	// informer := rg.informers[gvr]
-	// objs, _ := rg.ListResources(informer)
-	// klog.Infof("objs: %+v\n", objs)
-
 	for gvr, informer := range rg.informers {
 		objs, err := rg.ListResources(informer)
 		if err != nil {
@@ -29,20 +34,13 @@ func Worker(rg *resourceGetter) {
 			continue
 		}
 
-		// TODO: 后续优化 store 的逻辑
-		StoreObj.Add(gvr, objs)
+		rg.store.Add(gvr, objs)
 	}
 	// flag 处理
-	StoreObj.PostAdd()
+	rg.store.PostAdd()
 }
 
-func Process() {
-	config, _ := NewConfig()
-	ctx := context.Background()
-
-	rg := NewResourceGetter(ctx, config)
-	klog.Infof("ResourceGetter info: %+v\n", rg)
-
+func Process(rg *resourceGetter) {
 	go func() {
 		ticker := time.NewTicker(rg.period)
 		defer ticker.Stop()
@@ -51,11 +49,11 @@ func Process() {
 			select {
 			case <-ticker.C:
 				Worker(rg)
-			case <-ctx.Done():
+			case <-rg.ctx.Done():
 				return
 			}
 		}
 	}()
 
-	<-ctx.Done()
+	<-rg.ctx.Done()
 }
