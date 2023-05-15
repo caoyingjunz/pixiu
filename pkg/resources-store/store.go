@@ -76,6 +76,17 @@ func (store *Store) Add(gvr schema.GroupVersionResource, objs []runtime.Object) 
 	}
 }
 
+// flag 以及另一个 map 处理
+func (store *Store) PostAdd() {
+	if StoreObj.flag == writeM {
+		StoreObj.flag = writeMbk
+		StoreObj.m = make(map[storeKey]*entry)
+	} else {
+		StoreObj.flag = writeM
+		StoreObj.mbk = make(map[storeKey]*entry)
+	}
+}
+
 func (store *Store) addm(gvr schema.GroupVersionResource, objs []runtime.Object) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -86,15 +97,11 @@ func (store *Store) addm(gvr schema.GroupVersionResource, objs []runtime.Object)
 
 	if ok {
 		entryObj.add(objs)
-		// store.flag = writeM
-		store.mbk = make(map[storeKey]*entry)
 		return
 	}
 	entryObj = newEntry()
 	entryObj.add(objs)
 	store.m[key] = entryObj
-	// store.flag = writeM
-	store.mbk = make(map[storeKey]*entry)
 }
 
 func (store *Store) addmbk(gvr schema.GroupVersionResource, objs []runtime.Object) {
@@ -107,15 +114,11 @@ func (store *Store) addmbk(gvr schema.GroupVersionResource, objs []runtime.Objec
 
 	if ok {
 		entryObj.add(objs)
-		// store.flag = writeMbk
-		store.m = make(map[storeKey]*entry)
 		return
 	}
 	entryObj = newEntry()
 	entryObj.add(objs)
 	store.mbk[key] = entryObj
-	// store.flag = writeMbk
-	store.m = make(map[storeKey]*entry)
 }
 
 // 将 kubernetes 的资源存放进 entry

@@ -33,11 +33,7 @@ func Worker(rg *resourceGetter) {
 		StoreObj.Add(gvr, objs)
 	}
 	// flag 处理
-	if StoreObj.flag == writeM {
-		StoreObj.flag = writeMbk
-	} else {
-		StoreObj.flag = writeM
-	}
+	StoreObj.PostAdd()
 }
 
 func Process() {
