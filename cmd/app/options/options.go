@@ -97,7 +97,7 @@ func (o *Options) Complete() error {
 
 // BindFlags binds the pixiu Configuration struct fields
 func (o *Options) BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.ConfigFile, "configfile", "", "The location of the gopixiu configuration file")
+	cmd.Flags().StringVar(&o.ConfigFile, "configfile", "", "The location of the pixiu configuration file")
 }
 
 func (o *Options) register() error {

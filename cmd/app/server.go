@@ -40,8 +40,8 @@ func NewServerCommand() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:  "gopixiu-server",
-		Long: "The gopixiu server controller is a daemon that embeds the core control loops.",
+		Use:  "pixiu-server",
+		Long: "The pixiu server controller is a daemon that embeds the core control loops.",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err = opts.Complete(); err != nil {
 				fmt.Fprintf(os.Stderr, "%v\n", err)

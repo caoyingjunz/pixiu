@@ -14,34 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package helm
 
 import (
-	"os"
-
 	"github.com/gin-gonic/gin"
-
-	"github.com/caoyingjunz/pixiu/cmd/app"
 )
 
-// @title           Pixiu API Documentation
-// @version         1.0
-// @description     Use the Pixiu APIs to your cloud
-// @termsOfService  https://github.com/caoyingjunz/pixiu
+type helmRouter struct{}
 
-// @contact.name   API Support
-// @contact.url    https://github.com/caoyingjunz/pixiu
-// @contact.email  support@pixiu.io
+func NewRouter(ginEngine *gin.Engine) {
+	router := &helmRouter{}
+	router.initRoutes(ginEngine)
+}
 
-// @license.name  Apache 2.0
-// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
-// @host localhost:8090
-
-func main() {
-	gin.SetMode(gin.ReleaseMode)
-
-	cmd := app.NewServerCommand()
-	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
+func (h *helmRouter) initRoutes(ginEngine *gin.Engine) {
+	helmRoute := ginEngine.Group("/pixiu/helm")
+	{
+		helmRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleases)
 	}
 }
