@@ -34,8 +34,8 @@ func (o *roleRouter) initRoutes(ginEngine *gin.Engine) {
 		roleRoute.GET("/:id", o.getRole)       // 根据角色ID获取角色信息
 		roleRoute.GET("", o.listRoles)         // 获取所有角色
 
-		roleRoute.GET("/:id/menus", o.getMenusByRole) // 根据角色ID获取角色权限
-		roleRoute.POST("/:id/menus", o.setRoleMenus)  // 根据角色ID设置角色权限
-		roleRoute.PUT("/:id/status/:status", o.updateRoleStatus)
+		roleRoute.GET("/:id/menus", o.getMenusByRole)            // 根据角色ID获取角色权限
+		roleRoute.POST("/:id/menus", o.setRoleMenus)             // 根据角色ID设置角色权限
+		roleRoute.PUT("/:id/status/:status", o.updateRoleStatus) // 更新角色状态
 	}
 }
