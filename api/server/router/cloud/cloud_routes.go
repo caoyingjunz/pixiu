@@ -32,6 +32,16 @@ import (
 )
 
 // 上传已存在的k8s集群，直接导入 kubeConfig 文件
+// @Summary      上传已存在的k8s集群，直接导入 kubeConfig 文件
+// @Description  上传已存在的k8s集群，直接导入 kubeConfig 文件
+// @Tags         clouds
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Cloud ID" Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /clouds/load/cloud [post]
+// 上传已存在的k8s集群，直接导入 kubeConfig 文件
 func (s *cloudRouter) loadCloud(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -142,6 +152,16 @@ func (s *cloudRouter) getCloud(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// 获取所有的k8s集群
+// @Summary      获取所有的k8s集群
+// @Description  获取所有的k8s集群
+// @Tags         clouds
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Cloud ID" Format(int64)
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /clouds [get]
 func (s *cloudRouter) listClouds(c *gin.Context) {
 	r := httputils.NewResponse()
 	var err error

@@ -23,6 +23,14 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
+// @Summary      分页查询audit记录
+// @Description  分页查询audit记录
+// @Tags         audits
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  httputils.SetSuccess
+// @Failure      400  {object}  httputils.SetFailed
+// @Router       /audits [get]
 // TODO: 根据发生事件获取审计事件列表
 func (audit *auditRouter) listAuditEvents(c *gin.Context) {
 	r := httputils.NewResponse()

@@ -188,6 +188,16 @@ func (u *userRouter) login(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// 用户退出
+// @Summary      用户退出
+// @Description  用户退出
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        buildCloud body types.BuildCloud true "build a cloud"
+// @Success      200  {object}  httputils.HttpOK
+// @Failure      400  {object}  httputils.HttpError
+// @Router       /users/:id/logout [post]
 // TODO
 func (u *userRouter) logout(c *gin.Context) {}
 
@@ -227,7 +237,7 @@ func (u *userRouter) resetPassword(c *gin.Context) {
 // @Param        data body types.Password true "password info"
 // @Success      200  {object}  httputils.HttpOK
 // @Failure      400  {object}  httputils.HttpError
-// @Router       /users/{id} [put]
+// @Router       /users/change/{id}/password [put]
 func (u *userRouter) changePassword(c *gin.Context) {
 	r := httputils.NewResponse()
 	var opts pixiumeta.IdMeta
