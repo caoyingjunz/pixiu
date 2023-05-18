@@ -8,6 +8,7 @@ require (
 	github.com/caoyingjunz/pixiulib v0.0.0-20220819163605-c3c10ec3ed3c
 	github.com/casbin/casbin/v2 v2.55.0
 	github.com/casbin/gorm-adapter/v3 v3.10.0
+	github.com/emicklei/go-restful v0.0.0-20170410110728-ff4f55a20633
 	github.com/fatih/structs v1.1.0
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.8.1
