@@ -23,6 +23,7 @@ require (
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/jackc/pgconn v1.13.0 // indirect
 	github.com/jackc/pgtype v1.12.0 // indirect
+	github.com/jinzhu/inflection v1.0.0
 	github.com/juju/ratelimit v1.0.2
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mittwald/go-helm-client v0.8.1

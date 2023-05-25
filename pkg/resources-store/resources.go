@@ -18,9 +18,12 @@ package resourcesstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jinzhu/inflection"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,9 +52,10 @@ type resourceGetter struct {
 	dcClient              *discovery.DiscoveryClient
 	sharedInformerFactory informers.SharedInformerFactory
 
-	// 集群支持的 gvr, 及其对应的 GenericInformer
-	gvrs      []schema.GroupVersionResource
-	informers map[schema.GroupVersionResource]informers.GenericInformer
+	// 集群支持的 gvr, gvk 与 gvr 的对应关系，及其对应的 GenericInformer
+	gvrs        []schema.GroupVersionResource
+	gvktogvrSet map[string]schema.GroupVersionResource
+	informers   map[schema.GroupVersionResource]informers.GenericInformer
 
 	// store 的更新时间
 	period time.Duration
@@ -152,6 +156,7 @@ func (rg *resourceGetter) GetGVRs() error {
 	}
 
 	resources := []schema.GroupVersionResource{}
+	gvktogvrSet := map[string]schema.GroupVersionResource{}
 
 	for _, list := range lists {
 		//如果apiReosurce为空则跳过
@@ -168,10 +173,16 @@ func (rg *resourceGetter) GetGVRs() error {
 				Group:    gv.Group,
 				Version:  gv.Version,
 				Resource: resource.Name})
+
+			gvktogvrSet[strings.ToLower(resource.Kind)] = schema.GroupVersionResource{
+				Group:    gv.Group,
+				Version:  gv.Version,
+				Resource: resource.Name}
 		}
 	}
 
 	rg.gvrs = resources
+	rg.gvktogvrSet = gvktogvrSet
 	return nil
 }
 
@@ -206,8 +217,20 @@ func GVKToGVR(dcClient *discovery.DiscoveryClient, gvk schema.GroupVersionKind) 
 	return &mapping.Resource, nil
 }
 
-// TODO: 根据 http 请求解析 gvr
-func ParseHttp() (schema.GroupVersionResource, error) {
-	var resource schema.GroupVersionResource
-	return resource, nil
+// 根据 http 请求中的 kind 解析 gvr
+func (rg *resourceGetter) ParseKind(kind string) (schema.GroupVersionResource, error) {
+	// 对 url 中传入的 kind 进行预处理
+	// 可以传：pods, pod, Pod
+	kindbk := kind
+	gvr, ok := rg.gvktogvrSet[strings.ToLower(kind)]
+	if !ok {
+		// 尝试处理为单数形式
+		gvr, ok = rg.gvktogvrSet[inflection.Singular(kind)]
+		if !ok {
+			klog.Infof("unknown kind, %s\n", kindbk)
+			return gvr, errors.New("unknown kind")
+		}
+	}
+
+	return gvr, nil
 }

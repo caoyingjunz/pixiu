@@ -173,7 +173,7 @@ func entryValueFunc(obj runtime.Object) (entryValue, error) {
 	return entryValue(string(byteData)), nil
 }
 
-func (store *Store) GetByNamespaceAndName(gvr schema.GroupVersionResource, ns, name string) (entryValue, bool) {
+func (store *Store) GetByNamespaceAndName(gvr schema.GroupVersionResource, ns, name string) (string, bool) {
 	storeKey := storeKeyFunc(gvr)
 
 	store.mu.RLock()
@@ -195,7 +195,7 @@ func (store *Store) GetByNamespaceAndName(gvr schema.GroupVersionResource, ns, n
 
 	entryObjValue, ok := entryObj.get(ns, name)
 
-	return entryObjValue, ok
+	return string(entryObjValue), ok
 }
 
 func (e *entry) get(ns, name string) (entryValue, bool) {
