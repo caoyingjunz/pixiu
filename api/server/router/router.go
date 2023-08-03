@@ -33,25 +33,24 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
+type RegisterFunc func(*gin.Engine)
+
 func InstallRouters(opt *options.Options) {
-	middleware.InstallMiddlewares(opt.GinEngine) // 安装中间件
-
-	user.NewRouter(opt.GinEngine)  // 注册 user 路由
-	role.NewRouter(opt.GinEngine)  // 注册 role 路由
-	menu.NewRouter(opt.GinEngine)  // 注册 menu 路由
-	audit.NewRouter(opt.GinEngine) // 注册 audit 路由
-
-	// 注册 cicd 路由，根据配置文件中的开关判断是否注册
+	fs := []RegisterFunc{
+		middleware.InstallMiddlewares, user.NewRouter, role.NewRouter, menu.NewRouter, audit.NewRouter, cloud.NewRouter, proxy.NewRouter, helm.NewRouter,
+	}
 	if opt.ComponentConfig.Cicd.Enable {
-		cicd.NewRouter(opt.GinEngine)
+		fs = append(fs, cicd.NewRouter)
 	}
 
-	cloud.NewRouter(opt.GinEngine) // 注册 cloud 路由
-	proxy.NewRouter(opt.GinEngine) // 注册 kubernetes proxy
-	helm.NewRouter(opt.GinEngine)  // 注册 helm 路由
+	install(opt.GinEngine, fs...)
 
 	// 启动检查检查
-	opt.GinEngine.GET("/healthz", func(c *gin.Context) {
-		c.String(http.StatusOK, "ok")
-	})
+	opt.GinEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+}
+
+func install(engine *gin.Engine, fs ...RegisterFunc) {
+	for _, f := range fs {
+		f(engine)
+	}
 }
