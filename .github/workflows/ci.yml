@@ -35,6 +35,11 @@ jobs:
       with:
         go-version: ${{ env.GO_VERSION }}
 
+    - name: Run go fmt test
+      run: hack/verify-gofmt.sh
+      env:
+        GO111MODULE: auto
+
     - name: Build the pixiu binariy
       run: go build -v ./...
 
