@@ -35,7 +35,7 @@ func (h *helmRouter) ListReleases(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = pixiu.CoreV1.Helm().ListDeployedReleases(listOptions.CloudName, listOptions.Namespace);err != nil {
+	if r.Result, err = pixiu.CoreV1.Helm().ListDeployedReleases(listOptions.CloudName, listOptions.Namespace); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
