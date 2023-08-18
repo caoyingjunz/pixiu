@@ -48,13 +48,10 @@ const (
 type Options struct {
 	// The default values.
 	ComponentConfig config.Config
-	GinEngine       *gin.Engine
-
-	DB      *gorm.DB
-	Factory db.ShareDaoFactory // 数据库接口
-
-	// CICD 的驱动接口
-	CicdDriver *gojenkins.Jenkins
+	// http engine
+	HttpEngine *gin.Engine
+	// 数据库接口
+	Factory db.ShareDaoFactory
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
@@ -62,6 +59,7 @@ type Options struct {
 
 func NewOptions() (*Options, error) {
 	return &Options{
+		HttpEngine: gin.Default(),
 		ConfigFile: defaultConfigFile,
 	}, nil
 }
