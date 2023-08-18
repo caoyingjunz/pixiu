@@ -17,13 +17,13 @@ limitations under the License.
 package middleware
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/errors"
 	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 

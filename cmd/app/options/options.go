@@ -17,12 +17,9 @@ limitations under the License.
 package options
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/bndr/gojenkins"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -31,10 +28,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
-	"github.com/caoyingjunz/pixiu/pkg/db/user"
-	"github.com/caoyingjunz/pixiu/pkg/log"
-	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
 const (
@@ -59,7 +52,7 @@ type Options struct {
 
 func NewOptions() (*Options, error) {
 	return &Options{
-		HttpEngine: gin.Default(),
+		HttpEngine: gin.Default(), // 初始化默认 api 路由
 		ConfigFile: defaultConfigFile,
 	}, nil
 }
@@ -83,9 +76,6 @@ func (o *Options) Complete() error {
 		return err
 	}
 
-	// 初始化默认 api 路由
-	o.GinEngine = gin.Default()
-
 	// 注册依赖组件
 	if err := o.register(); err != nil {
 		return err
@@ -99,29 +89,9 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 }
 
 func (o *Options) register() error {
-	if err := o.registerLogger(); err != nil { // 注册日志
-		return err
-	}
 	if err := o.registerDatabase(); err != nil { // 注册数据库
 		return err
 	}
-	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
-		return err
-	}
-
-	return nil
-}
-
-func (o *Options) registerLogger() error {
-	logType := strings.ToLower(o.ComponentConfig.Default.LogType)
-	if logType == "file" {
-		// 判断文件夹是否存在，不存在则创建
-		if err := util.EnsureDirectoryExists(o.ComponentConfig.Default.LogDir); err != nil {
-			return err
-		}
-	}
-	// 注册日志
-	log.Register(logType, o.ComponentConfig.Default.LogDir, o.ComponentConfig.Default.LogLevel)
 
 	return nil
 }
@@ -135,41 +105,19 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Port,
 		sqlConfig.Name)
 
-	var err error
-	if o.DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{}); err != nil {
+	DB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
 		return err
 	}
 	// 设置数据库连接池
-	sqlDB, err := o.DB.DB()
+	sqlDB, err := DB.DB()
 	if err != nil {
 		return err
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 
-	o.Factory = db.NewDaoFactory(o.DB)
-
-	// TODO：优化
-	// 注册 policy
-	if err = user.InitPolicyEnforcer(o.DB); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (o *Options) registerCicdDriver() error {
-	jenkinsOption := o.ComponentConfig.Cicd.Jenkins
-	if o.ComponentConfig.Cicd.Enable {
-		switch o.ComponentConfig.Cicd.Driver {
-		case "", types.Jenkins:
-			o.CicdDriver = gojenkins.CreateJenkins(nil, jenkinsOption.Host, jenkinsOption.User, jenkinsOption.Password)
-			if _, err := o.CicdDriver.Init(context.TODO()); err != nil {
-				return err
-			}
-		}
-	}
-
+	o.Factory = db.NewDaoFactory(DB)
 	return nil
 }
 

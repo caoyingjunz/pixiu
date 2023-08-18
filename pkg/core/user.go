@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/errors"
 	"github.com/caoyingjunz/pixiu/pkg/log"
 	typesv2 "github.com/caoyingjunz/pixiu/pkg/types"
 )

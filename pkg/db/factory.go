@@ -19,36 +19,23 @@ package db
 import (
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/audit"
 	"github.com/caoyingjunz/pixiu/pkg/db/cloud"
 	"github.com/caoyingjunz/pixiu/pkg/db/user"
 )
 
 type ShareDaoFactory interface {
-	User() user.UserInterface
-	Cloud() cloud.CloudInterface
-	KubeConfig() cloud.KubeConfigInterface
-	Role() user.RoleInterface
-	Menu() user.MenuInterface
-	Audit() audit.Interface
-	Authentication() user.AuthenticationInterface
+	Cloud() cloud.Interface
+	KubeConfig() cloud.Interface
+	User() user.Interface
 }
 
 type shareDaoFactory struct {
 	db *gorm.DB
 }
 
-func (f *shareDaoFactory) Cloud() cloud.CloudInterface           { return cloud.NewCloud(f.db) }
-func (f *shareDaoFactory) KubeConfig() cloud.KubeConfigInterface { return cloud.NewKubeConfig(f.db) }
-func (f *shareDaoFactory) User() user.UserInterface              { return user.NewUser(f.db) }
-func (f *shareDaoFactory) Role() user.RoleInterface              { return user.NewRole(f.db) }
-func (f *shareDaoFactory) Menu() user.MenuInterface              { return user.NewMenu(f.db) }
-func (f *shareDaoFactory) Audit() audit.Interface                { return audit.NewAudit(f.db) }
-
-// Authentication TODO：优化
-func (f *shareDaoFactory) Authentication() user.AuthenticationInterface {
-	return user.NewAuthentication(f.db)
-}
+func (f *shareDaoFactory) Cloud() cloud.Interface      { return cloud.NewCloud(f.db) }
+func (f *shareDaoFactory) KubeConfig() cloud.Interface { return cloud.NewKubeConfig(f.db) }
+func (f *shareDaoFactory) User() user.Interface        { return user.NewUser(f.db) }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {
 	return &shareDaoFactory{

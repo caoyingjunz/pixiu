@@ -19,6 +19,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 
 	helmclient "github.com/mittwald/go-helm-client"
 	"k8s.io/client-go/kubernetes"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/cache"
 	"github.com/caoyingjunz/pixiu/pkg/db"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
 	"github.com/caoyingjunz/pixiu/pkg/util/intstr"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
@@ -69,7 +69,7 @@ func NewHelmClient(namespace string, kubeConfig *rest.Config) (helmclient.Client
 			Debug:     true,
 			Linting:   false,
 			DebugLog: func(format string, v ...interface{}) {
-				log.Logger.Infof(format, v)
+				klog.Infof(format, v)
 			},
 		},
 		RestConfig: kubeConfig,

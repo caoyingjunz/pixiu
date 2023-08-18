@@ -17,12 +17,12 @@ limitations under the License.
 package user
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 	"github.com/gin-gonic/gin"
 
 	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/api/types"
-	"github.com/caoyingjunz/pixiu/pkg/errors"
 	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 )

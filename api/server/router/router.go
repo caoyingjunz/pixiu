@@ -43,10 +43,10 @@ func InstallRouters(opt *options.Options) {
 		fs = append(fs, cicd.NewRouter)
 	}
 
-	install(opt.GinEngine, fs...)
+	install(opt.HttpEngine, fs...)
 
 	// 启动检查检查
-	opt.GinEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+	opt.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 }
 
 func install(engine *gin.Engine, fs ...RegisterFunc) {
