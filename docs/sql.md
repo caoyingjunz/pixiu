@@ -3,6 +3,23 @@
 CREATE DATABASE pixiu;
 ```
 
+## 创建 `clusters` 表
+```sql
+CREATE TABLE `clusters` (
+    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
+    gmt_create datetime COMMENT '创建时间',
+    gmt_modified datetime COMMENT '修改时间',
+    resource_version int COMMENT '版本号',
+    name varchar(128) COMMENT 'k8s 集群名称',
+    alias_name varchar(128) COMMENT 'k8s 集群中文名称',
+    kube_config text COMMENT 'kubeConfig 文件内容',
+    description text COMMENT 'k8s 集群描述信息',
+    extension text COMMENT '扩展预留',
+    KEY `idx_name` (`name`),
+    UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=20220801;
+```
+
 ## 创建 `users` 表
 ```sql
 CREATE TABLE `users` (
@@ -82,26 +99,6 @@ CREATE TABLE `kube_configs` (
     KEY `idx_cloud_name` (`cloud_name`),
     UNIQUE KEY `service_account` (`service_account`)
 ) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=22220801;
-```
-
-## 创建 `clusters` 表
-```sql
-CREATE TABLE `clusters` (
-    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
-    gmt_create datetime COMMENT '创建时间',
-    gmt_modified datetime COMMENT '修改时间',
-    resource_version int COMMENT '版本号',
-    cloud_id int COMMENT 'cloud ID',
-    api_server varchar(128) COMMENT 'k8s apiServer 地址',
-    version varchar(128) COMMENT 'k8s 集群版本',
-    runtime varchar(128) COMMENT '容器运行时',
-    cni varchar(128) COMMENT '集群 cni',
-    service_cidr varchar(128) COMMENT 'service 网段',
-    pod_cidr varchar(128) COMMENT 'pod 网段',
-    proxy_mode varchar(128) COMMENT 'kubeProxy 模式',
-    KEY `idx_cloud` (`cloud_id`),
-    UNIQUE KEY `cloud_id` (`cloud_id`)
-) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=23220801;
 ```
 
 ## 创建 `nodes` 表

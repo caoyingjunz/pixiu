@@ -7,16 +7,8 @@ default:
 
 # 数据库地址信息
 mysql:
-  host: pixiu
+  host: peng
   user: root
-  password: GoPixiu868686
+  password: password123456
   port: 3306
   name: pixiu
-
-cicd:
-  enable: false
-  driver: jenkins
-  jenkins:
-    host: http://8.140.165.201:9090
-    user: adminops
-    password: adminops@321
