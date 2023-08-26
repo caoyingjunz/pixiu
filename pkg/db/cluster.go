@@ -17,31 +17,25 @@ limitations under the License.
 package db
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/cloud"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-type ShareDaoFactory interface {
-	Cluster() ClusterInterface
-	Cloud() cloud.CloudInterface
-	KubeConfig() cloud.KubeConfigInterface
+type ClusterInterface interface {
+	Create(ctx context.Context, object *model.Cluster) error
 }
 
-type shareDaoFactory struct {
+type cluster struct {
 	db *gorm.DB
 }
 
-// TODO： 即将废弃，代码逻辑重新实现
-func (f *shareDaoFactory) Cloud() cloud.CloudInterface           { return cloud.NewCloud(f.db) }
-func (f *shareDaoFactory) KubeConfig() cloud.KubeConfigInterface { return cloud.NewKubeConfig(f.db) }
-
-func (f *shareDaoFactory) Cluster() ClusterInterface {
-	return newCluster(f.db)
+func (c *cluster) Create(ctx context.Context, object *model.Cluster) error {
+	return nil
 }
 
-func NewDaoFactory(db *gorm.DB) ShareDaoFactory {
-	return &shareDaoFactory{
-		db: db,
-	}
+func newCluster(db *gorm.DB) ClusterInterface {
+	return &cluster{db}
 }

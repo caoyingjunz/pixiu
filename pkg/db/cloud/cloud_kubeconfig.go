@@ -25,7 +25,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-type Interface interface {
+type KubeConfigInterface interface {
 	Create(ctx context.Context, obj *model.KubeConfig) (*model.KubeConfig, error)
 	Update(ctx context.Context, id, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) error
@@ -41,7 +41,7 @@ type kubeConfig struct {
 	db *gorm.DB
 }
 
-func NewKubeConfig(db *gorm.DB) Interface {
+func NewKubeConfig(db *gorm.DB) KubeConfigInterface {
 	return &kubeConfig{db}
 }
 

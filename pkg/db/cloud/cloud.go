@@ -25,7 +25,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-type Interface interface {
+type CloudInterface interface {
 	Create(ctx context.Context, obj *model.Cloud) (*model.Cloud, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cid int64) (*model.Cloud, error)
@@ -53,7 +53,7 @@ type cloud struct {
 	db *gorm.DB
 }
 
-func NewCloud(db *gorm.DB) Interface {
+func NewCloud(db *gorm.DB) CloudInterface {
 	return &cloud{db}
 }
 
