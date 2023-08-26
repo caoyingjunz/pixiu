@@ -23,7 +23,6 @@ import (
 
 type CoreV1Interface interface {
 	CloudGetter
-	HelmGetter
 }
 
 type pixiu struct {
@@ -33,10 +32,6 @@ type pixiu struct {
 
 func (pixiu *pixiu) Cloud() CloudInterface {
 	return newCloud(pixiu)
-}
-
-func (pixiu *pixiu) Helm() HelmInterface {
-	return newHelm(pixiu)
 }
 
 func New(cfg config.Config, factory db.ShareDaoFactory) CoreV1Interface {

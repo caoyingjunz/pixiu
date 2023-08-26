@@ -50,9 +50,6 @@ type Options struct {
 	// 貔貅主控制接口
 	Controller controller.PixiuInterface
 
-	// TODO: 不在使用，即将废弃掉
-	DB *gorm.DB
-
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
 }
@@ -120,19 +117,19 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Port,
 		sqlConfig.Name)
 
-	var err error
-	if o.DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{}); err != nil {
+	DB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
 		return err
 	}
 	// 设置数据库连接池
-	sqlDB, err := o.DB.DB()
+	sqlDB, err := DB.DB()
 	if err != nil {
 		return err
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 
-	o.Factory = db.NewDaoFactory(o.DB)
+	o.Factory = db.NewDaoFactory(DB)
 	return nil
 }
 

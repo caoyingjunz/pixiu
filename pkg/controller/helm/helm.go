@@ -14,32 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package core
+package helm
 
 import (
-	"fmt"
-
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	helmClient "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/release"
-
-	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
 type HelmGetter interface {
-	Helm() HelmInterface
+	Helm() Interface
 }
 
-type HelmInterface interface {
+type Interface interface {
 	ListDeployedReleases(cloudName string, namespace string) ([]*release.Release, error)
 }
 
 type helm struct {
-	app *pixiu
+	cc      config.Config
+	factory db.ShareDaoFactory
 }
 
-func newHelm(c *pixiu) HelmInterface {
+func NewHelm(cfg config.Config, f db.ShareDaoFactory) *helm {
 	return &helm{
-		app: c,
+		cc:      cfg,
+		factory: f,
 	}
 }
 
@@ -53,11 +53,5 @@ func (h helm) ListDeployedReleases(cloudName string, namespace string) ([]*relea
 }
 
 func getHelmClient(cloudName string, namespace string) (helmClient.Client, error) {
-	clusterSet, exists := clusterSets.Get(cloudName)
-	if !exists {
-		return nil, fmt.Errorf("cluster %q not register", cloudName)
-	}
-
-	// TODO: 目前helm 的官方库，不支持在实例化之后修改 namespace，目前只能每个请求重新构造 helm client 实例
-	return util.NewHelmClient(namespace, clusterSet.KubeConfig)
+	return nil, nil
 }
