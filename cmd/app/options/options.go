@@ -27,6 +27,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
@@ -34,6 +35,7 @@ const (
 	maxIdleConns = 10
 	maxOpenConns = 100
 
+	defaultListen     = 8080
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 )
 
@@ -43,8 +45,13 @@ type Options struct {
 	ComponentConfig config.Config
 	GinEngine       *gin.Engine
 
-	DB      *gorm.DB
-	Factory db.ShareDaoFactory // 数据库接口
+	// 数据库接口
+	Factory db.ShareDaoFactory
+	// 貔貅主控制接口
+	Controller controller.PixiuInterface
+
+	// TODO: 不在使用，即将废弃掉
+	DB *gorm.DB
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
@@ -52,6 +59,7 @@ type Options struct {
 
 func NewOptions() (*Options, error) {
 	return &Options{
+		GinEngine:  gin.Default(), // 初始化默认 api 路由
 		ConfigFile: defaultConfigFile,
 	}, nil
 }
@@ -75,13 +83,16 @@ func (o *Options) Complete() error {
 		return err
 	}
 
-	// 初始化默认 api 路由
-	o.GinEngine = gin.Default()
+	if o.ComponentConfig.Default.Listen == 0 {
+		o.ComponentConfig.Default.Listen = defaultListen
+	}
 
 	// 注册依赖组件
 	if err := o.register(); err != nil {
 		return err
 	}
+
+	o.Controller = controller.New(o.ComponentConfig, o.Factory)
 	return nil
 }
 
@@ -96,6 +107,7 @@ func (o *Options) register() error {
 		return err
 	}
 
+	// TODO: 注册其他依赖
 	return nil
 }
 
@@ -121,7 +133,6 @@ func (o *Options) registerDatabase() error {
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 
 	o.Factory = db.NewDaoFactory(o.DB)
-
 	return nil
 }
 

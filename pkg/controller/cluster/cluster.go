@@ -14,27 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package cluster
 
-type Config struct {
-	Default DefaultOptions `yaml:"default"`
-	Mysql   MysqlOptions   `yaml:"mysql"`
+import (
+	"context"
+
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+)
+
+type ClusterGetter interface {
+	Cluster() Interface
 }
 
-type DefaultOptions struct {
-	Listen int    `yaml:"listen"`
-	JWTKey string `yaml:"jwt_key"`
+type Interface interface {
+	Create(ctx context.Context) error
 }
 
-type MysqlOptions struct {
-	Host     string `yaml:"host"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	Port     int    `yaml:"port"`
-	Name     string `yaml:"name"`
+type cluster struct {
+	cc      config.Config
+	factory db.ShareDaoFactory
 }
 
-func (c *Config) Valid() error {
-
+func (c *cluster) Create(ctx context.Context) error {
 	return nil
+}
+
+func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
+	return &cluster{
+		cc:      cfg,
+		factory: f,
+	}
 }

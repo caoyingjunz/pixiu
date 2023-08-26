@@ -14,4 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package controller
+
+import (
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+)
+
+type PixiuInterface interface {
+	cluster.ClusterGetter
+}
+
+type pixiu struct {
+	cc      config.Config
+	factory db.ShareDaoFactory
+}
+
+func (p *pixiu) Cluster() cluster.Interface {
+	return cluster.NewCluster(p.cc, p.factory)
+}
+
+func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
+	return &pixiu{
+		cc:      cfg,
+		factory: f,
+	}
+}
