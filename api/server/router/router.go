@@ -22,14 +22,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
-	"github.com/caoyingjunz/pixiu/api/server/router/audit"
-	"github.com/caoyingjunz/pixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/pixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
-	"github.com/caoyingjunz/pixiu/api/server/router/menu"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
-	"github.com/caoyingjunz/pixiu/api/server/router/role"
-	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
@@ -37,10 +32,7 @@ type RegisterFunc func(*gin.Engine)
 
 func InstallRouters(opt *options.Options) {
 	fs := []RegisterFunc{
-		middleware.InstallMiddlewares, user.NewRouter, role.NewRouter, menu.NewRouter, audit.NewRouter, cloud.NewRouter, proxy.NewRouter, helm.NewRouter,
-	}
-	if opt.ComponentConfig.Cicd.Enable {
-		fs = append(fs, cicd.NewRouter)
+		middleware.InstallMiddlewares, cloud.NewRouter, proxy.NewRouter, helm.NewRouter,
 	}
 
 	install(opt.GinEngine, fs...)

@@ -37,5 +37,5 @@ func InstallMiddlewares(ginEngine *gin.Engine) {
 		ginEngine.Use(Authentication(), Authorization())
 	}
 
-	ginEngine.Use(Admission(), Audit())
+	ginEngine.Use(Admission())
 }

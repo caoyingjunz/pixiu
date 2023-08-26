@@ -89,9 +89,6 @@ func runBootstrap(ctx context.Context, stopCh chan struct{}) {
 		klog.Fatal("failed to load cloud driver: ", err)
 	}
 	pixiu.CoreV1.Cloud().SyncStatus(ctx, stopCh)
-
-	// 启动审计事件的清理任务
-	pixiu.CoreV1.Audit().Run(stopCh)
 }
 
 // 优雅启动貔貅服务

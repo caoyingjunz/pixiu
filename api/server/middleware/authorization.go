@@ -17,44 +17,11 @@ limitations under the License.
 package middleware
 
 import (
-	"net/http"
-	"strconv"
-
 	"github.com/gin-gonic/gin"
-
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/errors"
-	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
-// Authorization 使用 rbac 授权策略
 // TODO: 后续优化
 func Authorization() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		path := c.Request.URL.Path
-		if AlwaysAllowPath.Has(path) {
-			return
-		}
-
-		// 用户 ID
-		uid, exist := c.Get("userId")
-		if !exist {
-			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, errors.NoPermission)
-			return
-		}
-		enforcer := pixiu.CoreV1.Policy().GetEnforce()
-		if enforcer == nil {
-			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, errors.InnerError)
-			return
-		}
-
-		ok, err := enforcer.Enforce(strconv.FormatInt(uid.(int64), 10), path, c.Request.Method)
-		if err != nil {
-			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, errors.InnerError)
-			return
-		}
-		if !ok {
-			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, errors.NoPermission)
-		}
 	}
 }

@@ -18,36 +18,15 @@ package middleware
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/pixiu"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 // Authentication 身份认证
 func Authentication() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if AlwaysAllowPath.Has(c.Request.URL.Path) {
-			return
-		}
 
-		token, err := extractToken(c, c.Request.URL.Path == types.WebShellURL)
-		if err != nil {
-			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
-			return
-		}
-		claims, err := httputils.ParseToken(token, pixiu.CoreV1.User().GetJWTKey())
-		if err != nil {
-			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
-			return
-		}
-
-		c.Set(types.UserId, claims.Id)     // 保存用户id
-		c.Set(types.UserName, claims.Name) // 保存用户名
 	}
 }
 
