@@ -9,7 +9,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/types"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 // MenuInterface 菜单操作接口
@@ -61,7 +60,6 @@ func (m *menu) Delete(c context.Context, mId int64) error {
 
 	if err := tx.Error; err != nil {
 		tx.Rollback()
-		log.Logger.Errorf(err.Error())
 		return err
 	}
 

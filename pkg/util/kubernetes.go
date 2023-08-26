@@ -24,10 +24,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/cache"
 	"github.com/caoyingjunz/pixiu/pkg/db"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
 	"github.com/caoyingjunz/pixiu/pkg/util/intstr"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
@@ -69,7 +69,7 @@ func NewHelmClient(namespace string, kubeConfig *rest.Config) (helmclient.Client
 			Debug:     true,
 			Linting:   false,
 			DebugLog: func(format string, v ...interface{}) {
-				log.Logger.Infof(format, v)
+				klog.Infof(format, v)
 			},
 		},
 		RestConfig: kubeConfig,

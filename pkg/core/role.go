@@ -18,11 +18,11 @@ package core
 
 import (
 	"context"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/types"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 type RoleGetter interface {
@@ -65,7 +65,7 @@ func (r *role) Create(c context.Context, obj *types.RoleReq) (role *model.Role, 
 		Sequence: obj.Sequence,
 		Status:   obj.Status,
 	}); err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -73,7 +73,7 @@ func (r *role) Create(c context.Context, obj *types.RoleReq) (role *model.Role, 
 
 func (r *role) Update(c context.Context, role *types.UpdateRoleReq, rid int64) error {
 	if err := r.factory.Role().Update(c, role, rid); err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 	return nil
@@ -83,14 +83,14 @@ func (r *role) Delete(c context.Context, rId int64) error {
 	// 1.先清除rule
 	err := r.factory.Authentication().DeleteRole(c, rId)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 
 	// 2.删除user_role
 	err = r.factory.Role().Delete(c, rId)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 	return nil
@@ -98,7 +98,7 @@ func (r *role) Delete(c context.Context, rId int64) error {
 
 func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error) {
 	if roles, err = r.factory.Role().Get(c, rid); err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -106,7 +106,7 @@ func (r *role) Get(c context.Context, rid int64) (roles *[]model.Role, err error
 
 func (r *role) List(c context.Context, page, limit int) (res *model.PageRole, err error) {
 	if res, err = r.factory.Role().List(c, page, limit); err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -115,7 +115,7 @@ func (r *role) List(c context.Context, page, limit int) (res *model.PageRole, er
 func (r *role) GetMenusByRoleID(c context.Context, rid int64) (*[]model.Menu, error) {
 	menus, err := r.factory.Role().GetMenusByRoleID(c, rid)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return menus, err
 	}
 	return menus, err
@@ -126,25 +126,25 @@ func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 	// 查询menus信息
 	menus, err := r.factory.Menu().GetByIds(ctx, menuIds)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 
 	// 添加rule规则
 	ok, err := r.factory.Authentication().SetRolePermission(ctx, roleId, menus)
 	if !ok || err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 
 	// 配置role_menus, 如果操作失败，则将rule表中规则清除
 	if err = r.factory.Role().SetRole(ctx, roleId, menuIds); err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		//清除rule表中规则
 		for _, menu := range *menus {
 			err := r.factory.Authentication().DeleteRolePermissionWithRole(ctx, roleId, menu.URL, menu.Method)
 			if err != nil {
-				log.Logger.Error(err)
+				klog.Error(err)
 				break
 			}
 		}
@@ -157,7 +157,7 @@ func (r *role) SetRole(ctx context.Context, roleId int64, menuIds []int64) error
 func (r *role) GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]int64, err error) {
 	roleIds, err = r.factory.Role().GetRolesByMenuID(ctx, menuId)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -166,7 +166,7 @@ func (r *role) GetRolesByMenuID(ctx context.Context, menuId int64) (roleIds *[]i
 func (r *role) GetRoleByRoleName(ctx context.Context, roleName string) (role *model.Role, err error) {
 	role, err = r.factory.Role().GetRoleByRoleName(ctx, roleName)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -180,7 +180,7 @@ func (r *role) UpdateStatus(c context.Context, roleId, status int64) error {
 func (r *role) CheckRoleIsExist(ctx context.Context, name string) bool {
 	_, err := r.factory.Role().GetRoleByRoleName(ctx, name)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return false
 	}
 

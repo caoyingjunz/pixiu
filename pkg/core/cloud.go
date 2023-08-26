@@ -31,7 +31,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/cache"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 	pixiutypes "github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
@@ -107,7 +106,6 @@ func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
 	// 直接对 kubeConfig 内容进行加密
 	encryptData, err := cipher.Encrypt(obj.RawData)
 	if err != nil {
-		log.Logger.Errorf("failed to encrypt kubeConfig: %v", err)
 		return err
 	}
 
@@ -118,7 +116,6 @@ func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
 		Status:    pixiutypes.RunningStatus,
 	})
 	if err != nil {
-		log.Logger.Errorf("failed to create %s cloud: %v", obj.Name, err)
 		return err
 	}
 	// kubeConfig 数据落盘
@@ -129,7 +126,6 @@ func (c *cloud) Load(ctx context.Context, obj *types.LoadCloud) error {
 		CloudId:        cloudObj.Id,
 		Config:         encryptData,
 	}); err != nil {
-		log.Logger.Errorf("failed to save kubeConfig: %v", err)
 		_, _ = c.factory.Cloud().Delete(ctx, cloudObj.Id)
 		return err
 	}
@@ -145,7 +141,6 @@ func (c *cloud) preBuild(ctx context.Context, obj *types.BuildCloud) error {
 // Build 构造 Cloud
 func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 	if err := c.preBuild(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for %s build: %v", obj.Name, err)
 		return err
 	}
 
@@ -159,21 +154,18 @@ func (c *cloud) Build(ctx context.Context, obj *types.BuildCloud) error {
 		Description: obj.Description,
 	})
 	if err != nil {
-		log.Logger.Errorf("failed to create cloud %s: %v", obj.AliasName, err)
 		return err
 	}
 	cid := cloudObj.Id
 
 	// step2: 创建 k8s cluster
 	if err = c.buildCluster(ctx, cid, obj.Kubernetes); err != nil {
-		log.Logger.Errorf("failed to build %s cloud cluster: %v", obj.AliasName, err)
 		_ = c.forceDelete(ctx, cid)
 		return err
 	}
 
 	// step3: 创建 nodes
 	if err = c.buildNodes(ctx, cid, obj.Kubernetes); err != nil {
-		log.Logger.Errorf("failed to build %s cloud nodes: %v", obj.AliasName, err)
 		_ = c.forceDelete(ctx, cid)
 		return err
 	}
@@ -196,7 +188,6 @@ func (c *cloud) buildCluster(ctx context.Context, cid int64, kubeObj *types.Kube
 		PodCidr:     kubeObj.PodCidr,
 		ProxyMode:   kubeObj.ProxyMode,
 	}); err != nil {
-		log.Logger.Errorf("failed to create cluster: %v", err)
 		return err
 	}
 
@@ -228,7 +219,6 @@ func (c *cloud) buildNodes(ctx context.Context, cid int64, kubeObj *types.Kubern
 		})
 	}
 	if err := c.factory.Cloud().CreateNodes(ctx, kubeNodes); err != nil {
-		log.Logger.Errorf("failed to create %d nodes: %v", cid, err)
 		return err
 	}
 
@@ -248,13 +238,11 @@ func (c *cloud) Update(ctx context.Context, obj *types.Cloud) error { return nil
 func (c *cloud) Delete(ctx context.Context, cid int64) error {
 	// 删除 kubeConfig
 	if err := c.factory.KubeConfig().DeleteByCloud(ctx, cid); err != nil {
-		log.Logger.Errorf("failed to delete %d kubeConfig content: %v", cid, err)
 		return err
 	}
 	// 删除集群记录
 	obj, err := c.factory.Cloud().Delete(ctx, cid)
 	if err != nil {
-		log.Logger.Errorf("failed to delete %s cloud: %v", cid, err)
 		return err
 	}
 
@@ -283,7 +271,6 @@ func (c *cloud) internalDelete(ctx context.Context, cid int64) error {
 func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 	cloudObj, err := c.factory.Cloud().Get(ctx, cid)
 	if err != nil {
-		log.Logger.Errorf("failed to get %d cloud: %v", cid, err)
 		return nil, err
 	}
 
@@ -294,7 +281,6 @@ func (c *cloud) Get(ctx context.Context, cid int64) (*types.Cloud, error) {
 func (c *cloud) List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error) {
 	cloudObjs, total, err := c.factory.Cloud().PageList(ctx, selector.Page, selector.Limit)
 	if err != nil {
-		log.Logger.Errorf("failed to list page %d size %d clouds: %v", selector.Page, selector.Limit, err)
 		return nil, err
 	}
 
@@ -313,7 +299,7 @@ func (c *cloud) Ping(ctx context.Context, kubeConfigData []byte) error {
 	// 先构造 clientSet，如果有异常，直接返回
 	clientSet, err := util.NewClientSet(kubeConfigData)
 	if err != nil {
-		log.Logger.Errorf("failed to create clientSet: %v", err)
+		klog.Errorf("failed to create clientSet: %v", err)
 		return err
 	}
 	if _, err = clientSet.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{}); err != nil {
@@ -344,7 +330,6 @@ func (c *cloud) Restore(ctx context.Context) error {
 		// 通过循环多次查询虽然增加了数据库查询次数，但是 cloud 本身数量可控，不会太多，且无需构造 map 对比，代码简洁
 		configBytes, err := util.ParseKubeConfigData(context.TODO(), c.factory, intstr.FromInt64(cloudObj.Id))
 		if err != nil {
-			log.Logger.Errorf("failed to parse %d cloud kubeConfig: %v", name, err)
 			return err
 		}
 
@@ -365,7 +350,7 @@ func (c *cloud) process(ctx context.Context) error {
 	// 获取数据库中全部 Cloud
 	clouds, err := c.factory.Cloud().List(ctx)
 	if err != nil {
-		log.Logger.Errorf("failed to get exists clouds: %v", err)
+		klog.Errorf("failed to get exists clouds: %v", err)
 		return err
 	}
 

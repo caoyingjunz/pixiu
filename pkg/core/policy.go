@@ -18,12 +18,12 @@ package core
 
 import (
 	"context"
+	"k8s.io/klog/v2"
 
 	"github.com/casbin/casbin/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 type PolicyGetter interface {
@@ -59,7 +59,7 @@ func (c *policy) GetEnforce() *casbin.Enforcer {
 func (c *policy) AddRoleForUser(ctx context.Context, userid int64, roleIds []int64) (err error) {
 	err = c.factory.Authentication().AddRoleForUser(ctx, userid, roleIds)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -69,7 +69,7 @@ func (c *policy) AddRoleForUser(ctx context.Context, userid int64, roleIds []int
 func (c *policy) SetRolePermission(ctx context.Context, roleId int64, menus *[]model.Menu) (bool, error) {
 	ok, err := c.factory.Authentication().SetRolePermission(ctx, roleId, menus)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return ok, err
 	}
 	return ok, err
@@ -79,7 +79,7 @@ func (c *policy) SetRolePermission(ctx context.Context, roleId int64, menus *[]m
 func (c *policy) DeleteRole(ctx context.Context, roleId int64) error {
 	err := c.factory.Authentication().DeleteRole(ctx, roleId)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 	return err
@@ -89,7 +89,7 @@ func (c *policy) DeleteRole(ctx context.Context, roleId int64) error {
 func (c *policy) DeleteRolePermission(ctx context.Context, resource ...string) error {
 	err := c.factory.Authentication().DeleteRolePermission(ctx, resource...)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 	return err
