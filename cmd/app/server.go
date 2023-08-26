@@ -30,7 +30,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/router"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
-	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
 func NewServerCommand() *cobra.Command {
@@ -71,36 +70,17 @@ func NewServerCommand() *cobra.Command {
 	return cmd
 }
 
+// Run 优雅启动貔貅服务
 func Run(opt *options.Options) error {
-	// 设置核心应用接口
-	pixiu.Setup(opt)
-
-	// 初始化 APIs 路由
-	router.InstallRouters(opt)
-
-	// 启动优雅服务
-	runServer(opt)
-	return nil
-}
-
-func runBootstrap(ctx context.Context, stopCh chan struct{}) {
-	// 加载已经存在 cloud 客户端
-	if err := pixiu.CoreV1.Cloud().Restore(ctx); err != nil {
-		klog.Fatal("failed to load cloud driver: ", err)
-	}
-	pixiu.CoreV1.Cloud().SyncStatus(ctx, stopCh)
-}
-
-// 优雅启动貔貅服务
-func runServer(opt *options.Options) {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
-		Handler: opt.GinEngine,
+		Handler: opt.HttpEngine,
 	}
 	stopCh := make(chan struct{})
 
-	// 启动初始化任务
-	runBootstrap(context.TODO(), stopCh)
+	// 安装 http 路由
+	router.InstallRouters(opt)
+
 	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
 	go func() {
 		klog.Infof("starting pixiu server")
@@ -124,4 +104,6 @@ func runServer(opt *options.Options) {
 		klog.Fatal("pixiu server forced to shutdown: ", err)
 	}
 	klog.Infof("pixiu server exit successful")
+
+	return nil
 }

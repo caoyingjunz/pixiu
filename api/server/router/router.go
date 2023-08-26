@@ -28,21 +28,21 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
-type RegisterFunc func(*gin.Engine)
+type RegisterFunc func(o *options.Options)
 
-func InstallRouters(opt *options.Options) {
+func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
 		middleware.InstallMiddlewares, cloud.NewRouter, proxy.NewRouter, helm.NewRouter,
 	}
 
-	install(opt.GinEngine, fs...)
+	install(o, fs...)
 
 	// 启动检查检查
-	opt.GinEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 }
 
-func install(engine *gin.Engine, fs ...RegisterFunc) {
+func install(o *options.Options, fs ...RegisterFunc) {
 	for _, f := range fs {
-		f(engine)
+		f(o)
 	}
 }

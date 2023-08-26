@@ -14,16 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pixiu
+package cluster
 
 import (
-	"github.com/caoyingjunz/pixiu/cmd/app/options"
-	"github.com/caoyingjunz/pixiu/pkg/core"
+	"context"
+
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
-var CoreV1 core.CoreV1Interface
+type ClusterGetter interface {
+	Cluster() Interface
+}
 
-// Setup 完成核心应用接口的设置
-func Setup(o *options.Options) {
-	CoreV1 = core.New(o.ComponentConfig, o.Factory)
+type Interface interface {
+	Create(ctx context.Context) error
+}
+
+type cluster struct {
+	cc      config.Config
+	factory db.ShareDaoFactory
+}
+
+func (c *cluster) Create(ctx context.Context) error {
+	return nil
+}
+
+func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
+	return &cluster{
+		cc:      cfg,
+		factory: f,
+	}
 }
