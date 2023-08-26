@@ -16,59 +16,31 @@ limitations under the License.
 
 package types
 
-import (
-	"encoding/json"
-)
+import "time"
 
-// Role kubernetes 角色定义
-type Role string
-
-var (
-	MasterRole Role = "master"
-	NodeRole   Role = "node"
-)
-
-// ResourceType 貔貅的资源类型
-type ResourceType string
-
-var (
-	CloudResource ResourceType = "cloud"
-)
-
-// EventType 审计事件类型
-type EventType string
-
-var (
-	CreateEvent EventType = "新建"
-	UpdateEvent EventType = "更新"
-	DeleteEvent EventType = "删除"
-	GetEvent    EventType = "查询"
-)
-
-type Event struct {
-	User     string       `json:"user"`      // 用户名称
-	ClientIP string       `json:"client_ip"` // 登陆 ip 地址
-	Operator EventType    `json:"operator"`  // 操作类型，新增，更新，删除
-	Object   ResourceType `json:"object"`    // 资源类型，比如 cloud，user，kubernetes
-	Message  string       `json:"message"`
+type PixiuMeta struct {
+	// pixiu 对象 ID
+	Id int64 `json:"id"`
+	// Pixiu 对象版本号
+	ResourceVersion int64 `json:"resource_version"`
 }
 
-type CloudSubResources struct {
-	Cpu    int64  `json:"cpu"`
-	Memory string `json:"memory"`
-	Pods   int64  `json:"pods"`
+type TimeMeta struct {
+	// pixiu 对象创建时间
+	GmtCreate time.Time `json:"gmt_create"`
+	// pixiu 对象修改时间
+	GmtModified time.Time `json:"gmt_modified"`
 }
 
-func (csr *CloudSubResources) Marshal() (string, error) {
-	data, err := json.Marshal(csr)
-	if err != nil {
-		return "", err
-	}
+type Cluster struct {
+	PixiuMeta `json:",inline"`
 
-	return string(data), nil
-}
+	Name      string `json:"name"`
+	AliasName string `json:"alias_name"`
+	// k8s kubeConfig base64 字段
+	KubeConfig string `json:"kube_config"`
+	// 集群用途描述，可以为空
+	Description string `json:"description"`
 
-func (csr *CloudSubResources) Unmarshal(data string) error {
-	err := json.Unmarshal([]byte(data), csr)
-	return err
+	TimeMeta `json:",inline"`
 }

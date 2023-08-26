@@ -17,8 +17,29 @@ limitations under the License.
 package model
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/pixiu"
+	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 )
+
+// Cluster kubernetes 集群信息
+type Cluster struct {
+	pixiu.Model
+
+	// 集群名称，全局唯一
+	Name string `gorm:"index:idx_name,unique" json:"name"`
+	// 集群别名，可以重复，允许为中文
+	AliasName string `json:"alias_name"`
+	// k8s kubeConfig base64 字段
+	KubeConfig string `json:"kube_config"`
+
+	// 集群用途描述，可以为空
+	Description string `gorm:"type:text" json:"description"`
+	// 预留，扩展字段
+	Extension string `gorm:"type:text" json:"extension"`
+}
+
+func (*Cluster) TableName() string {
+	return "clusters"
+}
 
 type Cloud struct {
 	pixiu.Model
@@ -36,24 +57,6 @@ type Cloud struct {
 
 func (*Cloud) TableName() string {
 	return "clouds"
-}
-
-// Cluster k8s 集群的部署信息
-type Cluster struct {
-	pixiu.Model
-
-	CloudId     int64  `gorm:"index:idx_cloud,unique" json:"cloud_id"`
-	ApiServer   string `json:"api_server"` // kubernetes 的 apiServer 的 ip 地址
-	Version     string `json:"version"`    // k8s 的版本
-	Runtime     string `json:"runtime"`    // 容器运行时，目前支持 docker 和 containerd
-	Cni         string `json:"cni"`        // 网络 cni，支持 flannel 和 calico
-	ServiceCidr string `json:"service_cidr"`
-	PodCidr     string `json:"pod_cidr"`
-	ProxyMode   string `json:"proxy_mode"` // kubeProxy 的模式，只能是 iptables 和 ipvs
-}
-
-func (*Cluster) TableName() string {
-	return "clusters"
 }
 
 type Node struct {
