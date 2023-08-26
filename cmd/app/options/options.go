@@ -28,7 +28,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
-	"github.com/caoyingjunz/pixiu/pkg/db/user"
 )
 
 const (
@@ -122,12 +121,6 @@ func (o *Options) registerDatabase() error {
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 
 	o.Factory = db.NewDaoFactory(o.DB)
-
-	// TODO：优化
-	// 注册 policy
-	if err = user.InitPolicyEnforcer(o.DB); err != nil {
-		return err
-	}
 
 	return nil
 }

@@ -23,17 +23,12 @@ import (
 
 type CoreV1Interface interface {
 	CloudGetter
-	UserGetter
 	HelmGetter
 }
 
 type pixiu struct {
 	cfg     config.Config
 	factory db.ShareDaoFactory
-}
-
-func (pixiu *pixiu) User() UserInterface {
-	return newUser(pixiu)
 }
 
 func (pixiu *pixiu) Cloud() CloudInterface {
