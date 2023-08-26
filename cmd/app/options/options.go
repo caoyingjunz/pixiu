@@ -43,11 +43,9 @@ const (
 type Options struct {
 	// The default values.
 	ComponentConfig config.Config
-	// http engine
-	HttpEngine *gin.Engine
+	HttpEngine      *gin.Engine
 	// 数据库接口
 	Factory db.ShareDaoFactory
-
 	// 貔貅主控制接口
 	Controller controller.PixiuInterface
 

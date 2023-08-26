@@ -23,16 +23,16 @@ import (
 )
 
 type ShareDaoFactory interface {
-	Cloud() cloud.Interface
-	KubeConfig() cloud.Interface
+	Cloud() cloud.CloudInterface
+	KubeConfig() cloud.KubeConfigInterface
 }
 
 type shareDaoFactory struct {
 	db *gorm.DB
 }
 
-func (f *shareDaoFactory) Cloud() cloud.Interface      { return cloud.NewCloud(f.db) }
-func (f *shareDaoFactory) KubeConfig() cloud.Interface { return cloud.NewKubeConfig(f.db) }
+func (f *shareDaoFactory) Cloud() cloud.CloudInterface           { return cloud.NewCloud(f.db) }
+func (f *shareDaoFactory) KubeConfig() cloud.KubeConfigInterface { return cloud.NewKubeConfig(f.db) }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {
 	return &shareDaoFactory{

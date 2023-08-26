@@ -19,7 +19,6 @@ package util
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 
 	helmclient "github.com/mittwald/go-helm-client"
 	"k8s.io/client-go/kubernetes"
