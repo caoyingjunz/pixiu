@@ -19,6 +19,8 @@ package errors
 import (
 	"errors"
 	"gorm.io/gorm"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 var (
@@ -47,4 +49,14 @@ func IsNotFound(err error) bool {
 
 func IsNotUpdated(err error) bool {
 	return errors.Is(err, ErrRecordNotUpdate)
+}
+
+func IsUniqueConstraintError(err error) bool {
+	mysqlErr, ok := err.(*mysql.MySQLError)
+	if !ok {
+		return false
+	}
+
+	// 数据库的 1062 错误码为固定的主键冲突号
+	return mysqlErr.Number == 1062
 }

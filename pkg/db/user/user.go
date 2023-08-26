@@ -24,7 +24,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	dberrors "github.com/caoyingjunz/pixiu/pkg/errors"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 type UserInterface interface {
@@ -149,19 +148,16 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 	tx := u.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Logger.Errorf(err.(error).Error())
 			tx.Rollback()
 		}
 	}()
 
 	if err := tx.Error; err != nil {
-		log.Logger.Errorf(err.Error())
 		tx.Rollback()
 		return err
 	}
 
 	if err := tx.Where(&model.UserRole{UserID: uid}).Delete(&model.UserRole{}).Error; err != nil {
-		log.Logger.Errorf(err.Error())
 		tx.Rollback()
 		return err
 	}
@@ -171,7 +167,6 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 			rm.RoleID = rid
 			rm.UserID = uid
 			if err := tx.Create(rm).Error; err != nil {
-				log.Logger.Errorf(err.Error())
 				tx.Rollback()
 				return err
 			}
@@ -194,7 +189,6 @@ func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (roles *[]model.R
 		Order("sequence desc").
 		Scan(&roles).Error
 	if err != nil {
-		log.Logger.Errorf(err.Error())
 		return nil, err
 	}
 
@@ -237,7 +231,6 @@ func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (*[]model.Me
 		Scan(&menus).Error
 
 	if err != nil {
-		log.Logger.Error(err)
 		return nil, err
 	}
 	if len(menus) == 0 {

@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app"
 )
@@ -38,6 +39,7 @@ import (
 // @host localhost:8090
 
 func main() {
+	klog.InitFlags(nil)
 	gin.SetMode(gin.ReleaseMode)
 
 	cmd := app.NewServerCommand()

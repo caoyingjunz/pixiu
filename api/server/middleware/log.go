@@ -20,8 +20,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/caoyingjunz/pixiu/pkg/log"
+	"k8s.io/klog/v2"
 )
 
 func LoggerToFile() gin.HandlerFunc {
@@ -40,6 +39,6 @@ func LoggerToFile() gin.HandlerFunc {
 		statusCode := c.Writer.Status()
 		clientIp := c.ClientIP()
 
-		log.AccessLog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
+		klog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
 	}
 }

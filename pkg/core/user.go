@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/errors"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 	typesv2 "github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -90,7 +90,7 @@ func (u *user) preCreate(ctx context.Context, obj *types.User) error {
 
 func (u *user) Create(ctx context.Context, obj *types.User) error {
 	if err := u.preCreate(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for created: %v", err)
+		klog.Errorf("failed to pre-check for created: %v", err)
 		return err
 	}
 
@@ -107,7 +107,7 @@ func (u *user) Create(ctx context.Context, obj *types.User) error {
 		Email:       obj.Email,
 		Description: obj.Description,
 	}); err != nil {
-		log.Logger.Errorf("failed to create user %s: %v", obj.Name, err)
+		klog.Errorf("failed to create user %s: %v", obj.Name, err)
 		return err
 	}
 
@@ -117,7 +117,7 @@ func (u *user) Create(ctx context.Context, obj *types.User) error {
 func (u *user) Update(ctx context.Context, obj *types.User) error {
 	oldUser, err := u.factory.User().Get(ctx, obj.Id)
 	if err != nil {
-		log.Logger.Errorf("failed to get user %d: %v", obj.Id)
+		klog.Errorf("failed to get user %d: %v", obj.Id)
 		return err
 	}
 
@@ -126,7 +126,7 @@ func (u *user) Update(ctx context.Context, obj *types.User) error {
 		return nil
 	}
 	if err = u.factory.User().Update(ctx, obj.Id, obj.ResourceVersion, updates); err != nil {
-		log.Logger.Errorf("failed to update user %d: %v", obj.Id, err)
+		klog.Errorf("failed to update user %d: %v", obj.Id, err)
 		return err
 	}
 
@@ -135,7 +135,7 @@ func (u *user) Update(ctx context.Context, obj *types.User) error {
 
 func (u *user) Delete(ctx context.Context, uid int64) error {
 	if err := u.factory.User().Delete(ctx, uid); err != nil {
-		log.Logger.Errorf("failed to delete user id %d: %v", uid, err)
+		klog.Errorf("failed to delete user id %d: %v", uid, err)
 		return err
 	}
 
@@ -145,7 +145,7 @@ func (u *user) Delete(ctx context.Context, uid int64) error {
 func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
 	modelUser, err := u.factory.User().Get(ctx, uid)
 	if err != nil {
-		log.Logger.Errorf("failed to get %d user: %v", uid, err)
+		klog.Errorf("failed to get %d user: %v", uid, err)
 		return nil, err
 	}
 
@@ -155,7 +155,7 @@ func (u *user) Get(ctx context.Context, uid int64) (*types.User, error) {
 func (u *user) List(ctx context.Context, selector *pixiumeta.ListSelector) (interface{}, error) {
 	userObjs, total, err := u.factory.User().List(ctx, selector.Page, selector.Limit)
 	if err != nil {
-		log.Logger.Errorf("failed to list page %d size %d usrs: %v", selector.Page, selector.Limit, err)
+		klog.Errorf("failed to list page %d size %d usrs: %v", selector.Page, selector.Limit, err)
 		return nil, err
 	}
 	var us []types.User
@@ -182,7 +182,7 @@ func (u *user) preLogin(ctx context.Context, obj *types.User) error {
 
 func (u *user) Login(ctx context.Context, obj *types.User) (string, error) {
 	if err := u.preLogin(ctx, obj); err != nil {
-		log.Logger.Errorf("failed to pre-check for login: %v", err)
+		klog.Errorf("failed to pre-check for login: %v", err)
 		return "", err
 	}
 
@@ -227,14 +227,14 @@ func (u *user) preChangePassword(ctx context.Context, uid int64, obj *types.Pass
 
 func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Password) error {
 	if err := u.preChangePassword(ctx, uid, obj); err != nil {
-		log.Logger.Errorf("failed to change password: %v", err)
+		klog.Errorf("failed to change password: %v", err)
 		return err
 	}
 
 	// 获取当前密码，检查原始密码是否正确
 	userObj, err := u.factory.User().Get(ctx, uid)
 	if err != nil {
-		log.Logger.Errorf("failed to get user by id %d: %v", uid, err)
+		klog.Errorf("failed to get user by id %d: %v", uid, err)
 		return err
 	}
 	// To ensure origin password is correct
@@ -245,12 +245,12 @@ func (u *user) ChangePassword(ctx context.Context, uid int64, obj *types.Passwor
 	// 密码加密存储
 	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(obj.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
+		klog.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err
 	}
 	// TODO: 未对 ResourceVersion 进行校验，修改密码是非高频操作，暂时不做校验
 	if err = u.factory.User().Update(ctx, uid, userObj.ResourceVersion, map[string]interface{}{"password": encryptedPassword}); err != nil {
-		log.Logger.Errorf("failed to change %d password %d: %v", uid, err)
+		klog.Errorf("failed to change %d password %d: %v", uid, err)
 		return err
 	}
 
@@ -261,7 +261,7 @@ func (u *user) ResetPassword(ctx context.Context, uid int64, loginId int64) erro
 	// 获取当前登陆用户
 	loginObj, err := u.factory.User().Get(ctx, loginId)
 	if err != nil {
-		log.Logger.Errorf("failed to get admin by id %d: %v", loginId, err)
+		klog.Errorf("failed to get admin by id %d: %v", loginId, err)
 		return err
 	}
 	// 管理员角色可以重置密码
@@ -272,11 +272,11 @@ func (u *user) ResetPassword(ctx context.Context, uid int64, loginId int64) erro
 	// 密码加密存储
 	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(typesv2.DefaultPassword), bcrypt.DefaultCost)
 	if err != nil {
-		log.Logger.Errorf("failed to encrypted %d password: %v", uid, err)
+		klog.Errorf("failed to encrypted %d password: %v", uid, err)
 		return err
 	}
 	if err = u.factory.User().UpdateInternal(ctx, uid, map[string]interface{}{"password": encryptedPassword}); err != nil {
-		log.Logger.Errorf("failed to reset %d password %d: %v", uid, err)
+		klog.Errorf("failed to reset %d password %d: %v", uid, err)
 		return err
 	}
 
@@ -327,7 +327,7 @@ func (u *user) parseUserUpdates(oldObj *model.User, newObj *types.User) map[stri
 func (u *user) GetRoleIDByUser(ctx context.Context, uid int64) (*[]model.Role, error) {
 	roleInfo, err := u.factory.User().GetRoleIDByUser(ctx, uid)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 	}
 	return roleInfo, err
 }
@@ -336,18 +336,18 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 	// 添加规则到rules表
 	err = u.factory.Authentication().AddRoleForUser(ctx, uid, rids)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 
 	// 配置role_users表
 	err = u.factory.User().SetUserRoles(ctx, uid, rids)
 	if err != nil { // 如果失败,则清除rules已添加的规则
-		log.Logger.Error(err)
+		klog.Error(err)
 		for _, roleId := range rids {
 			err = u.factory.Authentication().DeleteRoleWithUser(ctx, uid, roleId)
 			if err != nil {
-				log.Logger.Error(err)
+				klog.Error(err)
 				break
 			}
 		}
@@ -360,7 +360,7 @@ func (u *user) SetUserRoles(ctx context.Context, uid int64, rids []int64) (err e
 func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (*[]string, error) {
 	res, err := u.factory.User().GetButtonsByUserID(ctx, uid)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	var menus []string
@@ -374,7 +374,7 @@ func (u *user) GetButtonsByUserID(ctx context.Context, uid int64) (*[]string, er
 func (u *user) GetLeftMenusByUserID(ctx context.Context, uid int64) (menus *[]model.Menu, err error) {
 	menus, err = u.factory.User().GetLeftMenusByUserID(ctx, uid)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 	}
 	return
 }

@@ -19,10 +19,11 @@ package core
 import (
 	"context"
 
+	"k8s.io/klog/v2"
+
 	"github.com/caoyingjunz/pixiu/api/types"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/log"
 )
 
 type MenuGetter interface {
@@ -68,7 +69,7 @@ func (m *menu) Create(c context.Context, obj *types.MenusReq) (menu *model.Menu,
 		Method:   obj.Method,
 		Code:     obj.Code,
 	}); err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -77,7 +78,7 @@ func (m *menu) Create(c context.Context, obj *types.MenusReq) (menu *model.Menu,
 func (m *menu) Update(c context.Context, menu *types.UpdateMenusReq, mId int64) error {
 	err := m.factory.Menu().Update(c, menu, mId)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 	return nil
@@ -87,21 +88,21 @@ func (m *menu) Delete(c context.Context, mId int64) error {
 	menuInfo, err := m.factory.Menu().Get(c, mId)
 	// 如果报错或者未获取到menu信息则返回
 	if err != nil || menuInfo == nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 
 	// 清除rules
 	err = m.factory.Authentication().DeleteRolePermission(c, menuInfo.URL, menuInfo.Method)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 
 	// 清除menus
 	err = m.factory.Menu().Delete(c, mId)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return err
 	}
 
@@ -110,7 +111,7 @@ func (m *menu) Delete(c context.Context, mId int64) error {
 
 func (m *menu) Get(c context.Context, mId int64) (menu *model.Menu, err error) {
 	if menu, err = m.factory.Menu().Get(c, mId); err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	return
@@ -118,7 +119,7 @@ func (m *menu) Get(c context.Context, mId int64) (menu *model.Menu, err error) {
 
 func (m *menu) List(c context.Context, page, limit int, menuType []int8) (res *model.PageMenu, err error) {
 	if res, err = m.factory.Menu().List(c, page, limit, menuType); err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -127,7 +128,7 @@ func (m *menu) List(c context.Context, page, limit int, menuType []int8) (res *m
 func (m *menu) GetByIds(c context.Context, mIds []int64) (menus *[]model.Menu, err error) {
 	menus, err = m.factory.Menu().GetByIds(c, mIds)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return
 	}
 	return
@@ -141,7 +142,7 @@ func (m *menu) GetMenuByMenuNameUrl(c context.Context, url, method string) (menu
 func (m *menu) CheckMenusIsExist(c context.Context, menuId int64) bool {
 	_, err := m.factory.Menu().Get(c, menuId)
 	if err != nil {
-		log.Logger.Error(err)
+		klog.Error(err)
 		return false
 	}
 	return true
