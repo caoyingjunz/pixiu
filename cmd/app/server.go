@@ -70,7 +70,9 @@ func NewServerCommand() *cobra.Command {
 	return cmd
 }
 
+// Run 优雅启动貔貅服务
 func Run(opt *options.Options) error {
+<<<<<<< HEAD
 
 	// 初始化 APIs 路由
 	router.InstallRouters(opt)
@@ -82,12 +84,20 @@ func Run(opt *options.Options) error {
 
 // 优雅启动貔貅服务
 func runServer(opt *options.Options) {
+=======
+>>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
 		Handler: opt.HttpEngine,
 	}
 	stopCh := make(chan struct{})
 
+<<<<<<< HEAD
+=======
+	// 安装 http 路由
+	router.InstallRouters(opt)
+
+>>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
 	go func() {
 		klog.Infof("starting pixiu server")
@@ -111,4 +121,6 @@ func runServer(opt *options.Options) {
 		klog.Fatal("pixiu server forced to shutdown: ", err)
 	}
 	klog.Infof("pixiu server exit successful")
+
+	return nil
 }

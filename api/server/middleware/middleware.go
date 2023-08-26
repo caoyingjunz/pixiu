@@ -17,13 +17,23 @@ limitations under the License.
 package middleware
 
 import (
-	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
+<<<<<<< HEAD
+=======
+
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
+>>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 )
 
 var AlwaysAllowPath sets.String
 
+<<<<<<< HEAD
 func InstallMiddlewares(httpEngine *gin.Engine) {
 	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
 	httpEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter())
+=======
+func InstallMiddlewares(o *options.Options) {
+	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
+	o.HttpEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter())
+>>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 }

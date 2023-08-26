@@ -14,32 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package middleware
+package cluster
 
 import (
-	"time"
+	"context"
 
-	"k8s.io/klog/v2"
-
-	"github.com/gin-gonic/gin"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
-func LoggerToFile() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		startTime := time.Now()
+type ClusterGetter interface {
+	Cluster() Interface
+}
 
-		// 处理请求操作
-		c.Next()
+type Interface interface {
+	Create(ctx context.Context) error
+}
 
-		endTime := time.Now()
+type cluster struct {
+	cc      config.Config
+	factory db.ShareDaoFactory
+}
 
-		latencyTime := endTime.Sub(startTime)
+func (c *cluster) Create(ctx context.Context) error {
+	return nil
+}
 
-		reqMethod := c.Request.Method
-		reqUri := c.Request.RequestURI
-		statusCode := c.Writer.Status()
-		clientIp := c.ClientIP()
-
-		klog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
+func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
+	return &cluster{
+		cc:      cfg,
+		factory: f,
 	}
 }

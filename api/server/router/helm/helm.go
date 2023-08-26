@@ -17,14 +17,21 @@ limitations under the License.
 package helm
 
 import (
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
-type helmRouter struct{}
+type helmRouter struct {
+	c controller.PixiuInterface
+}
 
-func NewRouter(ginEngine *gin.Engine) {
-	router := &helmRouter{}
-	router.initRoutes(ginEngine)
+func NewRouter(o *options.Options) {
+	router := &helmRouter{
+		c: o.Controller,
+	}
+	router.initRoutes(o.HttpEngine)
 }
 
 func (h *helmRouter) initRoutes(ginEngine *gin.Engine) {

@@ -14,39 +14,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package core
+package controller
 
 import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
+	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
-type CoreV1Interface interface {
-	CloudGetter
-	UserGetter
-	HelmGetter
+type PixiuInterface interface {
+	cluster.ClusterGetter
+	helm.HelmGetter
 }
 
 type pixiu struct {
-	cfg     config.Config
+	cc      config.Config
 	factory db.ShareDaoFactory
 }
 
-func (pixiu *pixiu) User() UserInterface {
-	return newUser(pixiu)
+func (p *pixiu) Cluster() cluster.Interface {
+	return cluster.NewCluster(p.cc, p.factory)
 }
 
-func (pixiu *pixiu) Cloud() CloudInterface {
-	return newCloud(pixiu)
+func (p *pixiu) Helm() helm.Interface {
+	return helm.NewHelm(p.cc, p.factory)
 }
 
-func (pixiu *pixiu) Helm() HelmInterface {
-	return newHelm(pixiu)
-}
-
-func New(cfg config.Config, factory db.ShareDaoFactory) CoreV1Interface {
+func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{
-		cfg:     cfg,
-		factory: factory,
+		cc:      cfg,
+		factory: f,
 	}
 }

@@ -22,35 +22,34 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
-	"github.com/caoyingjunz/pixiu/api/server/router/audit"
-	"github.com/caoyingjunz/pixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/pixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
-	"github.com/caoyingjunz/pixiu/api/server/router/menu"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
-	"github.com/caoyingjunz/pixiu/api/server/router/role"
-	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
-type RegisterFunc func(*gin.Engine)
+type RegisterFunc func(o *options.Options)
 
-func InstallRouters(opt *options.Options) {
+func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
-		middleware.InstallMiddlewares, user.NewRouter, role.NewRouter, menu.NewRouter, audit.NewRouter, cloud.NewRouter, proxy.NewRouter, helm.NewRouter,
-	}
-	if opt.ComponentConfig.Cicd.Enable {
-		fs = append(fs, cicd.NewRouter)
+		middleware.InstallMiddlewares, cloud.NewRouter, proxy.NewRouter, helm.NewRouter,
 	}
 
+<<<<<<< HEAD
 	install(opt.HttpEngine, fs...)
 
 	// 启动检查检查
 	opt.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+=======
+	install(o, fs...)
+
+	// 启动检查检查
+	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+>>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 }
 
-func install(engine *gin.Engine, fs ...RegisterFunc) {
+func install(o *options.Options, fs ...RegisterFunc) {
 	for _, f := range fs {
-		f(engine)
+		f(o)
 	}
 }
