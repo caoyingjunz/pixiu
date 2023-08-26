@@ -35,17 +35,10 @@ func InstallRouters(o *options.Options) {
 		middleware.InstallMiddlewares, cloud.NewRouter, proxy.NewRouter, helm.NewRouter,
 	}
 
-<<<<<<< HEAD
-	install(opt.HttpEngine, fs...)
-
-	// 启动检查检查
-	opt.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
-=======
 	install(o, fs...)
 
 	// 启动检查检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
->>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 }
 
 func install(o *options.Options, fs ...RegisterFunc) {

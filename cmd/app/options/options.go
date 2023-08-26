@@ -43,19 +43,13 @@ const (
 type Options struct {
 	// The default values.
 	ComponentConfig config.Config
-<<<<<<< HEAD
 	// http engine
 	HttpEngine *gin.Engine
 	// 数据库接口
 	Factory db.ShareDaoFactory
-=======
-	HttpEngine      *gin.Engine
 
-	// 数据库接口
-	Factory db.ShareDaoFactory
 	// 貔貅主控制接口
 	Controller controller.PixiuInterface
->>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
@@ -87,13 +81,10 @@ func (o *Options) Complete() error {
 		return err
 	}
 
-<<<<<<< HEAD
-=======
 	if o.ComponentConfig.Default.Listen == 0 {
 		o.ComponentConfig.Default.Listen = defaultListen
 	}
 
->>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 	// 注册依赖组件
 	if err := o.register(); err != nil {
 		return err
@@ -109,19 +100,12 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 }
 
 func (o *Options) register() error {
-<<<<<<< HEAD
-	if err := o.registerDatabase(); err != nil { // 注册数据库
-		return err
-	}
-
-=======
 	// 注册数据库
 	if err := o.registerDatabase(); err != nil {
 		return err
 	}
 
 	// TODO: 注册其他依赖
->>>>>>> 9b81bdc42738ee1721f1f0336bbe081fc9ad7414
 	return nil
 }
 

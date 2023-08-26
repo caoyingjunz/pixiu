@@ -17,14 +17,28 @@ limitations under the License.
 package middleware
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
+	"time"
 
-	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/gin-gonic/gin"
+	"k8s.io/klog/v2"
 )
 
-var AlwaysAllowPath sets.String
+func LoggerToFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		startTime := time.Now()
 
-func InstallMiddlewares(o *options.Options) {
-	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
-	o.HttpEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter())
+		// 处理请求操作
+		c.Next()
+
+		endTime := time.Now()
+
+		latencyTime := endTime.Sub(startTime)
+
+		reqMethod := c.Request.Method
+		reqUri := c.Request.RequestURI
+		statusCode := c.Writer.Status()
+		clientIp := c.ClientIP()
+
+		klog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
+	}
 }
