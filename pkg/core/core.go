@@ -17,65 +17,36 @@ limitations under the License.
 package core
 
 import (
-	"github.com/bndr/gojenkins"
-
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
 type CoreV1Interface interface {
-	CicdGetter
 	CloudGetter
 	UserGetter
-	RoleGetter
-	MenuGetter
-	PolicyGetter
-	AuditGetter
 	HelmGetter
 }
 
 type pixiu struct {
-	cfg        config.Config
-	factory    db.ShareDaoFactory
-	cicdDriver *gojenkins.Jenkins
+	cfg     config.Config
+	factory db.ShareDaoFactory
 }
 
 func (pixiu *pixiu) User() UserInterface {
 	return newUser(pixiu)
 }
 
-func (pixiu *pixiu) Cicd() CicdInterface {
-	return newCicd(pixiu)
-}
-
 func (pixiu *pixiu) Cloud() CloudInterface {
 	return newCloud(pixiu)
-}
-
-func (pixiu *pixiu) Role() RoleInterface {
-	return newRole(pixiu)
-}
-
-func (pixiu *pixiu) Menu() MenuInterface {
-	return newMenu(pixiu)
-}
-
-func (pixiu *pixiu) Policy() PolicyInterface {
-	return newPolicy(pixiu)
-}
-
-func (pixiu *pixiu) Audit() AuditInterface {
-	return newAudit(pixiu)
 }
 
 func (pixiu *pixiu) Helm() HelmInterface {
 	return newHelm(pixiu)
 }
 
-func New(cfg config.Config, factory db.ShareDaoFactory, cicdDriver *gojenkins.Jenkins) CoreV1Interface {
+func New(cfg config.Config, factory db.ShareDaoFactory) CoreV1Interface {
 	return &pixiu{
-		cfg:        cfg,
-		factory:    factory,
-		cicdDriver: cicdDriver,
+		cfg:     cfg,
+		factory: factory,
 	}
 }

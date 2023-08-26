@@ -17,11 +17,9 @@ limitations under the License.
 package options
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	"github.com/bndr/gojenkins"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -31,7 +29,6 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/user"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
@@ -49,9 +46,6 @@ type Options struct {
 
 	DB      *gorm.DB
 	Factory db.ShareDaoFactory // 数据库接口
-
-	// CICD 的驱动接口
-	CicdDriver *gojenkins.Jenkins
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
@@ -98,10 +92,8 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 }
 
 func (o *Options) register() error {
-	if err := o.registerDatabase(); err != nil { // 注册数据库
-		return err
-	}
-	if err := o.registerCicdDriver(); err != nil { // 注册 CICD driver
+	// 注册数据库
+	if err := o.registerDatabase(); err != nil {
 		return err
 	}
 
@@ -140,23 +132,8 @@ func (o *Options) registerDatabase() error {
 	return nil
 }
 
-func (o *Options) registerCicdDriver() error {
-	jenkinsOption := o.ComponentConfig.Cicd.Jenkins
-	if o.ComponentConfig.Cicd.Enable {
-		switch o.ComponentConfig.Cicd.Driver {
-		case "", types.Jenkins:
-			o.CicdDriver = gojenkins.CreateJenkins(nil, jenkinsOption.Host, jenkinsOption.User, jenkinsOption.Password)
-			if _, err := o.CicdDriver.Init(context.TODO()); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 // Validate validates all the required options.
-// TODO
 func (o *Options) Validate() error {
+	// TODO
 	return nil
 }
