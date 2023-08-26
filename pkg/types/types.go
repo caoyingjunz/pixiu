@@ -32,7 +32,7 @@ type TimeMeta struct {
 	GmtModified time.Time `json:"gmt_modified"`
 }
 
-type ClusterMeta struct {
+type Cluster struct {
 	PixiuMeta `json:",inline"`
 
 	Name      string `json:"name"`
@@ -41,4 +41,6 @@ type ClusterMeta struct {
 	KubeConfig string `json:"kube_config"`
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
+
+	TimeMeta `json:",inline"`
 }

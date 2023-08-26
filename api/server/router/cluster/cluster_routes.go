@@ -17,12 +17,25 @@ limitations under the License.
 package cluster
 
 import (
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 func (cr *clusterRouter) createCluster(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var cluster types.Cluster
+	if err := c.ShouldBindJSON(&cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := cr.c.Cluster().Create(c, &cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 

@@ -18,6 +18,9 @@ package cluster
 
 import (
 	"context"
+	"fmt"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -28,7 +31,7 @@ type ClusterGetter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context) error
+	Create(ctx context.Context, clu *types.Cluster) error
 }
 
 type cluster struct {
@@ -36,7 +39,42 @@ type cluster struct {
 	factory db.ShareDaoFactory
 }
 
-func (c *cluster) Create(ctx context.Context) error {
+func (c *cluster) preCreate(ctx context.Context, clu *types.Cluster) error {
+	// TODO: 集群名称必须是由英文，数字组成
+	if len(clu.Name) == 0 {
+		return fmt.Errorf("创建 kubernetes 集群时，集群名称不允许为空")
+	}
+
+	if len(clu.KubeConfig) == 0 {
+		return fmt.Errorf("创建 kubernetes 集群时， kubeconfig 不允许为空")
+	}
+
+	// TODO: 创建前确保连通性
+	return nil
+}
+
+func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
+	if err := c.preCreate(ctx, clu); err != nil {
+		return err
+	}
+
+	// 执行创建
+	_, err := c.factory.Cluster().Create(ctx, &model.Cluster{
+		Name:        clu.Name,
+		AliasName:   clu.AliasName,
+		KubeConfig:  clu.KubeConfig,
+		Description: clu.Description,
+	})
+	if err != nil {
+		return err
+	}
+
+	// TODO: 暂时不做创建后动作
+	return nil
+}
+
+// TODO:
+func (c *cluster) postCreate(ctx context.Context, cid int64, clu *types.Cluster) error {
 	return nil
 }
 

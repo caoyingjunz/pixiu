@@ -16,6 +16,6 @@ limitations under the License.
 
 package types
 
-func (c *ClusterMeta) SetId(i int64) {
+func (c *Cluster) SetId(i int64) {
 	c.Id = i
 }
