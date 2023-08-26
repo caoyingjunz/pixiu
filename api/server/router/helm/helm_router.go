@@ -20,25 +20,23 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/api/types"
-	"github.com/caoyingjunz/pixiu/pkg/pixiu"
 )
 
 func (h *helmRouter) ListReleases(c *gin.Context) {
 	r := httputils.NewResponse()
-	var (
-		err         error
-		listOptions types.ListOptions
-	)
-
-	if err = c.ShouldBindUri(&listOptions); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if r.Result, err = pixiu.CoreV1.Helm().ListDeployedReleases(listOptions.CloudName, listOptions.Namespace); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	//var (
+	//	err         error
+	//	listOptions types.ListOptions
+	//)
+	//
+	//if err = c.ShouldBindUri(&listOptions); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	//if r.Result, err = pixiu.CoreV1.Helm().ListDeployedReleases(listOptions.CloudName, listOptions.Namespace); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
 
 	httputils.SetSuccess(c, r)
 }

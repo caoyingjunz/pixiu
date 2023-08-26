@@ -43,7 +43,7 @@ const (
 type Options struct {
 	// The default values.
 	ComponentConfig config.Config
-	GinEngine       *gin.Engine
+	HttpEngine      *gin.Engine
 
 	// 数据库接口
 	Factory db.ShareDaoFactory
@@ -56,7 +56,7 @@ type Options struct {
 
 func NewOptions() (*Options, error) {
 	return &Options{
-		GinEngine:  gin.Default(), // 初始化默认 api 路由
+		HttpEngine: gin.Default(), // 初始化默认 api 路由
 		ConfigFile: defaultConfigFile,
 	}, nil
 }

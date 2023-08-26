@@ -74,7 +74,7 @@ func NewServerCommand() *cobra.Command {
 func Run(opt *options.Options) error {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
-		Handler: opt.GinEngine,
+		Handler: opt.HttpEngine,
 	}
 	stopCh := make(chan struct{})
 

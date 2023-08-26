@@ -17,7 +17,6 @@ limitations under the License.
 package proxy
 
 import (
-	"fmt"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
@@ -25,22 +24,27 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/pixiu"
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
 const (
 	proxyBaseURL = "/proxy/pixiu"
 )
 
-type proxyRouter struct{}
+type proxyRouter struct {
+	c controller.PixiuInterface
+}
 
 type Cloud struct {
 	Name string `uri:"cloud_name" binding:"required"`
 }
 
-func NewRouter(ginEngine *gin.Engine) {
-	s := &proxyRouter{}
-	s.initRoutes(ginEngine)
+func NewRouter(o *options.Options) {
+	s := &proxyRouter{
+		c: o.Controller,
+	}
+	s.initRoutes(o.HttpEngine)
 }
 
 func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
@@ -60,11 +64,14 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	}
 	name := cloud.Name
 
-	config, exists := pixiu.CoreV1.Cloud().GetClusterConfig(c, name)
-	if !exists {
-		httputils.SetFailed(c, resp, fmt.Errorf("cluster %q not register", name))
-		return
-	}
+	// TODO: 临时注释
+	//config, exists := pixiu.CoreV1.Cloud().GetClusterConfig(c, name)
+	//if !exists {
+	//	httputils.SetFailed(c, resp, fmt.Errorf("cluster %q not register", name))
+	//	return
+	//}
+
+	var config *rest.Config
 	transport, err := rest.TransportFor(config)
 	if err != nil {
 		httputils.SetFailed(c, resp, err)

@@ -19,16 +19,10 @@ package cloud
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/gin-gonic/gin"
 
-	pixiumeta "github.com/caoyingjunz/pixiu/api/meta"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/api/types"
-	"github.com/caoyingjunz/pixiu/pkg/pixiu"
-	pixiutypes "github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util"
-	"github.com/caoyingjunz/pixiu/pkg/util/audit"
 )
 
 // 上传已存在的k8s集群，直接导入 kubeConfig 文件
@@ -64,12 +58,11 @@ func (s *cloudRouter) loadCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Load(c, &cloud); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	//if err = pixiu.CoreV1.Cloud().Load(c, &cloud); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
 
-	audit.SetAuditEvent(c, pixiutypes.CreateEvent, pixiutypes.CloudResource, "")
 	httputils.SetSuccess(c, r)
 }
 
@@ -93,10 +86,10 @@ func (s *cloudRouter) buildCloud(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = pixiu.CoreV1.Cloud().Build(c, &cloud); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	//if err = pixiu.CoreV1.Cloud().Build(c, &cloud); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
 
 	httputils.SetSuccess(c, r)
 }
@@ -113,15 +106,15 @@ func (s *cloudRouter) buildCloud(c *gin.Context) {
 // @Router       /clouds/{id} [delete]
 func (s *cloudRouter) deleteCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-	cid, err := util.ParseInt64(c.Param("id"))
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = pixiu.CoreV1.Cloud().Delete(c, cid); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	//cid, err := util.ParseInt64(c.Param("id"))
+	//if err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	//if err = pixiu.CoreV1.Cloud().Delete(c, cid); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
 
 	httputils.SetSuccess(c, r)
 }
@@ -138,16 +131,16 @@ func (s *cloudRouter) deleteCloud(c *gin.Context) {
 // @Router       /clouds/{id} [get]
 func (s *cloudRouter) getCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-	cid, err := util.ParseInt64(c.Param("id"))
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result, err = pixiu.CoreV1.Cloud().Get(c, cid)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	//cid, err := util.ParseInt64(c.Param("id"))
+	//if err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	//r.Result, err = pixiu.CoreV1.Cloud().Get(c, cid)
+	//if err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
 
 	httputils.SetSuccess(c, r)
 }
@@ -164,11 +157,11 @@ func (s *cloudRouter) getCloud(c *gin.Context) {
 // @Router       /clouds [get]
 func (s *cloudRouter) listClouds(c *gin.Context) {
 	r := httputils.NewResponse()
-	var err error
-	if r.Result, err = pixiu.CoreV1.Cloud().List(c, pixiumeta.ParseListSelector(c)); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	//var err error
+	//if r.Result, err = pixiu.CoreV1.Cloud().List(c, pixiumeta.ParseListSelector(c)); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
 
 	httputils.SetSuccess(c, r)
 }
@@ -185,15 +178,15 @@ func (s *cloudRouter) listClouds(c *gin.Context) {
 // @Router       /clouds/ping [post]
 func (s *cloudRouter) pingCloud(c *gin.Context) {
 	r := httputils.NewResponse()
-	data, err := httputils.ReadFile(c, "kubeconfig")
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = pixiu.CoreV1.Cloud().Ping(c, data); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	//data, err := httputils.ReadFile(c, "kubeconfig")
+	//if err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	//if err = pixiu.CoreV1.Cloud().Ping(c, data); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
 
 	httputils.SetSuccess(c, r)
 }
