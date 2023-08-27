@@ -18,23 +18,15 @@ package db
 
 import (
 	"gorm.io/gorm"
-
-	"github.com/caoyingjunz/pixiu/pkg/db/cloud"
 )
 
 type ShareDaoFactory interface {
 	Cluster() ClusterInterface
-	Cloud() cloud.CloudInterface
-	KubeConfig() cloud.KubeConfigInterface
 }
 
 type shareDaoFactory struct {
 	db *gorm.DB
 }
-
-// TODO： 即将废弃，代码逻辑重新实现
-func (f *shareDaoFactory) Cloud() cloud.CloudInterface           { return cloud.NewCloud(f.db) }
-func (f *shareDaoFactory) KubeConfig() cloud.KubeConfigInterface { return cloud.NewKubeConfig(f.db) }
 
 func (f *shareDaoFactory) Cluster() ClusterInterface {
 	return newCluster(f.db)

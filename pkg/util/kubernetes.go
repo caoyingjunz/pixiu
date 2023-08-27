@@ -17,9 +17,6 @@ limitations under the License.
 package util
 
 import (
-	"context"
-	"fmt"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -27,9 +24,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/cache"
-	"github.com/caoyingjunz/pixiu/pkg/db"
-	"github.com/caoyingjunz/pixiu/pkg/util/cipher"
-	"github.com/caoyingjunz/pixiu/pkg/util/intstr"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
@@ -76,29 +70,4 @@ func NewHelmClient(namespace string, kubeConfig *rest.Config) (helmclient.Client
 	}
 
 	return helmclient.NewClientFromRestConf(opt)
-}
-
-// ParseKubeConfigData 获取 kube config 解密之后的内容
-func ParseKubeConfigData(ctx context.Context, factory db.ShareDaoFactory, cloudIntStr intstr.IntOrString) ([]byte, error) {
-	var cloudId int64
-
-	switch cloudIntStr.Type {
-	case intstr.Int64:
-		cloudId = cloudIntStr.Int64()
-	case intstr.String:
-		cloudObj, err := factory.Cloud().GetByName(ctx, cloudIntStr.String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get cloud: %v", err)
-		}
-		cloudId = cloudObj.Id
-	default:
-		return nil, fmt.Errorf("failed to get cloud: %s", cloudIntStr.String())
-	}
-
-	kubeConfigData, err := factory.KubeConfig().GetByCloud(ctx, cloudId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %d cloud kubeConfig data: %v", cloudId, err)
-	}
-
-	return cipher.Decrypt(kubeConfigData.Config)
 }
