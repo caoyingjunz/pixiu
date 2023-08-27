@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"io"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +41,9 @@ import (
 
 func main() {
 	klog.InitFlags(nil)
+
 	gin.SetMode(gin.ReleaseMode)
+	gin.DefaultWriter = io.Discard
 
 	cmd := app.NewServerCommand()
 	if err := cmd.Execute(); err != nil {

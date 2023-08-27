@@ -28,7 +28,7 @@ type clusterRouter struct {
 	c controller.PixiuInterface
 }
 
-// NewRouter initializes a new cloud router
+// NewRouter initializes a new cluster router
 func NewRouter(o *options.Options) {
 	s := &clusterRouter{
 		c: o.Controller,
