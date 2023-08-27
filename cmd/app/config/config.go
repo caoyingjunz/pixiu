@@ -27,6 +27,10 @@ type DefaultOptions struct {
 }
 
 type MysqlOptions struct {
+	// 打印 sql 执行语句
+	EnableLog bool `yaml:"enable_log"`
+
+	// 数据库具体配置
 	Host     string `yaml:"host"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
@@ -35,6 +39,5 @@ type MysqlOptions struct {
 }
 
 func (c *Config) Valid() error {
-
 	return nil
 }

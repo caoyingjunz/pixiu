@@ -23,6 +23,10 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
+type IdMeta struct {
+	ClusterId int64 `uri:"clusterId" binding:"required"`
+}
+
 func (cr *clusterRouter) createCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -41,24 +45,81 @@ func (cr *clusterRouter) createCluster(c *gin.Context) {
 
 func (cr *clusterRouter) updateCluster(c *gin.Context) {
 	r := httputils.NewResponse()
+	var (
+		idMeta IdMeta
+		err    error
+	)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	var cluster types.Cluster
+	if err = c.ShouldBindJSON(&cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if err = cr.c.Cluster().Update(c, idMeta.ClusterId, &cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (cr *clusterRouter) deleteCluster(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		idMeta IdMeta
+		err    error
+	)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if err = cr.c.Cluster().Delete(c, idMeta.ClusterId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }
 
 func (cr *clusterRouter) getCluster(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		idMeta IdMeta
+		err    error
+	)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if r.Result, err = cr.c.Cluster().Get(c, idMeta.ClusterId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (cr *clusterRouter) listClusters(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = cr.c.Cluster().List(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
+// TODO:
 func (cr *clusterRouter) pingCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 	httputils.SetSuccess(c, r)
