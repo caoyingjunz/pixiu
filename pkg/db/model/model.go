@@ -41,24 +41,6 @@ func (*Cluster) TableName() string {
 	return "clusters"
 }
 
-type Cloud struct {
-	pixiu.Model
-
-	Name        string `gorm:"index:idx_name,unique" json:"name"` // 集群名，唯一
-	AliasName   string `json:"alias_name"`                        // 集群别名，支持中文
-	Status      int    `json:"status"`                            // 集群状态
-	CloudType   int    `json:"cloud_type"`                        // 集群类型，支持自建和标准
-	KubeVersion string `json:"kube_version"`                      // k8s 的版本
-	NodeNumber  int    `json:"node_number"`
-	Resources   string `json:"resources"`
-	Description string `gorm:"type:text" json:"description"`
-	Extension   string `gorm:"type:text" json:"extension"`
-}
-
-func (*Cloud) TableName() string {
-	return "clouds"
-}
-
 type Node struct {
 	pixiu.Model
 
