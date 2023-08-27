@@ -38,7 +38,7 @@ type Cluster struct {
 	Name      string `json:"name"`
 	AliasName string `json:"alias_name"`
 	// k8s kubeConfig base64 字段
-	KubeConfig string `json:"kube_config"`
+	KubeConfig string `json:"kube_config,omitempty"`
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
 

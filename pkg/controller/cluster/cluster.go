@@ -32,6 +32,10 @@ type ClusterGetter interface {
 
 type Interface interface {
 	Create(ctx context.Context, clu *types.Cluster) error
+	Update(ctx context.Context, cid int64, clu *types.Cluster) error
+	Delete(ctx context.Context, cid int64) error
+	Get(ctx context.Context, cid int64) (*types.Cluster, error)
+	List(ctx context.Context) ([]types.Cluster, error)
 }
 
 type cluster struct {
@@ -76,6 +80,63 @@ func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
 // TODO:
 func (c *cluster) postCreate(ctx context.Context, cid int64, clu *types.Cluster) error {
 	return nil
+}
+
+func (c *cluster) Update(ctx context.Context, cid int64, clu *types.Cluster) error {
+	return nil
+}
+
+// 删除前置检查
+func (c *cluster) preDelete(ctx context.Context, cid int64) error {
+	// TODO
+	return nil
+}
+
+func (c *cluster) Delete(ctx context.Context, cid int64) error {
+	if err := c.preDelete(ctx, cid); err != nil {
+		return err
+	}
+	// TODO: 其他场景补充
+	return c.factory.Cluster().Delete(ctx, cid)
+}
+
+func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
+	object, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+
+	return model2Type(object), nil
+}
+
+func model2Type(o *model.Cluster) *types.Cluster {
+	return &types.Cluster{
+		PixiuMeta: types.PixiuMeta{
+			Id:              o.Id,
+			ResourceVersion: o.ResourceVersion,
+		},
+		TimeMeta: types.TimeMeta{
+			GmtCreate:   o.GmtCreate,
+			GmtModified: o.GmtModified,
+		},
+		Name:        o.Name,
+		AliasName:   o.AliasName,
+		Description: o.Description,
+	}
+}
+
+func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
+	objects, err := c.factory.Cluster().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var cs []types.Cluster
+	for _, object := range objects {
+		cs = append(cs, *model2Type(&object))
+	}
+
+	return cs, nil
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
