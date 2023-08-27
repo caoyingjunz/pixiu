@@ -76,7 +76,6 @@ func Run(opt *options.Options) error {
 		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
 		Handler: opt.HttpEngine,
 	}
-	stopCh := make(chan struct{})
 
 	// 安装 http 路由
 	router.InstallRouters(opt)
@@ -94,7 +93,6 @@ func Run(opt *options.Options) error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	klog.Infof("shutting pixiu server down ...")
-	stopCh <- struct{}{}
 
 	// The context is used to inform the server it has 5 seconds to finish the request
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
