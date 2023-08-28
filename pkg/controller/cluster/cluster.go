@@ -113,7 +113,10 @@ func (c *cluster) postCreate(ctx context.Context, cid int64, clu *types.Cluster)
 }
 
 func (c *cluster) Update(ctx context.Context, cid int64, clu *types.Cluster) error {
-	return nil
+	return c.factory.Cluster().Update(ctx, cid, clu.ResourceVersion, map[string]interface{}{
+		"alias_name":  clu.AliasName,
+		"description": clu.Description,
+	})
 }
 
 // 删除前置检查
