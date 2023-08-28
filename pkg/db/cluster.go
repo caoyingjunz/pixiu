@@ -20,18 +20,19 @@ import (
 	"context"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"gorm.io/gorm"
 )
 
 type ClusterInterface interface {
 	Create(ctx context.Context, object *model.Cluster) (*model.Cluster, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, cid int64) error
+	Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)
 	List(ctx context.Context) ([]model.Cluster, error)
+
+	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
 }
 
 type cluster struct {
@@ -67,12 +68,20 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 	return nil
 }
 
-func (c *cluster) Delete(ctx context.Context, cid int64) error {
-	if err := c.db.Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
-		return err
+func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error) {
+	// 仅当数据库支持会写功能时才能正常
+	//if err := c.db.Clauses(clause.Returning{}).Where("id = ?", cid).Delete(&object).Error; err != nil {
+	//	return nil, err
+	//}
+	object, err := c.Get(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+	if err = c.db.Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
+		return nil, err
 	}
 
-	return nil
+	return object, nil
 }
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
@@ -91,6 +100,15 @@ func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
 	}
 
 	return cs, nil
+}
+
+func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {
+	var object model.Cluster
+	if err := c.db.Where("name = ?", name).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func newCluster(db *gorm.DB) ClusterInterface {

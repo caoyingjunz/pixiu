@@ -14,46 +14,57 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package client
 
 import (
+	"encoding/base64"
+
 	helmclient "github.com/mittwald/go-helm-client"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-
-	"github.com/caoyingjunz/pixiu/pkg/cache"
-	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
-func NewCloudSet(configBytes []byte) (*cache.Cluster, error) {
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
-	if err != nil {
-		return nil, err
-	}
-	clientSet, err := kubernetes.NewForConfig(kubeConfig)
+func ParseKubeConfigBytes(cfg string) ([]byte, error) {
+	kubeConfigBytes, err := base64.StdEncoding.DecodeString(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return &cache.Cluster{
-		ClientSet:  clientSet,
-		KubeConfig: kubeConfig,
-	}, nil
+	return kubeConfigBytes, err
 }
 
-func NewClientSet(data []byte) (*kubernetes.Clientset, error) {
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
+func NewClientSetFromBytes(data []byte) (*kubernetes.Clientset, error) {
+	config, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return kubernetes.NewForConfig(kubeConfig)
+	return kubernetes.NewForConfig(config)
 }
 
-func NewCloudName(prefix string) string {
-	return prefix + uuid.NewUUID()[:8]
+func NewClientSetFromString(cfg string) (*kubernetes.Clientset, error) {
+	kubeConfigBytes, err := ParseKubeConfigBytes(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewClientSetFromBytes(kubeConfigBytes)
+}
+
+func NewClusterSet(cfg string) (*ClusterSet, error) {
+	kubeConfigBytes, err := ParseKubeConfigBytes(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	cs := &ClusterSet{}
+	if err = cs.Complete(kubeConfigBytes); err != nil {
+		return nil, err
+	}
+
+	return cs, nil
 }
 
 func NewHelmClient(namespace string, kubeConfig *rest.Config) (helmclient.Client, error) {
