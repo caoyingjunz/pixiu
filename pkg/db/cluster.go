@@ -20,11 +20,9 @@ import (
 	"context"
 	"time"
 
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
-
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"gorm.io/gorm"
 )
 
 type ClusterInterface interface {
@@ -71,12 +69,19 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 }
 
 func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error) {
-	var object model.Cluster
-	if err := c.db.Clauses(clause.Returning{}).Where("id = ?", cid).Delete(&object).Error; err != nil {
+	// 仅当数据库支持会写功能时才能正常
+	//if err := c.db.Clauses(clause.Returning{}).Where("id = ?", cid).Delete(&object).Error; err != nil {
+	//	return nil, err
+	//}
+	object, err := c.Get(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+	if err = c.db.Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
 		return nil, err
 	}
 
-	return &object, nil
+	return object, nil
 }
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {

@@ -132,6 +132,9 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 		return err
 	}
 
+	// DEBUG
+	fmt.Println("object", object)
+
 	// 从缓存中移除 clusterSet
 	clusterIndexer.Delete(object.Name)
 	return nil
@@ -177,11 +180,13 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 }
 
 func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error) {
+	// 尝试从缓存中获取
 	kubeConfig, ok := clusterIndexer.GetConfig(name)
 	if ok {
 		return kubeConfig, nil
 	}
 
+	// 缓存中不存在，则新建并重写回缓存
 	object, err := c.factory.Cluster().GetClusterByName(ctx, name)
 	if err != nil {
 		return nil, err
