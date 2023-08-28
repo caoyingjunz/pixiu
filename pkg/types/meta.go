@@ -16,6 +16,25 @@ limitations under the License.
 
 package types
 
+import "time"
+
 func (c *Cluster) SetId(i int64) {
 	c.Id = i
+}
+
+const (
+	timeLayout = "2006-01-02 15:04:05.999999999"
+)
+
+// TimeSpec 通用时间规格
+type TimeSpec struct {
+	GmtCreate   interface{} `json:"gmt_create,omitempty"`
+	GmtModified interface{} `json:"gmt_modified,omitempty"`
+}
+
+func FormatTime(GmtCreate time.Time, GmtModified time.Time) TimeSpec {
+	return TimeSpec{
+		GmtCreate:   GmtCreate.Format(timeLayout),
+		GmtModified: GmtModified.Format(timeLayout),
+	}
 }

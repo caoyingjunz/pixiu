@@ -22,7 +22,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
-	"github.com/caoyingjunz/pixiu/api/server/router/cloud"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
@@ -33,7 +32,7 @@ type RegisterFunc func(o *options.Options)
 
 func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
-		middleware.InstallMiddlewares, cluster.NewRouter, cloud.NewRouter, proxy.NewRouter, helm.NewRouter,
+		middleware.InstallMiddlewares, cluster.NewRouter, proxy.NewRouter, helm.NewRouter,
 	}
 
 	install(o, fs...)

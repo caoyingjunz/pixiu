@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
@@ -117,7 +118,12 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Port,
 		sqlConfig.Name)
 
-	DB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	opt := &gorm.Config{}
+	if sqlConfig.EnableLog {
+		opt.Logger = logger.Default.LogMode(logger.Info)
+	}
+
+	DB, err := gorm.Open(mysql.Open(dsn), opt)
 	if err != nil {
 		return err
 	}

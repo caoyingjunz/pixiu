@@ -47,6 +47,7 @@ type Interface interface {
 
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
+<<<<<<< HEAD
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 }
@@ -55,6 +56,8 @@ var clusterIndexer client.Cache
 
 func init() {
 	clusterIndexer = *client.NewClusterCache()
+=======
+>>>>>>> 9a9b9d654431e97e50fd34122cc7093d5ee8f482
 }
 
 type cluster struct {
@@ -77,6 +80,10 @@ func (c *cluster) preCreate(ctx context.Context, clu *types.Cluster) error {
 		return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
 	}
 
+<<<<<<< HEAD
+=======
+	// TODO: 创建前确保连通性
+>>>>>>> 9a9b9d654431e97e50fd34122cc7093d5ee8f482
 	return nil
 }
 
@@ -127,12 +134,16 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 		return err
 	}
 	// TODO: 其他场景补充
+<<<<<<< HEAD
 	if err := c.factory.Cluster().Delete(ctx, cid); err != nil {
 		return err
 	}
 
 	clusterIndexer.Delete("test")
 	return nil
+=======
+	return c.factory.Cluster().Delete(ctx, cid)
+>>>>>>> 9a9b9d654431e97e50fd34122cc7093d5ee8f482
 }
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
@@ -162,6 +173,7 @@ func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
 // 如果能获取到 k8s 接口的正常返回，则返回 nil，否则返回具体 error
 // kubeConfig 为 k8s 证书的 base64 字符串
 func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
+<<<<<<< HEAD
 	clientSet, err := client.NewClientSetFromString(kubeConfig)
 	if err != nil {
 		return err
@@ -193,6 +205,12 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 	return cs.Config, nil
 }
 
+=======
+	// TODO
+	return nil
+}
+
+>>>>>>> 9a9b9d654431e97e50fd34122cc7093d5ee8f482
 func model2Type(o *model.Cluster) *types.Cluster {
 	return &types.Cluster{
 		PixiuMeta: types.PixiuMeta{

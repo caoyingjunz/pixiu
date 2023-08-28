@@ -7,6 +7,8 @@ default:
 
 # 数据库地址信息
 mysql:
+  # 打印 sql 执行语句
+  enable_log: true
   host: peng
   user: root
   password: password123456
