@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
@@ -29,7 +30,7 @@ import (
 type ClusterInterface interface {
 	Create(ctx context.Context, object *model.Cluster) (*model.Cluster, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, cid int64) error
+	Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)
 	List(ctx context.Context) ([]model.Cluster, error)
 
@@ -69,12 +70,13 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 	return nil
 }
 
-func (c *cluster) Delete(ctx context.Context, cid int64) error {
-	if err := c.db.Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
-		return err
+func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error) {
+	var object model.Cluster
+	if err := c.db.Clauses(clause.Returning{}).Where("id = ?", cid).Delete(&object).Error; err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &object, nil
 }
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {

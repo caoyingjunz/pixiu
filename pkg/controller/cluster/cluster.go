@@ -102,8 +102,8 @@ func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
 		return err
 	}
 
-	clusterIndexer.Set(clu.Name, *cs)
 	// TODO: 暂时不做创建后动作
+	clusterIndexer.Set(clu.Name, *cs)
 	return nil
 }
 
@@ -126,12 +126,14 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 	if err := c.preDelete(ctx, cid); err != nil {
 		return err
 	}
-	// TODO: 其他场景补充
-	if err := c.factory.Cluster().Delete(ctx, cid); err != nil {
+
+	object, err := c.factory.Cluster().Delete(ctx, cid)
+	if err != nil {
 		return err
 	}
 
-	clusterIndexer.Delete("test")
+	// 从缓存中移除 clusterSet
+	clusterIndexer.Delete(object.Name)
 	return nil
 }
 
