@@ -32,6 +32,8 @@ type ClusterInterface interface {
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)
 	List(ctx context.Context) ([]model.Cluster, error)
+
+	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
 }
 
 type cluster struct {
@@ -91,6 +93,15 @@ func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
 	}
 
 	return cs, nil
+}
+
+func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {
+	var object model.Cluster
+	if err := c.db.Where("name = ?", name).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func newCluster(db *gorm.DB) ClusterInterface {
