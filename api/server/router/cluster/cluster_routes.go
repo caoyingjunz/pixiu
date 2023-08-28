@@ -119,8 +119,21 @@ func (cr *clusterRouter) listClusters(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// TODO:
 func (cr *clusterRouter) pingCluster(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		cluster types.Cluster
+		err     error
+	)
+	if err = c.ShouldBindJSON(&cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = cr.c.Cluster().Ping(c, cluster.KubeConfig); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
