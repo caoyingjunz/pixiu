@@ -14,29 +14,40 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helm
+package user
 
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/cmd/app/options"
-	"github.com/caoyingjunz/pixiu/pkg/controller"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 )
 
-type helmRouter struct {
-	c controller.PixiuInterface
+func (u *userRouter) createUser(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
 }
 
-func NewRouter(o *options.Options) {
-	router := &helmRouter{
-		c: o.Controller,
-	}
-	router.initRoutes(o.HttpEngine)
+func (u *userRouter) updateUser(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
 }
 
-func (h *helmRouter) initRoutes(ginEngine *gin.Engine) {
-	helmRoute := ginEngine.Group("/pixiu/helms")
-	{
-		helmRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleases)
-	}
+func (u *userRouter) deleteUser(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getUser(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) listUsers(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
 }

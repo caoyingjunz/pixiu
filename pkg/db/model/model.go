@@ -71,32 +71,3 @@ type User struct {
 func (user *User) TableName() string {
 	return "users"
 }
-
-type KubeConfig struct {
-	pixiu.Model
-
-	ServiceAccount      string `gorm:"unique" json:"service_account"`
-	CloudId             int64  `json:"cloud_id"`
-	CloudName           string `gorm:"index:idx_cloud_name" json:"cloud_name"`
-	ClusterRole         string `json:"cluster_role"`
-	Config              string `gorm:"type:text" json:"config"`
-	ExpirationTimestamp string `json:"expiration_timestamp"`
-}
-
-func (*KubeConfig) TableName() string {
-	return "kube_configs"
-}
-
-type Event struct {
-	pixiu.Model
-
-	User     string `json:"user"`
-	ClientIP string `json:"client_ip"`
-	Operator string `json:"operator"`
-	Object   string `json:"object"`
-	Message  string `json:"message"`
-}
-
-func (event *Event) TableName() string {
-	return "events"
-}
