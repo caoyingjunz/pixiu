@@ -135,9 +135,6 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 		return err
 	}
 
-	// DEBUG
-	fmt.Println("object", object)
-
 	// 从缓存中移除 clusterSet
 	clusterIndexer.Delete(object.Name)
 	return nil
