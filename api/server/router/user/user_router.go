@@ -17,6 +17,7 @@ limitations under the License.
 package user
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -24,6 +25,15 @@ import (
 
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		user types.User
+		err  error
+	)
+	if err = c.ShouldBindJSON(&user); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -47,6 +57,18 @@ func (u *userRouter) getUser(c *gin.Context) {
 }
 
 func (u *userRouter) listUsers(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) login(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) logout(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	httputils.SetSuccess(c, r)

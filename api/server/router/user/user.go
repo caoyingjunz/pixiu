@@ -39,9 +39,13 @@ func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
 	userRoute := httpEngine.Group("/pixiu/users")
 	{
 		userRoute.POST("", u.createUser)
-		userRoute.PUT("/:clusterId", u.updateUser)
-		userRoute.DELETE("/:clusterId", u.deleteUser)
-		userRoute.GET("/:clusterId", u.getUser)
+		userRoute.PUT("/:userId", u.updateUser)
+		userRoute.DELETE("/:userId", u.deleteUser)
+		userRoute.GET("/:userId", u.getUser)
 		userRoute.GET("", u.listUsers)
+
+		// 用户的登陆或者退出
+		userRoute.POST("/login", u.login)
+		userRoute.POST("/:userId/logout", u.logout)
 	}
 }
