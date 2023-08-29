@@ -14,29 +14,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helm
-
-import (
-	"github.com/gin-gonic/gin"
-
-	"github.com/caoyingjunz/pixiu/cmd/app/options"
-	"github.com/caoyingjunz/pixiu/pkg/controller"
-)
-
-type helmRouter struct {
-	c controller.PixiuInterface
-}
-
-func NewRouter(o *options.Options) {
-	router := &helmRouter{
-		c: o.Controller,
-	}
-	router.initRoutes(o.HttpEngine)
-}
-
-func (h *helmRouter) initRoutes(ginEngine *gin.Engine) {
-	helmRoute := ginEngine.Group("/pixiu/helms")
-	{
-		helmRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleases)
-	}
-}
+package user

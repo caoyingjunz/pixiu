@@ -46,9 +46,9 @@ func NewRouter(o *options.Options) {
 }
 
 func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
-	auditRoute := ginEngine.Group("/proxy")
+	proxyRoute := ginEngine.Group("/proxy")
 	{
-		auditRoute.Any("/pixiu/:clusterName/*act", p.proxyHandler)
+		proxyRoute.Any("/pixiu/:clusterName/*act", p.proxyHandler)
 	}
 }
 

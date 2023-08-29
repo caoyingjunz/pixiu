@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package user
 
 import (
 	"github.com/gin-gonic/gin"
@@ -23,30 +23,29 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
-// clusterRouter is a router to talk with the cluster controller
-type clusterRouter struct {
+type userRouter struct {
 	c controller.PixiuInterface
 }
 
-// NewRouter initializes a new cluster router
 func NewRouter(o *options.Options) {
-	s := &clusterRouter{
+	router := &userRouter{
 		c: o.Controller,
 	}
-	s.initRoutes(o.HttpEngine)
+	router.initRoutes(o.HttpEngine)
+
 }
 
-func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
-	clusterRoute := httpEngine.Group("/pixiu/clusters")
-
+func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
+	userRoute := httpEngine.Group("/pixiu/users")
 	{
-		clusterRoute.POST("", cr.createCluster)
-		clusterRoute.PUT("/:clusterId", cr.updateCluster)
-		clusterRoute.DELETE("/:clusterId", cr.deleteCluster)
-		clusterRoute.GET("/:clusterId", cr.getCluster)
-		clusterRoute.GET("", cr.listClusters)
+		userRoute.POST("", u.createUser)
+		userRoute.PUT("/:userId", u.updateUser)
+		userRoute.DELETE("/:userId", u.deleteUser)
+		userRoute.GET("/:userId", u.getUser)
+		userRoute.GET("", u.listUsers)
 
-		// 检查 kubernetes 的连通性
-		clusterRoute.POST("/:clusterId/ping", cr.pingCluster)
+		// 用户的登陆或者退出
+		userRoute.POST("/login", u.login)
+		userRoute.POST("/:userId/logout", u.logout)
 	}
 }
