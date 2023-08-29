@@ -20,12 +20,14 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
+	"github.com/caoyingjunz/pixiu/pkg/controller/user"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
 type PixiuInterface interface {
 	cluster.ClusterGetter
 	helm.HelmGetter
+	user.UserGetter
 }
 
 type pixiu struct {
@@ -39,6 +41,10 @@ func (p *pixiu) Cluster() cluster.Interface {
 
 func (p *pixiu) Helm() helm.Interface {
 	return helm.NewHelm(p.cc, p.factory)
+}
+
+func (p *pixiu) User() user.Interface {
+	return user.NewUser(p.cc, p.factory)
 }
 
 func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {

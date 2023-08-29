@@ -17,11 +17,15 @@ limitations under the License.
 package user
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
+
+type IdMeta struct {
+	UserId int64 `uri:"userId" binding:"required"`
+}
 
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -34,6 +38,10 @@ func (u *userRouter) createUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = u.c.User().Create(c, &user); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -41,11 +49,43 @@ func (u *userRouter) createUser(c *gin.Context) {
 func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	var (
+		idMeta IdMeta
+		err    error
+	)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	var user types.User
+	if err = c.ShouldBindJSON(&user); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = u.c.User().Update(c, idMeta.UserId, &user); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (u *userRouter) deleteUser(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		idMeta IdMeta
+		err    error
+	)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = u.c.User().Delete(c, idMeta.UserId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -53,21 +93,42 @@ func (u *userRouter) deleteUser(c *gin.Context) {
 func (u *userRouter) getUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	var (
+		idMeta IdMeta
+		err    error
+	)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = u.c.User().Get(c, idMeta.UserId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	var err error
+	if r.Result, err = u.c.User().List(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
+// TODO
 func (u *userRouter) login(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	httputils.SetSuccess(c, r)
 }
 
+// TODO
 func (u *userRouter) logout(c *gin.Context) {
 	r := httputils.NewResponse()
 
