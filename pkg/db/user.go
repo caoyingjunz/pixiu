@@ -18,6 +18,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -27,7 +28,7 @@ import (
 type UserInterface interface {
 	Create(ctx context.Context, object *model.User) (*model.User, error)
 	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, uid int64) (*model.User, error)
+	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
 	List(ctx context.Context) ([]model.User, error)
 }
@@ -37,23 +38,43 @@ type user struct {
 }
 
 func (u *user) Create(ctx context.Context, object *model.User) (*model.User, error) {
-	return nil, nil
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	if err := u.db.Create(object).Error; err != nil {
+		return nil, err
+	}
+
+	return object, nil
 }
 
 func (u *user) Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error {
 	return nil
 }
 
-func (u *user) Delete(ctx context.Context, uid int64) (*model.User, error) {
-	return nil, nil
+func (u *user) Delete(ctx context.Context, uid int64) error {
+	return u.db.Where("id = ?", uid).Delete(&model.User{}).Error
 }
 
 func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
-	return nil, nil
+	var object model.User
+	if err := u.db.Where("id = ?", uid).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
+// List 获取用户列表
+// TODO: 暂时不做分页考虑
 func (u *user) List(ctx context.Context) ([]model.User, error) {
-	return nil, nil
+	var objects []model.User
+	if err := u.db.Find(&objects).Error; err != nil {
+		return nil, err
+	}
+
+	return objects, nil
 }
 
 func newUser(db *gorm.DB) *user {

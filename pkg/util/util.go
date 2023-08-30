@@ -19,6 +19,8 @@ package util
 import (
 	"os"
 	"strconv"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // ParseInt64 将字符串转换为 int64
@@ -54,4 +56,16 @@ func EnsureDirectoryExists(path string) error {
 	}
 
 	return nil
+}
+
+// EncryptUserPassword 生成加密密码
+// 前端传的密码为明文，需要加密存储
+// TODO: 后续确认是否有必要在前端加密
+func EncryptUserPassword(origin string) (string, error) {
+	pwd, err := bcrypt.GenerateFromPassword([]byte(origin), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+
+	return string(pwd), nil
 }

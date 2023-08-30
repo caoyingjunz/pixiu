@@ -49,7 +49,7 @@ type User struct {
 	PixiuMeta `json:",inline"`
 
 	Name        string `json:"name"`        // 用户名称
-	Password    string `json:"password"`    // 用户密码
+	Password    string `json:"-"`           // 用户密码
 	Status      int8   `json:"status"`      // 用户状态标识
 	Role        string `json:"role"`        // 用户角色，目前只实现管理员，0: 普通用户 1: 管理员 2: 超级管理员
 	Email       string `json:"email"`       // 用户注册邮件
