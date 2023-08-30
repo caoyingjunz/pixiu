@@ -84,20 +84,62 @@ func (u *user) Create(ctx context.Context, user *types.User) error {
 	return nil
 }
 
+// Update
+// TODO: 暂时不做实现
 func (u *user) Update(ctx context.Context, userId int64, user *types.User) error {
 	return nil
 }
 
 func (u *user) Delete(ctx context.Context, userId int64) error {
+	if err := u.factory.User().Delete(ctx, userId); err != nil {
+		klog.Errorf("failed to delete user(%d): %v", userId, err)
+		return err
+	}
+
 	return nil
 }
 
 func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
-	return nil, nil
+	object, err := u.factory.User().Get(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	return model2Type(object), nil
 }
 
 func (u *user) List(ctx context.Context) ([]types.User, error) {
-	return nil, nil
+	objects, err := u.factory.User().List(ctx)
+	if err != nil {
+		klog.Errorf("failed to get user list: %v", err)
+		return nil, err
+	}
+
+	var users []types.User
+	for _, object := range objects {
+		users = append(users, *model2Type(&object))
+	}
+
+	return users, nil
+}
+
+// 将 model user 转换成 types
+func model2Type(o *model.User) *types.User {
+	return &types.User{
+		PixiuMeta: types.PixiuMeta{
+			Id:              o.Id,
+			ResourceVersion: o.ResourceVersion,
+		},
+		Name:        o.Name,
+		Description: o.Description,
+		Status:      o.Status,
+		Role:        o.Role,
+		Email:       o.Email,
+		TimeMeta: types.TimeMeta{
+			GmtCreate:   o.GmtCreate,
+			GmtModified: o.GmtModified,
+		},
+	}
 }
 
 func NewUser(cfg config.Config, f db.ShareDaoFactory) *user {
