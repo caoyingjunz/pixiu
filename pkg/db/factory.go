@@ -22,6 +22,7 @@ import (
 
 type ShareDaoFactory interface {
 	Cluster() ClusterInterface
+	User() UserInterface
 }
 
 type shareDaoFactory struct {
@@ -30,6 +31,10 @@ type shareDaoFactory struct {
 
 func (f *shareDaoFactory) Cluster() ClusterInterface {
 	return newCluster(f.db)
+}
+
+func (f *shareDaoFactory) User() UserInterface {
+	return newUser(f.db)
 }
 
 func NewDaoFactory(db *gorm.DB) ShareDaoFactory {

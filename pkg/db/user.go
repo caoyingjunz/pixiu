@@ -18,6 +18,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -37,7 +38,15 @@ type user struct {
 }
 
 func (u *user) Create(ctx context.Context, object *model.User) (*model.User, error) {
-	return nil, nil
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	if err := u.db.Create(object).Error; err != nil {
+		return nil, err
+	}
+
+	return object, nil
 }
 
 func (u *user) Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error {

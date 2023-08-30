@@ -18,10 +18,15 @@ package user
 
 import (
 	"context"
+	"fmt"
+
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
 type UserGetter interface {
@@ -41,8 +46,41 @@ type user struct {
 	factory db.ShareDaoFactory
 }
 
+// 创建用户前置检查
+// 用户名和密码不能为空
+// TODO: 其他检查
+func (u *user) preCreate(ctx context.Context, user *types.User) error {
+	if len(user.Name) == 0 || len(user.Password) == 0 {
+		return fmt.Errorf("user name or password may not be empty")
+	}
+
+	// TODO: 对密码进行复杂度校验
+	return nil
+}
+
 func (u *user) Create(ctx context.Context, user *types.User) error {
-	// TODO: debug
+	if err := u.preCreate(ctx, user); err != nil {
+		return err
+	}
+
+	encrypt, err := util.EncryptUserPassword(user.Password)
+	if err != nil {
+		klog.Errorf("failed to encrypt user password: %v", err)
+		return err
+	}
+
+	if _, err = u.factory.User().Create(ctx, &model.User{
+		Name:        user.Name,
+		Password:    encrypt,
+		Status:      user.Status,
+		Role:        user.Role,
+		Email:       user.Email,
+		Description: user.Description,
+	}); err != nil {
+		klog.Errorf("failed to create user %s: %v", user.Name, err)
+		return err
+	}
+
 	return nil
 }
 
