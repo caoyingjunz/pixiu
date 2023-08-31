@@ -31,6 +31,8 @@ type UserInterface interface {
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
 	List(ctx context.Context) ([]model.User, error)
+
+	GetUserByName(ctx context.Context, userName string) (*model.User, error)
 }
 
 type user struct {
@@ -75,6 +77,15 @@ func (u *user) List(ctx context.Context) ([]model.User, error) {
 	}
 
 	return objects, nil
+}
+
+func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User, error) {
+	var object model.User
+	if err := u.db.Where("name = ?", userName).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func newUser(db *gorm.DB) *user {

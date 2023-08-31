@@ -121,9 +121,21 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// TODO
 func (u *userRouter) login(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		user types.User
+		err  error
+	)
+	if err = c.ShouldBindJSON(&user); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = u.c.User().Login(c, &user); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }

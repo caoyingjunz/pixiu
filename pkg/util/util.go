@@ -17,46 +17,8 @@ limitations under the License.
 package util
 
 import (
-	"os"
-	"strconv"
-
 	"golang.org/x/crypto/bcrypt"
 )
-
-// ParseInt64 将字符串转换为 int64
-func ParseInt64(s string) (int64, error) {
-	if len(s) == 0 {
-		return 0, nil
-	}
-	return strconv.ParseInt(s, 10, 64)
-}
-
-// IsDirectoryExists 判断目录是否存在
-func IsDirectoryExists(path string) bool {
-	stat, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return stat.IsDir()
-}
-
-// IsFileExists 判断文件是否存在
-func IsFileExists(path string) bool {
-	stat, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return !stat.IsDir()
-}
-
-// EnsureDirectoryExists 不存在则创建指定目录
-func EnsureDirectoryExists(path string) error {
-	if !IsDirectoryExists(path) {
-		return os.MkdirAll(path, 0755)
-	}
-
-	return nil
-}
 
 // EncryptUserPassword 生成加密密码
 // 前端传的密码为明文，需要加密存储
@@ -68,4 +30,9 @@ func EncryptUserPassword(origin string) (string, error) {
 	}
 
 	return string(pwd), nil
+}
+
+// ValidateUserPassword 验证用户的密码是否正确
+func ValidateUserPassword(new, old string) error {
+	return bcrypt.CompareHashAndPassword([]byte(new), []byte(old))
 }
