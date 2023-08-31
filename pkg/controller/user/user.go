@@ -27,6 +27,8 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
+	"github.com/caoyingjunz/pixiu/pkg/util/errors"
+	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
 type UserGetter interface {
@@ -39,6 +41,9 @@ type Interface interface {
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
 	List(ctx context.Context) ([]types.User, error)
+
+	Login(ctx context.Context, user *types.User) (string, error)
+	Logout(ctx context.Context, userId int64) error
 }
 
 type user struct {
@@ -121,6 +126,43 @@ func (u *user) List(ctx context.Context) ([]types.User, error) {
 	}
 
 	return users, nil
+}
+
+func (u *user) Login(ctx context.Context, user *types.User) (string, error) {
+	if len(user.Name) == 0 || len(user.Password) == 0 {
+		return "", fmt.Errorf("用户名或者密码不存在，登陆失败")
+	}
+
+	object, err := u.factory.User().GetUserByName(ctx, user.Name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", fmt.Errorf("用户 %s 不存在，登陆失败", user.Name)
+		}
+		return "", err
+	}
+	if err = util.ValidateUserPassword(user.Password, object.Password); err != nil {
+		return "", fmt.Errorf("用户密码错误，登陆失败")
+	}
+
+	// 生成登陆的 token 信息
+	key := u.GetTokenKey()
+	token, err := tokenutil.GenerateToken(object.Id, object.Name, key)
+	if err != nil {
+		return "", fmt.Errorf("生成用户 token 失败: %v", err)
+	}
+	return token, nil
+}
+
+// Logout
+// TODO
+func (u *user) Logout(ctx context.Context, userId int64) error {
+	return nil
+}
+
+func (u *user) GetTokenKey() []byte {
+	k := u.cc.Default.JWTKey
+	return []byte(k)
+
 }
 
 // 将 model user 转换成 types

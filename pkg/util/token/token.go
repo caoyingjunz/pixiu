@@ -14,15 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package httputils
+package token
 
 import (
 	"fmt"
 	"time"
 
-	"io/ioutil"
-
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -71,19 +68,4 @@ func ParseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
 	}
 
 	return nil, fmt.Errorf("failed to parse token")
-}
-
-// ReadFile 从请求中获取指定文件内容
-func ReadFile(c *gin.Context, f string) ([]byte, error) {
-	fileHeader, err := c.FormFile(f)
-	if err != nil {
-		return nil, err
-	}
-	file, err := fileHeader.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	return ioutil.ReadAll(file)
 }
