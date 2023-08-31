@@ -26,5 +26,11 @@ var AlwaysAllowPath sets.String
 
 func InstallMiddlewares(o *options.Options) {
 	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
-	o.HttpEngine.Use(Cors(), LoggerToFile(), UserRateLimiter(), Limiter())
+	o.HttpEngine.Use(
+		Cors(),
+		LoggerToFile(),
+		UserRateLimiter(),
+		Limiter(),
+		Authentication(o.ComponentConfig.Default.JWTKey),
+	)
 }

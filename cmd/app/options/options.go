@@ -37,6 +37,7 @@ const (
 	maxOpenConns = 100
 
 	defaultListen     = 8080
+	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 )
 
@@ -83,6 +84,9 @@ func (o *Options) Complete() error {
 
 	if o.ComponentConfig.Default.Listen == 0 {
 		o.ComponentConfig.Default.Listen = defaultListen
+	}
+	if len(o.ComponentConfig.Default.JWTKey) == 0 {
+		o.ComponentConfig.Default.JWTKey = defaultTokenKey
 	}
 
 	// 注册依赖组件

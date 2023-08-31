@@ -130,7 +130,7 @@ func (u *user) List(ctx context.Context) ([]types.User, error) {
 
 func (u *user) Login(ctx context.Context, user *types.User) (string, error) {
 	if len(user.Name) == 0 || len(user.Password) == 0 {
-		return "", fmt.Errorf("用户名或者密码不存在， 登陆失败")
+		return "", fmt.Errorf("用户名或者密码不存在，登陆失败")
 	}
 
 	object, err := u.factory.User().GetUserByName(ctx, user.Name)

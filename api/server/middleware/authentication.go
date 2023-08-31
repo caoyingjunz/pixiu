@@ -18,16 +18,38 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
 // Authentication 身份认证
-func Authentication() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func Authentication(key string) gin.HandlerFunc {
+	keyBytes := []byte(key)
 
+	return func(c *gin.Context) {
+		claim, err := validate(c, keyBytes)
+		if err != nil {
+			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
+			return
+		}
+
+		c.Set("userId", claim.Id)
+		c.Set("userName", claim.Name)
 	}
+}
+
+func validate(c *gin.Context, keyBytes []byte) (*tokenutil.Claims, error) {
+	token, err := extractToken(c, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return tokenutil.ParseToken(token, keyBytes)
 }
 
 // 从请求头中获取 token
