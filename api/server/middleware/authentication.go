@@ -32,6 +32,10 @@ func Authentication(key string) gin.HandlerFunc {
 	keyBytes := []byte(key)
 
 	return func(c *gin.Context) {
+		if alwaysAllowPath.Has(c.Request.URL.Path) {
+			return
+		}
+
 		claim, err := validate(c, keyBytes)
 		if err != nil {
 			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
