@@ -22,6 +22,7 @@ type Config struct {
 }
 
 type DefaultOptions struct {
+	Mode   string `yaml:"mode"`
 	Listen int    `yaml:"listen"`
 	JWTKey string `yaml:"jwt_key"`
 }

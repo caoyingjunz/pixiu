@@ -140,8 +140,8 @@ func (u *user) Login(ctx context.Context, user *types.User) (string, error) {
 		}
 		return "", err
 	}
-	if err = util.ValidateUserPassword(user.Password, object.Password); err != nil {
-		return "", fmt.Errorf("用户密码错误，登陆失败")
+	if err = util.ValidateUserPassword(object.Password, user.Password); err != nil {
+		return "", fmt.Errorf("用户密码错误，登陆失败: %v", err)
 	}
 
 	// 生成登陆的 token 信息

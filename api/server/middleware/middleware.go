@@ -22,7 +22,11 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
-var AlwaysAllowPath sets.String
+var alwaysAllowPath sets.String
+
+func init() {
+	alwaysAllowPath = sets.NewString("/pixiu/users/login")
+}
 
 func InstallMiddlewares(o *options.Options) {
 	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
@@ -31,6 +35,6 @@ func InstallMiddlewares(o *options.Options) {
 		LoggerToFile(),
 		UserRateLimiter(),
 		Limiter(),
-		Authentication(o.ComponentConfig.Default.JWTKey),
+		Authentication(o.ComponentConfig.Default),
 	)
 }
