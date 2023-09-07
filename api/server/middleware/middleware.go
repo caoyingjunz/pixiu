@@ -25,7 +25,7 @@ import (
 var alwaysAllowPath sets.String
 
 func init() {
-	alwaysAllowPath = sets.NewString("/pixiu/users")
+	alwaysAllowPath = sets.NewString("/pixiu/users/login")
 }
 
 func InstallMiddlewares(o *options.Options) {
@@ -35,6 +35,6 @@ func InstallMiddlewares(o *options.Options) {
 		LoggerToFile(),
 		UserRateLimiter(),
 		Limiter(),
-		Authentication(o.ComponentConfig.Default.JWTKey),
+		//Authentication(o.ComponentConfig.Default.JWTKey),
 	)
 }

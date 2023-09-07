@@ -33,6 +33,6 @@ func EncryptUserPassword(origin string) (string, error) {
 }
 
 // ValidateUserPassword 验证用户的密码是否正确
-func ValidateUserPassword(new, old string) error {
-	return bcrypt.CompareHashAndPassword([]byte(new), []byte(old))
+func ValidateUserPassword(old, new string) error {
+	return bcrypt.CompareHashAndPassword([]byte(old), []byte(new))
 }

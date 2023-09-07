@@ -42,7 +42,7 @@ CREATE TABLE `users` (
 ### 创建 `pixiu` 用户
 ```sql
 # 用户 pixiu 的初始密码为 Pixiu123456!
-insert into users(name, password) values ('pixiu', '$2a$10$BSyiVtI3X.WOgrtn4bHfmOhLgYvLTwpCGuosIjs6B0oEh7Q531w4q');
+insert into users(name, password) values ('pixiu', '$2a$10$SamcBWw.aPMDv5QadDr7f.2rDBWiwfTwnbh5sEEhaTkWfVwO96PfW');
 ```
 
 ## 创建 `roles` 表
