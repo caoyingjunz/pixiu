@@ -35,6 +35,6 @@ func InstallMiddlewares(o *options.Options) {
 		LoggerToFile(),
 		UserRateLimiter(),
 		Limiter(),
-		//Authentication(o.ComponentConfig.Default.JWTKey),
+		Authentication(o.ComponentConfig.Default),
 	)
 }

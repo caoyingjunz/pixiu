@@ -24,15 +24,22 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
+const (
+	// DebugMode indicates gin mode is debug.
+	DebugMode = "debug"
+)
+
 // Authentication 身份认证
-func Authentication(key string) gin.HandlerFunc {
-	keyBytes := []byte(key)
+func Authentication(cfg config.DefaultOptions) gin.HandlerFunc {
+	keyBytes := []byte(cfg.JWTKey)
+	mode := cfg.Mode
 
 	return func(c *gin.Context) {
-		if alwaysAllowPath.Has(c.Request.URL.Path) {
+		if mode == DebugMode || alwaysAllowPath.Has(c.Request.URL.Path) {
 			return
 		}
 
