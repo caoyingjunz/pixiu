@@ -236,20 +236,22 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 		return nil, fmt.Errorf("no nodes found")
 	}
 
+	// 构造 kubernetes 资源数据格式
+	// TODO: 后续通过 informer 机制构造缓存
+	km := types.KubernetesMeta{
+		Nodes:             len(nodes),
+		KubernetesVersion: nodes[0].Status.NodeInfo.KubeletVersion,
+	}
+
 	// TODO: 并发优化
 	// 获取集群所有节点的资源数据，并做整合
 	metricList, err := clusterSet.Metric.NodeMetricses().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
+	km.Resources = c.parseKubernetesResource(metricList.Items)
 
-	// 构造 kubernetes 资源数据格式
-	// TODO: 后续通过 informer 机制构造缓存
-	return &types.KubernetesMeta{
-		Nodes:             len(nodes),
-		KubernetesVersion: nodes[0].Status.NodeInfo.KubeletVersion,
-		Resources:         c.parseKubernetesResource(metricList.Items),
-	}, nil
+	return &km, nil
 }
 
 func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) types.Resources {
