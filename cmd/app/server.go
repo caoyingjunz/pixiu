@@ -99,9 +99,8 @@ func Run(opt *options.Options) error {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		klog.Fatal("pixiu server forced to shutdown: ", err)
+		klog.Fatalf("pixiu server forced to shutdown: %v", err)
 	}
-	klog.Infof("pixiu server exit successful")
 
 	return nil
 }
