@@ -194,8 +194,11 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
 	cs, ok := clusterIndexer.Get(name)
 	if ok {
+		klog.Infof("Get %s clusterSet from indexer", name)
 		return cs, nil
 	}
+
+	klog.Infof("building clusterSet for %s", name)
 	// 缓存中不存在，则新建并重写回缓存
 	object, err := c.factory.Cluster().GetClusterByName(ctx, name)
 	if err != nil {
@@ -206,6 +209,7 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 		return client.ClusterSet{}, err
 	}
 
+	klog.Infof("set %s clusterSet into indexer", name)
 	clusterIndexer.Set(name, *newClusterSet)
 	return *newClusterSet, nil
 }
