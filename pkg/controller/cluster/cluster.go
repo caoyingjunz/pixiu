@@ -20,9 +20,12 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	v1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
@@ -239,18 +242,45 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	if err != nil {
 		return nil, err
 	}
-	for _, metric := range metricList.Items {
-		fmt.Println("nodeName", metric.Name)
-		fmt.Println("metric.Usage", metric.Usage)
-	}
 
-	// 构造 kubernetes 元数据格式
+	// 构造 kubernetes 资源数据格式
 	// TODO: 后续通过 informer 机制构造缓存
-	// TODO: 补充集群资源数据
 	return &types.KubernetesMeta{
 		Nodes:             len(nodes),
 		KubernetesVersion: nodes[0].Status.NodeInfo.KubeletVersion,
+		Resources:         c.parseKubernetesResource(metricList.Items),
 	}, nil
+}
+
+func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) types.Resources {
+	// 初始化集群资源
+	resourceList := v1.ResourceList{
+		v1.ResourceCPU:    resource.Quantity{},
+		v1.ResourceMemory: resource.Quantity{},
+	}
+
+	// 遍历所有 metric 数据，算集群总和，仅计算 cpu 和 memory
+	for _, metric := range nodeMetrics {
+		// 1. Cpu
+		cpuMetric := metric.Usage.Cpu()
+		if cpuMetric != nil {
+			cpuSum := resourceList[v1.ResourceCPU]
+			cpuSum.Add(*cpuMetric)
+			resourceList[v1.ResourceCPU] = cpuSum
+		}
+
+		// 2. Memory
+		memoryMetric := metric.Usage.Memory()
+		if memoryMetric != nil {
+			memSum := resourceList[v1.ResourceMemory]
+			memSum.Add(*memoryMetric)
+			resourceList[v1.ResourceMemory] = memSum
+		}
+	}
+
+	cpuSum := resourceList[v1.ResourceCPU]
+	memSum := resourceList[v1.ResourceMemory]
+	return types.Resources{Cpu: cpuSum.String(), Memory: memSum.String()}
 }
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {

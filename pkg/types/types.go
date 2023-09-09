@@ -18,8 +18,6 @@ package types
 
 import (
 	"time"
-
-	"k8s.io/api/core/v1"
 )
 
 type PixiuMeta struct {
@@ -66,7 +64,14 @@ type KubernetesMeta struct {
 	// 节点数量
 	Nodes int `json:"nodes"`
 	// The memory and cpu usage
-	Resources v1.ResourceList
+	Resources Resources `json:"resources"`
+}
+
+// Resources kubernetes 的资源信息
+// The memory and cpu usage
+type Resources struct {
+	Cpu    string `json:"cpu"`
+	Memory string `json:"memory"`
 }
 
 type User struct {
