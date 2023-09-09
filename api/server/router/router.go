@@ -20,6 +20,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	// 导入 docs.json 文件
+	_ "github.com/caoyingjunz/pixiu/api/docs"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
@@ -40,6 +45,8 @@ func InstallRouters(o *options.Options) {
 
 	// 启动检查检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+	// 启动 APIs 服务
+	o.HttpEngine.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }
 
 func install(o *options.Options, fs ...RegisterFunc) {
