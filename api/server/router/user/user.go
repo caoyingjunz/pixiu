@@ -36,6 +36,7 @@ func NewRouter(o *options.Options) {
 }
 
 func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
+	// TODO: Base pixiu 后续作为常量定义
 	userRoute := httpEngine.Group("/pixiu/users")
 	{
 		userRoute.POST("", u.createUser)
