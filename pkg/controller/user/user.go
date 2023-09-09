@@ -130,18 +130,19 @@ func (u *user) List(ctx context.Context) ([]types.User, error) {
 
 func (u *user) Login(ctx context.Context, user *types.User) (string, error) {
 	if len(user.Name) == 0 || len(user.Password) == 0 {
-		return "", fmt.Errorf("用户名或者密码不存在，登陆失败")
+		return "", fmt.Errorf("用户名或者密码不存在")
 	}
 
 	object, err := u.factory.User().GetUserByName(ctx, user.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return "", fmt.Errorf("用户 %s 不存在，登陆失败", user.Name)
+			return "", fmt.Errorf("用户 %s 不存在", user.Name)
 		}
 		return "", err
 	}
 	if err = util.ValidateUserPassword(object.Password, user.Password); err != nil {
-		return "", fmt.Errorf("用户密码错误，登陆失败: %v", err)
+		klog.Errorf("检验用户密码失败: %v", err)
+		return "", fmt.Errorf("用户密码错误")
 	}
 
 	// 生成登陆的 token 信息
