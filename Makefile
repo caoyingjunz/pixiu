@@ -23,4 +23,4 @@ clean:
 
 .PHONY: api-docs
 api-docs: ## generate the api docs
-	swag init --generalInfo ./cmd/main.go --output ./api/docs
+	swag init --generalInfo ./cmd/pixiuserver.go --output ./api/docs
