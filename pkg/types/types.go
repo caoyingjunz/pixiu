@@ -32,17 +32,35 @@ type TimeMeta struct {
 	GmtModified time.Time `json:"gmt_modified"`
 }
 
+// ClusterType Kubernetes 集群的类型
+// 0：标准集群 1: 自建集群
+type ClusterType int
+
 type Cluster struct {
 	PixiuMeta `json:",inline"`
 
 	Name      string `json:"name"`
 	AliasName string `json:"alias_name"`
+
+	// 0：标准集群 1: 自建集群
+	ClusterType ClusterType `json:"cluster_type"`
 	// k8s kubeConfig base64 字段
 	KubeConfig string `json:"kube_config,omitempty"`
+
+	KubernetesMeta `json:",inline"`
+
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
 
 	TimeMeta `json:",inline"`
+}
+
+// KubernetesMeta 记录 kubernetes 集群的数据
+type KubernetesMeta struct {
+	// 集群的版本
+	KubernetesVersion string `json:"kubernetes_version,omitempty"`
+	// 节点数量
+	Nodes int `json:"nodes"`
 }
 
 type User struct {
