@@ -148,7 +148,7 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 		return nil, err
 	}
 
-	return model2Type(object), nil
+	return c.model2Type(object), nil
 }
 
 func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
@@ -159,7 +159,7 @@ func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
 
 	var cs []types.Cluster
 	for _, object := range objects {
-		cs = append(cs, *model2Type(&object))
+		cs = append(cs, *c.model2Type(&object))
 	}
 
 	return cs, nil
@@ -182,37 +182,44 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 }
 
 func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error) {
-	// 尝试从缓存中获取
-	kubeConfig, ok := clusterIndexer.GetConfig(name)
-	if ok {
-		return kubeConfig, nil
+	cs, err := c.GetClusterSetByName(ctx, name)
+	if err != nil {
+		return nil, err
 	}
 
+	return cs.Config, nil
+}
+
+// GetClusterSetByName 获取 ClusterSet， 缓存中不存在时，构建缓存再返回
+func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
+	cs, ok := clusterIndexer.Get(name)
+	if ok {
+		return cs, nil
+	}
 	// 缓存中不存在，则新建并重写回缓存
 	object, err := c.factory.Cluster().GetClusterByName(ctx, name)
 	if err != nil {
-		return nil, err
+		return client.ClusterSet{}, err
 	}
-	cs, err := client.NewClusterSet(object.KubeConfig)
+	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
 	if err != nil {
-		return nil, err
+		return client.ClusterSet{}, err
 	}
 
-	clusterIndexer.Set(name, *cs)
-	return cs.Config, nil
+	clusterIndexer.Set(name, *newClusterSet)
+	return *newClusterSet, nil
 }
 
 // GetKubernetesMeta
 // TODO：临时构造 client，后续通过 informer 的方式维护缓存
-func GetKubernetesMeta(ctx context.Context, clusterName string) (*types.KubernetesMeta, error) {
-	clientSet, ok := clusterIndexer.GetClient(clusterName)
-	if !ok {
-		klog.Warningf("cluster %s does not register clientSet", clusterName)
-		return nil, fmt.Errorf("failed to get %s clientSet from cluster indexer", clusterName)
+func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*types.KubernetesMeta, error) {
+	clusterSet, err := c.GetClusterSetByName(ctx, clusterName)
+	if err != nil {
+		return nil, err
 	}
 
 	// 获取 k8s 的节点信息
-	nodeList, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +238,7 @@ func GetKubernetesMeta(ctx context.Context, clusterName string) (*types.Kubernet
 	}, nil
 }
 
-func model2Type(o *model.Cluster) *types.Cluster {
+func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	tc := &types.Cluster{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -249,7 +256,7 @@ func model2Type(o *model.Cluster) *types.Cluster {
 
 	// 获取失败时，返回空的 kubernetes Meta, 不终止主流程
 	// TODO: 后续改成并发处理
-	kubernetesMeta, err := GetKubernetesMeta(context.TODO(), o.Name)
+	kubernetesMeta, err := c.GetKubernetesMeta(context.TODO(), o.Name)
 	if err != nil {
 		klog.Warning("failed to get kubernetes Meta: %v", err)
 	} else {
