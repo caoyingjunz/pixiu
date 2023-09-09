@@ -22,6 +22,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
@@ -201,8 +202,37 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 	return cs.Config, nil
 }
 
+// GetKubernetesMeta
+// TODO：临时构造 client，后续通过 informer 的方式维护缓存
+func GetKubernetesMeta(ctx context.Context, clusterName string) (*types.KubernetesMeta, error) {
+	clientSet, ok := clusterIndexer.GetClient(clusterName)
+	if !ok {
+		klog.Warningf("cluster %s does not register clientSet", clusterName)
+		return nil, fmt.Errorf("failed to get %s clientSet from cluster indexer", clusterName)
+	}
+
+	// 获取 k8s 的节点信息
+	nodeList, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	nodes := nodeList.Items
+	// 在集群启动，但是没有节点加入时，命中该场景
+	if len(nodes) == 0 {
+		return nil, fmt.Errorf("no nodes found")
+	}
+
+	// 构造 kubernetes 元数据格式
+	// TODO: 后续通过 informer 机制构造缓存
+	// TODO: 补充集群资源数据
+	return &types.KubernetesMeta{
+		Nodes:             len(nodes),
+		KubernetesVersion: nodes[0].Status.NodeInfo.KubeletVersion,
+	}, nil
+}
+
 func model2Type(o *model.Cluster) *types.Cluster {
-	return &types.Cluster{
+	tc := &types.Cluster{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
 			ResourceVersion: o.ResourceVersion,
@@ -216,6 +246,17 @@ func model2Type(o *model.Cluster) *types.Cluster {
 		ClusterType: types.ClusterType(o.ClusterType),
 		Description: o.Description,
 	}
+
+	// 获取失败时，返回空的 kubernetes Meta, 不终止主流程
+	// TODO: 后续改成并发处理
+	kubernetesMeta, err := GetKubernetesMeta(context.TODO(), o.Name)
+	if err != nil {
+		klog.Warning("failed to get kubernetes Meta: %v", err)
+	} else {
+		tc.KubernetesMeta = *kubernetesMeta
+	}
+
+	return tc
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {

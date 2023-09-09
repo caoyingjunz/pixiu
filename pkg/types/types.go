@@ -46,10 +46,21 @@ type Cluster struct {
 	ClusterType ClusterType `json:"cluster_type"`
 	// k8s kubeConfig base64 字段
 	KubeConfig string `json:"kube_config,omitempty"`
+
+	KubernetesMeta `json:",inline"`
+
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
 
 	TimeMeta `json:",inline"`
+}
+
+// KubernetesMeta 记录 kubernetes 集群的数据
+type KubernetesMeta struct {
+	// 集群的版本
+	KubernetesVersion string `json:"kubernetes_version,omitempty"`
+	// 节点数量
+	Nodes int `json:"nodes"`
 }
 
 type User struct {
