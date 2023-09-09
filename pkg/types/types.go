@@ -32,11 +32,18 @@ type TimeMeta struct {
 	GmtModified time.Time `json:"gmt_modified"`
 }
 
+// ClusterType Kubernetes 集群的类型
+// 0：标准集群 1: 自建集群
+type ClusterType int
+
 type Cluster struct {
 	PixiuMeta `json:",inline"`
 
 	Name      string `json:"name"`
 	AliasName string `json:"alias_name"`
+
+	// 0：标准集群 1: 自建集群
+	ClusterType ClusterType `json:"cluster_type"`
 	// k8s kubeConfig base64 字段
 	KubeConfig string `json:"kube_config,omitempty"`
 	// 集群用途描述，可以为空

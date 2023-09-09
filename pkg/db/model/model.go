@@ -28,6 +28,10 @@ type Cluster struct {
 	Name string `gorm:"index:idx_name,unique" json:"name"`
 	// 集群别名，可以重复，允许为中文
 	AliasName string `json:"alias_name"`
+
+	// 0：标准集群 1: 自建集群
+	ClusterType int `json:"cluster_type"`
+
 	// k8s kubeConfig base64 字段
 	KubeConfig string `json:"kube_config"`
 

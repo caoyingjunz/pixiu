@@ -89,6 +89,7 @@ func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
 	object, err := c.factory.Cluster().Create(ctx, &model.Cluster{
 		Name:        clu.Name,
 		AliasName:   clu.AliasName,
+		ClusterType: int(clu.ClusterType),
 		KubeConfig:  clu.KubeConfig,
 		Description: clu.Description,
 	})
@@ -212,6 +213,7 @@ func model2Type(o *model.Cluster) *types.Cluster {
 		},
 		Name:        o.Name,
 		AliasName:   o.AliasName,
+		ClusterType: types.ClusterType(o.ClusterType),
 		Description: o.Description,
 	}
 }
