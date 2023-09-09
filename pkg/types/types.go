@@ -16,7 +16,11 @@ limitations under the License.
 
 package types
 
-import "time"
+import (
+	"time"
+
+	"k8s.io/api/core/v1"
+)
 
 type PixiuMeta struct {
 	// pixiu 对象 ID
@@ -61,6 +65,8 @@ type KubernetesMeta struct {
 	KubernetesVersion string `json:"kubernetes_version,omitempty"`
 	// 节点数量
 	Nodes int `json:"nodes"`
+	// The memory and cpu usage
+	Resources v1.ResourceList
 }
 
 type User struct {

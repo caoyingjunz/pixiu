@@ -233,6 +233,17 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 		return nil, fmt.Errorf("no nodes found")
 	}
 
+	// TODO: 并发优化
+	// 获取集群所有节点的资源数据，并做整合
+	metricList, err := clusterSet.Metric.NodeMetricses().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, metric := range metricList.Items {
+		fmt.Println("nodeName", metric.Name)
+		fmt.Println("metric.Usage", metric.Usage)
+	}
+
 	// 构造 kubernetes 元数据格式
 	// TODO: 后续通过 informer 机制构造缓存
 	// TODO: 补充集群资源数据

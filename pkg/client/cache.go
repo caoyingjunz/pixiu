@@ -22,11 +22,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	resourceclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 )
 
 type ClusterSet struct {
 	Client *kubernetes.Clientset
 	Config *restclient.Config
+	Metric *resourceclient.MetricsV1beta1Client
 }
 
 func (cs *ClusterSet) Complete(cfg []byte) error {
@@ -35,6 +37,9 @@ func (cs *ClusterSet) Complete(cfg []byte) error {
 		return err
 	}
 	if cs.Client, err = kubernetes.NewForConfig(cs.Config); err != nil {
+		return err
+	}
+	if cs.Metric, err = resourceclient.NewForConfig(cs.Config); err != nil {
 		return err
 	}
 
