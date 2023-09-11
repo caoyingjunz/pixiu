@@ -37,8 +37,12 @@ import (
 
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
-// @host localhost:8090
+// @schemes       http https
+// @host          localhost:8090
 
+// @securityDefinitions.apikey  ApiKeyAuth
+// @in                          header
+// @name                        Authorization
 func main() {
 	klog.InitFlags(nil)
 

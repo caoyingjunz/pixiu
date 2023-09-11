@@ -32,6 +32,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"k8s.io/klog/v2"
 )
 
 type RegisterFunc func(o *options.Options)
@@ -46,7 +47,8 @@ func InstallRouters(o *options.Options) {
 	// 启动检查检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
-	o.HttpEngine.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	o.HttpEngine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	klog.Infof("Apidoc server started and visit url may be like this: http://localhost:8090/swagger/index.html")
 }
 
 func install(o *options.Options, fs ...RegisterFunc) {
