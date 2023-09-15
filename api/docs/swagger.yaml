@@ -83,7 +83,9 @@ info:
     email: support@pixiu.io
     name: API Support
     url: https://github.com/caoyingjunz/pixiu
-  description: Use the Pixiu APIs to your cloud
+  description: |-
+    Use the Pixiu APIs to your cloud
+    Type "Bearer" followed by a space and JWT token
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -103,7 +105,14 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/httputils.Response'
+              allOf:
+              - $ref: '#/definitions/httputils.Response'
+              - properties:
+                  result:
+                    items:
+                      $ref: '#/definitions/types.Cluster'
+                    type: array
+                type: object
             type: array
         "400":
           description: Bad Request
@@ -117,6 +126,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: List clusters
       tags:
       - Clusters
@@ -151,51 +162,18 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: Create a cluster
-      tags:
-      - Clusters
-  /pixiu/clusters//{clusterId}/ping:
-    get:
-      consumes:
-      - application/json
-      description: Do ping
-      parameters:
-      - description: Cluster Id
-        in: path
-        name: clusterId
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/httputils.Response'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputils.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/httputils.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httputils.Response'
-      summary: Ping cluster
       tags:
       - Clusters
   /pixiu/clusters/{clusterId}:
     delete:
       consumes:
       - application/json
-      description: Delete by cloud Cluster ID
+      description: Delete by cloud cluster ID
       parameters:
-      - description: Cluster Id
+      - description: Cluster ID
         in: path
         name: clusterId
         required: true
@@ -219,15 +197,17 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
-      summary: Delete Cluster by clusterId
+      security:
+      - Bearer: []
+      summary: Delete cluster by clusterId
       tags:
       - Clusters
     get:
       consumes:
       - application/json
-      description: Get by cloud Cluster ID
+      description: Get by cloud cluster ID
       parameters:
-      - description: Cluster Id
+      - description: Cluster ID
         in: path
         name: clusterId
         required: true
@@ -238,7 +218,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputils.Response'
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.Cluster'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -251,6 +236,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: Get Cluster by clusterId
       tags:
       - Clusters
@@ -289,14 +276,22 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: Update an cluster
       tags:
       - Clusters
-  /pixiu/users:
+  /pixiu/clusters/{clusterId}/ping:
     get:
       consumes:
       - application/json
-      description: List users
+      description: Do ping
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -318,6 +313,46 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Ping cluster
+      tags:
+      - Clusters
+  /pixiu/users:
+    get:
+      consumes:
+      - application/json
+      description: List users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              allOf:
+              - $ref: '#/definitions/httputils.Response'
+              - properties:
+                  result:
+                    items:
+                      $ref: '#/definitions/types.User'
+                    type: array
+                type: object
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: List users
       tags:
       - Users
@@ -352,6 +387,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: Create a user
       tags:
       - Users
@@ -361,7 +398,7 @@ paths:
       - application/json
       description: Delete by userID
       parameters:
-      - description: User Id
+      - description: User ID
         in: path
         name: userId
         required: true
@@ -385,6 +422,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: Delete user by userId
       tags:
       - Users
@@ -393,7 +432,7 @@ paths:
       - application/json
       description: Get by user ID
       parameters:
-      - description: user Id
+      - description: User ID
         in: path
         name: userId
         required: true
@@ -404,7 +443,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputils.Response'
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.User'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -417,6 +461,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: Get user by userId
       tags:
       - Users
@@ -455,6 +501,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
       summary: Update an user
       tags:
       - Users
@@ -491,12 +539,12 @@ paths:
             $ref: '#/definitions/httputils.Response'
       summary: User login
       tags:
-      - Users
+      - Login
 schemes:
 - http
 - https
 securityDefinitions:
-  ApiKeyAuth:
+  Bearer:
     in: header
     name: Authorization
     type: apiKey

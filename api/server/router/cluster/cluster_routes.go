@@ -29,17 +29,18 @@ type IdMeta struct {
 
 // CreateCluster godoc
 //
-//  @Summary      Create a cluster
-//  @Description  Create by a json cluster
-//  @Tags         Clusters
-//  @Accept       json
-//  @Produce      json
-//  @Param        cluster  body      types.Cluster  true  "Create cluster"
-//  @Success      200      {object}  httputils.Response
-//  @Failure      400      {object}  httputils.Response
-//  @Failure      404      {object}  httputils.Response
-//  @Failure      500      {object}  httputils.Response
-//  @Router       /pixiu/clusters/ [post]
+//	@Summary      Create a cluster
+//	@Description  Create by a json cluster
+//	@Tags         Clusters
+//	@Accept       json
+//	@Produce      json
+//	@Param        cluster  body      types.Cluster  true  "Create cluster"
+//	@Success      200      {object}  httputils.Response
+//	@Failure      400      {object}  httputils.Response
+//	@Failure      404      {object}  httputils.Response
+//	@Failure      500      {object}  httputils.Response
+//	@Router       /pixiu/clusters/ [post]
+//	@Security     Bearer
 func (cr *clusterRouter) createCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -58,18 +59,19 @@ func (cr *clusterRouter) createCluster(c *gin.Context) {
 
 // UpdateCluster godoc
 //
-//  @Summary      Update an cluster
-//  @Description  Update by json cluster
-//  @Tags         Clusters
-//  @Accept       json
-//  @Produce      json
-//  @Param        clusterId  path      int            true  "Cluster ID"
-//  @Param        cluster    body      types.Cluster  true  "Update cluster"
-//  @Success      200        {object}  httputils.Response
-//  @Failure      400        {object}  httputils.Response
-//  @Failure      404        {object}  httputils.Response
-//  @Failure      500        {object}  httputils.Response
-//  @Router       /pixiu/clusters/{clusterId} [put]
+//	@Summary      Update an cluster
+//	@Description  Update by json cluster
+//	@Tags         Clusters
+//	@Accept       json
+//	@Produce      json
+//	@Param        clusterId  path      int            true  "Cluster ID"
+//	@Param        cluster    body      types.Cluster  true  "Update cluster"
+//	@Success      200        {object}  httputils.Response
+//	@Failure      400        {object}  httputils.Response
+//	@Failure      404        {object}  httputils.Response
+//	@Failure      500        {object}  httputils.Response
+//	@Router       /pixiu/clusters/{clusterId} [put]
+//	@Security     Bearer
 func (cr *clusterRouter) updateCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -97,17 +99,18 @@ func (cr *clusterRouter) updateCluster(c *gin.Context) {
 
 // DeleteCluster godoc
 //
-//  @Summary      Delete cluster by clusterId
-//  @Description  Delete by cloud cluster ID
-//  @Tags         Clusters
-//  @Accept       json
-//  @Produce      json
-//  @Param        clusterId  path      int  true  "Cluster ID"
-//  @Success      200        {object}  httputils.Response
-//  @Failure      400        {object}  httputils.Response
-//  @Failure      404        {object}  httputils.Response
-//  @Failure      500        {object}  httputils.Response
-//  @Router       /pixiu/clusters/{clusterId} [delete]
+//	@Summary      Delete cluster by clusterId
+//	@Description  Delete by cloud cluster ID
+//	@Tags         Clusters
+//	@Accept       json
+//	@Produce      json
+//	@Param        clusterId  path      int  true  "Cluster ID"
+//	@Success      200        {object}  httputils.Response
+//	@Failure      400        {object}  httputils.Response
+//	@Failure      404        {object}  httputils.Response
+//	@Failure      500        {object}  httputils.Response
+//	@Router       /pixiu/clusters/{clusterId} [delete]
+//	@Security     Bearer
 func (cr *clusterRouter) deleteCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -129,17 +132,18 @@ func (cr *clusterRouter) deleteCluster(c *gin.Context) {
 
 // GetCluster godoc
 //
-//  @Summary      Get Cluster by clusterId
-//  @Description  Get by cloud Cluster ID
-//  @Tags         Clusters
-//  @Accept       json
-//  @Produce      json
-//  @Param        clusterId  path      int  true  "Cluster ID"
-//  @Success      200        {object}  httputils.Response
-//  @Failure      400        {object}  httputils.Response
-//  @Failure      404        {object}  httputils.Response
-//  @Failure      500        {object}  httputils.Response
-//  @Router       /pixiu/clusters/{clusterId} [get]
+//	@Summary      Get Cluster by clusterId
+//	@Description  Get by cloud cluster ID
+//	@Tags         Clusters
+//	@Accept       json
+//	@Produce      json
+//	@Param        clusterId  path      int  true  "Cluster ID"
+//	@Success      200        {object}  httputils.Response{result=types.Cluster}
+//	@Failure      400        {object}  httputils.Response
+//	@Failure      404        {object}  httputils.Response
+//	@Failure      500        {object}  httputils.Response
+//	@Router       /pixiu/clusters/{clusterId} [get]
+//	@Security     Bearer
 func (cr *clusterRouter) getCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -162,16 +166,17 @@ func (cr *clusterRouter) getCluster(c *gin.Context) {
 
 // ListClusters godoc
 //
-//  @Summary      List clusters
-//  @Description  List clusters
-//  @Tags         Clusters
-//  @Accept       json
-//  @Produce      json
-//  @Success      200  {array}   httputils.Response
-//  @Failure      400  {object}  httputils.Response
-//  @Failure      404  {object}  httputils.Response
-//  @Failure      500  {object}  httputils.Response
-//  @Router       /pixiu/clusters [get]
+//	@Summary      List clusters
+//	@Description  List clusters
+//	@Tags         Clusters
+//	@Accept       json
+//	@Produce      json
+//	@Success      200  {array}   httputils.Response{result=[]types.Cluster}
+//	@Failure      400  {object}  httputils.Response
+//	@Failure      404  {object}  httputils.Response
+//	@Failure      500  {object}  httputils.Response
+//	@Router       /pixiu/clusters [get]
+//	@Security     Bearer
 func (cr *clusterRouter) listClusters(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -186,17 +191,18 @@ func (cr *clusterRouter) listClusters(c *gin.Context) {
 
 // PingCluster godoc
 //
-//  @Summary      Ping cluster
-//  @Description  Do ping
-//  @Tags         Clusters
-//  @Accept       json
-//  @Produce      json
-//  @Param        clusterId  path      int  true  "Cluster ID"
-//  @Success      200        {array}   httputils.Response
-//  @Failure      400        {object}  httputils.Response
-//  @Failure      404        {object}  httputils.Response
-//  @Failure      500        {object}  httputils.Response
-//  @Router       /pixiu/clusters/{clusterId}/ping [get]
+//	@Summary      Ping cluster
+//	@Description  Do ping
+//	@Tags         Clusters
+//	@Accept       json
+//	@Produce      json
+//	@Param        clusterId  path      int  true  "Cluster ID"
+//	@Success      200        {array}   httputils.Response
+//	@Failure      400        {object}  httputils.Response
+//	@Failure      404        {object}  httputils.Response
+//	@Failure      500        {object}  httputils.Response
+//	@Router       /pixiu/clusters/{clusterId}/ping [get]
+//	@Security     Bearer
 func (cr *clusterRouter) pingCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 

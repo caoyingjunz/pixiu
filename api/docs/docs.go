@@ -27,6 +27,11 @@ const docTemplate = `{
     "paths": {
         "/pixiu/clusters": {
             "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "List clusters",
                 "consumes": [
                     "application/json"
@@ -44,7 +49,22 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/httputils.Response"
+                                "allOf": [
+                                    {
+                                        "$ref": "#/definitions/httputils.Response"
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "result": {
+                                                "type": "array",
+                                                "items": {
+                                                    "$ref": "#/definitions/types.Cluster"
+                                                }
+                                            }
+                                        }
+                                    }
+                                ]
                             }
                         }
                     },
@@ -71,6 +91,11 @@ const docTemplate = `{
         },
         "/pixiu/clusters/": {
             "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Create by a json cluster",
                 "consumes": [
                     "application/json"
@@ -121,62 +146,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/pixiu/clusters//{clusterId}/ping": {
-            "get": {
-                "description": "Do ping",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Clusters"
-                ],
-                "summary": "Ping cluster",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Cluster Id",
-                        "name": "clusterId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/httputils.Response"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/httputils.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/httputils.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/httputils.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/pixiu/clusters/{clusterId}": {
             "get": {
-                "description": "Get by cloud Cluster ID",
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get by cloud cluster ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -190,7 +167,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Cluster Id",
+                        "description": "Cluster ID",
                         "name": "clusterId",
                         "in": "path",
                         "required": true
@@ -200,7 +177,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/types.Cluster"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -224,6 +213,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Update by json cluster",
                 "consumes": [
                     "application/json"
@@ -281,7 +275,12 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete by cloud Cluster ID",
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Delete by cloud cluster ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -291,11 +290,11 @@ const docTemplate = `{
                 "tags": [
                     "Clusters"
                 ],
-                "summary": "Delete Cluster by clusterId",
+                "summary": "Delete cluster by clusterId",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Cluster Id",
+                        "description": "Cluster ID",
                         "name": "clusterId",
                         "in": "path",
                         "required": true
@@ -329,9 +328,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/pixiu/users": {
+        "/pixiu/clusters/{clusterId}/ping": {
             "get": {
-                "description": "List users",
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Do ping",
                 "consumes": [
                     "application/json"
                 ],
@@ -339,9 +343,18 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Users"
+                    "Clusters"
                 ],
-                "summary": "List users",
+                "summary": "Ping cluster",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Cluster ID",
+                        "name": "clusterId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -373,8 +386,77 @@ const docTemplate = `{
                 }
             }
         },
+        "/pixiu/users": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "List users",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "List users",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/definitions/httputils.Response"
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "result": {
+                                                "type": "array",
+                                                "items": {
+                                                    "$ref": "#/definitions/types.User"
+                                                }
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputils.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/pixiu/users/": {
             "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Create by a json user",
                 "consumes": [
                     "application/json"
@@ -435,7 +517,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Users"
+                    "Login"
                 ],
                 "summary": "User login",
                 "parameters": [
@@ -479,6 +561,11 @@ const docTemplate = `{
         },
         "/pixiu/users/{userId}": {
             "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Get by user ID",
                 "consumes": [
                     "application/json"
@@ -493,7 +580,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "user Id",
+                        "description": "User ID",
                         "name": "userId",
                         "in": "path",
                         "required": true
@@ -503,7 +590,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputils.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "result": {
+                                            "$ref": "#/definitions/types.User"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -527,6 +626,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Update by json user",
                 "consumes": [
                     "application/json"
@@ -584,6 +688,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Delete by userID",
                 "consumes": [
                     "application/json"
@@ -598,7 +707,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "User Id",
+                        "description": "User ID",
                         "name": "userId",
                         "in": "path",
                         "required": true
@@ -744,7 +853,7 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
+        "Bearer": {
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
@@ -759,7 +868,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "",
 	Schemes:          []string{"http", "https"},
 	Title:            "Pixiu API Documentation",
-	Description:      "Use the Pixiu APIs to your cloud",
+	Description:      "Use the Pixiu APIs to your cloud\nType \"Bearer\" followed by a space and JWT token",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 }
