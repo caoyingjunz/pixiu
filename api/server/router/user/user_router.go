@@ -40,7 +40,7 @@ type IdMeta struct {
 //  @Failure      404   {object}  httputils.Response
 //  @Failure      500   {object}  httputils.Response
 //  @Router       /pixiu/users/ [post]
-//	@Security     Bearer
+//                @Security  Bearer
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -74,7 +74,7 @@ func (u *userRouter) createUser(c *gin.Context) {
 //  @Failure      404     {object}  httputils.Response
 //  @Failure      500     {object}  httputils.Response
 //  @Router       /pixiu/users/{userId} [put]
-//	@Security     Bearer
+//                @Security  Bearer
 func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -113,7 +113,7 @@ func (u *userRouter) updateUser(c *gin.Context) {
 //  @Failure      404     {object}  httputils.Response
 //  @Failure      500     {object}  httputils.Response
 //  @Router       /pixiu/users/{userId} [delete]
-//	@Security     Bearer
+//                @Security  Bearer
 func (u *userRouter) deleteUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -146,7 +146,7 @@ func (u *userRouter) deleteUser(c *gin.Context) {
 //  @Failure      404     {object}  httputils.Response
 //  @Failure      500     {object}  httputils.Response
 //  @Router       /pixiu/users/{userId} [get]
-//	@Security     Bearer
+//                @Security  Bearer
 func (u *userRouter) getUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -178,7 +178,7 @@ func (u *userRouter) getUser(c *gin.Context) {
 //  @Failure      404  {object}  httputils.Response
 //  @Failure      500  {object}  httputils.Response
 //  @Router       /pixiu/users [get]
-//	@Security     Bearer
+//                @Security  Bearer
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
 

@@ -42,8 +42,8 @@ import (
 // @securityDefinitions.apikey  Bearer
 // @in                          header
 // @name                        Authorization
-// @description     Use the Pixiu APIs to your cloud
-// @description     Type "Bearer" followed by a space and JWT token
+// @description                 Use the Pixiu APIs to your cloud
+// @description                 Type "Bearer" followed by a space and JWT token
 func main() {
 	klog.InitFlags(nil)
 
