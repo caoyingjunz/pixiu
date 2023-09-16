@@ -1,15 +1,551 @@
+definitions:
+  httputils.Response:
+    properties:
+      code:
+        description: 返回的状态码
+        type: integer
+      message:
+        description: 异常返回时的错误信息
+        type: string
+      result:
+        description: 正常返回时的数据，可以为任意数据结构
+    type: object
+  types.Cluster:
+    properties:
+      alias_name:
+        type: string
+      cluster_type:
+        description: '0：标准集群 1: 自建集群'
+        type: integer
+      description:
+        description: 集群用途描述，可以为空
+        type: string
+      gmt_create:
+        description: pixiu 对象创建时间
+        type: string
+      gmt_modified:
+        description: pixiu 对象修改时间
+        type: string
+      id:
+        description: pixiu 对象 ID
+        type: integer
+      kube_config:
+        description: k8s kubeConfig base64 字段
+        type: string
+      kubernetes_version:
+        description: 集群的版本
+        type: string
+      name:
+        type: string
+      nodes:
+        description: 节点数量
+        type: integer
+      resource_version:
+        description: Pixiu 对象版本号
+        type: integer
+    type: object
+  types.User:
+    properties:
+      description:
+        description: 用户描述信息
+        type: string
+      email:
+        description: 用户注册邮件
+        type: string
+      gmt_create:
+        description: pixiu 对象创建时间
+        type: string
+      gmt_modified:
+        description: pixiu 对象修改时间
+        type: string
+      id:
+        description: pixiu 对象 ID
+        type: integer
+      name:
+        description: 用户名称
+        type: string
+      password:
+        description: 用户密码
+        type: string
+      resource_version:
+        description: Pixiu 对象版本号
+        type: integer
+      role:
+        description: '用户角色，目前只实现管理员，0: 普通用户 1: 管理员 2: 超级管理员'
+        type: string
+      status:
+        description: 用户状态标识
+        type: integer
+    type: object
 host: localhost:8090
 info:
   contact:
     email: support@pixiu.io
     name: API Support
     url: https://github.com/caoyingjunz/pixiu
-  description: Use the Pixiu APIs to your cloud
+  description: |-
+    Use the Pixiu APIs to your cloud
+    Type "Bearer" followed by a space and JWT token
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: https://github.com/caoyingjunz/pixiu
   title: Pixiu API Documentation
   version: "1.0"
-paths: {}
+paths:
+  /pixiu/clusters:
+    get:
+      consumes:
+      - application/json
+      description: List clusters
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              allOf:
+              - $ref: '#/definitions/httputils.Response'
+              - properties:
+                  result:
+                    items:
+                      $ref: '#/definitions/types.Cluster'
+                    type: array
+                type: object
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: List clusters
+      tags:
+      - Clusters
+  /pixiu/clusters/:
+    post:
+      consumes:
+      - application/json
+      description: Create by a json cluster
+      parameters:
+      - description: Create cluster
+        in: body
+        name: cluster
+        required: true
+        schema:
+          $ref: '#/definitions/types.Cluster'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Create a cluster
+      tags:
+      - Clusters
+  /pixiu/clusters/{clusterId}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete by cloud cluster ID
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Delete cluster by clusterId
+      tags:
+      - Clusters
+    get:
+      consumes:
+      - application/json
+      description: Get by cloud cluster ID
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.Cluster'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Get Cluster by clusterId
+      tags:
+      - Clusters
+    put:
+      consumes:
+      - application/json
+      description: Update by json cluster
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: Update cluster
+        in: body
+        name: cluster
+        required: true
+        schema:
+          $ref: '#/definitions/types.Cluster'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Update an cluster
+      tags:
+      - Clusters
+  /pixiu/clusters/{clusterId}/ping:
+    get:
+      consumes:
+      - application/json
+      description: Do ping
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/httputils.Response'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Ping cluster
+      tags:
+      - Clusters
+  /pixiu/users:
+    get:
+      consumes:
+      - application/json
+      description: List users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              allOf:
+              - $ref: '#/definitions/httputils.Response'
+              - properties:
+                  result:
+                    items:
+                      $ref: '#/definitions/types.User'
+                    type: array
+                type: object
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: List users
+      tags:
+      - Users
+  /pixiu/users/:
+    post:
+      consumes:
+      - application/json
+      description: Create by a json user
+      parameters:
+      - description: Create user
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/types.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Create a user
+      tags:
+      - Users
+  /pixiu/users/{userId}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete by userID
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Delete user by userId
+      tags:
+      - Users
+    get:
+      consumes:
+      - application/json
+      description: Get by user ID
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputils.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/types.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Get user by userId
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Update by json user
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      - description: Update user
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/types.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      security:
+      - Bearer: []
+      summary: Update an user
+      tags:
+      - Users
+  /pixiu/users/login:
+    post:
+      consumes:
+      - application/json
+      description: Login by a json user
+      parameters:
+      - description: User login
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/types.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.Response'
+      summary: User login
+      tags:
+      - Login
+schemes:
+- http
+- https
+securityDefinitions:
+  Bearer:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
