@@ -19,7 +19,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -178,9 +177,15 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 	}
 
 	// 调用 ns 资源，确保连通
-	if _, err = clientSet.CoreV1().Namespaces().Get(ctx, pingNamespace, metav1.GetOptions{}); err != nil {
-		return err
+	var timeout int64 = 1
+	if _, err = clientSet.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
+		TimeoutSeconds: &timeout,
+	}); err != nil {
+		klog.Errorf("failed to ping kubernetes: %v", err)
+		// 处理原始报错信息，仅返回连接不通的信息
+		return fmt.Errorf("kubernetes 集群连接测试失败")
 	}
+
 	return nil
 }
 
