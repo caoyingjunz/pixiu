@@ -43,6 +43,16 @@ definitions:
       resource_version:
         description: Pixiu 对象版本号
         type: integer
+      resources:
+        $ref: '#/definitions/types.Resources'
+        description: The memory and cpu usage
+    type: object
+  types.Resources:
+    properties:
+      cpu:
+        type: string
+      memory:
+        type: string
     type: object
   types.User:
     properties:
@@ -83,9 +93,6 @@ info:
     email: support@pixiu.io
     name: API Support
     url: https://github.com/caoyingjunz/pixiu
-  description: |-
-    Use the Pixiu APIs to your cloud
-    Type "Bearer" followed by a space and JWT token
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -545,6 +552,7 @@ schemes:
 - https
 securityDefinitions:
   Bearer:
+    description: Type "Bearer" followed by a space and JWT token
     in: header
     name: Authorization
     type: apiKey
