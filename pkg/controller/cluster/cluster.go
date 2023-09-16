@@ -19,22 +19,20 @@ package cluster
 import (
 	"context"
 	"fmt"
+
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-	v1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-)
-
-const (
-	pingNamespace = "kube-system"
+	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
 type ClusterGetter interface {
@@ -66,11 +64,6 @@ type cluster struct {
 }
 
 func (c *cluster) preCreate(ctx context.Context, clu *types.Cluster) error {
-	// TODO: 集群名称必须是由英文，数字组成
-	if len(clu.Name) == 0 {
-		return fmt.Errorf("创建 kubernetes 集群时，集群名称不允许为空")
-	}
-
 	if len(clu.KubeConfig) == 0 {
 		return fmt.Errorf("创建 kubernetes 集群时， kubeconfig 不允许为空")
 	}
@@ -86,6 +79,10 @@ func (c *cluster) preCreate(ctx context.Context, clu *types.Cluster) error {
 func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
 	if err := c.preCreate(ctx, clu); err != nil {
 		return err
+	}
+	// TODO: 集群名称必须是由英文，数字组成
+	if len(clu.Name) == 0 {
+		clu.Name = uuid.NewRandName(8)
 	}
 
 	// 执行创建
