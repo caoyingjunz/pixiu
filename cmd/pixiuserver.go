@@ -18,7 +18,9 @@ package main
 
 import (
 	"io"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/klog/v2"
@@ -46,6 +48,7 @@ import (
 // @description                 Type "Bearer" followed by a space and JWT token
 func main() {
 	klog.InitFlags(nil)
+	rand.Seed(time.Now().UnixNano())
 
 	gin.SetMode(gin.ReleaseMode)
 	gin.DefaultWriter = io.Discard

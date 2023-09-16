@@ -25,17 +25,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-	v1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-)
-
-const (
-	pingNamespace = "kube-system"
+	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
 type ClusterGetter interface {
@@ -67,11 +64,6 @@ type cluster struct {
 }
 
 func (c *cluster) preCreate(ctx context.Context, clu *types.Cluster) error {
-	// TODO: 集群名称必须是由英文，数字组成
-	if len(clu.Name) == 0 {
-		return fmt.Errorf("创建 kubernetes 集群时，集群名称不允许为空")
-	}
-
 	if len(clu.KubeConfig) == 0 {
 		return fmt.Errorf("创建 kubernetes 集群时， kubeconfig 不允许为空")
 	}
@@ -87,6 +79,10 @@ func (c *cluster) preCreate(ctx context.Context, clu *types.Cluster) error {
 func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
 	if err := c.preCreate(ctx, clu); err != nil {
 		return err
+	}
+	// TODO: 集群名称必须是由英文，数字组成
+	if len(clu.Name) == 0 {
+		clu.Name = uuid.NewRandName(8)
 	}
 
 	// 执行创建
@@ -178,9 +174,15 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 	}
 
 	// 调用 ns 资源，确保连通
-	if _, err = clientSet.CoreV1().Namespaces().Get(ctx, pingNamespace, metav1.GetOptions{}); err != nil {
-		return err
+	var timeout int64 = 1
+	if _, err = clientSet.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
+		TimeoutSeconds: &timeout,
+	}); err != nil {
+		klog.Errorf("failed to ping kubernetes: %v", err)
+		// 处理原始报错信息，仅返回连接不通的信息
+		return fmt.Errorf("kubernetes 集群连接测试失败")
 	}
+
 	return nil
 }
 

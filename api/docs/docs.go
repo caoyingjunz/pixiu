@@ -803,6 +803,21 @@ const docTemplate = `{
                 "resource_version": {
                     "description": "Pixiu 对象版本号",
                     "type": "integer"
+                },
+                "resources": {
+                    "description": "The memory and cpu usage",
+                    "$ref": "#/definitions/types.Resources"
+                }
+            }
+        },
+        "types.Resources": {
+            "type": "object",
+            "properties": {
+                "cpu": {
+                    "type": "string"
+                },
+                "memory": {
+                    "type": "string"
                 }
             }
         },
@@ -854,6 +869,7 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "Bearer": {
+            "description": "Type \"Bearer\" followed by a space and JWT token",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
@@ -868,7 +884,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "",
 	Schemes:          []string{"http", "https"},
 	Title:            "Pixiu API Documentation",
-	Description:      "Use the Pixiu APIs to your cloud\nType \"Bearer\" followed by a space and JWT token",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 }

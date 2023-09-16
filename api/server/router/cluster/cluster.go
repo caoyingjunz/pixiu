@@ -47,6 +47,6 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 		clusterRoute.GET("", cr.listClusters)
 
 		// 检查 kubernetes 的连通性
-		clusterRoute.POST("/:clusterId/ping", cr.pingCluster)
+		clusterRoute.POST("/ping", cr.pingCluster)
 	}
 }
