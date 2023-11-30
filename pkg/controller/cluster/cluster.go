@@ -19,14 +19,15 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strconv"
+
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
-	"regexp"
-	"strconv"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
@@ -257,7 +258,6 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	return &km, nil
 }
 
-// todo 修改返回的cpu和memory修改为人类可读方式
 func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) types.Resources {
 	// 初始化集群资源
 	resourceList := v1.ResourceList{
