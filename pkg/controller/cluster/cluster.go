@@ -19,13 +19,14 @@ package cluster
 import (
 	"context"
 	"fmt"
-
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"regexp"
+	"strconv"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
@@ -256,6 +257,7 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	return &km, nil
 }
 
+// todo 修改返回的cpu和memory修改为人类可读方式
 func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) types.Resources {
 	// 初始化集群资源
 	resourceList := v1.ResourceList{
@@ -284,7 +286,17 @@ func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) typ
 
 	cpuSum := resourceList[v1.ResourceCPU]
 	memSum := resourceList[v1.ResourceMemory]
-	return types.Resources{Cpu: cpuSum.String(), Memory: memSum.String()}
+	cpuInt := parseCpuAndMemory(cpuSum.String()) / 1000 / 1000 / 1000
+	memoryInt := parseCpuAndMemory(memSum.String()) / 1024 / 1024
+
+	return types.Resources{Cpu: strconv.FormatFloat(cpuInt, 'f', 2, 64) + "Core", Memory: strconv.FormatFloat(memoryInt, 'f', 2, 64) + "Gi"}
+}
+
+func parseCpuAndMemory(str string) float64 {
+	re := regexp.MustCompile(`\d+`)
+	digits := re.FindString(str)
+	digitsInt, _ := strconv.Atoi(digits)
+	return float64(digitsInt)
 }
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
