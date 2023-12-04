@@ -188,7 +188,7 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 	return nil
 }
 
-func (c *cluster) AggregateEvents(ctx context.Context, namespace string, name string, kind string) ([]types.Event, error) {
+func (c *cluster) AggregateEvents(ctx context.Context, cid int64, namespace string, name string, kind string) ([]types.Event, error) {
 	return nil, nil
 }
 
