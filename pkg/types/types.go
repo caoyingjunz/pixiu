@@ -86,3 +86,6 @@ type User struct {
 
 	TimeMeta `json:",inline"`
 }
+
+type Event struct {
+}
