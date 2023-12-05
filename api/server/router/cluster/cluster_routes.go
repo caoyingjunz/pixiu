@@ -221,3 +221,27 @@ func (cr *clusterRouter) pingCluster(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		optMeta struct {
+			Cluster   string `uri:"cluster" binding:"required"`
+			Namespace string `uri:"namespace" binding:"required"`
+			Name      string `uri:"name" binding:"required"`
+			Kind      string `uri:"kind" binding:"required"`
+		}
+		err error
+	)
+
+	if err = c.ShouldBindUri(&optMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = cr.c.Cluster().AggregateEvents(c, optMeta.Cluster, optMeta.Namespace, optMeta.Name, optMeta.Kind); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
