@@ -88,4 +88,8 @@ type User struct {
 }
 
 type Event struct {
+	Type    string `json:"type"`
+	Reason  string `json:"reason"`
+	Object  string `json:"object"`
+	Message string `json:"message"`
 }

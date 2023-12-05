@@ -248,7 +248,7 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 		return nil, fmt.Errorf("unsupported kubernetes object kind %s", kind)
 	}
 
-	var aggrEvents []v1.Event
+	var allEvents []types.Event
 	for _, fieldSelector := range fieldSelectors {
 		events, err := clusterSet.Client.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
 			FieldSelector: fieldSelector,
@@ -258,14 +258,16 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 			return nil, err
 		}
 
-		aggrEvents = append(aggrEvents, events.Items...)
+		for _, event := range events.Items {
+			allEvents = append(allEvents, types.Event{
+				Type:    event.Type,
+				Reason:  event.Reason,
+				Message: event.Message,
+			})
+		}
 	}
 
-	for _, e := range aggrEvents {
-		fmt.Println(e)
-	}
-
-	return nil, nil
+	return allEvents, nil
 }
 
 func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
