@@ -295,17 +295,6 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 	return allEvents, nil
 }
 
-func (c *cluster) parseOriginEvent(eve v1.Event) types.Event {
-	return types.Event{
-		Type:          eve.Type,
-		Reason:        eve.Reason,
-		Message:       eve.Message,
-		LastTimestamp: eve.LastTimestamp,
-		ObjectName:    eve.InvolvedObject.Name,
-		Kind:          eve.InvolvedObject.Kind,
-	}
-}
-
 func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error) {
 	cs, err := c.GetClusterSetByName(ctx, name)
 	if err != nil {
@@ -374,6 +363,17 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	km.Resources = c.parseKubernetesResource(metricList.Items)
 
 	return &km, nil
+}
+
+func (c *cluster) parseOriginEvent(eve v1.Event) types.Event {
+	return types.Event{
+		Type:          eve.Type,
+		Reason:        eve.Reason,
+		Message:       eve.Message,
+		LastTimestamp: eve.LastTimestamp,
+		ObjectName:    eve.InvolvedObject.Name,
+		Kind:          eve.InvolvedObject.Kind,
+	}
 }
 
 func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
