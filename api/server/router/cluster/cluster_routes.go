@@ -226,7 +226,7 @@ func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		optMeta struct {
-			IdMeta
+			Cluster   string `uri:"cluster" binding:"required"`
 			Namespace string `uri:"namespace" binding:"required"`
 			Name      string `uri:"name" binding:"required"`
 			Kind      string `uri:"kind" binding:"required"`
@@ -238,7 +238,7 @@ func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().AggregateEvents(c, optMeta.ClusterId, optMeta.Namespace, optMeta.Name, optMeta.Kind); err != nil {
+	if r.Result, err = cr.c.Cluster().AggregateEvents(c, optMeta.Cluster, optMeta.Namespace, optMeta.Name, optMeta.Kind); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
