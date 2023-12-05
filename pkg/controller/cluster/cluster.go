@@ -19,10 +19,12 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
@@ -49,7 +51,7 @@ type Interface interface {
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
 	// AggregateEvents 聚合指定资源的 events
-	AggregateEvents(ctx context.Context, cid int64, namespace string, name string, kind string) ([]types.Event, error)
+	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) ([]types.Event, error)
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 }
@@ -188,8 +190,91 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 	return nil
 }
 
-func (c *cluster) AggregateEvents(ctx context.Context, cid int64, namespace string, name string, kind string) ([]types.Event, error) {
+// AggregateEvents 聚合 k8s 资源的所有 events，比如 kind 为 deployment 时，则聚合 deployment，所属 rs 以及 pod 的事件
+func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) ([]types.Event, error) {
+	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	var fieldSelectors []string
+
+	switch kind {
+	case "deployment":
+		// 获取 deployment
+		deployment, err := clusterSet.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			klog.Errorf("failed to get deployment (%s/%s), err: %v", namespace, name, err)
+			return nil, err
+		}
+		fieldSelectors = append(fieldSelectors, c.makeFieldSelector(deployment.UID, deployment.Name, deployment.Namespace, "Deployment"))
+
+		var labels []string
+		for k, v := range deployment.Spec.Selector.MatchLabels {
+			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+		}
+		labelSelector := strings.Join(labels, ",")
+
+		// 获取 rs
+		allReplicaSets, err := clusterSet.Client.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector, Limit: 500})
+		if err != nil {
+			return nil, err
+		}
+		var replicaSetUIDs []apitypes.UID
+		for _, rs := range allReplicaSets.Items {
+			for _, ownerReference := range rs.OwnerReferences {
+				if ownerReference.Kind == "Deployment" && ownerReference.UID == deployment.UID {
+					fieldSelectors = append(fieldSelectors, c.makeFieldSelector(rs.UID, rs.Name, rs.Namespace, "ReplicaSet"))
+					replicaSetUIDs = append(replicaSetUIDs, rs.UID)
+				}
+			}
+		}
+
+		// 获取 pods
+		allPods, err := clusterSet.Client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector, Limit: 500})
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range allPods.Items {
+			for _, ownerReference := range p.OwnerReferences {
+				for _, replicaSetUID := range replicaSetUIDs {
+					if ownerReference.UID == replicaSetUID && ownerReference.Kind == "ReplicaSet" {
+						fieldSelectors = append(fieldSelectors, c.makeFieldSelector(p.UID, p.Name, p.Namespace, "Pod"))
+					}
+				}
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported kubernetes object kind %s", kind)
+	}
+
+	var aggrEvents []v1.Event
+	for _, fieldSelector := range fieldSelectors {
+		events, err := clusterSet.Client.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
+			FieldSelector: fieldSelector,
+			Limit:         500,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		aggrEvents = append(aggrEvents, events.Items...)
+	}
+
+	for _, e := range aggrEvents {
+		fmt.Println(e)
+	}
+
 	return nil, nil
+}
+
+func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
+	return strings.Join([]string{
+		"involvedObject.uid=" + string(uid),
+		"involvedObject.name=" + name,
+		"involvedObject.namespace=" + namespace,
+		"involvedObject.kind=" + kind,
+	}, ",")
 }
 
 func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error) {
