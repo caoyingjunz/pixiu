@@ -16,20 +16,47 @@ limitations under the License.
 
 package types
 
-import "time"
+import (
+	"time"
 
-func (c *Cluster) SetId(i int64) {
-	c.Id = i
-}
+	appv1 "k8s.io/api/apps/v1"
+	"k8s.io/api/core/v1"
+)
 
 const (
 	timeLayout = "2006-01-02 15:04:05.999999999"
 )
 
-// TimeSpec 通用时间规格
-type TimeSpec struct {
-	GmtCreate   interface{} `json:"gmt_create,omitempty"`
-	GmtModified interface{} `json:"gmt_modified,omitempty"`
+func (c *Cluster) SetId(i int64) {
+	c.Id = i
+}
+
+func (o *KubeObject) SetReplicaSets(replicaSets []appv1.ReplicaSet) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	o.ReplicaSets = replicaSets
+}
+
+func (o *KubeObject) GetReplicaSets() []appv1.ReplicaSet {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	return o.ReplicaSets
+}
+
+func (o *KubeObject) SetPods(pods []v1.Pod) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	o.Pods = pods
+}
+
+func (o *KubeObject) GetPods() []v1.Pod {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	return o.Pods
 }
 
 func FormatTime(GmtCreate time.Time, GmtModified time.Time) TimeSpec {

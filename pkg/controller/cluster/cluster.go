@@ -23,10 +23,12 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apitypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
@@ -217,13 +219,15 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 		}
 		labelSelector := strings.Join(labels, ",")
 
-		// 获取 rs
-		allReplicaSets, err := clusterSet.Client.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector, Limit: 500})
+		kubeObject, err := c.GetKubeObjectByLabel(clusterSet.Client, namespace, labelSelector, "ReplicaSet", "Pod")
 		if err != nil {
 			return nil, err
 		}
+
+		// 获取 rs
+		allReplicaSets := kubeObject.GetReplicaSets()
 		var replicaSetUIDs []apitypes.UID
-		for _, rs := range allReplicaSets.Items {
+		for _, rs := range allReplicaSets {
 			for _, ownerReference := range rs.OwnerReferences {
 				if ownerReference.Kind == "Deployment" && ownerReference.UID == deployment.UID {
 					fieldSelectors = append(fieldSelectors, c.makeFieldSelector(rs.UID, rs.Name, rs.Namespace, "ReplicaSet"))
@@ -233,11 +237,8 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 		}
 
 		// 获取 pods
-		allPods, err := clusterSet.Client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector, Limit: 500})
-		if err != nil {
-			return nil, err
-		}
-		for _, p := range allPods.Items {
+		allPods := kubeObject.GetPods()
+		for _, p := range allPods {
 			for _, ownerReference := range p.OwnerReferences {
 				for _, replicaSetUID := range replicaSetUIDs {
 					if ownerReference.UID == replicaSetUID && ownerReference.Kind == "ReplicaSet" {
@@ -293,6 +294,53 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 
 	sort.Sort(allEvents)
 	return allEvents, nil
+}
+
+// GetKubeObjectByLabel
+// TODO: 并发优化
+func (c *cluster) GetKubeObjectByLabel(Client *kubernetes.Clientset, namespace string, labelSelector string, kinds ...string) (*types.KubeObject, error) {
+	object := &types.KubeObject{}
+
+	kindSet := sets.NewString(kinds...)
+	errCh := make(chan error, kindSet.Len())
+
+	var wg sync.WaitGroup
+	wg.Add(kindSet.Len())
+
+	// 后续优化
+	if kindSet.Has("ReplicaSet") {
+		go func() {
+			defer wg.Done()
+			allReplicaSets, err := Client.AppsV1().ReplicaSets(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector, Limit: 500})
+			if err != nil {
+				errCh <- err
+			} else {
+				object.SetReplicaSets(allReplicaSets.Items)
+			}
+		}()
+	}
+
+	if kindSet.Has("Pod") {
+		go func() {
+			defer wg.Done()
+			allPods, err := Client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector, Limit: 500})
+			if err != nil {
+				errCh <- err
+			} else {
+				object.SetPods(allPods.Items)
+			}
+		}()
+	}
+	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	default:
+	}
+	return object, nil
 }
 
 func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error) {
