@@ -19,7 +19,9 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"sync"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -248,26 +250,60 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 		return nil, fmt.Errorf("unsupported kubernetes object kind %s", kind)
 	}
 
-	var allEvents []types.Event
+	diff := len(fieldSelectors)
+	errCh := make(chan error, diff)
+	eventCh := make(chan *v1.EventList)
+
+	var wg sync.WaitGroup
+	wg.Add(diff)
 	for _, fieldSelector := range fieldSelectors {
-		events, err := clusterSet.Client.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
-			FieldSelector: fieldSelector,
-			Limit:         500,
-		})
+		go func(fs string) {
+			defer wg.Done()
+			events, err := clusterSet.Client.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
+				FieldSelector: fs,
+				Limit:         500,
+			})
+			if err != nil {
+				klog.Errorf("failed to get object(%s) events: %v", namespace, err)
+				errCh <- err
+			}
+			eventCh <- events
+		}(fieldSelector)
+		wg.Wait()
+	}
+
+	select {
+	case err := <-errCh:
 		if err != nil {
 			return nil, err
 		}
+	default:
+	}
 
-		for _, event := range events.Items {
-			allEvents = append(allEvents, types.Event{
-				Type:    event.Type,
-				Reason:  event.Reason,
-				Message: event.Message,
-			})
+	var allEvents types.EventList
+	for i := 0; i < diff; i++ {
+		eventList := <-eventCh
+		if eventList == nil {
+			continue
+		}
+		for _, eve := range eventList.Items {
+			allEvents = append(allEvents, c.parseOriginEvent(eve))
 		}
 	}
 
+	sort.Sort(allEvents)
 	return allEvents, nil
+}
+
+func (c *cluster) parseOriginEvent(eve v1.Event) types.Event {
+	return types.Event{
+		Type:          eve.Type,
+		Reason:        eve.Reason,
+		Message:       eve.Message,
+		LastTimestamp: eve.LastTimestamp,
+		ObjectName:    eve.InvolvedObject.Name,
+		Kind:          eve.InvolvedObject.Kind,
+	}
 }
 
 func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error) {
