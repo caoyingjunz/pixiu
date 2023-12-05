@@ -270,15 +270,6 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 	return allEvents, nil
 }
 
-func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
-	return strings.Join([]string{
-		"involvedObject.uid=" + string(uid),
-		"involvedObject.name=" + name,
-		"involvedObject.namespace=" + namespace,
-		"involvedObject.kind=" + kind,
-	}, ",")
-}
-
 func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error) {
 	cs, err := c.GetClusterSetByName(ctx, name)
 	if err != nil {
@@ -347,6 +338,15 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	km.Resources = c.parseKubernetesResource(metricList.Items)
 
 	return &km, nil
+}
+
+func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
+	return strings.Join([]string{
+		"involvedObject.uid=" + string(uid),
+		"involvedObject.name=" + name,
+		"involvedObject.namespace=" + namespace,
+		"involvedObject.kind=" + kind,
+	}, ",")
 }
 
 func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) types.Resources {
