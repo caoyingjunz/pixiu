@@ -270,8 +270,8 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 			}
 			eventCh <- events
 		}(fieldSelector)
-		wg.Wait()
 	}
+	wg.Wait()
 
 	select {
 	case err := <-errCh:
