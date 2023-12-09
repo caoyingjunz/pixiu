@@ -48,5 +48,13 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 
 		// 检查 kubernetes 的连通性
 		clusterRoute.POST("/ping", cr.pingCluster)
+
+	}
+
+	//  调用 kubernetes 对象
+	kubeRoute := httpEngine.Group("/pixiu/kubeproxy")
+	{
+		// 聚合 events
+		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
 	}
 }

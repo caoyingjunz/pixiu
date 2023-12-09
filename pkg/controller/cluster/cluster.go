@@ -19,12 +19,18 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+	"sync"
 	"regexp"
 	"strconv"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apitypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
@@ -50,6 +56,8 @@ type Interface interface {
 
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
+	// AggregateEvents 聚合指定资源的 events
+	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) ([]types.Event, error)
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 }
@@ -188,6 +196,157 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 	return nil
 }
 
+// AggregateEvents 聚合 k8s 资源的所有 events，比如 kind 为 deployment 时，则聚合 deployment，所属 rs 以及 pod 的事件
+func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) ([]types.Event, error) {
+	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	var fieldSelectors []string
+
+	switch kind {
+	case "deployment":
+		// TODO: 临时聚合方式，后续继续优化（简化）
+		// 获取 deployment
+		deployment, err := clusterSet.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			klog.Errorf("failed to get deployment (%s/%s), err: %v", namespace, name, err)
+			return nil, err
+		}
+		fieldSelectors = append(fieldSelectors, c.makeFieldSelector(deployment.UID, deployment.Name, deployment.Namespace, "Deployment"))
+
+		var labels []string
+		for k, v := range deployment.Spec.Selector.MatchLabels {
+			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+		}
+		labelSelector := strings.Join(labels, ",")
+
+		kubeObject, err := c.GetKubeObjectByLabel(clusterSet.Client, namespace, labelSelector, "ReplicaSet", "Pod")
+		if err != nil {
+			return nil, err
+		}
+
+		// 获取 rs
+		allReplicaSets := kubeObject.GetReplicaSets()
+		var replicaSetUIDs []apitypes.UID
+		for _, rs := range allReplicaSets {
+			for _, ownerReference := range rs.OwnerReferences {
+				if ownerReference.Kind == "Deployment" && ownerReference.UID == deployment.UID {
+					fieldSelectors = append(fieldSelectors, c.makeFieldSelector(rs.UID, rs.Name, rs.Namespace, "ReplicaSet"))
+					replicaSetUIDs = append(replicaSetUIDs, rs.UID)
+				}
+			}
+		}
+
+		// 获取 pods
+		allPods := kubeObject.GetPods()
+		for _, p := range allPods {
+			for _, ownerReference := range p.OwnerReferences {
+				for _, replicaSetUID := range replicaSetUIDs {
+					if ownerReference.UID == replicaSetUID && ownerReference.Kind == "ReplicaSet" {
+						fieldSelectors = append(fieldSelectors, c.makeFieldSelector(p.UID, p.Name, p.Namespace, "Pod"))
+					}
+				}
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported kubernetes object kind %s", kind)
+	}
+
+	diff := len(fieldSelectors)
+	errCh := make(chan error, diff)
+	eventCh := make(chan *v1.EventList, diff)
+
+	var wg sync.WaitGroup
+	wg.Add(diff)
+	for _, fieldSelector := range fieldSelectors {
+		go func(fs string) {
+			defer wg.Done()
+			events, err := clusterSet.Client.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
+				FieldSelector: fs,
+				Limit:         500,
+			})
+			if err != nil {
+				klog.Errorf("failed to get object(%s) events: %v", namespace, err)
+				errCh <- err
+			}
+			eventCh <- events
+		}(fieldSelector)
+	}
+	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	default:
+	}
+
+	var allEvents types.EventList
+	for i := 0; i < diff; i++ {
+		eventList := <-eventCh
+		if eventList == nil {
+			continue
+		}
+		for _, eve := range eventList.Items {
+			allEvents = append(allEvents, c.parseOriginEvent(eve))
+		}
+	}
+
+	// 按发生事件排序
+	sort.Sort(allEvents)
+	return allEvents, nil
+}
+
+// GetKubeObjectByLabel
+// TODO: 并发优化
+func (c *cluster) GetKubeObjectByLabel(Client *kubernetes.Clientset, namespace string, labelSelector string, kinds ...string) (*types.KubeObject, error) {
+	object := &types.KubeObject{}
+
+	kindSet := sets.NewString(kinds...)
+	errCh := make(chan error, kindSet.Len())
+
+	var wg sync.WaitGroup
+	wg.Add(kindSet.Len())
+
+	// 后续优化
+	if kindSet.Has("ReplicaSet") {
+		go func() {
+			defer wg.Done()
+			allReplicaSets, err := Client.AppsV1().ReplicaSets(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector, Limit: 500})
+			if err != nil {
+				errCh <- err
+			} else {
+				object.SetReplicaSets(allReplicaSets.Items)
+			}
+		}()
+	}
+
+	if kindSet.Has("Pod") {
+		go func() {
+			defer wg.Done()
+			allPods, err := Client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector, Limit: 500})
+			if err != nil {
+				errCh <- err
+			} else {
+				object.SetPods(allPods.Items)
+			}
+		}()
+	}
+	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	default:
+	}
+	return object, nil
+}
+
 func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error) {
 	cs, err := c.GetClusterSetByName(ctx, name)
 	if err != nil {
@@ -256,6 +415,26 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	km.Resources = c.parseKubernetesResource(metricList.Items)
 
 	return &km, nil
+}
+
+func (c *cluster) parseOriginEvent(eve v1.Event) types.Event {
+	return types.Event{
+		Type:          eve.Type,
+		Reason:        eve.Reason,
+		Message:       eve.Message,
+		LastTimestamp: eve.LastTimestamp,
+		ObjectName:    eve.InvolvedObject.Name,
+		Kind:          eve.InvolvedObject.Kind,
+	}
+}
+
+func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
+	return strings.Join([]string{
+		"involvedObject.uid=" + string(uid),
+		"involvedObject.name=" + name,
+		"involvedObject.namespace=" + namespace,
+		"involvedObject.kind=" + kind,
+	}, ",")
 }
 
 func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) types.Resources {

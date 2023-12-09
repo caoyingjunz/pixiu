@@ -17,7 +17,12 @@ limitations under the License.
 package types
 
 import (
+	"sync"
 	"time"
+
+	appv1 "k8s.io/api/apps/v1"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type PixiuMeta struct {
@@ -85,4 +90,32 @@ type User struct {
 	Description string `json:"description"`        // 用户描述信息
 
 	TimeMeta `json:",inline"`
+}
+
+// TimeSpec 通用时间规格
+type TimeSpec struct {
+	GmtCreate   interface{} `json:"gmt_create,omitempty"`
+	GmtModified interface{} `json:"gmt_modified,omitempty"`
+}
+
+type Event struct {
+	Type          string      `json:"type"`
+	Reason        string      `json:"reason"`
+	ObjectName    string      `json:"objectName"`
+	Kind          string      `json:"kind"`
+	Message       string      `json:"message"`
+	LastTimestamp metav1.Time `json:"lastTimestamp,omitempty"`
+}
+
+type EventList []Event
+
+func (e EventList) Len() int           { return len(e) }
+func (e EventList) Less(i, j int) bool { return e[i].LastTimestamp.After(e[j].LastTimestamp.Time) }
+func (e EventList) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
+
+type KubeObject struct {
+	lock sync.RWMutex
+
+	ReplicaSets []appv1.ReplicaSet
+	Pods        []v1.Pod
 }
