@@ -474,9 +474,11 @@ func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) typ
 func stringToInt(str string) float64 {
 	re := regexp.MustCompile(`\d+`)
 	digits := re.FindString(str)
-	//这里需要考虑传入 str 可能超出 int 范围的情况所以直接转化成 int64 类型
-	//这里的 digits 一定是数字，不可能能带有其他字符所以报错可以忽略
-	digitsInt, _ := strconv.ParseInt(digits, 10, 64)
+	// 当这里传入 str 为空的时候，返回0
+	digitsInt, err := strconv.ParseInt(digits, 10, 64)
+	if err != nil {
+		return 0
+	}
 	return float64(digitsInt)
 }
 
