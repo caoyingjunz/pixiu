@@ -465,13 +465,13 @@ func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) typ
 
 	cpuSum := resourceList[v1.ResourceCPU]
 	memSum := resourceList[v1.ResourceMemory]
-	cpuInt := CpuOrMemoryToInt(cpuSum.String()) / 1000 / 1000 / 1000
-	memoryInt := CpuOrMemoryToInt(memSum.String()) / 1024 / 1024
+	cpuInt := stringToInt(cpuSum.String()) / 1000 / 1000 / 1000
+	memoryInt := stringToInt(memSum.String()) / 1024 / 1024
 
 	return types.Resources{Cpu: strconv.FormatFloat(cpuInt, 'f', 2, 64) + "Core", Memory: strconv.FormatFloat(memoryInt, 'f', 2, 64) + "Gi"}
 }
 
-func CpuOrMemoryToInt(str string) float64 {
+func stringToInt(str string) float64 {
 	re := regexp.MustCompile(`\d+`)
 	digits := re.FindString(str)
 	//这里需要考虑传入 str 可能超出 int 范围的情况所以直接转化成 int64 类型
