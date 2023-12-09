@@ -205,6 +205,7 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 
 	switch kind {
 	case "deployment":
+		// TODO: 临时聚合方式，后续继续优化（简化）
 		// 获取 deployment
 		deployment, err := clusterSet.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -253,7 +254,7 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 
 	diff := len(fieldSelectors)
 	errCh := make(chan error, diff)
-	eventCh := make(chan *v1.EventList)
+	eventCh := make(chan *v1.EventList, diff)
 
 	var wg sync.WaitGroup
 	wg.Add(diff)
@@ -270,8 +271,8 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 			}
 			eventCh <- events
 		}(fieldSelector)
-		wg.Wait()
 	}
+	wg.Wait()
 
 	select {
 	case err := <-errCh:
@@ -292,6 +293,7 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 		}
 	}
 
+	// 按发生事件排序
 	sort.Sort(allEvents)
 	return allEvents, nil
 }

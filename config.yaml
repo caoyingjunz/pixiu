@@ -12,6 +12,6 @@ mysql:
   enable_log: true
   host: peng
   user: root
-  password: password123456
+  password: Pixiu868686
   port: 3306
   name: pixiu
