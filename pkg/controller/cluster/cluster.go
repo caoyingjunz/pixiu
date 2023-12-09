@@ -254,7 +254,7 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 
 	diff := len(fieldSelectors)
 	errCh := make(chan error, diff)
-	eventCh := make(chan *v1.EventList)
+	eventCh := make(chan *v1.EventList, diff)
 
 	var wg sync.WaitGroup
 	wg.Add(diff)
@@ -293,6 +293,7 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 		}
 	}
 
+	// 按发生事件排序
 	sort.Sort(allEvents)
 	return allEvents, nil
 }
