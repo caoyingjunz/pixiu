@@ -205,6 +205,7 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 
 	switch kind {
 	case "deployment":
+		// TODO: 临时聚合方式，后续继续优化（简化）
 		// 获取 deployment
 		deployment, err := clusterSet.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
