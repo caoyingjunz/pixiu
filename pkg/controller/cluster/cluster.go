@@ -465,21 +465,29 @@ func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) typ
 
 	cpuSum := resourceList[v1.ResourceCPU]
 	memSum := resourceList[v1.ResourceMemory]
-	cpuInt := stringToInt(cpuSum.String()) / 1000 / 1000 / 1000
-	memoryInt := stringToInt(memSum.String()) / 1024 / 1024
-
-	return types.Resources{Cpu: strconv.FormatFloat(cpuInt, 'f', 2, 64) + "Core", Memory: strconv.FormatFloat(memoryInt, 'f', 2, 64) + "Gi"}
+	return types.Resources{
+		Cpu:    strconv.FormatFloat(parseFloat64FromString(cpuSum.String())/1000/1000/1000, 'f', 2, 64) + "Core",
+		Memory: strconv.FormatFloat(parseFloat64FromString(memSum.String())/1024/1024, 'f', 2, 64) + "Gi"}
 }
 
-func stringToInt(str string) float64 {
-	re := regexp.MustCompile(`\d+`)
-	digits := re.FindString(str)
-	// 当这里传入 str 为空的时候，返回0
-	digitsInt, err := strconv.ParseInt(digits, 10, 64)
+// parseFloat64FromString 从字符串中解析出包含的数字，并以 float64 返回。
+// 无法解析时，返回 0
+// 仅解析最先遇到的数字，效果：
+// "666ddd" -> 666
+// "666ddd888" -> 666
+// "" 或者 "ddd"- > 0
+func parseFloat64FromString(s string) float64 {
+	matcher := regexp.MustCompile(`\d+`)
+	fs := matcher.FindString(s)
+	if len(fs) == 0 {
+		return 0
+	}
+
+	f, err := strconv.ParseFloat(fs, 64)
 	if err != nil {
 		return 0
 	}
-	return float64(digitsInt)
+	return f
 }
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
