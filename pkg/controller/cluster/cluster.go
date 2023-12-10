@@ -19,7 +19,9 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -463,7 +465,29 @@ func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) typ
 
 	cpuSum := resourceList[v1.ResourceCPU]
 	memSum := resourceList[v1.ResourceMemory]
-	return types.Resources{Cpu: cpuSum.String(), Memory: memSum.String()}
+	return types.Resources{
+		Cpu:    strconv.FormatFloat(parseFloat64FromString(cpuSum.String())/1000/1000/1000, 'f', 2, 64) + "Core",
+		Memory: strconv.FormatFloat(parseFloat64FromString(memSum.String())/1024/1024, 'f', 2, 64) + "Gi"}
+}
+
+// parseFloat64FromString 从字符串中解析出包含的数字，并以 float64 返回。
+// 无法解析时，返回 0
+// 仅解析最先遇到的数字，效果：
+// "666ddd" -> 666
+// "666ddd888" -> 666
+// "" 或者 "ddd"- > 0
+func parseFloat64FromString(s string) float64 {
+	matcher := regexp.MustCompile(`\d+`)
+	fs := matcher.FindString(s)
+	if len(fs) == 0 {
+		return 0
+	}
+
+	f, err := strconv.ParseFloat(fs, 64)
+	if err != nil {
+		return 0
+	}
+	return f
 }
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
