@@ -38,7 +38,6 @@ func NewRouter(o *options.Options) {
 
 func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	clusterRoute := httpEngine.Group("/pixiu/clusters")
-
 	{
 		clusterRoute.POST("", cr.createCluster)
 		clusterRoute.PUT("/:clusterId", cr.updateCluster)
