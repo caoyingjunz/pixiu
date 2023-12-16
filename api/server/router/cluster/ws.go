@@ -17,10 +17,10 @@ limitations under the License.
 package cluster
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 func (cr *clusterRouter) webShell(c *gin.Context) {
