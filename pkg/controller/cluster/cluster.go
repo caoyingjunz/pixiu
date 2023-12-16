@@ -19,7 +19,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"k8s.io/client-go/tools/remotecommand"
 	"net/http"
 	"regexp"
 	"sort"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
