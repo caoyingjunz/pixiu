@@ -55,6 +55,9 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	{
 		// 聚合 events
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
+
+		// ws
+		kubeRoute.GET("/ws", cr.webShell)
 	}
 
 	// 调用 helm 对象

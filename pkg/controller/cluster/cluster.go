@@ -19,6 +19,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"regexp"
 	"sort"
 	"strconv"
@@ -32,7 +33,9 @@ import (
 	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
@@ -57,8 +60,11 @@ type Interface interface {
 
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
+
 	// AggregateEvents 聚合指定资源的 events
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) ([]types.Event, error)
+	// WsHandler pod 的 webShell
+	WsHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
 
 	// ListReleases 获取 helm release 列表
 	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
@@ -195,6 +201,64 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 		klog.Errorf("failed to ping kubernetes: %v", err)
 		// 处理原始报错信息，仅返回连接不通的信息
 		return fmt.Errorf("kubernetes 集群连接测试失败")
+	}
+
+	return nil
+}
+
+func (c *cluster) WsHandler(ctx context.Context, opt *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error {
+	cs, err := c.GetClusterSetByName(ctx, opt.Cluster)
+	if err != nil {
+		klog.Errorf("failed to get cluster(%s) client set: %v", opt.Cluster, err)
+		return err
+	}
+
+	session, err := types.NewTerminalSession(w, r)
+	if err != nil {
+		return err
+	}
+	// 处理关闭
+	defer func() {
+		_ = session.Close()
+	}()
+	klog.Infof("connecting to %s/%s,", opt.Namespace, opt.Pod)
+
+	cmd := opt.Command
+	if len(cmd) == 0 {
+		cmd = "/bin/bash"
+	}
+
+	// 组装 POST 请求
+	req := cs.Client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(opt.Pod).
+		Namespace(opt.Namespace).
+		SubResource("exec").
+		VersionedParams(&v1.PodExecOptions{
+			Container: opt.Container,
+			Command:   []string{cmd},
+			Stderr:    true,
+			Stdin:     true,
+			Stdout:    true,
+			TTY:       true,
+		}, scheme.ParameterCodec)
+
+	// remotecommand 主要实现了http 转 SPDY 添加X-Stream-Protocol-Version相关header 并发送请求
+	executor, err := remotecommand.NewSPDYExecutor(cs.Config, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	// 与 kubelet 建立 stream 连接
+	if err = executor.Stream(remotecommand.StreamOptions{
+		Stdout:            session,
+		Stdin:             session,
+		Stderr:            session,
+		TerminalSizeQueue: session,
+		Tty:               true,
+	}); err != nil {
+		_, _ = session.Write([]byte("exec pod command failed," + err.Error()))
+		// 标记关闭terminal
+		session.Done()
 	}
 
 	return nil
