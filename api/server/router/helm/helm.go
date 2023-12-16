@@ -27,6 +27,7 @@ type helmRouter struct {
 	c controller.PixiuInterface
 }
 
+// Deprecated
 func NewRouter(o *options.Options) {
 	router := &helmRouter{
 		c: o.Controller,

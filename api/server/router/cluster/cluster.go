@@ -38,7 +38,6 @@ func NewRouter(o *options.Options) {
 
 func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	clusterRoute := httpEngine.Group("/pixiu/clusters")
-
 	{
 		clusterRoute.POST("", cr.createCluster)
 		clusterRoute.PUT("/:clusterId", cr.updateCluster)
@@ -51,10 +50,17 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 
 	}
 
-	//  调用 kubernetes 对象
+	// 调用 kubernetes 对象
 	kubeRoute := httpEngine.Group("/pixiu/kubeproxy")
 	{
 		// 聚合 events
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
+	}
+
+	// 调用 helm 对象
+	helmRoute := httpEngine.Group("/pixiu/helms")
+	{
+		// 获取 release 列表
+		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.ListReleases)
 	}
 }
