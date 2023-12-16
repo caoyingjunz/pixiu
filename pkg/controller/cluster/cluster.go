@@ -466,8 +466,8 @@ func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) typ
 	cpuSum := resourceList[v1.ResourceCPU]
 	memSum := resourceList[v1.ResourceMemory]
 	return types.Resources{
-		Cpu:    strconv.FormatFloat(parseFloat64FromString(cpuSum.String())/1000/1000/1000, 'f', 2, 64) + "Core",
-		Memory: strconv.FormatFloat(parseFloat64FromString(memSum.String())/1024/1024, 'f', 2, 64) + "Gi"}
+		Cpu:    strconv.FormatFloat(parseFloat64FromString(cpuSum.String())/1000/1000/1000, 'f', 2, 64) + " Core",
+		Memory: strconv.FormatFloat(parseFloat64FromString(memSum.String())/1024/1024, 'f', 2, 64) + " Gi"}
 }
 
 // parseFloat64FromString 从字符串中解析出包含的数字，并以 float64 返回。
