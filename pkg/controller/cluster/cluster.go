@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 
+	"helm.sh/helm/v3/pkg/release"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +59,9 @@ type Interface interface {
 	Ping(ctx context.Context, kubeConfig string) error
 	// AggregateEvents 聚合指定资源的 events
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) ([]types.Event, error)
+
+	// ListReleases 获取 helm release 列表
+	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 }
