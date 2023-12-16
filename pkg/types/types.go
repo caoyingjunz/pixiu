@@ -20,9 +20,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 type PixiuMeta struct {
@@ -118,4 +120,29 @@ type KubeObject struct {
 
 	ReplicaSets []appv1.ReplicaSet
 	Pods        []v1.Pod
+}
+
+// WebShellOptions ws API 参数定义
+type WebShellOptions struct {
+	Cluster   string `form:"cluster"`
+	Namespace string `form:"namespace"`
+	Pod       string `form:"pod"`
+	Container string `form:"container"`
+	Command   string `form:"command"`
+}
+
+// TerminalMessage 定义了终端和容器 shell 交互内容的格式 Operation 是操作类型
+// Data 是具体数据内容 Rows和Cols 可以理解为终端的行数和列数，也就是宽、高
+type TerminalMessage struct {
+	Operation string `json:"operation"`
+	Data      string `json:"data"`
+	Rows      uint16 `json:"rows"`
+	Cols      uint16 `json:"cols"`
+}
+
+// TerminalSession 定义 TerminalSession 结构体，实现 PtyHandler 接口 // wsConn 是 websocket 连接 // sizeChan 用来定义终端输入和输出的宽和高 // doneChan 用于标记退出终端
+type TerminalSession struct {
+	wsConn   *websocket.Conn
+	sizeChan chan remotecommand.TerminalSize
+	doneChan chan struct{}
 }
