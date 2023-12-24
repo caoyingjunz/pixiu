@@ -132,7 +132,6 @@ func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
 func (c *cluster) Update(ctx context.Context, cid int64, clu *types.Cluster) error {
 	return c.factory.Cluster().Update(ctx, cid, clu.ResourceVersion, map[string]interface{}{
 		"alias_name":  clu.AliasName,
-		"protected":   clu.Protected,
 		"description": clu.Description,
 	})
 }
@@ -142,14 +141,15 @@ func (c *cluster) Update(ctx context.Context, cid int64, clu *types.Cluster) err
 func (c *cluster) preDelete(ctx context.Context, cid int64) error {
 	o, err := c.factory.Cluster().Get(ctx, cid)
 	if err != nil {
-		klog.Errorf("failed to get cluster(%d): %v", cid, err)
+		klog.Errorf("failed to get cluster(%d) object: %v", cid, err)
 		return err
 	}
-
-	if o.Protected == 1 {
-		return fmt.Errorf("failed to deleting protected cluster")
+	// 开启集群删除保护，则不允许删除
+	if o.Protected {
+		return fmt.Errorf("已开启集群删除保护功能，不允许删除 %s 集群", o.AliasName)
 	}
 
+	// TODO: 其他删除策略检查
 	return nil
 }
 

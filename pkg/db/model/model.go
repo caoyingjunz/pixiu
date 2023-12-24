@@ -34,7 +34,7 @@ type Cluster struct {
 
 	// 集群删除保护，开启集群删除保护时不允许删除集群
 	// 0: 关闭集群删除保护 1: 开启集群删除保护
-	Protected int `json:"protected"`
+	Protected bool `json:"protected"`
 
 	// k8s kubeConfig base64 字段
 	KubeConfig string `json:"kube_config"`
