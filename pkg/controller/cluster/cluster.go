@@ -146,7 +146,7 @@ func (c *cluster) preDelete(ctx context.Context, cid int64) error {
 	}
 	// 开启集群删除保护，则不允许删除
 	if o.Protected {
-		return fmt.Errorf("已开启集群删除保护功能，不允许删除 %s 集群", o.AliasName)
+		return fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", o.AliasName)
 	}
 
 	// TODO: 其他删除策略检查
