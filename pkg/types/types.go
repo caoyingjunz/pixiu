@@ -51,17 +51,21 @@ type Cluster struct {
 	Name      string `json:"name"`
 	AliasName string `json:"alias_name"`
 
-	// 0：标准集群 1: 自建集群
+	// 0: 标准集群 1: 自建集群
 	ClusterType ClusterType `json:"cluster_type"`
+
+	// 集群删除保护，开启集群删除保护时不允许删除集群
+	// 0: 关闭集群删除保护 1: 开启集群删除保护
+	Protected int `json:"protected"`
+
 	// k8s kubeConfig base64 字段
 	KubeConfig string `json:"kube_config,omitempty"`
-
-	KubernetesMeta `json:",inline"`
 
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
 
-	TimeMeta `json:",inline"`
+	KubernetesMeta `json:",inline"`
+	TimeMeta       `json:",inline"`
 }
 
 // KubernetesMeta 记录 kubernetes 集群的数据

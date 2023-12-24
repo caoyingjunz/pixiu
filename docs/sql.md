@@ -13,6 +13,7 @@ CREATE TABLE `clusters` (
     name varchar(128) COMMENT 'k8s 集群名称',
     alias_name varchar(128) COMMENT 'k8s 集群中文名称',
     cluster_type int COMMENT 'Kubernetes 集群的类型',
+    protected int COMMENT '集群删除保护',
     kube_config text COMMENT 'kubeConfig 文件内容',
     description text COMMENT 'k8s 集群描述信息',
     extension text COMMENT '扩展预留',

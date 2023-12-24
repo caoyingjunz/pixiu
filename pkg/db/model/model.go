@@ -32,11 +32,16 @@ type Cluster struct {
 	// 0：标准集群 1: 自建集群
 	ClusterType int `json:"cluster_type"`
 
+	// 集群删除保护，开启集群删除保护时不允许删除集群
+	// 0: 关闭集群删除保护 1: 开启集群删除保护
+	Protected int `json:"protected"`
+
 	// k8s kubeConfig base64 字段
 	KubeConfig string `json:"kube_config"`
 
 	// 集群用途描述，可以为空
 	Description string `gorm:"type:text" json:"description"`
+
 	// 预留，扩展字段
 	Extension string `gorm:"type:text" json:"extension"`
 }
