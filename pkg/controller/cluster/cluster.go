@@ -110,6 +110,7 @@ func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
 		Name:        clu.Name,
 		AliasName:   clu.AliasName,
 		ClusterType: int(clu.ClusterType),
+		Protected:   clu.Protected,
 		KubeConfig:  clu.KubeConfig,
 		Description: clu.Description,
 	})
@@ -128,11 +129,6 @@ func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
 	return nil
 }
 
-// TODO:
-func (c *cluster) postCreate(ctx context.Context, cid int64, clu *types.Cluster) error {
-	return nil
-}
-
 func (c *cluster) Update(ctx context.Context, cid int64, clu *types.Cluster) error {
 	return c.factory.Cluster().Update(ctx, cid, clu.ResourceVersion, map[string]interface{}{
 		"alias_name":  clu.AliasName,
@@ -141,8 +137,19 @@ func (c *cluster) Update(ctx context.Context, cid int64, clu *types.Cluster) err
 }
 
 // 删除前置检查
+// 开启集群删除保护，则不允许删除
 func (c *cluster) preDelete(ctx context.Context, cid int64) error {
-	// TODO
+	o, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
+		klog.Errorf("failed to get cluster(%d) object: %v", cid, err)
+		return err
+	}
+	// 开启集群删除保护，则不允许删除
+	if o.Protected {
+		return fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", o.AliasName)
+	}
+
+	// TODO: 其他删除策略检查
 	return nil
 }
 
@@ -150,7 +157,6 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 	if err := c.preDelete(ctx, cid); err != nil {
 		return err
 	}
-
 	object, err := c.factory.Cluster().Delete(ctx, cid)
 	if err != nil {
 		return err
@@ -571,6 +577,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		Name:        o.Name,
 		AliasName:   o.AliasName,
 		ClusterType: types.ClusterType(o.ClusterType),
+		Protected:   o.Protected,
 		Description: o.Description,
 	}
 
