@@ -9,13 +9,15 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y curl bash-completion
 
 # 安装 kubectl
 RUN curl -LO "https://dl.k8s.io/release/v1.23.6/bin/linux/amd64/kubectl" && \
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+    rm -rf kubectl
 
 # 安装 helm
 RUN curl -LO "https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz" && \
     tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
     rm -rf helm-v3.7.1-linux-amd64.tar.gz && \
-    mv linux-amd64/helm /usr/local/bin/helm
+    mv linux-amd64/helm /usr/local/bin/helm && \
+    rm -rf linux-amd64
 
 # 配置 bash 补全和自定义的 PS1 提示符
 RUN echo 'source /etc/profile.d/bash_completion.sh' >> /root/.bashrc \
