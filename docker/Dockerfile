@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y vim
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y curl bash-completion
 
 # 安装 kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+RUN curl -LO "https://dl.k8s.io/release/v1.23.6/bin/linux/amd64/kubectl" && \
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
 # 安装 helm
