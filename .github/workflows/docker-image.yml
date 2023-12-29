@@ -17,5 +17,8 @@ jobs:
           username: ${{ secrets.DOCKER_NAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Build webshell image
+        run: make webshell-image
+
       - name: Build and push the pixiu image
         run: make image && make push
