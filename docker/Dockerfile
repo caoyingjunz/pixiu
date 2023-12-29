@@ -1,5 +1,5 @@
 # 使用 Ubuntu 作为基础镜像
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 # 安装vim
 RUN apt-get update && apt-get install -y vim
