@@ -14,6 +14,7 @@ RUN curl -LO "https://dl.k8s.io/release/v1.23.6/bin/linux/amd64/kubectl" && \
 # 安装 helm
 RUN curl -LO "https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz" && \
     tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
+    rm -rf helm-v3.7.1-linux-amd64.tar.gz && \
     mv linux-amd64/helm /usr/local/bin/helm
 
 # 配置 bash 补全和自定义的 PS1 提示符
@@ -29,4 +30,4 @@ WORKDIR /root
 ENV PATH="/usr/local/bin:${PATH}"
 
 # 启动 bash 终端
-CMD ["bash"]
+CMD ["sleep", "infinity"]
