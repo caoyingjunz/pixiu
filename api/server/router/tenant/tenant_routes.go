@@ -104,3 +104,15 @@ func (t *tenantRouter) getTenant(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (t *tenantRouter) listTenants(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = t.c.Tenant().List(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}

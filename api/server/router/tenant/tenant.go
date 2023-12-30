@@ -41,5 +41,6 @@ func (t *tenantRouter) initRoutes(ginEngine *gin.Engine) {
 		tenantRoute.PUT("/:tenantId", t.updateTenant)
 		tenantRoute.DELETE("/:tenantId", t.deleteTenant)
 		tenantRoute.GET("/:tenantId", t.getTenant)
+		tenantRoute.GET("", t.listTenants)
 	}
 }

@@ -74,13 +74,24 @@ func (t *tenant) Delete(ctx context.Context, tid int64) error {
 func (t *tenant) Get(ctx context.Context, tid int64) (*types.Tenant, error) {
 	object, err := t.factory.Tenant().Get(ctx, tid)
 	if err != nil {
+		klog.Errorf("failed to get tenant %d: %v", tid, err)
 		return nil, err
 	}
 	return t.model2Type(object), nil
 }
 
 func (t *tenant) List(ctx context.Context) ([]types.Tenant, error) {
-	return nil, nil
+	objects, err := t.factory.Tenant().List(ctx)
+	if err != nil {
+		klog.Errorf("failed to get tenants: %v", err)
+		return nil, err
+	}
+
+	var ts []types.Tenant
+	for _, object := range objects {
+		ts = append(ts, *t.model2Type(&object))
+	}
+	return ts, nil
 }
 
 func (t *tenant) model2Type(o *model.Tenant) *types.Tenant {

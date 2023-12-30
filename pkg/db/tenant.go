@@ -31,6 +31,7 @@ type TenantInterface interface {
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cid int64) (*model.Tenant, error)
 	Get(ctx context.Context, cid int64) (*model.Tenant, error)
+	List(ctx context.Context) ([]model.Tenant, error)
 }
 
 type tenant struct {
@@ -75,7 +76,6 @@ func (t *tenant) Delete(ctx context.Context, tid int64) (*model.Tenant, error) {
 	}
 
 	return object, nil
-
 }
 
 func (t *tenant) Get(ctx context.Context, tid int64) (*model.Tenant, error) {
@@ -85,6 +85,15 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*model.Tenant, error) {
 	}
 
 	return &object, nil
+}
+
+func (t *tenant) List(ctx context.Context) ([]model.Tenant, error) {
+	var objects []model.Tenant
+	if err := t.db.Find(&objects).Error; err != nil {
+		return nil, err
+	}
+
+	return objects, nil
 }
 
 func newTenant(db *gorm.DB) *tenant {
