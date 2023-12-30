@@ -14,29 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helm
+package tenant
 
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
-func (h *helmRouter) ListReleases(c *gin.Context) {
-	r := httputils.NewResponse()
-	//var (
-	//	err         error
-	//	listOptions types.ListOptions
-	//)
-	//
-	//if err = c.ShouldBindUri(&listOptions); err != nil {
-	//	httputils.SetFailed(c, r, err)
-	//	return
-	//}
-	//if r.Result, err = pixiu.CoreV1.Helm().ListDeployedReleases(listOptions.CloudName, listOptions.Namespace); err != nil {
-	//	httputils.SetFailed(c, r, err)
-	//	return
-	//}
+type tenantRouter struct {
+	c controller.PixiuInterface
+}
 
-	httputils.SetSuccess(c, r)
+func NewRouter(o *options.Options) {
+	router := &tenantRouter{
+		c: o.Controller,
+	}
+	router.initRoutes(o.HttpEngine)
+}
+
+func (t *tenantRouter) initRoutes(ginEngine *gin.Engine) {
+	tenantRoute := ginEngine.Group("/pixiu/tenants")
+	{
+		tenantRoute.POST("", t.createTenant)
+		tenantRoute.PUT("/:tenantId", t.updateTenant)
+		tenantRoute.DELETE("/:tenantId", t.deleteTenant)
+		tenantRoute.GET("/:tenantId", t.getTenant)
+	}
 }

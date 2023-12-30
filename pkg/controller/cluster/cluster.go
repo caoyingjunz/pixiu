@@ -66,7 +66,7 @@ type Interface interface {
 	// WsHandler pod 的 webShell
 	WsHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
 
-	// ListReleases 获取 helm release 列表
+	// ListReleases 获取 tenant release 列表
 	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)

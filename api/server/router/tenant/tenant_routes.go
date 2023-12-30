@@ -14,30 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helm
+package tenant
 
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/cmd/app/options"
-	"github.com/caoyingjunz/pixiu/pkg/controller"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 )
 
-type helmRouter struct {
-	c controller.PixiuInterface
+func (t *tenantRouter) createTenant(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
 }
 
-// Deprecated
-func NewRouter(o *options.Options) {
-	router := &helmRouter{
-		c: o.Controller,
-	}
-	router.initRoutes(o.HttpEngine)
+func (t *tenantRouter) updateTenant(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
 }
 
-func (h *helmRouter) initRoutes(ginEngine *gin.Engine) {
-	helmRoute := ginEngine.Group("/pixiu/helms")
-	{
-		helmRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleases)
-	}
+func (t *tenantRouter) deleteTenant(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
+}
+
+func (t *tenantRouter) getTenant(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	httputils.SetSuccess(c, r)
 }

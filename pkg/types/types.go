@@ -150,3 +150,6 @@ type TerminalSession struct {
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
 }
+
+type Tenant struct {
+}
