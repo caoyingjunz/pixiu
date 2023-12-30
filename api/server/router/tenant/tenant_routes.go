@@ -20,10 +20,25 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
+
+type TenantMeta struct {
+	TenantId int64 `uri:"tenantId" binding:"required"`
+}
 
 func (t *tenantRouter) createTenant(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var tenant types.Tenant
+	if err := c.ShouldBindJSON(&tenant); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := t.c.Tenant().Create(c, &tenant); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -31,17 +46,61 @@ func (t *tenantRouter) createTenant(c *gin.Context) {
 func (t *tenantRouter) updateTenant(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	var (
+		opt TenantMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	var tenant types.Tenant
+	if err = c.ShouldBindJSON(&tenant); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Tenant().Update(c, opt.TenantId, &tenant); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (t *tenantRouter) deleteTenant(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	var (
+		opt TenantMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Tenant().Delete(c, opt.TenantId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (t *tenantRouter) getTenant(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		opt TenantMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = t.c.Tenant().Get(c, opt.TenantId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
