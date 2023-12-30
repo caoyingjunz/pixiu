@@ -80,3 +80,15 @@ type User struct {
 func (user *User) TableName() string {
 	return "users"
 }
+
+type Tenant struct {
+	pixiu.Model
+
+	Name        string `gorm:"index:idx_name,unique" json:"name"`
+	Description string `gorm:"type:text" json:"description"`
+	Extension   string `gorm:"type:text" json:"extension,omitempty"`
+}
+
+func (tenant *Tenant) TableName() string {
+	return "tenants"
+}
