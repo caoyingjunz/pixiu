@@ -47,6 +47,21 @@ CREATE TABLE `users` (
 insert into users(name, password) values ('pixiu', '$2a$10$SamcBWw.aPMDv5QadDr7f.2rDBWiwfTwnbh5sEEhaTkWfVwO96PfW');
 ```
 
+## 创建 `tenants` 表
+```sql
+CREATE TABLE `tenants` (
+    id int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
+    gmt_create datetime COMMENT '创建时间',
+    gmt_modified datetime COMMENT '修改时间',
+    resource_version int COMMENT '版本号',
+    name varchar(128) COMMENT '租户名',
+    description text COMMENT '描述',
+    extension text COMMENT '扩展字段',
+    KEY `idx_name` (`name`),
+    UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB CHARSET=utf8 AUTO_INCREMENT=22220801;
+```
+
 ## 创建 `roles` 表
 ```sql
 CREATE TABLE `roles` (

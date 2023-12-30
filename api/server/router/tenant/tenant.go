@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helm
+package tenant
 
 import (
 	"github.com/gin-gonic/gin"
@@ -23,21 +23,24 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
-type helmRouter struct {
+type tenantRouter struct {
 	c controller.PixiuInterface
 }
 
-// Deprecated
 func NewRouter(o *options.Options) {
-	router := &helmRouter{
+	router := &tenantRouter{
 		c: o.Controller,
 	}
 	router.initRoutes(o.HttpEngine)
 }
 
-func (h *helmRouter) initRoutes(ginEngine *gin.Engine) {
-	helmRoute := ginEngine.Group("/pixiu/helms")
+func (t *tenantRouter) initRoutes(ginEngine *gin.Engine) {
+	tenantRoute := ginEngine.Group("/pixiu/tenants")
 	{
-		helmRoute.GET("/:cloud_name/v1/namespaces/:namespace/releases", h.ListReleases)
+		tenantRoute.POST("", t.createTenant)
+		tenantRoute.PUT("/:tenantId", t.updateTenant)
+		tenantRoute.DELETE("/:tenantId", t.deleteTenant)
+		tenantRoute.GET("/:tenantId", t.getTenant)
+		tenantRoute.GET("", t.listTenants)
 	}
 }
