@@ -18,10 +18,12 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type TenantInterface interface {
@@ -36,19 +38,53 @@ type tenant struct {
 }
 
 func (t *tenant) Create(ctx context.Context, object *model.Tenant) (*model.Tenant, error) {
-	return nil, nil
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	if err := t.db.Create(object).Error; err != nil {
+		return nil, err
+	}
+	return object, nil
 }
 
 func (t *tenant) Update(ctx context.Context, tid int64, resourceVersion int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := t.db.Model(&model.Tenant{}).Where("id = ? and resource_version = ?", tid, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+
 	return nil
 }
 
 func (t *tenant) Delete(ctx context.Context, tid int64) (*model.Tenant, error) {
-	return nil, nil
+	object, err := t.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	if err = t.db.Where("id = ?", tid).Delete(&model.Tenant{}).Error; err != nil {
+		return nil, err
+	}
+
+	return object, nil
+
 }
 
 func (t *tenant) Get(ctx context.Context, tid int64) (*model.Tenant, error) {
-	return nil, nil
+	var object model.Tenant
+	if err := t.db.Where("id = ?", tid).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func newTenant(db *gorm.DB) *tenant {
