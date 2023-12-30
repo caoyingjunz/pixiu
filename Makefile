@@ -19,10 +19,10 @@ push: image
 	docker push $(dockerhubUser)/$(releaseName):$(tag)
 
 webshell-image:
-        docker build -t $(dockerhubUser)/pixiu-webshell:$(tag) -f docker/Dockerfile .
+	docker build -t $(dockerhubUser)/pixiu-webshell:$(tag) -f docker/Dockerfile .
 
 push-webshell-image: webshell-image
-        docker push $(dockerhubUser)/pixiu-webshell:$(tag)
+	docker push $(dockerhubUser)/pixiu-webshell:$(tag)
 
 clean:
 	-rm -f ./$(releaseName)
