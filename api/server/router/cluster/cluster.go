@@ -60,7 +60,7 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 		kubeRoute.GET("/ws", cr.webShell)
 	}
 
-	// 调用 tenant 对象
+	// 调用 helm 对象
 	helmRoute := httpEngine.Group("/pixiu/helms")
 	{
 		// 获取 release 列表
