@@ -28,15 +28,17 @@ jobs:
           username: ${{ secrets.DOCKER_NAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build webshell image
+      # TODO: for saving time and resources, webshell image should not be built every time
+      - name: Build and push webshell image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/Dockerfile
-          platforms: linux/amd64 # arm64 will be supported in the future
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ secrets.DOCKER_NAME }}/pixiu-webshell:latest
+            ${{ secrets.DOCKER_NAME }}/pixiu-webshell:v0.1
             ${{ secrets.DOCKER_NAME }}/pixiu-webshell:${{ env.COMMIT_HASH }}
 
       - name: Build and push the pixiu image
@@ -48,4 +50,5 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_NAME }}/pixiu:latest
+            ${{ secrets.DOCKER_NAME }}/pixiu:v0.1
             ${{ secrets.DOCKER_NAME }}/pixiu:${{ env.COMMIT_HASH }}
