@@ -2,23 +2,50 @@ name: Publish pixiu image
 
 on:
   push:
-    branches: [ "master" ]
+    branches:
+      - "master"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Get short commit hash
+        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login in dockerhub
-        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_NAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build webshell image
-        run: make push-webshell-image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64 # arm64 will be supported in the future
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_NAME }}/pixiu-webshell:latest
+            ${{ secrets.DOCKER_NAME }}/pixiu-webshell:${{ env.COMMIT_HASH }}
 
       - name: Build and push the pixiu image
-        run: make image && make push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_NAME }}/pixiu:latest
+            ${{ secrets.DOCKER_NAME }}/pixiu:${{ env.COMMIT_HASH }}
