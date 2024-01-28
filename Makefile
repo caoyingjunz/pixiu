@@ -3,6 +3,8 @@
 tag = v0.1
 releaseName = pixiu
 dockerhubUser = jacky06
+k8sVersion ?= v1.23.6
+helmVersion ?= v3.7.1
 
 ALL: run
 
@@ -19,7 +21,9 @@ push: image
 	docker push $(dockerhubUser)/$(releaseName):$(tag)
 
 webshell-image:
-	docker build -t $(dockerhubUser)/pixiu-webshell:$(tag) -f docker/Dockerfile .
+	docker build --build-arg K8S_VERSION=$(k8sVersion) \
+		--build-arg HELM_VERSION=$(helmVersion) \
+		-t $(dockerhubUser)/pixiu-webshell:$(tag) -f docker/Dockerfile .
 
 push-webshell-image: webshell-image
 	docker push $(dockerhubUser)/pixiu-webshell:$(tag)
