@@ -5,6 +5,10 @@ on:
     branches:
       - "master"
 
+env:
+  K8S_VERSION: v1.23.6 # the same as Makefile
+  HELM_VERSION: v3.7.1 # the same as Makefile
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,6 +39,9 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            K8S_VERSION=${{ env.K8S_VERSION }}
+            HELM_VERSION=${{ env.HELM_VERSION }}
           push: true
           tags: |
             ${{ secrets.DOCKER_NAME }}/pixiu-webshell:latest
