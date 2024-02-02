@@ -1,11 +1,16 @@
-name: Publish pixiu image
+name: Publish webshell image
 
 on:
   push:
     branches:
       - "master"
-    paths-ignore:
-      - 'docs/**'
+    paths:
+      - 'docker/Dockerfile'
+      - 'Makefile'
+
+env:
+  K8S_VERSION: v1.23.6 # the same as Makefile
+  HELM_VERSION: v3.7.1 # the same as Makefile
 
 jobs:
   build:
@@ -30,14 +35,17 @@ jobs:
           username: ${{ secrets.DOCKER_NAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push the pixiu image
+      - name: Build and push webshell image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./docker/Dockerfile
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            K8S_VERSION=${{ env.K8S_VERSION }}
+            HELM_VERSION=${{ env.HELM_VERSION }}
           push: true
           tags: |
-            ${{ secrets.DOCKER_NAME }}/pixiu:latest
-            ${{ secrets.DOCKER_NAME }}/pixiu:v0.1
-            ${{ secrets.DOCKER_NAME }}/pixiu:${{ env.COMMIT_HASH }}
+            ${{ secrets.DOCKER_NAME }}/pixiu-webshell:latest
+            ${{ secrets.DOCKER_NAME }}/pixiu-webshell:v0.1
+            ${{ secrets.DOCKER_NAME }}/pixiu-webshell:${{ env.COMMIT_HASH }}
