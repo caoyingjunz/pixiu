@@ -32,7 +32,7 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
-func NewServerCommand() *cobra.Command {
+func NewServerCommand(version string) *cobra.Command {
 	opts, err := options.NewOptions()
 	if err != nil {
 		klog.Fatalf("unable to initialize command options: %v", err)
@@ -67,6 +67,16 @@ func NewServerCommand() *cobra.Command {
 
 	// 绑定命令行参数
 	opts.BindFlags(cmd)
+
+	verCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print the version",
+		Long:  "Print version and exit.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(version)
+		},
+	}
+	cmd.AddCommand(verCmd)
 	return cmd
 }
 
