@@ -28,6 +28,8 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app"
 )
 
+var version string
+
 // @title           Pixiu API Documentation
 // @version         1.0
 // @termsOfService  https://github.com/caoyingjunz/pixiu
@@ -53,7 +55,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	gin.DefaultWriter = io.Discard
 
-	cmd := app.NewServerCommand()
+	cmd := app.NewServerCommand(version)
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}

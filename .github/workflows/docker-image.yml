@@ -16,7 +16,9 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Get short commit hash
-        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        run: |
+          echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "TIMESTAMP=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -36,6 +38,8 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
           push: true
           tags: |
             ${{ secrets.DOCKER_NAME }}/pixiu:latest
