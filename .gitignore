@@ -25,4 +25,7 @@ testbin/*
 # output
 dist
 
+# licensefmt
+hack/tools/licfmt/licfmt
+
 vendor

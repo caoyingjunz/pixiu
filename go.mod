@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/BurntSushi/toml v1.2.0 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/caoyingjunz/pixiulib v0.0.0-20220819163605-c3c10ec3ed3c
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.8.1
@@ -32,6 +33,7 @@ require (
 	github.com/swaggo/swag v1.8.6
 	golang.org/x/crypto v0.1.0
 	golang.org/x/oauth2 v0.1.0 // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	golang.org/x/time v0.1.0
 	google.golang.org/protobuf v1.28.1 // indirect
 	gorm.io/driver/mysql v1.3.6
