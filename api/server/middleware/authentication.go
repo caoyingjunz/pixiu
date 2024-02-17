@@ -39,7 +39,7 @@ func Authentication(cfg config.DefaultOptions) gin.HandlerFunc {
 	mode := cfg.Mode
 
 	return func(c *gin.Context) {
-		if mode == DebugMode || alwaysAllowPath.Has(c.Request.URL.Path) {
+		if mode == DebugMode || alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
 			return
 		}
 
@@ -87,4 +87,8 @@ func extractToken(c *gin.Context, ws bool) (string, error) {
 	}
 
 	return fields[1], nil
+}
+
+func initAdminUser(c *gin.Context) bool {
+	return c.Request.Method == http.MethodPost && strings.HasPrefix(c.Request.URL.Path, "/pixiu/users") && c.Query("initAdmin") == "true"
 }
