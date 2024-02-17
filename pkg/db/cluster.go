@@ -48,7 +48,6 @@ func (c *cluster) Create(ctx context.Context, object *model.Cluster) (*model.Clu
 		return nil, err
 	}
 	return object, nil
-
 }
 
 func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error {
