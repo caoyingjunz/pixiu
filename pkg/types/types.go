@@ -158,3 +158,8 @@ type TerminalSession struct {
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
 }
+
+// ListOptions is the query options to a standard REST list call.
+type ListOptions struct {
+	Count bool `form:"count"`
+}
