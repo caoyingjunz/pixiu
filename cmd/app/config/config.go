@@ -26,7 +26,7 @@ type DefaultOptions struct {
 	Listen int    `yaml:"listen"`
 	JWTKey string `yaml:"jwt_key"`
 
-	// 自动创建指定模型的数据库表结构
+	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
 }
 
