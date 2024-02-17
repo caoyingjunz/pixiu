@@ -31,6 +31,7 @@ func (m *migrator) AutoMigrate() error {
 	dst := []interface{}{
 		&model.Cluster{},
 		&model.User{},
+		&model.Tenant{},
 	}
 
 	return m.CreateTables(dst...)
