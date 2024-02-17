@@ -18,34 +18,37 @@ package db
 
 import (
 	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-type ShareDaoFactory interface {
-	Cluster() ClusterInterface
-	User() UserInterface
-}
-
-type shareDaoFactory struct {
+type migrator struct {
 	db *gorm.DB
 }
 
-func (f *shareDaoFactory) Cluster() ClusterInterface {
-	return newCluster(f.db)
+// AutoMigrate 自动创建指定模型的数据库表结构
+func (m *migrator) AutoMigrate() error {
+	dst := []interface{}{
+		&model.Cluster{},
+		&model.User{},
+	}
+
+	return m.CreateTables(dst...)
 }
 
-func (f *shareDaoFactory) User() UserInterface {
-	return newUser(f.db)
-}
-
-func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
-	if migrate {
-		// 自动创建指定模型的数据库表结构
-		if err := newMigrator(db).AutoMigrate(); err != nil {
-			return nil, err
+func (m *migrator) CreateTables(dst ...interface{}) error {
+	for _, d := range dst {
+		if m.db.Migrator().HasTable(d) {
+			continue
+		}
+		if err := m.db.Migrator().CreateTable(d); err != nil {
+			return err
 		}
 	}
 
-	return &shareDaoFactory{
-		db: db,
-	}, nil
+	return nil
+}
+
+func newMigrator(db *gorm.DB) *migrator {
+	return &migrator{db}
 }
