@@ -25,13 +25,13 @@ type DefaultOptions struct {
 	Mode   string `yaml:"mode"`
 	Listen int    `yaml:"listen"`
 	JWTKey string `yaml:"jwt_key"`
+
+	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
+	AutoMigrate bool `yaml:"auto_migrate"`
 }
 
+// MysqlOptions 数据库具体配置
 type MysqlOptions struct {
-	// 打印 sql 执行语句
-	EnableLog bool `yaml:"enable_log"`
-
-	// 数据库具体配置
 	Host     string `yaml:"host"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`

@@ -123,7 +123,7 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Name)
 
 	opt := &gorm.Config{}
-	if sqlConfig.EnableLog {
+	if o.ComponentConfig.Default.Mode == "debug" {
 		opt.Logger = logger.Default.LogMode(logger.Info)
 	}
 
@@ -139,7 +139,10 @@ func (o *Options) registerDatabase() error {
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 
-	o.Factory = db.NewDaoFactory(DB)
+	o.Factory, err = db.NewDaoFactory(DB, o.ComponentConfig.Default.AutoMigrate)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
