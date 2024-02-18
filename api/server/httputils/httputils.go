@@ -88,20 +88,20 @@ func AbortFailedWithCode(c *gin.Context, code int, err error) {
 	c.Abort()
 }
 
-func ShouldBindAny(c *gin.Context, jsonObject interface{}, uri interface{}, query interface{}) error {
+func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}, queryObject interface{}) error {
 	var err error
 	if jsonObject != nil {
 		if err = c.ShouldBindJSON(jsonObject); err != nil {
 			return err
 		}
 	}
-	if uri != nil {
-		if err = c.ShouldBindUri(uri); err != nil {
+	if uriObject != nil {
+		if err = c.ShouldBindUri(uriObject); err != nil {
 			return err
 		}
 	}
-	if query != nil {
-		if err = c.ShouldBindQuery(query); err != nil {
+	if queryObject != nil {
+		if err = c.ShouldBindQuery(queryObject); err != nil {
 			return err
 		}
 	}

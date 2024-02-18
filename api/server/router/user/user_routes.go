@@ -182,15 +182,19 @@ func (u *userRouter) getUser(c *gin.Context) {
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		listOption types.ListOptions
-		err        error
+		opts types.ListOptions
+		err  error
 	)
-
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = u.c.User().List(c); err != nil {
+	if opts.Count {
+		r.Result, err = u.c.User().GetCount(c, opts)
+	} else {
+		r.Result, err = u.c.User().List(c, opts)
+	}
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
