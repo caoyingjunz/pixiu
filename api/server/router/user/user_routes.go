@@ -181,9 +181,20 @@ func (u *userRouter) getUser(c *gin.Context) {
 //                @Security  Bearer
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
-
-	var err error
-	if r.Result, err = u.c.User().List(c); err != nil {
+	var (
+		opts types.ListOptions
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if opts.Count {
+		r.Result, err = u.c.User().GetCount(c, opts)
+	} else {
+		r.Result, err = u.c.User().List(c, opts)
+	}
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

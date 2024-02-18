@@ -40,7 +40,10 @@ type Interface interface {
 	Update(ctx context.Context, userId int64, clu *types.User) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
-	List(ctx context.Context) ([]types.User, error)
+	List(ctx context.Context, opts types.ListOptions) ([]types.User, error)
+
+	// GetCount 仅获取用户数量
+	GetCount(ctx context.Context, opts types.ListOptions) (int64, error)
 
 	Login(ctx context.Context, user *types.User) (string, error)
 	Logout(ctx context.Context, userId int64) error
@@ -113,7 +116,7 @@ func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
 	return model2Type(object), nil
 }
 
-func (u *user) List(ctx context.Context) ([]types.User, error) {
+func (u *user) List(ctx context.Context, opts types.ListOptions) ([]types.User, error) {
 	objects, err := u.factory.User().List(ctx)
 	if err != nil {
 		klog.Errorf("failed to get user list: %v", err)
@@ -126,6 +129,16 @@ func (u *user) List(ctx context.Context) ([]types.User, error) {
 	}
 
 	return users, nil
+}
+
+func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, error) {
+	userCount, err := u.factory.User().Count(ctx)
+	if err != nil {
+		klog.Errorf("failed to get user counts: %v", err)
+		return 0, err
+	}
+
+	return userCount, nil
 }
 
 func (u *user) Login(ctx context.Context, user *types.User) (string, error) {

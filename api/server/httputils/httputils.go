@@ -87,3 +87,23 @@ func AbortFailedWithCode(c *gin.Context, code int, err error) {
 	c.JSON(http.StatusOK, r)
 	c.Abort()
 }
+
+func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}, queryObject interface{}) error {
+	var err error
+	if jsonObject != nil {
+		if err = c.ShouldBindJSON(jsonObject); err != nil {
+			return err
+		}
+	}
+	if uriObject != nil {
+		if err = c.ShouldBindUri(uriObject); err != nil {
+			return err
+		}
+	}
+	if queryObject != nil {
+		if err = c.ShouldBindQuery(queryObject); err != nil {
+			return err
+		}
+	}
+	return nil
+}

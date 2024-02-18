@@ -32,6 +32,8 @@ type UserInterface interface {
 	Get(ctx context.Context, uid int64) (*model.User, error)
 	List(ctx context.Context) ([]model.User, error)
 
+	Count(ctx context.Context) (int64, error)
+
 	GetUserByName(ctx context.Context, userName string) (*model.User, error)
 }
 
@@ -77,6 +79,15 @@ func (u *user) List(ctx context.Context) ([]model.User, error) {
 	}
 
 	return objects, nil
+}
+
+func (u *user) Count(ctx context.Context) (int64, error) {
+	var total int64
+	if err := u.db.Model(&model.User{}).Count(&total).Error; err != nil {
+		return 0, err
+	}
+
+	return total, nil
 }
 
 func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User, error) {
