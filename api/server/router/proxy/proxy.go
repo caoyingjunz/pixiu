@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	proxyBaseURL = "/proxy/pixiu"
+	proxyBaseURL = "/pixiu/proxy"
 )
 
 type proxyRouter struct {
@@ -46,9 +46,9 @@ func NewRouter(o *options.Options) {
 }
 
 func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
-	proxyRoute := ginEngine.Group("/proxy")
+	proxyRoute := ginEngine.Group("/pixiu/")
 	{
-		proxyRoute.Any("/pixiu/:clusterName/*act", p.proxyHandler)
+		proxyRoute.Any("/proxy/:clusterName/*act", p.proxyHandler)
 	}
 }
 
