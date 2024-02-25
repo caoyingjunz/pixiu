@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -62,7 +61,7 @@ type Interface interface {
 	Ping(ctx context.Context, kubeConfig string) error
 
 	// AggregateEvents 聚合指定资源的 events
-	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) ([]types.Event, error)
+	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
 	// WsHandler pod 的 webShell
 	WsHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
 
@@ -271,7 +270,7 @@ func (c *cluster) WsHandler(ctx context.Context, opt *types.WebShellOptions, w h
 }
 
 // AggregateEvents 聚合 k8s 资源的所有 events，比如 kind 为 deployment 时，则聚合 deployment，所属 rs 以及 pod 的事件
-func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) ([]types.Event, error) {
+func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error) {
 	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		return nil, err
@@ -358,20 +357,16 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 	default:
 	}
 
-	var allEvents types.EventList
+	eventList := &v1.EventList{Items: []v1.Event{}}
 	for i := 0; i < diff; i++ {
-		eventList := <-eventCh
-		if eventList == nil {
+		es := <-eventCh
+		if es == nil {
 			continue
 		}
-		for _, eve := range eventList.Items {
-			allEvents = append(allEvents, c.parseOriginEvent(eve))
-		}
+		eventList.Items = append(eventList.Items, es.Items...)
 	}
 
-	// 按发生事件排序
-	sort.Sort(allEvents)
-	return allEvents, nil
+	return eventList, nil
 }
 
 // GetKubeObjectByLabel
@@ -489,17 +484,6 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	km.Resources = c.parseKubernetesResource(metricList.Items)
 
 	return &km, nil
-}
-
-func (c *cluster) parseOriginEvent(eve v1.Event) types.Event {
-	return types.Event{
-		Type:          eve.Type,
-		Reason:        eve.Reason,
-		Message:       eve.Message,
-		LastTimestamp: eve.LastTimestamp,
-		ObjectName:    eve.InvolvedObject.Name,
-		Kind:          eve.InvolvedObject.Kind,
-	}
 }
 
 func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
