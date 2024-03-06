@@ -147,3 +147,12 @@ type TerminalSession struct {
 type ListOptions struct {
 	Count bool `form:"count"`
 }
+
+type EventOptions struct {
+	Uid        string `form:"uid"`
+	Namespace  string `form:"namespace"`
+	Name       string `form:"name"`
+	Kind       string `form:"kind"`
+	Namespaced bool   `form:"namespaced"`
+	Limit      int64  `form:"limit"`
+}

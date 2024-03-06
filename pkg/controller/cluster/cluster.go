@@ -60,6 +60,9 @@ type Interface interface {
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
 
+	// GetEventList 获取指定对象的事件，支持做聚合
+	GetEventList(ctx context.Context, cluster string, options types.EventOptions) (*v1.EventList, error)
+
 	// AggregateEvents 聚合指定资源的 events
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
 	// WsHandler pod 的 webShell
@@ -267,6 +270,22 @@ func (c *cluster) WsHandler(ctx context.Context, opt *types.WebShellOptions, w h
 	}
 
 	return nil
+}
+
+func (c *cluster) GetEventList(ctx context.Context, cluster string, options types.EventOptions) (*v1.EventList, error) {
+	if options.Limit == 0 {
+		options.Limit = 500
+	}
+	opt := metav1.ListOptions{Limit: options.Limit}
+	if !options.Namespaced {
+		opt.FieldSelector = c.makeFieldSelector(apitypes.UID(options.Uid), options.Name, options.Namespace, options.Kind)
+	}
+
+	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
 }
 
 // AggregateEvents 聚合 k8s 资源的所有 events，比如 kind 为 deployment 时，则聚合 deployment，所属 rs 以及 pod 的事件

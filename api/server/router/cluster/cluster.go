@@ -53,8 +53,10 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	// 调用 kubernetes 对象
 	kubeRoute := httpEngine.Group("/pixiu/kubeproxy")
 	{
-		// 聚合 events
+		// Deprecated 聚合 events
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
+		// 获取指定对象的 events，支持事件聚合
+		kubeRoute.GET("/clusters/:cluster/api/v1/events", cr.getEventList)
 
 		// ws
 		kubeRoute.GET("/ws", cr.webShell)
