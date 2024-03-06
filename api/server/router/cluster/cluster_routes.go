@@ -245,3 +245,24 @@ func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (cr *clusterRouter) getEventList(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		opts struct {
+			Cluster string `uri:"cluster" binding:"required"`
+		}
+		eventOpt types.EventOptions
+		err      error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &opts, &eventOpt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
