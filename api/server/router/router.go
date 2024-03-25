@@ -43,7 +43,7 @@ func InstallRouters(o *options.Options) {
 
 	install(o, fs...)
 
-	// 启动检查检查
+	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
 	o.HttpEngine.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

@@ -32,6 +32,9 @@ webshell-image:
 push-webshell-image: webshell-image
 	docker push $(dockerhubUser)/pixiu-webshell:$(tag)
 
+licfmt:
+	go run hack/tools/licfmt/licfmt.go -v ./*
+
 clean:
 	-rm -f ./$(releaseName)
 
