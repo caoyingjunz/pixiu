@@ -45,7 +45,7 @@ type Interface interface {
 	// GetCount 仅获取用户数量
 	GetCount(ctx context.Context, opts types.ListOptions) (int64, error)
 
-	Login(ctx context.Context, user *types.User) (string, error)
+	Login(ctx context.Context, req *types.LoginRequest) (string, error)
 	Logout(ctx context.Context, userId int64) error
 }
 
@@ -141,19 +141,15 @@ func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, err
 	return userCount, nil
 }
 
-func (u *user) Login(ctx context.Context, user *types.User) (string, error) {
-	if len(user.Name) == 0 || len(user.Password) == 0 {
-		return "", fmt.Errorf("用户名或者密码不存在")
-	}
-
-	object, err := u.factory.User().GetUserByName(ctx, user.Name)
+func (u *user) Login(ctx context.Context, req *types.LoginRequest) (string, error) {
+	object, err := u.factory.User().GetUserByName(ctx, req.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return "", fmt.Errorf("用户 %s 不存在", user.Name)
+			return "", fmt.Errorf("用户 %s 不存在", req.Name)
 		}
 		return "", err
 	}
-	if err = util.ValidateUserPassword(object.Password, user.Password); err != nil {
+	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
 		klog.Errorf("检验用户密码失败: %v", err)
 		return "", fmt.Errorf("用户密码错误")
 	}
