@@ -36,3 +36,33 @@ func EncryptUserPassword(origin string) (string, error) {
 func ValidateUserPassword(old, new string) error {
 	return bcrypt.CompareHashAndPassword([]byte(old), []byte(new))
 }
+
+// ValidateStrongPassword validates the password is strong enough.
+func ValidateStrongPassword(password string) bool {
+	if len(password) < 8 {
+		return false
+	}
+
+	var oneUpper bool
+	var oneLower bool
+	var oneNumber bool
+	for _, l := range password {
+		if oneUpper && oneLower && oneNumber {
+			return true
+		}
+
+		if !oneUpper && l >= 'A' && l <= 'Z' {
+			oneUpper = true
+			continue
+		}
+		if !oneLower && l >= 'a' && l <= 'z' {
+			oneLower = true
+			continue
+		}
+		if !oneNumber && l >= '0' && l <= '9' {
+			oneNumber = true
+			continue
+		}
+	}
+	return oneUpper && oneLower && oneNumber
+}
