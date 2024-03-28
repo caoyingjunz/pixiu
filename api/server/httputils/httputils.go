@@ -20,6 +20,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/pixiu/api/server/errors"
 )
 
 type Response struct {
@@ -71,6 +73,10 @@ func SetSuccess(c *gin.Context, r *Response) {
 
 // SetFailed 设置错误返回值
 func SetFailed(c *gin.Context, r *Response, err error) {
+	if errors.IsError(err) {
+		SetFailedWithCode(c, r, err.(errors.Error).Code, err)
+		return
+	}
 	SetFailedWithCode(c, r, http.StatusBadRequest, err)
 }
 
