@@ -25,6 +25,7 @@ import (
 
 	// 导入 docs.json 文件
 	_ "github.com/caoyingjunz/pixiu/api/docs"
+	_ "github.com/caoyingjunz/pixiu/api/server/validator"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
