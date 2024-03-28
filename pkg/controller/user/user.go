@@ -36,7 +36,7 @@ type UserGetter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, user *types.User) error
+	Create(ctx context.Context, req *types.UserCreateRequest) error
 	Update(ctx context.Context, userId int64, clu *types.User) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
@@ -54,38 +54,24 @@ type user struct {
 	factory db.ShareDaoFactory
 }
 
-// 创建用户前置检查
-// 用户名和密码不能为空
-// TODO: 其他检查
-func (u *user) preCreate(ctx context.Context, user *types.User) error {
-	if len(user.Name) == 0 || len(user.Password) == 0 {
-		return fmt.Errorf("user name or password may not be empty")
-	}
-
-	// TODO: 对密码进行复杂度校验
-	return nil
-}
-
-func (u *user) Create(ctx context.Context, user *types.User) error {
-	if err := u.preCreate(ctx, user); err != nil {
-		return err
-	}
-
-	encrypt, err := util.EncryptUserPassword(user.Password)
+func (u *user) Create(ctx context.Context, req *types.UserCreateRequest) error {
+	encrypt, err := util.EncryptUserPassword(req.Password)
 	if err != nil {
 		klog.Errorf("failed to encrypt user password: %v", err)
 		return err
 	}
 
+	// TODO: check if the user name exists
+
 	if _, err = u.factory.User().Create(ctx, &model.User{
-		Name:        user.Name,
-		Password:    encrypt,
-		Status:      user.Status,
-		Role:        user.Role,
-		Email:       user.Email,
-		Description: user.Description,
+		Name:     req.Name,
+		Password: encrypt,
+		// Status:      req.Status,
+		Role:        req.Role,
+		Email:       req.Email,
+		Description: req.Description,
 	}); err != nil {
-		klog.Errorf("failed to create user %s: %v", user.Name, err)
+		klog.Errorf("failed to create user %s: %v", req.Name, err)
 		return err
 	}
 
@@ -184,9 +170,9 @@ func model2Type(o *model.User) *types.User {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-		Status:      o.Status,
-		Role:        o.Role,
-		Email:       o.Email,
+		// Status:      o.Status,
+		Role:  o.Role,
+		Email: o.Email,
 		TimeMeta: types.TimeMeta{
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
