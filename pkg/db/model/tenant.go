@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Pixiu Authors.
+Copyright 2024 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,13 +16,20 @@ limitations under the License.
 
 package model
 
-var models = make([]interface{}, 0)
+import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
-func register(model interface{}) {
-	models = append(models, model)
+func init() {
+	register(&Tenant{})
 }
 
-// GetMigrationModels is a helper function returns all models for table initalization.
-func GetMigrationModels() []interface{} {
-	return models
+type Tenant struct {
+	pixiu.Model
+
+	Name        string `gorm:"index:idx_name,unique" json:"name"`
+	Description string `gorm:"type:text" json:"description"`
+	Extension   string `gorm:"type:text" json:"extension,omitempty"`
+}
+
+func (tenant *Tenant) TableName() string {
+	return "tenants"
 }

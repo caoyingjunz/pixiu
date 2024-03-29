@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Pixiu Authors.
+Copyright 2024 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,13 +16,23 @@ limitations under the License.
 
 package model
 
-var models = make([]interface{}, 0)
+import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
-func register(model interface{}) {
-	models = append(models, model)
+func init() {
+	register(&Node{})
 }
 
-// GetMigrationModels is a helper function returns all models for table initalization.
-func GetMigrationModels() []interface{} {
-	return models
+type Node struct {
+	pixiu.Model
+
+	CloudId  int64  `gorm:"index:idx_cloud" json:"cloud_id"`
+	Role     string `json:"role"` // k8s 节点的角色，master 为 0  和 node 为 1
+	HostName string `json:"host_name"`
+	Address  string `json:"address"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
+func (*Node) TableName() string {
+	return "nodes"
 }

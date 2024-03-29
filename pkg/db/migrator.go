@@ -17,9 +17,9 @@ limitations under the License.
 package db
 
 import (
-	"gorm.io/gorm"
-
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+
+	"gorm.io/gorm"
 )
 
 type migrator struct {
@@ -28,13 +28,7 @@ type migrator struct {
 
 // AutoMigrate 自动创建指定模型的数据库表结构
 func (m *migrator) AutoMigrate() error {
-	dst := []interface{}{
-		&model.Cluster{},
-		&model.User{},
-		&model.Tenant{},
-	}
-
-	return m.CreateTables(dst...)
+	return m.CreateTables(model.GetMigrationModels()...)
 }
 
 func (m *migrator) CreateTables(dst ...interface{}) error {
