@@ -44,7 +44,7 @@ func (c *cluster) Create(ctx context.Context, object *model.Cluster) (*model.Clu
 	object.GmtCreate = now
 	object.GmtModified = now
 
-	if err := c.db.Create(object).Error; err != nil {
+	if err := c.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
 	return object, nil
@@ -55,7 +55,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
 
-	f := c.db.Model(&model.Cluster{}).Where("id = ? and resource_version = ?", cid, resourceVersion).Updates(updates)
+	f := c.db.WithContext(ctx).Model(&model.Cluster{}).Where("id = ? and resource_version = ?", cid, resourceVersion).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
@@ -76,7 +76,7 @@ func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	if err != nil {
 		return nil, err
 	}
-	if err = c.db.Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
+	if err = c.db.WithContext(ctx).Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
 		return nil, err
 	}
 
@@ -85,7 +85,7 @@ func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
 	var object model.Cluster
-	if err := c.db.Where("id = ?", cid).First(&object).Error; err != nil {
+	if err := c.db.WithContext(ctx).Where("id = ?", cid).First(&object).Error; err != nil {
 		return nil, err
 	}
 
@@ -94,7 +94,7 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
 
 func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
 	var cs []model.Cluster
-	if err := c.db.Find(&cs).Error; err != nil {
+	if err := c.db.WithContext(ctx).Find(&cs).Error; err != nil {
 		return nil, err
 	}
 
@@ -103,7 +103,7 @@ func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
 
 func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {
 	var object model.Cluster
-	if err := c.db.Where("name = ?", name).First(&object).Error; err != nil {
+	if err := c.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
 		return nil, err
 	}
 

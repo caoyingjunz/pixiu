@@ -46,7 +46,7 @@ func (u *user) Create(ctx context.Context, object *model.User) (*model.User, err
 	object.GmtCreate = now
 	object.GmtModified = now
 
-	if err := u.db.Create(object).Error; err != nil {
+	if err := u.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
 
@@ -58,12 +58,12 @@ func (u *user) Update(ctx context.Context, uid int64, resourceVersion int64, upd
 }
 
 func (u *user) Delete(ctx context.Context, uid int64) error {
-	return u.db.Where("id = ?", uid).Delete(&model.User{}).Error
+	return u.db.WithContext(ctx).Where("id = ?", uid).Delete(&model.User{}).Error
 }
 
 func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 	var object model.User
-	if err := u.db.Where("id = ?", uid).First(&object).Error; err != nil {
+	if err := u.db.WithContext(ctx).Where("id = ?", uid).First(&object).Error; err != nil {
 		return nil, err
 	}
 
@@ -74,7 +74,7 @@ func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 // TODO: 暂时不做分页考虑
 func (u *user) List(ctx context.Context) ([]model.User, error) {
 	var objects []model.User
-	if err := u.db.Find(&objects).Error; err != nil {
+	if err := u.db.WithContext(ctx).Find(&objects).Error; err != nil {
 		return nil, err
 	}
 
@@ -83,7 +83,7 @@ func (u *user) List(ctx context.Context) ([]model.User, error) {
 
 func (u *user) Count(ctx context.Context) (int64, error) {
 	var total int64
-	if err := u.db.Model(&model.User{}).Count(&total).Error; err != nil {
+	if err := u.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
 		return 0, err
 	}
 
@@ -92,7 +92,7 @@ func (u *user) Count(ctx context.Context) (int64, error) {
 
 func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User, error) {
 	var object model.User
-	if err := u.db.Where("name = ?", userName).First(&object).Error; err != nil {
+	if err := u.db.WithContext(ctx).Where("name = ?", userName).First(&object).Error; err != nil {
 		return nil, err
 	}
 

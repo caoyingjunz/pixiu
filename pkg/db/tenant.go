@@ -43,7 +43,7 @@ func (t *tenant) Create(ctx context.Context, object *model.Tenant) (*model.Tenan
 	object.GmtCreate = now
 	object.GmtModified = now
 
-	if err := t.db.Create(object).Error; err != nil {
+	if err := t.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
 	return object, nil
@@ -54,7 +54,7 @@ func (t *tenant) Update(ctx context.Context, tid int64, resourceVersion int64, u
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
 
-	f := t.db.Model(&model.Tenant{}).Where("id = ? and resource_version = ?", tid, resourceVersion).Updates(updates)
+	f := t.db.WithContext(ctx).Model(&model.Tenant{}).Where("id = ? and resource_version = ?", tid, resourceVersion).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
@@ -71,7 +71,7 @@ func (t *tenant) Delete(ctx context.Context, tid int64) (*model.Tenant, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = t.db.Where("id = ?", tid).Delete(&model.Tenant{}).Error; err != nil {
+	if err = t.db.WithContext(ctx).Where("id = ?", tid).Delete(&model.Tenant{}).Error; err != nil {
 		return nil, err
 	}
 
@@ -80,7 +80,7 @@ func (t *tenant) Delete(ctx context.Context, tid int64) (*model.Tenant, error) {
 
 func (t *tenant) Get(ctx context.Context, tid int64) (*model.Tenant, error) {
 	var object model.Tenant
-	if err := t.db.Where("id = ?", tid).First(&object).Error; err != nil {
+	if err := t.db.WithContext(ctx).Where("id = ?", tid).First(&object).Error; err != nil {
 		return nil, err
 	}
 
@@ -89,7 +89,7 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*model.Tenant, error) {
 
 func (t *tenant) List(ctx context.Context) ([]model.Tenant, error) {
 	var objects []model.Tenant
-	if err := t.db.Find(&objects).Error; err != nil {
+	if err := t.db.WithContext(ctx).Find(&objects).Error; err != nil {
 		return nil, err
 	}
 
