@@ -16,8 +16,21 @@ limitations under the License.
 
 package types
 
+import "github.com/caoyingjunz/pixiu/pkg/db/model"
+
 // LoginRequest is the request body struct for user login.
-type LoginRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
+type (
+	LoginRequest struct {
+		Name     string `json:"name" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	UserCreateRequest struct {
+		Name     string `json:"name" binding:"required"`
+		Password string `json:"password" binding:"required,password"`
+		// Status      model.UserStatus `json:"status" binding:"omitempty"`
+		Role        model.UserRole `json:"role" binding:"required,oneof=0 1 2"`
+		Email       string         `json:"email" binding:"required,email"`
+		Description string         `json:"description" binding:"omitempty"`
+	}
+)

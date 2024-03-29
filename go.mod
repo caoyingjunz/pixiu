@@ -10,7 +10,7 @@ require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-openapi/spec v0.20.7 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
-	github.com/go-playground/validator/v10 v10.11.0 // indirect
+	github.com/go-playground/validator/v10 v10.19.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2
@@ -31,9 +31,10 @@ require (
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
 	github.com/swaggo/gin-swagger v1.5.3
 	github.com/swaggo/swag v1.8.6
-	golang.org/x/crypto v0.1.0
+	golang.org/x/crypto v0.21.0
+	golang.org/x/net v0.22.0 // indirect
 	golang.org/x/oauth2 v0.1.0 // indirect
-	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/sync v0.1.0
 	golang.org/x/time v0.1.0
 	google.golang.org/protobuf v1.28.1 // indirect
 	gorm.io/driver/mysql v1.3.6
@@ -47,3 +48,5 @@ require (
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace golang.org/x/net => golang.org/x/net v0.17.0
