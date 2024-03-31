@@ -22,12 +22,12 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
-	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
@@ -58,10 +58,17 @@ func (u *user) Create(ctx context.Context, req *types.UserCreateRequest) error {
 	encrypt, err := util.EncryptUserPassword(req.Password)
 	if err != nil {
 		klog.Errorf("failed to encrypt user password: %v", err)
-		return err
+		return errors.ErrServerInternal
 	}
 
-	// TODO: check if the user name exists
+	object, err := u.factory.User().GetUserByName(ctx, req.Name)
+	if err != nil {
+		klog.Errorf("failed to get user %s: %v", req.Name, err)
+		return errors.ErrServerInternal
+	}
+	if object != nil {
+		return errors.ErrUserExists
+	}
 
 	if _, err = u.factory.User().Create(ctx, &model.User{
 		Name:     req.Name,
@@ -72,7 +79,7 @@ func (u *user) Create(ctx context.Context, req *types.UserCreateRequest) error {
 		Description: req.Description,
 	}); err != nil {
 		klog.Errorf("failed to create user %s: %v", req.Name, err)
-		return err
+		return errors.ErrServerInternal
 	}
 
 	return nil
@@ -87,7 +94,7 @@ func (u *user) Update(ctx context.Context, userId int64, user *types.User) error
 func (u *user) Delete(ctx context.Context, userId int64) error {
 	if err := u.factory.User().Delete(ctx, userId); err != nil {
 		klog.Errorf("failed to delete user(%d): %v", userId, err)
-		return err
+		return errors.ErrServerInternal
 	}
 
 	return nil
@@ -96,7 +103,11 @@ func (u *user) Delete(ctx context.Context, userId int64) error {
 func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
 	object, err := u.factory.User().Get(ctx, userId)
 	if err != nil {
-		return nil, err
+		klog.Errorf("failed to get user(%d): %v", userId, err)
+		return nil, errors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, errors.ErrUserNotFound
 	}
 
 	return model2Type(object), nil
@@ -106,7 +117,7 @@ func (u *user) List(ctx context.Context, opts types.ListOptions) ([]types.User, 
 	objects, err := u.factory.User().List(ctx)
 	if err != nil {
 		klog.Errorf("failed to get user list: %v", err)
-		return nil, err
+		return nil, errors.ErrServerInternal
 	}
 
 	var users []types.User
@@ -121,7 +132,7 @@ func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, err
 	userCount, err := u.factory.User().Count(ctx)
 	if err != nil {
 		klog.Errorf("failed to get user counts: %v", err)
-		return 0, err
+		return 0, errors.ErrServerInternal
 	}
 
 	return userCount, nil
@@ -130,14 +141,14 @@ func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, err
 func (u *user) Login(ctx context.Context, req *types.LoginRequest) (string, error) {
 	object, err := u.factory.User().GetUserByName(ctx, req.Name)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return "", fmt.Errorf("用户 %s 不存在", req.Name)
-		}
-		return "", err
+		return "", errors.ErrServerInternal
+	}
+	if object == nil {
+		return "", errors.ErrUserNotFound
 	}
 	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
 		klog.Errorf("检验用户密码失败: %v", err)
-		return "", fmt.Errorf("用户密码错误")
+		return "", errors.ErrInvalidPassword
 	}
 
 	// 生成登陆的 token 信息

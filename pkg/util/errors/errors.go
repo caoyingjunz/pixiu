@@ -18,6 +18,7 @@ package errors
 
 import (
 	"errors"
+
 	"gorm.io/gorm"
 
 	"github.com/go-sql-driver/mysql"
@@ -31,12 +32,14 @@ var (
 	ErrCloudNotRegister = errors.New("cloud 集群未注册")
 	ErrUserNotFound     = errors.New("用户不存在")
 	ErrUserPassword     = errors.New("密码错误")
+	ErrInternal         = errors.New("服务器内部错误")
 
 	ParamsError        = errors.New("参数错误")
 	OperateFailed      = errors.New("操作失败")
 	NoPermission       = errors.New("无权限")
 	InnerError         = errors.New("内部错误")
 	NoUserIdError      = errors.New("请登录")
+	UserExistError     = errors.New("用户已存在")
 	RoleExistError     = errors.New("角色已存在")
 	RoleNotExistError  = errors.New("角色不存在")
 	MenusExistError    = errors.New("权限已存在")
