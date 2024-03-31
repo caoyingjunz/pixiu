@@ -36,7 +36,25 @@ func IsError(err error) bool {
 	return ok
 }
 
-var ErrInvalidRequest = Error{
-	Code: http.StatusBadRequest,
-	Err:  errors.ErrReqParams,
-}
+var (
+	ErrInvalidRequest = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.ErrReqParams,
+	}
+	ErrServerInternal = Error{
+		Code: http.StatusInternalServerError,
+		Err:  errors.ErrInternal,
+	}
+	ErrUserNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrUserNotFound,
+	}
+	ErrUserExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.UserExistError,
+	}
+	ErrInvalidPassword = Error{
+		Code: http.StatusUnauthorized,
+		Err:  errors.ErrUserPassword,
+	}
+)

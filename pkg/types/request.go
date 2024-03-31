@@ -29,8 +29,8 @@ type (
 		Name     string `json:"name" binding:"required"`
 		Password string `json:"password" binding:"required,password"`
 		// Status      model.UserStatus `json:"status" binding:"omitempty"`
-		Role        model.UserRole `json:"role" binding:"required,oneof=0 1 2"`
-		Email       string         `json:"email" binding:"required,email"`
+		Role        model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"`
+		Email       string         `json:"email" binding:"omitempty,email"`
 		Description string         `json:"description" binding:"omitempty"`
 	}
 )
