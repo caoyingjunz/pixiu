@@ -31,6 +31,13 @@ func (e Error) Error() string {
 	return e.Err.Error()
 }
 
+func NewError(err error, code int) Error {
+	return Error{
+		Code: code,
+		Err:  err,
+	}
+}
+
 func IsError(err error) bool {
 	_, ok := err.(Error)
 	return ok

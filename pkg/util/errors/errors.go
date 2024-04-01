@@ -46,7 +46,7 @@ var (
 	MenusNtoExistError = errors.New("权限不存在")
 )
 
-func IsNotFound(err error) bool {
+func IsRecordNotFound(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 

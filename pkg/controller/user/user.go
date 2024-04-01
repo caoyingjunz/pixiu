@@ -36,7 +36,7 @@ type UserGetter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, req *types.UserCreateRequest) error
+	Create(ctx context.Context, req *types.CreateUserRequest) error
 	Update(ctx context.Context, userId int64, clu *types.User) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
@@ -54,7 +54,7 @@ type user struct {
 	factory db.ShareDaoFactory
 }
 
-func (u *user) Create(ctx context.Context, req *types.UserCreateRequest) error {
+func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 	encrypt, err := util.EncryptUserPassword(req.Password)
 	if err != nil {
 		klog.Errorf("failed to encrypt user password: %v", err)

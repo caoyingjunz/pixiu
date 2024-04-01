@@ -22,6 +22,14 @@ func init() {
 	register(&Cluster{})
 }
 
+// ClusterType Kubernetes 集群的类型
+type ClusterType uint8
+
+const (
+	ClusterTypeStandard ClusterType = iota // 标准集群
+	ClusterTypeCustom                      // 自建集群
+)
+
 // Cluster kubernetes 集群信息
 type Cluster struct {
 	pixiu.Model
@@ -32,7 +40,7 @@ type Cluster struct {
 	AliasName string `json:"alias_name"`
 
 	// 0：标准集群 1: 自建集群
-	ClusterType int `json:"cluster_type"`
+	ClusterType `gorm:"type:tinyint" json:"cluster_type"`
 
 	// 集群删除保护，开启集群删除保护时不允许删除集群
 	// 0: 关闭集群删除保护 1: 开启集群删除保护

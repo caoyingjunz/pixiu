@@ -65,7 +65,7 @@ func (u *user) Delete(ctx context.Context, uid int64) error {
 func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 	var object model.User
 	if err := u.db.WithContext(ctx).Where("id = ?", uid).First(&object).Error; err != nil {
-		if errors.IsNotFound(err) {
+		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -97,7 +97,7 @@ func (u *user) Count(ctx context.Context) (int64, error) {
 func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User, error) {
 	var object model.User
 	if err := u.db.WithContext(ctx).Where("name = ?", userName).First(&object).Error; err != nil {
-		if errors.IsNotFound(err) {
+		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
