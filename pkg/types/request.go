@@ -21,16 +21,25 @@ import "github.com/caoyingjunz/pixiu/pkg/db/model"
 // LoginRequest is the request body struct for user login.
 type (
 	LoginRequest struct {
-		Name     string `json:"name" binding:"required"`
-		Password string `json:"password" binding:"required"`
+		Name     string `json:"name" binding:"required"`     // required
+		Password string `json:"password" binding:"required"` // required
 	}
 
-	UserCreateRequest struct {
-		Name     string `json:"name" binding:"required"`
-		Password string `json:"password" binding:"required,password"`
+	CreateUserRequest struct {
+		Name     string `json:"name" binding:"required"`              // required
+		Password string `json:"password" binding:"required,password"` // required
 		// Status      model.UserStatus `json:"status" binding:"omitempty"`
-		Role        model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"`
-		Email       string         `json:"email" binding:"omitempty,email"`
-		Description string         `json:"description" binding:"omitempty"`
+		Role        model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"` // optional
+		Email       string         `json:"email" binding:"omitempty,email"`      // optional
+		Description string         `json:"description" binding:"omitempty"`      // optional
+	}
+
+	CreateClusterRequest struct {
+		Name        string            `json:"name" binding:"omitempty"`                   // optional
+		AliasName   string            `json:"alias_name" binding:"omitempty"`             // optional
+		Type        model.ClusterType `json:"cluster_type" binding:"omitempty,oneof=0 1"` // optional
+		KubeConfig  string            `json:"kube_config" binding:"required"`             // required
+		Description string            `json:"description" binding:"omitempty"`            // optional
+		Protected   bool              `json:"protected" binding:"omitempty"`              // optional
 	}
 )

@@ -46,7 +46,7 @@ func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		req types.UserCreateRequest
+		req types.CreateUserRequest
 		err error
 	)
 	if err = c.ShouldBindJSON(&req); err != nil {

@@ -38,6 +38,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
+	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -51,7 +52,7 @@ type ClusterGetter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, clu *types.Cluster) error
+	Create(ctx context.Context, req *types.CreateClusterRequest) error
 	Update(ctx context.Context, cid int64, clu *types.Cluster) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
@@ -85,49 +86,43 @@ type cluster struct {
 	factory db.ShareDaoFactory
 }
 
-func (c *cluster) preCreate(ctx context.Context, clu *types.Cluster) error {
-	if len(clu.KubeConfig) == 0 {
-		return fmt.Errorf("创建 kubernetes 集群时， kubeconfig 不允许为空")
-	}
-
+func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
 	// 实际创建前，先创建集群的连通性
-	if err := c.Ping(ctx, clu.KubeConfig); err != nil {
+	if err := c.Ping(ctx, req.KubeConfig); err != nil {
 		return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
 	}
-
 	return nil
 }
 
-func (c *cluster) Create(ctx context.Context, clu *types.Cluster) error {
-	if err := c.preCreate(ctx, clu); err != nil {
-		return err
+func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) error {
+	if err := c.preCreate(ctx, req); err != nil {
+		return errors.NewError(err, http.StatusBadRequest)
 	}
 	// TODO: 集群名称必须是由英文，数字组成
-	if len(clu.Name) == 0 {
-		clu.Name = uuid.NewRandName(8)
+	if len(req.Name) == 0 {
+		req.Name = uuid.NewRandName(8)
 	}
 
-	// 执行创建
-	object, err := c.factory.Cluster().Create(ctx, &model.Cluster{
-		Name:        clu.Name,
-		AliasName:   clu.AliasName,
-		ClusterType: int(clu.ClusterType),
-		Protected:   clu.Protected,
-		KubeConfig:  clu.KubeConfig,
-		Description: clu.Description,
-	})
-	if err != nil {
+	var cs *client.ClusterSet
+	var txFunc db.TxFunc = func() (err error) {
+		cs, err = client.NewClusterSet(req.KubeConfig)
 		return err
 	}
 
-	cs, err := client.NewClusterSet(clu.KubeConfig)
-	if err != nil {
-		_ = c.Delete(ctx, object.Id)
-		return err
+	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
+		Name:        req.Name,
+		AliasName:   req.AliasName,
+		ClusterType: req.Type,
+		Protected:   req.Protected,
+		KubeConfig:  req.KubeConfig,
+		Description: req.Description,
+	}, txFunc); err != nil {
+		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
+		return errors.ErrServerInternal
 	}
 
 	// TODO: 暂时不做创建后动作
-	clusterIndexer.Set(clu.Name, *cs)
+	clusterIndexer.Set(req.Name, *cs)
 	return nil
 }
 
@@ -579,7 +574,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		},
 		Name:        o.Name,
 		AliasName:   o.AliasName,
-		ClusterType: types.ClusterType(o.ClusterType),
+		ClusterType: o.ClusterType,
 		Protected:   o.Protected,
 		Description: o.Description,
 	}

@@ -42,10 +42,6 @@ type TimeMeta struct {
 	GmtModified time.Time `json:"gmt_modified"`
 }
 
-// ClusterType Kubernetes 集群的类型
-// 0：标准集群 1: 自建集群
-type ClusterType int
-
 type Cluster struct {
 	PixiuMeta `json:",inline"`
 
@@ -53,7 +49,7 @@ type Cluster struct {
 	AliasName string `json:"alias_name"`
 
 	// 0: 标准集群 1: 自建集群
-	ClusterType ClusterType `json:"cluster_type"`
+	ClusterType model.ClusterType `json:"cluster_type"`
 
 	// 集群删除保护，开启集群删除保护时不允许删除集群
 	// 0: 关闭集群删除保护 1: 开启集群删除保护
