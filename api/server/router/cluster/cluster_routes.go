@@ -80,17 +80,17 @@ func (cr *clusterRouter) updateCluster(c *gin.Context) {
 		err    error
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
-		httputils.SetFailed(c, r, err)
+		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
 		return
 	}
 
-	var cluster types.Cluster
-	if err = c.ShouldBindJSON(&cluster); err != nil {
-		httputils.SetFailed(c, r, err)
+	var req types.UpdateClusterRequest
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
 		return
 	}
 
-	if err = cr.c.Cluster().Update(c, idMeta.ClusterId, &cluster); err != nil {
+	if err = cr.c.Cluster().Update(c, idMeta.ClusterId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -120,7 +120,7 @@ func (cr *clusterRouter) deleteCluster(c *gin.Context) {
 		err    error
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
-		httputils.SetFailed(c, r, err)
+		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
 		return
 	}
 
@@ -153,7 +153,7 @@ func (cr *clusterRouter) getCluster(c *gin.Context) {
 		err    error
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
-		httputils.SetFailed(c, r, err)
+		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
 		return
 	}
 
@@ -212,7 +212,7 @@ func (cr *clusterRouter) pingCluster(c *gin.Context) {
 		err     error
 	)
 	if err = c.ShouldBindJSON(&cluster); err != nil {
-		httputils.SetFailed(c, r, err)
+		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
 		return
 	}
 	if err = cr.c.Cluster().Ping(c, cluster.KubeConfig); err != nil {
@@ -236,7 +236,7 @@ func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 	)
 
 	if err = c.ShouldBindUri(&optMeta); err != nil {
-		httputils.SetFailed(c, r, err)
+		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
 		return
 	}
 	if r.Result, err = cr.c.Cluster().AggregateEvents(c, optMeta.Cluster, optMeta.Namespace, optMeta.Name, optMeta.Kind); err != nil {
@@ -257,7 +257,7 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 		err      error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &opts, &eventOpt); err != nil {
-		httputils.SetFailed(c, r, err)
+		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
 		return
 	}
 	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt); err != nil {
