@@ -22,5 +22,5 @@ type Model struct {
 	Id              int64     `gorm:"column:id;primary_key;AUTO_INCREMENT;not null" json:"id"`
 	GmtCreate       time.Time `json:"gmt_create"`
 	GmtModified     time.Time `json:"gmt_modified"`
-	ResourceVersion int64     `json:"resource_version"`
+	ResourceVersion int64     `gorm:"colume:resource_version;not null;default:1" json:"resource_version"`
 }

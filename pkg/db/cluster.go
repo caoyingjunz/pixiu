@@ -99,6 +99,9 @@ func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
 	var object model.Cluster
 	if err := c.db.WithContext(ctx).Where("id = ?", cid).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -117,6 +120,9 @@ func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
 func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {
 	var object model.Cluster
 	if err := c.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 

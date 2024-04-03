@@ -42,4 +42,11 @@ type (
 		Description string            `json:"description" binding:"omitempty"`            // optional
 		Protected   bool              `json:"protected" binding:"omitempty"`              // optional
 	}
+
+	UpdateClusterRequest struct {
+		AliasName   *string `json:"alias_name" binding:"omitempty"`  // optional
+		Description *string `json:"description" binding:"omitempty"` // optional
+		// TODO: put resource version in a common struct for updating request only
+		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
+	}
 )

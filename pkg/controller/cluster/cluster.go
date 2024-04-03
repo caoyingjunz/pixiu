@@ -53,7 +53,7 @@ type ClusterGetter interface {
 
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateClusterRequest) error
-	Update(ctx context.Context, cid int64, clu *types.Cluster) error
+	Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
 	List(ctx context.Context) ([]types.Cluster, error)
@@ -126,11 +126,30 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	return nil
 }
 
-func (c *cluster) Update(ctx context.Context, cid int64, clu *types.Cluster) error {
-	return c.factory.Cluster().Update(ctx, cid, clu.ResourceVersion, map[string]interface{}{
-		"alias_name":  clu.AliasName,
-		"description": clu.Description,
-	})
+func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error {
+	object, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
+		klog.Errorf("failed to get cluster(%d): %v", cid, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrClusterNotFound
+	}
+	updates := make(map[string]interface{})
+	if req.AliasName != nil {
+		updates["alias_name"] = *req.AliasName
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if len(updates) == 0 {
+		return errors.ErrInvalidRequest
+	}
+	if err := c.factory.Cluster().Update(ctx, cid, req.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update cluster(%d): %v", cid, err)
+		return errors.ErrServerInternal
+	}
+	return nil
 }
 
 // 删除前置检查
@@ -138,12 +157,15 @@ func (c *cluster) Update(ctx context.Context, cid int64, clu *types.Cluster) err
 func (c *cluster) preDelete(ctx context.Context, cid int64) error {
 	o, err := c.factory.Cluster().Get(ctx, cid)
 	if err != nil {
-		klog.Errorf("failed to get cluster(%d) object: %v", cid, err)
+		klog.Errorf("failed to get cluster(%d): %v", cid, err)
 		return err
+	}
+	if o == nil {
+		return errors.ErrClusterNotFound
 	}
 	// 开启集群删除保护，则不允许删除
 	if o.Protected {
-		return fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", o.AliasName)
+		return errors.NewError(fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", o.AliasName), http.StatusForbidden)
 	}
 
 	// TODO: 其他删除策略检查
@@ -156,7 +178,8 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 	}
 	object, err := c.factory.Cluster().Delete(ctx, cid)
 	if err != nil {
-		return err
+		klog.Errorf("failed to delete cluster(%d): %v", cid, err)
+		return errors.ErrServerInternal
 	}
 
 	// 从缓存中移除 clusterSet
@@ -167,7 +190,10 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	object, err := c.factory.Cluster().Get(ctx, cid)
 	if err != nil {
-		return nil, err
+		return nil, errors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, errors.ErrClusterNotFound
 	}
 
 	return c.model2Type(object), nil

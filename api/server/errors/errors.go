@@ -64,4 +64,8 @@ var (
 		Code: http.StatusUnauthorized,
 		Err:  errors.ErrUserPassword,
 	}
+	ErrClusterNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrClusterNotFound,
+	}
 )
