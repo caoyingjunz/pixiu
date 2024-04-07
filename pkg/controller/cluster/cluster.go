@@ -149,7 +149,6 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 		klog.Errorf("failed to update cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
-
 	return nil
 }
 
