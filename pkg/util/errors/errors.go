@@ -45,6 +45,7 @@ var (
 	RoleNotExistError  = errors.New("角色不存在")
 	MenusExistError    = errors.New("权限已存在")
 	MenusNtoExistError = errors.New("权限不存在")
+	TenantExistError   = errors.New("租户已存在")
 )
 
 func IsRecordNotFound(err error) bool {

@@ -479,6 +479,9 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 	if err != nil {
 		return client.ClusterSet{}, err
 	}
+	if object == nil {
+		return client.ClusterSet{}, errors.ErrClusterNotFound
+	}
 	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
 	if err != nil {
 		return client.ClusterSet{}, err
