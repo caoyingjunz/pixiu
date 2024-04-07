@@ -19,6 +19,7 @@ package tenant
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -30,12 +31,12 @@ type TenantMeta struct {
 func (t *tenantRouter) createTenant(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var tenant types.Tenant
-	if err := c.ShouldBindJSON(&tenant); err != nil {
-		httputils.SetFailed(c, r, err)
+	var req types.CreateTenantRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
 		return
 	}
-	if err := t.c.Tenant().Create(c, &tenant); err != nil {
+	if err := t.c.Tenant().Create(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

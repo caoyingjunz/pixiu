@@ -18,8 +18,10 @@ package tenant
 
 import (
 	"context"
+
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -31,7 +33,7 @@ type TenantGetter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, ten *types.Tenant) error
+	Create(ctx context.Context, req *types.CreateTenantRequest) error
 	Update(ctx context.Context, tid int64, ten *types.Tenant) error
 	Delete(ctx context.Context, tid int64) error
 	Get(ctx context.Context, tid int64) (*types.Tenant, error)
@@ -43,14 +45,26 @@ type tenant struct {
 	factory db.ShareDaoFactory
 }
 
-func (t *tenant) Create(ctx context.Context, ten *types.Tenant) error {
-	_, err := t.factory.Tenant().Create(ctx, &model.Tenant{
-		Name:        ten.Name,
-		Description: ten.Description,
-	})
+func (t *tenant) Create(ctx context.Context, req *types.CreateTenantRequest) error {
+	object, err := t.factory.Tenant().GetTenantByName(ctx, req.Name)
 	if err != nil {
-		klog.Errorf("failed to create tenant %s: %v", ten.Name, err)
-		return err
+		klog.Errorf("failed to get tenant %s: %v", req.Name, err)
+		return errors.ErrServerInternal
+	}
+	if object != nil {
+		return errors.ErrTenantExists
+	}
+
+	tenant := &model.Tenant{
+		Name: req.Name,
+	}
+	if req.Description != nil {
+		tenant.Description = *req.Description
+	}
+
+	if _, err = t.factory.Tenant().Create(ctx, tenant); err != nil {
+		klog.Errorf("failed to create tenant %s: %v", req.Name, err)
+		return errors.ErrServerInternal
 	}
 
 	return nil

@@ -32,6 +32,8 @@ type TenantInterface interface {
 	Delete(ctx context.Context, cid int64) (*model.Tenant, error)
 	Get(ctx context.Context, cid int64) (*model.Tenant, error)
 	List(ctx context.Context) ([]model.Tenant, error)
+
+	GetTenantByName(ctx context.Context, name string) (*model.Tenant, error)
 }
 
 type tenant struct {
@@ -71,6 +73,9 @@ func (t *tenant) Delete(ctx context.Context, tid int64) (*model.Tenant, error) {
 	if err != nil {
 		return nil, err
 	}
+	if object == nil {
+		return nil, nil
+	}
 	if err = t.db.WithContext(ctx).Where("id = ?", tid).Delete(&model.Tenant{}).Error; err != nil {
 		return nil, err
 	}
@@ -81,6 +86,9 @@ func (t *tenant) Delete(ctx context.Context, tid int64) (*model.Tenant, error) {
 func (t *tenant) Get(ctx context.Context, tid int64) (*model.Tenant, error) {
 	var object model.Tenant
 	if err := t.db.WithContext(ctx).Where("id = ?", tid).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -94,6 +102,18 @@ func (t *tenant) List(ctx context.Context) ([]model.Tenant, error) {
 	}
 
 	return objects, nil
+}
+
+func (t *tenant) GetTenantByName(ctx context.Context, name string) (*model.Tenant, error) {
+	var object model.Tenant
+	if err := t.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func newTenant(db *gorm.DB) *tenant {

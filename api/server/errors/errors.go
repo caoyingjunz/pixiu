@@ -68,4 +68,8 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.ErrClusterNotFound,
 	}
+	ErrTenantExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.TenantExistError,
+	}
 )

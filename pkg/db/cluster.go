@@ -89,6 +89,9 @@ func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	if err != nil {
 		return nil, err
 	}
+	if object == nil {
+		return nil, nil
+	}
 	if err = c.db.WithContext(ctx).Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
 		return nil, err
 	}

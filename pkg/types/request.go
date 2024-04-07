@@ -49,4 +49,9 @@ type (
 		// TODO: put resource version in a common struct for updating request only
 		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
 	}
+
+	CreateTenantRequest struct {
+		Name        string  `json:"name" binding:"required"`         // required
+		Description *string `json:"description" binding:"omitempty"` // optional
+	}
 )

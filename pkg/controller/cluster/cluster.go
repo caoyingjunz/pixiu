@@ -149,6 +149,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 		klog.Errorf("failed to update cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
+
 	return nil
 }
 
@@ -478,6 +479,9 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 	object, err := c.factory.Cluster().GetClusterByName(ctx, name)
 	if err != nil {
 		return client.ClusterSet{}, err
+	}
+	if object == nil {
+		return client.ClusterSet{}, errors.ErrClusterNotFound
 	}
 	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
 	if err != nil {
