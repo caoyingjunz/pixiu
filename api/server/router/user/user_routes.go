@@ -19,7 +19,6 @@ package user
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -50,7 +49,7 @@ func (u *userRouter) createUser(c *gin.Context) {
 		err error
 	)
 	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 	if err = u.c.User().Create(c, &req); err != nil {
@@ -224,7 +223,7 @@ func (u *userRouter) login(c *gin.Context) {
 		err error
 	)
 	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 	if r.Result, err = u.c.User().Login(c, &req); err != nil {

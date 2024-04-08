@@ -34,6 +34,7 @@ var (
 	ErrClusterNotFound  = errors.New("集群不存在")
 	ErrUserPassword     = errors.New("密码错误")
 	ErrInternal         = errors.New("服务器内部错误")
+	ErrTenantNotFound   = errors.New("租户不存在")
 
 	ParamsError        = errors.New("参数错误")
 	OperateFailed      = errors.New("操作失败")

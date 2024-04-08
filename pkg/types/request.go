@@ -54,4 +54,10 @@ type (
 		Name        string  `json:"name" binding:"required"`         // required
 		Description *string `json:"description" binding:"omitempty"` // optional
 	}
+
+	UpdateTenantRequest struct {
+		Name            *string `json:"name" binding:"omitempty"`            // optional
+		Description     *string `json:"description" binding:"omitempty"`     // optional
+		ResourceVersion int64   `json:"resource_version" binding:"required"` // required
+	}
 )
