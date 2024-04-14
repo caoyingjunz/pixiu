@@ -61,6 +61,9 @@ type Interface interface {
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
 
+	// Protect 设置集群的保护策略
+	Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error
+
 	// GetEventList 获取指定对象的事件，支持做聚合
 	GetEventList(ctx context.Context, cluster string, options types.EventOptions) (*v1.EventList, error)
 
@@ -230,6 +233,17 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 		klog.Errorf("failed to ping kubernetes: %v", err)
 		// 处理原始报错信息，仅返回连接不通的信息
 		return fmt.Errorf("kubernetes 集群连接测试失败")
+	}
+
+	return nil
+}
+
+func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error {
+	if err := c.factory.Cluster().Update(ctx, cid, req.ResourceVersion, map[string]interface{}{
+		"protected": req.Protected,
+	}); err != nil {
+		klog.Errorf("failed to protect cluster(%d): %v", cid, err)
+		return err
 	}
 
 	return nil

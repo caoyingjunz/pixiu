@@ -20,9 +20,10 @@ import (
 	"context"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
-	"gorm.io/gorm"
 )
 
 type TxFunc func() error
@@ -72,9 +73,8 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 	if f.Error != nil {
 		return f.Error
 	}
-
 	if f.RowsAffected == 0 {
-		return errors.ErrRecordNotFound
+		return errors.ErrRecordNotUpdate
 	}
 
 	return nil
