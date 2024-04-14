@@ -18,6 +18,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -81,7 +82,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 }
 
 func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error) {
-	// 仅当数据库支持会写功能时才能正常
+	// 仅当数据库支持回写功能时才能正常
 	//if err := c.db.Clauses(clause.Returning{}).Where("id = ?", cid).Delete(&object).Error; err != nil {
 	//	return nil, err
 	//}
@@ -91,6 +92,10 @@ func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	}
 	if object == nil {
 		return nil, nil
+	}
+
+	if object.Protected {
+		return nil, fmt.Errorf("集群开启删除保护，不允许被删除")
 	}
 	if err = c.db.WithContext(ctx).Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
 		return nil, err
