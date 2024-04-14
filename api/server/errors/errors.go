@@ -72,4 +72,8 @@ var (
 		Code: http.StatusConflict,
 		Err:  errors.TenantExistError,
 	}
+	ErrTenantNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrTenantNotFound,
+	}
 )
