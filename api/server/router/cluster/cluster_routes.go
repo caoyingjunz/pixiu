@@ -223,6 +223,25 @@ func (cr *clusterRouter) pingCluster(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (cr *clusterRouter) protectCluster(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		idMeta IdMeta
+		req    types.ProtectClusterRequest
+		err    error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = cr.c.Cluster().Protect(c, idMeta.ClusterId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (

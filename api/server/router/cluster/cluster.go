@@ -48,6 +48,8 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 		// 检查 kubernetes 的连通性
 		clusterRoute.POST("/ping", cr.pingCluster)
 
+		// 设置集群的删除保护模式
+		clusterRoute.POST("/protect/:clusterId", cr.protectCluster)
 	}
 
 	// 调用 kubernetes 对象
