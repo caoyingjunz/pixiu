@@ -18,8 +18,8 @@ package validator
 
 import (
 	"github.com/caoyingjunz/pixiu/pkg/util"
-	"github.com/gin-gonic/gin/binding"
 
+	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 )
 

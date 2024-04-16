@@ -89,7 +89,7 @@ func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantR
 	if len(updates) == 0 {
 		return errors.ErrInvalidRequest
 	}
-	if err := t.factory.Tenant().Update(ctx, tid, req.ResourceVersion, updates); err != nil {
+	if err := t.factory.Tenant().Update(ctx, tid, *req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update tenant %d: %v", tid, err)
 		return errors.ErrServerInternal
 	}
