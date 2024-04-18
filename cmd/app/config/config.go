@@ -18,7 +18,8 @@ package config
 
 type Config struct {
 	Default DefaultOptions `yaml:"default"`
-	Mysql   MysqlOptions   `yaml:"mysql"`
+	//Mysql   MysqlOptions   `yaml:"mysql"`
+	Db DbConfig `yaml:"db"`
 }
 
 type DefaultOptions struct {
@@ -28,6 +29,16 @@ type DefaultOptions struct {
 
 	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
+}
+
+type DbConfig struct {
+	Type   string        `yaml:"type"`
+	Sqlite SqliteOptions `yaml:"sqlite"`
+	Mysql  MysqlOptions  `yaml:"mysql"`
+}
+
+type SqliteOptions struct {
+	Db string `yaml:"db"`
 }
 
 // MysqlOptions 数据库具体配置

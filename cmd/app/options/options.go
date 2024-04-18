@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -114,20 +115,32 @@ func (o *Options) register() error {
 }
 
 func (o *Options) registerDatabase() error {
-	sqlConfig := o.ComponentConfig.Mysql
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
-		sqlConfig.User,
-		sqlConfig.Password,
-		sqlConfig.Host,
-		sqlConfig.Port,
-		sqlConfig.Name)
+	dbConfig := o.ComponentConfig.Db
 
 	opt := &gorm.Config{}
 	if o.ComponentConfig.Default.Mode == "debug" {
 		opt.Logger = logger.Default.LogMode(logger.Info)
 	}
 
-	DB, err := gorm.Open(mysql.Open(dsn), opt)
+	var dsn string
+	var DB *gorm.DB
+	var err error
+	switch dbConfig.Type {
+	case "mysql":
+		sqlConfig := dbConfig.Mysql
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
+			sqlConfig.User,
+			sqlConfig.Password,
+			sqlConfig.Host,
+			sqlConfig.Port,
+			sqlConfig.Name)
+		DB, err = gorm.Open(mysql.Open(dsn), opt)
+	case "sqlite":
+		sqlConfig := dbConfig.Sqlite
+		dsn = fmt.Sprintf("%s?charset=utf8&parseTime=True&loc=Local", sqlConfig.Db)
+		DB, err = gorm.Open(sqlite.Open(dsn), opt)
+	}
+
 	if err != nil {
 		return err
 	}
