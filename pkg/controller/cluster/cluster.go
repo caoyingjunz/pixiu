@@ -19,6 +19,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"github.com/caoyingjunz/pixiu/pkg/db/tx_func"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -107,7 +108,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	var cs *client.ClusterSet
-	var txFunc db.TxFunc = func() (err error) {
+	var txFunc tx_func.TxFunc = func() (err error) {
 		cs, err = client.NewClusterSet(req.KubeConfig)
 		return err
 	}

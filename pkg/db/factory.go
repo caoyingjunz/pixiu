@@ -17,7 +17,10 @@ limitations under the License.
 package db
 
 import (
-	"gorm.io/gorm"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db/dbconn"
+	"github.com/caoyingjunz/pixiu/pkg/db/mysql"
+	"github.com/caoyingjunz/pixiu/pkg/db/sqlite"
 )
 
 type ShareDaoFactory interface {
@@ -27,22 +30,33 @@ type ShareDaoFactory interface {
 }
 
 type shareDaoFactory struct {
-	db *gorm.DB
+	db *dbconn.DbConn
 }
 
-func (f *shareDaoFactory) Cluster() ClusterInterface { return newCluster(f.db) }
-func (f *shareDaoFactory) Tenant() TenantInterface   { return newTenant(f.db) }
-func (f *shareDaoFactory) User() UserInterface       { return newUser(f.db) }
+func (f *shareDaoFactory) Cluster() ClusterInterface {
+	return newCluster(f.db)
+}
+func (f *shareDaoFactory) Tenant() TenantInterface {
+	return newTenant(f.db)
+}
+func (f *shareDaoFactory) User() UserInterface {
+	return newUser(f.db)
+}
 
-func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
-	if migrate {
-		// 自动创建指定模型的数据库表结构
-		if err := newMigrator(db).AutoMigrate(); err != nil {
+func NewDaoFactory(dbConfig *config.DbConfig, mode string, migrate bool) (ShareDaoFactory, error) {
+	var db *dbconn.DbConn
+	var err error
+	switch dbConfig.Type {
+	case "mysql":
+		db, err = mysql.NewDbConn(dbConfig.Mysql, mode, migrate)
+		if err != nil {
 			return nil, err
 		}
+	case "sqlite":
+		db, err = sqlite.NewDbConn(dbConfig.Sqlite, mode, migrate)
 	}
 
 	return &shareDaoFactory{
 		db: db,
-	}, nil
+	}, err
 }
