@@ -19,6 +19,8 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"github.com/caoyingjunz/pixiu/pkg/db/iface"
+	"github.com/caoyingjunz/pixiu/pkg/db/tx_func"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -41,7 +43,6 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
-	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
@@ -86,7 +87,7 @@ func init() {
 
 type cluster struct {
 	cc      config.Config
-	factory db.ShareDaoFactory
+	factory iface.ShareDaoFactory
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
@@ -107,7 +108,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	var cs *client.ClusterSet
-	var txFunc db.TxFunc = func() (err error) {
+	var txFunc tx_func.TxFunc = func() (err error) {
 		cs, err = client.NewClusterSet(req.KubeConfig)
 		return err
 	}
@@ -634,7 +635,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	return tc
 }
 
-func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
+func NewCluster(cfg config.Config, f iface.ShareDaoFactory) *cluster {
 	return &cluster{
 		cc:      cfg,
 		factory: f,
