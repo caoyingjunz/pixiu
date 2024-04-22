@@ -17,28 +17,24 @@ limitations under the License.
 package options
 
 import (
-	"fmt"
 	"os"
-
-	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
-	"github.com/gin-gonic/gin"
-	"github.com/spf13/cobra"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/cobra"
 )
 
 const (
-	maxIdleConns = 10
-	maxOpenConns = 100
+	MaxIdleConns = 10
+	MaxOpenConns = 100
 
 	defaultListen     = 8080
 	defaultTokenKey   = "pixiu"
-	defaultConfigFile = "/etc/pixiu/config.yaml"
+	defaultConfigFile = "./config.yaml"
+	//defaultConfigFile = "/etc/pixiu/config.yaml"
 )
 
 // Options has all the params needed to run a pixiu
@@ -114,32 +110,9 @@ func (o *Options) register() error {
 }
 
 func (o *Options) registerDatabase() error {
-	sqlConfig := o.ComponentConfig.Mysql
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
-		sqlConfig.User,
-		sqlConfig.Password,
-		sqlConfig.Host,
-		sqlConfig.Port,
-		sqlConfig.Name)
 
-	opt := &gorm.Config{}
-	if o.ComponentConfig.Default.Mode == "debug" {
-		opt.Logger = logger.Default.LogMode(logger.Info)
-	}
-
-	DB, err := gorm.Open(mysql.Open(dsn), opt)
-	if err != nil {
-		return err
-	}
-	// 设置数据库连接池
-	sqlDB, err := DB.DB()
-	if err != nil {
-		return err
-	}
-	sqlDB.SetMaxIdleConns(maxIdleConns)
-	sqlDB.SetMaxOpenConns(maxOpenConns)
-
-	o.Factory, err = db.NewDaoFactory(DB, o.ComponentConfig.Default.AutoMigrate)
+	var err error
+	o.Factory, err = db.NewDaoFactory(&o.ComponentConfig.Db, o.ComponentConfig.Default.Mode, o.ComponentConfig.Default.AutoMigrate)
 	if err != nil {
 		return err
 	}

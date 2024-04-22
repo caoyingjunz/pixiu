@@ -25,7 +25,7 @@ func init() {
 type Tenant struct {
 	pixiu.Model
 
-	Name        string `gorm:"index:idx_name,unique" json:"name"`
+	Name        string `gorm:"index:idx_tenant_name,unique" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
 	Extension   string `gorm:"type:text" json:"extension,omitempty"`
 }
