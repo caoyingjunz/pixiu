@@ -14,36 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package iface
 
 import (
+	"context"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-
-	"gorm.io/gorm"
 )
 
-type migrator struct {
-	db *gorm.DB
-}
+type UserInterface interface {
+	Create(ctx context.Context, object *model.User) (*model.User, error)
+	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
+	Delete(ctx context.Context, uid int64) error
+	Get(ctx context.Context, uid int64) (*model.User, error)
+	List(ctx context.Context) ([]model.User, error)
 
-// AutoMigrate 自动创建指定模型的数据库表结构
-func (m *migrator) AutoMigrate() error {
-	return m.CreateTables(model.GetMigrationModels()...)
-}
+	Count(ctx context.Context) (int64, error)
 
-func (m *migrator) CreateTables(dst ...interface{}) error {
-	for _, d := range dst {
-		if m.db.Migrator().HasTable(d) {
-			continue
-		}
-		if err := m.db.Migrator().CreateTable(d); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func newMigrator(db *gorm.DB) *migrator {
-	return &migrator{db}
+	GetUserByName(ctx context.Context, userName string) (*model.User, error)
 }
