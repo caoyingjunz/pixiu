@@ -19,13 +19,13 @@ package options
 import (
 	"os"
 
-	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
 const (
