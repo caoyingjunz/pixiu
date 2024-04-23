@@ -21,7 +21,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/user"
-	"github.com/caoyingjunz/pixiu/pkg/db/iface"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
 type PixiuInterface interface {
@@ -32,14 +32,14 @@ type PixiuInterface interface {
 
 type pixiu struct {
 	cc      config.Config
-	factory iface.ShareDaoFactory
+	factory db.ShareDaoFactory
 }
 
 func (p *pixiu) Cluster() cluster.Interface { return cluster.NewCluster(p.cc, p.factory) }
 func (p *pixiu) Tenant() tenant.Interface   { return tenant.NewTenant(p.cc, p.factory) }
 func (p *pixiu) User() user.Interface       { return user.NewUser(p.cc, p.factory) }
 
-func New(cfg config.Config, f iface.ShareDaoFactory) PixiuInterface {
+func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{
 		cc:      cfg,
 		factory: f,

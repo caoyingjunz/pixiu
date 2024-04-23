@@ -17,16 +17,23 @@ limitations under the License.
 package db
 
 import (
+	"gorm.io/gorm"
+
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db/dbconn"
 	"github.com/caoyingjunz/pixiu/pkg/db/iface"
-
 	"github.com/caoyingjunz/pixiu/pkg/db/mysql"
 	"github.com/caoyingjunz/pixiu/pkg/db/sqlite"
-	"gorm.io/gorm"
+
 )
 
-func NewDaoFactory(dbConfig *config.DbConfig, mode string, migrate bool) (iface.ShareDaoFactory, error) {
+type ShareDaoFactory interface {
+	Cluster() iface.ClusterInterface
+	Tenant() iface.TenantInterface
+	User() iface.UserInterface
+}
+
+func NewDaoFactory(dbConfig *config.DbConfig, mode string, migrate bool) (ShareDaoFactory, error) {
 	var db *dbconn.DbConn
 	var err error
 	switch dbConfig.Type {

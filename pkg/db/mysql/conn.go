@@ -2,12 +2,14 @@ package mysql
 
 import (
 	"fmt"
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/db/dbconn"
-	"github.com/caoyingjunz/pixiu/pkg/types"
+
 	mysqlDriver "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db/dbconn"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 func NewDb(sqlConfig config.MysqlOptions, mode string, migrate bool) (*dbconn.DbConn, error) {

@@ -19,8 +19,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/pixiu/pkg/db/iface"
-	"github.com/caoyingjunz/pixiu/pkg/db/tx_func"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -46,6 +44,8 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/tx_func"
 )
 
 type ClusterGetter interface {
@@ -87,7 +87,7 @@ func init() {
 
 type cluster struct {
 	cc      config.Config
-	factory iface.ShareDaoFactory
+	factory db.ShareDaoFactory
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
@@ -635,7 +635,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	return tc
 }
 
-func NewCluster(cfg config.Config, f iface.ShareDaoFactory) *cluster {
+func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
 	return &cluster{
 		cc:      cfg,
 		factory: f,

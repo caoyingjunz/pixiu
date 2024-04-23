@@ -19,12 +19,12 @@ package user
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/pixiu/pkg/db/iface"
 
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
@@ -51,7 +51,7 @@ type Interface interface {
 
 type user struct {
 	cc      config.Config
-	factory iface.ShareDaoFactory
+	factory db.ShareDaoFactory
 }
 
 func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
@@ -191,7 +191,7 @@ func model2Type(o *model.User) *types.User {
 	}
 }
 
-func NewUser(cfg config.Config, f iface.ShareDaoFactory) *user {
+func NewUser(cfg config.Config, f db.ShareDaoFactory) *user {
 	return &user{
 		cc:      cfg,
 		factory: f,

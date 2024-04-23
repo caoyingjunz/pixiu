@@ -18,12 +18,11 @@ package tenant
 
 import (
 	"context"
-	"github.com/caoyingjunz/pixiu/pkg/db/iface"
-
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -42,7 +41,7 @@ type Interface interface {
 
 type tenant struct {
 	cc      config.Config
-	factory iface.ShareDaoFactory
+	factory db.ShareDaoFactory
 }
 
 func (t *tenant) Create(ctx context.Context, req *types.CreateTenantRequest) error {
@@ -147,7 +146,7 @@ func (t *tenant) model2Type(o *model.Tenant) *types.Tenant {
 	}
 }
 
-func NewTenant(cfg config.Config, f iface.ShareDaoFactory) *tenant {
+func NewTenant(cfg config.Config, f db.ShareDaoFactory) *tenant {
 	return &tenant{
 		cc:      cfg,
 		factory: f,

@@ -1,8 +1,8 @@
 package sqlite
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/iface"
 	"gorm.io/gorm"
+	"github.com/caoyingjunz/pixiu/pkg/db/iface"
 )
 
 type sqlite struct {
@@ -21,6 +21,6 @@ func (s *sqlite) User() iface.UserInterface {
 	return newUser(s.db)
 }
 
-func New(db *gorm.DB) (iface.ShareDaoFactory, error) {
+func New(db *gorm.DB) (*sqlite, error) {
 	return &sqlite{db: db}, nil
 }

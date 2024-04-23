@@ -1,8 +1,8 @@
 package mysql
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/iface"
 	"gorm.io/gorm"
+	"github.com/caoyingjunz/pixiu/pkg/db/iface"
 )
 
 type mysql struct {
@@ -21,7 +21,7 @@ func (m *mysql) User() iface.UserInterface {
 	return newUser(m.db)
 }
 
-func New(db *gorm.DB) (iface.ShareDaoFactory, error) {
+func New(db *gorm.DB) (*mysql, error) {
 
 	return &mysql{db: db}, nil
 }

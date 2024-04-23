@@ -2,12 +2,14 @@ package sqlite
 
 import (
 	"fmt"
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/db/dbconn"
-	"github.com/caoyingjunz/pixiu/pkg/types"
+
 	sqliteDriver "gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db/dbconn"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 func NewDb(sqlConfig config.SqliteOptions, mode string, migrate bool) (*dbconn.DbConn, error) {

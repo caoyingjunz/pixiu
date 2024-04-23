@@ -17,21 +17,20 @@ limitations under the License.
 package options
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/iface"
 	"os"
+
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/cobra"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	"github.com/caoyingjunz/pixiu/pkg/db"
-	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
-	"github.com/gin-gonic/gin"
-	"github.com/spf13/cobra"
 )
 
 const (
-	defaultListen     = 8080
-	defaultTokenKey   = "pixiu"
-	//defaultConfigFile = "./config.yaml"
+	defaultListen   = 8080
+	defaultTokenKey = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 )
 
@@ -42,7 +41,7 @@ type Options struct {
 	HttpEngine      *gin.Engine
 
 	// 数据库接口
-	Factory iface.ShareDaoFactory
+	Factory db.ShareDaoFactory
 	// 貔貅主控制接口
 	Controller controller.PixiuInterface
 
