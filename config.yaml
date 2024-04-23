@@ -10,7 +10,6 @@ default:
 
 db:
   type: sqlite
-
   # 数据库地址信息
 #  mysql:
 #    host: peng
