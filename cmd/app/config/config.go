@@ -16,6 +16,17 @@ limitations under the License.
 
 package config
 
+import "errors"
+
+type LogFormat string
+
+const (
+	LogFormatJson LogFormat = "json"
+	LogFormatText LogFormat = "text"
+)
+
+var ErrInvalidLogFormat = errors.New("invalid log format")
+
 type Config struct {
 	Default DefaultOptions `yaml:"default"`
 	Mysql   MysqlOptions   `yaml:"mysql"`
@@ -28,6 +39,15 @@ type DefaultOptions struct {
 
 	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
+
+	LogOptions `yaml:",inline"`
+}
+
+func (o DefaultOptions) Valid() error {
+	if err := o.LogOptions.Valid(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // MysqlOptions 数据库具体配置
@@ -39,6 +59,30 @@ type MysqlOptions struct {
 	Name     string `yaml:"name"`
 }
 
-func (c *Config) Valid() error {
+func (o MysqlOptions) Valid() error {
+	// TODO
 	return nil
+}
+
+type LogOptions struct {
+	LogFormat `yaml:"log_format"`
+}
+
+func (o LogOptions) Valid() error {
+	switch o.LogFormat {
+	case LogFormatJson, LogFormatText:
+		return nil
+	default:
+		return ErrInvalidLogFormat
+	}
+}
+
+func (c *Config) Valid() (err error) {
+	if err = c.Default.Valid(); err != nil {
+		return
+	}
+	if err = c.Mysql.Valid(); err != nil {
+		return
+	}
+	return
 }
