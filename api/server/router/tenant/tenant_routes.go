@@ -19,7 +19,6 @@ package tenant
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -33,7 +32,7 @@ func (t *tenantRouter) createTenant(c *gin.Context) {
 
 	var req types.CreateTenantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 	if err := t.c.Tenant().Create(c, &req); err != nil {
@@ -55,12 +54,12 @@ func (t *tenantRouter) updateTenant(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	var tenant types.Tenant
-	if err = c.ShouldBindJSON(&tenant); err != nil {
+	var req types.UpdateTenantRequest
+	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Tenant().Update(c, opt.TenantId, &tenant); err != nil {
+	if err = t.c.Tenant().Update(c, opt.TenantId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

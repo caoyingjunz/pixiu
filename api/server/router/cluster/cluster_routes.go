@@ -19,7 +19,6 @@ package cluster
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -47,7 +46,7 @@ func (cr *clusterRouter) createCluster(c *gin.Context) {
 
 	var req types.CreateClusterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 	if err := cr.c.Cluster().Create(c, &req); err != nil {
@@ -80,13 +79,13 @@ func (cr *clusterRouter) updateCluster(c *gin.Context) {
 		err    error
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 
 	var req types.UpdateClusterRequest
 	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 
@@ -120,7 +119,7 @@ func (cr *clusterRouter) deleteCluster(c *gin.Context) {
 		err    error
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 
@@ -153,7 +152,7 @@ func (cr *clusterRouter) getCluster(c *gin.Context) {
 		err    error
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 
@@ -212,7 +211,7 @@ func (cr *clusterRouter) pingCluster(c *gin.Context) {
 		err     error
 	)
 	if err = c.ShouldBindJSON(&cluster); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 	if err = cr.c.Cluster().Ping(c, cluster.KubeConfig); err != nil {
@@ -255,7 +254,7 @@ func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 	)
 
 	if err = c.ShouldBindUri(&optMeta); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 	if r.Result, err = cr.c.Cluster().AggregateEvents(c, optMeta.Cluster, optMeta.Namespace, optMeta.Name, optMeta.Kind); err != nil {
@@ -276,7 +275,7 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 		err      error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &opts, &eventOpt); err != nil {
-		httputils.SetFailed(c, r, errors.ErrInvalidRequest)
+		httputils.SetFailed(c, r, err)
 		return
 	}
 	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt); err != nil {

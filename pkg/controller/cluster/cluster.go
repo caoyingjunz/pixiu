@@ -148,7 +148,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 	if len(updates) == 0 {
 		return errors.ErrInvalidRequest
 	}
-	if err := c.factory.Cluster().Update(ctx, cid, req.ResourceVersion, updates); err != nil {
+	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
@@ -239,7 +239,7 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 }
 
 func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error {
-	if err := c.factory.Cluster().Update(ctx, cid, req.ResourceVersion, map[string]interface{}{
+	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, map[string]interface{}{
 		"protected": req.Protected,
 	}); err != nil {
 		klog.Errorf("failed to protect cluster(%d): %v", cid, err)

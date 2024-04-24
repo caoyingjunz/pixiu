@@ -47,16 +47,22 @@ type (
 		AliasName   *string `json:"alias_name" binding:"omitempty"`  // optional
 		Description *string `json:"description" binding:"omitempty"` // optional
 		// TODO: put resource version in a common struct for updating request only
-		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
+		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
 	}
 
 	ProtectClusterRequest struct {
-		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
-		Protected       bool  `json:"protected" binding:"omitempty"`       // optional
+		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
+		Protected       bool   `json:"protected" binding:"omitempty"`       // optional
 	}
 
 	CreateTenantRequest struct {
 		Name        string  `json:"name" binding:"required"`         // required
 		Description *string `json:"description" binding:"omitempty"` // optional
+	}
+
+	UpdateTenantRequest struct {
+		Name            *string `json:"name" binding:"omitempty"`            // optional
+		Description     *string `json:"description" binding:"omitempty"`     // optional
+		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
 	}
 )

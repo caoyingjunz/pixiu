@@ -34,7 +34,7 @@ type TenantGetter interface {
 
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateTenantRequest) error
-	Update(ctx context.Context, tid int64, ten *types.Tenant) error
+	Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error
 	Delete(ctx context.Context, tid int64) error
 	Get(ctx context.Context, tid int64) (*types.Tenant, error)
 	List(ctx context.Context) ([]types.Tenant, error)
@@ -70,16 +70,37 @@ func (t *tenant) Create(ctx context.Context, req *types.CreateTenantRequest) err
 	return nil
 }
 
-// Update TODO
-func (t *tenant) Update(ctx context.Context, tid int64, ten *types.Tenant) error {
+func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error {
+	object, err := t.factory.Tenant().Get(ctx, tid)
+	if err != nil {
+		klog.Errorf("failed to get tenant %d: %v", tid, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrTenantNotFound
+	}
+	updates := make(map[string]interface{})
+	if req.Name != nil {
+		updates["name"] = *req.Name
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if len(updates) == 0 {
+		return errors.ErrInvalidRequest
+	}
+	if err := t.factory.Tenant().Update(ctx, tid, *req.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update tenant %d: %v", tid, err)
+		return errors.ErrServerInternal
+	}
 	return nil
 }
 
 func (t *tenant) Delete(ctx context.Context, tid int64) error {
 	_, err := t.factory.Tenant().Delete(ctx, tid)
 	if err != nil {
-		klog.Errorf("failed to delete %d tenant: %v", tid, err)
-		return err
+		klog.Errorf("failed to delete tenant %d: %v", tid, err)
+		return errors.ErrServerInternal
 	}
 
 	return nil
@@ -89,7 +110,10 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*types.Tenant, error) {
 	object, err := t.factory.Tenant().Get(ctx, tid)
 	if err != nil {
 		klog.Errorf("failed to get tenant %d: %v", tid, err)
-		return nil, err
+		return nil, errors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, errors.ErrTenantNotFound
 	}
 	return t.model2Type(object), nil
 }
@@ -98,7 +122,7 @@ func (t *tenant) List(ctx context.Context) ([]types.Tenant, error) {
 	objects, err := t.factory.Tenant().List(ctx)
 	if err != nil {
 		klog.Errorf("failed to get tenants: %v", err)
-		return nil, err
+		return nil, errors.ErrServerInternal
 	}
 
 	var ts []types.Tenant
