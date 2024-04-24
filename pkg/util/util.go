@@ -17,8 +17,16 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
+	"math/rand"
+	"time"
+
 	"golang.org/x/crypto/bcrypt"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // EncryptUserPassword 生成加密密码
 // 前端传的密码为明文，需要加密存储
@@ -65,4 +73,9 @@ func ValidateStrongPassword(password string) bool {
 		}
 	}
 	return oneUpper && oneLower && oneNumber
+}
+
+// GenerateRequestID return a request ID string with random suffix.
+func GenerateRequestID() string {
+	return fmt.Sprintf("%s-%06d", time.Now().Format("20060102150405"), rand.Intn(1000000))
 }

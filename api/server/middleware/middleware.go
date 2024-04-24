@@ -17,9 +17,15 @@ limitations under the License.
 package middleware
 
 import (
+	"time"
+
+	"github.com/gin-contrib/requestid"
+	klog "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
 var alwaysAllowPath sets.String
@@ -29,8 +35,23 @@ func init() {
 }
 
 func InstallMiddlewares(o *options.Options) {
+	// set log format
+	if o.ComponentConfig.Default.LogFormat == config.LogFormatJson {
+		klog.SetFormatter(&klog.JSONFormatter{
+			TimestampFormat: time.RFC3339Nano,
+		})
+	} else {
+		klog.SetFormatter(&klog.TextFormatter{
+			FullTimestamp:   true,
+			TimestampFormat: time.RFC3339Nano,
+		})
+	}
+
 	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
 	o.HttpEngine.Use(
+		requestid.New(requestid.WithGenerator(func() string {
+			return util.GenerateRequestID()
+		})),
 		Cors(),
 		LoggerToFile(),
 		UserRateLimiter(),

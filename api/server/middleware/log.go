@@ -17,10 +17,18 @@ limitations under the License.
 package middleware
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
-	"k8s.io/klog/v2"
+	klog "github.com/sirupsen/logrus"
+)
+
+const (
+	SuccessMsg = "SUCCESS"
+	ErrorMsg   = "ERROR"
+	FailMsg    = "FAIL"
 )
 
 func LoggerToFile() gin.HandlerFunc {
@@ -30,15 +38,23 @@ func LoggerToFile() gin.HandlerFunc {
 		// 处理请求操作
 		c.Next()
 
-		endTime := time.Now()
+		fields := klog.Fields{
+			"request_id":  requestid.Get(c),
+			"method":      c.Request.Method,
+			"uri":         c.Request.RequestURI,
+			"status_code": c.Writer.Status(),
+			"latency":     fmt.Sprintf("%dµs", time.Since(startTime).Microseconds()),
+			"client_ip":   c.ClientIP(),
+			// TODO
+			// "sqls": []string{},
+		}
 
-		latencyTime := endTime.Sub(startTime)
+		if errs := c.Errors; len(errs) > 0 {
+			fields["raw_error"] = errs.Errors()
+			klog.WithFields(fields).Error(FailMsg)
+			return
+		}
 
-		reqMethod := c.Request.Method
-		reqUri := c.Request.RequestURI
-		statusCode := c.Writer.Status()
-		clientIp := c.ClientIP()
-
-		klog.Infof("| %3d | %13v | %15s | %s | %s |", statusCode, latencyTime, clientIp, reqMethod, reqUri)
+		klog.WithFields(fields).Info(SuccessMsg)
 	}
 }

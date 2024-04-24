@@ -32,6 +32,7 @@ const (
 	defaultListen   = 8080
 	defaultTokenKey = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
+	defaultLogFormat  = config.LogFormatJson
 )
 
 // Options has all the params needed to run a pixiu
@@ -75,11 +76,19 @@ func (o *Options) Complete() error {
 		return err
 	}
 
+	// TODO: move to config initialization?
 	if o.ComponentConfig.Default.Listen == 0 {
 		o.ComponentConfig.Default.Listen = defaultListen
 	}
 	if len(o.ComponentConfig.Default.JWTKey) == 0 {
 		o.ComponentConfig.Default.JWTKey = defaultTokenKey
+	}
+	if o.ComponentConfig.Default.LogFormat == "" {
+		o.ComponentConfig.Default.LogFormat = defaultLogFormat
+	}
+
+	if err := o.ComponentConfig.Valid(); err != nil {
+		return err
 	}
 
 	// 注册依赖组件
@@ -93,7 +102,7 @@ func (o *Options) Complete() error {
 
 // BindFlags binds the pixiu Configuration struct fields
 func (o *Options) BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.ConfigFile, "configfile", "", "The location of the pixiu configuration file")
+	cmd.Flags().StringVar(&o.ConfigFile, "configfile", defaultConfigFile, "The location of the pixiu configuration file")
 }
 
 func (o *Options) register() error {
