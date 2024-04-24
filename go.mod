@@ -24,7 +24,6 @@ require (
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.12 // indirect
 	github.com/mittwald/go-helm-client v0.8.1
 	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
@@ -43,8 +42,8 @@ require (
 	golang.org/x/time v0.1.0
 	google.golang.org/protobuf v1.33.0 // indirect
 	gorm.io/driver/mysql v1.3.6
-        gorm.io/driver/sqlite v1.5.5
-	gorm.io/gorm v1.23.8
+	gorm.io/driver/sqlite v1.5.5
+	gorm.io/gorm v1.25.7-0.20240204074919-46816ad31dde
 	helm.sh/helm/v3 v3.6.3
 	k8s.io/api v0.22.1
 	k8s.io/apimachinery v0.22.1
