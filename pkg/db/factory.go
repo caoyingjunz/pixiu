@@ -38,9 +38,15 @@ func NewDaoFactory(dbConfig *config.DbConfig, mode string, migrate bool) (ShareD
 	switch dbConfig.Type {
 	case "mysql":
 		db, err = mysql.NewDb(dbConfig.Mysql, mode, migrate)
+		if err != nil {
+			return nil, err
+		}
 		return mysql.New(db.Conn.(*gorm.DB))
 	case "sqlite":
 		db, err = sqlite.NewDb(dbConfig.Sqlite, mode, migrate)
+		if err != nil {
+			return nil, err
+		}
 		return sqlite.New(db.Conn.(*gorm.DB))
 	}
 
