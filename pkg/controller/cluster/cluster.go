@@ -41,11 +41,11 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/db/tx_func"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
-	"github.com/caoyingjunz/pixiu/pkg/db"
-	"github.com/caoyingjunz/pixiu/pkg/db/tx_func"
 )
 
 type ClusterGetter interface {

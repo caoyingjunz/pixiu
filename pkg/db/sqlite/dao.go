@@ -1,8 +1,8 @@
 package sqlite
 
 import (
-	"gorm.io/gorm"
 	"github.com/caoyingjunz/pixiu/pkg/db/iface"
+	"gorm.io/gorm"
 )
 
 type sqlite struct {

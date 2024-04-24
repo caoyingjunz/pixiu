@@ -17,8 +17,8 @@ limitations under the License.
 package sqlite
 
 import (
-	"gorm.io/gorm"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"gorm.io/gorm"
 )
 
 type migrator struct {

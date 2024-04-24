@@ -1,8 +1,8 @@
 package mysql
 
 import (
-	"gorm.io/gorm"
 	"github.com/caoyingjunz/pixiu/pkg/db/iface"
+	"gorm.io/gorm"
 )
 
 type mysql struct {

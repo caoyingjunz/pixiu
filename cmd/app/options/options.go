@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	defaultListen   = 8080
-	defaultTokenKey = "pixiu"
+	defaultListen     = 8080
+	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = config.LogFormatJson
 )

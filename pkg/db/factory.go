@@ -24,7 +24,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/iface"
 	"github.com/caoyingjunz/pixiu/pkg/db/mysql"
 	"github.com/caoyingjunz/pixiu/pkg/db/sqlite"
-
 )
 
 type ShareDaoFactory interface {
