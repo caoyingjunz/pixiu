@@ -8,6 +8,8 @@ default:
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
 
+  log_format: json
+
 db:
   type: sqlite
   # 数据库地址信息
