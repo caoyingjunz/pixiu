@@ -35,14 +35,14 @@ type ShareDaoFactory interface {
 func NewDaoFactory(dbConfig *config.DbConfig, mode string, migrate bool) (ShareDaoFactory, error) {
 	var db *dbconn.DbConn
 	var err error
-	switch dbConfig.Type {
-	case "mysql":
+	if dbConfig.Mysql != nil{
 		db, err = mysql.NewDb(dbConfig.Mysql, mode, migrate)
 		if err != nil {
 			return nil, err
 		}
 		return mysql.New(db.Conn.(*gorm.DB))
-	case "sqlite":
+	}
+	if dbConfig.Sqlite != nil{
 		db, err = sqlite.NewDb(dbConfig.Sqlite, mode, migrate)
 		if err != nil {
 			return nil, err

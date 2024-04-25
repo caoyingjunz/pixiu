@@ -44,16 +44,25 @@ type DefaultOptions struct {
 }
 
 type DbConfig struct {
-	Type   string        `yaml:"type"`
-	Sqlite SqliteOptions `yaml:"sqlite"`
-	Mysql  MysqlOptions  `yaml:"mysql"`
+	Sqlite *SqliteOptions `yaml:"sqlite"`
+	Mysql  *MysqlOptions  `yaml:"mysql"`
+}
+
+func (d DbConfig) Valid() error{
+	if d.Sqlite != nil{
+		return d.Sqlite.Valid()
+	}
+	if d.Mysql != nil{
+        return d.Mysql.Valid()
+    }
+	return nil
 }
 
 type SqliteOptions struct {
 	Db string `yaml:"db"`
 }
 
-func (o SqliteOptions) Valid() error {
+func (o *SqliteOptions) Valid() error {
 	// TODO
 	return nil
 }
@@ -67,7 +76,7 @@ type MysqlOptions struct {
 	Name     string `yaml:"name"`
 }
 
-func (o MysqlOptions) Valid() error {
+func (o *MysqlOptions) Valid() error {
 	// TODO
 	return nil
 }
@@ -85,6 +94,12 @@ func (o LogOptions) Valid() error {
 	}
 }
 
-func (c *Config) Valid() error {
-	return nil
+func (c *Config) Valid() (err error) {
+	if err = c.Default.Valid(); err != nil {
+		return
+	}
+	if err = c.Db.Valid(); err != nil {
+		return
+	}
+	return
 }
