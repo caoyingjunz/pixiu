@@ -44,6 +44,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
@@ -312,9 +313,7 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 		options.Limit = 500
 	}
 	opt := metav1.ListOptions{Limit: options.Limit}
-	if !options.Namespaced {
-		opt.FieldSelector = c.makeFieldSelector(apitypes.UID(options.Uid), options.Name, options.Namespace, options.Kind)
-	}
+	opt.FieldSelector = c.makeFieldSelector(apitypes.UID(options.Uid), options.Name, options.Namespace, options.Kind)
 
 	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
@@ -543,13 +542,24 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	return &km, nil
 }
 
+// 构造事件的 FieldSelector， 如果参数为空则忽略
 func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
-	return strings.Join([]string{
-		"involvedObject.uid=" + string(uid),
-		"involvedObject.name=" + name,
-		"involvedObject.namespace=" + namespace,
-		"involvedObject.kind=" + kind,
-	}, ",")
+	eventFS := make([]string, 0)
+	// 追加对象的 uid
+	if util.IsEmptyS(string(uid)) {
+		eventFS = append(eventFS, "involvedObject.uid="+string(uid))
+	}
+	if util.IsEmptyS(name) {
+		eventFS = append(eventFS, "involvedObject.name="+name)
+	}
+	if util.IsEmptyS(namespace) {
+		eventFS = append(eventFS, "involvedObject.namespace="+namespace)
+	}
+	if util.IsEmptyS(kind) {
+		eventFS = append(eventFS, "involvedObject.kind="+kind)
+	}
+	// 构造 kubernetes 原生 FieldSelector 参数格式
+	return strings.Join(eventFS, ",")
 }
 
 func (c *cluster) parseKubernetesResource(nodeMetrics []v1beta1.NodeMetrics) types.Resources {

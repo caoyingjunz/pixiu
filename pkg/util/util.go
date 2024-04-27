@@ -79,3 +79,7 @@ func ValidateStrongPassword(password string) bool {
 func GenerateRequestID() string {
 	return fmt.Sprintf("%s-%06d", time.Now().Format("20060102150405"), rand.Intn(1000000))
 }
+
+func IsEmptyS(s string) bool {
+	return len(s) != 0
+}
