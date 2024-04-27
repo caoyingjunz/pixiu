@@ -313,12 +313,16 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 		options.Limit = 500
 	}
 	opt := metav1.ListOptions{Limit: options.Limit}
-	opt.FieldSelector = c.makeFieldSelector(apitypes.UID(options.Uid), options.Name, options.Namespace, options.Kind)
+	fs := c.makeFieldSelector(apitypes.UID(options.Uid), options.Name, options.Namespace, options.Kind)
+	if len(fs) != 0 {
+		opt.FieldSelector = fs
+	}
 
 	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		return nil, err
 	}
+
 	return clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
 }
 
