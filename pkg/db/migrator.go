@@ -14,23 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package sqlite
+package db
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"gorm.io/gorm"
 )
 
+// a migrator implemented by GORM
 type migrator struct {
 	db *gorm.DB
 }
 
-// AutoMigrate 自动创建指定模型的数据库表结构
-func (m *migrator) AutoMigrate() error {
-	return m.CreateTables(model.GetMigrationModels()...)
-}
-
-func (m *migrator) CreateTables(dst ...interface{}) error {
+func (m *migrator) createTables(dst ...interface{}) error {
 	for _, d := range dst {
 		if m.db.Migrator().HasTable(d) {
 			continue

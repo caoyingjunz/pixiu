@@ -20,11 +20,10 @@ import (
 	"context"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/db/tx_func"
 )
 
 type ClusterInterface interface {
-	Create(ctx context.Context, object *model.Cluster, fns ...tx_func.TxFunc) (*model.Cluster, error)
+	Create(ctx context.Context, object *model.Cluster, fns ...func() error) (*model.Cluster, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)

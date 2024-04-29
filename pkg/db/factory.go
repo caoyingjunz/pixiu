@@ -16,39 +16,18 @@ limitations under the License.
 
 package db
 
-import (
-	"gorm.io/gorm"
-
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/db/dbconn"
-	"github.com/caoyingjunz/pixiu/pkg/db/iface"
-	"github.com/caoyingjunz/pixiu/pkg/db/mysql"
-	"github.com/caoyingjunz/pixiu/pkg/db/sqlite"
-)
-
 type ShareDaoFactory interface {
-	Cluster() iface.ClusterInterface
-	Tenant() iface.TenantInterface
-	User() iface.UserInterface
+	Cluster() ClusterInterface
+	Tenant() TenantInterface
+	User() UserInterface
+
+	Migrate() error
 }
 
-func NewDaoFactory(dbConfig *config.DbConfig, mode string, migrate bool) (ShareDaoFactory, error) {
-	var db *dbconn.DbConn
-	var err error
-	if dbConfig.Mysql != nil{
-		db, err = mysql.NewDb(dbConfig.Mysql, mode, migrate)
-		if err != nil {
-			return nil, err
-		}
-		return mysql.New(db.Conn.(*gorm.DB))
-	}
-	if dbConfig.Sqlite != nil{
-		db, err = sqlite.NewDb(dbConfig.Sqlite, mode, migrate)
-		if err != nil {
-			return nil, err
-		}
-		return sqlite.New(db.Conn.(*gorm.DB))
-	}
+type shareDaoFactory struct {
+	DB
+}
 
-	return nil, err
+func NewDaoFactory(db DB) ShareDaoFactory {
+	return &shareDaoFactory{DB: db}
 }
