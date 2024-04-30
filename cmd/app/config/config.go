@@ -16,7 +16,9 @@ limitations under the License.
 
 package config
 
-import "errors"
+import (
+	"errors"
+)
 
 type LogFormat string
 
@@ -48,14 +50,14 @@ type DbConfig struct {
 	Mysql  *MysqlOptions  `yaml:"mysql"`
 }
 
-func (d DbConfig) Valid() error{
-	if d.Sqlite != nil{
+func (d DbConfig) Valid() error {
+	if d.Sqlite != nil {
 		return d.Sqlite.Valid()
 	}
-	if d.Mysql != nil{
-        return d.Mysql.Valid()
-    }
-	return nil
+	if d.Mysql != nil {
+		return d.Mysql.Valid()
+	}
+	return errors.New("invalid database config")
 }
 
 type SqliteOptions struct {

@@ -28,4 +28,7 @@ dist
 # licensefmt
 hack/tools/licfmt/licfmt
 
+# SQLite
+pixiu.db
+
 vendor

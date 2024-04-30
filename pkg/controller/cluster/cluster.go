@@ -43,7 +43,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/db/tx_func"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
@@ -109,7 +108,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	var cs *client.ClusterSet
-	var txFunc tx_func.TxFunc = func() (err error) {
+	var txFunc = func() (err error) {
 		cs, err = client.NewClusterSet(req.KubeConfig)
 		return err
 	}

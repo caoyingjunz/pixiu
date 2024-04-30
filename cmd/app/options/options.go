@@ -41,6 +41,8 @@ type Options struct {
 	ComponentConfig config.Config
 	HttpEngine      *gin.Engine
 
+	// 数据库
+	db.DB
 	// 数据库接口
 	Factory db.ShareDaoFactory
 	// 貔貅主控制接口
@@ -105,24 +107,17 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.ConfigFile, "configfile", defaultConfigFile, "The location of the pixiu configuration file")
 }
 
-func (o *Options) register() error {
+func (o *Options) register() (err error) {
 	// 注册数据库
-	if err := o.registerDatabase(); err != nil {
-		return err
-	}
+	o.registerDatabase()
 
 	// TODO: 注册其他依赖
-	return nil
+	return
 }
 
-func (o *Options) registerDatabase() error {
-
-	var err error
-	o.Factory, err = db.NewDaoFactory(&o.ComponentConfig.Db, o.ComponentConfig.Default.Mode, o.ComponentConfig.Default.AutoMigrate)
-	if err != nil {
-		return err
-	}
-	return nil
+func (o *Options) registerDatabase() {
+	o.DB = db.NewDB(o.ComponentConfig.Db, o.ComponentConfig.Default.Mode == "debug")
+	o.Factory = db.NewDaoFactory(o.DB)
 }
 
 // Validate validates all the required options.
