@@ -1,15 +1,20 @@
-前置准备
+# 前置准备
+```bash
 docker 已经安装
-
 代码 https://github.com/caoyingjunz/pixiu
-数据库
+```
+# 数据库
+```bash
 # 选择1：直接提供可用数据库
 
 # 选择2：快速启动数据库
 docker run -d --net host --restart=always --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" mysql:5.7
+
 # 创建 pixiu 数据库
 CREATE DATABASE pixiu;
-启动 pixiu 服务端
+```
+# 启动 pixiu 服务端
+```bash
 # 创建配置文件夹
 mkdir -p /etc/pixiu/
 
@@ -34,8 +39,10 @@ vim /etc/pixiu/config.json
 {
     "url": "http://192.168.16.156"
 }
-
+```
 # 启动 pixiu
+```bash
 docker run -d --net host --restart=always --privileged=true -v /etc/pixiu/:/configs  --name pixiu-aio jacky06/pixiu-aio
 登录效果
 浏览器登陆: http://192.168.16.156
+```
