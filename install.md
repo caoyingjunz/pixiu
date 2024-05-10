@@ -46,3 +46,4 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu/:/conf
 登录效果
 浏览器登陆: http://192.168.16.156
 ```
+# 页面展示
