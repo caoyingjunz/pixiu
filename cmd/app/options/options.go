@@ -39,7 +39,7 @@ const (
 
 	defaultListen     = 8080
 	defaultTokenKey   = "pixiu"
-	defaultSQLiteDSN  = "/etc/pixiu/pixiu.db"
+	defaultSQLiteDSN  = "/configs/pixiu.db"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = config.LogFormatJson
 )
