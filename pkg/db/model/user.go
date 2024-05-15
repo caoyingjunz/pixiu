@@ -35,7 +35,7 @@ type UserStatus uint8 // TODO
 type User struct {
 	pixiu.Model
 
-	Name        string     `gorm:"index:idx_name,unique" json:"name"`
+	Name        string     `gorm:"index:idx_name1,unique" json:"name"`
 	Password    string     `gorm:"type:varchar(256)" json:"-"`
 	Status      UserStatus `gorm:"type:tinyint" json:"status"`
 	Role        UserRole   `gorm:"type:tinyint" json:"role"`
