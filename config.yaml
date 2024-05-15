@@ -7,6 +7,8 @@ default:
   jwt_key: pixiu
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
+  # 数据库存储驱动, 默认为 sqlite3
+  sql_driver: sqlite3
 
   log_format: json
 
@@ -17,3 +19,6 @@ mysql:
   password: Pixiu868686
   port: 3306
   name: pixiu
+
+sqlite3:
+  dsn: /tmp/pixiu.db
