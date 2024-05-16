@@ -37,7 +37,7 @@ type UserGetter interface {
 
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateUserRequest) error
-	Update(ctx context.Context, userId int64, clu *types.User) error
+	Update(ctx context.Context, userId int64, req *types.UpdateUserRequest) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
 	List(ctx context.Context, opts types.ListOptions) ([]types.User, error)
@@ -85,9 +85,43 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 	return nil
 }
 
-// Update
-// TODO: 暂时不做实现
-func (u *user) Update(ctx context.Context, userId int64, user *types.User) error {
+func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserRequest) error {
+	object, err := u.factory.User().Get(ctx, uid)
+	if err != nil {
+		klog.Errorf("failed to get user(%d): %v", uid, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrUserNotFound
+	}
+	updates := make(map[string]interface{})
+	if req.Password != "" {
+		password, err := util.EncryptUserPassword(req.Password)
+		if err != nil {
+			klog.Errorf("failed to encrypt user password: %v", err)
+			return errors.ErrServerInternal
+		}
+		if req.Password != password {
+			updates["password"] = password
+		}
+	}
+	// Should user modifies his own role?
+	// if req.Role != nil && *req.Role != object.Role {
+	// 	updates["role"] = *req.Role
+	// }
+	if req.Email != "" && req.Email != object.Email {
+		updates["email"] = req.Email
+	}
+	if req.Description != "" && req.Description != object.Description {
+		updates["description"] = req.Description
+	}
+	if len(updates) == 0 {
+		return errors.ErrInvalidRequest
+	}
+	if err := u.factory.User().Update(ctx, uid, *req.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update user(%d): %v", uid, err)
+		return errors.ErrServerInternal
+	}
 	return nil
 }
 

@@ -87,12 +87,13 @@ func (u *userRouter) updateUser(c *gin.Context) {
 		return
 	}
 
-	var user types.User
-	if err = c.ShouldBindJSON(&user); err != nil {
+	var req types.UpdateUserRequest
+	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = u.c.User().Update(c, idMeta.UserId, &user); err != nil {
+
+	if err = u.c.User().Update(c, idMeta.UserId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

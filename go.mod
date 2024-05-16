@@ -42,7 +42,7 @@ require (
 	golang.org/x/time v0.1.0
 	google.golang.org/protobuf v1.33.0 // indirect
 	gorm.io/driver/mysql v1.3.6
-	gorm.io/driver/sqlite v1.4.4 // indirect
+	gorm.io/driver/sqlite v1.4.4
 	gorm.io/gorm v1.24.0
 	helm.sh/helm/v3 v3.6.3
 	k8s.io/api v0.22.1

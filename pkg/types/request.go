@@ -34,6 +34,14 @@ type (
 		Description string         `json:"description" binding:"omitempty"`      // optional
 	}
 
+	UpdateUserRequest struct {
+		Password string `json:"password" binding:"omitempty,password"` // optional
+		// Role            *model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"`  // optional
+		Email           string `json:"email" binding:"omitempty,email"`     // optional
+		Description     string `json:"description" binding:"omitempty"`     // optional
+		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
+	}
+
 	CreateClusterRequest struct {
 		Name        string            `json:"name" binding:"omitempty"`                   // optional
 		AliasName   string            `json:"alias_name" binding:"omitempty"`             // optional
