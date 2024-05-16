@@ -82,6 +82,20 @@ func NewServerCommand(version string) *cobra.Command {
 
 // Run 优雅启动貔貅服务
 func Run(opt *options.Options) error {
+	// Try to connect database.
+	klog.Info("connecting to database")
+	if err := opt.DB.Open(); err != nil {
+		return fmt.Errorf("failed to open database connection: %v", err)
+	}
+
+	// Auto apply the latest data models.
+	if opt.ComponentConfig.Default.AutoMigrate {
+		klog.Info("migrating data models")
+		if err := opt.Factory.Migrate(); err != nil {
+			return fmt.Errorf("failed to migrate database: %v", err)
+		}
+	}
+
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
 		Handler: opt.HttpEngine,
@@ -99,10 +113,10 @@ func Run(opt *options.Options) error {
 	}()
 
 	// Wait for interrupt signal to gracefully shut down the server with a timeout of 5 seconds.
-	quit := make(chan os.Signal)
+	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	klog.Infof("shutting pixiu server down ...")
+	klog.Infof("shutting pixiu server down...")
 
 	// The context is used to inform the server it has 5 seconds to finish the request
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -110,6 +124,11 @@ func Run(opt *options.Options) error {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		klog.Fatalf("pixiu server forced to shutdown: %v", err)
+	}
+
+	// Close the database connection.
+	if err := opt.DB.Close(); err != nil {
+		klog.Fatalf("failed to close database connection: %v", err)
 	}
 
 	return nil

@@ -17,25 +17,18 @@ limitations under the License.
 package options
 
 import (
-	"fmt"
 	"os"
 
-	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
 const (
-	maxIdleConns = 10
-	maxOpenConns = 100
-
 	defaultListen     = 8080
 	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
@@ -48,6 +41,8 @@ type Options struct {
 	ComponentConfig config.Config
 	HttpEngine      *gin.Engine
 
+	// 数据库
+	db.DB
 	// 数据库接口
 	Factory db.ShareDaoFactory
 	// 貔貅主控制接口
@@ -112,47 +107,17 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.ConfigFile, "configfile", defaultConfigFile, "The location of the pixiu configuration file")
 }
 
-func (o *Options) register() error {
+func (o *Options) register() (err error) {
 	// 注册数据库
-	if err := o.registerDatabase(); err != nil {
-		return err
-	}
+	o.registerDatabase()
 
 	// TODO: 注册其他依赖
-	return nil
+	return
 }
 
-func (o *Options) registerDatabase() error {
-	sqlConfig := o.ComponentConfig.Mysql
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
-		sqlConfig.User,
-		sqlConfig.Password,
-		sqlConfig.Host,
-		sqlConfig.Port,
-		sqlConfig.Name)
-
-	opt := &gorm.Config{}
-	if o.ComponentConfig.Default.Mode == "debug" {
-		opt.Logger = logger.Default.LogMode(logger.Info)
-	}
-
-	DB, err := gorm.Open(mysql.Open(dsn), opt)
-	if err != nil {
-		return err
-	}
-	// 设置数据库连接池
-	sqlDB, err := DB.DB()
-	if err != nil {
-		return err
-	}
-	sqlDB.SetMaxIdleConns(maxIdleConns)
-	sqlDB.SetMaxOpenConns(maxOpenConns)
-
-	o.Factory, err = db.NewDaoFactory(DB, o.ComponentConfig.Default.AutoMigrate)
-	if err != nil {
-		return err
-	}
-	return nil
+func (o *Options) registerDatabase() {
+	o.DB = db.NewDB(o.ComponentConfig.Db, o.ComponentConfig.Default.Mode == "debug")
+	o.Factory = db.NewDaoFactory(o.DB)
 }
 
 // Validate validates all the required options.

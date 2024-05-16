@@ -27,10 +27,8 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-type TxFunc func() error
-
 type ClusterInterface interface {
-	Create(ctx context.Context, object *model.Cluster, fns ...TxFunc) (*model.Cluster, error)
+	Create(ctx context.Context, object *model.Cluster, fns ...func() error) (*model.Cluster, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)
@@ -39,11 +37,16 @@ type ClusterInterface interface {
 	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
 }
 
-type cluster struct {
+// MySQL implementation
+type clusterMySQL struct {
 	db *gorm.DB
 }
 
-func (c *cluster) Create(ctx context.Context, object *model.Cluster, fns ...TxFunc) (*model.Cluster, error) {
+func newClusterMySQL(db *gorm.DB) ClusterInterface {
+	return &clusterMySQL{db}
+}
+
+func (c *clusterMySQL) Create(ctx context.Context, object *model.Cluster, fns ...func() error) (*model.Cluster, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -65,7 +68,7 @@ func (c *cluster) Create(ctx context.Context, object *model.Cluster, fns ...TxFu
 	return object, nil
 }
 
-func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error {
+func (c *clusterMySQL) Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error {
 	// 系统维护字段
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
@@ -81,7 +84,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 	return nil
 }
 
-func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error) {
+func (c *clusterMySQL) Delete(ctx context.Context, cid int64) (*model.Cluster, error) {
 	// 仅当数据库支持回写功能时才能正常
 	//if err := c.db.Clauses(clause.Returning{}).Where("id = ?", cid).Delete(&object).Error; err != nil {
 	//	return nil, err
@@ -104,7 +107,7 @@ func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	return object, nil
 }
 
-func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
+func (c *clusterMySQL) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
 	var object model.Cluster
 	if err := c.db.WithContext(ctx).Where("id = ?", cid).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
@@ -116,7 +119,7 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
 	return &object, nil
 }
 
-func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
+func (c *clusterMySQL) List(ctx context.Context) ([]model.Cluster, error) {
 	var cs []model.Cluster
 	if err := c.db.WithContext(ctx).Find(&cs).Error; err != nil {
 		return nil, err
@@ -125,7 +128,7 @@ func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
 	return cs, nil
 }
 
-func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {
+func (c *clusterMySQL) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {
 	var object model.Cluster
 	if err := c.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
@@ -137,6 +140,105 @@ func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Clu
 	return &object, nil
 }
 
-func newCluster(db *gorm.DB) ClusterInterface {
-	return &cluster{db}
+// SQLite implementation
+type clusterSQLite struct {
+	db *gorm.DB
+}
+
+func newClusterSQLite(db *gorm.DB) ClusterInterface {
+	return &clusterSQLite{db}
+}
+
+func (c *clusterSQLite) Create(ctx context.Context, object *model.Cluster, fns ...func() error) (*model.Cluster, error) {
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(object).Error; err != nil {
+			return err
+		}
+
+		for _, fn := range fns {
+			if err := fn(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return object, nil
+}
+
+func (c *clusterSQLite) Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := c.db.WithContext(ctx).Model(&model.Cluster{}).Where("id = ? and resource_version = ?", cid, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotUpdate
+	}
+
+	return nil
+}
+
+func (c *clusterSQLite) Delete(ctx context.Context, cid int64) (*model.Cluster, error) {
+	// 仅当数据库支持回写功能时才能正常
+	//if err := c.db.Clauses(clause.Returning{}).Where("id = ?", cid).Delete(&object).Error; err != nil {
+	//	return nil, err
+	//}
+	object, err := c.Get(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+	if object == nil {
+		return nil, nil
+	}
+
+	if object.Protected {
+		return nil, fmt.Errorf("集群开启删除保护，不允许被删除")
+	}
+	if err = c.db.WithContext(ctx).Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
+		return nil, err
+	}
+
+	return object, nil
+}
+
+func (c *clusterSQLite) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
+	var object model.Cluster
+	if err := c.db.WithContext(ctx).Where("id = ?", cid).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+func (c *clusterSQLite) List(ctx context.Context) ([]model.Cluster, error) {
+	var cs []model.Cluster
+	if err := c.db.WithContext(ctx).Find(&cs).Error; err != nil {
+		return nil, err
+	}
+
+	return cs, nil
+}
+
+func (c *clusterSQLite) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {
+	var object model.Cluster
+	if err := c.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &object, nil
 }

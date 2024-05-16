@@ -16,33 +16,18 @@ limitations under the License.
 
 package db
 
-import (
-	"gorm.io/gorm"
-)
-
 type ShareDaoFactory interface {
 	Cluster() ClusterInterface
 	Tenant() TenantInterface
 	User() UserInterface
+
+	Migrate() error
 }
 
 type shareDaoFactory struct {
-	db *gorm.DB
+	DB
 }
 
-func (f *shareDaoFactory) Cluster() ClusterInterface { return newCluster(f.db) }
-func (f *shareDaoFactory) Tenant() TenantInterface   { return newTenant(f.db) }
-func (f *shareDaoFactory) User() UserInterface       { return newUser(f.db) }
-
-func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
-	if migrate {
-		// 自动创建指定模型的数据库表结构
-		if err := newMigrator(db).AutoMigrate(); err != nil {
-			return nil, err
-		}
-	}
-
-	return &shareDaoFactory{
-		db: db,
-	}, nil
+func NewDaoFactory(db DB) ShareDaoFactory {
+	return &shareDaoFactory{DB: db}
 }

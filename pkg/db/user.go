@@ -38,11 +38,16 @@ type UserInterface interface {
 	GetUserByName(ctx context.Context, userName string) (*model.User, error)
 }
 
-type user struct {
+// MySQL implementation
+type userMySQL struct {
 	db *gorm.DB
 }
 
-func (u *user) Create(ctx context.Context, object *model.User) (*model.User, error) {
+func newUserMySQL(db *gorm.DB) *userMySQL {
+	return &userMySQL{db}
+}
+
+func (u *userMySQL) Create(ctx context.Context, object *model.User) (*model.User, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -54,15 +59,15 @@ func (u *user) Create(ctx context.Context, object *model.User) (*model.User, err
 	return object, nil
 }
 
-func (u *user) Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error {
+func (u *userMySQL) Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error {
 	return nil
 }
 
-func (u *user) Delete(ctx context.Context, uid int64) error {
+func (u *userMySQL) Delete(ctx context.Context, uid int64) error {
 	return u.db.WithContext(ctx).Where("id = ?", uid).Delete(&model.User{}).Error
 }
 
-func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
+func (u *userMySQL) Get(ctx context.Context, uid int64) (*model.User, error) {
 	var object model.User
 	if err := u.db.WithContext(ctx).Where("id = ?", uid).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
@@ -76,7 +81,7 @@ func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 
 // List 获取用户列表
 // TODO: 暂时不做分页考虑
-func (u *user) List(ctx context.Context) ([]model.User, error) {
+func (u *userMySQL) List(ctx context.Context) ([]model.User, error) {
 	var objects []model.User
 	if err := u.db.WithContext(ctx).Find(&objects).Error; err != nil {
 		return nil, err
@@ -85,7 +90,7 @@ func (u *user) List(ctx context.Context) ([]model.User, error) {
 	return objects, nil
 }
 
-func (u *user) Count(ctx context.Context) (int64, error) {
+func (u *userMySQL) Count(ctx context.Context) (int64, error) {
 	var total int64
 	if err := u.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
 		return 0, err
@@ -94,7 +99,7 @@ func (u *user) Count(ctx context.Context) (int64, error) {
 	return total, nil
 }
 
-func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User, error) {
+func (u *userMySQL) GetUserByName(ctx context.Context, userName string) (*model.User, error) {
 	var object model.User
 	if err := u.db.WithContext(ctx).Where("name = ?", userName).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
@@ -106,6 +111,75 @@ func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User,
 	return &object, nil
 }
 
-func newUser(db *gorm.DB) *user {
-	return &user{db}
+// SQLite implementation
+type userSQLite struct {
+	db *gorm.DB
+}
+
+func newUserSQLite(db *gorm.DB) *userSQLite {
+	return &userSQLite{db}
+}
+
+func (u *userSQLite) Create(ctx context.Context, object *model.User) (*model.User, error) {
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	if err := u.db.WithContext(ctx).Create(object).Error; err != nil {
+		return nil, err
+	}
+
+	return object, nil
+}
+
+func (u *userSQLite) Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error {
+	return nil
+}
+
+func (u *userSQLite) Delete(ctx context.Context, uid int64) error {
+	return u.db.WithContext(ctx).Where("id = ?", uid).Delete(&model.User{}).Error
+}
+
+func (u *userSQLite) Get(ctx context.Context, uid int64) (*model.User, error) {
+	var object model.User
+	if err := u.db.WithContext(ctx).Where("id = ?", uid).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+// List 获取用户列表
+// TODO: 暂时不做分页考虑
+func (u *userSQLite) List(ctx context.Context) ([]model.User, error) {
+	var objects []model.User
+	if err := u.db.WithContext(ctx).Find(&objects).Error; err != nil {
+		return nil, err
+	}
+
+	return objects, nil
+}
+
+func (u *userSQLite) Count(ctx context.Context) (int64, error) {
+	var total int64
+	if err := u.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+
+func (u *userSQLite) GetUserByName(ctx context.Context, userName string) (*model.User, error) {
+	var object model.User
+	if err := u.db.WithContext(ctx).Where("name = ?", userName).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &object, nil
 }
