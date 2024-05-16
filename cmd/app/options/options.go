@@ -24,7 +24,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -39,7 +38,6 @@ const (
 
 	defaultListen     = 8080
 	defaultTokenKey   = "pixiu"
-	defaultSQLiteDSN  = "/configs/pixiu.db"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = config.LogFormatJson
 )
@@ -95,15 +93,6 @@ func (o *Options) Complete() error {
 	if o.ComponentConfig.Default.LogFormat == "" {
 		o.ComponentConfig.Default.LogFormat = defaultLogFormat
 	}
-	if len(o.ComponentConfig.Default.SQLDriver) == 0 {
-		o.ComponentConfig.Default.SQLDriver = config.SqliteDriver
-	}
-	if o.ComponentConfig.Default.SQLDriver == config.SqliteDriver {
-		if len(o.ComponentConfig.Sqlite.DSN) == 0 {
-			o.ComponentConfig.Sqlite.DSN = defaultSQLiteDSN
-		}
-
-	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
 		return err
@@ -134,42 +123,30 @@ func (o *Options) register() error {
 }
 
 func (o *Options) registerDatabase() error {
+	sqlConfig := o.ComponentConfig.Mysql
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
+		sqlConfig.User,
+		sqlConfig.Password,
+		sqlConfig.Host,
+		sqlConfig.Port,
+		sqlConfig.Name)
+
 	opt := &gorm.Config{}
 	if o.ComponentConfig.Default.Mode == "debug" {
 		opt.Logger = logger.Default.LogMode(logger.Info)
 	}
 
-	var (
-		DB  *gorm.DB
-		err error
-	)
-	if o.ComponentConfig.Default.SQLDriver == config.MysqlDriver {
-		sqlConfig := o.ComponentConfig.Mysql
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
-			sqlConfig.User,
-			sqlConfig.Password,
-			sqlConfig.Host,
-			sqlConfig.Port,
-			sqlConfig.Name)
-
-		DB, err = gorm.Open(mysql.Open(dsn), opt)
-		if err != nil {
-			return err
-		}
-		// 设置数据库连接池
-		sqlDB, err := DB.DB()
-		if err != nil {
-			return err
-		}
-		sqlDB.SetMaxIdleConns(maxIdleConns)
-		sqlDB.SetMaxOpenConns(maxOpenConns)
-	} else {
-		dsn := o.ComponentConfig.Sqlite.DSN
-		DB, err = gorm.Open(sqlite.Open(dsn), opt)
-		if err != nil {
-			return err
-		}
+	DB, err := gorm.Open(mysql.Open(dsn), opt)
+	if err != nil {
+		return err
 	}
+	// 设置数据库连接池
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return err
+	}
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
 
 	o.Factory, err = db.NewDaoFactory(DB, o.ComponentConfig.Default.AutoMigrate)
 	if err != nil {

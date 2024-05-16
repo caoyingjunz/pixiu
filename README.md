@@ -9,7 +9,7 @@ Pixiu is an open source container platform for cloud-native application manageme
 ## 学习分享
 - [go-learning](https://github.com/caoyingjunz/go-learning)
 
-## 极速安装
+## 安装手册
 - [安装手册](install.md)
 
 ## 沟通交流

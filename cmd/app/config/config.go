@@ -23,9 +23,6 @@ type LogFormat string
 const (
 	LogFormatJson LogFormat = "json"
 	LogFormatText LogFormat = "text"
-
-	MysqlDriver  string = "mysql"
-	SqliteDriver string = "sqlite3"
 )
 
 var ErrInvalidLogFormat = errors.New("invalid log format")
@@ -33,7 +30,6 @@ var ErrInvalidLogFormat = errors.New("invalid log format")
 type Config struct {
 	Default DefaultOptions `yaml:"default"`
 	Mysql   MysqlOptions   `yaml:"mysql"`
-	Sqlite  SqliteOptions  `yaml:"sqlite3"`
 }
 
 type DefaultOptions struct {
@@ -43,8 +39,6 @@ type DefaultOptions struct {
 
 	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
-	// 数据库存储驱动, 默认为 sqlite3
-	SQLDriver string `yaml:"sql_driver"`
 
 	LogOptions `yaml:",inline"`
 }
@@ -70,14 +64,6 @@ func (o MysqlOptions) Valid() error {
 	return nil
 }
 
-type SqliteOptions struct {
-	DSN string `yaml:"dsn"`
-}
-
-func (o SqliteOptions) Valid() error {
-	return nil
-}
-
 type LogOptions struct {
 	LogFormat `yaml:"log_format"`
 }
@@ -95,15 +81,8 @@ func (c *Config) Valid() (err error) {
 	if err = c.Default.Valid(); err != nil {
 		return
 	}
-	if c.Default.SQLDriver == MysqlDriver {
-		if err = c.Mysql.Valid(); err != nil {
-			return
-		}
-	} else {
-		if err = c.Sqlite.Valid(); err != nil {
-			return
-		}
+	if err = c.Mysql.Valid(); err != nil {
+		return
 	}
-
 	return
 }
