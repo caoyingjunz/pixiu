@@ -35,10 +35,15 @@ type (
 	}
 
 	UpdateUserRequest struct {
-		Password string `json:"password" binding:"omitempty,password"` // optional
 		// Role            *model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"`  // optional
 		Email           string `json:"email" binding:"omitempty,email"`     // optional
 		Description     string `json:"description" binding:"omitempty"`     // optional
+		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
+	}
+
+	UpdateUserPasswordRequest struct {
+		New             string `json:"new" binding:"required,password"`     // required
+		Old             string `json:"old" binding:"required"`              // required
 		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
 	}
 
