@@ -87,23 +87,9 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 }
 
 func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserRequest) error {
-	object, err := u.factory.User().Get(ctx, uid)
-	if err != nil {
-		klog.Errorf("failed to get user(%d): %v", uid, err)
-		return errors.ErrServerInternal
-	}
-	if object == nil {
-		return errors.ErrUserNotFound
-	}
-	updates := make(map[string]interface{})
-	if req.Email != "" && req.Email != object.Email {
-		updates["email"] = req.Email
-	}
-	if req.Description != "" && req.Description != object.Description {
-		updates["description"] = req.Description
-	}
-	if len(updates) == 0 {
-		return errors.ErrInvalidRequest
+	updates := map[string]interface{}{
+		"email":       req.Email,
+		"description": req.Description,
 	}
 	if err := u.factory.User().Update(ctx, uid, *req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update user(%d): %v", uid, err)

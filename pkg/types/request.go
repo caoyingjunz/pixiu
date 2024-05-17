@@ -34,8 +34,9 @@ type (
 		Description string         `json:"description" binding:"omitempty"`      // optional
 	}
 
+	// !Note: if you want to update description only, email also must be provided with current value
 	UpdateUserRequest struct {
-		// Role            *model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"`  // optional
+		// Role            *model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"`  // required
 		Email           string `json:"email" binding:"omitempty,email"`     // optional
 		Description     string `json:"description" binding:"omitempty"`     // optional
 		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
