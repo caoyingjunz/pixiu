@@ -23,6 +23,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -38,7 +39,7 @@ type UserGetter interface {
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateUserRequest) error
 	Update(ctx context.Context, userId int64, req *types.UpdateUserRequest) error
-	UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error
+	UpdatePassword(ctx context.Context, req *types.UpdateUserPasswordRequest) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
 	List(ctx context.Context, opts types.ListOptions) ([]types.User, error)
@@ -98,10 +99,20 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 	return nil
 }
 
-func (u *user) UpdatePassword(ctx context.Context, uid int64, req *types.UpdateUserPasswordRequest) error {
-	object, err := u.factory.User().Get(ctx, uid)
+func (u *user) UpdatePassword(ctx context.Context, req *types.UpdateUserPasswordRequest) error {
+	// Users are allowed to update their own password only.
+	userID := httputils.GetUserID(ctx)
+	if userID == 0 {
+		return errors.ErrForbidden
+	}
+
+	if req.New == req.Old {
+		return errors.ErrDuplicatedPassword
+	}
+
+	object, err := u.factory.User().Get(ctx, userID)
 	if err != nil {
-		klog.Errorf("failed to get user(%d): %v", uid, err)
+		klog.Errorf("failed to get user(%d): %v", userID, err)
 		return errors.ErrServerInternal
 	}
 	if object == nil {
@@ -118,15 +129,12 @@ func (u *user) UpdatePassword(ctx context.Context, uid int64, req *types.UpdateU
 		klog.Errorf("failed to encrypt user password: %v", err)
 		return errors.ErrServerInternal
 	}
-	if req.New == req.Old {
-		return errors.ErrDuplicatedPassword
-	}
 
 	updates := map[string]interface{}{
 		"password": newPass,
 	}
-	if err := u.factory.User().Update(ctx, uid, *req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update user(%d): %v", uid, err)
+	if err := u.factory.User().Update(ctx, userID, *req.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update user(%d): %v", userID, err)
 		return errors.ErrServerInternal
 	}
 	return nil

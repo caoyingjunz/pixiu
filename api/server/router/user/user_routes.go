@@ -113,26 +113,17 @@ func (u *userRouter) updateUser(c *gin.Context) {
 //	@Failure      400     {object}  httputils.Response
 //	@Failure      404     {object}  httputils.Response
 //	@Failure      500     {object}  httputils.Response
-//	@Router       /pixiu/users/{userId}/password [put]
+//	@Router       /pixiu/users/password [put]
 //	              @Security  Bearer
 func (u *userRouter) updatePassword(c *gin.Context) {
 	r := httputils.NewResponse()
-	var (
-		idMeta IdMeta
-		err    error
-	)
-	if err = c.ShouldBindUri(&idMeta); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
 	var req types.UpdateUserPasswordRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if err = u.c.User().UpdatePassword(c, idMeta.UserId, &req); err != nil {
+	if err := u.c.User().UpdatePassword(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

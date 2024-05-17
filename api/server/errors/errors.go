@@ -44,6 +44,10 @@ func IsError(err error) bool {
 }
 
 var (
+	ErrForbidden = Error{
+		Code: http.StatusForbidden,
+		Err:  errors.NoPermission,
+	}
 	ErrInvalidRequest = Error{
 		Code: http.StatusBadRequest,
 		Err:  errors.ErrReqParams,

@@ -40,7 +40,7 @@ func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
 	{
 		userRoute.POST("", u.createUser)
 		userRoute.PUT("/:userId", u.updateUser)
-		userRoute.PUT("/:userId/password", u.updatePassword)
+		userRoute.PUT("/password", u.updatePassword)
 		userRoute.DELETE("/:userId", u.deleteUser)
 		userRoute.GET("/:userId", u.getUser)
 		userRoute.GET("", u.listUsers)
