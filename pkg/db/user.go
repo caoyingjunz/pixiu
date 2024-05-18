@@ -55,6 +55,17 @@ func (u *user) Create(ctx context.Context, object *model.User) (*model.User, err
 }
 
 func (u *user) Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := u.db.WithContext(ctx).Model(&model.User{}).Where("id = ? and resource_version = ?", uid, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotUpdate
+	}
 	return nil
 }
 

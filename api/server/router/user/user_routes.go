@@ -34,7 +34,7 @@ type IdMeta struct {
 //	@Tags         Users
 //	@Accept       json
 //	@Produce      json
-//	@Param        user  body      types.User  true  "Create user"
+//	@Param        user  body      types.CreateUserRequest  true  "Create user"
 //	@Success      200   {object}  httputils.Response
 //	@Failure      400   {object}  httputils.Response
 //	@Failure      404   {object}  httputils.Response
@@ -67,8 +67,8 @@ func (u *userRouter) createUser(c *gin.Context) {
 //	@Tags         Users
 //	@Accept       json
 //	@Produce      json
-//	@Param        userId  path      int         true  "User ID"
-//	@Param        user    body      types.User  true  "Update user"
+//	@Param        userId  path      int                      true  "User ID"
+//	@Param        user    body      types.UpdateUserRequest  true  "Update user"
 //	@Success      200     {object}  httputils.Response
 //	@Failure      400     {object}  httputils.Response
 //	@Failure      404     {object}  httputils.Response
@@ -77,7 +77,6 @@ func (u *userRouter) createUser(c *gin.Context) {
 //	              @Security  Bearer
 func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
-
 	var (
 		idMeta IdMeta
 		err    error
@@ -87,12 +86,44 @@ func (u *userRouter) updateUser(c *gin.Context) {
 		return
 	}
 
-	var user types.User
-	if err = c.ShouldBindJSON(&user); err != nil {
+	var req types.UpdateUserRequest
+	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = u.c.User().Update(c, idMeta.UserId, &user); err != nil {
+
+	if err = u.c.User().Update(c, idMeta.UserId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+// UpdateUserPassword godoc
+//
+//	@Summary      Update user password
+//	@Description  Update by json user
+//	@Tags         Users
+//	@Accept       json
+//	@Produce      json
+//	@Param        userId  path      int                              true  "User ID"
+//	@Param        user    body      types.UpdateUserPasswordRequest  true  "Update user password"
+//	@Success      200     {object}  httputils.Response
+//	@Failure      400     {object}  httputils.Response
+//	@Failure      404     {object}  httputils.Response
+//	@Failure      500     {object}  httputils.Response
+//	@Router       /pixiu/users/password [put]
+//	              @Security  Bearer
+func (u *userRouter) updatePassword(c *gin.Context) {
+	r := httputils.NewResponse()
+	var req types.UpdateUserPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if err := u.c.User().UpdatePassword(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -209,7 +240,7 @@ func (u *userRouter) listUsers(c *gin.Context) {
 //	@Tags         Login
 //	@Accept       json
 //	@Produce      json
-//	@Param        user  body      types.User  true  "User login"
+//	@Param        user  body      types.LoginRequest  true  "User login"
 //	@Success      200   {object}  httputils.Response
 //	@Failure      400   {object}  httputils.Response
 //	@Failure      404   {object}  httputils.Response

@@ -34,6 +34,20 @@ type (
 		Description string         `json:"description" binding:"omitempty"`      // optional
 	}
 
+	// !Note: if you want to update description only, email also must be provided with current value
+	UpdateUserRequest struct {
+		// Role            *model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"`  // required
+		Email           string `json:"email" binding:"omitempty,email"`     // optional
+		Description     string `json:"description" binding:"omitempty"`     // optional
+		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
+	}
+
+	UpdateUserPasswordRequest struct {
+		New             string `json:"new" binding:"required,password"`     // required
+		Old             string `json:"old" binding:"required"`              // required
+		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
+	}
+
 	CreateClusterRequest struct {
 		Name        string            `json:"name" binding:"omitempty"`                   // optional
 		AliasName   string            `json:"alias_name" binding:"omitempty"`             // optional

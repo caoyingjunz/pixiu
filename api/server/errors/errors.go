@@ -44,6 +44,10 @@ func IsError(err error) bool {
 }
 
 var (
+	ErrForbidden = Error{
+		Code: http.StatusForbidden,
+		Err:  errors.NoPermission,
+	}
 	ErrInvalidRequest = Error{
 		Code: http.StatusBadRequest,
 		Err:  errors.ErrReqParams,
@@ -63,6 +67,10 @@ var (
 	ErrInvalidPassword = Error{
 		Code: http.StatusUnauthorized,
 		Err:  errors.ErrUserPassword,
+	}
+	ErrDuplicatedPassword = Error{
+		Code: http.StatusConflict,
+		Err:  errors.ErrDuplicatedPassword,
 	}
 	ErrClusterNotFound = Error{
 		Code: http.StatusNotFound,
