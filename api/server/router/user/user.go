@@ -40,10 +40,12 @@ func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
 	{
 		userRoute.POST("", u.createUser)
 		userRoute.PUT("/:userId", u.updateUser)
-		userRoute.PUT("/password", u.updatePassword)
 		userRoute.DELETE("/:userId", u.deleteUser)
 		userRoute.GET("/:userId", u.getUser)
 		userRoute.GET("", u.listUsers)
+
+		// 用户修改密码或者管理员重置密码
+		userRoute.PUT("/:userId/password", u.updatePassword)
 
 		// 用户的登陆或者退出
 		userRoute.POST("/login", u.login)

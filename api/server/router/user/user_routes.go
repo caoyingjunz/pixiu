@@ -77,21 +77,16 @@ func (u *userRouter) createUser(c *gin.Context) {
 //	              @Security  Bearer
 func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
+
 	var (
 		idMeta IdMeta
+		req    types.UpdateUserRequest
 		err    error
 	)
-	if err = c.ShouldBindUri(&idMeta); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	var req types.UpdateUserRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
 	if err = u.c.User().Update(c, idMeta.UserId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -117,13 +112,17 @@ func (u *userRouter) updateUser(c *gin.Context) {
 //	              @Security  Bearer
 func (u *userRouter) updatePassword(c *gin.Context) {
 	r := httputils.NewResponse()
-	var req types.UpdateUserPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+
+	var (
+		idMeta IdMeta
+		req    types.UpdateUserPasswordRequest
+		err    error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	if err := u.c.User().UpdatePassword(c, &req); err != nil {
+	if err = u.c.User().UpdatePassword(c, idMeta.UserId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
