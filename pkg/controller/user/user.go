@@ -23,7 +23,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -39,10 +38,12 @@ type UserGetter interface {
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateUserRequest) error
 	Update(ctx context.Context, userId int64, req *types.UpdateUserRequest) error
-	UpdatePassword(ctx context.Context, req *types.UpdateUserPasswordRequest) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
 	List(ctx context.Context, opts types.ListOptions) ([]types.User, error)
+
+	// UpdatePassword 用户修改密码或者管理员重置密码
+	UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error
 
 	// GetCount 仅获取用户数量
 	GetCount(ctx context.Context, opts types.ListOptions) (int64, error)
@@ -99,26 +100,22 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 	return nil
 }
 
-func (u *user) UpdatePassword(ctx context.Context, req *types.UpdateUserPasswordRequest) error {
-	// Users are allowed to update their own password only.
-	userID := httputils.GetUserID(ctx)
-	if userID == 0 {
-		return errors.ErrForbidden
-	}
-
+func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error {
+	// 新老密码不允许相同
 	if req.New == req.Old {
 		return errors.ErrDuplicatedPassword
 	}
 
-	object, err := u.factory.User().Get(ctx, userID)
+	object, err := u.factory.User().Get(ctx, userId)
 	if err != nil {
-		klog.Errorf("failed to get user(%d): %v", userID, err)
+		klog.Errorf("failed to get user(%d): %v", userId, err)
 		return errors.ErrServerInternal
 	}
 	if object == nil {
 		return errors.ErrUserNotFound
 	}
 
+	// 校验旧密码是否正确
 	if err = util.ValidateUserPassword(object.Password, req.Old); err != nil {
 		klog.Errorf("检验用户密码失败: %v", err)
 		return errors.ErrInvalidPassword
@@ -130,13 +127,13 @@ func (u *user) UpdatePassword(ctx context.Context, req *types.UpdateUserPassword
 		return errors.ErrServerInternal
 	}
 
-	updates := map[string]interface{}{
+	if err = u.factory.User().Update(ctx, userId, *req.ResourceVersion, map[string]interface{}{
 		"password": newPass,
-	}
-	if err := u.factory.User().Update(ctx, userID, *req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update user(%d): %v", userID, err)
+	}); err != nil {
+		klog.Errorf("failed to update user(%d) password: %v", userId, err)
 		return errors.ErrServerInternal
 	}
+
 	return nil
 }
 
