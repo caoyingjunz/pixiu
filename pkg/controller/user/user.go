@@ -83,9 +83,9 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 	}
 
 	if _, err = u.factory.User().Create(ctx, &model.User{
-		Name:     req.Name,
-		Password: encrypt,
-		// Status:      req.Status,
+		Name:        req.Name,
+		Password:    encrypt,
+		Status:      req.Status,
 		Role:        req.Role,
 		Email:       req.Email,
 		Description: req.Description,
@@ -256,9 +256,9 @@ func model2Type(o *model.User) *types.User {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-		// Status:      o.Status,
-		Role:  o.Role,
-		Email: o.Email,
+		Status:      o.Status,
+		Role:        o.Role,
+		Email:       o.Email,
 		TimeMeta: types.TimeMeta{
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
