@@ -44,10 +44,13 @@ type UserGetter interface {
 
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateUserRequest) error
-	Update(ctx context.Context, userId int64, clu *types.User) error
+	Update(ctx context.Context, userId int64, req *types.UpdateUserRequest) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
 	List(ctx context.Context, opts types.ListOptions) ([]types.User, error)
+
+	// UpdatePassword 用户修改密码或者管理员重置密码
+	UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error
 
 	// GetCount 仅获取用户数量
 	GetCount(ctx context.Context, opts types.ListOptions) (int64, error)
@@ -94,9 +97,52 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 	return nil
 }
 
-// Update
-// TODO: 暂时不做实现
-func (u *user) Update(ctx context.Context, userId int64, user *types.User) error {
+func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserRequest) error {
+	updates := map[string]interface{}{
+		"email":       req.Email,
+		"description": req.Description,
+	}
+	if err := u.factory.User().Update(ctx, uid, *req.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update user(%d): %v", uid, err)
+		return errors.ErrServerInternal
+	}
+	return nil
+}
+
+func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error {
+	// 新老密码不允许相同
+	if req.New == req.Old {
+		return errors.ErrDuplicatedPassword
+	}
+
+	object, err := u.factory.User().Get(ctx, userId)
+	if err != nil {
+		klog.Errorf("failed to get user(%d): %v", userId, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrUserNotFound
+	}
+
+	// 校验旧密码是否正确
+	if err = util.ValidateUserPassword(object.Password, req.Old); err != nil {
+		klog.Errorf("检验用户密码失败: %v", err)
+		return errors.ErrInvalidPassword
+	}
+
+	newPass, err := util.EncryptUserPassword(req.New)
+	if err != nil {
+		klog.Errorf("failed to encrypt user password: %v", err)
+		return errors.ErrServerInternal
+	}
+
+	if err = u.factory.User().Update(ctx, userId, *req.ResourceVersion, map[string]interface{}{
+		"password": newPass,
+	}); err != nil {
+		klog.Errorf("failed to update user(%d) password: %v", userId, err)
+		return errors.ErrServerInternal
+	}
+
 	return nil
 }
 
@@ -199,7 +245,6 @@ func (u *user) Logout(ctx context.Context, userId int64) error {
 func (u *user) GetTokenKey() []byte {
 	k := u.cc.Default.JWTKey
 	return []byte(k)
-
 }
 
 // 将 model user 转换成 types
