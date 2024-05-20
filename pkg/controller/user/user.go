@@ -24,6 +24,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -31,22 +32,27 @@ import (
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
+var userIndexer client.UserCache
+
+func init() {
+	userIndexer = *client.NewUserCache()
+}
+
 type UserGetter interface {
 	User() Interface
 }
 
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateUserRequest) error
-	Update(ctx context.Context, userId int64, req *types.UpdateUserRequest) error
+	Update(ctx context.Context, userId int64, clu *types.User) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
 	List(ctx context.Context, opts types.ListOptions) ([]types.User, error)
 
-	// UpdatePassword 用户修改密码或者管理员重置密码
-	UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error
-
 	// GetCount 仅获取用户数量
 	GetCount(ctx context.Context, opts types.ListOptions) (int64, error)
+	// GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存
+	GetStatus(ctx context.Context, uid int64) (int, error)
 
 	Login(ctx context.Context, req *types.LoginRequest) (string, error)
 	Logout(ctx context.Context, userId int64) error
@@ -88,52 +94,9 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 	return nil
 }
 
-func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserRequest) error {
-	updates := map[string]interface{}{
-		"email":       req.Email,
-		"description": req.Description,
-	}
-	if err := u.factory.User().Update(ctx, uid, *req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update user(%d): %v", uid, err)
-		return errors.ErrServerInternal
-	}
-	return nil
-}
-
-func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error {
-	// 新老密码不允许相同
-	if req.New == req.Old {
-		return errors.ErrDuplicatedPassword
-	}
-
-	object, err := u.factory.User().Get(ctx, userId)
-	if err != nil {
-		klog.Errorf("failed to get user(%d): %v", userId, err)
-		return errors.ErrServerInternal
-	}
-	if object == nil {
-		return errors.ErrUserNotFound
-	}
-
-	// 校验旧密码是否正确
-	if err = util.ValidateUserPassword(object.Password, req.Old); err != nil {
-		klog.Errorf("检验用户密码失败: %v", err)
-		return errors.ErrInvalidPassword
-	}
-
-	newPass, err := util.EncryptUserPassword(req.New)
-	if err != nil {
-		klog.Errorf("failed to encrypt user password: %v", err)
-		return errors.ErrServerInternal
-	}
-
-	if err = u.factory.User().Update(ctx, userId, *req.ResourceVersion, map[string]interface{}{
-		"password": newPass,
-	}); err != nil {
-		klog.Errorf("failed to update user(%d) password: %v", userId, err)
-		return errors.ErrServerInternal
-	}
-
+// Update
+// TODO: 暂时不做实现
+func (u *user) Update(ctx context.Context, userId int64, user *types.User) error {
 	return nil
 }
 
@@ -143,6 +106,7 @@ func (u *user) Delete(ctx context.Context, userId int64) error {
 		return errors.ErrServerInternal
 	}
 
+	userIndexer.Delete(userId)
 	return nil
 }
 
@@ -182,6 +146,26 @@ func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, err
 	}
 
 	return userCount, nil
+}
+
+// GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存
+func (u *user) GetStatus(ctx context.Context, uid int64) (int, error) {
+	status, ok := userIndexer.Get(uid)
+	if ok {
+		return status, nil
+	}
+
+	object, err := u.factory.User().Get(ctx, uid)
+	if err != nil {
+		klog.Errorf("failed to get user(%d): %v", uid, err)
+		return 0, errors.ErrServerInternal
+	}
+	if object == nil {
+		return 0, errors.ErrUserNotFound
+	}
+
+	userIndexer.Set(uid, int(object.Status))
+	return int(object.Status), nil
 }
 
 func (u *user) Login(ctx context.Context, req *types.LoginRequest) (string, error) {
