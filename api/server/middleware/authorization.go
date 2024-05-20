@@ -28,11 +28,10 @@ import (
 
 // Authorization 鉴权
 func Authorization(o *options.Options) gin.HandlerFunc {
-	mode := o.ComponentConfig.Default.Mode
 	u := o.Controller.User()
 
 	return func(c *gin.Context) {
-		if mode == DebugMode || alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
+		if alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
 			return
 		}
 

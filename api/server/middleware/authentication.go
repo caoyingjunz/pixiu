@@ -28,18 +28,12 @@ import (
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
-const (
-	// DebugMode indicates gin mode is debug.
-	DebugMode = "debug"
-)
-
 // Authentication 身份认证
 func Authentication(cfg config.DefaultOptions) gin.HandlerFunc {
 	keyBytes := []byte(cfg.JWTKey)
-	mode := cfg.Mode
 
 	return func(c *gin.Context) {
-		if mode == DebugMode || alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
+		if alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
 			return
 		}
 
