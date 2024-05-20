@@ -28,13 +28,9 @@ import (
 
 // Authorization 鉴权
 func Authorization(o *options.Options) gin.HandlerFunc {
-	// 移除 debug 模式，将在下版本移除代码
-	_ = o.ComponentConfig.Default.Mode
-
 	u := o.Controller.User()
 
 	return func(c *gin.Context) {
-		// 此处已移除 debug 模式的判断
 		if alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
 			return
 		}
