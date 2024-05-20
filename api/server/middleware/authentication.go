@@ -29,17 +29,19 @@ import (
 )
 
 const (
-	// DebugMode indicates gin mode is debug.
+	// DebugMode 已移除 debug 模式，将在下版本移除代码
 	DebugMode = "debug"
 )
 
 // Authentication 身份认证
 func Authentication(cfg config.DefaultOptions) gin.HandlerFunc {
 	keyBytes := []byte(cfg.JWTKey)
-	mode := cfg.Mode
+	// 去除 debug 模式，将在下版本移除代码
+	_ = cfg.Mode
 
 	return func(c *gin.Context) {
-		if mode == DebugMode || alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
+		// 此处已移除 debug 模式的判断
+		if alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
 			return
 		}
 
