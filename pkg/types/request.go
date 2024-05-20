@@ -26,20 +26,21 @@ type (
 	}
 
 	CreateUserRequest struct {
-		Name     string `json:"name" binding:"required"`              // required
-		Password string `json:"password" binding:"required,password"` // required
-		// Status      model.UserStatus `json:"status" binding:"omitempty"`
-		Role        model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"` // optional
-		Email       string         `json:"email" binding:"omitempty,email"`      // optional
-		Description string         `json:"description" binding:"omitempty"`      // optional
+		Name        string           `json:"name" binding:"required"`              // required
+		Password    string           `json:"password" binding:"required,password"` // required
+		Role        model.UserRole   `json:"role" binding:"omitempty,oneof=0 1 2"` // optional
+		Status      model.UserStatus `json:"status" binding:"omitempty"`
+		Email       string           `json:"email" binding:"omitempty,email"` // optional
+		Description string           `json:"description" binding:"omitempty"` // optional
 	}
 
 	// !Note: if you want to update description only, email also must be provided with current value
 	UpdateUserRequest struct {
-		// Role            *model.UserRole `json:"role" binding:"omitempty,oneof=0 1 2"`  // required
-		Email           string `json:"email" binding:"omitempty,email"`     // optional
-		Description     string `json:"description" binding:"omitempty"`     // optional
-		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
+		Role            model.UserRole   `json:"role" binding:"omitempty,oneof=0 1 2"`   // required
+		Status          model.UserStatus `json:"status" binding:"omitempty,oneof=0 1 2"` // required
+		Email           string           `json:"email" binding:"omitempty,email"`        // optional
+		Description     string           `json:"description" binding:"omitempty"`        // optional
+		ResourceVersion *int64           `json:"resource_version" binding:"required"`    // required
 	}
 
 	UpdateUserPasswordRequest struct {

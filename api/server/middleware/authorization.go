@@ -17,11 +17,49 @@ limitations under the License.
 package middleware
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
-// TODO: 后续优化
-func Authorization() gin.HandlerFunc {
+// Authorization 鉴权
+func Authorization(o *options.Options) gin.HandlerFunc {
+	mode := o.ComponentConfig.Default.Mode
+	u := o.Controller.User()
+
 	return func(c *gin.Context) {
+		if mode == DebugMode || alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
+			return
+		}
+
+		uid, ok := c.Get("userId")
+		if !ok {
+			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed,
+				fmt.Errorf("failed to get uid"))
+			return
+		}
+		userId, ok := uid.(int64)
+		if !ok {
+			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed,
+				fmt.Errorf("failed to assert uid"))
+			return
+		}
+
+		status, err := u.GetStatus(c, userId)
+		if err != nil {
+			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, err)
+			return
+		}
+		// status 为 1，表示用户只读模式, 只读模式只允许查询请求
+		if status == 1 {
+			if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodOptions {
+				httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, fmt.Errorf("无操作权限"))
+				return
+			}
+		}
 	}
 }

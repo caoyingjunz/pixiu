@@ -24,12 +24,19 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
+
+var userIndexer client.UserCache
+
+func init() {
+	userIndexer = *client.NewUserCache()
+}
 
 type UserGetter interface {
 	User() Interface
@@ -47,6 +54,8 @@ type Interface interface {
 
 	// GetCount 仅获取用户数量
 	GetCount(ctx context.Context, opts types.ListOptions) (int64, error)
+	// GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存
+	GetStatus(ctx context.Context, uid int64) (int, error)
 
 	Login(ctx context.Context, req *types.LoginRequest) (string, error)
 	Logout(ctx context.Context, userId int64) error
@@ -74,9 +83,9 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 	}
 
 	if _, err = u.factory.User().Create(ctx, &model.User{
-		Name:     req.Name,
-		Password: encrypt,
-		// Status:      req.Status,
+		Name:        req.Name,
+		Password:    encrypt,
+		Status:      req.Status,
 		Role:        req.Role,
 		Email:       req.Email,
 		Description: req.Description,
@@ -143,6 +152,7 @@ func (u *user) Delete(ctx context.Context, userId int64) error {
 		return errors.ErrServerInternal
 	}
 
+	userIndexer.Delete(userId)
 	return nil
 }
 
@@ -184,6 +194,26 @@ func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, err
 	return userCount, nil
 }
 
+// GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存
+func (u *user) GetStatus(ctx context.Context, uid int64) (int, error) {
+	status, ok := userIndexer.Get(uid)
+	if ok {
+		return status, nil
+	}
+
+	object, err := u.factory.User().Get(ctx, uid)
+	if err != nil {
+		klog.Errorf("failed to get user(%d): %v", uid, err)
+		return 0, errors.ErrServerInternal
+	}
+	if object == nil {
+		return 0, errors.ErrUserNotFound
+	}
+
+	userIndexer.Set(uid, int(object.Status))
+	return int(object.Status), nil
+}
+
 func (u *user) Login(ctx context.Context, req *types.LoginRequest) (string, error) {
 	object, err := u.factory.User().GetUserByName(ctx, req.Name)
 	if err != nil {
@@ -215,7 +245,6 @@ func (u *user) Logout(ctx context.Context, userId int64) error {
 func (u *user) GetTokenKey() []byte {
 	k := u.cc.Default.JWTKey
 	return []byte(k)
-
 }
 
 // 将 model user 转换成 types
@@ -227,9 +256,9 @@ func model2Type(o *model.User) *types.User {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-		// Status:      o.Status,
-		Role:  o.Role,
-		Email: o.Email,
+		Status:      o.Status,
+		Role:        o.Role,
+		Email:       o.Email,
 		TimeMeta: types.TimeMeta{
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,

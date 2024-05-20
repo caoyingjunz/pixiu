@@ -57,5 +57,7 @@ func InstallMiddlewares(o *options.Options) {
 		UserRateLimiter(),
 		Limiter(),
 		Authentication(o.ComponentConfig.Default),
+		Authorization(o),
+		Admission(),
 	)
 }
