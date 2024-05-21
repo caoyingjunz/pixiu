@@ -38,11 +38,6 @@ func NewError(err error, code int) Error {
 	}
 }
 
-func IsError(err error) bool {
-	_, ok := err.(Error)
-	return ok
-}
-
 var (
 	ErrForbidden = Error{
 		Code: http.StatusForbidden,
