@@ -24,7 +24,7 @@ import (
 
 func init() {
 	register(
-		&passwordValidator{pixiuValidator: newPixiuValidator("password", "密码强度不够，至少包含一个大写字母、一个小写字母、一个数字")},
+		&passwordValidator{pixiuValidator: newPixiuValidator("password", "密码不符合要求，至少包含一个大写字母、一个小写字母、一个数字")},
 	)
 }
 
