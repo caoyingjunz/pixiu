@@ -22,21 +22,18 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
-var _ customValidator = (*passwordValidator)(nil)
-
 func init() {
-	register(&passwordValidator{
-		common: newValidatorCommon("password", "密码强度不够，至少包含一个大写字母、一个小写字母、一个数字"),
-	})
+	register(
+		&passwordValidator{pixiuValidator: newPixiuValidator("password", "密码不符合要求，至少包含一个大写字母、一个小写字母、一个数字")},
+	)
 }
 
 // passwordValidator is a customized validator for validating user password.
 type passwordValidator struct {
-	common
+	pixiuValidator
 }
 
 // validate validates the password in request.
 func (pv *passwordValidator) validate(fl validator.FieldLevel) bool {
-	password := fl.Field().String()
-	return util.ValidateStrongPassword(password)
+	return util.ValidateStrongPassword(fl.Field().String())
 }

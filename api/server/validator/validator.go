@@ -37,8 +37,8 @@ var tran ut.Translator
 var customValidators []customValidator
 
 // register adds a new custom validator to the validator list
-func register(validator customValidator) {
-	customValidators = append(customValidators, validator)
+func register(validators ...customValidator) {
+	customValidators = append(customValidators, validators...)
 }
 
 func init() {
@@ -56,26 +56,27 @@ func init() {
 	}
 }
 
-type common struct {
-	tag, err string
+type pixiuValidator struct {
+	tag string
+	err string
 }
 
-func newValidatorCommon(tag, err string) common {
-	return common{
+func newPixiuValidator(tag, err string) pixiuValidator {
+	return pixiuValidator{
 		tag: tag,
 		err: err,
 	}
 }
 
-func (c common) getTag() string {
+func (c pixiuValidator) getTag() string {
 	return c.tag
 }
 
-func (c common) translateError(ut ut.Translator) error {
+func (c pixiuValidator) translateError(ut ut.Translator) error {
 	return ut.Add(c.tag, "{0}"+c.err, true)
 }
 
-func (c common) translate(ut ut.Translator, fe validator.FieldError) string {
+func (c pixiuValidator) translate(ut ut.Translator, fe validator.FieldError) string {
 	t, _ := ut.T(c.tag, fe.Field())
 	return t
 }
