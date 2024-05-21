@@ -53,7 +53,7 @@ func InstallMiddlewares(o *options.Options) {
 			return util.GenerateRequestID()
 		})),
 		Cors(),
-		LoggerToFile(),
+		Logger(),
 		UserRateLimiter(),
 		Limiter(),
 		Authentication(o.ComponentConfig.Default),

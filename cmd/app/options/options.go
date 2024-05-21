@@ -19,6 +19,7 @@ package options
 import (
 	"fmt"
 	"os"
+	"time"
 
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,8 @@ const (
 	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = config.LogFormatJson
+
+	defaultSlowSQLDuration = 1 * time.Second
 )
 
 // Options has all the params needed to run a pixiu
@@ -131,11 +134,9 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Port,
 		sqlConfig.Name)
 
-	opt := &gorm.Config{}
-	if o.ComponentConfig.Default.Mode == "debug" {
-		opt.Logger = logger.Default.LogMode(logger.Info)
+	opt := &gorm.Config{
+		Logger: db.NewLogger(logger.Info, defaultSlowSQLDuration),
 	}
-
 	DB, err := gorm.Open(mysql.Open(dsn), opt)
 	if err != nil {
 		return err
