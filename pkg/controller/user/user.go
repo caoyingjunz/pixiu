@@ -57,7 +57,7 @@ type Interface interface {
 	// GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存
 	GetStatus(ctx context.Context, uid int64) (int, error)
 
-	Login(ctx context.Context, req *types.LoginRequest) (string, error)
+	Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error)
 	Logout(ctx context.Context, userId int64) error
 }
 
@@ -214,26 +214,31 @@ func (u *user) GetStatus(ctx context.Context, uid int64) (int, error) {
 	return int(object.Status), nil
 }
 
-func (u *user) Login(ctx context.Context, req *types.LoginRequest) (string, error) {
+func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error) {
 	object, err := u.factory.User().GetUserByName(ctx, req.Name)
 	if err != nil {
-		return "", errors.ErrServerInternal
+		return nil, errors.ErrServerInternal
 	}
 	if object == nil {
-		return "", errors.ErrUserNotFound
+		return nil, errors.ErrUserNotFound
 	}
 	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
 		klog.Errorf("检验用户密码失败: %v", err)
-		return "", errors.ErrInvalidPassword
+		return nil, errors.ErrInvalidPassword
 	}
 
 	// 生成登陆的 token 信息
 	key := u.GetTokenKey()
 	token, err := tokenutil.GenerateToken(object.Id, object.Name, key)
 	if err != nil {
-		return "", fmt.Errorf("生成用户 token 失败: %v", err)
+		return nil, fmt.Errorf("生成用户 token 失败: %v", err)
 	}
-	return token, nil
+
+	return &types.LoginResponse{
+		UserId:   object.Id,
+		UserName: object.Name,
+		Token:    token,
+	}, nil
 }
 
 // Logout
