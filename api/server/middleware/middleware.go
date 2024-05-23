@@ -17,12 +17,12 @@ limitations under the License.
 package middleware
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-contrib/requestid"
+	"github.com/gin-gonic/gin"
 	klog "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -48,6 +48,8 @@ func allowCustomRequest(c *gin.Context) bool {
 			return c.Query("count") == "true"
 		}
 	}
+
+	// TODO: 其他请求
 	return false
 }
 
