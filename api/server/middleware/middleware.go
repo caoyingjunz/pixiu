@@ -17,9 +17,12 @@ limitations under the License.
 package middleware
 
 import (
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/requestid"
+	"github.com/gin-gonic/gin"
 	klog "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -32,6 +35,22 @@ var alwaysAllowPath sets.String
 
 func init() {
 	alwaysAllowPath = sets.NewString("/pixiu/users/login")
+}
+
+// 允许特定请求不经过验证
+func allowCustomRequest(c *gin.Context) bool {
+	// 用户请求
+	if strings.HasPrefix(c.Request.URL.Path, "/pixiu/users") {
+		switch c.Request.Method {
+		case http.MethodPost:
+			return c.Query("initAdmin") == "true"
+		case http.MethodGet:
+			return c.Query("count") == "true"
+		}
+	}
+
+	// TODO: 其他请求
+	return false
 }
 
 func InstallMiddlewares(o *options.Options) {

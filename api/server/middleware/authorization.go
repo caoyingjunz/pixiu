@@ -31,7 +31,7 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 	u := o.Controller.User()
 
 	return func(c *gin.Context) {
-		if alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
+		if alwaysAllowPath.Has(c.Request.URL.Path) || allowCustomRequest(c) {
 			return
 		}
 

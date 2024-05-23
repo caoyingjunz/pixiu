@@ -33,7 +33,7 @@ func Authentication(cfg config.DefaultOptions) gin.HandlerFunc {
 	keyBytes := []byte(cfg.JWTKey)
 
 	return func(c *gin.Context) {
-		if alwaysAllowPath.Has(c.Request.URL.Path) || initAdminUser(c) {
+		if alwaysAllowPath.Has(c.Request.URL.Path) || allowCustomRequest(c) {
 			return
 		}
 
@@ -81,8 +81,4 @@ func extractToken(c *gin.Context, ws bool) (string, error) {
 	}
 
 	return fields[1], nil
-}
-
-func initAdminUser(c *gin.Context) bool {
-	return c.Request.Method == http.MethodPost && strings.HasPrefix(c.Request.URL.Path, "/pixiu/users") && c.Query("initAdmin") == "true"
 }
