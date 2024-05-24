@@ -32,15 +32,16 @@ func (m *migrator) AutoMigrate() error {
 }
 
 func (m *migrator) CreateTables(dst ...interface{}) error {
+	db := m.db.Set("gorm:table_options", "AUTO_INCREMENT=20220801")
+
 	for _, d := range dst {
-		if m.db.Migrator().HasTable(d) {
+		if db.Migrator().HasTable(d) {
 			continue
 		}
-		if err := m.db.Migrator().CreateTable(d); err != nil {
+		if err := db.Migrator().CreateTable(d); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
