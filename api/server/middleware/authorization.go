@@ -29,10 +29,14 @@ import (
 // Authorization 鉴权
 func Authorization(o *options.Options) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 允许请求直接通过
+		if alwaysAllowPath.Has(c.Request.URL.Path) || allowCustomRequest(c) {
+			return
+		}
+
 		status, err := GetStatus(c, o)
 		if err != nil {
-			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed,
-				fmt.Errorf("failed to get uid"))
+			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, err)
 			return
 		}
 
@@ -41,12 +45,6 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, fmt.Errorf("用户已被禁用"))
 			return
 		}
-
-		// 允许请求直接通过
-		if alwaysAllowPath.Has(c.Request.URL.Path) || allowCustomRequest(c) {
-			return
-		}
-
 		// status 为 1，表示用户只读模式, 只读模式只允许查询请求
 		if status == 1 {
 			if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodOptions {

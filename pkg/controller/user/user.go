@@ -225,6 +225,11 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 	if object == nil {
 		return nil, errors.ErrUserNotFound
 	}
+
+	// 如果用户已被禁用，则不允许登陆
+	if object.Status == 2 {
+		return nil, fmt.Errorf("用户已被禁用")
+	}
 	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
 		klog.Errorf("检验用户密码失败: %v", err)
 		return nil, errors.ErrInvalidPassword
