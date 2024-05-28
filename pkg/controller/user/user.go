@@ -99,6 +99,7 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 
 func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserRequest) error {
 	updates := map[string]interface{}{
+		"status":      req.Status,
 		"email":       req.Email,
 		"description": req.Description,
 	}
@@ -106,6 +107,8 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 		klog.Errorf("failed to update user(%d): %v", uid, err)
 		return errors.ErrServerInternal
 	}
+
+	userIndexer.Set(uid, int(req.Status))
 	return nil
 }
 
@@ -221,6 +224,11 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 	}
 	if object == nil {
 		return nil, errors.ErrUserNotFound
+	}
+
+	// 如果用户已被禁用，则不允许登陆
+	if object.Status == 2 {
+		return nil, fmt.Errorf("用户已被禁用")
 	}
 	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
 		klog.Errorf("检验用户密码失败: %v", err)

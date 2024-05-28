@@ -28,29 +28,21 @@ import (
 
 // Authorization 鉴权
 func Authorization(o *options.Options) gin.HandlerFunc {
-	u := o.Controller.User()
-
 	return func(c *gin.Context) {
+		// 允许请求直接通过
 		if alwaysAllowPath.Has(c.Request.URL.Path) || allowCustomRequest(c) {
 			return
 		}
 
-		uid, ok := c.Get("userId")
-		if !ok {
-			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed,
-				fmt.Errorf("failed to get uid"))
-			return
-		}
-		userId, ok := uid.(int64)
-		if !ok {
-			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed,
-				fmt.Errorf("failed to assert uid"))
+		status, err := GetStatus(c, o)
+		if err != nil {
+			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, err)
 			return
 		}
 
-		status, err := u.GetStatus(c, userId)
-		if err != nil {
-			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, err)
+		// 禁用用户无法进行任何操作
+		if status == 2 {
+			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, fmt.Errorf("用户已被禁用"))
 			return
 		}
 		// status 为 1，表示用户只读模式, 只读模式只允许查询请求
@@ -61,4 +53,19 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 			}
 		}
 	}
+}
+
+func GetStatus(c *gin.Context, o *options.Options) (int, error) {
+	// 从请求中获取用户ID
+	uid, ok := c.Get("userId")
+	if !ok {
+		return 0, fmt.Errorf("failed to get uid")
+	}
+
+	// 转换为 int64 的用户ID
+	userId, ok := uid.(int64)
+	if !ok {
+		return 0, fmt.Errorf("failed to assert uid")
+	}
+	return o.Controller.User().GetStatus(c, userId)
 }
