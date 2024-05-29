@@ -23,6 +23,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -112,19 +113,25 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 	return nil
 }
 
-func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error {
-	// 新老密码不允许相同
-	if req.New == req.Old {
-		return errors.ErrDuplicatedPassword
-	}
-
-	object, err := u.factory.User().Get(ctx, userId)
+func (u *user) preResetPassword(ctx context.Context, userId int64, operatorId int64, req *types.UpdateUserPasswordRequest) error {
+	// 操作人必须具备管理员权限
+	operator, err := u.Get(ctx, operatorId)
 	if err != nil {
-		klog.Errorf("failed to get user(%d): %v", userId, err)
-		return errors.ErrServerInternal
+		return err
 	}
-	if object == nil {
-		return errors.ErrUserNotFound
+	if operator.Role != model.RoleRoot {
+		return fmt.Errorf("非超级管理员，不允许重置用户密码")
+	}
+	return nil
+}
+
+func (u *user) preChangePassword(ctx context.Context, userId int64, operatorId int64, req *types.UpdateUserPasswordRequest) error {
+	if operatorId != userId {
+		return fmt.Errorf("用户只能修改自己的密码")
+	}
+	object, err := u.Get(ctx, userId)
+	if err != nil {
+		return err
 	}
 
 	// 校验旧密码是否正确
@@ -132,13 +139,40 @@ func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.Upda
 		klog.Errorf("检验用户密码失败: %v", err)
 		return errors.ErrInvalidPassword
 	}
+	return nil
+}
+
+// UpdatePassword 支持用户修改密码和管理员重置密码
+// 修改密码: 用户只能修改自己密码
+// 重启密码: 管理员可以重置他人密码
+func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error {
+	// 新老密码不允许相同
+	if req.New == req.Old {
+		return errors.ErrDuplicatedPassword
+	}
+
+	operatorId, err := httputils.GetUserIdFromRequest(ctx)
+	if err != nil {
+		return err
+	}
+
+	if req.Reset {
+		// 管理员重置密码前置检查
+		if err = u.preResetPassword(ctx, userId, operatorId, req); err != nil {
+			return err
+		}
+	} else {
+		// 用户修改密码前置检查
+		if err = u.preChangePassword(ctx, userId, operatorId, req); err != nil {
+			return err
+		}
+	}
 
 	newPass, err := util.EncryptUserPassword(req.New)
 	if err != nil {
 		klog.Errorf("failed to encrypt user password: %v", err)
 		return errors.ErrServerInternal
 	}
-
 	if err = u.factory.User().Update(ctx, userId, *req.ResourceVersion, map[string]interface{}{
 		"password": newPass,
 	}); err != nil {

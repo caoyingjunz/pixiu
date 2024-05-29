@@ -47,6 +47,7 @@ type (
 		New             string `json:"new" binding:"required,password"`     // required
 		Old             string `json:"old" binding:"required"`              // required
 		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
+		Reset           bool   `json:"reset"`
 	}
 
 	CreateClusterRequest struct {
