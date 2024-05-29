@@ -123,6 +123,7 @@ func (u *user) preResetPassword(ctx context.Context, userId int64, operatorId in
 	if err != nil {
 		return err
 	}
+
 	if operator.Role != model.RoleRoot {
 		return fmt.Errorf("非超级管理员，不允许重置用户密码")
 	}
