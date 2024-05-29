@@ -17,6 +17,8 @@ limitations under the License.
 package httputils
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -122,4 +124,17 @@ func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}
 		}
 	}
 	return nil
+}
+
+func GetUserIdFromRequest(ctx context.Context) (int64, error) {
+	val := ctx.Value("userId")
+	if val == nil {
+		return 0, fmt.Errorf("get nil userId")
+	}
+
+	userId, ok := val.(int64)
+	if !ok {
+		return 0, fmt.Errorf("invalid userId")
+	}
+	return userId, nil
 }
