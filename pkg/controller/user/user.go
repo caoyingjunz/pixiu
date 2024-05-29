@@ -33,10 +33,14 @@ import (
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
-var userIndexer client.UserCache
+var (
+	userIndexer  client.UserCache
+	tokenIndexer client.TokenCache
+)
 
 func init() {
 	userIndexer = *client.NewUserCache()
+	tokenIndexer = *client.NewTokenCache()
 }
 
 type UserGetter interface {
@@ -52,7 +56,6 @@ type Interface interface {
 
 	// UpdatePassword 用户修改密码或者管理员重置密码
 	UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error
-
 	// GetCount 仅获取用户数量
 	GetCount(ctx context.Context, opts types.ListOptions) (int64, error)
 	// GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存
@@ -60,6 +63,7 @@ type Interface interface {
 
 	Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error)
 	Logout(ctx context.Context, userId int64) error
+	GetLoginToken(ctx context.Context, userId int64) (string, error)
 }
 
 type user struct {
@@ -119,6 +123,7 @@ func (u *user) preResetPassword(ctx context.Context, userId int64, operatorId in
 	if err != nil {
 		return err
 	}
+
 	if operator.Role != model.RoleRoot {
 		return fmt.Errorf("非超级管理员，不允许重置用户密码")
 	}
@@ -180,6 +185,7 @@ func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.Upda
 		return errors.ErrServerInternal
 	}
 
+	tokenIndexer.Delete(userId)
 	return nil
 }
 
@@ -190,6 +196,7 @@ func (u *user) Delete(ctx context.Context, userId int64) error {
 	}
 
 	userIndexer.Delete(userId)
+	tokenIndexer.Delete(userId)
 	return nil
 }
 
@@ -276,6 +283,7 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 		return nil, fmt.Errorf("生成用户 token 失败: %v", err)
 	}
 
+	tokenIndexer.Set(object.Id, token)
 	return &types.LoginResponse{
 		UserId:   object.Id,
 		UserName: object.Name,
@@ -285,9 +293,20 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 }
 
 // Logout
-// TODO
+// 允许用户登出登陆状态
+// TODO: 临时实现，后续优化
 func (u *user) Logout(ctx context.Context, userId int64) error {
+	tokenIndexer.Delete(userId)
 	return nil
+}
+
+func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) {
+	t, exists := tokenIndexer.Get(userId)
+	if !exists {
+		return "", fmt.Errorf("invalid empty token")
+	}
+
+	return t, nil
 }
 
 func (u *user) GetTokenKey() []byte {
