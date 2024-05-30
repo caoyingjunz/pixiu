@@ -24,7 +24,7 @@ import (
 )
 
 type planMeta struct {
-	planId int64 `uri:"planId" binding:"required"`
+	PlanId int64 `uri:"planId" binding:"required"`
 }
 
 func (t *planRouter) createPlan(c *gin.Context) {
@@ -55,7 +55,7 @@ func (t *planRouter) updatePlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().Update(c, opt.planId, &req); err != nil {
+	if err = t.c.Plan().Update(c, opt.PlanId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -74,7 +74,7 @@ func (t *planRouter) deletePlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().Delete(c, opt.planId); err != nil {
+	if err = t.c.Plan().Delete(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -93,7 +93,7 @@ func (t *planRouter) getPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = t.c.Plan().Get(c, opt.planId); err != nil {
+	if r.Result, err = t.c.Plan().Get(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
