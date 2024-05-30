@@ -81,6 +81,15 @@ type (
 		Description     *string `json:"description" binding:"omitempty"`     // optional
 		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
 	}
+
+	CreatePlanRequest struct {
+		Name        string `json:"name" binding:"omitempty"`        // optional
+		Description string `json:"description" binding:"omitempty"` // optional
+	}
+
+	UpdatePlanRequest struct {
+		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
+	}
 )
 
 type (
