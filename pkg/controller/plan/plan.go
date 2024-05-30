@@ -33,11 +33,11 @@ type PlanGetter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, req *types.CreateplanRequest) error
-	Update(ctx context.Context, tid int64, req *types.UpdateplanRequest) error
-	Delete(ctx context.Context, tid int64) error
-	Get(ctx context.Context, tid int64) (*types.plan, error)
-	List(ctx context.Context) ([]types.plan, error)
+	Create(ctx context.Context, req *types.CreatePlanRequest) error
+	Update(ctx context.Context, pid int64, req *types.UpdatePlanRequest) error
+	Delete(ctx context.Context, pid int64) error
+	Get(ctx context.Context, pid int64) (*types.Plan, error)
+	List(ctx context.Context) ([]types.Plan, error)
 }
 
 type plan struct {
@@ -45,24 +45,13 @@ type plan struct {
 	factory db.ShareDaoFactory
 }
 
-func (p *plan) Create(ctx context.Context, req *types.CreateplanRequest) error {
-	object, err := p.factory.plan().GetplanByName(ctx, req.Name)
-	if err != nil {
-		klog.Errorf("failed to get plan %s: %v", req.Name, err)
-		return errors.ErrServerInternal
-	}
-	if object != nil {
-		return errors.ErrplanExists
-	}
+func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 
-	plan := &model.plan{
+	object := &model.Plan{
 		Name: req.Name,
 	}
-	if req.Description != nil {
-		plan.Description = *req.Description
-	}
 
-	if _, err = p.factory.plan().Create(ctx, plan); err != nil {
+	if _, err := p.factory.Plan().Create(ctx, object); err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
@@ -70,70 +59,52 @@ func (p *plan) Create(ctx context.Context, req *types.CreateplanRequest) error {
 	return nil
 }
 
-func (p *plan) Update(ctx context.Context, tid int64, req *types.UpdateplanRequest) error {
-	object, err := p.factory.plan().Get(ctx, tid)
-	if err != nil {
-		klog.Errorf("failed to get plan %d: %v", tid, err)
-		return errors.ErrServerInternal
-	}
-	if object == nil {
-		return errors.ErrplanNotFound
-	}
+func (p *plan) Update(ctx context.Context, pid int64, req *types.UpdatePlanRequest) error {
 	updates := make(map[string]interface{})
-	if req.Name != nil {
-		updates["name"] = *req.Name
-	}
-	if req.Description != nil {
-		updates["description"] = *req.Description
-	}
-	if len(updates) == 0 {
-		return errors.ErrInvalidRequest
-	}
-	if err := p.factory.plan().Update(ctx, tid, *req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update plan %d: %v", tid, err)
+
+	if err := p.factory.Plan().Update(ctx, pid, req.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update plan %d: %v", pid, err)
 		return errors.ErrServerInternal
 	}
 	return nil
 }
 
-func (p *plan) Delete(ctx context.Context, tid int64) error {
-	_, err := p.factory.plan().Delete(ctx, tid)
+func (p *plan) Delete(ctx context.Context, pid int64) error {
+	_, err := p.factory.Plan().Delete(ctx, pid)
 	if err != nil {
-		klog.Errorf("failed to delete plan %d: %v", tid, err)
+		klog.Errorf("failed to delete plan %d: %v", pid, err)
 		return errors.ErrServerInternal
 	}
 
 	return nil
 }
 
-func (p *plan) Get(ctx context.Context, tid int64) (*types.plan, error) {
-	object, err := p.factory.plan().Get(ctx, tid)
+func (p *plan) Get(ctx context.Context, pid int64) (*types.Plan, error) {
+	object, err := p.factory.Plan().Get(ctx, pid)
 	if err != nil {
-		klog.Errorf("failed to get plan %d: %v", tid, err)
+		klog.Errorf("failed to get plan %d: %v", pid, err)
 		return nil, errors.ErrServerInternal
 	}
-	if object == nil {
-		return nil, errors.ErrplanNotFound
-	}
+
 	return p.model2Type(object), nil
 }
 
-func (p *plan) List(ctx context.Context) ([]types.plan, error) {
-	objects, err := p.factory.plan().List(ctx)
+func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
+	objects, err := p.factory.Plan().List(ctx)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
 		return nil, errors.ErrServerInternal
 	}
 
-	var ts []types.plan
+	var ps []types.Plan
 	for _, object := range objects {
-		ts = append(ps, *p.model2Type(&object))
+		ps = append(ps, *p.model2Type(&object))
 	}
-	return ts, nil
+	return ps, nil
 }
 
-func (p *plan) model2Type(o *model.plan) *types.plan {
-	return &types.plan{
+func (p *plan) model2Type(o *model.Plan) *types.Plan {
+	return &types.Plan{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
 			ResourceVersion: o.ResourceVersion,
@@ -147,7 +118,7 @@ func (p *plan) model2Type(o *model.plan) *types.plan {
 	}
 }
 
-func Newplan(cfg config.Config, f db.ShareDaoFactory) *plan {
+func NewPlan(cfg config.Config, f db.ShareDaoFactory) *plan {
 	return &plan{
 		cc:      cfg,
 		factory: f,

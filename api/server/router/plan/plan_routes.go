@@ -30,12 +30,12 @@ type planMeta struct {
 func (t *planRouter) createPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var req types.CreateplanRequest
+	var req types.CreatePlanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := t.c.plan().Create(c, &req); err != nil {
+	if err := t.c.Plan().Create(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -48,18 +48,14 @@ func (t *planRouter) updatePlan(c *gin.Context) {
 
 	var (
 		opt planMeta
+		req types.UpdatePlanRequest
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	var req types.UpdateplanRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = t.c.plan().Update(c, opt.planId, &req); err != nil {
+	if err = t.c.Plan().Update(c, opt.planId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -78,7 +74,7 @@ func (t *planRouter) deletePlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.plan().Delete(c, opt.planId); err != nil {
+	if err = t.c.Plan().Delete(c, opt.planId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -97,7 +93,7 @@ func (t *planRouter) getPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = t.c.plan().Get(c, opt.planId); err != nil {
+	if r.Result, err = t.c.Plan().Get(c, opt.planId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -109,7 +105,7 @@ func (t *planRouter) listPlans(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var err error
-	if r.Result, err = t.c.plan().List(c); err != nil {
+	if r.Result, err = t.c.Plan().List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

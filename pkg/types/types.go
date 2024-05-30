@@ -103,6 +103,14 @@ type Tenant struct {
 	Description string `json:"description"` // 用户描述信息
 }
 
+type Plan struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Name        string `json:"name"`        // 用户名称
+	Description string `json:"description"` // 用户描述信息
+}
+
 // TimeSpec 通用时间规格
 type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`
