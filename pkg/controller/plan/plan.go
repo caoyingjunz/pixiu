@@ -46,12 +46,10 @@ type plan struct {
 }
 
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
-
-	object := &model.Plan{
-		Name: req.Name,
-	}
-
-	if _, err := p.factory.Plan().Create(ctx, object); err != nil {
+	if _, err := p.factory.Plan().Create(ctx, &model.Plan{
+		Name:        req.Name,
+		Description: req.Description,
+	}); err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
