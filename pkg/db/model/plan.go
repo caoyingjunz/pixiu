@@ -20,6 +20,7 @@ import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
 func init() {
 	register(&Plan{})
+	register(&Node{})
 }
 
 type Plan struct {
@@ -31,4 +32,25 @@ type Plan struct {
 
 func (plan *Plan) TableName() string {
 	return "plans"
+}
+
+type KubeRole int
+
+const (
+	NodeRole   KubeRole = iota // kubernetes node role
+	MasterRole                 // kubernetes master role
+)
+
+type Node struct {
+	pixiu.Model
+
+	Name   string   `gorm:"index:idx_name,unique" json:"name"`
+	PlanId int64    `json:"plan_id"`
+	Role   KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
+	Ip     string   `json:"ip"`
+	Auth   string   `json:"auth"`
+}
+
+func (*Node) TableName() string {
+	return "nodes"
 }

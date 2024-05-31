@@ -111,6 +111,29 @@ type Plan struct {
 	Description string `json:"description"` // 用户描述信息
 }
 
+type AuthType string
+
+const (
+	NoneAuth     AuthType = "none"     // 已开启密码
+	KeyAuth      AuthType = "key"      // 密钥
+	PasswordAuth AuthType = "password" // 密码
+)
+
+type PlanNodeAuth struct {
+	Type     AuthType      `json:"type"` // 节点认证模式，支持 key 和 password
+	Key      *KeySpec      `json:"key,omitempty"`
+	Password *PasswordSpec `json:"password,omitempty"`
+}
+
+type KeySpec struct {
+	Data string `json:"data,omitempty"`
+}
+
+type PasswordSpec struct {
+	User     string `json:"user,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
 // TimeSpec 通用时间规格
 type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`

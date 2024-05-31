@@ -157,3 +157,8 @@ func (t *TerminalSession) Next() *remotecommand.TerminalSize {
 		return nil
 	}
 }
+
+func (a *PlanNodeAuth) Marshal() string {
+	data, _ := json.Marshal(a)
+	return string(data)
+}

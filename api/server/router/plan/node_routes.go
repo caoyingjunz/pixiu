@@ -23,7 +23,7 @@ import (
 )
 
 type planNodeMeta struct {
-	planMeta
+	planMeta `json:",inline"`
 
 	NodeId int64 `uri:"nodeId" binding:"required"`
 }

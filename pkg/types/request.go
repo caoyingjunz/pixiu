@@ -83,12 +83,20 @@ type (
 	}
 
 	CreatePlanRequest struct {
-		Name        string `json:"name" binding:"omitempty"`        // optional
+		Name        string `json:"name" binding:"omitempty"`        // required
 		Description string `json:"description" binding:"omitempty"` // optional
 	}
 
 	UpdatePlanRequest struct {
 		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
+	}
+
+	CreatePlanNodeRequest struct {
+		Name   string         `json:"name" binding:"omitempty"` // required
+		PlanId int64          `json:"plan_id"`
+		Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
+		Ip     string         `json:"ip"`
+		Auth   PlanNodeAuth   `json:"auth"`
 	}
 )
 
