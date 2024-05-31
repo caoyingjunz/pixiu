@@ -119,7 +119,7 @@ type PlanNode struct {
 	PlanId int64          `json:"plan_id"`
 	Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
 	Ip     string         `json:"ip"`
-	Auth   PlanNodeAuth   `json:"auth"`
+	Auth   PlanNodeAuth   `json:"auth,omitempty"`
 }
 
 type AuthType string

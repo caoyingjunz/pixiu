@@ -142,6 +142,23 @@ func (p *plan) model2Type(o *model.Plan) *types.Plan {
 	}
 }
 
+func (p *plan) modelNode2Type(o *model.Node) *types.PlanNode {
+	return &types.PlanNode{
+		PixiuMeta: types.PixiuMeta{
+			Id:              o.Id,
+			ResourceVersion: o.ResourceVersion,
+		},
+		TimeMeta: types.TimeMeta{
+			GmtCreate:   o.GmtCreate,
+			GmtModified: o.GmtModified,
+		},
+		PlanId: o.PlanId,
+		Name:   o.Name,
+		Role:   o.Role,
+		Ip:     o.Ip,
+	}
+}
+
 func NewPlan(cfg config.Config, f db.ShareDaoFactory) *plan {
 	return &plan{
 		cc:      cfg,
