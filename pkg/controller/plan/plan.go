@@ -38,6 +38,12 @@ type Interface interface {
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context) ([]types.Plan, error)
+
+	CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error
+	UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error
+	DeleteNode(ctx context.Context, pid int64, nodeId int64) error
+	GetNode(ctx context.Context, pid int64, nodeId int64) error
+	ListNodes(ctx context.Context, pid int64) error
 }
 
 type plan struct {
@@ -99,6 +105,26 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 		ps = append(ps, *p.model2Type(&object))
 	}
 	return ps, nil
+}
+
+func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error {
+	return nil
+}
+
+func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
+	return nil
+}
+
+func (p *plan) DeleteNode(ctx context.Context, pid int64, nodeId int64) error {
+	return nil
+}
+
+func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) error {
+	return nil
+}
+
+func (p *plan) ListNodes(ctx context.Context, pid int64) error {
+	return nil
 }
 
 func (p *plan) model2Type(o *model.Plan) *types.Plan {
