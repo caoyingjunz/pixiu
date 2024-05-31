@@ -42,8 +42,8 @@ type Interface interface {
 	CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error
 	UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error
 	DeleteNode(ctx context.Context, pid int64, nodeId int64) error
-	GetNode(ctx context.Context, pid int64, nodeId int64) error
-	ListNodes(ctx context.Context, pid int64) error
+	GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error)
+	ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error)
 }
 
 type plan struct {
@@ -119,12 +119,12 @@ func (p *plan) DeleteNode(ctx context.Context, pid int64, nodeId int64) error {
 	return nil
 }
 
-func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) error {
-	return nil
+func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error) {
+	return nil, nil
 }
 
-func (p *plan) ListNodes(ctx context.Context, pid int64) error {
-	return nil
+func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
+	return nil, nil
 }
 
 func (p *plan) model2Type(o *model.Plan) *types.Plan {
