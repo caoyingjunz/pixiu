@@ -38,6 +38,17 @@ type Interface interface {
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context) ([]types.Plan, error)
+
+	CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error
+	UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error
+	DeleteNode(ctx context.Context, pid int64, nodeId int64) error
+	GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error)
+	ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error)
+
+	CreateConfig(ctx context.Context, pid int64, req *types.CreatePlanConfigRequest) error
+	UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error
+	DeleteConfig(ctx context.Context, pid int64, cfgId int64) error
+	GetConfig(ctx context.Context, pid int64, cfgId int64) (*types.PlanConfig, error)
 }
 
 type plan struct {
@@ -45,17 +56,28 @@ type plan struct {
 	factory db.ShareDaoFactory
 }
 
+// Create
+// 1. 创建部署计划
+// 2. 创建部署任务
+// 3. 创建部署配置
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
-
-	object := &model.Plan{
-		Name: req.Name,
-	}
-
-	if _, err := p.factory.Plan().Create(ctx, object); err != nil {
+	object, err := p.factory.Plan().Create(ctx, &model.Plan{
+		Name:        req.Name,
+		Description: req.Description,
+	})
+	if err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
 
+	// 初始化部署计划关联的任务
+	if err = p.createPlanTask(ctx, object.Id, model.UnStartedPlanStep); err != nil {
+		_ = p.Delete(ctx, object.Id)
+		klog.Errorf("failed to create plan task: %v", err)
+		return err
+	}
+
+	// TODO: 创建部署配置
 	return nil
 }
 
@@ -69,6 +91,8 @@ func (p *plan) Update(ctx context.Context, pid int64, req *types.UpdatePlanReque
 	return nil
 }
 
+// Delete
+// TODO: 删除前校验
 func (p *plan) Delete(ctx context.Context, pid int64) error {
 	_, err := p.factory.Plan().Delete(ctx, pid)
 	if err != nil {
@@ -76,6 +100,11 @@ func (p *plan) Delete(ctx context.Context, pid int64) error {
 		return errors.ErrServerInternal
 	}
 
+	// 删除部署计划后，同步删除任务，删除任务失败时，可直接忽略
+	err = p.deletePlanTask(ctx, pid)
+	if err != nil {
+		klog.Errorf("failed to delete plan(%d) task: %v", pid, err)
+	}
 	return nil
 }
 

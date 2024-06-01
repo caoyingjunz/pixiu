@@ -157,3 +157,63 @@ func (t *TerminalSession) Next() *remotecommand.TerminalSize {
 		return nil
 	}
 }
+
+func (a *PlanNodeAuth) Marshal() (string, error) {
+	data, err := json.Marshal(a)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *PlanNodeAuth) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), a); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ks *KubernetesSpec) Marshal() (string, error) {
+	data, err := json.Marshal(ks)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (ks *KubernetesSpec) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), ks); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ns *NetworkSpec) Marshal() (string, error) {
+	data, err := json.Marshal(ns)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (ns *NetworkSpec) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), ns); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rs *RuntimeSpec) Marshal() (string, error) {
+	data, err := json.Marshal(rs)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (rs *RuntimeSpec) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), rs); err != nil {
+		return err
+	}
+	return nil
+}

@@ -111,6 +111,53 @@ type Plan struct {
 	Description string `json:"description"` // 用户描述信息
 }
 
+type PlanNode struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Name   string         `json:"name"` // required
+	PlanId int64          `json:"plan_id"`
+	Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
+	Ip     string         `json:"ip"`
+	Auth   PlanNodeAuth   `json:"auth,omitempty"`
+}
+
+type AuthType string
+
+const (
+	NoneAuth     AuthType = "none"     // 已开启密码
+	KeyAuth      AuthType = "key"      // 密钥
+	PasswordAuth AuthType = "password" // 密码
+)
+
+type PlanNodeAuth struct {
+	Type     AuthType      `json:"type"` // 节点认证模式，支持 key 和 password
+	Key      *KeySpec      `json:"key,omitempty"`
+	Password *PasswordSpec `json:"password,omitempty"`
+}
+
+type KeySpec struct {
+	Data string `json:"data,omitempty"`
+}
+
+type PasswordSpec struct {
+	User     string `json:"user,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+type PlanConfig struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	PlanId      int64          `json:"plan_id" binding:"required"` // required
+	Name        string         `json:"name"  binding:"required"`   // required
+	Region      string         `json:"region"`
+	Description string         `json:"description"` // optional
+	Kubernetes  KubernetesSpec `json:"kubernetes"`
+	Network     NetworkSpec    `json:"network"`
+	Runtime     RuntimeSpec    `json:"runtime"`
+}
+
 // TimeSpec 通用时间规格
 type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`
@@ -161,4 +208,20 @@ type EventOptions struct {
 	Kind       string `form:"kind"`
 	Namespaced bool   `form:"namespaced"`
 	Limit      int64  `form:"limit"`
+}
+
+type KubernetesSpec struct {
+	ApiServer         string `json:"api_server"`
+	KubernetesVersion string `json:"kubernetes_version"`
+	EnableHA          bool   `json:"enable_ha"`
+}
+
+type NetworkSpec struct {
+	PodNetwork     string `json:"pod_network"`
+	ServiceNetwork string `json:"service_network"`
+	KubeProxy      string `json:"kube_proxy"`
+}
+
+type RuntimeSpec struct {
+	Runtime string `json:"runtime"`
 }

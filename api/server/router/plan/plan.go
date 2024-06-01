@@ -42,5 +42,18 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		planRoute.DELETE("/:planId", t.deletePlan)
 		planRoute.GET("/:planId", t.getPlan)
 		planRoute.GET("", t.listPlans)
+
+		// 部署计划的节点API
+		planRoute.POST("/:planId/nodes", t.createPlanNode)
+		planRoute.PUT("/:planId/nodes/:nodeId", t.updatePlanNode)
+		planRoute.DELETE("/:planId/nodes/:nodeId", t.deletePlanNode)
+		planRoute.GET("/:planId/nodes/:nodeId", t.getPlanNode)
+		planRoute.GET("/:planId/nodes", t.listPlanNodes)
+
+		// 部署计划的部署配置
+		planRoute.POST("/:planId/configs", t.createPlanConfig)
+		planRoute.PUT("/:planId/configs/:configId", t.updatePlanConfig)
+		planRoute.DELETE("/:planId/configs/:configId", t.deletePlanConfig)
+		planRoute.GET("/:planId/configs/:configId", t.getPlanConfig)
 	}
 }

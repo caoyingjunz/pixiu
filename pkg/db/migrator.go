@@ -32,7 +32,7 @@ func (m *migrator) AutoMigrate() error {
 }
 
 func (m *migrator) CreateTables(dst ...interface{}) error {
-	db := m.db.Set("gorm:table_options", "AUTO_INCREMENT=20220801")
+	db := m.db.Set("gorm:table_options", "AUTO_INCREMENT=20220801 DEFAULT CHARSET=utf8")
 
 	for _, d := range dst {
 		if db.Migrator().HasTable(d) {
