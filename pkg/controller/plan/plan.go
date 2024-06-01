@@ -51,13 +51,24 @@ type plan struct {
 	factory db.ShareDaoFactory
 }
 
+// Create
+// 1. 创建部署计划
+// 2. 创建部署任务
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
-	if _, err := p.factory.Plan().Create(ctx, &model.Plan{
+	object, err := p.factory.Plan().Create(ctx, &model.Plan{
 		Name:        req.Name,
 		Description: req.Description,
-	}); err != nil {
+	})
+	if err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
 		return errors.ErrServerInternal
+	}
+
+	// 初始化部署计划关联的任务
+	if err = p.createPlanTask(ctx, object.Id); err != nil {
+		_ = p.Delete(ctx, object.Id)
+		klog.Errorf("failed to create plan task: %v", err)
+		return err
 	}
 
 	return nil
@@ -73,6 +84,8 @@ func (p *plan) Update(ctx context.Context, pid int64, req *types.UpdatePlanReque
 	return nil
 }
 
+// Delete
+// TODO: 删除前校验
 func (p *plan) Delete(ctx context.Context, pid int64) error {
 	_, err := p.factory.Plan().Delete(ctx, pid)
 	if err != nil {
@@ -80,6 +93,11 @@ func (p *plan) Delete(ctx context.Context, pid int64) error {
 		return errors.ErrServerInternal
 	}
 
+	// 删除部署计划后，同步删除任务，删除任务失败时，可直接忽略
+	err = p.deletePlanTask(ctx, pid)
+	if err != nil {
+		klog.Errorf("failed to delete plan(%d) task: %v", pid, err)
+	}
 	return nil
 }
 
@@ -125,6 +143,18 @@ func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.Pla
 
 func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
 	return nil, nil
+}
+
+func (p *plan) createPlanTask(ctx context.Context, planId int64) error {
+	return nil
+}
+
+func (p *plan) deletePlanTask(ctx context.Context, planId int64) error {
+	return nil
+}
+
+func (p *plan) syncPlanTask(ctx context.Context, planId int64, step int, message string) error {
+	return nil
 }
 
 func (p *plan) model2Type(o *model.Plan) *types.Plan {
