@@ -19,8 +19,7 @@ package model
 import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
 func init() {
-	register(&Plan{})
-	register(&Node{})
+	register(&Plan{}, &Node{}, &Config{}, &Task{})
 }
 
 type Plan struct {
@@ -51,6 +50,24 @@ type Node struct {
 	Auth   string   `json:"auth"`
 }
 
-func (*Node) TableName() string {
+func (node *Node) TableName() string {
 	return "nodes"
+}
+
+type Config struct {
+	pixiu.Model
+	PlanId int64 `json:"plan_id"`
+}
+
+func (config *Config) TableName() string {
+	return "configs"
+}
+
+type Task struct {
+	pixiu.Model
+	PlanId int64 `json:"plan_id"`
+}
+
+func (task *Task) TableName() string {
+	return "tasks"
 }
