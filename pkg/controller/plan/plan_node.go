@@ -19,11 +19,45 @@ package plan
 import (
 	"context"
 
+	"k8s.io/klog/v2"
+
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
+// 创建前预检查
+// 1. plan 必须存在
+func (p *plan) preCreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error {
+	_, err := p.Get(ctx, pid)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error {
+	if err := p.preCreateNode(ctx, pid, req); err != nil {
+		return err
+	}
+
+	// 获取节点认证信息
+	auth, err := req.Auth.Marshal()
+	if err != nil {
+		klog.Errorf("failed to parse node(%s) auth: %v", req.Name, err)
+		return err
+	}
+	if _, err = p.factory.Plan().CreatNode(ctx, &model.Node{
+		Name:   req.Name,
+		PlanId: pid,
+		Role:   req.Role,
+		Ip:     req.Ip,
+		Auth:   auth,
+	}); err != nil {
+		klog.Errorf("failed to create node(%s): %v", req.Name, err)
+		return err
+	}
+
 	return nil
 }
 
