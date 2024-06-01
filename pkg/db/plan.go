@@ -32,6 +32,18 @@ type PlanInterface interface {
 	Delete(ctx context.Context, pid int64) (*model.Plan, error)
 	Get(ctx context.Context, pid int64) (*model.Plan, error)
 	List(ctx context.Context) ([]model.Plan, error)
+
+	CreatNode(ctx context.Context, object *model.Node) (*model.Node, error)
+	UpdateNode(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
+	DeleteNode(ctx context.Context, pid int64) (*model.Node, error)
+	GetNode(ctx context.Context, pid int64) (*model.Node, error)
+	ListNodes(ctx context.Context) ([]model.Node, error)
+
+	CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error)
+	UpdateConfig(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
+	DeleteConfig(ctx context.Context, pid int64) (*model.Config, error)
+	GetConfig(ctx context.Context, pid int64) (*model.Config, error)
+	ListConfigs(ctx context.Context) ([]model.Config, error)
 }
 
 type plan struct {
@@ -94,6 +106,46 @@ func (p *plan) List(ctx context.Context) ([]model.Plan, error) {
 	}
 
 	return objects, nil
+}
+
+func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, error) {
+	return nil, nil
+}
+
+func (p *plan) UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error {
+	return nil
+}
+
+func (p *plan) DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error) {
+	return nil, nil
+}
+
+func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
+	return nil, nil
+}
+
+func (p *plan) ListNodes(ctx context.Context) ([]model.Node, error) {
+	return nil, nil
+}
+
+func (p *plan) CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error) {
+	return nil, nil
+}
+
+func (p *plan) UpdateConfig(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error {
+	return nil
+}
+
+func (p *plan) DeleteConfig(ctx context.Context, cid int64) (*model.Config, error) {
+	return nil, nil
+}
+
+func (p *plan) GetConfig(ctx context.Context, cid int64) (*model.Config, error) {
+	return nil, nil
+}
+
+func (p *plan) ListConfigs(ctx context.Context) ([]model.Config, error) {
+	return nil, nil
 }
 
 func newPlan(db *gorm.DB) *plan {
