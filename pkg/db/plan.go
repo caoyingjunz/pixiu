@@ -34,15 +34,15 @@ type PlanInterface interface {
 	List(ctx context.Context) ([]model.Plan, error)
 
 	CreatNode(ctx context.Context, object *model.Node) (*model.Node, error)
-	UpdateNode(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
-	DeleteNode(ctx context.Context, pid int64) (*model.Node, error)
-	GetNode(ctx context.Context, pid int64) (*model.Node, error)
+	UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
+	DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error)
+	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	ListNodes(ctx context.Context, pid int64) ([]model.Node, error)
 
 	CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error)
-	UpdateConfig(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
-	DeleteConfig(ctx context.Context, pid int64) (*model.Config, error)
-	GetConfig(ctx context.Context, pid int64) (*model.Config, error)
+	UpdateConfig(ctx context.Context, cfgId int64, resourceVersion int64, updates map[string]interface{}) error
+	DeleteConfig(ctx context.Context, cfgId int64) (*model.Config, error)
+	GetConfig(ctx context.Context, cfgId int64) (*model.Config, error)
 	ListConfigs(ctx context.Context) ([]model.Config, error)
 
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)

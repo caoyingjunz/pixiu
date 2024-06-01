@@ -67,6 +67,11 @@ func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *typ
 }
 
 func (p *plan) DeleteNode(ctx context.Context, pid int64, nodeId int64) error {
+	if _, err := p.factory.Plan().DeleteNode(ctx, nodeId); err != nil {
+		klog.Errorf("failed to delete plan(%d) node(%d): %v", pid, nodeId, err)
+		return errors.ErrServerInternal
+	}
+
 	return nil
 }
 
