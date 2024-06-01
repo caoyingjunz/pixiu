@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -70,11 +71,27 @@ func (p *plan) DeleteNode(ctx context.Context, pid int64, nodeId int64) error {
 }
 
 func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error) {
-	return nil, nil
+	object, err := p.factory.Plan().GetNode(ctx, nodeId)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) node(%d): %v", pid, nodeId, err)
+		return nil, errors.ErrServerInternal
+	}
+
+	return p.modelNode2Type(object), nil
 }
 
 func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
-	return nil, nil
+	objects, err := p.factory.Plan().ListNodes(ctx, pid)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) nodes: %v", pid, err)
+		return nil, errors.ErrServerInternal
+	}
+
+	var nodes []types.PlanNode
+	for _, object := range objects {
+		nodes = append(nodes, *p.modelNode2Type(&object))
+	}
+	return nodes, nil
 }
 
 func (p *plan) modelNode2Type(o *model.Node) *types.PlanNode {

@@ -37,7 +37,7 @@ type PlanInterface interface {
 	UpdateNode(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteNode(ctx context.Context, pid int64) (*model.Node, error)
 	GetNode(ctx context.Context, pid int64) (*model.Node, error)
-	ListNodes(ctx context.Context) ([]model.Node, error)
+	ListNodes(ctx context.Context, pid int64) ([]model.Node, error)
 
 	CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error)
 	UpdateConfig(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
@@ -161,9 +161,9 @@ func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
 	return &object, nil
 }
 
-func (p *plan) ListNodes(ctx context.Context) ([]model.Node, error) {
+func (p *plan) ListNodes(ctx context.Context, pid int64) ([]model.Node, error) {
 	var objects []model.Node
-	if err := p.db.WithContext(ctx).Find(&objects).Error; err != nil {
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Find(&objects).Error; err != nil {
 		return nil, err
 	}
 
