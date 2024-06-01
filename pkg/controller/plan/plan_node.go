@@ -113,5 +113,8 @@ func (p *plan) modelNode2Type(o *model.Node) *types.PlanNode {
 		Name:   o.Name,
 		Role:   o.Role,
 		Ip:     o.Ip,
+		Auth: types.PlanNodeAuth{
+			Type: types.NoneAuth,
+		},
 	}
 }
