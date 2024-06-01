@@ -25,7 +25,7 @@ import (
 type planConfigMeta struct {
 	planMeta
 
-	NodeId int64 `uri:"nodeId" binding:"required"`
+	ConfigId int64 `uri:"configId" binding:"required"`
 }
 
 func (t *planRouter) createPlanConfig(c *gin.Context) {

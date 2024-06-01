@@ -19,6 +19,7 @@ package plan
 import (
 	"context"
 
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -40,4 +41,17 @@ func (p *plan) GetConfig(ctx context.Context, pid int64, nodeId int64) (*types.P
 
 func (p *plan) ListConfigs(ctx context.Context, pid int64) ([]types.PlanConfig, error) {
 	return nil, nil
+}
+
+func (p *plan) modelConfig2Type(o *model.Config) *types.PlanConfig {
+	return &types.PlanConfig{
+		PixiuMeta: types.PixiuMeta{
+			Id:              o.Id,
+			ResourceVersion: o.ResourceVersion,
+		},
+		TimeMeta: types.TimeMeta{
+			GmtCreate:   o.GmtCreate,
+			GmtModified: o.GmtModified,
+		},
+	}
 }

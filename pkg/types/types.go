@@ -145,7 +145,10 @@ type PasswordSpec struct {
 	Password string `json:"password,omitempty"`
 }
 
-type PlanConfig struct{}
+type PlanConfig struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+}
 
 // TimeSpec 通用时间规格
 type TimeSpec struct {
@@ -197,4 +200,20 @@ type EventOptions struct {
 	Kind       string `form:"kind"`
 	Namespaced bool   `form:"namespaced"`
 	Limit      int64  `form:"limit"`
+}
+
+type KubernetesSpec struct {
+	ApiServer         string `json:"api_server"`
+	KubernetesVersion string `json:"kubernetes_version"`
+	EnableHA          bool   `json:"enable_ha"`
+}
+
+type NetworkSpec struct {
+	PodNetwork     string `json:"pod_network"`
+	ServiceNetwork string `json:"service_network"`
+	KubeProxy      string `json:"kube_proxy"`
+}
+
+type RuntimeSpec struct {
+	Runtime string `json:"runtime"`
 }
