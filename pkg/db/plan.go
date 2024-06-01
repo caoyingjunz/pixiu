@@ -109,43 +109,117 @@ func (p *plan) List(ctx context.Context) ([]model.Plan, error) {
 }
 
 func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, error) {
-	return nil, nil
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
+		return nil, err
+	}
+	return object, nil
 }
 
 func (p *plan) UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := p.db.WithContext(ctx).Model(&model.Node{}).Where("id = ? and resource_version = ?", nodeId, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+
 	return nil
 }
 
 func (p *plan) DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error) {
-	return nil, nil
+	object, err := p.GetNode(ctx, nodeId)
+	if err != nil {
+		return nil, err
+	}
+	if err = p.db.WithContext(ctx).Where("id = ?", nodeId).Delete(&model.Node{}).Error; err != nil {
+		return nil, err
+	}
+
+	return object, nil
 }
 
 func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
-	return nil, nil
+	var object model.Node
+	if err := p.db.WithContext(ctx).Where("id = ?", nodeId).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func (p *plan) ListNodes(ctx context.Context) ([]model.Node, error) {
-	return nil, nil
+	var objects []model.Node
+	if err := p.db.WithContext(ctx).Find(&objects).Error; err != nil {
+		return nil, err
+	}
+
+	return objects, nil
 }
 
 func (p *plan) CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error) {
-	return nil, nil
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
+		return nil, err
+	}
+	return object, nil
 }
 
 func (p *plan) UpdateConfig(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := p.db.WithContext(ctx).Model(&model.Config{}).Where("id = ? and resource_version = ?", cid, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+
 	return nil
 }
 
 func (p *plan) DeleteConfig(ctx context.Context, cid int64) (*model.Config, error) {
-	return nil, nil
+	object, err := p.GetConfig(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+	if err = p.db.WithContext(ctx).Where("id = ?", cid).Delete(&model.Config{}).Error; err != nil {
+		return nil, err
+	}
+
+	return object, nil
 }
 
 func (p *plan) GetConfig(ctx context.Context, cid int64) (*model.Config, error) {
-	return nil, nil
+	var object model.Config
+	if err := p.db.WithContext(ctx).Where("id = ?", cid).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func (p *plan) ListConfigs(ctx context.Context) ([]model.Config, error) {
-	return nil, nil
+	var objects []model.Config
+	if err := p.db.WithContext(ctx).Find(&objects).Error; err != nil {
+		return nil, err
+	}
+
+	return objects, nil
 }
 
 func newPlan(db *gorm.DB) *plan {
