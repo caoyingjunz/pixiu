@@ -55,6 +55,5 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		planRoute.PUT("/:planId/configs/:configId", t.updatePlanConfig)
 		planRoute.DELETE("/:planId/configs/:configId", t.deletePlanConfig)
 		planRoute.GET("/:planId/configs/:configId", t.getPlanConfig)
-		planRoute.GET("/:planId/configs", t.listPlanConfigs)
 	}
 }

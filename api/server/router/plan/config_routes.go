@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type planConfigMeta struct {
@@ -31,11 +32,39 @@ type planConfigMeta struct {
 func (t *planRouter) createPlanConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	var (
+		opt planMeta
+		req types.CreatePlanConfigRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Plan().CreateConfig(c, opt.PlanId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (t *planRouter) updatePlanConfig(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		opt planConfigMeta
+		req types.UpdatePlanConfigRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Plan().UpdateConfig(c, opt.PlanId, opt.ConfigId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -43,17 +72,37 @@ func (t *planRouter) updatePlanConfig(c *gin.Context) {
 func (t *planRouter) deletePlanConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	var (
+		opt planConfigMeta
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Plan().DeleteConfig(c, opt.PlanId, opt.ConfigId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	httputils.SetSuccess(c, r)
 }
 
 func (t *planRouter) getPlanConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	httputils.SetSuccess(c, r)
-}
-
-func (t *planRouter) listPlanConfigs(c *gin.Context) {
-	r := httputils.NewResponse()
+	var (
+		opt planConfigMeta
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = t.c.Plan().GetConfig(c, opt.PlanId, opt.ConfigId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }

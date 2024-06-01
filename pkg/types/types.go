@@ -148,6 +148,14 @@ type PasswordSpec struct {
 type PlanConfig struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
+
+	PlanId      int64          `json:"plan_id" binding:"required"` // required
+	Name        string         `json:"name"  binding:"required"`   // required
+	Region      string         `json:"region"`
+	Description string         `json:"description"` // optional
+	Kubernetes  KubernetesSpec `json:"kubernetes"`
+	Network     NetworkSpec    `json:"network"`
+	Runtime     RuntimeSpec    `json:"runtime"`
 }
 
 // TimeSpec 通用时间规格
