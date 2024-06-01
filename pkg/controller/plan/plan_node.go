@@ -26,7 +26,7 @@ import (
 )
 
 // 创建前预检查
-// 1. plan 必须存在
+// 1. 创建 node 时 plan 必须存在
 func (p *plan) preCreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error {
 	_, err := p.Get(ctx, pid)
 	if err != nil {
