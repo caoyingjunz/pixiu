@@ -54,6 +54,7 @@ type plan struct {
 // Create
 // 1. 创建部署计划
 // 2. 创建部署任务
+// 3. 创建部署配置
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	object, err := p.factory.Plan().Create(ctx, &model.Plan{
 		Name:        req.Name,
@@ -65,12 +66,13 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	}
 
 	// 初始化部署计划关联的任务
-	if err = p.createPlanTask(ctx, object.Id); err != nil {
+	if err = p.createPlanTask(ctx, object.Id, types.UnStartedPlanStep); err != nil {
 		_ = p.Delete(ctx, object.Id)
 		klog.Errorf("failed to create plan task: %v", err)
 		return err
 	}
 
+	// TODO: 创建部署配置
 	return nil
 }
 
@@ -125,38 +127,6 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 	return ps, nil
 }
 
-func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error {
-	return nil
-}
-
-func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
-	return nil
-}
-
-func (p *plan) DeleteNode(ctx context.Context, pid int64, nodeId int64) error {
-	return nil
-}
-
-func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error) {
-	return nil, nil
-}
-
-func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
-	return nil, nil
-}
-
-func (p *plan) createPlanTask(ctx context.Context, planId int64) error {
-	return nil
-}
-
-func (p *plan) deletePlanTask(ctx context.Context, planId int64) error {
-	return nil
-}
-
-func (p *plan) syncPlanTask(ctx context.Context, planId int64, step int, message string) error {
-	return nil
-}
-
 func (p *plan) model2Type(o *model.Plan) *types.Plan {
 	return &types.Plan{
 		PixiuMeta: types.PixiuMeta{
@@ -169,23 +139,6 @@ func (p *plan) model2Type(o *model.Plan) *types.Plan {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-	}
-}
-
-func (p *plan) modelNode2Type(o *model.Node) *types.PlanNode {
-	return &types.PlanNode{
-		PixiuMeta: types.PixiuMeta{
-			Id:              o.Id,
-			ResourceVersion: o.ResourceVersion,
-		},
-		TimeMeta: types.TimeMeta{
-			GmtCreate:   o.GmtCreate,
-			GmtModified: o.GmtModified,
-		},
-		PlanId: o.PlanId,
-		Name:   o.Name,
-		Role:   o.Role,
-		Ip:     o.Ip,
 	}
 }
 

@@ -16,7 +16,10 @@ limitations under the License.
 
 package model
 
-import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
+import (
+	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
+	"github.com/caoyingjunz/pixiu/pkg/types"
+)
 
 func init() {
 	register(&Plan{}, &Node{}, &Config{}, &Task{})
@@ -65,7 +68,9 @@ func (config *Config) TableName() string {
 
 type Task struct {
 	pixiu.Model
-	PlanId int64 `json:"plan_id"`
+	PlanId  int64          `json:"plan_id"`
+	Step    types.PlanStep `json:"step"`
+	Message string         `json:"message"`
 }
 
 func (task *Task) TableName() string {
