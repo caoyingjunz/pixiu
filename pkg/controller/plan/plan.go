@@ -44,6 +44,12 @@ type Interface interface {
 	DeleteNode(ctx context.Context, pid int64, nodeId int64) error
 	GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error)
 	ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error)
+
+	CreateConfig(ctx context.Context, pid int64, req *types.CreatePlanConfigRequest) error
+	UpdateConfig(ctx context.Context, pid int64, nodeId int64, req *types.CreatePlanConfigRequest) error
+	DeleteConfig(ctx context.Context, pid int64, nodeId int64) error
+	GetConfig(ctx context.Context, pid int64, nodeId int64) (*types.PlanConfig, error)
+	ListConfigs(ctx context.Context, pid int64) ([]types.PlanConfig, error)
 }
 
 type plan struct {

@@ -107,6 +107,13 @@ type (
 		Ip              string         `json:"ip"`
 		Auth            PlanNodeAuth   `json:"auth"`
 	}
+
+	CreatePlanConfigRequest struct {
+	}
+
+	UpdatePlanConfigRequest struct {
+		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
+	}
 )
 
 type (

@@ -145,6 +145,8 @@ type PasswordSpec struct {
 	Password string `json:"password,omitempty"`
 }
 
+type PlanConfig struct{}
+
 // TimeSpec 通用时间规格
 type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`
