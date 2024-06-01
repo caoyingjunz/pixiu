@@ -37,6 +37,9 @@ func (p *plan) createPlanTask(ctx context.Context, planId int64, step model.Plan
 }
 
 func (p *plan) deletePlanTask(ctx context.Context, planId int64) error {
+	if _, err := p.factory.Plan().DeleteTask(ctx, planId); err != nil {
+		klog.Errorf("failed to delete plan(%s) task: %v", planId, err)
+	}
 	return nil
 }
 
