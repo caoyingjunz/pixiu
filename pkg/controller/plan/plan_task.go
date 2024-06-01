@@ -22,10 +22,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-func (p *plan) createPlanTask(ctx context.Context, planId int64, step types.PlanStep) error {
+func (p *plan) createPlanTask(ctx context.Context, planId int64, step model.PlanStep) error {
 	if _, err := p.factory.Plan().CreatTask(ctx, &model.Task{
 		PlanId: planId,
 		Step:   step,
