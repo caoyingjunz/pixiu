@@ -66,7 +66,7 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	}
 
 	// 初始化部署计划关联的任务
-	if err = p.createPlanTask(ctx, object.Id, types.UnStartedPlanStep); err != nil {
+	if err = p.createPlanTask(ctx, object.Id, model.UnStartedPlanStep); err != nil {
 		_ = p.Delete(ctx, object.Id)
 		klog.Errorf("failed to create plan task: %v", err)
 		return err

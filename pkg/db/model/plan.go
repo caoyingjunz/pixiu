@@ -18,7 +18,6 @@ package model
 
 import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 func init() {
@@ -66,11 +65,18 @@ func (config *Config) TableName() string {
 	return "configs"
 }
 
+type PlanStep int
+
+const (
+	UnStartedPlanStep PlanStep = iota
+)
+
 type Task struct {
 	pixiu.Model
-	PlanId  int64          `json:"plan_id"`
-	Step    types.PlanStep `json:"step"`
-	Message string         `json:"message"`
+
+	PlanId  int64    `json:"plan_id"`
+	Step    PlanStep `json:"step"`
+	Message string   `json:"message"`
 }
 
 func (task *Task) TableName() string {

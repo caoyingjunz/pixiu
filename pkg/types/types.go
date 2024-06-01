@@ -111,12 +111,6 @@ type Plan struct {
 	Description string `json:"description"` // 用户描述信息
 }
 
-type PlanStep int
-
-const (
-	UnStartedPlanStep PlanStep = iota
-)
-
 type PlanNode struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
