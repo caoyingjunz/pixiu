@@ -121,7 +121,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			object, err = p.factory.Plan().CreatTask(context.TODO(), &model.Task{
 				Name:   name,
 				PlanId: planId,
-				Step:   model.UnStartedPlanStep,
+				Step:   model.RunningPlanStep,
 			})
 			if err != nil {
 				klog.Errorf("failed to init plan(%d) task(%s): %v", object.PlanId, name, err)
