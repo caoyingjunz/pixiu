@@ -89,7 +89,7 @@ func Run(opt *options.Options) error {
 
 	// 启动部署计划
 	// TODO: 暂未设置优雅退出
-	if err := opt.Controller.Plan().Run(context.TODO(), 2); err != nil {
+	if err := opt.Controller.Plan().Run(context.TODO(), 5); err != nil {
 		klog.Fatal("failed to listen pixiu server: ", err)
 	}
 	// 安装 http 路由

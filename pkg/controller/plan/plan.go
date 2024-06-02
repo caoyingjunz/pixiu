@@ -59,11 +59,18 @@ type Interface interface {
 	Run(ctx context.Context, workers int) error
 }
 
+var TaskQueue workqueue.RateLimitingInterface
+
+var Test int64
+
+func init() {
+	TaskQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tasks")
+}
+
 type plan struct {
 	cc      config.Config
 	factory db.ShareDaoFactory
-
-	queue workqueue.RateLimitingInterface
+	queue   workqueue.RateLimitingInterface
 }
 
 // Create
@@ -147,7 +154,7 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 }
 
 func (p *plan) Start(ctx context.Context, pid int64) error {
-	p.queue.Add(pid)
+	TaskQueue.Add(pid)
 	return nil
 }
 

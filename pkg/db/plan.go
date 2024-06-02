@@ -117,7 +117,7 @@ func (p *plan) List(ctx context.Context) ([]model.Plan, error) {
 
 func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error) {
 	var objects []model.Task
-	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Order("DESC").Limit(1).Find(&objects).Error; err != nil {
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Find(&objects).Limit(1).Error; err != nil {
 		return nil, err
 	}
 

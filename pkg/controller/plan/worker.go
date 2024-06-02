@@ -21,12 +21,13 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func (p *plan) Run(ctx context.Context, workers int) error {
-	defer p.queue.ShutDown()
-
+	klog.Infof("Starting Plan Manager")
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, p.worker, time.Second)
 	}
@@ -39,11 +40,11 @@ func (p *plan) worker(ctx context.Context) {
 }
 
 func (p *plan) process(ctx context.Context) bool {
-	key, quit := p.queue.Get()
+	key, quit := TaskQueue.Get()
 	if quit {
 		return false
 	}
-	defer p.queue.Done(key)
+	defer TaskQueue.Done(key)
 
 	p.syncHandler(ctx, key.(int64))
 	return true
@@ -51,5 +52,5 @@ func (p *plan) process(ctx context.Context) bool {
 
 // 实际处理函数
 func (p *plan) syncHandler(ctx context.Context, planId int64) {
-	fmt.Println("planId", planId)
+	fmt.Println("start planId", planId)
 }
