@@ -81,11 +81,20 @@ const (
 	CompletedPlanStep
 )
 
+type TaskStatus string
+
+const (
+	FailedPlanStatus  TaskStatus = "失败"
+	SuccessPlanStatus TaskStatus = "成功"
+)
+
 type Task struct {
 	pixiu.Model
 
+	Name    string   `json:"name"`
 	PlanId  int64    `json:"plan_id"`
 	Step    PlanStep `json:"step"`
+	Status  string   `json:"status"`
 	Message string   `json:"message"`
 }
 
