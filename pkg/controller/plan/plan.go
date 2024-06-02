@@ -75,20 +75,13 @@ type plan struct {
 // 2. 创建部署任务
 // 3. 创建部署配置
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
-	object, err := p.factory.Plan().Create(ctx, &model.Plan{
+	_, err := p.factory.Plan().Create(ctx, &model.Plan{
 		Name:        req.Name,
 		Description: req.Description,
 	})
 	if err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
 		return errors.ErrServerInternal
-	}
-
-	// 初始化部署计划关联的任务
-	if err = p.createPlanTask(ctx, object.Id, model.UnStartedPlanStep); err != nil {
-		_ = p.Delete(ctx, object.Id)
-		klog.Errorf("failed to create plan task: %v", err)
-		return err
 	}
 
 	// TODO: 创建部署配置

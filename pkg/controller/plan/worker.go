@@ -24,7 +24,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 func (p *plan) Run(ctx context.Context, workers int) error {
@@ -140,17 +140,18 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		)
 		object, err = p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				object, err = p.factory.Plan().CreatTask(context.TODO(), &model.Task{
-					Name:   name,
-					PlanId: planId,
-					Step:   model.PlanStep(task.Step()),
-				})
-				if err != nil {
-					return err
-				}
+			if !errors.IsRecordNotFound(err) {
+				return err
 			}
-			return err
+
+			object, err = p.factory.Plan().CreatTask(context.TODO(), &model.Task{
+				Name:   name,
+				PlanId: planId,
+				Step:   model.PlanStep(task.Step()),
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		// 执行检查
