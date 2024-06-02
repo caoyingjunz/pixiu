@@ -76,6 +76,9 @@ type PlanStep int
 
 const (
 	UnStartedPlanStep PlanStep = iota
+	RunningPlanStep
+	FailedPlanStep
+	CompletedPlanStep
 )
 
 type Task struct {

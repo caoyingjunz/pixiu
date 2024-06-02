@@ -87,6 +87,11 @@ func Run(opt *options.Options) error {
 		Handler: opt.HttpEngine,
 	}
 
+	// 启动部署计划
+	// TODO: 暂未设置优雅退出
+	if err := opt.Controller.Plan().Run(context.TODO(), 2); err != nil {
+		klog.Fatal("failed to listen pixiu server: ", err)
+	}
 	// 安装 http 路由
 	router.InstallRouters(opt)
 

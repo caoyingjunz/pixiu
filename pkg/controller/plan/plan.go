@@ -19,6 +19,7 @@ package plan
 import (
 	"context"
 
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
@@ -53,11 +54,16 @@ type Interface interface {
 	UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error
 	DeleteConfig(ctx context.Context, pid int64, cfgId int64) error
 	GetConfig(ctx context.Context, pid int64, cfgId int64) (*types.PlanConfig, error)
+
+	// Run 启动 worker 处理协程
+	Run(ctx context.Context, workers int) error
 }
 
 type plan struct {
 	cc      config.Config
 	factory db.ShareDaoFactory
+
+	queue workqueue.RateLimitingInterface
 }
 
 // Create
@@ -119,7 +125,7 @@ func (p *plan) Get(ctx context.Context, pid int64) (*types.Plan, error) {
 		return nil, errors.ErrServerInternal
 	}
 
-	return p.model2Type(object), nil
+	return p.model2Type(object)
 }
 
 func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
@@ -131,12 +137,17 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 
 	var ps []types.Plan
 	for _, object := range objects {
-		ps = append(ps, *p.model2Type(&object))
+		no, err := p.model2Type(&object)
+		if err != nil {
+			return nil, err
+		}
+		ps = append(ps, *no)
 	}
 	return ps, nil
 }
 
 func (p *plan) Start(ctx context.Context, pid int64) error {
+	p.queue.Add(pid)
 	return nil
 }
 
@@ -144,7 +155,12 @@ func (p *plan) Stop(ctx context.Context, pid int64) error {
 	return nil
 }
 
-func (p *plan) model2Type(o *model.Plan) *types.Plan {
+func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
+	newestTask, err := p.factory.Plan().GetNewestTask(context.TODO(), o.Id)
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.Plan{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -156,12 +172,14 @@ func (p *plan) model2Type(o *model.Plan) *types.Plan {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-	}
+		Step:        newestTask.Step,
+	}, nil
 }
 
 func NewPlan(cfg config.Config, f db.ShareDaoFactory) *plan {
 	return &plan{
 		cc:      cfg,
 		factory: f,
+		queue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tasks"),
 	}
 }

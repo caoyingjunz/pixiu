@@ -143,7 +143,7 @@ func (t *planRouter) stopPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().Start(c, opt.PlanId); err != nil {
+	if err = t.c.Plan().Stop(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

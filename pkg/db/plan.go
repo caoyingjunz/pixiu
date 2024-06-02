@@ -49,6 +49,8 @@ type PlanInterface interface {
 	UpdateTask(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTask(ctx context.Context, pid int64) (*model.Task, error)
+
+	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
 }
 
 type plan struct {
@@ -111,6 +113,15 @@ func (p *plan) List(ctx context.Context) ([]model.Plan, error) {
 	}
 
 	return objects, nil
+}
+
+func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error) {
+	var objects []model.Task
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Order("DESC").Limit(1).Find(&objects).Error; err != nil {
+		return nil, err
+	}
+
+	return &objects[0], nil
 }
 
 func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, error) {
