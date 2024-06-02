@@ -150,6 +150,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 				Step:   model.PlanStep(task.Step()),
 			})
 			if err != nil {
+				klog.Errorf("failed to init plan(%d) task(%s): %v", object.PlanId, name, err)
 				return err
 			}
 		}
@@ -158,10 +159,11 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		status, message := task.Run()
 
 		// 执行完成之后更新状态
-		if err = p.factory.Plan().UpdateTask(context.TODO(), object.Id, object.ResourceVersion, map[string]interface{}{
+		if err = p.factory.Plan().UpdateTask(context.TODO(), object.PlanId, object.ResourceVersion, map[string]interface{}{
 			"status":  status,
 			"message": message,
 		}); err != nil {
+			klog.Errorf("failed to update plan(%d) task(%s): %v", object.PlanId, name, err)
 			return err
 		}
 	}
