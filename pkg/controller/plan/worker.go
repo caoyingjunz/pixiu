@@ -40,11 +40,11 @@ func (p *plan) worker(ctx context.Context) {
 }
 
 func (p *plan) process(ctx context.Context) bool {
-	key, quit := TaskQueue.Get()
+	key, quit := taskQueue.Get()
 	if quit {
 		return false
 	}
-	defer TaskQueue.Done(key)
+	defer taskQueue.Done(key)
 
 	p.syncHandler(ctx, key.(int64))
 	return true
