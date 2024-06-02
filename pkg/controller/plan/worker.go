@@ -93,40 +93,14 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		return
 	}
 
+	task := newHandlerTask(taskData)
 	handlers := []Handler{
-		Check{data: taskData},
+		Check{handlerTask: task},
+		Render{handlerTask: task},
 	}
 	if err = p.syncTasks(handlers...); err != nil {
 		klog.Errorf("failed to sync task: %v", err)
 	}
-}
-
-type Handler interface {
-	Name() string                     // 检查项名称
-	Step() int                        // 未开始，运行中，异常和完成
-	Run() (status string, msg string) // 执行
-	GetPlanId() int64
-}
-
-type Check struct{ data TaskData }
-
-func (c Check) Name() string {
-	return "部署预检查"
-}
-
-func (c Check) Step() int {
-	return 1
-}
-
-func (c Check) Run() (string, string) {
-	if err := c.data.validate(); err != nil {
-		return "失败", err.Error()
-	}
-	return "成功", ""
-}
-
-func (c Check) GetPlanId() int64 {
-	return c.data.PlanId
 }
 
 func (p *plan) syncTasks(tasks ...Handler) error {
@@ -147,7 +121,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			object, err = p.factory.Plan().CreatTask(context.TODO(), &model.Task{
 				Name:   name,
 				PlanId: planId,
-				Step:   model.PlanStep(task.Step()),
+				Step:   model.UnStartedPlanStep,
 			})
 			if err != nil {
 				klog.Errorf("failed to init plan(%d) task(%s): %v", object.PlanId, name, err)
@@ -159,9 +133,14 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		status, message := task.Run()
 
 		// 执行完成之后更新状态
+		step := task.Step()
+		if status == model.FailedPlanStatus {
+			step = model.FailedPlanStep
+		}
 		if err = p.factory.Plan().UpdateTask(context.TODO(), object.PlanId, object.ResourceVersion, map[string]interface{}{
 			"status":  status,
 			"message": message,
+			"step":    step,
 		}); err != nil {
 			klog.Errorf("failed to update plan(%d) task(%s): %v", object.PlanId, name, err)
 			return err
@@ -169,4 +148,45 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 	}
 
 	return nil
+}
+
+type Handler interface {
+	GetPlanId() int64
+
+	Name() string                               // 检查项名称
+	Step() model.PlanStep                       // 未开始，运行中，异常和完成
+	Run() (status model.TaskStatus, msg string) // 执行
+}
+
+type handlerTask struct {
+	data TaskData
+}
+
+func (t handlerTask) GetPlanId() int64 { return t.data.PlanId }
+
+func newHandlerTask(data TaskData) handlerTask {
+	return handlerTask{data: data}
+}
+
+type Check struct {
+	handlerTask
+}
+
+func (c Check) Name() string         { return "部署预检查" }
+func (c Check) Step() model.PlanStep { return model.RunningPlanStep }
+func (c Check) Run() (model.TaskStatus, string) {
+	if err := c.data.validate(); err != nil {
+		return model.FailedPlanStatus, err.Error()
+	}
+	return model.SuccessPlanStatus, ""
+}
+
+type Render struct {
+	handlerTask
+}
+
+func (r Render) Name() string         { return "配置渲染" }
+func (r Render) Step() model.PlanStep { return model.RunningPlanStep }
+func (r Render) Run() (model.TaskStatus, string) {
+	return model.SuccessPlanStatus, ""
 }
