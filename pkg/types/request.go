@@ -109,8 +109,8 @@ type (
 	}
 
 	CreatePlanConfigRequest struct {
-		PlanId      int64  `json:"plan_id" binding:"required"` // required
-		Name        string `json:"name"  binding:"required"`   // required
+		PlanId      int64  `json:"plan_id"`
+		Name        string `json:"name"  binding:"required"` // required
 		Region      string `json:"region"`
 		Description string `json:"description" binding:"omitempty"` // optional
 

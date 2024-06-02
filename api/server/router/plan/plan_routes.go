@@ -112,3 +112,41 @@ func (t *planRouter) listPlans(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (t *planRouter) startPlan(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		opt planMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Plan().Start(c, opt.PlanId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (t *planRouter) stopPlan(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		opt planMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Plan().Stop(c, opt.PlanId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}

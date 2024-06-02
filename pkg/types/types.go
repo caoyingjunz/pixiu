@@ -107,8 +107,9 @@ type Plan struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name        string `json:"name"`        // 用户名称
-	Description string `json:"description"` // 用户描述信息
+	Name        string         `json:"name"` // 用户名称
+	Step        model.PlanStep `json:"step"`
+	Description string         `json:"description"` // 用户描述信息
 }
 
 type PlanNode struct {
@@ -217,6 +218,7 @@ type KubernetesSpec struct {
 }
 
 type NetworkSpec struct {
+	Cni            string `json:"cni"`
 	PodNetwork     string `json:"pod_network"`
 	ServiceNetwork string `json:"service_network"`
 	KubeProxy      string `json:"kube_proxy"`
