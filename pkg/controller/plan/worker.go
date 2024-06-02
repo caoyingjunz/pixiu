@@ -18,13 +18,13 @@ package plan
 
 import (
 	"context"
-
-	"k8s.io/klog/v2"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func (p *plan) Run(ctx context.Context, workers int) error {
