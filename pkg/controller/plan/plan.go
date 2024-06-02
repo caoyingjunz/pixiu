@@ -39,6 +39,10 @@ type Interface interface {
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context) ([]types.Plan, error)
 
+	// Start 启动部署任务
+	Start(ctx context.Context, pid int64) error
+	Stop(ctx context.Context, pid int64) error
+
 	CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error
 	UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error
 	DeleteNode(ctx context.Context, pid int64, nodeId int64) error
@@ -130,6 +134,14 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 		ps = append(ps, *p.model2Type(&object))
 	}
 	return ps, nil
+}
+
+func (p *plan) Start(ctx context.Context, pid int64) error {
+	return nil
+}
+
+func (p *plan) Stop(ctx context.Context, pid int64) error {
+	return nil
 }
 
 func (p *plan) model2Type(o *model.Plan) *types.Plan {
