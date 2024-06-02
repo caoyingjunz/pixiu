@@ -45,12 +45,15 @@ type PlanInterface interface {
 	GetConfig(ctx context.Context, cfgId int64) (*model.Config, error)
 	ListConfigs(ctx context.Context) ([]model.Config, error)
 
+	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
+
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
 	UpdateTask(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTask(ctx context.Context, pid int64) (*model.Task, error)
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
+	GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error)
 }
 
 type plan struct {
@@ -113,15 +116,6 @@ func (p *plan) List(ctx context.Context) ([]model.Plan, error) {
 	}
 
 	return objects, nil
-}
-
-func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error) {
-	var objects []model.Task
-	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Find(&objects).Limit(1).Error; err != nil {
-		return nil, err
-	}
-
-	return &objects[0], nil
 }
 
 func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, error) {
@@ -238,6 +232,15 @@ func (p *plan) ListConfigs(ctx context.Context) ([]model.Config, error) {
 	return objects, nil
 }
 
+func (p *plan) GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error) {
+	var object model.Config
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", planId).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
+}
+
 func (p *plan) CreatTask(ctx context.Context, object *model.Task) (*model.Task, error) {
 	now := time.Now()
 	object.GmtCreate = now
@@ -280,6 +283,27 @@ func (p *plan) DeleteTask(ctx context.Context, pid int64) (*model.Task, error) {
 func (p *plan) GetTask(ctx context.Context, pid int64) (*model.Task, error) {
 	var object model.Task
 	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error) {
+	var objects []model.Task
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Find(&objects).Limit(1).Error; err != nil {
+		return nil, err
+	}
+
+	if len(objects) == 0 {
+		return nil, errors.ErrRecordNotFound
+	}
+	return &objects[0], nil
+}
+
+func (p *plan) GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error) {
+	var object model.Task
+	if err := p.db.WithContext(ctx).Where("plan_id = ? and name = ?", planId, name).First(&object).Error; err != nil {
 		return nil, err
 	}
 

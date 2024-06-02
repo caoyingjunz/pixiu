@@ -75,20 +75,13 @@ type plan struct {
 // 2. 创建部署任务
 // 3. 创建部署配置
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
-	object, err := p.factory.Plan().Create(ctx, &model.Plan{
+	_, err := p.factory.Plan().Create(ctx, &model.Plan{
 		Name:        req.Name,
 		Description: req.Description,
 	})
 	if err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
 		return errors.ErrServerInternal
-	}
-
-	// 初始化部署计划关联的任务
-	if err = p.createPlanTask(ctx, object.Id, model.UnStartedPlanStep); err != nil {
-		_ = p.Delete(ctx, object.Id)
-		klog.Errorf("failed to create plan task: %v", err)
-		return err
 	}
 
 	// TODO: 创建部署配置
@@ -160,9 +153,13 @@ func (p *plan) Stop(ctx context.Context, pid int64) error {
 }
 
 func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
+	step := model.UnStartedPlanStep
+
+	// 尝试获取最新的任务状态
+	// 获取失败也不中断返回
 	newestTask, err := p.factory.Plan().GetNewestTask(context.TODO(), o.Id)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		step = newestTask.Step
 	}
 
 	return &types.Plan{
@@ -176,7 +173,7 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-		Step:        newestTask.Step,
+		Step:        step,
 	}, nil
 }
 
