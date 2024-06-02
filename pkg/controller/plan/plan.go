@@ -160,9 +160,13 @@ func (p *plan) Stop(ctx context.Context, pid int64) error {
 }
 
 func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
+	step := model.UnStartedPlanStep
+
+	// 尝试获取最新的任务状态
+	// 获取失败也不中断返回
 	newestTask, err := p.factory.Plan().GetNewestTask(context.TODO(), o.Id)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		step = newestTask.Step
 	}
 
 	return &types.Plan{
@@ -176,7 +180,7 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-		Step:        newestTask.Step,
+		Step:        step,
 	}, nil
 }
 

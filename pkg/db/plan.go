@@ -295,6 +295,9 @@ func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error
 		return nil, err
 	}
 
+	if len(objects) == 0 {
+		return nil, errors.ErrRecordNotFound
+	}
 	return &objects[0], nil
 }
 

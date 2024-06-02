@@ -102,9 +102,9 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 }
 
 type Handler interface {
-	Name() string         // 检查项名称
-	Step() int            // 未开始，运行中，异常和完成
-	Run() (string, error) // 执行
+	Name() string                     // 检查项名称
+	Step() int                        // 未开始，运行中，异常和完成
+	Run() (status string, msg string) // 执行
 	GetPlanId() int64
 }
 
@@ -118,11 +118,11 @@ func (c Check) Step() int {
 	return 1
 }
 
-func (c Check) Run() (string, error) {
+func (c Check) Run() (string, string) {
 	if err := c.data.validate(); err != nil {
-		return "失败", err
+		return "失败", err.Error()
 	}
-	return "成功", nil
+	return "成功", ""
 }
 
 func (c Check) GetPlanId() int64 {
@@ -154,9 +154,15 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		}
 
 		// 执行检查
-		var status string
-		status, err = task.Run()
+		status, message := task.Run()
 
+		// 执行完成之后更新状态
+		if err = p.factory.Plan().UpdateTask(context.TODO(), object.Id, object.ResourceVersion, map[string]interface{}{
+			"status":  status,
+			"message": message,
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil
