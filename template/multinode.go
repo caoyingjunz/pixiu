@@ -16,9 +16,42 @@ limitations under the License.
 
 package template
 
-const HostTemplate = `# Render below by Pixiu engine
-127.0.0.1	localhost
-{{- range .Nodes }}
-{{ .Ip }}  {{ .Name }}
-{{- end }}
+const MultiModeTemplate = `# Render below by Pixiu engine
+[docker-master]
+kube01
+kube02
+
+[docker-node]
+kube03
+
+[containerd-master]
+
+[containerd-node]
+
+[storage]
+kube01
+
+# Don't change the bellow groups
+[kube-master:children]
+docker-master
+containerd-master
+
+[kube-node:children]
+docker-node
+containerd-node
+
+[baremetal:children]
+kube-master
+kube-node
+storage
+
+[kubernetes:children]
+kube-master
+kube-node
+
+[nfs-server:children]
+storage
+
+[haproxy:children]
+kube-master
 `

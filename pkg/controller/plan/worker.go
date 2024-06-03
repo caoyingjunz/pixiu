@@ -19,7 +19,10 @@ package plan
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"text/template"
 	"time"
 
@@ -203,14 +206,26 @@ func (r Render) Run() (model.TaskStatus, string) {
 	if err := tpl.Execute(&buf, r.data); err != nil {
 		return model.FailedPlanStatus, err.Error()
 	}
-	if err := WriteToFile("/tmp/hosts", buf.Bytes()); err != nil {
+	filename := makeRenderPath(r.GetPlanId(), "hosts")
+	if err := WriteToFile(filename, buf.Bytes()); err != nil {
 		return model.FailedPlanStatus, err.Error()
 	}
 
 	return model.SuccessPlanStatus, ""
 }
 
-func WriteToFile(filename string, data ...[]byte) error {
-	bs := bytes.Join(data, []byte("\n"))
-	return ioutil.WriteFile(filename, bs, 0644)
+func WriteToFile(filename string, data []byte) error {
+	return ioutil.WriteFile(filename, data, 0644)
+}
+
+const (
+	workDir = "/tmp"
+)
+
+// 后续优化
+func makeRenderPath(planId int64, f string) string {
+	planDir := filepath.Join(workDir, fmt.Sprintf("%d", planId))
+	_ = os.Mkdir(planDir, 0777)
+
+	return filepath.Join(planDir, f)
 }
