@@ -58,13 +58,16 @@ func validate(c *gin.Context, o *options.Options, keyBytes []byte) (*tokenutil.C
 		return nil, err
 	}
 
-	existToken, err := o.Controller.User().GetLoginToken(c, claim.Id)
-	if err != nil {
-		return nil, fmt.Errorf("未登陆或者密码被修改，请重新登陆")
+	if o.ComponentConfig.Default.Mode != "debug" {
+		existToken, err := o.Controller.User().GetLoginToken(c, claim.Id)
+		if err != nil {
+			return nil, fmt.Errorf("未登陆或者密码被修改，请重新登陆")
+		}
+		if token != existToken {
+			return nil, fmt.Errorf("已被他人登陆")
+		}
 	}
-	if token != existToken {
-		return nil, fmt.Errorf("已被他人登陆")
-	}
+
 	return claim, nil
 }
 

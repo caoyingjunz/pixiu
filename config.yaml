@@ -1,6 +1,6 @@
 default:
   # 运行模式，可选 debug 和 release
-  mode: release
+  mode: debug
   # 服务监听端口
   listen: 8090
   # jwt 签名的 key
