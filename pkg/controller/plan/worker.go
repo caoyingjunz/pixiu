@@ -17,7 +17,13 @@ limitations under the License.
 package plan
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"text/template"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -25,6 +31,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
+	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
 
 func (p *plan) Run(ctx context.Context, workers int) error {
@@ -162,7 +169,8 @@ type handlerTask struct {
 	data TaskData
 }
 
-func (t handlerTask) GetPlanId() int64 { return t.data.PlanId }
+func (t handlerTask) GetPlanId() int64     { return t.data.PlanId }
+func (t handlerTask) Step() model.PlanStep { return model.RunningPlanStep }
 
 func newHandlerTask(data TaskData) handlerTask {
 	return handlerTask{data: data}
@@ -172,8 +180,7 @@ type Check struct {
 	handlerTask
 }
 
-func (c Check) Name() string         { return "部署预检查" }
-func (c Check) Step() model.PlanStep { return model.RunningPlanStep }
+func (c Check) Name() string { return "部署预检查" }
 func (c Check) Run() (model.TaskStatus, string) {
 	if err := c.data.validate(); err != nil {
 		return model.FailedPlanStatus, err.Error()
@@ -181,12 +188,44 @@ func (c Check) Run() (model.TaskStatus, string) {
 	return model.SuccessPlanStatus, ""
 }
 
+// Render 渲染 pixiu 部署配置
+// 1. 渲染 hosts
+// 2. 渲染 globals.yaml
+// 3. 渲染 multinode
+// 具体参考 https://github.com/pixiu-io/kubez-ansible
 type Render struct {
 	handlerTask
 }
 
-func (r Render) Name() string         { return "配置渲染" }
-func (r Render) Step() model.PlanStep { return model.RunningPlanStep }
+func (r Render) Name() string { return "配置渲染" }
 func (r Render) Run() (model.TaskStatus, string) {
+	tpl := template.New("hosts")
+	tpl = template.Must(tpl.Parse(pixiutpl.HostTemplate))
+
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, r.data); err != nil {
+		return model.FailedPlanStatus, err.Error()
+	}
+	filename := makeRenderPath(r.GetPlanId(), "hosts")
+	if err := WriteToFile(filename, buf.Bytes()); err != nil {
+		return model.FailedPlanStatus, err.Error()
+	}
+
 	return model.SuccessPlanStatus, ""
+}
+
+func WriteToFile(filename string, data []byte) error {
+	return ioutil.WriteFile(filename, data, 0644)
+}
+
+const (
+	workDir = "/tmp"
+)
+
+// 后续优化
+func makeRenderPath(planId int64, f string) string {
+	planDir := filepath.Join(workDir, fmt.Sprintf("%d", planId))
+	_ = os.Mkdir(planDir, 0777)
+
+	return filepath.Join(planDir, f)
 }
