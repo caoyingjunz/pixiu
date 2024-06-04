@@ -17,6 +17,7 @@ limitations under the License.
 package template
 
 const GlobalsTemplate = `# Render below by Pixiu
+---
 #####################
 # kubernetes options
 #####################
