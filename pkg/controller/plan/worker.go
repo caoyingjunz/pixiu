@@ -93,6 +93,7 @@ func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) 
 // 4. 部署后环境清理
 func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	klog.Infof("starting plan(%d) task", planId)
+	defer klog.Infof("completed plan(%d) task", planId)
 
 	taskData, err := p.getTaskData(ctx, planId)
 	if err != nil {
@@ -187,6 +188,9 @@ type Check struct {
 
 func (c Check) Name() string { return "部署预检查" }
 func (c Check) Run() error {
+	klog.Infof("starting 部署预检查 task")
+	defer klog.Infof("completed 部署预检查 task")
+
 	if err := c.data.validate(); err != nil {
 		return err
 	}
@@ -204,6 +208,9 @@ type Render struct {
 
 func (r Render) Name() string { return "配置渲染" }
 func (r Render) Run() error {
+	klog.Infof("starting 配置渲染 task")
+	defer klog.Infof("completed 配置渲染 task")
+
 	// 渲染 hosts
 	if err := r.doRender("hosts", pixiutpl.HostTemplate, r.data); err != nil {
 		return err

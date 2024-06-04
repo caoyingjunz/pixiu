@@ -25,6 +25,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
@@ -37,6 +38,9 @@ func (b BootStrap) Name() string { return "初始化部署环境" }
 
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b BootStrap) Run() error {
+	klog.Infof("starting 初始化部署环境 task")
+	defer klog.Infof("completed 初始化部署环境) task")
+
 	cli, err := NewContainer("bootstrap-servers", fmt.Sprintf("bootstrap-servers-%d", b.GetPlanId()))
 	if err != nil {
 		return err
@@ -90,15 +94,18 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	if err = c.client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return err
 	}
 
 	// 等待容器运行退出
-	_, errCh := c.client.ContainerWait(ctx, resp.ID, "")
-	if err = <-errCh; err != nil {
-		return err
-	}
+	//_, errCh := c.client.ContainerWait(ctx, resp.ID, container.WaitConditionNextExit)
+	//if err = <-errCh; err != nil {
+	//	fmt.Println("结束", err)
+	//
+	//	return err
+	//}
 
 	return nil
 }
@@ -109,7 +116,7 @@ func (c *Container) Close() error {
 
 // ClearContainer 清理已存在的老容器
 func (c *Container) ClearContainer(ctx context.Context) error {
-	old, err := c.GetContainer(context.TODO(), c.name)
+	old, err := c.GetContainer(ctx, c.name)
 	if err != nil {
 		// 如果不存在则直接返回
 		if err == errors.ErrContainerNotFound {
@@ -125,16 +132,15 @@ func (c *Container) ClearContainer(ctx context.Context) error {
 	}
 
 	return c.client.ContainerRemove(ctx, containerId, types.ContainerRemoveOptions{Force: true})
-
 }
 
 func (c *Container) ListContainers(ctx context.Context) ([]types.Container, error) {
-	cs, err := c.client.ContainerList(ctx, types.ContainerListOptions{})
+	cs, err := c.client.ContainerList(ctx, types.ContainerListOptions{All: true})
 	if err != nil {
 		return nil, err
 	}
 
-	return cs, err
+	return cs, nil
 }
 
 func (c *Container) GetContainer(ctx context.Context, containerName string) (*types.Container, error) {
@@ -145,7 +151,7 @@ func (c *Container) GetContainer(ctx context.Context, containerName string) (*ty
 
 	for _, container := range containers {
 		for _, name := range container.Names {
-			if name == containerName {
+			if name == "/"+containerName {
 				return &container, nil
 			}
 		}
