@@ -23,6 +23,8 @@ import (
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	klog "github.com/sirupsen/logrus"
+
+	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
 const (
@@ -31,9 +33,10 @@ const (
 	FailMsg    = "FAIL"
 )
 
-func LoggerToFile() gin.HandlerFunc {
+func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		startTime := time.Now()
+		c.Set(db.SQLContextKey, new(db.SQLs)) // set SQL context key
 
 		// 处理请求操作
 		c.Next()
@@ -45,8 +48,9 @@ func LoggerToFile() gin.HandlerFunc {
 			"status_code": c.Writer.Status(),
 			"latency":     fmt.Sprintf("%dµs", time.Since(startTime).Microseconds()),
 			"client_ip":   c.ClientIP(),
-			// TODO
-			// "sqls": []string{},
+		}
+		if sqls := db.GetSQLs(c); len(sqls) > 0 {
+			fields["sqls"] = sqls
 		}
 
 		if errs := c.Errors; len(errs) > 0 {
