@@ -37,6 +37,8 @@ var (
 	ErrTenantNotFound     = errors.New("租户不存在")
 	ErrDuplicatedPassword = errors.New("新密码与旧密码相同")
 
+	ErrContainerNotFound = errors.New("容器不存在")
+
 	ParamsError        = errors.New("参数错误")
 	OperateFailed      = errors.New("操作失败")
 	NoPermission       = errors.New("无权限")

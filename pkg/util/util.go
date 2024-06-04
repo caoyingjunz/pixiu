@@ -19,6 +19,7 @@ package util
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -82,4 +83,38 @@ func GenerateRequestID() string {
 
 func IsEmptyS(s string) bool {
 	return len(s) != 0
+}
+
+func IsDirectoryExists(path string) bool {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	if stat.IsDir() {
+		return true
+	}
+	return false
+}
+
+func IsFileExists(path string) bool {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	if stat.IsDir() {
+		return false
+	}
+	return true
+}
+
+func EnsureDirectoryExists(path string) error {
+	if !IsDirectoryExists(path) {
+		if err := os.MkdirAll(path, 0755); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

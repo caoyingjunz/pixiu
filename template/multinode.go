@@ -18,18 +18,26 @@ package template
 
 const MultiModeTemplate = `# Render below by Pixiu engine
 [docker-master]
-kube01
-kube02
+{{- range .DockerMaster }}
+{{ . }}
+{{- end }}
 
 [docker-node]
-kube03
+{{- range .DockerNode }}
+{{ . }}
+{{- end }}
 
 [containerd-master]
+{{- range .ContainerdMaster }}
+{{ . }}
+{{- end }}
 
 [containerd-node]
+{{- range .ContainerdNode }}
+{{ . }}
+{{- end }}
 
 [storage]
-kube01
 
 # Don't change the bellow groups
 [kube-master:children]

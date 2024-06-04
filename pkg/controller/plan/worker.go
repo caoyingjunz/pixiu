@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"text/template"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/util"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
@@ -104,6 +104,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	handlers := []Handler{
 		Check{handlerTask: task},
 		Render{handlerTask: task},
+		BootStrap{handlerTask: task},
 	}
 	if err = p.syncTasks(handlers...); err != nil {
 		klog.Errorf("failed to sync task: %v", err)
@@ -136,14 +137,18 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			}
 		}
 
+		status := model.SuccessPlanStatus
+		step := task.Step()
+		message := ""
+
 		// 执行检查
-		status, message := task.Run()
+		if err = task.Run(); err != nil {
+			status = model.FailedPlanStatus
+			step = model.FailedPlanStep
+			message = err.Error()
+		}
 
 		// 执行完成之后更新状态
-		step := task.Step()
-		if status == model.FailedPlanStatus {
-			step = model.FailedPlanStep
-		}
 		if err = p.factory.Plan().UpdateTask(context.TODO(), object.PlanId, object.ResourceVersion, map[string]interface{}{
 			"status":  status,
 			"message": message,
@@ -160,9 +165,9 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 type Handler interface {
 	GetPlanId() int64
 
-	Name() string                               // 检查项名称
-	Step() model.PlanStep                       // 未开始，运行中，异常和完成
-	Run() (status model.TaskStatus, msg string) // 执行
+	Name() string         // 检查项名称
+	Step() model.PlanStep // 未开始，运行中，异常和完成
+	Run() error           // 执行
 }
 
 type handlerTask struct {
@@ -181,11 +186,11 @@ type Check struct {
 }
 
 func (c Check) Name() string { return "部署预检查" }
-func (c Check) Run() (model.TaskStatus, string) {
+func (c Check) Run() error {
 	if err := c.data.validate(); err != nil {
-		return model.FailedPlanStatus, err.Error()
+		return err
 	}
-	return model.SuccessPlanStatus, ""
+	return nil
 }
 
 // Render 渲染 pixiu 部署配置
@@ -198,20 +203,40 @@ type Render struct {
 }
 
 func (r Render) Name() string { return "配置渲染" }
-func (r Render) Run() (model.TaskStatus, string) {
-	tpl := template.New("hosts")
-	tpl = template.Must(tpl.Parse(pixiutpl.HostTemplate))
+func (r Render) Run() error {
+	// 渲染 hosts
+	if err := r.doRender("hosts", pixiutpl.HostTemplate, r.data); err != nil {
+		return err
+	}
+	// 渲染 multiNode
+	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, ParseMultinode(r.data)); err != nil {
+		return err
+	}
+	// 渲染 globals
+	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, ParseGlobal(r.data)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r Render) doRender(name string, text string, data interface{}) error {
+	tpl := template.New(name)
+	tpl = template.Must(tpl.Parse(text))
 
 	var buf bytes.Buffer
-	if err := tpl.Execute(&buf, r.data); err != nil {
-		return model.FailedPlanStatus, err.Error()
+	if err := tpl.Execute(&buf, data); err != nil {
+		return err
 	}
-	filename := makeRenderPath(r.GetPlanId(), "hosts")
-	if err := WriteToFile(filename, buf.Bytes()); err != nil {
-		return model.FailedPlanStatus, err.Error()
+	filename, err := getFileForRender(r.GetPlanId(), name)
+	if err != nil {
+		return err
+	}
+	if err = WriteToFile(filename, buf.Bytes()); err != nil {
+		return err
 	}
 
-	return model.SuccessPlanStatus, ""
+	return nil
 }
 
 func WriteToFile(filename string, data []byte) error {
@@ -223,9 +248,44 @@ const (
 )
 
 // 后续优化
-func makeRenderPath(planId int64, f string) string {
+func getFileForRender(planId int64, f string) (string, error) {
 	planDir := filepath.Join(workDir, fmt.Sprintf("%d", planId))
-	_ = os.Mkdir(planDir, 0777)
+	if err := util.EnsureDirectoryExists(planDir); err != nil {
+		return "", err
+	}
 
-	return filepath.Join(planDir, f)
+	return filepath.Join(planDir, f), nil
+}
+
+type Multinode struct {
+	DockerMaster     []string
+	DockerNode       []string
+	ContainerdMaster []string
+	ContainerdNode   []string
+}
+
+func ParseMultinode(data TaskData) Multinode {
+	multinode := Multinode{
+		DockerMaster:     make([]string, 0),
+		DockerNode:       make([]string, 0),
+		ContainerdMaster: make([]string, 0),
+		ContainerdNode:   make([]string, 0),
+	}
+	for _, node := range data.Nodes {
+		if node.Role == model.MasterRole {
+			multinode.DockerMaster = append(multinode.DockerMaster, node.Name)
+		}
+		if node.Role == model.NodeRole {
+			multinode.DockerNode = append(multinode.DockerNode, node.Name)
+		}
+	}
+
+	return multinode
+}
+
+type Global struct {
+}
+
+func ParseGlobal(data TaskData) Global {
+	return Global{}
 }

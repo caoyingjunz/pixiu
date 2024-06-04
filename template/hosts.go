@@ -18,7 +18,8 @@ package template
 
 const HostTemplate = `# Render below by Pixiu engine
 127.0.0.1	localhost
+
 {{- range .Nodes }}
-{{ .Ip }}  {{ .Name }}
+{{ .Ip }} {{ .Name }}
 {{- end }}
 `
