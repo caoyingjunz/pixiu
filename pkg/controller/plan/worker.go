@@ -17,22 +17,34 @@ limitations under the License.
 package plan
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"io/ioutil"
-	"path/filepath"
-	"text/template"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/util"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
-	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
+
+type Handler interface {
+	GetPlanId() int64
+
+	Name() string         // 检查项名称
+	Step() model.PlanStep // 未开始，运行中，异常和完成
+	Run() error           // 执行
+}
+
+type handlerTask struct {
+	data TaskData
+}
+
+func (t handlerTask) GetPlanId() int64     { return t.data.PlanId }
+func (t handlerTask) Step() model.PlanStep { return model.RunningPlanStep }
+
+func newHandlerTask(data TaskData) handlerTask {
+	return handlerTask{data: data}
+}
 
 func (p *plan) Run(ctx context.Context, workers int) error {
 	klog.Infof("Starting Plan Manager")
@@ -161,138 +173,4 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 	}
 
 	return nil
-}
-
-type Handler interface {
-	GetPlanId() int64
-
-	Name() string         // 检查项名称
-	Step() model.PlanStep // 未开始，运行中，异常和完成
-	Run() error           // 执行
-}
-
-type handlerTask struct {
-	data TaskData
-}
-
-func (t handlerTask) GetPlanId() int64     { return t.data.PlanId }
-func (t handlerTask) Step() model.PlanStep { return model.RunningPlanStep }
-
-func newHandlerTask(data TaskData) handlerTask {
-	return handlerTask{data: data}
-}
-
-type Check struct {
-	handlerTask
-}
-
-func (c Check) Name() string { return "部署预检查" }
-func (c Check) Run() error {
-	klog.Infof("starting 部署预检查 task")
-	defer klog.Infof("completed 部署预检查 task")
-
-	if err := c.data.validate(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Render 渲染 pixiu 部署配置
-// 1. 渲染 hosts
-// 2. 渲染 globals.yaml
-// 3. 渲染 multinode
-// 具体参考 https://github.com/pixiu-io/kubez-ansible
-type Render struct {
-	handlerTask
-}
-
-func (r Render) Name() string { return "配置渲染" }
-func (r Render) Run() error {
-	klog.Infof("starting 配置渲染 task")
-	defer klog.Infof("completed 配置渲染 task")
-
-	// 渲染 hosts
-	if err := r.doRender("hosts", pixiutpl.HostTemplate, r.data); err != nil {
-		return err
-	}
-	// 渲染 multiNode
-	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, ParseMultinode(r.data)); err != nil {
-		return err
-	}
-	// 渲染 globals
-	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, ParseGlobal(r.data)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r Render) doRender(name string, text string, data interface{}) error {
-	tpl := template.New(name)
-	tpl = template.Must(tpl.Parse(text))
-
-	var buf bytes.Buffer
-	if err := tpl.Execute(&buf, data); err != nil {
-		return err
-	}
-	filename, err := getFileForRender(r.GetPlanId(), name)
-	if err != nil {
-		return err
-	}
-	if err = WriteToFile(filename, buf.Bytes()); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func WriteToFile(filename string, data []byte) error {
-	return ioutil.WriteFile(filename, data, 0644)
-}
-
-const (
-	workDir = "/tmp"
-)
-
-// 后续优化
-func getFileForRender(planId int64, f string) (string, error) {
-	planDir := filepath.Join(workDir, fmt.Sprintf("%d", planId))
-	if err := util.EnsureDirectoryExists(planDir); err != nil {
-		return "", err
-	}
-
-	return filepath.Join(planDir, f), nil
-}
-
-type Multinode struct {
-	DockerMaster     []string
-	DockerNode       []string
-	ContainerdMaster []string
-	ContainerdNode   []string
-}
-
-func ParseMultinode(data TaskData) Multinode {
-	multinode := Multinode{
-		DockerMaster:     make([]string, 0),
-		DockerNode:       make([]string, 0),
-		ContainerdMaster: make([]string, 0),
-		ContainerdNode:   make([]string, 0),
-	}
-	for _, node := range data.Nodes {
-		if node.Role == model.MasterRole {
-			multinode.DockerMaster = append(multinode.DockerMaster, node.Name)
-		}
-		if node.Role == model.NodeRole {
-			multinode.DockerNode = append(multinode.DockerNode, node.Name)
-		}
-	}
-
-	return multinode
-}
-
-type Global struct {
-}
-
-func ParseGlobal(data TaskData) Global {
-	return Global{}
 }
