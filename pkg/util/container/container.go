@@ -25,6 +25,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
@@ -33,15 +34,16 @@ type Container struct {
 	client *client.Client
 	action string
 	name   string
+	planId int64
 }
 
-func NewContainer(action string, name string) (*Container, error) {
+func NewContainer(action string, planId int64) (*Container, error) {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Container{client: client, action: action, name: name}, nil
+	return &Container{client: client, action: action, name: fmt.Sprintf("%s-%d", action, planId), planId: planId}, nil
 }
 
 // StartAndWaitForContainer 创建，启动容器，并等待容器退出
@@ -57,28 +59,23 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context) error {
 			"pixiuName": c.name,
 		},
 		Image: "jacky06/kubez-ansible:v3.0.1",
-		Env:   []string{fmt.Sprintf("ACTION=%s", c.action)},
+		Env:   []string{fmt.Sprintf("COMMAND=%s", c.action)},
 	}
-	hostConfig := &container.HostConfig{}
+	hostConfig := &container.HostConfig{
+		Binds: []string{fmt.Sprintf("/tmp/kubez/%d:/configs", c.planId)},
+	}
 	netConfig := &network.NetworkingConfig{}
 	resp, err := c.client.ContainerCreate(ctx, config, hostConfig, netConfig, c.name)
 	if err != nil {
 		return err
 	}
 
+	// 启动容器
 	if err = c.client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return err
 	}
-
-	// 等待容器运行退出
-	//_, errCh := c.client.ContainerWait(ctx, resp.ID, container.WaitConditionNextExit)
-	//if err = <-errCh; err != nil {
-	//	fmt.Println("结束", err)
-	//
-	//	return err
-	//}
-
-	return nil
+	// 等待容器运行完成退出
+	return c.WaitContainer(ctx, resp.ID, 10)
 }
 
 func (c *Container) Close() error {
@@ -128,4 +125,56 @@ func (c *Container) GetContainer(ctx context.Context, containerName string) (*ty
 		}
 	}
 	return nil, errors.ErrContainerNotFound
+}
+
+// WaitContainer
+// 等待容器运行退出
+// 官方的客户端实现有问题，先通过探针的方式规避，后续优化
+// 循环检查容器状态，直到出现异常或符合预期
+func (c *Container) WaitContainer(ctx context.Context, containerId string, times int) error {
+	//_, errCh := c.client.ContainerWait(ctx, resp.ID, container.WaitConditionNextExit)
+	//if err = <-errCh; err != nil {
+	//	fmt.Println("结束", err)
+	//
+	//	return err
+	//}
+
+	for i := 0; i < times; i++ {
+		klog.Infof("waiting for container at %d times", i+1)
+		// 先等待 5s 再执行，开始等待符合业务场景，且后续的逻辑处理不受影响
+		time.Sleep(5 * time.Second)
+
+		// 实际开始检查
+		containerInfo, err := c.client.ContainerInspect(ctx, containerId)
+		if err != nil {
+			return err
+		}
+		if containerInfo.State != nil {
+			// Can be one of "created", "running", "paused", "restarting", "removing", "exited", or "dead"
+			state := containerInfo.State
+			// 容器还在运行，等待下一次检查
+			if state.Status == "running" && state.Running {
+				continue
+			}
+			// 状态异常，直接退出
+			if state.Status == "paused" || state.Status == "removing" || state.Status == "dead" {
+				return fmt.Errorf("容器状态异常(%s)，退出等待", state.Status)
+			}
+
+			// 容器已经退出
+			if state.Status == "exited" {
+				if state.ExitCode == 0 {
+					// 正常退出
+					return nil
+				} else {
+					// 异常退出返回错误信息
+					return fmt.Errorf(state.Error)
+				}
+			}
+
+			// 其他状态，继续等待
+		}
+	}
+
+	return fmt.Errorf("等待容器(%s)运行完成超时", containerId)
 }
