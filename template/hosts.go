@@ -18,7 +18,7 @@ package template
 
 const HostTemplate = `# Render below by Pixiu engine
 127.0.0.1	localhost
-::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+::1       localhost localhost.localdomain localhost6 localhost6.localdomain6
 {{- range .Nodes }}
 {{ .Ip }}  {{ .Name }}
 {{- end }}
