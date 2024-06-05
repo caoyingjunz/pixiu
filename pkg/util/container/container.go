@@ -34,15 +34,16 @@ type Container struct {
 	client *client.Client
 	action string
 	name   string
+	planId int64
 }
 
-func NewContainer(action string, name string) (*Container, error) {
+func NewContainer(action string, planId int64) (*Container, error) {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Container{client: client, action: action, name: name}, nil
+	return &Container{client: client, action: action, name: fmt.Sprintf("%s-%d", action, planId), planId: planId}, nil
 }
 
 // StartAndWaitForContainer 创建，启动容器，并等待容器退出
@@ -60,7 +61,9 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context) error {
 		Image: "jacky06/kubez-ansible:v3.0.1",
 		Env:   []string{fmt.Sprintf("COMMAND=%s", c.action)},
 	}
-	hostConfig := &container.HostConfig{}
+	hostConfig := &container.HostConfig{
+		Binds: []string{fmt.Sprintf("/tmp/kubez/%d:/configs", c.planId)},
+	}
 	netConfig := &network.NetworkingConfig{}
 	resp, err := c.client.ContainerCreate(ctx, config, hostConfig, netConfig, c.name)
 	if err != nil {

@@ -18,7 +18,6 @@ package plan
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -37,7 +36,7 @@ func (b BootStrap) Run() error {
 	klog.Infof("starting 初始化部署环境 task")
 	defer klog.Infof("completed 初始化部署环境) task")
 
-	cli, err := container.NewContainer("bootstrap-servers", fmt.Sprintf("bootstrap-servers-%d", b.GetPlanId()))
+	cli, err := container.NewContainer("bootstrap-servers", b.GetPlanId())
 	if err != nil {
 		return err
 	}

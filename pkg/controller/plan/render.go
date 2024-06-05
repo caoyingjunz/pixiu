@@ -84,7 +84,7 @@ func WriteToFile(filename string, data []byte) error {
 }
 
 const (
-	workDir = "/tmp"
+	workDir = "/tmp/kubez"
 )
 
 // 后续优化
