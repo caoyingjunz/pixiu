@@ -50,7 +50,7 @@ type PlanInterface interface {
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
 	UpdateTask(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteTask(ctx context.Context, pid int64) (*model.Task, error)
-	GetTask(ctx context.Context, pid int64) (*model.Task, error)
+	ListTasks(ctx context.Context, pid int64) ([]model.Task, error)
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error)
@@ -287,6 +287,15 @@ func (p *plan) GetTask(ctx context.Context, pid int64) (*model.Task, error) {
 	}
 
 	return &object, nil
+}
+
+func (p *plan) ListTasks(ctx context.Context, pid int64) ([]model.Task, error) {
+	var objects []model.Task
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Find(&objects).Error; err != nil {
+		return nil, err
+	}
+
+	return objects, nil
 }
 
 func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error) {

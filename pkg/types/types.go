@@ -137,6 +137,13 @@ type PlanNodeAuth struct {
 	Password *PasswordSpec `json:"password,omitempty"`
 }
 
+type PlanTask struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	PlanId int64 `json:"plan_id" binding:"required"`
+}
+
 type KeySpec struct {
 	Data string `json:"data,omitempty"`
 }

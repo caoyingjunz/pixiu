@@ -22,27 +22,40 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-func (p *plan) createPlanTask(ctx context.Context, planId int64, step model.PlanStep) error {
-	if _, err := p.factory.Plan().CreatTask(ctx, &model.Task{
-		PlanId: planId,
-		Step:   step,
-	}); err != nil {
-		klog.Errorf("failed to create plan(%d) task: %v", planId, err)
-		return err
-	}
-
+// RunTask
+// 只运行指定的计划任务
+func (p *plan) RunTask(ctx context.Context, planId int64, taskId int64) error {
 	return nil
 }
 
-func (p *plan) deletePlanTask(ctx context.Context, planId int64) error {
-	if _, err := p.factory.Plan().DeleteTask(ctx, planId); err != nil {
-		klog.Errorf("failed to delete plan(%s) task: %v", planId, err)
+func (p *plan) ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error) {
+	objects, err := p.factory.Plan().ListTasks(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) tasks: %v", planId, err)
+		return nil, err
 	}
-	return nil
+
+	var tasks []types.PlanTask
+	for _, object := range objects {
+		tasks = append(tasks, *p.modelTask2Type(&object))
+	}
+
+	return tasks, nil
 }
 
-func (p *plan) syncPlanTask(ctx context.Context, planId int64, step int, message string) error {
-	return nil
+func (p *plan) modelTask2Type(o *model.Task) *types.PlanTask {
+	return &types.PlanTask{
+		PixiuMeta: types.PixiuMeta{
+			Id:              o.Id,
+			ResourceVersion: o.ResourceVersion,
+		},
+		TimeMeta: types.TimeMeta{
+			GmtCreate:   o.GmtCreate,
+			GmtModified: o.GmtModified,
+		},
+		PlanId: o.PlanId,
+	}
 }
