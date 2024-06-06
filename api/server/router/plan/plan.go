@@ -60,5 +60,11 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		planRoute.PUT("/:planId/configs/:configId", t.updatePlanConfig)
 		planRoute.DELETE("/:planId/configs/:configId", t.deletePlanConfig)
 		planRoute.GET("/:planId/configs/:configId", t.getPlanConfig)
+
+		// 执行指定任务
+		planRoute.POST("/:planId/tasks/:taskId", t.runTasks)
+		// 查询任务列表
+		planRoute.POST("/:planId/tasks", t.listTasks)
+
 	}
 }

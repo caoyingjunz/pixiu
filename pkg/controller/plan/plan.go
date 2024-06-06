@@ -42,6 +42,7 @@ type Interface interface {
 
 	// Start 启动部署任务
 	Start(ctx context.Context, pid int64) error
+	// Stop 终止部署任务
 	Stop(ctx context.Context, pid int64) error
 
 	CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error
@@ -57,6 +58,9 @@ type Interface interface {
 
 	// Run 启动 worker 处理协程
 	Run(ctx context.Context, workers int) error
+
+	RunTask(ctx context.Context, planId int64, taskId int64) error
+	ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error)
 }
 
 var taskQueue workqueue.RateLimitingInterface
@@ -108,7 +112,7 @@ func (p *plan) Delete(ctx context.Context, pid int64) error {
 	}
 
 	// 删除部署计划后，同步删除任务，删除任务失败时，可直接忽略
-	err = p.deletePlanTask(ctx, pid)
+	_, err = p.factory.Plan().DeleteTask(ctx, pid)
 	if err != nil {
 		klog.Errorf("failed to delete plan(%d) task: %v", pid, err)
 	}
