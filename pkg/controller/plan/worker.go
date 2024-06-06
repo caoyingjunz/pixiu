@@ -156,10 +156,11 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		message := ""
 
 		// 执行检查
-		if err = task.Run(); err != nil {
+		runErr := task.Run()
+		if runErr != nil {
 			status = model.FailedPlanStatus
 			step = model.FailedPlanStep
-			message = err.Error()
+			message = runErr.Error()
 		}
 
 		// 执行完成之后更新状态
@@ -170,6 +171,10 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		}); err != nil {
 			klog.Errorf("failed to update plan(%d) task(%s): %v", object.PlanId, name, err)
 			return err
+		}
+
+		if runErr != nil {
+			return runErr
 		}
 	}
 

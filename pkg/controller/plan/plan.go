@@ -42,6 +42,7 @@ type Interface interface {
 
 	// Start 启动部署任务
 	Start(ctx context.Context, pid int64) error
+	// Stop 终止部署任务
 	Stop(ctx context.Context, pid int64) error
 
 	CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error
