@@ -56,6 +56,7 @@ func (p *plan) modelTask2Type(o *model.Task) *types.PlanTask {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
+		Name:    o.Name,
 		PlanId:  o.PlanId,
 		Status:  o.Status,
 		Message: o.Message,
