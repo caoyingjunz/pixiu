@@ -118,6 +118,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		Check{handlerTask: task},
 		Render{handlerTask: task},
 		BootStrap{handlerTask: task},
+		Deploy{handlerTask: task},
 	}
 	if err = p.syncTasks(handlers...); err != nil {
 		klog.Errorf("failed to sync task: %v", err)
