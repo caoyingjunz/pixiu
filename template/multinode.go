@@ -19,22 +19,30 @@ package template
 const MultiModeTemplate = `# Render below by Pixiu engine
 [docker-master]
 {{- range .DockerMaster }}
-{{ . }}
+{{- if eq .Auth.Type "password" }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}
+{{- end }}
 {{- end }}
 
 [docker-node]
 {{- range .DockerNode }}
-{{ . }}
+{{- if eq .Auth.Type "password" }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}
+{{- end }}
 {{- end }}
 
 [containerd-master]
 {{- range .ContainerdMaster }}
-{{ . }}
+{{- if eq .Auth.Type "password" }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}
+{{- end }}
 {{- end }}
 
 [containerd-node]
 {{- range .ContainerdNode }}
-{{ . }}
+{{- if eq .Auth.Type "password" }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}
+{{- end }}
 {{- end }}
 
 [storage]
