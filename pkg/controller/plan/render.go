@@ -124,8 +124,6 @@ func ParseMultinode(data TaskData) (Multinode, error) {
 		}
 		planNode := types.PlanNode{
 			Name: node.Name,
-			Role: node.Role,
-			CRI:  node.CRI,
 			Auth: nodeAuth,
 		}
 
