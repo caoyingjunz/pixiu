@@ -52,6 +52,7 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 		Name:   req.Name,
 		PlanId: pid,
 		Role:   req.Role,
+		CRI:    req.CRI,
 		Ip:     req.Ip,
 		Auth:   auth,
 	}); err != nil {

@@ -98,25 +98,35 @@ func getFileForRender(planId int64, f string) (string, error) {
 }
 
 type Multinode struct {
-	DockerMaster     []string
-	DockerNode       []string
-	ContainerdMaster []string
-	ContainerdNode   []string
+	DockerMaster     []model.Node
+	DockerNode       []model.Node
+	ContainerdMaster []model.Node
+	ContainerdNode   []model.Node
 }
 
 func ParseMultinode(data TaskData) Multinode {
 	multinode := Multinode{
-		DockerMaster:     make([]string, 0),
-		DockerNode:       make([]string, 0),
-		ContainerdMaster: make([]string, 0),
-		ContainerdNode:   make([]string, 0),
+		DockerMaster:     make([]model.Node, 0),
+		DockerNode:       make([]model.Node, 0),
+		ContainerdMaster: make([]model.Node, 0),
+		ContainerdNode:   make([]model.Node, 0),
 	}
 	for _, node := range data.Nodes {
-		if node.Role == model.MasterRole {
-			multinode.DockerMaster = append(multinode.DockerMaster, node.Name)
+		if node.CRI == model.DockerCRI {
+			if node.Role == model.MasterRole {
+				multinode.DockerMaster = append(multinode.DockerMaster, node)
+			}
+			if node.Role == model.NodeRole {
+				multinode.DockerNode = append(multinode.DockerNode, node)
+			}
 		}
-		if node.Role == model.NodeRole {
-			multinode.DockerNode = append(multinode.DockerNode, node.Name)
+		if node.CRI == model.ContainerdCRI {
+			if node.Role == model.MasterRole {
+				multinode.ContainerdMaster = append(multinode.ContainerdMaster, node)
+			}
+			if node.Role == model.NodeRole {
+				multinode.ContainerdNode = append(multinode.ContainerdNode, node)
+			}
 		}
 	}
 

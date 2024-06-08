@@ -95,6 +95,7 @@ type (
 		Name   string         `json:"name" binding:"omitempty"` // required
 		PlanId int64          `json:"plan_id"`
 		Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
+		CRI    model.CRI      `json:"cri"`
 		Ip     string         `json:"ip"`
 		Auth   PlanNodeAuth   `json:"auth"`
 	}
@@ -104,6 +105,7 @@ type (
 		Name            string         `json:"name" binding:"omitempty"`            // required
 		PlanId          int64          `json:"plan_id"`
 		Role            model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
+		CRI             model.CRI      `json:"cri"`
 		Ip              string         `json:"ip"`
 		Auth            PlanNodeAuth   `json:"auth"`
 	}
