@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
@@ -49,7 +50,11 @@ func (r Render) Run() error {
 		return err
 	}
 	// 渲染 multiNode
-	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, ParseMultinode(r.data)); err != nil {
+	multiNode, err := ParseMultinode(r.data)
+	if err != nil {
+		return err
+	}
+	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, multiNode); err != nil {
 		return err
 	}
 	// 渲染 globals
@@ -98,29 +103,49 @@ func getFileForRender(planId int64, f string) (string, error) {
 }
 
 type Multinode struct {
-	DockerMaster     []string
-	DockerNode       []string
-	ContainerdMaster []string
-	ContainerdNode   []string
+	DockerMaster     []types.PlanNode
+	DockerNode       []types.PlanNode
+	ContainerdMaster []types.PlanNode
+	ContainerdNode   []types.PlanNode
 }
 
-func ParseMultinode(data TaskData) Multinode {
+func ParseMultinode(data TaskData) (Multinode, error) {
 	multinode := Multinode{
-		DockerMaster:     make([]string, 0),
-		DockerNode:       make([]string, 0),
-		ContainerdMaster: make([]string, 0),
-		ContainerdNode:   make([]string, 0),
+		DockerMaster:     make([]types.PlanNode, 0),
+		DockerNode:       make([]types.PlanNode, 0),
+		ContainerdMaster: make([]types.PlanNode, 0),
+		ContainerdNode:   make([]types.PlanNode, 0),
 	}
 	for _, node := range data.Nodes {
-		if node.Role == model.MasterRole {
-			multinode.DockerMaster = append(multinode.DockerMaster, node.Name)
+		nodeAuth := types.PlanNodeAuth{}
+		err := nodeAuth.Unmarshal(node.Auth)
+		if err != nil {
+			return multinode, err
 		}
-		if node.Role == model.NodeRole {
-			multinode.DockerNode = append(multinode.DockerNode, node.Name)
+		planNode := types.PlanNode{
+			Name: node.Name,
+			Auth: nodeAuth,
+		}
+
+		if node.CRI == model.DockerCRI {
+			if node.Role == model.MasterRole {
+				multinode.DockerMaster = append(multinode.DockerMaster, planNode)
+			}
+			if node.Role == model.NodeRole {
+				multinode.DockerNode = append(multinode.DockerNode, planNode)
+			}
+		}
+		if node.CRI == model.ContainerdCRI {
+			if node.Role == model.MasterRole {
+				multinode.ContainerdMaster = append(multinode.ContainerdMaster, planNode)
+			}
+			if node.Role == model.NodeRole {
+				multinode.ContainerdNode = append(multinode.ContainerdNode, planNode)
+			}
 		}
 	}
 
-	return multinode
+	return multinode, nil
 }
 
 type Global struct {

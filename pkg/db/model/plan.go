@@ -42,12 +42,20 @@ const (
 	MasterRole                 // kubernetes master role
 )
 
+type CRI string
+
+const (
+	DockerCRI     CRI = "docker"
+	ContainerdCRI CRI = "containerd"
+)
+
 type Node struct {
 	pixiu.Model
 
 	Name   string   `gorm:"index:idx_name,unique" json:"name"`
 	PlanId int64    `json:"plan_id"`
 	Role   KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
+	CRI    CRI      `json:"cri"`
 	Ip     string   `json:"ip"`
 	Auth   string   `json:"auth"`
 }
