@@ -2,7 +2,7 @@
 
 tag = v0.1
 releaseName = pixiu
-dockerhubUser ?= jacky06
+dockerhubUser ?= harbor.cloud.pixiuio.com
 k8sVersion ?= v1.23.6
 helmVersion ?= v3.7.1
 targetDir ?= dist
