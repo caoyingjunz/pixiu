@@ -82,7 +82,7 @@ func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.Pla
 		return nil, errors.ErrServerInternal
 	}
 
-	return p.modelNode2Type(object), nil
+	return p.modelNode2Type(object)
 }
 
 func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
@@ -94,12 +94,21 @@ func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, erro
 
 	var nodes []types.PlanNode
 	for _, object := range objects {
-		nodes = append(nodes, *p.modelNode2Type(&object))
+		n, err := p.modelNode2Type(&object)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, *n)
 	}
 	return nodes, nil
 }
 
-func (p *plan) modelNode2Type(o *model.Node) *types.PlanNode {
+func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
+	auth := types.PlanNodeAuth{}
+	if err := auth.Unmarshal(o.Auth); err != nil {
+		return nil, err
+	}
+
 	return &types.PlanNode{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -113,8 +122,6 @@ func (p *plan) modelNode2Type(o *model.Node) *types.PlanNode {
 		Name:   o.Name,
 		Role:   o.Role,
 		Ip:     o.Ip,
-		Auth: types.PlanNodeAuth{
-			Type: types.NoneAuth,
-		},
-	}
+		Auth:   auth,
+	}, nil
 }
