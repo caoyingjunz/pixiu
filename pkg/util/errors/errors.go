@@ -31,7 +31,7 @@ var (
 	ErrReqParams          = errors.New("请求参数错误")
 	ErrCloudNotRegister   = errors.New("cloud 集群未注册")
 	ErrUserNotFound       = errors.New("用户不存在")
-	ErrUserNotAcceptable  = errors.New("有任务zq正在执行，请稍后再试")
+	ErrNotAcceptable      = errors.New("有任务正在执行，请稍后再试")
 	ErrClusterNotFound    = errors.New("集群不存在")
 	ErrUserPassword       = errors.New("密码错误")
 	ErrInternal           = errors.New("服务器内部错误")

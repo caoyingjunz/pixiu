@@ -55,9 +55,9 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.ErrUserNotFound,
 	}
-	ErrUserNotAcceptable = Error{
+	ErrNotAcceptable = Error{
 		Code: http.StatusNotAcceptable,
-		Err:  errors.ErrUserNotAcceptable,
+		Err:  errors.ErrNotAcceptable,
 	}
 	ErrUserExists = Error{
 		Code: http.StatusConflict,

@@ -157,7 +157,7 @@ func (p *plan) Start(ctx context.Context, pid int64) error {
 	for _, task := range tasks {
 		if task.Status == model.RunningPlanStatus {
 			klog.Warningf("task %d of plan %d is already running", task.Id, pid)
-			return errors.ErrUserNotAcceptable
+			return errors.ErrNotAcceptable
 		}
 	}
 
