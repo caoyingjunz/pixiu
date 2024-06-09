@@ -112,7 +112,7 @@ func (p *plan) Delete(ctx context.Context, pid int64) error {
 	}
 
 	// 删除部署计划后，同步删除任务，删除任务失败时，可直接忽略
-	_, err = p.factory.Plan().DeleteTask(ctx, pid)
+	err = p.factory.Plan().DeleteTask(ctx, pid)
 	if err != nil {
 		klog.Errorf("failed to delete plan(%d) task: %v", pid, err)
 	}

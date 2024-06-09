@@ -19,7 +19,6 @@ package plan
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"text/template"
 
@@ -77,15 +76,11 @@ func (r Render) doRender(name string, text string, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err = WriteToFile(filename, buf.Bytes()); err != nil {
+	if err = util.WriteToFile(filename, buf.Bytes()); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func WriteToFile(filename string, data []byte) error {
-	return ioutil.WriteFile(filename, data, 0644)
 }
 
 const (
@@ -122,10 +117,7 @@ func ParseMultinode(data TaskData) (Multinode, error) {
 		if err != nil {
 			return multinode, err
 		}
-		planNode := types.PlanNode{
-			Name: node.Name,
-			Auth: nodeAuth,
-		}
+		planNode := types.PlanNode{Name: node.Name, Auth: nodeAuth}
 
 		if node.CRI == model.DockerCRI {
 			if node.Role == model.MasterRole {

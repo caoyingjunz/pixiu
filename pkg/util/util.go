@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"time"
@@ -117,4 +118,8 @@ func EnsureDirectoryExists(path string) error {
 	}
 
 	return nil
+}
+
+func WriteToFile(filename string, data []byte) error {
+	return ioutil.WriteFile(filename, data, 0644)
 }
