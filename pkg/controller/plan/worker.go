@@ -125,31 +125,61 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	}
 }
 
-func (p *plan) syncTasks(tasks ...Handler) error {
+func (p *plan) initTasks(tasks ...Handler) error {
 	for _, task := range tasks {
 		planId := task.GetPlanId()
 		name := task.Name()
+		step := task.Step()
 
-		var (
-			object *model.Task
-			err    error
-		)
-		object, err = p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
+		object, err := p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
 		if err != nil {
 			if !errors.IsRecordNotFound(err) {
 				return err
 			}
 
+			// 不存在记录则新建
 			object, err = p.factory.Plan().CreatTask(context.TODO(), &model.Task{
 				Name:   name,
 				PlanId: planId,
-				Step:   model.RunningPlanStep,
+				Step:   step,
 				Status: model.RunningPlanStatus,
 			})
 			if err != nil {
 				klog.Errorf("failed to init plan(%d) task(%s): %v", object.PlanId, name, err)
 				return err
 			}
+		} else {
+			// 存在的情况下，如果状态不是运行中，则更新成运行状态
+			if object.Status != model.RunningPlanStatus {
+				// 如果对象已经存在，则更新状态为运行中
+				if err = p.factory.Plan().UpdateTask(context.TODO(), object.PlanId, object.ResourceVersion, map[string]interface{}{
+					"status":  model.RunningPlanStatus,
+					"message": "",
+				}); err != nil {
+					klog.Errorf("failed to update init plan(%d) task(%s): %v", object.PlanId, name, err)
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (p *plan) syncTasks(tasks ...Handler) error {
+	// 初始化记录
+	if err := p.initTasks(tasks...); err != nil {
+		return err
+	}
+
+	// 执行任务并更新状态
+	for _, task := range tasks {
+		planId := task.GetPlanId()
+		name := task.Name()
+
+		object, err := p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
+		if err != nil {
+			return err
 		}
 
 		status := model.SuccessPlanStatus
