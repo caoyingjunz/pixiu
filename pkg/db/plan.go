@@ -48,8 +48,8 @@ type PlanInterface interface {
 	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
 
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
-	UpdateTask(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
-	DeleteTask(ctx context.Context, pid int64) (*model.Task, error)
+	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) error
+	DeleteTask(ctx context.Context, pid int64) error
 	ListTasks(ctx context.Context, pid int64) ([]model.Task, error)
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
@@ -252,12 +252,10 @@ func (p *plan) CreatTask(ctx context.Context, object *model.Task) (*model.Task, 
 	return object, nil
 }
 
-func (p *plan) UpdateTask(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error {
+func (p *plan) UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) error {
 	// 系统维护字段
 	updates["gmt_modified"] = time.Now()
-	updates["resource_version"] = resourceVersion + 1
-
-	f := p.db.WithContext(ctx).Model(&model.Task{}).Where("plan_id = ? and resource_version = ?", pid, resourceVersion).Updates(updates)
+	f := p.db.WithContext(ctx).Model(&model.Task{}).Where("plan_id = ? and name = ?", pid, name).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
@@ -268,25 +266,12 @@ func (p *plan) UpdateTask(ctx context.Context, pid int64, resourceVersion int64,
 	return nil
 }
 
-func (p *plan) DeleteTask(ctx context.Context, pid int64) (*model.Task, error) {
-	object, err := p.GetTask(ctx, pid)
-	if err != nil {
-		return nil, err
-	}
-	if err = p.db.WithContext(ctx).Where("plan_id = ?", pid).Delete(&model.Task{}).Error; err != nil {
-		return nil, err
+func (p *plan) DeleteTask(ctx context.Context, pid int64) error {
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Delete(&model.Task{}).Error; err != nil {
+		return err
 	}
 
-	return object, nil
-}
-
-func (p *plan) GetTask(ctx context.Context, pid int64) (*model.Task, error) {
-	var object model.Task
-	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).First(&object).Error; err != nil {
-		return nil, err
-	}
-
-	return &object, nil
+	return nil
 }
 
 func (p *plan) ListTasks(ctx context.Context, pid int64) ([]model.Task, error) {

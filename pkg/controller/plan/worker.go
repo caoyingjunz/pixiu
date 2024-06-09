@@ -131,7 +131,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		name := task.Name()
 		step := task.Step()
 
-		object, err := p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
+		_, err := p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
 		// 存在则直接返回
 		if err == nil {
 			return nil
@@ -151,7 +151,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 			Step:   step,
 			Status: model.UnStartPlanStatus,
 		}); err != nil {
-			klog.Errorf("failed to init plan(%d) task(%s): %v", object.PlanId, name, err)
+			klog.Errorf("failed to init plan(%d) task(%s): %v", planId, name, err)
 			return err
 		}
 	}
@@ -177,15 +177,11 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		planId := task.GetPlanId()
 		name := task.Name()
 
-		object, err := p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
-		if err != nil {
-			return err
-		}
 		// TODO: 通过闭包方式优化
-		if err = p.factory.Plan().UpdateTask(context.TODO(), object.PlanId, object.ResourceVersion, map[string]interface{}{
+		if err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
 			"status": model.RunningPlanStatus, "message": "",
 		}); err != nil {
-			klog.Errorf("failed to update plan(%d) status before run task(%s): %v", object.PlanId, name, err)
+			klog.Errorf("failed to update plan(%d) status before run task(%s): %v", planId, name, err)
 			return err
 		}
 
@@ -202,10 +198,10 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		}
 
 		// 执行完成之后更新状态
-		if err = p.factory.Plan().UpdateTask(context.TODO(), object.PlanId, object.ResourceVersion, map[string]interface{}{
+		if err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
 			"status": status, "message": message, "step": step,
 		}); err != nil {
-			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", object.PlanId, name, err)
+			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", planId, name, err)
 			return err
 		}
 
