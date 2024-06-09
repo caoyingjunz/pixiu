@@ -150,6 +150,7 @@ type PlanTask struct {
 
 type KeySpec struct {
 	Data string `json:"data,omitempty"`
+	File string `json:"-"`
 }
 
 type PasswordSpec struct {

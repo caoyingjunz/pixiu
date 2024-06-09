@@ -22,12 +22,18 @@ const MultiModeTemplate = `# Render below by Pixiu engine
 {{- if eq .Auth.Type "password" }}
 {{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}
 {{- end }}
+{{- if eq .Auth.Type "key" }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
+{{- end }}
 {{- end }}
 
 [docker-node]
 {{- range .DockerNode }}
 {{- if eq .Auth.Type "password" }}
 {{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}
+{{- end }}
+{{- if eq .Auth.Type "key" }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
 {{- end }}
 {{- end }}
 
@@ -36,12 +42,18 @@ const MultiModeTemplate = `# Render below by Pixiu engine
 {{- if eq .Auth.Type "password" }}
 {{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}
 {{- end }}
+{{- if eq .Auth.Type "key" }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
+{{- end }}
 {{- end }}
 
 [containerd-node]
 {{- range .ContainerdNode }}
 {{- if eq .Auth.Type "password" }}
 {{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}
+{{- end }}
+{{- if eq .Auth.Type "key" }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
 {{- end }}
 {{- end }}
 
