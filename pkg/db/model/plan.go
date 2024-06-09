@@ -94,6 +94,7 @@ type TaskStatus string
 const (
 	FailedPlanStatus  TaskStatus = "失败"
 	SuccessPlanStatus TaskStatus = "成功"
+	UnStartPlanStatus TaskStatus = "未开始"
 	RunningPlanStatus TaskStatus = "运行中"
 )
 
