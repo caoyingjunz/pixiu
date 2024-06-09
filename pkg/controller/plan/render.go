@@ -101,7 +101,6 @@ func ParseMultinode(data TaskData) (Multinode, error) {
 		ContainerdMaster: make([]types.PlanNode, 0),
 		ContainerdNode:   make([]types.PlanNode, 0),
 	}
-	planId := data.PlanId
 
 	for _, node := range data.Nodes {
 		nodeAuth := types.PlanNodeAuth{}
@@ -110,7 +109,7 @@ func ParseMultinode(data TaskData) (Multinode, error) {
 			return multinode, err
 		}
 		// 生成rsa的渲染文件
-		rsa, err := RenderRSA(planId, node.Name, nodeAuth)
+		rsa, err := RenderRSA(data.PlanId, node.Name, nodeAuth)
 		if err != nil {
 			return multinode, err
 		}
@@ -156,15 +155,6 @@ func GetRenderFile(planId int64, f string) (string, error) {
 	return filepath.Join(planDir, f), nil
 }
 
-func GetRSAFile(planId int64, name string) (string, error) {
-	rsaDir := filepath.Join(workDir, fmt.Sprintf("%d", planId), name)
-	if err := util.EnsureDirectoryExists(rsaDir); err != nil {
-		return "", err
-	}
-
-	return filepath.Join(rsaDir, "id_rsa"), nil
-}
-
 func RenderRSA(planId int64, name string, auth types.PlanNodeAuth) (string, error) {
 	if auth.Type == types.KeyAuth {
 		f, err := GetRSAFile(planId, name)
@@ -178,4 +168,13 @@ func RenderRSA(planId int64, name string, auth types.PlanNodeAuth) (string, erro
 	}
 
 	return "", nil
+}
+
+func GetRSAFile(planId int64, name string) (string, error) {
+	rsaDir := filepath.Join(workDir, fmt.Sprintf("%d", planId), name)
+	if err := util.EnsureDirectoryExists(rsaDir); err != nil {
+		return "", err
+	}
+
+	return filepath.Join(rsaDir, "id_rsa"), nil
 }
