@@ -142,10 +142,10 @@ type PlanTask struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name    string `json:"name"`
-	PlanId  int64  `json:"plan_id" binding:"required"`
-	Status  string `json:"status"`
-	Message string `json:"message"`
+	Name    string           `json:"name"`
+	PlanId  int64            `json:"plan_id" binding:"required"`
+	Status  model.TaskStatus `json:"status"`
+	Message string           `json:"message"`
 }
 
 type KeySpec struct {

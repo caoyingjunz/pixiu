@@ -144,6 +144,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 				Name:   name,
 				PlanId: planId,
 				Step:   model.RunningPlanStep,
+				Status: model.RunningPlanStatus,
 			})
 			if err != nil {
 				klog.Errorf("failed to init plan(%d) task(%s): %v", object.PlanId, name, err)

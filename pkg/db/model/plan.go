@@ -94,16 +94,17 @@ type TaskStatus string
 const (
 	FailedPlanStatus  TaskStatus = "失败"
 	SuccessPlanStatus TaskStatus = "成功"
+	RunningPlanStatus TaskStatus = "运行中"
 )
 
 type Task struct {
 	pixiu.Model
 
-	Name    string   `json:"name"`
-	PlanId  int64    `json:"plan_id"`
-	Step    PlanStep `json:"step"`
-	Status  string   `json:"status"`
-	Message string   `json:"message"`
+	Name    string     `json:"name"`
+	PlanId  int64      `json:"plan_id"`
+	Step    PlanStep   `json:"step"`
+	Status  TaskStatus `json:"status"`
+	Message string     `json:"message"`
 }
 
 func (task *Task) TableName() string {
