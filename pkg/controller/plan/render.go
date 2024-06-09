@@ -171,7 +171,7 @@ func RenderRSA(planId int64, name string, auth types.PlanNodeAuth) (string, erro
 }
 
 func GetRSAFile(planId int64, name string) (string, error) {
-	rsaDir := filepath.Join(workDir, fmt.Sprintf("%d", planId), name)
+	rsaDir := filepath.Join(workDir, fmt.Sprintf("%d", planId), "ssh", name)
 	if err := util.EnsureDirectoryExists(rsaDir); err != nil {
 		return "", err
 	}
