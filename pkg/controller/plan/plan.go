@@ -148,6 +148,19 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 }
 
 func (p *plan) Start(ctx context.Context, pid int64) error {
+	tasks, err := p.factory.Plan().ListTasks(ctx, pid)
+	if err != nil {
+		klog.Errorf("failed to get tasks of plan %d: %v", pid, err)
+		return errors.ErrServerInternal
+	}
+
+	for _, task := range tasks {
+		if task.Status == model.RunningPlanStatus {
+			klog.Warningf("task %d of plan %d is already running", task.Id, pid)
+			return errors.ErrNotAcceptable
+		}
+	}
+
 	taskQueue.Add(pid)
 	return nil
 }
