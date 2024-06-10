@@ -42,7 +42,7 @@ vim /etc/pixiu/config.json
 ```
 # 启动 pixiu
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu/:/configs  --name pixiu-aio jacky06/pixiu-aio
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu/:/configs  --name pixiu-aio harbor.cloud.pixiuio.com/pixiuio/pixiu-aio
 登录效果
 浏览器登陆: http://192.168.16.156
 ```
