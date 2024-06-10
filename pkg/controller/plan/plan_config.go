@@ -42,7 +42,7 @@ func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePla
 		return err
 	}
 
-	planConfig, err := p.makePlanConfig(ctx, req)
+	planConfig, err := p.buildPlanConfig(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (p *plan) GetConfig(ctx context.Context, pid int64, cfgId int64) (*types.Pl
 	return p.modelConfig2Type(object)
 }
 
-func (p *plan) makePlanConfig(ctx context.Context, req *types.CreatePlanConfigRequest) (*model.Config, error) {
+func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigRequest) (*model.Config, error) {
 	kubeConfig, err := req.Kubernetes.Marshal()
 	if err != nil {
 		return nil, err
