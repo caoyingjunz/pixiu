@@ -51,10 +51,10 @@ type Interface interface {
 	GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error)
 	ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error)
 
-	CreateConfig(ctx context.Context, pid int64, req *types.CreatePlanConfigRequest) error
+	CreateConfig(ctx context.Context, planId int64, req *types.CreatePlanConfigRequest) error
 	UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error
 	DeleteConfig(ctx context.Context, pid int64, cfgId int64) error
-	GetConfig(ctx context.Context, pid int64, cfgId int64) (*types.PlanConfig, error)
+	GetConfig(ctx context.Context, planId int64) (*types.PlanConfig, error)
 
 	// Run 启动 worker 处理协程
 	Run(ctx context.Context, workers int) error
