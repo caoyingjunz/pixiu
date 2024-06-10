@@ -18,6 +18,7 @@ package plan
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/klog/v2"
 
@@ -26,7 +27,20 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
+func (p *plan) preCreateConfig(ctx context.Context, planId int64, req *types.CreatePlanConfigRequest) error {
+	_, err := p.factory.Plan().GetConfigByPlan(ctx, planId)
+	if err == nil {
+		return fmt.Errorf("plan(%d) 配置已存在", planId)
+	}
+
+	return nil
+}
+
 func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePlanConfigRequest) error {
+	if err := p.preCreateConfig(ctx, pid, req); err != nil {
+		return err
+	}
+
 	ks, err := req.Kubernetes.Marshal()
 	if err != nil {
 		return err
@@ -39,7 +53,6 @@ func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePla
 	if err != nil {
 		return err
 	}
-
 	if _, err = p.factory.Plan().CreatConfig(ctx, &model.Config{
 		Name:        req.Name,
 		PlanId:      pid,
@@ -72,7 +85,7 @@ func (p *plan) DeleteConfig(ctx context.Context, pid int64, cfgId int64) error {
 }
 
 func (p *plan) GetConfig(ctx context.Context, pid int64, cfgId int64) (*types.PlanConfig, error) {
-	object, err := p.factory.Plan().GetConfig(ctx, cfgId)
+	object, err := p.factory.Plan().GetConfigByPlan(ctx, pid)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) config(%d): %v", pid, cfgId, err)
 		return nil, errors.ErrServerInternal
