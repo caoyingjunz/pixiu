@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/container"
 )
 
@@ -63,7 +64,8 @@ type DeployChart struct {
 	handlerTask
 }
 
-func (b DeployChart) Name() string { return "部署基础组件" }
+func (b DeployChart) Name() string         { return "部署基础组件" }
+func (b DeployChart) Step() model.PlanStep { return model.CompletedPlanStep }
 
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b DeployChart) Run() error {
