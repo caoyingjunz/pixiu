@@ -22,8 +22,6 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"k8s.io/klog/v2"
-
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
@@ -45,23 +43,24 @@ type Render struct {
 
 func (r Render) Name() string { return "配置渲染" }
 func (r Render) Run() error {
-	klog.Infof("starting 配置渲染 task")
-	defer klog.Infof("completed 配置渲染 task")
-
 	// 渲染 hosts
 	if err := r.doRender("hosts", pixiutpl.HostTemplate, r.data); err != nil {
 		return err
 	}
 	// 渲染 multiNode
-	multiNode, err := ParseMultinode(r.data)
+	nodes, err := ParseMultinode(r.data)
 	if err != nil {
 		return err
 	}
-	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, multiNode); err != nil {
+	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, nodes); err != nil {
 		return err
 	}
 	// 渲染 globals
-	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, ParseGlobal(r.data)); err != nil {
+	cfg, err := ParseConfig(r.data)
+	if err != nil {
+		return err
+	}
+	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, cfg); err != nil {
 		return err
 	}
 
@@ -137,13 +136,6 @@ func ParseMultinode(data TaskData) (Multinode, error) {
 	return multinode, nil
 }
 
-type Global struct {
-}
-
-func ParseGlobal(data TaskData) Global {
-	return Global{}
-}
-
 // GetRenderFile
 // TODO: 后续优化
 func GetRenderFile(planId int64, f string) (string, error) {
@@ -177,4 +169,26 @@ func GetRSAFile(planId int64, name string) (string, error) {
 	}
 
 	return filepath.Join(rsaDir, "id_rsa"), nil
+}
+
+func ParseConfig(data TaskData) (*types.PlanConfig, error) {
+	config := data.Config
+
+	network := types.NetworkSpec{}
+	if err := network.Unmarshal(config.Network); err != nil {
+		return nil, err
+	}
+	kubernetes := types.KubernetesSpec{}
+	if err := kubernetes.Unmarshal(config.Kubernetes); err != nil {
+		return nil, err
+	}
+
+	// TODO: 测试数据，后续需要移除
+	if network.NetworkInterface == "" {
+		network.NetworkInterface = "ens33"
+	}
+	return &types.PlanConfig{
+		Kubernetes: kubernetes,
+		Network:    network,
+	}, nil
 }

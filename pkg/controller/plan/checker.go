@@ -16,19 +16,12 @@ limitations under the License.
 
 package plan
 
-import (
-	"k8s.io/klog/v2"
-)
-
 type Check struct {
 	handlerTask
 }
 
 func (c Check) Name() string { return "部署预检查" }
 func (c Check) Run() error {
-	klog.Infof("starting 部署预检查 task")
-	defer klog.Infof("completed 部署预检查 task")
-
 	if err := c.data.validate(); err != nil {
 		return err
 	}
