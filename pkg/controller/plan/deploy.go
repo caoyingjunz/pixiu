@@ -27,7 +27,7 @@ type Deploy struct {
 	handlerTask
 }
 
-func (b Deploy) Name() string { return "部署集群" }
+func (b Deploy) Name() string { return "部署Master" }
 
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b Deploy) Run() error {
@@ -45,5 +45,27 @@ func (b Deploy) Run() error {
 		return err
 	}
 
+	return nil
+}
+
+type DeployNode struct {
+	handlerTask
+}
+
+func (b DeployNode) Name() string { return "部署Node" }
+
+// Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
+func (b DeployNode) Run() error {
+	return nil
+}
+
+type DeployChart struct {
+	handlerTask
+}
+
+func (b DeployChart) Name() string { return "部署基础组件" }
+
+// Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
+func (b DeployChart) Run() error {
 	return nil
 }
