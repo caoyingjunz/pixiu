@@ -177,6 +177,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		planId := task.GetPlanId()
 		name := task.Name()
 		klog.Infof("starting plan(%d) task(%s)", planId, name)
+
 		// TODO: 通过闭包方式优化
 		if err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
 			"status": model.RunningPlanStatus, "message": "",
