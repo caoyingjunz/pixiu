@@ -57,14 +57,13 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 
 		// 部署计划的部署配置
 		planRoute.POST("/:planId/configs", t.createPlanConfig)
-		planRoute.PUT("/:planId/configs/:configId", t.updatePlanConfig)
-		planRoute.DELETE("/:planId/configs/:configId", t.deletePlanConfig)
-		planRoute.GET("/:planId/configs/:configId", t.getPlanConfig)
+		planRoute.PUT("/:planId/configs", t.updatePlanConfig)
+		planRoute.DELETE("/:planId/configs", t.deletePlanConfig)
+		planRoute.GET("/:planId/configs", t.getPlanConfig)
 
 		// 执行指定任务
 		planRoute.POST("/:planId/tasks/:taskId", t.runTasks)
 		// 查询任务列表
 		planRoute.POST("/:planId/tasks", t.listTasks)
-
 	}
 }
