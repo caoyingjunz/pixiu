@@ -46,6 +46,7 @@ func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePla
 	if err != nil {
 		return err
 	}
+	planConfig.PlanId = pid
 	// 创建配置
 	if _, err = p.factory.Plan().CreatConfig(ctx, planConfig); err != nil {
 		klog.Errorf("failed to create plan(%s) config(%d): %v", req.Name, pid, err)
@@ -95,7 +96,6 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 	}
 
 	return &model.Config{
-		PlanId:     req.PlanId,
 		Kubernetes: kubeConfig,
 		Network:    networkConfig,
 		Runtime:    runtimeConfig,
