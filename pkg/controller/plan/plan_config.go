@@ -36,57 +36,18 @@ func (p *plan) preCreateConfig(ctx context.Context, planId int64, req *types.Cre
 	return nil
 }
 
-func (p *plan) prepareConfig(ctx context.Context, req *types.CreatePlanConfigRequest) (*model.Config, error) {
-	kubeConfig, err := req.Kubernetes.Marshal()
-	if err != nil {
-		return nil, err
-	}
-	networkConfig, err := req.Network.Marshal()
-	if err != nil {
-		return nil, err
-	}
-	runtimeConfig, err := req.Runtime.Marshal()
-	if err != nil {
-		return nil, err
-	}
-
-	return &model.Config{
-		Kubernetes: kubeConfig,
-		Network:    networkConfig,
-		Runtime:    runtimeConfig,
-	}, nil
-}
-
 func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePlanConfigRequest) error {
 	// 创建前检查
 	if err := p.preCreateConfig(ctx, pid, req); err != nil {
 		return err
 	}
 
-	cfg := &model.Config{
-		Name:        req.Name,
-		PlanId:      pid,
-		Region:      req.Region,
-		Description: req.Description,
-	}
-
-	var err error
-	// 准备数据
-	cfg.Kubernetes, err = req.Kubernetes.Marshal()
+	planConfig, err := p.makePlanConfig(ctx, req)
 	if err != nil {
 		return err
 	}
-	cfg.Network, err = req.Network.Marshal()
-	if err != nil {
-		return err
-	}
-	cfg.Runtime, err = req.Runtime.Marshal()
-	if err != nil {
-		return err
-	}
-
 	// 创建配置
-	if _, err = p.factory.Plan().CreatConfig(ctx, cfg); err != nil {
+	if _, err = p.factory.Plan().CreatConfig(ctx, planConfig); err != nil {
 		klog.Errorf("failed to create plan(%s) config(%d): %v", req.Name, pid, err)
 		return err
 	}
@@ -117,6 +78,28 @@ func (p *plan) GetConfig(ctx context.Context, pid int64, cfgId int64) (*types.Pl
 	}
 
 	return p.modelConfig2Type(object)
+}
+
+func (p *plan) makePlanConfig(ctx context.Context, req *types.CreatePlanConfigRequest) (*model.Config, error) {
+	kubeConfig, err := req.Kubernetes.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	networkConfig, err := req.Network.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	runtimeConfig, err := req.Runtime.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Config{
+		PlanId:     req.PlanId,
+		Kubernetes: kubeConfig,
+		Network:    networkConfig,
+		Runtime:    runtimeConfig,
+	}, nil
 }
 
 func (p *plan) modelConfig2Type(o *model.Config) (*types.PlanConfig, error) {
