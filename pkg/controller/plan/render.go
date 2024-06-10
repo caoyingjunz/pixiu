@@ -56,7 +56,7 @@ func (r Render) Run() error {
 		return err
 	}
 	// 渲染 globals
-	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, ParseGlobal(r.data)); err != nil {
+	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, r.data.Config); err != nil {
 		return err
 	}
 
@@ -130,13 +130,6 @@ func ParseMultinode(data TaskData) (Multinode, error) {
 	}
 
 	return multinode, nil
-}
-
-type Global struct {
-}
-
-func ParseGlobal(data TaskData) Global {
-	return Global{}
 }
 
 // GetRenderFile
