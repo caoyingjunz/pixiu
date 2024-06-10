@@ -75,7 +75,7 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context) error {
 		return err
 	}
 	// 等待容器运行完成退出
-	return c.WaitContainer(ctx, resp.ID, 10)
+	return c.WaitContainer(ctx, resp.ID, 180)
 }
 
 func (c *Container) Close() error {

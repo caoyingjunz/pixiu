@@ -28,4 +28,6 @@ enable_calico: "yes"
 {{- end }}
 
 network_interface: "{{ .Network.NetworkInterface }}"
+
+enable_nfs: "no"
 `
