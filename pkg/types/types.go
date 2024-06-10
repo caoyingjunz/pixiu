@@ -230,10 +230,11 @@ type KubernetesSpec struct {
 }
 
 type NetworkSpec struct {
-	Cni            string `json:"cni"`
-	PodNetwork     string `json:"pod_network"`
-	ServiceNetwork string `json:"service_network"`
-	KubeProxy      string `json:"kube_proxy"`
+	NetworkInterface string `json:"network_interface"` // 网口，默认 eth0
+	Cni              string `json:"cni"`
+	PodNetwork       string `json:"pod_network"`
+	ServiceNetwork   string `json:"service_network"`
+	KubeProxy        string `json:"kube_proxy"`
 }
 
 type RuntimeSpec struct {

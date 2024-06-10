@@ -48,15 +48,19 @@ func (r Render) Run() error {
 		return err
 	}
 	// 渲染 multiNode
-	multiNode, err := ParseMultinode(r.data)
+	nodes, err := ParseMultinode(r.data)
 	if err != nil {
 		return err
 	}
-	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, multiNode); err != nil {
+	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, nodes); err != nil {
 		return err
 	}
 	// 渲染 globals
-	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, r.data.Config); err != nil {
+	cfg, err := ParseConfig(r.data)
+	if err != nil {
+		return err
+	}
+	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, cfg); err != nil {
 		return err
 	}
 
@@ -165,4 +169,26 @@ func GetRSAFile(planId int64, name string) (string, error) {
 	}
 
 	return filepath.Join(rsaDir, "id_rsa"), nil
+}
+
+func ParseConfig(data TaskData) (*types.PlanConfig, error) {
+	config := data.Config
+
+	network := types.NetworkSpec{}
+	if err := network.Unmarshal(config.Network); err != nil {
+		return nil, err
+	}
+	kubernetes := types.KubernetesSpec{}
+	if err := kubernetes.Unmarshal(config.Kubernetes); err != nil {
+		return nil, err
+	}
+
+	// TODO: 测试数据，后续需要移除
+	if network.NetworkInterface == "" {
+		network.NetworkInterface = "ens33"
+	}
+	return &types.PlanConfig{
+		Kubernetes: kubernetes,
+		Network:    network,
+	}, nil
 }
