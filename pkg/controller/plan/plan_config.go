@@ -36,32 +36,57 @@ func (p *plan) preCreateConfig(ctx context.Context, planId int64, req *types.Cre
 	return nil
 }
 
+func (p *plan) prepareConfig(ctx context.Context, req *types.CreatePlanConfigRequest) (*model.Config, error) {
+	kubeConfig, err := req.Kubernetes.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	networkConfig, err := req.Network.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	runtimeConfig, err := req.Runtime.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Config{
+		Kubernetes: kubeConfig,
+		Network:    networkConfig,
+		Runtime:    runtimeConfig,
+	}, nil
+}
+
 func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePlanConfigRequest) error {
+	// 创建前检查
 	if err := p.preCreateConfig(ctx, pid, req); err != nil {
 		return err
 	}
 
-	ks, err := req.Kubernetes.Marshal()
-	if err != nil {
-		return err
-	}
-	ns, err := req.Network.Marshal()
-	if err != nil {
-		return err
-	}
-	rs, err := req.Runtime.Marshal()
-	if err != nil {
-		return err
-	}
-	if _, err = p.factory.Plan().CreatConfig(ctx, &model.Config{
+	cfg := &model.Config{
 		Name:        req.Name,
 		PlanId:      pid,
 		Region:      req.Region,
-		Kubernetes:  ks,
-		Network:     ns,
-		Runtime:     rs,
 		Description: req.Description,
-	}); err != nil {
+	}
+
+	var err error
+	// 准备数据
+	cfg.Kubernetes, err = req.Kubernetes.Marshal()
+	if err != nil {
+		return err
+	}
+	cfg.Network, err = req.Network.Marshal()
+	if err != nil {
+		return err
+	}
+	cfg.Runtime, err = req.Runtime.Marshal()
+	if err != nil {
+		return err
+	}
+
+	// 创建配置
+	if _, err = p.factory.Plan().CreatConfig(ctx, cfg); err != nil {
 		klog.Errorf("failed to create plan(%s) config(%d): %v", req.Name, pid, err)
 		return err
 	}
