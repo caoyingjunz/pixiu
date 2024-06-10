@@ -70,10 +70,10 @@ func (p *plan) DeleteConfig(ctx context.Context, pid int64, cfgId int64) error {
 	return nil
 }
 
-func (p *plan) GetConfig(ctx context.Context, pid int64, cfgId int64) (*types.PlanConfig, error) {
+func (p *plan) GetConfig(ctx context.Context, pid int64) (*types.PlanConfig, error) {
 	object, err := p.factory.Plan().GetConfigByPlan(ctx, pid)
 	if err != nil {
-		klog.Errorf("failed to get plan(%d) config(%d): %v", pid, cfgId, err)
+		klog.Errorf("failed to get plan(%d) config: %v", pid, err)
 		return nil, errors.ErrServerInternal
 	}
 

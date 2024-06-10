@@ -92,14 +92,14 @@ func (t *planRouter) getPlanConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		opt planConfigMeta
+		opt planMeta
 		err error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = t.c.Plan().GetConfig(c, opt.PlanId, opt.ConfigId); err != nil {
+	if r.Result, err = t.c.Plan().GetConfig(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
