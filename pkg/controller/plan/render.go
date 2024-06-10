@@ -22,8 +22,6 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"k8s.io/klog/v2"
-
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
@@ -45,9 +43,6 @@ type Render struct {
 
 func (r Render) Name() string { return "配置渲染" }
 func (r Render) Run() error {
-	klog.Infof("starting 配置渲染 task")
-	defer klog.Infof("completed 配置渲染 task")
-
 	// 渲染 hosts
 	if err := r.doRender("hosts", pixiutpl.HostTemplate, r.data); err != nil {
 		return err

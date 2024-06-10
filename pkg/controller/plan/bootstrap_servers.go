@@ -20,8 +20,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/klog/v2"
-
 	"github.com/caoyingjunz/pixiu/pkg/util/container"
 )
 
@@ -33,9 +31,6 @@ func (b BootStrap) Name() string { return "初始化部署环境" }
 
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b BootStrap) Run() error {
-	klog.Infof("starting 初始化部署环境 task")
-	defer klog.Infof("completed 初始化部署环境) task")
-
 	cli, err := container.NewContainer("bootstrap-servers", b.GetPlanId())
 	if err != nil {
 		return err

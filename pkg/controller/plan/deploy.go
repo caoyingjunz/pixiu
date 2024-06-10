@@ -20,8 +20,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/klog/v2"
-
 	"github.com/caoyingjunz/pixiu/pkg/util/container"
 )
 
@@ -33,9 +31,6 @@ func (b Deploy) Name() string { return "部署集群" }
 
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b Deploy) Run() error {
-	klog.Infof("starting 部署集群 task")
-	defer klog.Infof("completed 部署集群 task")
-
 	cli, err := container.NewContainer("deploy", b.GetPlanId())
 	if err != nil {
 		return err
