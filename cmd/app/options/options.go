@@ -98,7 +98,6 @@ func (o *Options) Complete() error {
 	if o.ComponentConfig.Default.LogFormat == "" {
 		o.ComponentConfig.Default.LogFormat = defaultLogFormat
 	}
-
 	if o.ComponentConfig.Default.WorkDir == "" {
 		o.ComponentConfig.Default.WorkDir = defaultWorkDir
 	}
@@ -113,7 +112,6 @@ func (o *Options) Complete() error {
 	}
 
 	o.Controller = controller.New(o.ComponentConfig, o.Factory)
-
 	return nil
 }
 
@@ -128,7 +126,8 @@ func (o *Options) register() error {
 		return err
 	}
 
-	if err := o.registerSetWorkDir(); err != nil {
+	// 注册 worker 的工作目录
+	if err := o.registerWorkDir(); err != nil {
 		return err
 	}
 
@@ -136,7 +135,7 @@ func (o *Options) register() error {
 	return nil
 }
 
-func (o *Options) registerSetWorkDir() error {
+func (o *Options) registerWorkDir() error {
 	if err := plan.RegisterWorkDir(o.ComponentConfig.Default.WorkDir); err != nil {
 		return err
 	}
