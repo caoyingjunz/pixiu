@@ -18,20 +18,19 @@ package options
 
 import (
 	"fmt"
-	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"os"
 	"time"
 
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller"
+	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/controller"
-	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
 const (
