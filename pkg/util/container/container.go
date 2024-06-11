@@ -62,7 +62,7 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context) error {
 		Env:   []string{fmt.Sprintf("COMMAND=%s", c.action)},
 	}
 	hostConfig := &container.HostConfig{
-		Binds: []string{fmt.Sprintf("/var/pixiu/%d:/configs", c.planId)},
+		Binds: []string{fmt.Sprintf("/etc/pixiu/%d:/configs", c.planId)},
 	}
 	netConfig := &network.NetworkingConfig{}
 	resp, err := c.client.ContainerCreate(ctx, config, hostConfig, netConfig, c.name)
