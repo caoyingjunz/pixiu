@@ -136,7 +136,7 @@ func (o *Options) register() error {
 }
 
 func (o *Options) registerWorkDir() error {
-	if err := plan.RegisterWorkDir(o.ComponentConfig.Default.WorkDir); err != nil {
+	if err := plan.Register(o.ComponentConfig.Default.WorkDir); err != nil {
 		return err
 	}
 	return nil
