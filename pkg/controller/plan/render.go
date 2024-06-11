@@ -34,7 +34,7 @@ var (
 	once    sync.Once
 )
 
-func RegisterWorkDir(dir string) error {
+func Register(dir string) error {
 	once.Do(func() {
 		workDir = dir
 	})
