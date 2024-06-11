@@ -18,6 +18,7 @@ package options
 
 import (
 	"fmt"
+	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"os"
 	"time"
 
@@ -41,6 +42,7 @@ const (
 	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = config.LogFormatJson
+	defaultWorkDir    = "/tmp/kubez"
 
 	defaultSlowSQLDuration = 1 * time.Second
 )
@@ -97,6 +99,10 @@ func (o *Options) Complete() error {
 		o.ComponentConfig.Default.LogFormat = defaultLogFormat
 	}
 
+	if o.ComponentConfig.Default.WorkDir == "" {
+		o.ComponentConfig.Default.WorkDir = defaultWorkDir
+	}
+
 	if err := o.ComponentConfig.Valid(); err != nil {
 		return err
 	}
@@ -107,6 +113,9 @@ func (o *Options) Complete() error {
 	}
 
 	o.Controller = controller.New(o.ComponentConfig, o.Factory)
+
+	plan.SetWorkDir(o.ComponentConfig.Default.WorkDir)
+
 	return nil
 }
 

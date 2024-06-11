@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"text/template"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -28,9 +29,16 @@ import (
 	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
 
-const (
-	workDir = "/tmp/kubez"
+var (
+	workDir string
+	once    sync.Once
 )
+
+func SetWorkDir(dir string) {
+	once.Do(func() {
+		workDir = dir
+	})
+}
 
 // Render 渲染 pixiu 部署配置
 // 1. 渲染 hosts
