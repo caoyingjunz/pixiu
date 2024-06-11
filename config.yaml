@@ -9,8 +9,6 @@ default:
   auto_migrate: true
   # 日志的格式，可选 text 和 json
   log_format: json
-  # WorkDir 的目录
-  work_dir: /tmp/kubez
 
 # 数据库地址信息
 mysql:
