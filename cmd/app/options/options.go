@@ -18,7 +18,6 @@ package options
 
 import (
 	"fmt"
-	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"os"
 	"time"
 
@@ -28,7 +27,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-
+	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	"github.com/caoyingjunz/pixiu/pkg/db"
