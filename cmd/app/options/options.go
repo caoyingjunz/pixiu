@@ -42,7 +42,7 @@ const (
 	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = config.LogFormatJson
-	defaultWorkDir    = "/configs"
+	defaultWorkDir    = "/var/pixiu"
 
 	defaultSlowSQLDuration = 1 * time.Second
 )
