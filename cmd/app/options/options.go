@@ -21,16 +21,17 @@ import (
 	"os"
 	"time"
 
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/controller"
-	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
-	"github.com/caoyingjunz/pixiu/pkg/db"
-	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller"
+	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
 const (
@@ -41,7 +42,7 @@ const (
 	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = config.LogFormatJson
-	defaultWorkDir    = "/tmp/kubez"
+	defaultWorkDir    = "/configs"
 
 	defaultSlowSQLDuration = 1 * time.Second
 )
@@ -113,8 +114,6 @@ func (o *Options) Complete() error {
 
 	o.Controller = controller.New(o.ComponentConfig, o.Factory)
 
-	plan.SetWorkDir(o.ComponentConfig.Default.WorkDir)
-
 	return nil
 }
 
@@ -129,7 +128,18 @@ func (o *Options) register() error {
 		return err
 	}
 
+	if err := o.registerSetWorkDir(); err != nil {
+		return err
+	}
+
 	// TODO: 注册其他依赖
+	return nil
+}
+
+func (o *Options) registerSetWorkDir() error {
+	if err := plan.RegisterWorkDir(o.ComponentConfig.Default.WorkDir); err != nil {
+		return err
+	}
 	return nil
 }
 

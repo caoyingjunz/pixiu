@@ -34,10 +34,12 @@ var (
 	once    sync.Once
 )
 
-func SetWorkDir(dir string) {
+func RegisterWorkDir(dir string) error {
 	once.Do(func() {
 		workDir = dir
 	})
+
+	return nil
 }
 
 // Render 渲染 pixiu 部署配置
