@@ -18,6 +18,7 @@ package plan
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -159,6 +160,20 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 	}
 
 	return nil
+}
+
+func (p *plan) WorkDir() string {
+	return p.cc.Worker.WorkDir
+}
+
+func (p *plan) getImageForWorker(v string) (string, error) {
+	engines := p.cc.Worker.Engines
+	for _, engine := range engines {
+		if engine.Version == v {
+			return engine.Image, nil
+		}
+	}
+	return "", fmt.Errorf("version(%s) worker image not found", v)
 }
 
 // 同步任务状态

@@ -30,6 +30,7 @@ var ErrInvalidLogFormat = errors.New("invalid log format")
 type Config struct {
 	Default DefaultOptions `yaml:"default"`
 	Mysql   MysqlOptions   `yaml:"mysql"`
+	Worker  WorkerOptions  `yaml:"worker"`
 }
 
 type DefaultOptions struct {
@@ -39,8 +40,6 @@ type DefaultOptions struct {
 
 	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
-
-	WorkDir string `yaml:"work_dir"`
 
 	LogOptions `yaml:",inline"`
 }
@@ -79,6 +78,21 @@ func (o LogOptions) Valid() error {
 	}
 }
 
+type WorkerOptions struct {
+	WorkDir string   `yaml:"work_dir"`
+	Engines []Engine `yaml:"engines"`
+}
+
+type Engine struct {
+	Version string `yaml:"version"`
+	Image   string `yaml:"image"`
+}
+
+func (w WorkerOptions) Valid() error {
+	// TODO
+	return nil
+}
+
 func (c *Config) Valid() (err error) {
 	if err = c.Default.Valid(); err != nil {
 		return
@@ -86,5 +100,9 @@ func (c *Config) Valid() (err error) {
 	if err = c.Mysql.Valid(); err != nil {
 		return
 	}
+	if err = c.Worker.Valid(); err != nil {
+		return
+	}
+
 	return
 }
