@@ -8,7 +8,7 @@ docker 已经安装
 选择1：直接提供可用数据库
 
 选择2：快速启动数据库
-docker run -d --net host --restart=always --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" mysql:5.7
+docker run -d --net host --restart=always --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" harbor.cloud.pixiuio.com/pixiuio/mysql:5.7
 
 创建 pixiu 数据库
 CREATE DATABASE pixiu;
