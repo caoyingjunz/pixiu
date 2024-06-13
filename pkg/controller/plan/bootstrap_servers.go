@@ -41,7 +41,7 @@ func (b BootStrap) Run() error {
 	defer cancel()
 
 	// 启动执行容器
-	if err = cli.StartAndWaitForContainer(ctx); err != nil {
+	if err = cli.StartAndWaitForContainer(ctx, "harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1"); err != nil {
 		return err
 	}
 

@@ -17,3 +17,12 @@ mysql:
   password: Pixiu868686
   port: 3306
   name: pixiu
+
+worker:
+  engines:
+    - version: v2
+      image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
+    - version: v3
+      image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+    - version: offline
+      image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1-offline

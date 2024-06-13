@@ -29,7 +29,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
-	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
@@ -98,8 +97,8 @@ func (o *Options) Complete() error {
 	if o.ComponentConfig.Default.LogFormat == "" {
 		o.ComponentConfig.Default.LogFormat = defaultLogFormat
 	}
-	if o.ComponentConfig.Default.WorkDir == "" {
-		o.ComponentConfig.Default.WorkDir = defaultWorkDir
+	if o.ComponentConfig.Worker.WorkDir == "" {
+		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
 	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
@@ -126,19 +125,7 @@ func (o *Options) register() error {
 		return err
 	}
 
-	// 注册 worker 的工作目录
-	if err := o.registerWorkDir(); err != nil {
-		return err
-	}
-
 	// TODO: 注册其他依赖
-	return nil
-}
-
-func (o *Options) registerWorkDir() error {
-	if err := plan.Register(o.ComponentConfig.Default.WorkDir); err != nil {
-		return err
-	}
 	return nil
 }
 
