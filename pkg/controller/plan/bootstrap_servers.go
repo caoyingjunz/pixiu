@@ -25,13 +25,16 @@ import (
 
 type BootStrap struct {
 	handlerTask
+
+	dir    string
+	runner string
 }
 
 func (b BootStrap) Name() string { return "初始化部署环境" }
 
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b BootStrap) Run() error {
-	cli, err := container.NewContainer("bootstrap-servers", b.GetPlanId())
+	cli, err := container.NewContainer("bootstrap-servers", b.GetPlanId(), b.dir)
 	if err != nil {
 		return err
 	}
@@ -41,7 +44,7 @@ func (b BootStrap) Run() error {
 	defer cancel()
 
 	// 启动执行容器
-	if err = cli.StartAndWaitForContainer(ctx, "harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1"); err != nil {
+	if err = cli.StartAndWaitForContainer(ctx, b.runner); err != nil {
 		return err
 	}
 

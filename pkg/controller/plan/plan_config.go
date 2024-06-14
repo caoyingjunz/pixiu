@@ -97,6 +97,7 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 	}
 
 	return &model.Config{
+		OSImage:    req.OSImage,
 		Kubernetes: kubeConfig,
 		Network:    networkConfig,
 		Runtime:    runtimeConfig,
@@ -129,6 +130,7 @@ func (p *plan) modelConfig2Type(o *model.Config) (*types.PlanConfig, error) {
 		PlanId:      o.PlanId,
 		Name:        o.Name,
 		Region:      o.Region,
+		OSImage:     o.OSImage,
 		Description: o.Description,
 		Kubernetes:  *ks,
 		Network:     *ns,

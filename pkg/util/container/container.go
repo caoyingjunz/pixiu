@@ -35,15 +35,21 @@ type Container struct {
 	action string
 	name   string
 	planId int64
+	dir    string
 }
 
-func NewContainer(action string, planId int64) (*Container, error) {
+func NewContainer(action string, planId int64, dir string) (*Container, error) {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Container{client: client, action: action, name: fmt.Sprintf("%s-%d", action, planId), planId: planId}, nil
+	return &Container{
+		client: client,
+		action: action,
+		name:   fmt.Sprintf("%s-%d", action, planId),
+		planId: planId,
+		dir:    dir}, nil
 }
 
 // StartAndWaitForContainer 创建，启动容器，并等待容器退出
@@ -62,7 +68,7 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context, image string) 
 		Env:   []string{fmt.Sprintf("COMMAND=%s", c.action)},
 	}
 	hostConfig := &container.HostConfig{
-		Binds: []string{fmt.Sprintf("/etc/pixiu/%d:/configs", c.planId)},
+		Binds: []string{fmt.Sprintf("%s/%d:/configs", c.dir, c.planId)},
 	}
 	netConfig := &network.NetworkingConfig{}
 	resp, err := c.client.ContainerCreate(ctx, config, hostConfig, netConfig, c.name)

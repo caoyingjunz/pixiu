@@ -26,13 +26,16 @@ import (
 
 type Deploy struct {
 	handlerTask
+
+	dir    string
+	runner string
 }
 
 func (b Deploy) Name() string { return "部署Master" }
 
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b Deploy) Run() error {
-	cli, err := container.NewContainer("deploy", b.GetPlanId())
+	cli, err := container.NewContainer("deploy", b.GetPlanId(), b.dir)
 	if err != nil {
 		return err
 	}
@@ -42,7 +45,7 @@ func (b Deploy) Run() error {
 	defer cancel()
 
 	// 启动执行容器
-	if err = cli.StartAndWaitForContainer(ctx, "harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1"); err != nil {
+	if err = cli.StartAndWaitForContainer(ctx, b.runner); err != nil {
 		return err
 	}
 
