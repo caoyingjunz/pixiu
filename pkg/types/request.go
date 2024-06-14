@@ -114,6 +114,7 @@ type (
 		PlanId      int64  `json:"plan_id"`
 		Name        string `json:"name"  binding:"required"` // required
 		Region      string `json:"region"`
+		OSImage     string `json:"os_image" binding:"required"`     // 操作系统
 		Description string `json:"description" binding:"omitempty"` // optional
 
 		Kubernetes KubernetesSpec `json:"kubernetes"`

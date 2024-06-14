@@ -84,8 +84,8 @@ type WorkerOptions struct {
 }
 
 type Engine struct {
-	Version string `yaml:"version"`
-	Image   string `yaml:"image"`
+	Image       string   `yaml:"image"`
+	OSSupported []string `yaml:"os_supported"`
 }
 
 func (w WorkerOptions) Valid() error {

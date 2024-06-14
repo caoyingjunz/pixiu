@@ -20,9 +20,13 @@ mysql:
 
 worker:
   engines:
-    - version: v2
-      image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
-    - version: v3
-      image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
-    - version: offline
-      image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1-offline
+    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
+      os_supported:
+        - centos7
+        - debian10
+        - ubuntu18.04
+    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+      os_supported:
+        - debian11
+        - ubuntu20.04
+        - ubuntu22.04

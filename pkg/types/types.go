@@ -165,6 +165,7 @@ type PlanConfig struct {
 	PlanId      int64          `json:"plan_id" binding:"required"` // required
 	Name        string         `json:"name"  binding:"required"`   // required
 	Region      string         `json:"region"`
+	OSImage     string         `json:"os_image"`    // 操作系统
 	Description string         `json:"description"` // optional
 	Kubernetes  KubernetesSpec `json:"kubernetes"`
 	Network     NetworkSpec    `json:"network"`

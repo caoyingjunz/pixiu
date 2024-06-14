@@ -113,13 +113,20 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		klog.Errorf("failed to get task data: %v", err)
 		return
 	}
+	runner, err := p.GetRunner(taskData.Config.OSImage)
+	if err != nil {
+		klog.Errorf("failed to get image(%s) for worker: %v", taskData.Config.OSImage, err)
+		return
+	}
+	// Runner的工作目录
+	dir := p.WorkDir()
 
 	task := newHandlerTask(taskData)
 	handlers := []Handler{
 		Check{handlerTask: task},
 		Render{handlerTask: task},
-		BootStrap{handlerTask: task},
-		Deploy{handlerTask: task},
+		BootStrap{handlerTask: task, dir: dir, runner: runner},
+		Deploy{handlerTask: task, dir: dir, runner: runner},
 		DeployNode{handlerTask: task},
 		DeployChart{handlerTask: task},
 	}
@@ -166,14 +173,16 @@ func (p *plan) WorkDir() string {
 	return p.cc.Worker.WorkDir
 }
 
-func (p *plan) getImageForWorker(v string) (string, error) {
+func (p *plan) GetRunner(osImage string) (string, error) {
 	engines := p.cc.Worker.Engines
 	for _, engine := range engines {
-		if engine.Version == v {
-			return engine.Image, nil
+		for _, os := range engine.OSSupported {
+			if os == osImage {
+				return engine.Image, nil
+			}
 		}
 	}
-	return "", fmt.Errorf("version(%s) worker image not found", v)
+	return "", fmt.Errorf("osImage(%s) runner not found", osImage)
 }
 
 // 同步任务状态

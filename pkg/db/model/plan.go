@@ -70,6 +70,7 @@ type Config struct {
 	Name        string `gorm:"index:idx_name,unique" json:"name"`
 	PlanId      int64  `json:"plan_id"`
 	Region      string `json:"region"`
+	OSImage     string `json:"os_image"`
 	Kubernetes  string `json:"kubernetes"`
 	Network     string `json:"network"`
 	Runtime     string `json:"runtime"`
