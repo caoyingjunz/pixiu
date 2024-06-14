@@ -64,6 +64,28 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 }
 
 func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
+	updates := make(map[string]interface{})
+
+	if req.CRI != "" {
+		updates["cri"] = req.CRI
+	}
+
+	updates["role"] = req.Role
+
+	if req.Auth.Type != "" {
+		auth, err := req.Auth.Marshal()
+		if err != nil {
+			klog.Errorf("failed to parse node(%s) auth: %v", req.Name, err)
+			return err
+		}
+		updates["auth"] = auth
+	}
+
+	if err := p.factory.Plan().UpdateNode(ctx, nodeId, req.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update plan(%d) node(%d): %v", pid, nodeId, err)
+		return errors.ErrServerInternal
+	}
+
 	return nil
 }
 
@@ -123,6 +145,7 @@ func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 		Name:   o.Name,
 		Role:   o.Role,
 		Ip:     o.Ip,
+		CRI:    o.CRI,
 		Auth:   auth,
 	}, nil
 }
