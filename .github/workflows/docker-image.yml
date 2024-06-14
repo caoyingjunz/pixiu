@@ -26,11 +26,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login in dockerhub
+      - name: Login harbor
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_NAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: harbor.cloud.pixiuio.com
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build and push the pixiu image
         uses: docker/build-push-action@v5
@@ -42,6 +43,6 @@ jobs:
             VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
           push: true
           tags: |
-            ${{ secrets.DOCKER_NAME }}/pixiu:latest
-            ${{ secrets.DOCKER_NAME }}/pixiu:v0.1
-            ${{ secrets.DOCKER_NAME }}/pixiu:${{ env.COMMIT_HASH }}
+            harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:latest
+            harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:v0.1
+            harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:${{ env.COMMIT_HASH }}
