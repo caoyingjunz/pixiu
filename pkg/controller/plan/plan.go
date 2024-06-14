@@ -183,6 +183,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 		klog.Errorf("failed to get tasks of plan %d: %v", pid, err)
 		return errors.ErrServerInternal
 	}
+
 	for _, task := range tasks {
 		if task.Status == model.RunningPlanStatus {
 			klog.Warningf("task %d of plan %d is already running", task.Id, pid)
