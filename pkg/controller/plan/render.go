@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
-	"sync"
 	"text/template"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -29,19 +28,6 @@ import (
 	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
 
-var (
-	workDir string
-	once    sync.Once
-)
-
-func Register(dir string) error {
-	once.Do(func() {
-		workDir = dir
-	})
-
-	return nil
-}
-
 // Render 渲染 pixiu 部署配置
 // 1. 渲染 hosts
 // 2. 渲染 globals.yaml
@@ -49,6 +35,8 @@ func Register(dir string) error {
 // 具体参考 https://github.com/pixiu-io/kubez-ansible
 type Render struct {
 	handlerTask
+
+	dir string
 }
 
 func (r Render) Name() string { return "配置渲染" }
@@ -58,7 +46,7 @@ func (r Render) Run() error {
 		return err
 	}
 	// 渲染 multiNode
-	nodes, err := ParseMultinode(r.data)
+	nodes, err := ParseMultinode(r.data, r.dir)
 	if err != nil {
 		return err
 	}
@@ -85,7 +73,7 @@ func (r Render) doRender(name string, text string, data interface{}) error {
 	if err := tpl.Execute(&buf, data); err != nil {
 		return err
 	}
-	filename, err := GetRenderFile(r.GetPlanId(), name)
+	filename, err := GetRenderFile(r.GetPlanId(), r.dir, name)
 	if err != nil {
 		return err
 	}
@@ -103,7 +91,7 @@ type Multinode struct {
 	ContainerdNode   []types.PlanNode
 }
 
-func ParseMultinode(data TaskData) (Multinode, error) {
+func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 	multinode := Multinode{
 		DockerMaster:     make([]types.PlanNode, 0),
 		DockerNode:       make([]types.PlanNode, 0),
@@ -118,7 +106,7 @@ func ParseMultinode(data TaskData) (Multinode, error) {
 			return multinode, err
 		}
 		// 生成rsa的渲染文件
-		rsa, err := RenderRSA(data.PlanId, node.Name, nodeAuth)
+		rsa, err := RenderRSA(data.PlanId, node.Name, workDir, nodeAuth)
 		if err != nil {
 			return multinode, err
 		}
@@ -148,7 +136,7 @@ func ParseMultinode(data TaskData) (Multinode, error) {
 
 // GetRenderFile
 // TODO: 后续优化
-func GetRenderFile(planId int64, f string) (string, error) {
+func GetRenderFile(planId int64, workDir string, f string) (string, error) {
 	planDir := filepath.Join(workDir, fmt.Sprintf("%d", planId))
 	if err := util.EnsureDirectoryExists(planDir); err != nil {
 		return "", err
@@ -157,9 +145,9 @@ func GetRenderFile(planId int64, f string) (string, error) {
 	return filepath.Join(planDir, f), nil
 }
 
-func RenderRSA(planId int64, name string, auth types.PlanNodeAuth) (string, error) {
+func RenderRSA(planId int64, name string, workDir string, auth types.PlanNodeAuth) (string, error) {
 	if auth.Type == types.KeyAuth {
-		f, err := GetRSAFile(planId, name)
+		f, err := GetRSAFile(planId, workDir, name)
 		if err != nil {
 			return "", err
 		}
@@ -172,7 +160,7 @@ func RenderRSA(planId int64, name string, auth types.PlanNodeAuth) (string, erro
 	return "", nil
 }
 
-func GetRSAFile(planId int64, name string) (string, error) {
+func GetRSAFile(planId int64, workDir string, name string) (string, error) {
 	rsaDir := filepath.Join(workDir, fmt.Sprintf("%d", planId), "ssh", name)
 	if err := util.EnsureDirectoryExists(rsaDir); err != nil {
 		return "", err

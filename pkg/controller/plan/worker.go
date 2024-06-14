@@ -124,7 +124,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	task := newHandlerTask(taskData)
 	handlers := []Handler{
 		Check{handlerTask: task},
-		Render{handlerTask: task},
+		Render{handlerTask: task, dir: dir},
 		BootStrap{handlerTask: task, dir: dir, runner: runner},
 		Deploy{handlerTask: task, dir: dir, runner: runner},
 		DeployNode{handlerTask: task},
