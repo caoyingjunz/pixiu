@@ -18,13 +18,19 @@ package plan
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
+	"sync"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -62,17 +68,24 @@ type Interface interface {
 
 	RunTask(ctx context.Context, planId int64, taskId int64) error
 	ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error)
+	GetTaskResults(planId int64, c *gin.Context)
 }
 
-var taskQueue workqueue.RateLimitingInterface
+var (
+	taskQueue workqueue.RateLimitingInterface
+	taskCache *client.TaskCache
+)
 
 func init() {
 	taskQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tasks")
+	taskCache = client.NewTaskCache()
 }
 
 type plan struct {
-	cc      config.Config
-	factory db.ShareDaoFactory
+	cc        config.Config
+	factory   db.ShareDaoFactory
+	mutex     sync.Mutex
+	taskQueue chan Handler
 }
 
 // Create
@@ -159,6 +172,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	if err != nil {
 		return fmt.Errorf("failed to get plan(%d) config %v", pid, err)
 	}
+	fmt.Printf("-----%v---", cfg)
 	// TODO: 根据具体情况对参数
 
 	// 2. 校验节点
@@ -237,5 +251,79 @@ func NewPlan(cfg config.Config, f db.ShareDaoFactory) *plan {
 	return &plan{
 		cc:      cfg,
 		factory: f,
+	}
+}
+
+// GetTaskResults 等待获取任务结果
+func (p *plan) GetTaskResults(planId int64, c *gin.Context) {
+	w := c.Writer
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	resultQueue, ok := taskCache.GetResultQueue(planId)
+	for {
+		closeNotifier := c.Request.Context().Done()
+		select {
+		case <-closeNotifier:
+			klog.Infof("客户端关闭了。。。。。。。。。。")
+			return
+		default:
+			//如果任务不在执行,从数据库中获取任务结果
+			if !ok || resultQueue == nil {
+				results, err := p.factory.Plan().ListTasks(context.Background(), planId)
+				if err != nil {
+					klog.Errorf("failed to get task result from database: %v", err)
+					return
+				}
+				sort.Slice(results, func(i, j int) bool {
+					return results[i].Id < results[j].Id
+				})
+
+				if err = json.NewEncoder(w).Encode(results); err != nil {
+					klog.Errorf("failed to encode task result: %v", err)
+					return
+				}
+				w.Flush()
+				return
+			}
+			//如果任务正在执行，从缓存中获取任务结果
+			taskResult, ok := taskCache.GetPlanResult(planId)
+			if !ok || taskResult == nil {
+				results, err := p.factory.Plan().ListTasks(context.Background(), planId)
+				if err := json.NewEncoder(w).Encode(results); err != nil {
+					klog.Errorf("failed to encode task result: %v", err)
+					return
+				}
+				w.Flush()
+				if err != nil {
+					klog.Errorf("failed to get task result from database: %v", err)
+					return
+				}
+				return
+			}
+			//持续获取任务结果,知道任务完成
+			for {
+				_, ok := <-resultQueue
+				var results []*model.Task
+				for _, t := range taskResult {
+					results = append(results, t)
+				}
+				//排序
+				sort.Slice(results, func(i, j int) bool {
+					return results[i].Id < results[j].Id
+				})
+				if err := json.NewEncoder(w).Encode(results); err != nil {
+					klog.Errorf("failed to encode task result: %v", err)
+					break
+				}
+				w.Flush()
+				time.Sleep(time.Second)
+				if !ok {
+					//	清理缓存
+					taskCache.ClearPlanResult(planId)
+					break
+				}
+			}
+		}
 	}
 }

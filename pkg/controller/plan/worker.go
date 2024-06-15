@@ -106,7 +106,6 @@ func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) 
 // 4. 部署后环境清理
 func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	klog.Infof("starting plan(%d) task", planId)
-	defer klog.Infof("completed plan(%d) task", planId)
 
 	taskData, err := p.getTaskData(ctx, planId)
 	if err != nil {
@@ -130,9 +129,23 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		DeployNode{handlerTask: task},
 		DeployChart{handlerTask: task},
 	}
-	if err = p.syncTasks(handlers...); err != nil {
-		klog.Errorf("failed to sync task: %v", err)
+	err = p.createPlanTasksIfNotExist(handlers...)
+	if err != nil {
+		klog.Errorf("failed to create plan(%d) tasks: %v", planId, err)
+		return
 	}
+
+	p.taskQueue = make(chan Handler)
+	go func() {
+		for _, handler := range handlers {
+			p.taskQueue <- handler
+		}
+		close(p.taskQueue)
+	}()
+
+	resultQueue := make(chan struct{}, len(handlers))
+	taskCache.SetResultQueue(planId, resultQueue)
+	p.syncTasks(planId)
 }
 
 func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
@@ -140,11 +153,12 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		planId := task.GetPlanId()
 		name := task.Name()
 		step := task.Step()
-
-		_, err := p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
+		lastTask, err := p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
 		// 存在则直接返回
-		if err == nil {
-			return nil
+		if err == nil && lastTask != nil {
+			// 从数据库获取历史状态并初始化缓存
+			taskCache.SetTaskResult(planId, lastTask)
+			continue
 		}
 		if err != nil {
 			// 非不存在报错则报异常
@@ -155,7 +169,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		}
 
 		// 不存在记录则新建
-		if _, err = p.factory.Plan().CreatTask(context.TODO(), &model.Task{
+		if newTask, err := p.factory.Plan().CreatTask(context.TODO(), &model.Task{
 			Name:   name,
 			PlanId: planId,
 			Step:   step,
@@ -163,9 +177,10 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		}); err != nil {
 			klog.Errorf("failed to init plan(%d) task(%s): %v", planId, name, err)
 			return err
+		} else {
+			taskCache.SetTaskResult(planId, newTask)
 		}
 	}
-
 	return nil
 }
 
@@ -188,55 +203,86 @@ func (p *plan) GetRunner(osImage string) (string, error) {
 // 同步任务状态
 // 任务启动时设置为运行中，结束时同步为结束状态(成功或者失败)
 // TODO: 后续优化
-func (p *plan) syncStatus(planId int64) error {
+func (p *plan) syncStatus(task *model.Task) error {
+	if err := p.factory.Plan().UpdateTask(context.TODO(), task.PlanId, task.Name, map[string]interface{}{
+		"status": task.Status, "message": task.Message,
+		"start_at": task.StartAt, "end_at": task.EndAt,
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (p *plan) syncTasks(tasks ...Handler) error {
-	// 初始化记录
-	if err := p.createPlanTasksIfNotExist(tasks...); err != nil {
+func (p *plan) syncTasks(planId int64) {
+	//TODO: 后续优化
+	exitLoop := false
+
+	for !exitLoop {
+		select {
+		case task, ok := <-p.taskQueue:
+			if !ok {
+				exitLoop = true
+				//	关闭任务结果队列
+				taskCache.CloseResultQueue(planId)
+				return
+			}
+			if err := p.handlerTask(task); err != nil {
+				klog.Errorf("failed to handler task(%s): %v", task.Name(), err)
+				exitLoop = true
+				//	关闭任务结果队列
+				taskCache.CloseResultQueue(planId)
+				return
+			}
+		}
+
+	}
+}
+
+func (p *plan) handlerTask(task Handler) error {
+
+	planId := task.GetPlanId()
+	name := task.Name()
+	resultQueue, ok := taskCache.GetResultQueue(planId)
+	if !ok || resultQueue == nil {
+		return fmt.Errorf("failed to get plan(%d) result queue", task.GetPlanId())
+	}
+	// 获取当前任务缓存信息
+	taskResult, ok := taskCache.GetTaskResult(planId, name)
+	if !ok || taskResult == nil {
+		return fmt.Errorf("failed to get plan(%d) task(%s) result", planId, name)
+	}
+	// 设置启动任务时间
+	taskResult.StartAt = time.Now()
+	taskResult.Status = model.RunningPlanStatus
+	step := task.Step()
+	resultQueue <- struct{}{}
+	klog.Infof("starting plan(%d) task(%s)", planId, name)
+	if err := p.syncStatus(taskResult); err != nil {
 		return err
 	}
 
-	// 执行任务并更新状态
-	for _, task := range tasks {
-		planId := task.GetPlanId()
-		name := task.Name()
-		klog.Infof("starting plan(%d) task(%s)", planId, name)
-
-		// TODO: 通过闭包方式优化
-		if err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
-			"status": model.RunningPlanStatus, "message": "",
-		}); err != nil {
-			klog.Errorf("failed to update plan(%d) status before run task(%s): %v", planId, name, err)
+	runErr := task.Run()
+	if runErr != nil {
+		step = model.FailedPlanStep
+		taskResult.Message = runErr.Error()
+		taskResult.EndAt = time.Now()
+		taskResult.Status = model.FailedPlanStatus
+		taskResult.Step = step
+		resultQueue <- struct{}{}
+		klog.Errorf("failed plan(%d) task(%s),result: %v,len: %d", planId, name, taskResult, len(resultQueue))
+		if err := p.syncStatus(taskResult); err != nil {
 			return err
 		}
-
-		status := model.SuccessPlanStatus
-		step := task.Step()
-		message := ""
-
-		// 执行检查
-		runErr := task.Run()
-		if runErr != nil {
-			status = model.FailedPlanStatus
-			step = model.FailedPlanStep
-			message = runErr.Error()
-		}
-
-		// 执行完成之后更新状态
-		if err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
-			"status": status, "message": message, "step": step,
-		}); err != nil {
-			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", planId, name, err)
-			return err
-		}
-
-		klog.Infof("completed plan(%d) task(%s)", planId, name)
-		if runErr != nil {
-			return runErr
-		}
+		return runErr
 	}
 
+	taskResult.EndAt = time.Now()
+	taskResult.Status = model.SuccessPlanStatus
+	taskResult.Step = step
+	resultQueue <- struct{}{}
+	klog.Infof("completed plan(%d) task(%s),result: %v,len: %d", planId, name, taskResult, len(resultQueue))
+	if err := p.syncStatus(taskResult); err != nil {
+		return err
+	}
 	return nil
 }

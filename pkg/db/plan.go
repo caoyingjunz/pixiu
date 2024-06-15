@@ -245,6 +245,8 @@ func (p *plan) CreatTask(ctx context.Context, object *model.Task) (*model.Task, 
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
+	object.StartAt = now
+	object.EndAt = now
 
 	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err

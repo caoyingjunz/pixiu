@@ -17,6 +17,8 @@ limitations under the License.
 package model
 
 import (
+	"time"
+
 	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 )
 
@@ -107,6 +109,8 @@ type Task struct {
 	Step    PlanStep   `json:"step"`
 	Status  TaskStatus `json:"status"`
 	Message string     `json:"message"`
+	StartAt time.Time  `json:"start_at"`
+	EndAt   time.Time  `json:"end_at"`
 }
 
 func (task *Task) TableName() string {
