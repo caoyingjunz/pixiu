@@ -35,13 +35,12 @@ func (t *planRouter) createPlanNode(c *gin.Context) {
 	var (
 		opt planMeta
 		req types.CreatePlanNodeRequest
-		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&opt).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().CreateNode(c, opt.PlanId, &req); err != nil {
+	if err := t.c.Plan().CreateNode(c, opt.PlanId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -55,13 +54,12 @@ func (t *planRouter) updatePlanNode(c *gin.Context) {
 	var (
 		opt planNodeMeta
 		req types.UpdatePlanNodeRequest
-		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&opt).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().UpdateNode(c, opt.PlanId, opt.NodeId, &req); err != nil {
+	if err := t.c.Plan().UpdateNode(c, opt.PlanId, opt.NodeId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -72,15 +70,12 @@ func (t *planRouter) updatePlanNode(c *gin.Context) {
 func (t *planRouter) deletePlanNode(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var (
-		opt planNodeMeta
-		err error
-	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+	var opt planNodeMeta
+	if err := httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().DeleteNode(c, opt.PlanId, opt.NodeId); err != nil {
+	if err := t.c.Plan().DeleteNode(c, opt.PlanId, opt.NodeId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -95,7 +90,7 @@ func (t *planRouter) getPlanNode(c *gin.Context) {
 		opt planNodeMeta
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -114,7 +109,7 @@ func (t *planRouter) listPlanNodes(c *gin.Context) {
 		opt planMeta
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

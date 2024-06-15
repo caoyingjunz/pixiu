@@ -34,7 +34,7 @@ func (cr *clusterRouter) ListReleases(c *gin.Context) {
 		err      error
 		helmMeta HelmMeta
 	)
-	if err = c.ShouldBindUri(&helmMeta); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&helmMeta).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

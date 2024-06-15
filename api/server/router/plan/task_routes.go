@@ -41,7 +41,7 @@ func (t *planRouter) listTasks(c *gin.Context) {
 		opt planMeta
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
