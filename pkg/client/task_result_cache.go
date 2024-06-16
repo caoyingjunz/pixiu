@@ -19,7 +19,6 @@ package client
 import (
 	"sync"
 
-	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
@@ -27,14 +26,28 @@ type TaskCache struct {
 	sync.RWMutex
 	quitQueue  map[int64]chan struct{}          // 存储每个任务的通道，用于循环从缓存中获取任务结果
 	taskResult map[int64]map[string]*model.Task // 存储每个任务的结果
-	taskQueue  map[int64]chan plan.Handler
+	taskQueue  map[int64]chan interface{}
 }
 
 func NewTaskCache() *TaskCache {
 	return &TaskCache{
 		quitQueue:  map[int64]chan struct{}{},
 		taskResult: map[int64]map[string]*model.Task{},
+		taskQueue:  map[int64]chan interface{}{},
 	}
+}
+func (s *TaskCache) GetTaskQueue(planId int64) (chan interface{}, bool) {
+	s.RLock()
+	defer s.RUnlock()
+
+	t, ok := s.taskQueue[planId]
+	return t, ok
+}
+
+func (s *TaskCache) SetTaskQueue(planId int64, result chan interface{}) {
+	s.RLock()
+	defer s.RUnlock()
+	s.taskQueue[planId] = result
 }
 
 func (s *TaskCache) GetQuitQueue(planId int64) (chan struct{}, bool) {

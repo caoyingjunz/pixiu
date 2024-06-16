@@ -129,7 +129,6 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		DeployNode{handlerTask: task},
 		DeployChart{handlerTask: task},
 	}
-	p.taskQueue = make(chan Handler)
 	quit := make(chan struct{}, len(handlers))
 	taskCache.SetQuitQueue(planId, quit)
 	err = p.createPlanTasksIfNotExist(handlers...)
@@ -137,11 +136,14 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		klog.Errorf("failed to create plan(%d) tasks: %v", planId, err)
 		return
 	}
+
+	taskQueue := make(chan interface{})
+	taskCache.SetTaskQueue(planId, taskQueue)
 	go func() {
 		for _, handler := range handlers {
-			p.taskQueue <- handler
+			taskQueue <- handler
 		}
-		close(p.taskQueue)
+		close(taskQueue)
 	}()
 	go p.syncTasks(planId)
 }
@@ -201,14 +203,12 @@ func (p *plan) GetRunner(osImage string) (string, error) {
 // 同步任务状态
 // 任务启动时设置为运行中，结束时同步为结束状态(成功或者失败)
 func (p *plan) syncStatus(task *model.Task) error {
-	fmt.Printf("-------->>>>>>>>>计划：%d : 任务： %s 状态变更--->: %v，剩余task数量：%d\n", task.PlanId, task.Name,
-		task.Status, len(p.taskQueue))
-	// if err := p.factory.Plan().UpdateTask(context.TODO(), task.PlanId, task.Name, map[string]interface{}{
-	// 	"status": task.Status, "message": task.Message,
-	// 	"start_at": task.StartAt, "end_at": task.EndAt,
-	// }); err != nil {
-	// 	return err
-	// }
+	if err := p.factory.Plan().UpdateTask(context.TODO(), task.PlanId, task.Name, map[string]interface{}{
+		"status": task.Status, "message": task.Message,
+		"start_at": task.StartAt, "end_at": task.EndAt,
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -217,17 +217,23 @@ func (p *plan) syncTasks(planId int64) {
 	if !ok {
 		return
 	}
+	taskQueue, ok := taskCache.GetTaskQueue(planId)
+	if !ok {
+		return
+	}
 	for {
-		task, ok := <-p.taskQueue
+		res, ok := <-taskQueue
 		if !ok {
 			klog.Infof("plan(%d) tasks all completed", planId)
-			// taskCache.ClearPlanResults(planId)
+			taskCache.ClearPlanResults(planId)
 			quit <- struct{}{}
 			taskCache.CloseQuitQueue(planId)
 			break
 		}
+
+		task := res.(Handler)
 		if err := p.handlerTask(task); err != nil {
-			// taskCache.ClearPlanResults(planId)
+			taskCache.ClearPlanResults(planId)
 			klog.Errorf("%d 计划 failed to handle task(%s): %v", planId, task.Name(), err)
 			quit <- struct{}{}
 			taskCache.CloseQuitQueue(planId)
@@ -237,7 +243,6 @@ func (p *plan) syncTasks(planId int64) {
 }
 
 func (p *plan) handlerTask(task Handler) error {
-	fmt.Printf("-------->>>>>>>>>计划：%d : 任务： %s 开始执行--->\n", task.GetPlanId(), task.Name())
 	planId := task.GetPlanId()
 	name := task.Name()
 	// 获取当前任务缓存信息

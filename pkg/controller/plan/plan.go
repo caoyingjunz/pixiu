@@ -81,9 +81,8 @@ func init() {
 }
 
 type plan struct {
-	cc        config.Config
-	factory   db.ShareDaoFactory
-	taskQueue chan Handler
+	cc      config.Config
+	factory db.ShareDaoFactory
 }
 
 // Create
