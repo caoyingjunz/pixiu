@@ -46,5 +46,5 @@ func (t *planRouter) listTasks(c *gin.Context) {
 		return
 	}
 
-	t.c.Plan().GetTaskResults(opt.PlanId, c)
+	t.c.Plan().GetTaskResults(opt.PlanId, c.Writer, c.Request)
 }

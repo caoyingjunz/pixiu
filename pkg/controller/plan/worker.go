@@ -215,26 +215,26 @@ func (p *plan) syncStatus(task *model.Task) error {
 
 func (p *plan) syncTasks(planId int64) {
 	//TODO: 后续优化
-	exitLoop := false
-
-	for !exitLoop {
-		select {
-		case task, ok := <-p.taskQueue:
-			if !ok {
-				exitLoop = true
-				//	关闭任务结果队列
-				taskCache.CloseResultQueue(planId)
-				return
-			}
-			if err := p.handlerTask(task); err != nil {
-				klog.Errorf("failed to handler task(%s): %v", task.Name(), err)
-				exitLoop = true
-				//	关闭任务结果队列
-				taskCache.CloseResultQueue(planId)
-				return
-			}
+	resultQueue, ok := taskCache.GetResultQueue(planId)
+	if !ok {
+		return
+	}
+	for {
+		task, ok := <-p.taskQueue
+		if !ok {
+			// Close the task result queue
+			resultQueue <- struct{}{}
+			taskCache.CloseResultQueue(planId)
+			fmt.Println("All tasks completed!")
+			break
 		}
-
+		if err := p.handlerTask(task); err != nil {
+			klog.Errorf("failed to handle task(%s): %v", task.Name(), err)
+			resultQueue <- struct{}{}
+			// Close the task result queue
+			taskCache.CloseResultQueue(planId)
+			break
+		}
 	}
 }
 
@@ -242,10 +242,10 @@ func (p *plan) handlerTask(task Handler) error {
 
 	planId := task.GetPlanId()
 	name := task.Name()
-	resultQueue, ok := taskCache.GetResultQueue(planId)
-	if !ok || resultQueue == nil {
-		return fmt.Errorf("failed to get plan(%d) result queue", task.GetPlanId())
-	}
+	// resultQueue, ok := taskCache.GetResultQueue(planId)
+	// if !ok || resultQueue == nil {
+	// 	return fmt.Errorf("failed to get plan(%d) result queue", task.GetPlanId())
+	// }
 	// 获取当前任务缓存信息
 	taskResult, ok := taskCache.GetTaskResult(planId, name)
 	if !ok || taskResult == nil {
@@ -255,7 +255,7 @@ func (p *plan) handlerTask(task Handler) error {
 	taskResult.StartAt = time.Now()
 	taskResult.Status = model.RunningPlanStatus
 	step := task.Step()
-	resultQueue <- struct{}{}
+	// resultQueue <- struct{}{}
 	klog.Infof("starting plan(%d) task(%s)", planId, name)
 	if err := p.syncStatus(taskResult); err != nil {
 		return err
@@ -268,8 +268,8 @@ func (p *plan) handlerTask(task Handler) error {
 		taskResult.EndAt = time.Now()
 		taskResult.Status = model.FailedPlanStatus
 		taskResult.Step = step
-		resultQueue <- struct{}{}
-		klog.Errorf("failed plan(%d) task(%s),result: %v,len: %d", planId, name, taskResult, len(resultQueue))
+		// resultQueue <- struct{}{}
+		klog.Errorf("failed plan(%d) task(%s),result: %v", planId, name, taskResult)
 		if err := p.syncStatus(taskResult); err != nil {
 			return err
 		}
@@ -279,8 +279,8 @@ func (p *plan) handlerTask(task Handler) error {
 	taskResult.EndAt = time.Now()
 	taskResult.Status = model.SuccessPlanStatus
 	taskResult.Step = step
-	resultQueue <- struct{}{}
-	klog.Infof("completed plan(%d) task(%s),result: %v,len: %d", planId, name, taskResult, len(resultQueue))
+	// resultQueue <- struct{}{}
+	klog.Infof("completed plan(%d) task(%s),result: %v", planId, name, taskResult)
 	if err := p.syncStatus(taskResult); err != nil {
 		return err
 	}
