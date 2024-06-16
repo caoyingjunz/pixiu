@@ -170,7 +170,6 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	if err != nil {
 		return fmt.Errorf("failed to get plan(%d) config %v", pid, err)
 	}
-	fmt.Printf("-----%v---", cfg)
 	// TODO: 根据具体情况对参数
 
 	// 2. 校验节点
@@ -254,13 +253,11 @@ func NewPlan(cfg config.Config, f db.ShareDaoFactory) *plan {
 
 // GetTaskResults 等待获取任务结果
 func (p *plan) GetTaskResults(planId int64, w http.ResponseWriter, r *http.Request) {
-	// w := c.Writer
 	flush, _ := w.(http.Flusher)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	fmt.Println("开始获取结果。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。")
-	resultQueue, ok := taskCache.GetResultQueue(planId)
+	quit, ok := taskCache.GetQuitQueue(planId)
 
 	//如果任务不在执行,从数据库中获取任务结果
 	if !ok {
@@ -277,7 +274,7 @@ func (p *plan) GetTaskResults(planId int64, w http.ResponseWriter, r *http.Reque
 		return
 	}
 	//如果任务正在执行，从缓存中获取任务结果
-	taskResult, ok := taskCache.GetPlanResult(planId)
+	taskResult, ok := taskCache.GetPlanResults(planId)
 	if !ok {
 		results, err := p.factory.Plan().ListTasks(context.Background(), planId)
 		if err != nil {
@@ -292,14 +289,10 @@ func (p *plan) GetTaskResults(planId int64, w http.ResponseWriter, r *http.Reque
 		return
 	}
 	for {
-		fmt.Printf("%d  进入循环获取缓存数据。，。。。。。。。。。。\n", planId)
 		select {
 		case <-r.Context().Done():
-			klog.Infof("客户端关闭了。。。。。。。。。。")
 			return
-		case <-resultQueue:
-			fmt.Println("-------报错了或者任务结束了-------")
-			taskCache.ClearPlanResult(planId)
+		case <-quit:
 			results, err := p.factory.Plan().ListTasks(context.Background(), planId)
 			if err != nil {
 				klog.Errorf("failed to get task result from database: %v", err)
@@ -325,9 +318,8 @@ func (p *plan) GetTaskResults(planId int64, w http.ResponseWriter, r *http.Reque
 				klog.Errorf("failed to encode task result: %v", err)
 				break
 			}
-			fmt.Println("发送数据---->:  ", results[0].PlanId)
 			flush.Flush()
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	}
 }

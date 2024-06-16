@@ -129,23 +129,21 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		DeployNode{handlerTask: task},
 		DeployChart{handlerTask: task},
 	}
+	p.taskQueue = make(chan Handler)
+	quit := make(chan struct{}, len(handlers))
+	taskCache.SetQuitQueue(planId, quit)
 	err = p.createPlanTasksIfNotExist(handlers...)
 	if err != nil {
 		klog.Errorf("failed to create plan(%d) tasks: %v", planId, err)
 		return
 	}
-
-	p.taskQueue = make(chan Handler)
 	go func() {
 		for _, handler := range handlers {
 			p.taskQueue <- handler
 		}
 		close(p.taskQueue)
 	}()
-
-	resultQueue := make(chan struct{}, len(handlers))
-	taskCache.SetResultQueue(planId, resultQueue)
-	p.syncTasks(planId)
+	go p.syncTasks(planId)
 }
 
 func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
@@ -157,7 +155,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		// 存在则直接返回
 		if err == nil && lastTask != nil {
 			// 从数据库获取历史状态并初始化缓存
-			taskCache.SetTaskResult(planId, lastTask)
+			taskCache.SetTaskResults(planId, lastTask)
 			continue
 		}
 		if err != nil {
@@ -178,7 +176,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 			klog.Errorf("failed to init plan(%d) task(%s): %v", planId, name, err)
 			return err
 		} else {
-			taskCache.SetTaskResult(planId, newTask)
+			taskCache.SetTaskResults(planId, newTask)
 		}
 	}
 	return nil
@@ -202,60 +200,55 @@ func (p *plan) GetRunner(osImage string) (string, error) {
 
 // 同步任务状态
 // 任务启动时设置为运行中，结束时同步为结束状态(成功或者失败)
-// TODO: 后续优化
 func (p *plan) syncStatus(task *model.Task) error {
-	if err := p.factory.Plan().UpdateTask(context.TODO(), task.PlanId, task.Name, map[string]interface{}{
-		"status": task.Status, "message": task.Message,
-		"start_at": task.StartAt, "end_at": task.EndAt,
-	}); err != nil {
-		return err
-	}
+	fmt.Printf("-------->>>>>>>>>计划：%d : 任务： %s 状态变更--->: %v，剩余task数量：%d\n", task.PlanId, task.Name,
+		task.Status, len(p.taskQueue))
+	// if err := p.factory.Plan().UpdateTask(context.TODO(), task.PlanId, task.Name, map[string]interface{}{
+	// 	"status": task.Status, "message": task.Message,
+	// 	"start_at": task.StartAt, "end_at": task.EndAt,
+	// }); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
 func (p *plan) syncTasks(planId int64) {
-	//TODO: 后续优化
-	resultQueue, ok := taskCache.GetResultQueue(planId)
+	quit, ok := taskCache.GetQuitQueue(planId)
 	if !ok {
 		return
 	}
 	for {
 		task, ok := <-p.taskQueue
 		if !ok {
-			// Close the task result queue
-			resultQueue <- struct{}{}
-			taskCache.CloseResultQueue(planId)
-			fmt.Println("All tasks completed!")
+			klog.Infof("plan(%d) tasks all completed", planId)
+			// taskCache.ClearPlanResults(planId)
+			quit <- struct{}{}
+			taskCache.CloseQuitQueue(planId)
 			break
 		}
 		if err := p.handlerTask(task); err != nil {
-			klog.Errorf("failed to handle task(%s): %v", task.Name(), err)
-			resultQueue <- struct{}{}
-			// Close the task result queue
-			taskCache.CloseResultQueue(planId)
+			// taskCache.ClearPlanResults(planId)
+			klog.Errorf("%d 计划 failed to handle task(%s): %v", planId, task.Name(), err)
+			quit <- struct{}{}
+			taskCache.CloseQuitQueue(planId)
 			break
 		}
 	}
 }
 
 func (p *plan) handlerTask(task Handler) error {
-
+	fmt.Printf("-------->>>>>>>>>计划：%d : 任务： %s 开始执行--->\n", task.GetPlanId(), task.Name())
 	planId := task.GetPlanId()
 	name := task.Name()
-	// resultQueue, ok := taskCache.GetResultQueue(planId)
-	// if !ok || resultQueue == nil {
-	// 	return fmt.Errorf("failed to get plan(%d) result queue", task.GetPlanId())
-	// }
 	// 获取当前任务缓存信息
-	taskResult, ok := taskCache.GetTaskResult(planId, name)
-	if !ok || taskResult == nil {
-		return fmt.Errorf("failed to get plan(%d) task(%s) result", planId, name)
+	taskResult, ok := taskCache.GetTaskResults(planId, name)
+	if !ok {
+		return fmt.Errorf("failed to get plan(%d) task(%s) cache", planId, name)
 	}
 	// 设置启动任务时间
 	taskResult.StartAt = time.Now()
 	taskResult.Status = model.RunningPlanStatus
 	step := task.Step()
-	// resultQueue <- struct{}{}
 	klog.Infof("starting plan(%d) task(%s)", planId, name)
 	if err := p.syncStatus(taskResult); err != nil {
 		return err
@@ -268,7 +261,6 @@ func (p *plan) handlerTask(task Handler) error {
 		taskResult.EndAt = time.Now()
 		taskResult.Status = model.FailedPlanStatus
 		taskResult.Step = step
-		// resultQueue <- struct{}{}
 		klog.Errorf("failed plan(%d) task(%s),result: %v", planId, name, taskResult)
 		if err := p.syncStatus(taskResult); err != nil {
 			return err
@@ -279,7 +271,6 @@ func (p *plan) handlerTask(task Handler) error {
 	taskResult.EndAt = time.Now()
 	taskResult.Status = model.SuccessPlanStatus
 	taskResult.Step = step
-	// resultQueue <- struct{}{}
 	klog.Infof("completed plan(%d) task(%s),result: %v", planId, name, taskResult)
 	if err := p.syncStatus(taskResult); err != nil {
 		return err
