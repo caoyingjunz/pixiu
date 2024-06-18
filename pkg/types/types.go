@@ -165,13 +165,12 @@ type PlanConfig struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	PlanId      int64          `json:"plan_id,omitempty"` // required
-	Region      string         `json:"region"`
-	OSImage     string         `json:"os_image"`    // 操作系统
-	Description string         `json:"description"` // optional
-	Kubernetes  KubernetesSpec `json:"kubernetes"`
-	Network     NetworkSpec    `json:"network"`
-	Runtime     RuntimeSpec    `json:"runtime"`
+	PlanId     int64          `json:"plan_id,omitempty"` // required
+	Region     string         `json:"region"`
+	OSImage    string         `json:"os_image"` // 操作系统
+	Kubernetes KubernetesSpec `json:"kubernetes"`
+	Network    NetworkSpec    `json:"network"`
+	Runtime    RuntimeSpec    `json:"runtime"`
 }
 
 // TimeSpec 通用时间规格
