@@ -110,6 +110,9 @@ type Plan struct {
 	Name        string         `json:"name"` // 用户名称
 	Step        model.PlanStep `json:"step"`
 	Description string         `json:"description"` // 用户描述信息
+
+	Config PlanConfig `json:"config"`
+	Nodes  []PlanNode `json:"nodes"`
 }
 
 type PlanNode struct {
