@@ -63,6 +63,12 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 	return nil
 }
 
+// CreateNodes
+// TODO: 使用批量创建
+func (p *plan) CreateNodes(ctx context.Context, pid int64, req []types.CreatePlanNodeRequest) error {
+
+	return nil
+}
 func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
 	return nil
 }

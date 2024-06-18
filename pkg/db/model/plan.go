@@ -67,14 +67,12 @@ func (node *Node) TableName() string {
 type Config struct {
 	pixiu.Model
 
-	Name        string `gorm:"index:idx_name,unique" json:"name"`
-	PlanId      int64  `json:"plan_id"`
-	Region      string `json:"region"`
-	OSImage     string `json:"os_image"`
-	Kubernetes  string `json:"kubernetes"`
-	Network     string `json:"network"`
-	Runtime     string `json:"runtime"`
-	Description string `json:"description"`
+	PlanId     int64  `json:"plan_id"`
+	Region     string `json:"region"`
+	OSImage    string `json:"os_image"`
+	Kubernetes string `json:"kubernetes"`
+	Network    string `json:"network"`
+	Runtime    string `json:"runtime"`
 }
 
 func (config *Config) TableName() string {

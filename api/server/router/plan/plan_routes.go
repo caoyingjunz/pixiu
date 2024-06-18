@@ -27,6 +27,7 @@ type planMeta struct {
 	PlanId int64 `uri:"planId" binding:"required"`
 }
 
+// 创建部署计划，同时创建配置和节点
 func (t *planRouter) createPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -94,6 +95,29 @@ func (t *planRouter) getPlan(c *gin.Context) {
 		return
 	}
 	if r.Result, err = t.c.Plan().Get(c, opt.PlanId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+// getPlanWithSubResources
+// 获取 plan
+// 获取 configs
+// 获取 nodes
+func (t *planRouter) getPlanWithSubResources(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		opt planMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = t.c.Plan().GetWithSubResources(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

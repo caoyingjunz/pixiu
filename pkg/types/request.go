@@ -83,12 +83,20 @@ type (
 	}
 
 	CreatePlanRequest struct {
-		Name        string `json:"name" binding:"omitempty"`        // required
+		Name        string `json:"name" binding:"required"`         // required
 		Description string `json:"description" binding:"omitempty"` // optional
+
+		Config CreatePlanConfigRequest `json:"config"`
+		Nodes  []CreatePlanNodeRequest `json:"nodes"`
 	}
 
 	UpdatePlanRequest struct {
-		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
+		Name            string `json:"name" binding:"required"`             // required
+		ResourceVersion int64  `json:"resource_version" binding:"required"` // required
+		Description     string `json:"description" binding:"omitempty"`     // optional
+
+		Config CreatePlanConfigRequest `json:"config"`
+		Nodes  []CreatePlanNodeRequest `json:"nodes"`
 	}
 
 	CreatePlanNodeRequest struct {
@@ -112,7 +120,6 @@ type (
 
 	CreatePlanConfigRequest struct {
 		PlanId      int64  `json:"plan_id"`
-		Name        string `json:"name"  binding:"required"` // required
 		Region      string `json:"region"`
 		OSImage     string `json:"os_image" binding:"required"`     // 操作系统
 		Description string `json:"description" binding:"omitempty"` // optional

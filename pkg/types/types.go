@@ -110,6 +110,9 @@ type Plan struct {
 	Name        string         `json:"name"` // 用户名称
 	Step        model.PlanStep `json:"step"`
 	Description string         `json:"description"` // 用户描述信息
+
+	Config PlanConfig `json:"config"`
+	Nodes  []PlanNode `json:"nodes"`
 }
 
 type PlanNode struct {
@@ -117,7 +120,7 @@ type PlanNode struct {
 	TimeMeta  `json:",inline"`
 
 	Name   string         `json:"name"` // required
-	PlanId int64          `json:"plan_id"`
+	PlanId int64          `json:"plan_id,omitempty"`
 	Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
 	CRI    model.CRI      `json:"cri"`
 	Ip     string         `json:"ip"`
@@ -162,14 +165,12 @@ type PlanConfig struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	PlanId      int64          `json:"plan_id" binding:"required"` // required
-	Name        string         `json:"name"  binding:"required"`   // required
-	Region      string         `json:"region"`
-	OSImage     string         `json:"os_image"`    // 操作系统
-	Description string         `json:"description"` // optional
-	Kubernetes  KubernetesSpec `json:"kubernetes"`
-	Network     NetworkSpec    `json:"network"`
-	Runtime     RuntimeSpec    `json:"runtime"`
+	PlanId     int64          `json:"plan_id,omitempty"` // required
+	Region     string         `json:"region"`
+	OSImage    string         `json:"os_image"` // 操作系统
+	Kubernetes KubernetesSpec `json:"kubernetes"`
+	Network    NetworkSpec    `json:"network"`
+	Runtime    RuntimeSpec    `json:"runtime"`
 }
 
 // TimeSpec 通用时间规格

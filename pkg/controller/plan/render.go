@@ -99,6 +99,11 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 		ContainerdNode:   make([]types.PlanNode, 0),
 	}
 
+	runtime := types.RuntimeSpec{}
+	if err := runtime.Unmarshal(data.Config.Runtime); err != nil {
+		return multinode, err
+	}
+
 	for _, node := range data.Nodes {
 		nodeAuth := types.PlanNodeAuth{}
 		err := nodeAuth.Unmarshal(node.Auth)
@@ -113,7 +118,7 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 		nodeAuth.Key.File = rsa
 		planNode := types.PlanNode{Name: node.Name, Auth: nodeAuth}
 
-		if node.CRI == model.DockerCRI {
+		if runtime.IsDocker() {
 			if node.Role == model.MasterRole {
 				multinode.DockerMaster = append(multinode.DockerMaster, planNode)
 			}
@@ -121,7 +126,8 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 				multinode.DockerNode = append(multinode.DockerNode, planNode)
 			}
 		}
-		if node.CRI == model.ContainerdCRI {
+
+		if runtime.IsContainerd() {
 			if node.Role == model.MasterRole {
 				multinode.ContainerdMaster = append(multinode.ContainerdMaster, planNode)
 			}

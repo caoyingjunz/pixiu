@@ -47,10 +47,9 @@ func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePla
 		return err
 	}
 	planConfig.PlanId = pid
-	planConfig.Name = req.Name
 	// 创建配置
 	if _, err = p.factory.Plan().CreatConfig(ctx, planConfig); err != nil {
-		klog.Errorf("failed to create plan(%s) config(%d): %v", req.Name, pid, err)
+		klog.Errorf("failed to create plan(%s) config: %v", pid, err)
 		return err
 	}
 
@@ -127,13 +126,11 @@ func (p *plan) modelConfig2Type(o *model.Config) (*types.PlanConfig, error) {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		PlanId:      o.PlanId,
-		Name:        o.Name,
-		Region:      o.Region,
-		OSImage:     o.OSImage,
-		Description: o.Description,
-		Kubernetes:  *ks,
-		Network:     *ns,
-		Runtime:     *rs,
+		PlanId:     o.PlanId,
+		Region:     o.Region,
+		OSImage:    o.OSImage,
+		Kubernetes: *ks,
+		Network:    *ns,
+		Runtime:    *rs,
 	}, nil
 }
