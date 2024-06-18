@@ -73,6 +73,24 @@ func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *typ
 	return nil
 }
 
+func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
+	oldNodes, err := p.factory.Plan().ListNodes(ctx, planId)
+	if err != nil {
+		return err
+	}
+	newNodes := req.Nodes
+
+	var addOrUpdateNodes []model.Node
+	var delNodes []model.Node
+
+	oldMap := make(map[string]model.Node)
+	for _, oldNode := range oldNodes {
+		oldMap[oldNode.Name] = oldNode
+	}
+
+	return nil
+}
+
 func (p *plan) DeleteNode(ctx context.Context, pid int64, nodeId int64) error {
 	if _, err := p.factory.Plan().DeleteNode(ctx, nodeId); err != nil {
 		klog.Errorf("failed to delete plan(%d) node(%d): %v", pid, nodeId, err)

@@ -151,10 +151,6 @@ func (p *plan) updateIfNeeded(ctx context.Context, planId int64, req *types.Upda
 	return nil
 }
 
-func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
-	return nil
-}
-
 // 删除前检查
 // 有正在运行中的任务则不允许删除
 func (p *plan) preDelete(ctx context.Context, planId int64) error {
