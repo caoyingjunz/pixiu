@@ -36,7 +36,7 @@ type PlanGetter interface {
 
 type Interface interface {
 	Create(ctx context.Context, req *types.CreatePlanRequest) error
-	Update(ctx context.Context, pid int64, req *types.UpdatePlanRequest) error
+	Update(ctx context.Context, planID int64, req *types.UpdatePlanRequest) error
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context) ([]types.Plan, error)
@@ -104,17 +104,27 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	return nil
 }
 
-func (p *plan) Update(ctx context.Context, pid int64, req *types.UpdatePlanRequest) error {
+func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
 	updates := make(map[string]interface{})
 
-	if err := p.factory.Plan().Update(ctx, pid, req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update plan %d: %v", pid, err)
+	if err := p.factory.Plan().Update(ctx, planId, req.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update plan %d: %v", planId, err)
 		return errors.ErrServerInternal
 	}
+
 	return nil
 }
 
+// 删除前检查
+// 有正在运行中的任务则不允许删除
 func (p *plan) preDelete(ctx context.Context, planId int64) error {
+	isRunning, err := p.TaskIsRunning(ctx, planId)
+	if err != nil {
+		return errors.ErrServerInternal
+	}
+	if isRunning {
+		return errors.ErrNotAcceptable
+	}
 	return nil
 }
 
@@ -129,12 +139,12 @@ func (p *plan) Delete(ctx context.Context, planId int64) error {
 		return err
 	}
 
+	// 执行实际的删除逻辑
 	_, err := p.factory.Plan().Delete(ctx, planId)
 	if err != nil {
 		klog.Errorf("failed to delete plan %d: %v", planId, err)
 		return errors.ErrServerInternal
 	}
-
 	// 删除 plan 关联资源
 	// 2. 删除部署计划后，同步删除任务，删除任务失败时，可直接忽略
 	if err = p.factory.Plan().DeleteTask(ctx, planId); err != nil {
@@ -237,20 +247,34 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	klog.Infof("plan(%d) runner is %s", pid, runner)
 
 	// 4. 校验运行任务
-	tasks, err := p.factory.Plan().ListTasks(ctx, pid)
+	isRunning, err := p.TaskIsRunning(ctx, pid)
 	if err != nil {
-		klog.Errorf("failed to get tasks of plan %d: %v", pid, err)
 		return errors.ErrServerInternal
+	}
+	if isRunning {
+		return errors.ErrNotAcceptable
+	}
+
+	return nil
+}
+
+// TaskIsRunning
+// 校验是否有任务正在运行
+func (p *plan) TaskIsRunning(ctx context.Context, planId int64) (bool, error) {
+	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
+		return false, errors.ErrServerInternal
 	}
 
 	for _, task := range tasks {
 		if task.Status == model.RunningPlanStatus {
-			klog.Warningf("task %d of plan %d is already running", task.Id, pid)
-			return errors.ErrNotAcceptable
+			klog.Warningf("task %d of plan %d is running", task.Id, planId)
+			return true, nil
 		}
 	}
 
-	return nil
+	return false, nil
 }
 
 func (p *plan) Start(ctx context.Context, pid int64) error {

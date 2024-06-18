@@ -83,7 +83,7 @@ type (
 	}
 
 	CreatePlanRequest struct {
-		Name        string `json:"name" binding:"omitempty"`        // required
+		Name        string `json:"name" binding:"required"`         // required
 		Description string `json:"description" binding:"omitempty"` // optional
 
 		Config CreatePlanConfigRequest `json:"config"`
@@ -91,7 +91,12 @@ type (
 	}
 
 	UpdatePlanRequest struct {
-		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
+		Name            string `json:"name" binding:"required"`             // required
+		ResourceVersion int64  `json:"resource_version" binding:"required"` // required
+		Description     string `json:"description" binding:"omitempty"`     // optional
+
+		Config CreatePlanConfigRequest `json:"config"`
+		Nodes  []CreatePlanNodeRequest `json:"nodes"`
 	}
 
 	CreatePlanNodeRequest struct {
