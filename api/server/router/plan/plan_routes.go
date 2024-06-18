@@ -27,6 +27,7 @@ type planMeta struct {
 	PlanId int64 `uri:"planId" binding:"required"`
 }
 
+// 创建部署计划，同时创建配置和节点
 func (t *planRouter) createPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
