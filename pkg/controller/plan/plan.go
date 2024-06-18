@@ -95,11 +95,14 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	// 创建计划的关联配置
 	if err = p.CreateConfig(ctx, planId, &req.Config); err != nil {
 		klog.Errorf("failed to create plan %s config: %v", req.Name, err)
+		// TODO: 事物优化
+		_ = p.Delete(ctx, planId)
 		return errors.ErrServerInternal
 	}
 	// 创建关联节点
 	if err = p.CreateNodes(ctx, planId, req.Nodes); err != nil {
 		klog.Errorf("failed to create plan %s nodes: %v", req.Name, err)
+		_ = p.Delete(ctx, planId)
 		return errors.ErrServerInternal
 	}
 
