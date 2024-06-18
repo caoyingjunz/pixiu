@@ -41,6 +41,8 @@ type Interface interface {
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context) ([]types.Plan, error)
 
+	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
+
 	// Start 启动部署任务
 	Start(ctx context.Context, pid int64) error
 	// Stop 终止部署任务
@@ -104,6 +106,8 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	return nil
 }
 
+// Update
+// 更新部署计划
 func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
 	updates := make(map[string]interface{})
 
@@ -175,9 +179,11 @@ func (p *plan) Get(ctx context.Context, pid int64) (*types.Plan, error) {
 	return p.model2Type(object)
 }
 
-// GetWith
-// 获取 plan 极其关联资源
-func (p *plan) GetWith(ctx context.Context, planId int64) (*types.Plan, error) {
+// GetWithSubResources
+// 获取 plan
+// 获取 configs
+// 获取 nodes
+func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error) {
 	result, err := p.Get(ctx, planId)
 	if err != nil {
 		return nil, err
@@ -195,7 +201,6 @@ func (p *plan) GetWith(ctx context.Context, planId int64) (*types.Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 

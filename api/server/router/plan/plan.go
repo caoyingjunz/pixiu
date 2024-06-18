@@ -43,6 +43,8 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		planRoute.GET("/:planId", t.getPlan)
 		planRoute.GET("", t.listPlans)
 
+		planRoute.GET("/:planId/resources", t.getPlanWithSubResources)
+
 		// 启动部署任务
 		planRoute.POST("/:planId/start", t.startPlan)
 		// 终止部署任务
