@@ -57,8 +57,55 @@ func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePla
 }
 
 // UpdateConfig
-// TODO
-func (p *plan) UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error {
+// 更新部署计划配置
+func (p *plan) UpdateConfig(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
+	oldConfig, err := p.factory.Plan().GetConfigByPlan(ctx, planId)
+	if err != nil {
+		return errors.ErrServerInternal
+	}
+	newConfig := req.Config
+
+	updates := make(map[string]interface{})
+	if oldConfig.Region != newConfig.Region {
+		updates["region"] = newConfig.Region
+	}
+	if oldConfig.OSImage != newConfig.OSImage {
+		updates["os_image"] = newConfig.OSImage
+	}
+
+	newKubernetes, err := newConfig.Kubernetes.Marshal()
+	if err != nil {
+		return err
+	}
+	if oldConfig.Kubernetes != newKubernetes {
+		updates["kubernetes"] = newKubernetes
+	}
+
+	newNetwork, err := newConfig.Network.Marshal()
+	if err != nil {
+		return err
+	}
+	if oldConfig.Network != newNetwork {
+		updates["network"] = newNetwork
+	}
+
+	newRuntime, err := newConfig.Runtime.Marshal()
+	if err != nil {
+		return err
+	}
+	if oldConfig.Runtime != newRuntime {
+		updates["runtime"] = newRuntime
+	}
+
+	// 没有更新，则直接返回
+	if len(updates) == 0 {
+		return nil
+	}
+	if err = p.factory.Plan().UpdateConfig(ctx, planId, oldConfig.ResourceVersion, updates); err != nil {
+		klog.Errorf("failed to update plan(%d) config: %v", planId, err)
+		return errors.ErrServerInternal
+	}
+
 	return nil
 }
 

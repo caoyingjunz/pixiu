@@ -122,6 +122,39 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	return nil
 }
 
+func (p *plan) updateIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
+	oldPlan, err := p.factory.Plan().Get(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) %v", planId, err)
+		return errors.ErrServerInternal
+	}
+	// 必要时更新 plan
+	if oldPlan.Description != req.Description {
+		if err := p.factory.Plan().Update(ctx, planId, req.ResourceVersion, map[string]interface{}{"description": req.Description}); err != nil {
+			klog.Errorf("failed to update plan %d: %v", planId, err)
+			return errors.ErrServerInternal
+		}
+	}
+
+	// 必要时更新部署计划配置
+	if err = p.UpdateConfig(ctx, planId, req); err != nil {
+		klog.Errorf("failed to update plan(%d) config: %v", planId, err)
+		return errors.ErrServerInternal
+	}
+
+	// 必要时更新部署计划 nodes
+	if err = p.updateNodesIfNeeded(ctx, planId, req); err != nil {
+		klog.Errorf("failed to update plan(%d) nodes: %v", planId, err)
+		return errors.ErrServerInternal
+	}
+
+	return nil
+}
+
+func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
+	return nil
+}
+
 // 删除前检查
 // 有正在运行中的任务则不允许删除
 func (p *plan) preDelete(ctx context.Context, planId int64) error {
