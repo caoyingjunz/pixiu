@@ -80,12 +80,19 @@ func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types
 	}
 	newNodes := req.Nodes
 
-	var addOrUpdateNodes []model.Node
-	var delNodes []model.Node
+	newMap := make(map[string]types.CreatePlanNodeRequest)
+	for _, newNode := range newNodes {
+		newMap[newNode.Name] = newNode
+	}
 
-	oldMap := make(map[string]model.Node)
+	// 遍历寻找删除节点
+	var delNodes []string
 	for _, oldNode := range oldNodes {
-		oldMap[oldNode.Name] = oldNode
+		name := oldNode.Name
+		_, found := newMap[name]
+		if !found {
+			delNodes = append(delNodes, name)
+		}
 	}
 
 	return nil
