@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
@@ -122,6 +123,19 @@ func (p *plan) List(ctx context.Context) ([]model.Plan, error) {
 }
 
 func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, error) {
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
+		return nil, err
+	}
+	return object, nil
+}
+
+// CreateOrUpdateNode
+// TODO: 优化
+func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) (*model.Node, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
