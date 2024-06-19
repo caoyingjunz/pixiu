@@ -57,8 +57,14 @@ func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePla
 }
 
 // UpdateConfig
+// TODO
+func (p *plan) UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error {
+	return nil
+}
+
+// UpdateConfigIfNeeded
 // 更新部署计划配置
-func (p *plan) UpdateConfig(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
+func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
 	oldConfig, err := p.factory.Plan().GetConfigByPlan(ctx, planId)
 	if err != nil {
 		return errors.ErrServerInternal

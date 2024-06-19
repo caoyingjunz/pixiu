@@ -40,6 +40,7 @@ type PlanInterface interface {
 	ListNodes(ctx context.Context, pid int64) ([]model.Node, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
+	DeleteNodesByNames(ctx context.Context, planId int64, names []string) error
 
 	CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error)
 	UpdateConfig(ctx context.Context, cfgId int64, resourceVersion int64, updates map[string]interface{}) error
@@ -161,6 +162,14 @@ func (p *plan) DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error
 
 func (p *plan) DeleteNodesByPlan(ctx context.Context, planId int64) error {
 	if err := p.db.WithContext(ctx).Where("plan_id = ?", planId).Delete(&model.Node{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *plan) DeleteNodesByNames(ctx context.Context, planId int64, names []string) error {
+	if err := p.db.WithContext(ctx).Where("plan_id = ? and name in (?)", planId, names).Delete(&model.Node{}).Error; err != nil {
 		return err
 	}
 

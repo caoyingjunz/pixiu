@@ -73,6 +73,9 @@ func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *typ
 	return nil
 }
 
+// 删除多余的节点
+// 新增没有的节点
+// 更新已存在的节点
 func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
 	oldNodes, err := p.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
@@ -85,13 +88,19 @@ func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types
 		newMap[newNode.Name] = newNode
 	}
 
-	// 遍历寻找删除节点
+	// 遍历寻找待删除节点然后执行删除
 	var delNodes []string
 	for _, oldNode := range oldNodes {
 		name := oldNode.Name
 		_, found := newMap[name]
 		if !found {
 			delNodes = append(delNodes, name)
+		}
+	}
+	if len(delNodes) != 0 {
+		if err = p.factory.Plan().DeleteNodesByNames(ctx, planId, delNodes); err != nil {
+			klog.Errorf("failed deleting nodes %v %v", delNodes, err)
+			return err
 		}
 	}
 

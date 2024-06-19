@@ -137,7 +137,7 @@ func (p *plan) updateIfNeeded(ctx context.Context, planId int64, req *types.Upda
 	}
 
 	// 必要时更新部署计划配置
-	if err = p.UpdateConfig(ctx, planId, req); err != nil {
+	if err = p.UpdateConfigIfNeeded(ctx, planId, req); err != nil {
 		klog.Errorf("failed to update plan(%d) config: %v", planId, err)
 		return errors.ErrServerInternal
 	}
