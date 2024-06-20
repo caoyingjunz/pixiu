@@ -40,6 +40,8 @@ type PlanInterface interface {
 	ListNodes(ctx context.Context, pid int64) ([]model.Node, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
+	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
+
 	DeleteNodesByNames(ctx context.Context, planId int64, names []string) error
 
 	CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error)
@@ -132,19 +134,6 @@ func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, 
 	return object, nil
 }
 
-// CreateOrUpdateNode
-// TODO: 优化
-func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) (*model.Node, error) {
-	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
-
-	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
-		return nil, err
-	}
-	return object, nil
-}
-
 func (p *plan) UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error {
 	// 系统维护字段
 	updates["gmt_modified"] = time.Now()
@@ -187,6 +176,15 @@ func (p *plan) DeleteNodesByNames(ctx context.Context, planId int64, names []str
 	}
 
 	return nil
+}
+
+func (p *plan) GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error) {
+	var object model.Node
+	if err := p.db.WithContext(ctx).Where("plan_id = ? and name = ?", planId, name).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {

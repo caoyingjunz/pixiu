@@ -24,6 +24,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 // 创建前预检查
@@ -144,6 +145,30 @@ func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, erro
 	return nodes, nil
 }
 
+// CreateOrUpdateNode
+// TODO: 优化
+func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error {
+	old, err := p.factory.Plan().GetNodeByName(ctx, object.PlanId, object.Name)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return err
+		}
+		// 不存在则创建
+		_, err = p.factory.Plan().CreatNode(ctx, object)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// 已存在尝试更新
+	updates := p.buildNodeUpdates(old, object)
+	if len(updates) == 0 {
+		return nil
+	}
+	return p.factory.Plan().UpdateNode(ctx, object.PlanId, object.ResourceVersion, updates)
+}
+
 func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 	auth := types.PlanNodeAuth{}
 	if err := auth.Unmarshal(o.Auth); err != nil {
@@ -165,4 +190,22 @@ func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 		Ip:     o.Ip,
 		Auth:   auth,
 	}, nil
+}
+
+func (p *plan) buildNodeUpdates(old, object *model.Node) map[string]interface{} {
+	updates := make(map[string]interface{})
+	if old.Ip != object.Ip {
+		updates["ip"] = object.Ip
+	}
+	if old.Role != object.Role {
+		updates["role"] = object.Role
+	}
+	if old.CRI != object.CRI {
+		updates["cri"] = object.CRI
+	}
+	if old.Auth != object.Auth {
+		updates["auth"] = object.Auth
+	}
+
+	return updates
 }

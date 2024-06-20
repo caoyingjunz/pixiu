@@ -112,17 +112,6 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 // Update
 // 更新部署计划
 func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
-	updates := make(map[string]interface{})
-
-	if err := p.factory.Plan().Update(ctx, planId, req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update plan %d: %v", planId, err)
-		return errors.ErrServerInternal
-	}
-
-	return nil
-}
-
-func (p *plan) updateIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
 	oldPlan, err := p.factory.Plan().Get(ctx, planId)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) %v", planId, err)
