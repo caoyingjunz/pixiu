@@ -112,10 +112,28 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 // Update
 // 更新部署计划
 func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
-	updates := make(map[string]interface{})
+	oldPlan, err := p.factory.Plan().Get(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) %v", planId, err)
+		return errors.ErrServerInternal
+	}
+	// 必要时更新 plan
+	if oldPlan.Description != req.Description {
+		if err := p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, map[string]interface{}{"description": req.Description}); err != nil {
+			klog.Errorf("failed to update plan %d: %v", planId, err)
+			return errors.ErrServerInternal
+		}
+	}
 
-	if err := p.factory.Plan().Update(ctx, planId, req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update plan %d: %v", planId, err)
+	// 必要时更新部署计划配置
+	if err = p.UpdateConfigIfNeeded(ctx, planId, req); err != nil {
+		klog.Errorf("failed to update plan(%d) config: %v", planId, err)
+		return errors.ErrServerInternal
+	}
+
+	// 必要时更新部署计划 nodes
+	if err = p.updateNodesIfNeeded(ctx, planId, req); err != nil {
+		klog.Errorf("failed to update plan(%d) nodes: %v", planId, err)
 		return errors.ErrServerInternal
 	}
 
@@ -159,7 +177,7 @@ func (p *plan) Delete(ctx context.Context, planId int64) error {
 		return err
 	}
 	// 3. 删除关联配置
-	if _, err = p.factory.Plan().DeleteConfig(ctx, planId); err != nil {
+	if err = p.factory.Plan().DeleteConfigByPlan(ctx, planId); err != nil {
 		klog.Errorf("failed to delete plan(%d) config: %v", planId, err)
 		return err
 	}

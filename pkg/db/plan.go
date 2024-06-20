@@ -40,6 +40,9 @@ type PlanInterface interface {
 	ListNodes(ctx context.Context, pid int64) ([]model.Node, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
+	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
+
+	DeleteNodesByNames(ctx context.Context, planId int64, names []string) error
 
 	CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error)
 	UpdateConfig(ctx context.Context, cfgId int64, resourceVersion int64, updates map[string]interface{}) error
@@ -47,6 +50,7 @@ type PlanInterface interface {
 	GetConfig(ctx context.Context, cfgId int64) (*model.Config, error)
 	ListConfigs(ctx context.Context) ([]model.Config, error)
 
+	DeleteConfigByPlan(ctx context.Context, planId int64) error
 	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
 
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
@@ -167,6 +171,23 @@ func (p *plan) DeleteNodesByPlan(ctx context.Context, planId int64) error {
 	return nil
 }
 
+func (p *plan) DeleteNodesByNames(ctx context.Context, planId int64, names []string) error {
+	if err := p.db.WithContext(ctx).Where("plan_id = ? and name in (?)", planId, names).Delete(&model.Node{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *plan) GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error) {
+	var object model.Node
+	if err := p.db.WithContext(ctx).Where("plan_id = ? and name = ?", planId, name).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
+}
+
 func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
 	var object model.Node
 	if err := p.db.WithContext(ctx).Where("id = ?", nodeId).First(&object).Error; err != nil {
@@ -222,6 +243,13 @@ func (p *plan) DeleteConfig(ctx context.Context, cid int64) (*model.Config, erro
 	}
 
 	return object, nil
+}
+
+func (p *plan) DeleteConfigByPlan(ctx context.Context, planId int64) error {
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", planId).Delete(&model.Config{}).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *plan) GetConfig(ctx context.Context, cid int64) (*model.Config, error) {

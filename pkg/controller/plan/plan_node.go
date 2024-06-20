@@ -24,6 +24,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 // 创建前预检查
@@ -42,6 +43,70 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 		return err
 	}
 
+	if err := p.createNode(ctx, pid, req); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *plan) CreateNodes(ctx context.Context, planId int64, nodes []types.CreatePlanNodeRequest) error {
+	_, err := p.Get(ctx, planId)
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes {
+		if err = p.createNode(ctx, planId, &node); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
+	return nil
+}
+
+// 删除多余的节点
+// 新增没有的节点
+// 更新已存在的节点
+func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
+	oldNodes, err := p.factory.Plan().ListNodes(ctx, planId)
+	if err != nil {
+		return err
+	}
+	newNodes := req.Nodes
+
+	newMap := make(map[string]types.CreatePlanNodeRequest)
+	for _, newNode := range newNodes {
+		newMap[newNode.Name] = newNode
+	}
+
+	// 遍历寻找待删除节点然后执行删除
+	var delNodes []string
+	for _, oldNode := range oldNodes {
+		name := oldNode.Name
+		_, found := newMap[name]
+		if !found {
+			delNodes = append(delNodes, name)
+		}
+	}
+	if len(delNodes) != 0 {
+		if err = p.factory.Plan().DeleteNodesByNames(ctx, planId, delNodes); err != nil {
+			klog.Errorf("failed deleting nodes %v %v", delNodes, err)
+			return err
+		}
+	}
+
+	for _, newNode := range newNodes {
+		if err := p.createNode(ctx, planId, &newNode); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) error {
 	// 获取节点认证信息
 	auth, err := req.Auth.Marshal()
 	if err != nil {
@@ -50,7 +115,7 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 	}
 	if _, err = p.factory.Plan().CreatNode(ctx, &model.Node{
 		Name:   req.Name,
-		PlanId: pid,
+		PlanId: planId,
 		Role:   req.Role,
 		CRI:    req.CRI,
 		Ip:     req.Ip,
@@ -60,16 +125,6 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 		return err
 	}
 
-	return nil
-}
-
-// CreateNodes
-// TODO: 使用批量创建
-func (p *plan) CreateNodes(ctx context.Context, pid int64, req []types.CreatePlanNodeRequest) error {
-
-	return nil
-}
-func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
 	return nil
 }
 
@@ -110,6 +165,30 @@ func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, erro
 	return nodes, nil
 }
 
+// CreateOrUpdateNode
+// TODO: 优化
+func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error {
+	old, err := p.factory.Plan().GetNodeByName(ctx, object.PlanId, object.Name)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return err
+		}
+		// 不存在则创建
+		_, err = p.factory.Plan().CreatNode(ctx, object)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// 已存在尝试更新
+	updates := p.buildNodeUpdates(old, object)
+	if len(updates) == 0 {
+		return nil
+	}
+	return p.factory.Plan().UpdateNode(ctx, object.PlanId, object.ResourceVersion, updates)
+}
+
 func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 	auth := types.PlanNodeAuth{}
 	if err := auth.Unmarshal(o.Auth); err != nil {
@@ -131,4 +210,22 @@ func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 		Ip:     o.Ip,
 		Auth:   auth,
 	}, nil
+}
+
+func (p *plan) buildNodeUpdates(old, object *model.Node) map[string]interface{} {
+	updates := make(map[string]interface{})
+	if old.Ip != object.Ip {
+		updates["ip"] = object.Ip
+	}
+	if old.Role != object.Role {
+		updates["role"] = object.Role
+	}
+	if old.CRI != object.CRI {
+		updates["cri"] = object.CRI
+	}
+	if old.Auth != object.Auth {
+		updates["auth"] = object.Auth
+	}
+
+	return updates
 }
