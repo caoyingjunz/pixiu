@@ -43,31 +43,24 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 		return err
 	}
 
-	// 获取节点认证信息
-	auth, err := req.Auth.Marshal()
-	if err != nil {
-		klog.Errorf("failed to parse node(%s) auth: %v", req.Name, err)
+	if err := p.createNode(ctx, pid, req); err != nil {
 		return err
 	}
-	if _, err = p.factory.Plan().CreatNode(ctx, &model.Node{
-		Name:   req.Name,
-		PlanId: pid,
-		Role:   req.Role,
-		CRI:    req.CRI,
-		Ip:     req.Ip,
-		Auth:   auth,
-	}); err != nil {
-		klog.Errorf("failed to create node(%s): %v", req.Name, err)
-		return err
-	}
-
 	return nil
 }
 
 // CreateNodes
-// TODO: 使用批量创建
-func (p *plan) CreateNodes(ctx context.Context, pid int64, req []types.CreatePlanNodeRequest) error {
+func (p *plan) CreateNodes(ctx context.Context, planId int64, nodes []types.CreatePlanNodeRequest) error {
+	_, err := p.Get(ctx, planId)
+	if err != nil {
+		return err
+	}
 
+	for _, node := range nodes {
+		if err = p.createNode(ctx, planId, &node); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
@@ -103,6 +96,34 @@ func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types
 			klog.Errorf("failed deleting nodes %v %v", delNodes, err)
 			return err
 		}
+	}
+
+	for _, newNode := range newNodes {
+		if err := p.createNode(ctx, planId, &newNode); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) error {
+	// 获取节点认证信息
+	auth, err := req.Auth.Marshal()
+	if err != nil {
+		klog.Errorf("failed to parse node(%s) auth: %v", req.Name, err)
+		return err
+	}
+	if _, err = p.factory.Plan().CreatNode(ctx, &model.Node{
+		Name:   req.Name,
+		PlanId: planId,
+		Role:   req.Role,
+		CRI:    req.CRI,
+		Ip:     req.Ip,
+		Auth:   auth,
+	}); err != nil {
+		klog.Errorf("failed to create node(%s): %v", req.Name, err)
+		return err
 	}
 
 	return nil

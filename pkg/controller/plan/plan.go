@@ -177,7 +177,7 @@ func (p *plan) Delete(ctx context.Context, planId int64) error {
 		return err
 	}
 	// 3. 删除关联配置
-	if _, err = p.factory.Plan().DeleteConfig(ctx, planId); err != nil {
+	if err = p.factory.Plan().DeleteConfigByPlan(ctx, planId); err != nil {
 		klog.Errorf("failed to delete plan(%d) config: %v", planId, err)
 		return err
 	}

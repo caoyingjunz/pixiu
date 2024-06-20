@@ -50,6 +50,7 @@ type PlanInterface interface {
 	GetConfig(ctx context.Context, cfgId int64) (*model.Config, error)
 	ListConfigs(ctx context.Context) ([]model.Config, error)
 
+	DeleteConfigByPlan(ctx context.Context, planId int64) error
 	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
 
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
@@ -242,6 +243,13 @@ func (p *plan) DeleteConfig(ctx context.Context, cid int64) (*model.Config, erro
 	}
 
 	return object, nil
+}
+
+func (p *plan) DeleteConfigByPlan(ctx context.Context, planId int64) error {
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", planId).Delete(&model.Config{}).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *plan) GetConfig(ctx context.Context, cid int64) (*model.Config, error) {
