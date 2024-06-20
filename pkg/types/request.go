@@ -92,7 +92,7 @@ type (
 
 	UpdatePlanRequest struct {
 		Name            string `json:"name" binding:"required"`             // required
-		ResourceVersion int64  `json:"resource_version" binding:"required"` // required
+		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
 		Description     string `json:"description" binding:"omitempty"`     // optional
 
 		Config CreatePlanConfigRequest `json:"config"`
@@ -130,7 +130,6 @@ type (
 	}
 
 	UpdatePlanConfigRequest struct {
-		ResourceVersion int64 `json:"resource_version" binding:"required"` // required
 	}
 )
 

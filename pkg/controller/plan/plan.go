@@ -119,7 +119,7 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	}
 	// 必要时更新 plan
 	if oldPlan.Description != req.Description {
-		if err := p.factory.Plan().Update(ctx, planId, req.ResourceVersion, map[string]interface{}{"description": req.Description}); err != nil {
+		if err := p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, map[string]interface{}{"description": req.Description}); err != nil {
 			klog.Errorf("failed to update plan %d: %v", planId, err)
 			return errors.ErrServerInternal
 		}

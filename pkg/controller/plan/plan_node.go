@@ -49,7 +49,6 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 	return nil
 }
 
-// CreateNodes
 func (p *plan) CreateNodes(ctx context.Context, planId int64, nodes []types.CreatePlanNodeRequest) error {
 	_, err := p.Get(ctx, planId)
 	if err != nil {

@@ -107,7 +107,7 @@ func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *type
 	if len(updates) == 0 {
 		return nil
 	}
-	if err = p.factory.Plan().UpdateConfig(ctx, planId, oldConfig.ResourceVersion, updates); err != nil {
+	if err = p.factory.Plan().UpdateConfig(ctx, oldConfig.Id, oldConfig.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update plan(%d) config: %v", planId, err)
 		return errors.ErrServerInternal
 	}
