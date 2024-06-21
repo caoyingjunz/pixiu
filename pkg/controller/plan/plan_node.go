@@ -181,7 +181,7 @@ func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, erro
 func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error {
 	old, err := p.factory.Plan().GetNodeByName(ctx, object.PlanId, object.Name)
 	if err != nil {
-		if utilerrors.IsRecordNotFound(err) {
+		if !utilerrors.IsRecordNotFound(err) {
 			return err
 		}
 		// 不存在则创建
