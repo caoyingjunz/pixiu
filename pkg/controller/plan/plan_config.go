@@ -149,6 +149,7 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 	}
 
 	return &model.Config{
+		Region:     req.Region,
 		OSImage:    req.OSImage,
 		Kubernetes: kubeConfig,
 		Network:    networkConfig,

@@ -98,7 +98,11 @@ func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types
 	}
 
 	for _, newNode := range newNodes {
-		if err := p.createNode(ctx, planId, &newNode); err != nil {
+		node, err := p.buildNodeFromRequest(planId, &newNode)
+		if err != nil {
+			return err
+		}
+		if err = p.CreateOrUpdateNode(ctx, node); err != nil {
 			return err
 		}
 	}
@@ -106,21 +110,28 @@ func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types
 	return nil
 }
 
-func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) error {
-	// 获取节点认证信息
+func (p *plan) buildNodeFromRequest(planId int64, req *types.CreatePlanNodeRequest) (*model.Node, error) {
 	auth, err := req.Auth.Marshal()
 	if err != nil {
-		klog.Errorf("failed to parse node(%s) auth: %v", req.Name, err)
-		return err
+		return nil, err
 	}
-	if _, err = p.factory.Plan().CreatNode(ctx, &model.Node{
+	return &model.Node{
 		Name:   req.Name,
 		PlanId: planId,
 		Role:   req.Role,
 		CRI:    req.CRI,
 		Ip:     req.Ip,
 		Auth:   auth,
-	}); err != nil {
+	}, nil
+}
+
+func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) error {
+	node, err := p.buildNodeFromRequest(planId, req)
+	if err != nil {
+		klog.Errorf("failed to build plan(%d) node from request: %v", planId, err)
+		return err
+	}
+	if _, err = p.factory.Plan().CreatNode(ctx, node); err != nil {
 		klog.Errorf("failed to create node(%s): %v", req.Name, err)
 		return err
 	}
@@ -174,6 +185,7 @@ func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error
 			return err
 		}
 		// 不存在则创建
+		klog.Infof("plan(%d) node(%s) not exist, try to create it.", object.PlanId, object.Name)
 		_, err = p.factory.Plan().CreatNode(ctx, object)
 		if err != nil {
 			return err
@@ -181,11 +193,13 @@ func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error
 		return nil
 	}
 
+	klog.Infof("plan(%d) node(%s) already exist", object.PlanId, object.Name)
 	// 已存在尝试更新
 	updates := p.buildNodeUpdates(old, object)
 	if len(updates) == 0 {
 		return nil
 	}
+	klog.Infof("plan(%d) node(%s) already exist and need to update %v", object.PlanId, object.Name, updates)
 	return p.factory.Plan().UpdateNode(ctx, object.PlanId, object.ResourceVersion, updates)
 }
 
@@ -219,9 +233,6 @@ func (p *plan) buildNodeUpdates(old, object *model.Node) map[string]interface{} 
 	}
 	if old.Role != object.Role {
 		updates["role"] = object.Role
-	}
-	if old.CRI != object.CRI {
-		updates["cri"] = object.CRI
 	}
 	if old.Auth != object.Auth {
 		updates["auth"] = object.Auth
