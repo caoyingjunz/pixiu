@@ -23,7 +23,7 @@ enable_kubernetes_ha: "yes"
 {{- end }}
 
 {{- if ne .Kubernetes.ApiServer "" }}
-kube_vip_address: "{{ Kubernetes.ApiServer }}"
+kube_vip_address: "{{ .Kubernetes.ApiServer }}"
 {{- end }}
 
 kube_release: {{ .Kubernetes.KubernetesVersion }}
