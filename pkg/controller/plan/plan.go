@@ -318,13 +318,17 @@ func (p *plan) Stop(ctx context.Context, pid int64) error {
 }
 
 func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
-	step := model.UnStartedPlanStep
+	status := model.SuccessPlanStatus
 
 	// 尝试获取最新的任务状态
 	// 获取失败也不中断返回
-	newestTask, err := p.factory.Plan().GetNewestTask(context.TODO(), o.Id)
-	if err == nil {
-		step = newestTask.Step
+	if tasks, err := p.factory.Plan().ListTasks(context.TODO(), o.Id); err == nil {
+		for _, task := range tasks {
+			if task.Status != model.SuccessPlanStatus {
+				status = task.Status
+				break
+			}
+		}
 	}
 
 	return &types.Plan{
@@ -338,7 +342,7 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-		Step:        step,
+		Step:        status,
 	}, nil
 }
 
