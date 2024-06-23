@@ -187,10 +187,6 @@ func ParseConfig(data TaskData) (*types.PlanConfig, error) {
 		return nil, err
 	}
 
-	// TODO: 测试数据，后续需要移除
-	if network.NetworkInterface == "" {
-		network.NetworkInterface = "ens33"
-	}
 	return &types.PlanConfig{
 		Kubernetes: kubernetes,
 		Network:    network,

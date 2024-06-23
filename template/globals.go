@@ -18,16 +18,24 @@ package template
 
 const GlobalsTemplate = `# Render below by Pixiu
 ---
+{{- if .Kubernetes.EnableHA }}
+enable_kubernetes_ha: "yes"
+{{- end }}
+
+{{- if ne .Kubernetes.ApiServer "" }}
+kube_vip_address: "{{ Kubernetes.ApiServer }}"
+{{- end }}
+
 kube_release: {{ .Kubernetes.KubernetesVersion }}
 
 cluster_cidr: "{{ .Network.PodNetwork }}"
 service_cidr: "{{ .Network.ServiceNetwork }}"
 
+network_interface: "{{ .Network.NetworkInterface }}"
+
 {{- if eq .Network.Cni "calico" }}
 enable_calico: "yes"
 {{- end }}
-
-network_interface: "{{ .Network.NetworkInterface }}"
 
 enable_nfs: "no"
 `
