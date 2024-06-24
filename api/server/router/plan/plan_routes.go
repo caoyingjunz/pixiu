@@ -184,13 +184,11 @@ type DistributionsMeta struct {
 func (t *planRouter) getDistributions(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	obj := &DistributionsMeta{
+	r.Result = &DistributionsMeta{
 		Centos: []string{"centos7"},
-		Ubuntu: []string{"ubuntu16.04", "ubuntu18.04", "ubuntu20.04", "ubuntu22.04", "ubuntu23.04", "ubuntu24.04"},
+		Ubuntu: []string{"ubuntu18.04", "ubuntu20.04", "ubuntu22.04", "ubuntu24.04"},
 		Debian: []string{"debian10", "debian11"},
 	}
-
-	r.Result = obj
 
 	httputils.SetSuccess(c, r)
 }
