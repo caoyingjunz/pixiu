@@ -174,3 +174,21 @@ func (t *planRouter) stopPlan(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+type DistributionsMeta struct {
+	Centos []string `json:"centos,omitempty"`
+	Debian []string `json:"debian,omitempty"`
+	Ubuntu []string `json:"ubuntu,omitempty"`
+}
+
+func (t *planRouter) getDistributions(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	r.Result = &DistributionsMeta{
+		Centos: []string{"centos7"},
+		Ubuntu: []string{"ubuntu18.04", "ubuntu20.04", "ubuntu22.04", "ubuntu24.04"},
+		Debian: []string{"debian10", "debian11"},
+	}
+
+	httputils.SetSuccess(c, r)
+}
