@@ -63,6 +63,33 @@ func (t *Task) Set(planId int64, tasks []model.Task) {
 	t.items[planId] = tasks
 }
 
+func (t *Task) SetByTask(planId int64, task model.Task) {
+	t.Lock()
+	defer t.Unlock()
+
+	tasks, ok := t.items[planId]
+	if !ok {
+		return
+	}
+	var (
+		index int
+		found bool
+	)
+	for i, s := range tasks {
+		if s.Id == task.Id {
+			index = i
+			found = true
+			break
+		}
+	}
+	if !found {
+		return
+	}
+
+	tasks[index] = task
+	t.items[planId] = tasks
+}
+
 func (t *Task) Delete(planId int64) {
 	t.Lock()
 	defer t.Unlock()
