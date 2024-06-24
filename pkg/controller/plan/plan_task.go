@@ -56,29 +56,29 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 	w.Header().Set("Connection", "keep-alive")
 
 	// 初始化 Lister
-	if TaskCache.Lister == nil {
-		TaskCache.SetLister(p.factory.Plan().ListTasks)
+	if taskC.Lister == nil {
+		taskC.SetLister(p.factory.Plan().ListTasks)
 	}
 
 	// 判断缓存中是否已经存在，如果不存在则先写入
-	_, ok := TaskCache.Get(planId)
+	_, ok := taskC.Get(planId)
 	if !ok {
 		tasks, err := p.factory.Plan().ListTasks(ctx, planId)
 		if err != nil {
 			klog.Errorf("failed to get task result from database: %v", err)
 			return
 		}
-		TaskCache.Set(planId, tasks)
+		taskC.Set(planId, tasks)
 	}
 
 	for {
 		select {
 		case <-r.Context().Done():
 			klog.Infof("client close connected")
-			TaskCache.Delete(planId)
+			taskC.Delete(planId)
 			return
 		default:
-			tasks, _ := TaskCache.Get(planId)
+			tasks, _ := taskC.Get(planId)
 			if err := json.NewEncoder(w).Encode(tasks); err != nil {
 				klog.Errorf("failed to encode tasks: %v", err)
 				break

@@ -70,11 +70,11 @@ type Interface interface {
 }
 
 var taskQueue workqueue.RateLimitingInterface
-var TaskCache *client.Task
+var taskC *client.Task
 
 func init() {
 	taskQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tasks")
-	TaskCache = client.NewTaskCache()
+	taskC = client.NewTaskCache()
 }
 
 type plan struct {
