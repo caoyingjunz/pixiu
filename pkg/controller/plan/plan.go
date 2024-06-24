@@ -19,6 +19,8 @@ package plan
 import (
 	"context"
 	"fmt"
+	"github.com/caoyingjunz/pixiu/pkg/client"
+	"net/http"
 
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -64,12 +66,15 @@ type Interface interface {
 
 	RunTask(ctx context.Context, planId int64, taskId int64) error
 	ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error)
+	WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request)
 }
 
 var taskQueue workqueue.RateLimitingInterface
+var TaskCache *client.Task
 
 func init() {
 	taskQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tasks")
+	TaskCache = client.NewTaskCache()
 }
 
 type plan struct {
