@@ -90,6 +90,8 @@ func (t *Task) syncTasks() {
 	}
 }
 
+// Run 启动 syncTasks
+// TODO: 后续优化 stopCh
 func (t *Task) Run() {
 	stopCh := make(<-chan struct{})
 	// 10s 主动加载一次 task
