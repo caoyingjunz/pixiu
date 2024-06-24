@@ -69,6 +69,6 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		planRoute.POST("/:planId/tasks", t.listTasks)
 
 		// 获取 os 与 os version
-		planRoute.GET("/os", t.getOsList)
+		planRoute.GET("/distributions", t.getDistributions)
 	}
 }
