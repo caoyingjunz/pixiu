@@ -15,12 +15,13 @@ package client
 
 import (
 	"context"
-	"k8s.io/klog/v2"
 	"sync"
 	"time"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 type Task struct {
@@ -31,7 +32,10 @@ type Task struct {
 }
 
 func NewTaskCache() *Task {
-	return &Task{items: make(map[int64][]model.Task)}
+	t := &Task{items: make(map[int64][]model.Task)}
+	t.Run()
+
+	return t
 }
 
 func (t *Task) SetLister(Lister func(ctx context.Context, planId int64) ([]model.Task, error)) {
@@ -68,7 +72,7 @@ func (t *Task) Delete(planId int64) {
 
 func (t *Task) syncTasks() {
 	if t.Lister == nil || len(t.items) == 0 {
-		klog.Infof("sync nothing，wait for the next loop")
+		klog.Infof("syncing and waiting for the next loop")
 		return
 	}
 
@@ -86,7 +90,8 @@ func (t *Task) syncTasks() {
 	}
 }
 
-func (t *Task) Run(stopCh <-chan struct{}) {
+func (t *Task) Run() {
+	stopCh := make(<-chan struct{})
 	// 10s 主动加载一次 task
 	// 不发起长连接情况下，无任何开销
 	go wait.Until(t.syncTasks, 10*time.Second, stopCh)
