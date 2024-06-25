@@ -54,7 +54,7 @@ type PlanInterface interface {
 	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
 
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
-	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) error
+	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error)
 	DeleteTask(ctx context.Context, pid int64) error
 	ListTasks(ctx context.Context, pid int64) ([]model.Task, error)
 
@@ -290,18 +290,18 @@ func (p *plan) CreatTask(ctx context.Context, object *model.Task) (*model.Task, 
 	return object, nil
 }
 
-func (p *plan) UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) error {
+func (p *plan) UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error) {
 	// 系统维护字段
 	updates["gmt_modified"] = time.Now()
 	f := p.db.WithContext(ctx).Model(&model.Task{}).Where("plan_id = ? and name = ?", pid, name).Updates(updates)
 	if f.Error != nil {
-		return f.Error
+		return nil, f.Error
 	}
 	if f.RowsAffected == 0 {
-		return errors.ErrRecordNotFound
+		return nil, errors.ErrRecordNotFound
 	}
 
-	return nil
+	return p.GetTaskByName(ctx, pid, name)
 }
 
 func (p *plan) DeleteTask(ctx context.Context, pid int64) error {

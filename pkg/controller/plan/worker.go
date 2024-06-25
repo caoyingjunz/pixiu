@@ -205,12 +205,14 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		klog.Infof("starting plan(%d) task(%s)", planId, name)
 
 		// TODO: 通过闭包方式优化
-		if err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
+		start, err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
 			"status": model.RunningPlanStatus, "message": "",
-		}); err != nil {
+		})
+		if err != nil {
 			klog.Errorf("failed to update plan(%d) status before run task(%s): %v", planId, name, err)
 			return err
 		}
+		taskC.SetByTask(planId, *start)
 
 		status := model.SuccessPlanStatus
 		step := task.Step()
@@ -225,12 +227,14 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		}
 
 		// 执行完成之后更新状态
-		if err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
+		end, err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
 			"status": status, "message": message, "step": step,
-		}); err != nil {
+		})
+		if err != nil {
 			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", planId, name, err)
 			return err
 		}
+		taskC.SetByTask(planId, *end)
 
 		klog.Infof("completed plan(%d) task(%s)", planId, name)
 		if runErr != nil {

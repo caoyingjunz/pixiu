@@ -79,7 +79,12 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 			return
 		default:
 			tasks, _ := taskC.Get(planId)
-			if err := json.NewEncoder(w).Encode(tasks); err != nil {
+
+			var ts []types.PlanTask
+			for _, object := range tasks {
+				ts = append(ts, *p.modelTask2Type(&object))
+			}
+			if err := json.NewEncoder(w).Encode(ts); err != nil {
 				klog.Errorf("failed to encode tasks: %v", err)
 				break
 			}

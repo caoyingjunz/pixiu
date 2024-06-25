@@ -99,7 +99,7 @@ func (t *Task) Delete(planId int64) {
 
 func (t *Task) syncTasks() {
 	if t.Lister == nil || len(t.items) == 0 {
-		klog.Infof("syncing and waiting for the next loop")
+		klog.V(2).Infof("syncing and waiting for the next loop")
 		return
 	}
 
