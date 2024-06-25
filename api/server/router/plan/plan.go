@@ -66,6 +66,6 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		// 执行指定任务
 		planRoute.POST("/:planId/tasks/:taskId", t.runTasks)
 		// 查询任务列表
-		planRoute.POST("/:planId/tasks", t.listTasks)
+		planRoute.GET("/:planId/tasks", t.listTasks)
 	}
 }
