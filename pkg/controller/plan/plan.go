@@ -19,7 +19,6 @@ package plan
 import (
 	"context"
 	"fmt"
-	"github.com/caoyingjunz/pixiu/pkg/client"
 	"net/http"
 
 	"k8s.io/client-go/util/workqueue"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
