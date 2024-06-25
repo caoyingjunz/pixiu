@@ -19,12 +19,14 @@ package plan
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -64,12 +66,15 @@ type Interface interface {
 
 	RunTask(ctx context.Context, planId int64, taskId int64) error
 	ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error)
+	WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request)
 }
 
 var taskQueue workqueue.RateLimitingInterface
+var taskC *client.Task
 
 func init() {
 	taskQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tasks")
+	taskC = client.NewTaskCache()
 }
 
 type plan struct {
