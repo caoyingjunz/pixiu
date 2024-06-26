@@ -1,14 +1,13 @@
 # 前置准备
 ```bash
-docker 已经安装
-代码 https://github.com/caoyingjunz/pixiu
+确保 docker 已经安装
 ```
 # 数据库
 ```bash
 选择1：直接提供可用数据库
 
 选择2：快速启动数据库
-docker run -d --net host --restart=always --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" harbor.cloud.pixiuio.com/pixiuio/mysql:5.7
+root@ubuntu:~# docker run -d --net host --restart=always --privileged=true --name mysql -e MYSQL_ROOT_PASSWORD="Pixiu868686" mysql:5.7 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
 创建 pixiu 数据库
 CREATE DATABASE pixiu;
@@ -23,8 +22,14 @@ vim /etc/pixiu/config.yaml 写入后端如下配置
 default:
   # 运行模式，可选 debug 和 release
   mode: debug
+  # 服务监听端口
   listen: 8090
+  # jwt 签名的 key
+  jwt_key: pixiu
+  # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
+  # 日志的格式，可选 text 和 json
+  log_format: json
 
 数据库地址信息
 mysql:
@@ -33,6 +38,20 @@ mysql:
   password: Pixiu868686
   port: 3306
   name: pixiu
+
+worker:
+  engines:
+    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
+      os_supported:
+        - centos7
+        - debian10
+        - ubuntu18.04
+    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+      os_supported:
+        - debian11
+        - ubuntu20.04
+        - ubuntu22.04
+
 
 前端配置(ip 根据实际情况调整)
 vim /etc/pixiu/config.json
