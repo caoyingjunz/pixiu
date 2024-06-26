@@ -52,7 +52,6 @@ worker:
         - ubuntu20.04
         - ubuntu22.04
 
-
 前端配置(ip 根据实际情况调整)
 vim /etc/pixiu/config.json
 {
