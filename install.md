@@ -7,7 +7,7 @@
 选择1：直接提供可用数据库
 
 选择2：快速启动数据库
-root@ubuntu:~# docker run -d --net host --restart=always --privileged=true --name mysql -e MYSQL_ROOT_PASSWORD="Pixiu868686" mysql:5.7 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+root@ubuntu:~# docker run -d --net host --restart=always --privileged=true --name mysql -e MYSQL_ROOT_PASSWORD="Pixiu868686" harbor.cloud.pixiuio.com/pixiuio/mysql:5.7 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
 创建 pixiu 数据库
 CREATE DATABASE pixiu;
@@ -24,12 +24,8 @@ default:
   mode: debug
   # 服务监听端口
   listen: 8090
-  # jwt 签名的 key
-  jwt_key: pixiu
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
-  # 日志的格式，可选 text 和 json
-  log_format: json
 
 数据库地址信息
 mysql:
