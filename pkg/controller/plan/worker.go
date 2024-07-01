@@ -206,7 +206,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 
 		// TODO: 通过闭包方式优化
 		start, err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
-			"status": model.RunningPlanStatus, "message": "",
+			"status": model.RunningPlanStatus, "message": "", "gmt_create": time.Now(),
 		})
 		if err != nil {
 			klog.Errorf("failed to update plan(%d) status before run task(%s): %v", planId, name, err)
@@ -228,7 +228,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 
 		// 执行完成之后更新状态
 		end, err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
-			"status": status, "message": message, "step": step,
+			"status": status, "message": message, "step": step, "gmt_modified": time.Now(),
 		})
 		if err != nil {
 			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", planId, name, err)
