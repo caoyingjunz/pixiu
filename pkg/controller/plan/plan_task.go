@@ -65,7 +65,7 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 	if !ok {
 		tasks, err := p.factory.Plan().ListTasks(ctx, planId)
 		if err != nil {
-			klog.Errorf("failed to get task result from database: %v", err)
+			klog.Errorf("failed to get plan(%d) tasks from database: %v", planId, err)
 			return
 		}
 		taskC.Set(planId, tasks)
@@ -74,22 +74,24 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 	for {
 		select {
 		case <-r.Context().Done():
-			klog.Infof("client close connected")
-			taskC.Delete(planId)
+			klog.Infof("plan(%d) watch API has been closed by client and tasks cache will be auto removed after 5m", planId)
 			return
 		default:
-			tasks, _ := taskC.Get(planId)
+			tasks, ok := taskC.Get(planId)
+			if ok {
+				var ts []types.PlanTask
+				for _, object := range tasks {
+					ts = append(ts, *p.modelTask2Type(&object))
+				}
+				if err := json.NewEncoder(w).Encode(ts); err != nil {
+					klog.Errorf("failed to encode tasks: %v", err)
+					break
+				}
+				flush.Flush()
+			}
 
-			var ts []types.PlanTask
-			for _, object := range tasks {
-				ts = append(ts, *p.modelTask2Type(&object))
-			}
-			if err := json.NewEncoder(w).Encode(ts); err != nil {
-				klog.Errorf("failed to encode tasks: %v", err)
-				break
-			}
-			flush.Flush()
-			time.Sleep(2 * time.Second)
+			// 同步事件间隔为 3s
+			time.Sleep(3 * time.Second)
 		}
 	}
 }
