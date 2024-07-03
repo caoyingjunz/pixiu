@@ -79,7 +79,6 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 		default:
 			tasks, ok := taskC.Get(planId)
 			if ok {
-				klog.Infof("plan(%d) watch API has been connected", planId)
 				var ts []types.PlanTask
 				for _, object := range tasks {
 					ts = append(ts, *p.modelTask2Type(&object))

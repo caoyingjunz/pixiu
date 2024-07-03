@@ -73,7 +73,7 @@ func (t *Task) Set(planId int64, tasks []model.Task) {
 	}
 
 	now := time.Now()
-	klog.Infof("add plan(%d) tasks（%v）into cache at %v", planId, tasks, now)
+	klog.Infof("add plan(%d) tasks into cache at %v", planId, now)
 	t.items[planId] = WrapObject{
 		Object:     tasks,
 		LatestTime: now,
@@ -130,7 +130,7 @@ func (t *Task) syncTasks() {
 		now := time.Now()
 		if now.Sub(wrapObject.LatestTime) > 5*time.Second {
 			// 如果对象5分钟未被操作，则从缓存中清理
-			klog.Infof("remove plan(%d) tasks（%v）from cache due to it not be handled for long time", planId, wrapObject.Object)
+			klog.Infof("remove plan(%d) tasks from cache due to it not be handled for 5s", planId)
 			delete(t.items, planId)
 			// 处理下一个对象
 			continue
