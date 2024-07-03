@@ -24,15 +24,20 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
+type WrapObject struct {
+	LatestTime time.Time    // 最近一次获取时间
+	Object     []model.Task // TODO，临时实现，使用task的结构，后续优化成任意类型
+}
+
 type Task struct {
 	sync.RWMutex
 
 	Lister func(ctx context.Context, planId int64) ([]model.Task, error)
-	items  map[int64][]model.Task
+	items  map[int64]WrapObject
 }
 
 func NewTaskCache() *Task {
-	t := &Task{items: make(map[int64][]model.Task)}
+	t := &Task{items: make(map[int64]WrapObject)}
 	t.Run()
 
 	return t
@@ -49,8 +54,14 @@ func (t *Task) Get(planId int64) ([]model.Task, bool) {
 	t.Lock()
 	defer t.Unlock()
 
-	tasks, ok := t.items[planId]
-	return tasks, ok
+	wrapObject, ok := t.items[planId]
+	if !ok {
+		return nil, false
+	}
+
+	wrapObject.LatestTime = time.Now()
+	t.items[planId] = wrapObject
+	return wrapObject.Object, ok
 }
 
 func (t *Task) Set(planId int64, tasks []model.Task) {
@@ -58,24 +69,31 @@ func (t *Task) Set(planId int64, tasks []model.Task) {
 	defer t.Unlock()
 
 	if t.items == nil {
-		t.items = map[int64][]model.Task{}
+		t.items = map[int64]WrapObject{}
 	}
-	t.items[planId] = tasks
+
+	now := time.Now()
+	klog.Infof("add plan(%d) tasks（%v）into cache at %v", planId, tasks, now)
+	t.items[planId] = WrapObject{
+		Object:     tasks,
+		LatestTime: now,
+	}
 }
 
 func (t *Task) SetByTask(planId int64, task model.Task) {
 	t.Lock()
 	defer t.Unlock()
 
-	tasks, ok := t.items[planId]
+	wrapObject, ok := t.items[planId]
 	if !ok {
 		return
 	}
+
 	var (
 		index int
 		found bool
 	)
-	for i, s := range tasks {
+	for i, s := range wrapObject.Object {
 		if s.Id == task.Id {
 			index = i
 			found = true
@@ -86,8 +104,10 @@ func (t *Task) SetByTask(planId int64, task model.Task) {
 		return
 	}
 
-	tasks[index] = task
-	t.items[planId] = tasks
+	wrapObject.Object[index] = task
+	wrapObject.LatestTime = time.Now()
+
+	t.items[planId] = wrapObject
 }
 
 func (t *Task) Delete(planId int64) {
@@ -106,14 +126,26 @@ func (t *Task) syncTasks() {
 	t.Lock()
 	defer t.Unlock()
 
-	for planId := range t.items {
+	for planId, wrapObject := range t.items {
+		now := time.Now()
+		if now.Sub(wrapObject.LatestTime) > 5*time.Second {
+			// 如果对象5分钟未被操作，则从缓存中清理
+			klog.Infof("remove plan(%d) tasks（%v）from cache due to it not be handled for long time", planId, wrapObject.Object)
+			delete(t.items, planId)
+			// 处理下一个对象
+			continue
+		}
+
 		newTasks, err := t.Lister(context.TODO(), planId)
 		if err != nil {
 			klog.Errorf("[syncTasks] failed to list plan(%d) tasks: %v", planId, err)
 			delete(t.items, planId)
 			continue
 		}
-		t.items[planId] = newTasks
+		t.items[planId] = WrapObject{
+			Object:     newTasks,
+			LatestTime: now,
+		}
 	}
 }
 
