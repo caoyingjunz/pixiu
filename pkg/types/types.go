@@ -242,3 +242,24 @@ type NetworkSpec struct {
 type RuntimeSpec struct {
 	Runtime string `json:"runtime"`
 }
+
+type ComponentSpec struct {
+	Helm       *Helm       `json:"helm"`
+	Prometheus *Prometheus `json:"prometheus"`
+	Grafana    *Grafana    `json:"grafana"`
+}
+
+type Helm struct {
+	EnableHelm  string `json:"enable_helm"`
+	HelmRelease string `json:"helm_release"`
+}
+
+type Prometheus struct {
+	EnablePrometheus string `json:"enable_prometheus"`
+}
+
+type Grafana struct {
+	EnableGrafana        string `json:"enable_prometheus"`
+	GrafanaAdminUser     string `json:"grafana_admin_user"`
+	GrafanaAdminPassword string `json:"grafana_admin_password"`
+}

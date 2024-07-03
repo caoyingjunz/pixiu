@@ -127,6 +127,7 @@ type (
 		Kubernetes KubernetesSpec `json:"kubernetes"`
 		Network    NetworkSpec    `json:"network"`
 		Runtime    RuntimeSpec    `json:"runtime"`
+		Component  ComponentSpec  `json:"component"` // 支持的扩展组件配置
 	}
 
 	UpdatePlanConfigRequest struct {
