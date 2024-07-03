@@ -24,6 +24,11 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
+type Object interface {
+	LatestTime() time.Time
+	Object() interface{}
+}
+
 type WrapObject struct {
 	LatestTime time.Time    // 最近一次获取时间
 	Object     []model.Task // TODO，临时实现，使用task的结构，后续优化成任意类型
