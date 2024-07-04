@@ -171,6 +171,8 @@ type PlanConfig struct {
 	Kubernetes KubernetesSpec `json:"kubernetes"`
 	Network    NetworkSpec    `json:"network"`
 	Runtime    RuntimeSpec    `json:"runtime"`
+	Component  ComponentSpec  `json:"component"` // 支持的扩展组件配置
+
 }
 
 // TimeSpec 通用时间规格
@@ -244,9 +246,9 @@ type RuntimeSpec struct {
 }
 
 type ComponentSpec struct {
-	Helm       *Helm       `json:"helm"`
-	Prometheus *Prometheus `json:"prometheus"`
-	Grafana    *Grafana    `json:"grafana"`
+	Helm       *Helm       `json:"helm,omitempty"` // 忽略，则使用默认值
+	Prometheus *Prometheus `json:"prometheus,omitempty"`
+	Grafana    *Grafana    `json:"grafana,omitempty"`
 }
 
 type Helm struct {

@@ -220,6 +220,21 @@ func (rs *RuntimeSpec) Unmarshal(s string) error {
 	return nil
 }
 
+func (cs ComponentSpec) Marshal() (string, error) {
+	data, err := json.Marshal(cs)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (cs *ComponentSpec) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), cs); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (rs *RuntimeSpec) IsDocker() bool {
 	return rs.Runtime == string(model.DockerCRI)
 }

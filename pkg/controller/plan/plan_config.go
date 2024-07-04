@@ -147,6 +147,10 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 	if err != nil {
 		return nil, err
 	}
+	componentConfig, err := req.Component.Marshal()
+	if err != nil {
+		return nil, err
+	}
 
 	return &model.Config{
 		Region:     req.Region,
@@ -154,6 +158,7 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 		Kubernetes: kubeConfig,
 		Network:    networkConfig,
 		Runtime:    runtimeConfig,
+		Component:  componentConfig,
 	}, nil
 }
 
@@ -168,6 +173,10 @@ func (p *plan) modelConfig2Type(o *model.Config) (*types.PlanConfig, error) {
 	}
 	rs := &types.RuntimeSpec{}
 	if err := rs.Unmarshal(o.Runtime); err != nil {
+		return nil, err
+	}
+	cs := &types.ComponentSpec{}
+	if err := cs.Unmarshal(o.Component); err != nil {
 		return nil, err
 	}
 
@@ -186,5 +195,6 @@ func (p *plan) modelConfig2Type(o *model.Config) (*types.PlanConfig, error) {
 		Kubernetes: *ks,
 		Network:    *ns,
 		Runtime:    *rs,
+		Component:  *cs,
 	}, nil
 }

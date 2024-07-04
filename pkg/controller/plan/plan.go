@@ -86,6 +86,7 @@ type plan struct {
 // 1. 创建部署计划
 // 2. 创建部署配置
 // 3. 创建节点列表
+// 3. 创建扩展组件
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	object, err := p.factory.Plan().Create(ctx, &model.Plan{
 		Name:        req.Name,

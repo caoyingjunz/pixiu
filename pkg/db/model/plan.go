@@ -73,6 +73,7 @@ type Config struct {
 	Kubernetes string `json:"kubernetes"`
 	Network    string `json:"network"`
 	Runtime    string `json:"runtime"`
+	Component  string `json:"component"`
 }
 
 func (config *Config) TableName() string {
