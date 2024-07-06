@@ -119,12 +119,12 @@ type PlanNode struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name   string         `json:"name"` // required
-	PlanId int64          `json:"plan_id,omitempty"`
-	Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
-	CRI    model.CRI      `json:"cri"`
-	Ip     string         `json:"ip"`
-	Auth   PlanNodeAuth   `json:"auth,omitempty"`
+	Name   string       `json:"name"` // required
+	PlanId int64        `json:"plan_id,omitempty"`
+	Role   []string     `json:"role"` // k8s 节点的角色，master 和 node
+	CRI    model.CRI    `json:"cri"`
+	Ip     string       `json:"ip"`
+	Auth   PlanNodeAuth `json:"auth,omitempty"`
 }
 
 type AuthType string
@@ -171,6 +171,8 @@ type PlanConfig struct {
 	Kubernetes KubernetesSpec `json:"kubernetes"`
 	Network    NetworkSpec    `json:"network"`
 	Runtime    RuntimeSpec    `json:"runtime"`
+	Component  ComponentSpec  `json:"component"` // 支持的扩展组件配置
+
 }
 
 // TimeSpec 通用时间规格
@@ -241,4 +243,25 @@ type NetworkSpec struct {
 
 type RuntimeSpec struct {
 	Runtime string `json:"runtime"`
+}
+
+type ComponentSpec struct {
+	Helm       *Helm       `json:"helm,omitempty"` // 忽略，则使用默认值
+	Prometheus *Prometheus `json:"prometheus,omitempty"`
+	Grafana    *Grafana    `json:"grafana,omitempty"`
+}
+
+type Helm struct {
+	EnableHelm  string `json:"enable_helm"`
+	HelmRelease string `json:"helm_release"`
+}
+
+type Prometheus struct {
+	EnablePrometheus string `json:"enable_prometheus"`
+}
+
+type Grafana struct {
+	EnableGrafana        string `json:"enable_prometheus"`
+	GrafanaAdminUser     string `json:"grafana_admin_user"`
+	GrafanaAdminPassword string `json:"grafana_admin_password"`
 }
