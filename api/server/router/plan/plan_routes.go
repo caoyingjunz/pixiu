@@ -181,8 +181,8 @@ func (t *planRouter) stopPlan(c *gin.Context) {
 
 type DistributionsMeta struct {
 	Centos    []string `json:"centos,omitempty"`
-	Debian    []string `json:"debian,omitempty"`
 	Ubuntu    []string `json:"ubuntu,omitempty"`
+	Debian    []string `json:"debian,omitempty"`
 	OpenEuler []string `json:"openEuler,omitempty"`
 	Rocky     []string `json:"rocky,omitempty"`
 }
