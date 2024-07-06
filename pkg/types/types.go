@@ -119,12 +119,12 @@ type PlanNode struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name   string         `json:"name"` // required
-	PlanId int64          `json:"plan_id,omitempty"`
-	Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
-	CRI    model.CRI      `json:"cri"`
-	Ip     string         `json:"ip"`
-	Auth   PlanNodeAuth   `json:"auth,omitempty"`
+	Name   string       `json:"name"` // required
+	PlanId int64        `json:"plan_id,omitempty"`
+	Role   []string     `json:"role"` // k8s 节点的角色，master 和 node
+	CRI    model.CRI    `json:"cri"`
+	Ip     string       `json:"ip"`
+	Auth   PlanNodeAuth `json:"auth,omitempty"`
 }
 
 type AuthType string

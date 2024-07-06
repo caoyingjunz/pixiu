@@ -35,11 +35,11 @@ func (plan *Plan) TableName() string {
 	return "plans"
 }
 
-type KubeRole int
+type KubeRole string
 
 const (
-	NodeRole   KubeRole = iota // kubernetes node role
-	MasterRole                 // kubernetes master role
+	MasterRole string = "master" // kubernetes master role
+	NodeRole   string = "node"   // kubernetes node role
 )
 
 type CRI string
@@ -52,12 +52,12 @@ const (
 type Node struct {
 	pixiu.Model
 
-	Name   string   `json:"name"` // 主机名，相同plan内不允许重复
-	PlanId int64    `json:"plan_id"`
-	Role   KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
-	CRI    CRI      `json:"cri"`
-	Ip     string   `json:"ip"`
-	Auth   string   `json:"auth"`
+	Name   string `json:"name"` // 主机名，相同plan内不允许重复
+	PlanId int64  `json:"plan_id"`
+	Role   string `json:"role"` // k8s 节点的角色，master 和 node
+	CRI    CRI    `json:"cri"`
+	Ip     string `json:"ip"`
+	Auth   string `json:"auth"`
 }
 
 func (node *Node) TableName() string {
