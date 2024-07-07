@@ -329,10 +329,14 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 	// 尝试获取最新的任务状态
 	// 获取失败也不中断返回
 	if tasks, err := p.factory.Plan().ListTasks(context.TODO(), o.Id); err == nil {
-		for _, task := range tasks {
-			if task.Status != model.SuccessPlanStatus {
-				status = task.Status
-				break
+		if len(tasks) == 0 {
+			status = model.UnStartPlanStatus
+		} else {
+			for _, task := range tasks {
+				if task.Status != model.SuccessPlanStatus {
+					status = task.Status
+					break
+				}
 			}
 		}
 	}
