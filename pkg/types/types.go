@@ -228,6 +228,7 @@ type EventOptions struct {
 }
 
 type KubernetesSpec struct {
+	EnablePublicIp    bool   `json:"enable_public_ip"`
 	ApiServer         string `json:"api_server"`
 	KubernetesVersion string `json:"kubernetes_version"`
 	EnableHA          bool   `json:"enable_ha"`
