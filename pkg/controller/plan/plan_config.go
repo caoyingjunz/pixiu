@@ -79,7 +79,17 @@ func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *type
 		updates["os_image"] = newConfig.OSImage
 	}
 
-	newKubernetes, err := newConfig.Kubernetes.Marshal()
+	kubeReqConfig := newConfig.Kubernetes
+	if kubeReqConfig.EnablePublicIp {
+		if len(kubeReqConfig.ApiServer) == 0 {
+			return fmt.Errorf("启用 ApiServer 地址，但是未配置关联 IP")
+		}
+	} else {
+		if len(kubeReqConfig.ApiServer) != 0 {
+			kubeReqConfig.ApiServer = ""
+		}
+	}
+	newKubernetes, err := kubeReqConfig.Marshal()
 	if err != nil {
 		return err
 	}
@@ -135,7 +145,19 @@ func (p *plan) GetConfig(ctx context.Context, pid int64) (*types.PlanConfig, err
 }
 
 func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigRequest) (*model.Config, error) {
-	kubeConfig, err := req.Kubernetes.Marshal()
+	// TODO: 后续优化
+	kubeReqConfig := req.Kubernetes
+	if kubeReqConfig.EnablePublicIp {
+		if len(kubeReqConfig.ApiServer) == 0 {
+			return nil, fmt.Errorf("启用 ApiServer 地址，但是未配置关联 IP")
+		}
+	} else {
+		if len(kubeReqConfig.ApiServer) != 0 {
+			kubeReqConfig.ApiServer = ""
+		}
+	}
+
+	kubeConfig, err := kubeReqConfig.Marshal()
 	if err != nil {
 		return nil, err
 	}
