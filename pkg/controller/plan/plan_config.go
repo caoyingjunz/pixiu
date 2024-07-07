@@ -79,7 +79,7 @@ func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *type
 		updates["os_image"] = newConfig.OSImage
 	}
 
-	newKubernetes, err := newConfig.Kubernetes.Marshal()
+	newKubernetes, err := p.buildAndCleanKubernetesConfig(newConfig.Kubernetes)
 	if err != nil {
 		return err
 	}
@@ -134,8 +134,21 @@ func (p *plan) GetConfig(ctx context.Context, pid int64) (*types.PlanConfig, err
 	return p.modelConfig2Type(object)
 }
 
+func (p *plan) buildAndCleanKubernetesConfig(ks types.KubernetesSpec) (string, error) {
+	if ks.EnablePublicIp {
+		if len(ks.ApiServer) == 0 {
+			return "", fmt.Errorf("启用 ApiServer 地址，但是未配置关联 IP")
+		}
+	} else {
+		if len(ks.ApiServer) != 0 {
+			ks.ApiServer = ""
+		}
+	}
+	return ks.Marshal()
+}
+
 func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigRequest) (*model.Config, error) {
-	kubeConfig, err := req.Kubernetes.Marshal()
+	kubeConfig, err := p.buildAndCleanKubernetesConfig(req.Kubernetes)
 	if err != nil {
 		return nil, err
 	}
