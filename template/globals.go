@@ -22,7 +22,7 @@ const GlobalsTemplate = `# Render below by Pixiu
 enable_kubernetes_ha: "yes"
 {{- end }}
 
-{{- if ne .Kubernetes.ApiServer "" }}
+{{- if .Kubernetes.EnablePublicIp }}
 kube_vip_address: "{{ .Kubernetes.ApiServer }}"
 {{- end }}
 
