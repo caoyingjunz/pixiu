@@ -103,6 +103,14 @@ func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *type
 		updates["runtime"] = newRuntime
 	}
 
+	newComponent, err := newConfig.Component.Marshal()
+	if err != nil {
+		return err
+	}
+	if oldConfig.Component != newComponent {
+		updates["component"] = newComponent
+	}
+
 	// 没有更新，则直接返回
 	if len(updates) == 0 {
 		return nil
