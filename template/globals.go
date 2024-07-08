@@ -40,7 +40,9 @@ network_interface: "{{ .Network.NetworkInterface }}"
 {{- if .Component.Haproxy }}
 {{- if .Component.Haproxy.Enable }}
 enable_haproxy: "yes"
+{{- if ne .Component.Haproxy.KeepalivedVirtualRouterId "" }}
 keepalived_virtual_router_id: "{{ .Component.Haproxy.KeepalivedVirtualRouterId }}"
+{{- end }}
 {{- end }}
 {{- end }}
 
