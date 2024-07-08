@@ -250,6 +250,7 @@ type ComponentSpec struct {
 	Helm       *Helm       `json:"helm,omitempty"` // 忽略，则使用默认值
 	Prometheus *Prometheus `json:"prometheus,omitempty"`
 	Grafana    *Grafana    `json:"grafana,omitempty"`
+	Haproxy    *Haproxy    `json:"haproxy,omitempty"`
 }
 
 type Helm struct {
@@ -265,4 +266,11 @@ type Grafana struct {
 	EnableGrafana        string `json:"enable_prometheus"`
 	GrafanaAdminUser     string `json:"grafana_admin_user"`
 	GrafanaAdminPassword string `json:"grafana_admin_password"`
+}
+
+// Haproxy Options
+// This configuration is usually enabled when self-created VMs require high availability.
+type Haproxy struct {
+	EnableHaproxy             string `json:"enable_haproxy"`               // Enable haproxy and keepalived,
+	KeepalivedVirtualRouterId string `json:"keepalived_virtual_router_id"` // Arbitrary unique number from 0..255
 }
