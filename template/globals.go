@@ -26,12 +26,23 @@ enable_kubernetes_ha: "yes"
 kube_vip_address: "{{ .Kubernetes.ApiServer }}"
 {{- end }}
 
+{{- if ne .Kubernetes.ApiPort "" }}
+kube_vip_port: "{{ .Kubernetes.ApiPort }}"
+{{- end }}
+
 kube_release: {{ .Kubernetes.KubernetesVersion }}
 
 cluster_cidr: "{{ .Network.PodNetwork }}"
 service_cidr: "{{ .Network.ServiceNetwork }}"
 
 network_interface: "{{ .Network.NetworkInterface }}"
+
+{{- if .Component.Haproxy }}
+{{- if .Component.Haproxy.Enable }}
+enable_haproxy: "yes"
+keepalived_virtual_router_id: "{{ .Component.Haproxy.KeepalivedVirtualRouterId }}"
+{{- end }}
+{{- end }}
 
 {{- if eq .Network.Cni "calico" }}
 enable_calico: "yes"

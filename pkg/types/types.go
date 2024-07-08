@@ -230,6 +230,7 @@ type EventOptions struct {
 type KubernetesSpec struct {
 	EnablePublicIp    bool   `json:"enable_public_ip"`
 	ApiServer         string `json:"api_server"`
+	ApiPort           string `json:"api_port"`
 	KubernetesVersion string `json:"kubernetes_version"`
 	EnableHA          bool   `json:"enable_ha"`
 }
@@ -254,16 +255,17 @@ type ComponentSpec struct {
 }
 
 type Helm struct {
-	EnableHelm  string `json:"enable_helm"`
+	Enable      bool   `json:"enable"`
 	HelmRelease string `json:"helm_release"`
 }
 
 type Prometheus struct {
 	EnablePrometheus string `json:"enable_prometheus"`
+	Enable           bool   `json:"enable"`
 }
 
 type Grafana struct {
-	EnableGrafana        string `json:"enable_prometheus"`
+	Enable               bool   `json:"enable"`
 	GrafanaAdminUser     string `json:"grafana_admin_user"`
 	GrafanaAdminPassword string `json:"grafana_admin_password"`
 }
@@ -271,6 +273,6 @@ type Grafana struct {
 // Haproxy Options
 // This configuration is usually enabled when self-created VMs require high availability.
 type Haproxy struct {
-	EnableHaproxy             string `json:"enable_haproxy"`               // Enable haproxy and keepalived,
+	Enable                    bool   `json:"enable"`                       // Enable haproxy and keepalived,
 	KeepalivedVirtualRouterId string `json:"keepalived_virtual_router_id"` // Arbitrary unique number from 0..255
 }
