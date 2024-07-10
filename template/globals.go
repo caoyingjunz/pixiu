@@ -26,7 +26,7 @@ enable_kubernetes_ha: "yes"
 kube_vip_address: "{{ .Kubernetes.ApiServer }}"
 {{- end }}
 
-{{- if ne .Kubernetes.ApiPort "" }}
+{{- if .Kubernetes.ApiPort }}
 kube_vip_port: "{{ .Kubernetes.ApiPort }}"
 {{- end }}
 
@@ -37,12 +37,10 @@ service_cidr: "{{ .Network.ServiceNetwork }}"
 
 network_interface: "{{ .Network.NetworkInterface }}"
 
-{{- if .Component.Haproxy }}
-{{- if .Component.Haproxy.Enable }}
+{{- if and .Component.Haproxy .Component.Haproxy.Enable }}
 enable_haproxy: "yes"
-{{- if ne .Component.Haproxy.KeepalivedVirtualRouterId "" }}
+{{- if .Component.Haproxy.KeepalivedVirtualRouterId }}
 keepalived_virtual_router_id: "{{ .Component.Haproxy.KeepalivedVirtualRouterId }}"
-{{- end }}
 {{- end }}
 {{- end }}
 
