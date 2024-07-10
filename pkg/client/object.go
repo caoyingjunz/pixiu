@@ -75,9 +75,6 @@ func (o *object) Set(key interface{}, object interface{}) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.items == nil {
-		o.items = map[interface{}]item{}
-	}
 	o.items[key] = item{
 		Object:         object,
 		LastUpdateTime: time.Now(),
