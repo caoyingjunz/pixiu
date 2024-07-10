@@ -89,6 +89,8 @@ func (o *object) Delete(key interface{}) {
 }
 
 // 通过 lister 自动同步最新数据
+// 1. 清理过期的对象
+// 2. 同步未过期对象
 func (o *object) sync() {
 	if o.Lister == nil || len(o.items) == 0 {
 		klog.V(2).Infof("syncing and waiting for the next sync")
