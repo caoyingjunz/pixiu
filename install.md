@@ -47,6 +47,10 @@ worker:
         - debian11
         - ubuntu20.04
         - ubuntu22.04
+        - rocky8.5
+        - rocky9.2
+        - rocky9.3
+        - openEuler22.03
 
 前端配置(ip 根据实际情况调整，如果是虚拟机，则配置成虚拟机的公网IP，安全组放通80和8090端口)
 vim /etc/pixiu/config.json

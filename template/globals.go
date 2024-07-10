@@ -22,8 +22,12 @@ const GlobalsTemplate = `# Render below by Pixiu
 enable_kubernetes_ha: "yes"
 {{- end }}
 
-{{- if ne .Kubernetes.ApiServer "" }}
+{{- if .Kubernetes.EnablePublicIp }}
 kube_vip_address: "{{ .Kubernetes.ApiServer }}"
+{{- end }}
+
+{{- if .Kubernetes.ApiPort }}
+kube_vip_port: "{{ .Kubernetes.ApiPort }}"
 {{- end }}
 
 kube_release: {{ .Kubernetes.KubernetesVersion }}
@@ -32,6 +36,13 @@ cluster_cidr: "{{ .Network.PodNetwork }}"
 service_cidr: "{{ .Network.ServiceNetwork }}"
 
 network_interface: "{{ .Network.NetworkInterface }}"
+
+{{- if and .Component.Haproxy .Component.Haproxy.Enable }}
+enable_haproxy: "yes"
+{{- if .Component.Haproxy.KeepalivedVirtualRouterId }}
+keepalived_virtual_router_id: "{{ .Component.Haproxy.KeepalivedVirtualRouterId }}"
+{{- end }}
+{{- end }}
 
 {{- if eq .Network.Cni "calico" }}
 enable_calico: "yes"

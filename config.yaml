@@ -31,3 +31,7 @@ worker:
         - debian11
         - ubuntu20.04
         - ubuntu22.04
+        - rocky8.5
+        - rocky9.2
+        - rocky9.3
+        - openEuler22.03
