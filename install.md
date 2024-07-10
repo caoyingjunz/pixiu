@@ -36,7 +36,6 @@ mysql:
   name: pixiu
 
 worker:
-  work_dir: /tmp/pixiu
   engines:
     - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
       os_supported:
