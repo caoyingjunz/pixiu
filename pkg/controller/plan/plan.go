@@ -86,7 +86,8 @@ type plan struct {
 // 1. 创建部署计划
 // 2. 创建部署配置
 // 3. 创建节点列表
-// 3. 创建扩展组件
+// 4. 创建扩展组件
+// 5. 创建容器服务
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	object, err := p.factory.Plan().Create(ctx, &model.Plan{
 		Name:        req.Name,
@@ -112,6 +113,20 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		return errors.ErrServerInternal
 	}
 
+	// 如果启用pixiu注册功能，则创建容器服务
+	if req.Config.Kubernetes.Register {
+		_, err := p.factory.Cluster().Create(ctx, &model.Cluster{
+			AliasName:   req.Name,
+			Description: req.Description,
+			ClusterType: model.ClusterTypeCustom,
+			PlanId:      planId,
+			Protected:   true,
+		})
+		if err != nil {
+			_ = p.Delete(ctx, planId)
+			return errors.ErrServerInternal
+		}
+	}
 	return nil
 }
 

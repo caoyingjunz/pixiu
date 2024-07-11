@@ -41,6 +41,8 @@ type Cluster struct {
 
 	// 0：标准集群 1: 自建集群
 	ClusterType `gorm:"type:tinyint" json:"cluster_type"`
+	// 自建集群关联的 PlanId
+	PlanId int64
 
 	// 集群删除保护，开启集群删除保护时不允许删除集群
 	// 0: 关闭集群删除保护 1: 开启集群删除保护
@@ -51,9 +53,6 @@ type Cluster struct {
 
 	// 集群用途描述，可以为空
 	Description string `gorm:"type:text" json:"description"`
-
-	// 预留，扩展字段
-	Extension string `gorm:"type:text" json:"extension"`
 }
 
 func (*Cluster) TableName() string {
