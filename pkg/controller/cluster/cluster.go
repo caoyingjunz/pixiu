@@ -537,11 +537,11 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 
 	// TODO: 并发优化
 	// 获取集群所有节点的资源数据，并做整合
-	metricList, err := clusterSet.Metric.NodeMetricses().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	km.Resources = c.parseKubernetesResource(metricList.Items)
+	//metricList, err := clusterSet.Metric.NodeMetricses().List(ctx, metav1.ListOptions{})
+	//if err != nil {
+	//	return nil, err
+	//}
+	//km.Resources = c.parseKubernetesResource(metricList.Items)
 
 	return &km, nil
 }

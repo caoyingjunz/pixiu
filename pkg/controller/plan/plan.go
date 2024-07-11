@@ -30,6 +30,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
 type PlanGetter interface {
@@ -116,6 +117,7 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	// 如果启用pixiu注册功能，则创建容器服务
 	if req.Config.Kubernetes.Register {
 		_, err := p.factory.Cluster().Create(ctx, &model.Cluster{
+			Name:        uuid.NewRandName(8),
 			AliasName:   req.Name,
 			Description: req.Description,
 			ClusterType: model.ClusterTypeCustom,
