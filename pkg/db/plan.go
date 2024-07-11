@@ -55,7 +55,7 @@ type PlanInterface interface {
 	DeleteConfigByPlan(ctx context.Context, planId int64) error
 	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
 
-	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
+	CreateTask(ctx context.Context, object *model.Task) (*model.Task, error)
 	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error)
 	DeleteTask(ctx context.Context, pid int64) error
 	ListTasks(ctx context.Context, pid int64) ([]model.Task, error)
