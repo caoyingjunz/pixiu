@@ -38,17 +38,25 @@ func (t *planRouter) listTasks(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		opt planMeta
-		err error
+		opt   planMeta
+		watch WatchMeta
+		err   error
 	)
-	if err = httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if r.Result, err = t.c.Plan().ListTasks(c, opt.PlanId); err != nil {
+  if err = httputils.ShouldBind(c).WithUri(&opt).WithQuery(&watch).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	httputils.SetSuccess(c, r)
+	// 不是长连接请求则直接返回
+	if !watch.Watch {
+		if r.Result, err = t.c.Plan().ListTasks(c, opt.PlanId); err != nil {
+			httputils.SetFailed(c, r, err)
+			return
+		}
+		httputils.SetSuccess(c, r)
+		return
+	}
+
+	// 长连接请求
+	t.c.Plan().WatchTasks(c, opt.PlanId, c.Writer, c.Request)
 }

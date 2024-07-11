@@ -26,6 +26,8 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 const (
@@ -216,4 +218,27 @@ func (rs *RuntimeSpec) Unmarshal(s string) error {
 		return err
 	}
 	return nil
+}
+
+func (cs ComponentSpec) Marshal() (string, error) {
+	data, err := json.Marshal(cs)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (cs *ComponentSpec) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), cs); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rs *RuntimeSpec) IsDocker() bool {
+	return rs.Runtime == string(model.DockerCRI)
+}
+
+func (rs *RuntimeSpec) IsContainerd() bool {
+	return rs.Runtime == string(model.ContainerdCRI)
 }

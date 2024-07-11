@@ -43,6 +43,8 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		planRoute.GET("/:planId", t.getPlan)
 		planRoute.GET("", t.listPlans)
 
+		planRoute.GET("/:planId/resources", t.getPlanWithSubResources)
+
 		// 启动部署任务
 		planRoute.POST("/:planId/start", t.startPlan)
 		// 终止部署任务
@@ -64,6 +66,9 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		// 执行指定任务
 		planRoute.POST("/:planId/tasks/:taskId", t.runTasks)
 		// 查询任务列表
-		planRoute.POST("/:planId/tasks", t.listTasks)
+		planRoute.GET("/:planId/tasks", t.listTasks)
+
+		// 获取 os 与 os version
+		planRoute.GET("/distributions", t.getDistributions)
 	}
 }

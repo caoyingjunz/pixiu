@@ -27,6 +27,11 @@ type planMeta struct {
 	PlanId int64 `uri:"planId" binding:"required"`
 }
 
+type WatchMeta struct {
+	Watch bool `form:"watch"`
+}
+
+// 创建部署计划，同时创建配置和节点
 func (t *planRouter) createPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -97,6 +102,29 @@ func (t *planRouter) getPlan(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// getPlanWithSubResources
+// 获取 plan
+// 获取 configs
+// 获取 nodes
+func (t *planRouter) getPlanWithSubResources(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		opt planMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = t.c.Plan().GetWithSubResources(c, opt.PlanId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 func (t *planRouter) listPlans(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -136,6 +164,27 @@ func (t *planRouter) stopPlan(c *gin.Context) {
 	if err := t.c.Plan().Stop(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+type DistributionsMeta struct {
+	Centos    []string `json:"centos,omitempty"`
+	Ubuntu    []string `json:"ubuntu,omitempty"`
+	Debian    []string `json:"debian,omitempty"`
+	OpenEuler []string `json:"openEuler,omitempty"`
+	Rocky     []string `json:"rocky,omitempty"`
+}
+
+func (t *planRouter) getDistributions(c *gin.Context) {
+	r := httputils.NewResponse()
+	r.Result = &DistributionsMeta{
+		Centos:    []string{"centos7"},
+		Ubuntu:    []string{"ubuntu18.04", "ubuntu20.04", "ubuntu22.04", "ubuntu24.04"},
+		Debian:    []string{"debian10", "debian11"},
+		OpenEuler: []string{"openEuler22.03"},
+		Rocky:     []string{"rocky8.5", "rocky9.2", "rocky9.3"},
 	}
 
 	httputils.SetSuccess(c, r)

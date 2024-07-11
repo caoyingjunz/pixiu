@@ -18,12 +18,14 @@ package plan
 
 import (
 	"context"
+	"strings"
 
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 // 创建前预检查
@@ -42,28 +44,100 @@ func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanN
 		return err
 	}
 
-	// 获取节点认证信息
-	auth, err := req.Auth.Marshal()
-	if err != nil {
-		klog.Errorf("failed to parse node(%s) auth: %v", req.Name, err)
+	if err := p.createNode(ctx, pid, req); err != nil {
 		return err
 	}
-	if _, err = p.factory.Plan().CreatNode(ctx, &model.Node{
-		Name:   req.Name,
-		PlanId: pid,
-		Role:   req.Role,
-		CRI:    req.CRI,
-		Ip:     req.Ip,
-		Auth:   auth,
-	}); err != nil {
-		klog.Errorf("failed to create node(%s): %v", req.Name, err)
+	return nil
+}
+
+func (p *plan) CreateNodes(ctx context.Context, planId int64, nodes []types.CreatePlanNodeRequest) error {
+	_, err := p.Get(ctx, planId)
+	if err != nil {
 		return err
+	}
+
+	for _, node := range nodes {
+		if err = p.createNode(ctx, planId, &node); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
+	return nil
+}
+
+// 删除多余的节点
+// 新增没有的节点
+// 更新已存在的节点
+func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
+	oldNodes, err := p.factory.Plan().ListNodes(ctx, planId)
+	if err != nil {
+		return err
+	}
+	newNodes := req.Nodes
+
+	newMap := make(map[string]types.CreatePlanNodeRequest)
+	for _, newNode := range newNodes {
+		newMap[newNode.Name] = newNode
+	}
+
+	// 遍历寻找待删除节点然后执行删除
+	var delNodes []string
+	for _, oldNode := range oldNodes {
+		name := oldNode.Name
+		_, found := newMap[name]
+		if !found {
+			delNodes = append(delNodes, name)
+		}
+	}
+	if len(delNodes) != 0 {
+		if err = p.factory.Plan().DeleteNodesByNames(ctx, planId, delNodes); err != nil {
+			klog.Errorf("failed deleting nodes %v %v", delNodes, err)
+			return err
+		}
+	}
+
+	for _, newNode := range newNodes {
+		node, err := p.buildNodeFromRequest(planId, &newNode)
+		if err != nil {
+			return err
+		}
+		if err = p.CreateOrUpdateNode(ctx, node); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
+func (p *plan) buildNodeFromRequest(planId int64, req *types.CreatePlanNodeRequest) (*model.Node, error) {
+	auth, err := req.Auth.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Node{
+		Name:   req.Name,
+		PlanId: planId,
+		Role:   strings.Join(req.Role, ","),
+		CRI:    req.CRI,
+		Ip:     req.Ip,
+		Auth:   auth,
+	}, nil
+}
+
+func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) error {
+	node, err := p.buildNodeFromRequest(planId, req)
+	if err != nil {
+		klog.Errorf("failed to build plan(%d) node from request: %v", planId, err)
+		return err
+	}
+	if _, err = p.factory.Plan().CreatNode(ctx, node); err != nil {
+		klog.Errorf("failed to create node(%s): %v", req.Name, err)
+		return err
+	}
+
 	return nil
 }
 
@@ -104,6 +178,33 @@ func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, erro
 	return nodes, nil
 }
 
+// CreateOrUpdateNode
+// TODO: 优化
+func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error {
+	old, err := p.factory.Plan().GetNodeByName(ctx, object.PlanId, object.Name)
+	if err != nil {
+		if !utilerrors.IsRecordNotFound(err) {
+			return err
+		}
+		// 不存在则创建
+		klog.Infof("plan(%d) node(%s) not exist, try to create it.", object.PlanId, object.Name)
+		_, err = p.factory.Plan().CreatNode(ctx, object)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	klog.Infof("plan(%d) node(%s) already exist", object.PlanId, object.Name)
+	// 已存在尝试更新
+	updates := p.buildNodeUpdates(old, object)
+	if len(updates) == 0 {
+		return nil
+	}
+	klog.Infof("plan(%d) node(%s) already exist and need to update %v", object.PlanId, object.Name, updates)
+	return p.factory.Plan().UpdateNode(ctx, object.PlanId, object.ResourceVersion, updates)
+}
+
 func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 	auth := types.PlanNodeAuth{}
 	if err := auth.Unmarshal(o.Auth); err != nil {
@@ -121,8 +222,23 @@ func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 		},
 		PlanId: o.PlanId,
 		Name:   o.Name,
-		Role:   o.Role,
+		Role:   strings.Split(o.Role, ","),
 		Ip:     o.Ip,
 		Auth:   auth,
 	}, nil
+}
+
+func (p *plan) buildNodeUpdates(old, object *model.Node) map[string]interface{} {
+	updates := make(map[string]interface{})
+	if old.Ip != object.Ip {
+		updates["ip"] = object.Ip
+	}
+	if old.Role != object.Role {
+		updates["role"] = object.Role
+	}
+	if old.Auth != object.Auth {
+		updates["auth"] = object.Auth
+	}
+
+	return updates
 }

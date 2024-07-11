@@ -1,7 +1,6 @@
 # 前置准备
 ```bash
-docker 已经安装
-代码 https://github.com/caoyingjunz/pixiu
+确保 docker 已经安装
 ```
 # 数据库
 ```bash
@@ -23,7 +22,9 @@ vim /etc/pixiu/config.yaml 写入后端如下配置
 default:
   # 运行模式，可选 debug 和 release
   mode: debug
+  # 服务监听端口
   listen: 8090
+  # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
 
 数据库地址信息
@@ -34,10 +35,28 @@ mysql:
   port: 3306
   name: pixiu
 
-前端配置(ip 根据实际情况调整)
+worker:
+  engines:
+    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
+      os_supported:
+        - centos7
+        - debian10
+        - ubuntu18.04
+    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+      os_supported:
+        - debian11
+        - ubuntu20.04
+        - ubuntu22.04
+        - rocky8.5
+        - rocky9.2
+        - rocky9.3
+        - openEuler22.03
+
+前端配置(ip 根据实际情况调整，如果是虚拟机，则配置成虚拟机的公网IP，安全组放通80和8090端口)
 vim /etc/pixiu/config.json
 {
-    "url": "http://192.168.16.156"
+    "url": "http://192.168.16.156",
+    "watchUrl": "http://192.168.16.156:8090"
 }
 ```
 # 启动 pixiu

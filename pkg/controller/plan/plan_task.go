@@ -18,6 +18,9 @@ package plan
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -44,6 +47,53 @@ func (p *plan) ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, e
 	}
 
 	return tasks, nil
+}
+
+func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request) {
+	flush, _ := w.(http.Flusher)
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// 初始化 Lister
+	if taskC.Lister == nil {
+		taskC.SetLister(p.factory.Plan().ListTasks)
+	}
+
+	// 判断缓存中是否已经存在，如果不存在则先写入
+	_, ok := taskC.Get(planId)
+	if !ok {
+		tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+		if err != nil {
+			klog.Errorf("failed to get plan(%d) tasks from database: %v", planId, err)
+			return
+		}
+		taskC.Set(planId, tasks)
+	}
+
+	for {
+		select {
+		case <-r.Context().Done():
+			klog.Infof("plan(%d) watch API has been closed by client and tasks cache will be auto removed after 5m", planId)
+			return
+		default:
+			tasks, ok := taskC.Get(planId)
+			if ok {
+				var ts []types.PlanTask
+				for _, object := range tasks {
+					ts = append(ts, *p.modelTask2Type(&object))
+				}
+				if err := json.NewEncoder(w).Encode(ts); err != nil {
+					klog.Errorf("failed to encode tasks: %v", err)
+					break
+				}
+				flush.Flush()
+			}
+
+			// 同步事件间隔为 3s
+			time.Sleep(3 * time.Second)
+		}
+	}
 }
 
 func (p *plan) modelTask2Type(o *model.Task) *types.PlanTask {

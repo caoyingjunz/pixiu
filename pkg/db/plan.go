@@ -39,16 +39,22 @@ type PlanInterface interface {
 	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	ListNodes(ctx context.Context, pid int64) ([]model.Node, error)
 
+	DeleteNodesByPlan(ctx context.Context, planId int64) error
+	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
+
+	DeleteNodesByNames(ctx context.Context, planId int64, names []string) error
+
 	CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error)
 	UpdateConfig(ctx context.Context, cfgId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteConfig(ctx context.Context, cfgId int64) (*model.Config, error)
 	GetConfig(ctx context.Context, cfgId int64) (*model.Config, error)
 	ListConfigs(ctx context.Context) ([]model.Config, error)
 
+	DeleteConfigByPlan(ctx context.Context, planId int64) error
 	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
 
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
-	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) error
+	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error)
 	DeleteTask(ctx context.Context, pid int64) error
 	ListTasks(ctx context.Context, pid int64) ([]model.Task, error)
 
@@ -157,6 +163,31 @@ func (p *plan) DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error
 	return object, nil
 }
 
+func (p *plan) DeleteNodesByPlan(ctx context.Context, planId int64) error {
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", planId).Delete(&model.Node{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *plan) DeleteNodesByNames(ctx context.Context, planId int64, names []string) error {
+	if err := p.db.WithContext(ctx).Where("plan_id = ? and name in (?)", planId, names).Delete(&model.Node{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *plan) GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error) {
+	var object model.Node
+	if err := p.db.WithContext(ctx).Where("plan_id = ? and name = ?", planId, name).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
+}
+
 func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
 	var object model.Node
 	if err := p.db.WithContext(ctx).Where("id = ?", nodeId).First(&object).Error; err != nil {
@@ -214,6 +245,13 @@ func (p *plan) DeleteConfig(ctx context.Context, cid int64) (*model.Config, erro
 	return object, nil
 }
 
+func (p *plan) DeleteConfigByPlan(ctx context.Context, planId int64) error {
+	if err := p.db.WithContext(ctx).Where("plan_id = ?", planId).Delete(&model.Config{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func (p *plan) GetConfig(ctx context.Context, cid int64) (*model.Config, error) {
 	var object model.Config
 	if err := p.db.WithContext(ctx).Where("id = ?", cid).First(&object).Error; err != nil {
@@ -252,18 +290,16 @@ func (p *plan) CreatTask(ctx context.Context, object *model.Task) (*model.Task, 
 	return object, nil
 }
 
-func (p *plan) UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) error {
-	// 系统维护字段
-	updates["gmt_modified"] = time.Now()
+func (p *plan) UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error) {
 	f := p.db.WithContext(ctx).Model(&model.Task{}).Where("plan_id = ? and name = ?", pid, name).Updates(updates)
 	if f.Error != nil {
-		return f.Error
+		return nil, f.Error
 	}
 	if f.RowsAffected == 0 {
-		return errors.ErrRecordNotFound
+		return nil, errors.ErrRecordNotFound
 	}
 
-	return nil
+	return p.GetTaskByName(ctx, pid, name)
 }
 
 func (p *plan) DeleteTask(ctx context.Context, pid int64) error {

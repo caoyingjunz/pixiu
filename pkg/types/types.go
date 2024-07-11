@@ -107,21 +107,24 @@ type Plan struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name        string         `json:"name"` // 用户名称
-	Step        model.PlanStep `json:"step"`
-	Description string         `json:"description"` // 用户描述信息
+	Name        string           `json:"name"` // 用户名称
+	Step        model.TaskStatus `json:"step"`
+	Description string           `json:"description"` // 用户描述信息
+
+	Config PlanConfig `json:"config"`
+	Nodes  []PlanNode `json:"nodes"`
 }
 
 type PlanNode struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name   string         `json:"name"` // required
-	PlanId int64          `json:"plan_id"`
-	Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
-	CRI    model.CRI      `json:"cri"`
-	Ip     string         `json:"ip"`
-	Auth   PlanNodeAuth   `json:"auth,omitempty"`
+	Name   string       `json:"name"` // required
+	PlanId int64        `json:"plan_id,omitempty"`
+	Role   []string     `json:"role"` // k8s 节点的角色，master 和 node
+	CRI    model.CRI    `json:"cri"`
+	Ip     string       `json:"ip"`
+	Auth   PlanNodeAuth `json:"auth,omitempty"`
 }
 
 type AuthType string
@@ -162,14 +165,14 @@ type PlanConfig struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	PlanId      int64          `json:"plan_id" binding:"required"` // required
-	Name        string         `json:"name"  binding:"required"`   // required
-	Region      string         `json:"region"`
-	OSImage     string         `json:"os_image"`    // 操作系统
-	Description string         `json:"description"` // optional
-	Kubernetes  KubernetesSpec `json:"kubernetes"`
-	Network     NetworkSpec    `json:"network"`
-	Runtime     RuntimeSpec    `json:"runtime"`
+	PlanId     int64          `json:"plan_id,omitempty"` // required
+	Region     string         `json:"region"`
+	OSImage    string         `json:"os_image"` // 操作系统
+	Kubernetes KubernetesSpec `json:"kubernetes"`
+	Network    NetworkSpec    `json:"network"`
+	Runtime    RuntimeSpec    `json:"runtime"`
+	Component  ComponentSpec  `json:"component"` // 支持的扩展组件配置
+
 }
 
 // TimeSpec 通用时间规格
@@ -225,7 +228,9 @@ type EventOptions struct {
 }
 
 type KubernetesSpec struct {
+	EnablePublicIp    bool   `json:"enable_public_ip"`
 	ApiServer         string `json:"api_server"`
+	ApiPort           string `json:"api_port"`
 	KubernetesVersion string `json:"kubernetes_version"`
 	EnableHA          bool   `json:"enable_ha"`
 }
@@ -240,4 +245,34 @@ type NetworkSpec struct {
 
 type RuntimeSpec struct {
 	Runtime string `json:"runtime"`
+}
+
+type ComponentSpec struct {
+	Helm       *Helm       `json:"helm,omitempty"` // 忽略，则使用默认值
+	Prometheus *Prometheus `json:"prometheus,omitempty"`
+	Grafana    *Grafana    `json:"grafana,omitempty"`
+	Haproxy    *Haproxy    `json:"haproxy,omitempty"`
+}
+
+type Helm struct {
+	Enable      bool   `json:"enable"`
+	HelmRelease string `json:"helm_release"`
+}
+
+type Prometheus struct {
+	EnablePrometheus string `json:"enable_prometheus"`
+	Enable           bool   `json:"enable"`
+}
+
+type Grafana struct {
+	Enable               bool   `json:"enable"`
+	GrafanaAdminUser     string `json:"grafana_admin_user"`
+	GrafanaAdminPassword string `json:"grafana_admin_password"`
+}
+
+// Haproxy Options
+// This configuration is usually enabled when self-created VMs require high availability.
+type Haproxy struct {
+	Enable                    bool   `json:"enable"`                       // Enable haproxy and keepalived,
+	KeepalivedVirtualRouterId string `json:"keepalived_virtual_router_id"` // Arbitrary unique number from 0..255
 }

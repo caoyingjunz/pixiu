@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -99,6 +100,11 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 		ContainerdNode:   make([]types.PlanNode, 0),
 	}
 
+	runtime := types.RuntimeSpec{}
+	if err := runtime.Unmarshal(data.Config.Runtime); err != nil {
+		return multinode, err
+	}
+
 	for _, node := range data.Nodes {
 		nodeAuth := types.PlanNodeAuth{}
 		err := nodeAuth.Unmarshal(node.Auth)
@@ -113,20 +119,25 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 		nodeAuth.Key.File = rsa
 		planNode := types.PlanNode{Name: node.Name, Auth: nodeAuth}
 
-		if node.CRI == model.DockerCRI {
-			if node.Role == model.MasterRole {
-				multinode.DockerMaster = append(multinode.DockerMaster, planNode)
-			}
-			if node.Role == model.NodeRole {
-				multinode.DockerNode = append(multinode.DockerNode, planNode)
+		roles := strings.Split(node.Role, ",")
+		if runtime.IsDocker() {
+			for _, role := range roles {
+				if role == model.MasterRole {
+					multinode.DockerMaster = append(multinode.DockerMaster, planNode)
+				}
+				if role == model.NodeRole {
+					multinode.DockerNode = append(multinode.DockerNode, planNode)
+				}
 			}
 		}
-		if node.CRI == model.ContainerdCRI {
-			if node.Role == model.MasterRole {
-				multinode.ContainerdMaster = append(multinode.ContainerdMaster, planNode)
-			}
-			if node.Role == model.NodeRole {
-				multinode.ContainerdNode = append(multinode.ContainerdNode, planNode)
+		if runtime.IsContainerd() {
+			for _, role := range roles {
+				if role == model.MasterRole {
+					multinode.ContainerdMaster = append(multinode.ContainerdMaster, planNode)
+				}
+				if role == model.NodeRole {
+					multinode.ContainerdNode = append(multinode.ContainerdNode, planNode)
+				}
 			}
 		}
 	}
@@ -180,13 +191,14 @@ func ParseConfig(data TaskData) (*types.PlanConfig, error) {
 	if err := kubernetes.Unmarshal(config.Kubernetes); err != nil {
 		return nil, err
 	}
-
-	// TODO: 测试数据，后续需要移除
-	if network.NetworkInterface == "" {
-		network.NetworkInterface = "ens33"
+	component := types.ComponentSpec{}
+	if err := component.Unmarshal(config.Component); err != nil {
+		return nil, err
 	}
+
 	return &types.PlanConfig{
 		Kubernetes: kubernetes,
 		Network:    network,
+		Component:  component,
 	}, nil
 }
