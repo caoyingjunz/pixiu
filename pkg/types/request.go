@@ -100,22 +100,22 @@ type (
 	}
 
 	CreatePlanNodeRequest struct {
-		Name   string         `json:"name" binding:"omitempty"` // required
-		PlanId int64          `json:"plan_id"`
-		Role   model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
-		CRI    model.CRI      `json:"cri"`
-		Ip     string         `json:"ip"`
-		Auth   PlanNodeAuth   `json:"auth"`
+		Name   string       `json:"name" binding:"omitempty"` // required
+		PlanId int64        `json:"plan_id"`
+		Role   []string     `json:"role"` // k8s 节点的角色，master 和 node
+		CRI    model.CRI    `json:"cri"`
+		Ip     string       `json:"ip"`
+		Auth   PlanNodeAuth `json:"auth"`
 	}
 
 	UpdatePlanNodeRequest struct {
-		ResourceVersion int64          `json:"resource_version" binding:"required"` // required
-		Name            string         `json:"name" binding:"omitempty"`            // required
-		PlanId          int64          `json:"plan_id"`
-		Role            model.KubeRole `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
-		CRI             model.CRI      `json:"cri"`
-		Ip              string         `json:"ip"`
-		Auth            PlanNodeAuth   `json:"auth"`
+		ResourceVersion int64        `json:"resource_version" binding:"required"` // required
+		Name            string       `json:"name" binding:"omitempty"`            // required
+		PlanId          int64        `json:"plan_id"`
+		Role            []string     `json:"role"` // k8s 节点的角色，master 为 1 和 node 为 0
+		CRI             model.CRI    `json:"cri"`
+		Ip              string       `json:"ip"`
+		Auth            PlanNodeAuth `json:"auth"`
 	}
 
 	CreatePlanConfigRequest struct {
@@ -127,6 +127,7 @@ type (
 		Kubernetes KubernetesSpec `json:"kubernetes"`
 		Network    NetworkSpec    `json:"network"`
 		Runtime    RuntimeSpec    `json:"runtime"`
+		Component  ComponentSpec  `json:"component"` // 支持的扩展组件配置
 	}
 
 	UpdatePlanConfigRequest struct {

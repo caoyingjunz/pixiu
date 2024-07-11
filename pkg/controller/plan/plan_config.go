@@ -79,7 +79,7 @@ func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *type
 		updates["os_image"] = newConfig.OSImage
 	}
 
-	newKubernetes, err := newConfig.Kubernetes.Marshal()
+	newKubernetes, err := p.buildAndCleanKubernetesConfig(newConfig.Kubernetes)
 	if err != nil {
 		return err
 	}
@@ -101,6 +101,14 @@ func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *type
 	}
 	if oldConfig.Runtime != newRuntime {
 		updates["runtime"] = newRuntime
+	}
+
+	newComponent, err := newConfig.Component.Marshal()
+	if err != nil {
+		return err
+	}
+	if oldConfig.Component != newComponent {
+		updates["component"] = newComponent
 	}
 
 	// 没有更新，则直接返回
@@ -134,8 +142,21 @@ func (p *plan) GetConfig(ctx context.Context, pid int64) (*types.PlanConfig, err
 	return p.modelConfig2Type(object)
 }
 
+func (p *plan) buildAndCleanKubernetesConfig(ks types.KubernetesSpec) (string, error) {
+	if ks.EnablePublicIp {
+		if len(ks.ApiServer) == 0 {
+			return "", fmt.Errorf("启用 ApiServer 地址，但是未配置关联 IP")
+		}
+	} else {
+		if len(ks.ApiServer) != 0 {
+			ks.ApiServer = ""
+		}
+	}
+	return ks.Marshal()
+}
+
 func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigRequest) (*model.Config, error) {
-	kubeConfig, err := req.Kubernetes.Marshal()
+	kubeConfig, err := p.buildAndCleanKubernetesConfig(req.Kubernetes)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +168,10 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 	if err != nil {
 		return nil, err
 	}
+	componentConfig, err := req.Component.Marshal()
+	if err != nil {
+		return nil, err
+	}
 
 	return &model.Config{
 		Region:     req.Region,
@@ -154,6 +179,7 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 		Kubernetes: kubeConfig,
 		Network:    networkConfig,
 		Runtime:    runtimeConfig,
+		Component:  componentConfig,
 	}, nil
 }
 
@@ -168,6 +194,10 @@ func (p *plan) modelConfig2Type(o *model.Config) (*types.PlanConfig, error) {
 	}
 	rs := &types.RuntimeSpec{}
 	if err := rs.Unmarshal(o.Runtime); err != nil {
+		return nil, err
+	}
+	cs := &types.ComponentSpec{}
+	if err := cs.Unmarshal(o.Component); err != nil {
 		return nil, err
 	}
 
@@ -186,5 +216,6 @@ func (p *plan) modelConfig2Type(o *model.Config) (*types.PlanConfig, error) {
 		Kubernetes: *ks,
 		Network:    *ns,
 		Runtime:    *rs,
+		Component:  *cs,
 	}, nil
 }
