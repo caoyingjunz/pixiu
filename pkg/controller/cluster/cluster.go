@@ -546,6 +546,27 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	return &km, nil
 }
 
+func (c *cluster) GetKubernetesMetaFromPlan(ctx context.Context, planId int64) (*types.KubernetesMeta, error) {
+	planConfig, err := c.factory.Plan().GetConfigByPlan(ctx, planId)
+	if err != nil {
+		return nil, err
+	}
+	ks := &types.KubernetesSpec{}
+	if err = ks.Unmarshal(planConfig.Kubernetes); err != nil {
+		return nil, err
+	}
+
+	nodes, err := c.factory.Plan().ListNodes(ctx, planId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.KubernetesMeta{
+		KubernetesVersion: "v" + ks.KubernetesVersion,
+		Nodes:             len(nodes),
+	}, nil
+}
+
 // 构造事件的 FieldSelector， 如果参数为空则忽略
 func (c *cluster) makeFieldSelector(uid apitypes.UID, name string, namespace string, kind string) string {
 	eventFS := make([]string, 0)
@@ -632,13 +653,25 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		Name:        o.Name,
 		AliasName:   o.AliasName,
 		ClusterType: o.ClusterType,
+		PlanId:      o.PlanId,
 		Protected:   o.Protected,
 		Description: o.Description,
 	}
 
-	// 获取失败时，返回空的 kubernetes Meta, 不终止主流程
-	// TODO: 后续改成并发处理
-	kubernetesMeta, err := c.GetKubernetesMeta(context.TODO(), o.Name)
+	var (
+		kubernetesMeta *types.KubernetesMeta
+		err            error
+	)
+
+	if o.ClusterType == model.ClusterTypeStandard {
+		// 导入的集群通过API获取相关数据
+		// 获取失败时，返回空的 kubernetes Meta, 不终止主流程
+		// TODO: 后续改成并发处理
+		kubernetesMeta, err = c.GetKubernetesMeta(context.TODO(), o.Name)
+	} else {
+		// 自建的集群通过plan配置获取版本信息
+		kubernetesMeta, err = c.GetKubernetesMetaFromPlan(context.TODO(), o.PlanId)
+	}
 	if err != nil {
 		klog.Warning("failed to get kubernetes Meta: %v", err)
 	} else {
