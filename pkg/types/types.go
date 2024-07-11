@@ -233,6 +233,7 @@ type KubernetesSpec struct {
 	ApiPort           string `json:"api_port"`
 	KubernetesVersion string `json:"kubernetes_version"`
 	EnableHA          bool   `json:"enable_ha"`
+	Register          bool   `json:"register"`
 }
 
 type NetworkSpec struct {
