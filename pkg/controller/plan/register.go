@@ -17,6 +17,7 @@ limitations under the License.
 package plan
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"strings"
@@ -61,7 +62,7 @@ func (c Register) Run() error {
 	}
 
 	var (
-		kubeConfig string
+		kubeConfig []byte
 		err        error
 	)
 	for _, maserNode := range masterNodes {
@@ -74,28 +75,31 @@ func (c Register) Run() error {
 		return fmt.Errorf("failed to get kubeconfig from master node")
 	}
 
+	configBase64 := base64.StdEncoding.EncodeToString(kubeConfig)
+	planId := c.data.PlanId
+
 	return nil
 }
 
-func getKubeConfigFromMasterNode(maserNode model.Node) (string, error) {
+func getKubeConfigFromMasterNode(maserNode model.Node) ([]byte, error) {
 	sftpClient, err := newSftpClient(maserNode)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer sftpClient.Close()
 
 	srcFile, err := sftpClient.Open(KubeConfigFile)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer srcFile.Close()
 
 	buf := make([]byte, 1<<15)
 	if _, err = srcFile.Read(buf); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(buf), nil
+	return buf, nil
 }
 
 func newSftpClient(node model.Node) (*sftp.Client, error) {
