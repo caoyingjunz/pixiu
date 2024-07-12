@@ -31,6 +31,10 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
+const (
+	KubeConfigFile = "/etc/kubernetes/admin.conf"
+)
+
 type Register struct {
 	handlerTask
 
@@ -61,7 +65,7 @@ func (c Register) Run() error {
 		err        error
 	)
 	for _, maserNode := range masterNodes {
-		kubeConfig, err = GetKubeConfigFromMasterNode(maserNode)
+		kubeConfig, err = getKubeConfigFromMasterNode(maserNode)
 		if err == nil {
 			break
 		}
@@ -73,20 +77,25 @@ func (c Register) Run() error {
 	return nil
 }
 
-func GetKubeConfigFromMasterNode(maserNode model.Node) (string, error) {
+func getKubeConfigFromMasterNode(maserNode model.Node) (string, error) {
 	sftpClient, err := newSftpClient(maserNode)
 	if err != nil {
 		return "", err
 	}
 	defer sftpClient.Close()
 
-	srcFile, err := sftpClient.Open("/etc/kubernetes/admin.conf")
+	srcFile, err := sftpClient.Open(KubeConfigFile)
 	if err != nil {
 		return "", err
 	}
 	defer srcFile.Close()
 
-	return "", nil
+	buf := make([]byte, 1<<15)
+	if _, err = srcFile.Read(buf); err != nil {
+		return "", err
+	}
+
+	return string(buf), nil
 }
 
 func newSftpClient(node model.Node) (*sftp.Client, error) {
