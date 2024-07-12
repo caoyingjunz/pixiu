@@ -26,6 +26,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	validatorutil "github.com/caoyingjunz/pixiu/api/server/validator"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 type Response struct {
@@ -126,15 +127,29 @@ func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}
 	return nil
 }
 
-func GetUserIdFromRequest(ctx context.Context) (int64, error) {
-	val := ctx.Value("userId")
+const userKey = "user"
+
+func GetUserFromRequest(ctx context.Context) (*model.User, error) {
+	val := ctx.Value(userKey)
 	if val == nil {
-		return 0, fmt.Errorf("get nil userId")
+		return nil, fmt.Errorf("get nil user")
 	}
 
-	userId, ok := val.(int64)
+	user, ok := val.(*model.User)
 	if !ok {
-		return 0, fmt.Errorf("invalid userId")
+		return nil, fmt.Errorf("failed to assert user")
 	}
-	return userId, nil
+	return user, nil
+}
+
+func GetUserIdFromRequest(ctx context.Context) (int64, error) {
+	user, err := GetUserFromRequest(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return user.Id, nil
+}
+
+func SetUserToContext(c *gin.Context, user *model.User) {
+	c.Set(userKey, user)
 }

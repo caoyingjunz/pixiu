@@ -25,6 +25,17 @@ const (
 	LogFormatText LogFormat = "text"
 )
 
+type Mode string
+
+const (
+	DebugMode   Mode = "debug"
+	ReleaseMode Mode = "release"
+)
+
+func (m Mode) InDebug() bool {
+	return m == DebugMode
+}
+
 var ErrInvalidLogFormat = errors.New("invalid log format")
 
 type Config struct {
@@ -34,7 +45,7 @@ type Config struct {
 }
 
 type DefaultOptions struct {
-	Mode   string `yaml:"mode"`
+	Mode   Mode   `yaml:"mode"`
 	Listen int    `yaml:"listen"`
 	JWTKey string `yaml:"jwt_key"`
 
