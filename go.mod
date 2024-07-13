@@ -30,6 +30,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.12 // indirect
 	github.com/mittwald/go-helm-client v0.8.1
 	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
+	github.com/pkg/sftp v1.13.6
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.5.0

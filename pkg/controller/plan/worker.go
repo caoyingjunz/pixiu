@@ -128,6 +128,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		BootStrap{handlerTask: task, dir: dir, runner: runner},
 		Deploy{handlerTask: task, dir: dir, runner: runner},
 		DeployNode{handlerTask: task},
+		Register{handlerTask: task, factory: p.factory},
 		DeployChart{handlerTask: task},
 	}
 	if err = p.syncTasks(handlers...); err != nil {
