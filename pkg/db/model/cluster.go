@@ -37,6 +37,7 @@ const (
 	ClusterStatusDeploy                       // 部署中
 	ClusterStatusUnStart                      // 等待部署
 	ClusterStatusFailed                       // 部署失败
+
 )
 
 // Cluster kubernetes 集群信息
