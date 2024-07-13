@@ -33,6 +33,7 @@ const (
 const (
 	ClusterStatusRunning = "运行中"
 	ClusterStatusDeploy  = "部署中"
+	ClusterStatusUnStart = "等待部署"
 	ClusterStatusFailed  = "部署失败"
 )
 
