@@ -59,22 +59,15 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 	if taskC.Lister == nil {
 		taskC.SetLister(p.factory.Plan().ListTasks)
 	}
-
-	// 判断缓存中是否已经存在，如果不存在则先写入
-	_, ok := taskC.Get(planId)
-	if !ok {
-		tasks, err := p.factory.Plan().ListTasks(ctx, planId)
-		if err != nil {
-			klog.Errorf("failed to get plan(%d) tasks from database: %v", planId, err)
-			return
-		}
-		taskC.Set(planId, tasks)
+	// 等待缓存同步
+	if err := taskC.WaitForCacheSync(planId); err != nil {
+		return
 	}
 
 	for {
 		select {
 		case <-r.Context().Done():
-			klog.Infof("plan(%d) watch API has been closed by client and tasks cache will be auto removed after 5m", planId)
+			klog.Infof("plan(%d) watch API has been closed by client and cache will be removed after 5s", planId)
 			return
 		default:
 			tasks, ok := taskC.Get(planId)
