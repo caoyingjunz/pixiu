@@ -15,6 +15,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -115,6 +116,23 @@ func (t *Task) Delete(planId int64) {
 	defer t.Unlock()
 
 	delete(t.items, planId)
+}
+
+// WaitForCacheSync
+// 判断缓存中是否已经存在，如果不存在则先写入
+func (t *Task) WaitForCacheSync(planId int64) error {
+	_, ok := t.Get(planId)
+	if ok {
+		return nil
+	}
+
+	tasks, err := t.Lister(context.TODO(), planId)
+	if err != nil {
+		return fmt.Errorf("failed to get plan(%d) tasks from database: %v", planId, err)
+	}
+	t.Set(planId, tasks)
+
+	return nil
 }
 
 func (t *Task) syncTasks() {
