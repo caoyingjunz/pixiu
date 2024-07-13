@@ -672,7 +672,9 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	} else {
 		// 自建的集群通过plan配置获取版本信息
 		kubernetesMeta, err = c.GetKubernetesMetaFromPlan(context.TODO(), o.PlanId)
+
 		// 自建的集群需要从 plan task 获取状态
+		planId := o.PlanId
 
 	}
 	if err != nil {
