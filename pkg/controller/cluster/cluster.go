@@ -685,7 +685,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	return tc
 }
 
-func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (string, error) {
+func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatus, error) {
 	status := model.ClusterStatusRunning
 
 	// 尝试获取最新的任务状态
