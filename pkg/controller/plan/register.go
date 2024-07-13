@@ -101,11 +101,9 @@ func getKubeConfigFromMasterNode(maserNode model.Node) ([]byte, error) {
 	}
 	defer srcFile.Close()
 
-	buf := make([]byte, 1<<15)
-	if _, err = srcFile.Read(buf); err != nil {
-		if err != io.EOF {
-			return nil, err
-		}
+	buf, err := io.ReadAll(srcFile)
+	if err != nil {
+		return nil, err
 	}
 
 	return buf, nil
