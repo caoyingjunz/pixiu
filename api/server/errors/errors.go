@@ -39,6 +39,10 @@ func NewError(err error, code int) Error {
 }
 
 var (
+	ErrUnauthorized = Error{
+		Code: http.StatusUnauthorized,
+		Err:  errors.NoUserIdError,
+	}
 	ErrForbidden = Error{
 		Code: http.StatusForbidden,
 		Err:  errors.NoPermission,
