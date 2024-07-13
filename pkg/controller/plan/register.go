@@ -89,7 +89,6 @@ func (c Register) Run() error {
 }
 
 func getKubeConfigFromMasterNode(maserNode model.Node) ([]byte, error) {
-	fmt.Println("maserNode", maserNode)
 	sftpClient, err := newSftpClient(maserNode)
 	if err != nil {
 		return nil, err
