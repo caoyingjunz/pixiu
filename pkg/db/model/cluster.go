@@ -30,11 +30,13 @@ const (
 	ClusterTypeCustom                      // 自建集群
 )
 
+type ClusterStatus uint8
+
 const (
-	ClusterStatusRunning = "运行中"
-	ClusterStatusDeploy  = "部署中"
-	ClusterStatusUnStart = "等待部署"
-	ClusterStatusFailed  = "部署失败"
+	ClusterStatusRunning ClusterStatus = iota // 运行中
+	ClusterStatusDeploy                       // 部署中
+	ClusterStatusUnStart                      // 等待部署
+	ClusterStatusFailed                       // 部署失败
 )
 
 // Cluster kubernetes 集群信息
