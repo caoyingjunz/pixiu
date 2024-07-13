@@ -47,6 +47,7 @@ type Cluster struct {
 
 	Name      string `json:"name"`
 	AliasName string `json:"alias_name"`
+	Status    string `json:"status"` // 标记集群状态，自建集群有部署更新状态
 
 	// 0: 标准集群 1: 自建集群
 	ClusterType model.ClusterType `json:"cluster_type"`

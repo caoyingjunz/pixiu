@@ -654,6 +654,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		AliasName:   o.AliasName,
 		ClusterType: o.ClusterType,
 		PlanId:      o.PlanId,
+		Status:      model.ClusterStatusRunning, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
 		Protected:   o.Protected,
 		Description: o.Description,
 	}
@@ -671,6 +672,9 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	} else {
 		// 自建的集群通过plan配置获取版本信息
 		kubernetesMeta, err = c.GetKubernetesMetaFromPlan(context.TODO(), o.PlanId)
+
+		// 自建的集群需要从 plan task 获取状态
+		tc.Status, _ = c.GetClusterStatusFromPlanTask(o.PlanId)
 	}
 	if err != nil {
 		klog.Warning("failed to get kubernetes Meta: %v", err)
@@ -679,6 +683,31 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	}
 
 	return tc
+}
+
+func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (string, error) {
+	status := model.ClusterStatusRunning
+
+	// 尝试获取最新的任务状态
+	// 获取失败也不中断返回
+	if tasks, err := c.factory.Plan().ListTasks(context.TODO(), planId); err == nil {
+		if len(tasks) == 0 {
+			status = model.ClusterStatusUnStart
+		} else {
+			for _, task := range tasks {
+				if task.Status != model.SuccessPlanStatus {
+					if task.Status == model.FailedPlanStatus {
+						status = model.ClusterStatusFailed
+					} else {
+						status = model.ClusterStatusDeploy
+					}
+					break
+				}
+			}
+		}
+	}
+
+	return status, nil
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
