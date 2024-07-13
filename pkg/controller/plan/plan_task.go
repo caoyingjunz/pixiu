@@ -67,7 +67,7 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 	for {
 		select {
 		case <-r.Context().Done():
-			klog.Infof("plan(%d) watch API has been closed by client and tasks cache will be auto removed after 5m", planId)
+			klog.Infof("plan(%d) watch API has been closed by client and cache will be removed after 5s", planId)
 			return
 		default:
 			tasks, ok := taskC.Get(planId)
