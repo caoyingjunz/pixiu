@@ -654,6 +654,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		AliasName:   o.AliasName,
 		ClusterType: o.ClusterType,
 		PlanId:      o.PlanId,
+		Status:      model.ClusterStatusRunning, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
 		Protected:   o.Protected,
 		Description: o.Description,
 	}
@@ -671,6 +672,8 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	} else {
 		// 自建的集群通过plan配置获取版本信息
 		kubernetesMeta, err = c.GetKubernetesMetaFromPlan(context.TODO(), o.PlanId)
+		// 自建的集群需要从 plan task 获取状态
+
 	}
 	if err != nil {
 		klog.Warning("failed to get kubernetes Meta: %v", err)

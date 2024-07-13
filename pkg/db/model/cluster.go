@@ -30,6 +30,12 @@ const (
 	ClusterTypeCustom                      // 自建集群
 )
 
+const (
+	ClusterStatusRunning = "运行中"
+	ClusterStatusDeploy  = "部署中"
+	ClusterStatusFailed  = "部署失败"
+)
+
 // Cluster kubernetes 集群信息
 type Cluster struct {
 	pixiu.Model
