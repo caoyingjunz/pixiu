@@ -17,8 +17,10 @@ limitations under the License.
 package plan
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
@@ -65,23 +67,29 @@ func (c Register) Run() error {
 		kubeConfig []byte
 		err        error
 	)
-	for _, maserNode := range masterNodes {
-		kubeConfig, err = getKubeConfigFromMasterNode(maserNode)
+	for _, masterNode := range masterNodes {
+		kubeConfig, err = getKubeConfigFromMasterNode(masterNode)
 		if err == nil {
 			break
+		} else {
+			klog.Warningf("failed to get kubeConfig from master(%s): %v, trying the other masters", masterNode.Name, err)
 		}
 	}
 	if len(kubeConfig) == 0 {
-		return fmt.Errorf("failed to get kubeconfig from master node")
+		return fmt.Errorf("get the empty kubeconfig from master nodes")
 	}
 
-	configBase64 := base64.StdEncoding.EncodeToString(kubeConfig)
-	planId := c.data.PlanId
+	config64 := base64.StdEncoding.EncodeToString(kubeConfig)
+	if err = c.factory.Cluster().UpdateByPlan(context.TODO(),
+		c.data.PlanId, map[string]interface{}{"kube_config": config64}); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func getKubeConfigFromMasterNode(maserNode model.Node) ([]byte, error) {
+	fmt.Println("maserNode", maserNode)
 	sftpClient, err := newSftpClient(maserNode)
 	if err != nil {
 		return nil, err
@@ -96,7 +104,9 @@ func getKubeConfigFromMasterNode(maserNode model.Node) ([]byte, error) {
 
 	buf := make([]byte, 1<<15)
 	if _, err = srcFile.Read(buf); err != nil {
-		return nil, err
+		if err != io.EOF {
+			return nil, err
+		}
 	}
 
 	return buf, nil
@@ -108,35 +118,39 @@ func newSftpClient(node model.Node) (*sftp.Client, error) {
 		return nil, err
 	}
 
-	// 1. 使用密码
-	clientConfig := &ssh.ClientConfig{
-		User: nodeAuth.Password.User,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(nodeAuth.Password.Password),
-		},
-		Timeout: 30 * time.Second,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-	}
+	var clientConfig *ssh.ClientConfig
 
-	// 2. 使用公钥
-	//key, err := ioutil.ReadFile(path.Join(homedir.HomeDir(), ".ssh", "id_rsa"))
-	//if err != nil {
-	//	return nil, err
-	//}
-	//signer, err := ssh.ParsePrivateKey(key)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//clientConfig := &ssh.ClientConfig{
-	//	User: "root",
-	//	Auth: []ssh.AuthMethod{
-	//		ssh.PublicKeys(signer),
-	//	},
-	//	Timeout:         30 * time.Second,
-	//	HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	//}
+	switch nodeAuth.Type {
+	case types.PasswordAuth:
+		// 1. 使用密码
+		clientConfig = &ssh.ClientConfig{
+			User: nodeAuth.Password.User,
+			Auth: []ssh.AuthMethod{
+				ssh.Password(nodeAuth.Password.Password),
+			},
+			Timeout: 30 * time.Second,
+			HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+				return nil
+			},
+		}
+	case types.KeyAuth:
+		//2. 使用秘钥
+		key := []byte(nodeAuth.Key.Data)
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			return nil, err
+		}
+		clientConfig = &ssh.ClientConfig{
+			User: "root", // 秘钥登陆时，默认 root
+			Auth: []ssh.AuthMethod{
+				ssh.PublicKeys(signer),
+			},
+			Timeout:         30 * time.Second,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		}
+	default:
+		return nil, fmt.Errorf("unsupported ssh auth type: %s", nodeAuth.Type)
+	}
 
 	addr := fmt.Sprintf("%s:%d", node.Ip, 22)
 	sshClient, err := ssh.Dial("tcp", addr, clientConfig)

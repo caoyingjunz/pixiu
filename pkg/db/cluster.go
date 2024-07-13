@@ -37,6 +37,7 @@ type ClusterInterface interface {
 	List(ctx context.Context) ([]model.Cluster, error)
 
 	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
+	UpdateByPlan(ctx context.Context, planId int64, updates map[string]interface{}) error
 }
 
 type cluster struct {
@@ -135,6 +136,20 @@ func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Clu
 	}
 
 	return &object, nil
+}
+
+func (c *cluster) UpdateByPlan(ctx context.Context, planId int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+
+	f := c.db.WithContext(ctx).Model(&model.Cluster{}).Where("plan_id = ?", planId).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotUpdate
+	}
+
+	return nil
 }
 
 func newCluster(db *gorm.DB) ClusterInterface {
