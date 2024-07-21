@@ -4,12 +4,12 @@
 ```
 # 数据库
 ```bash
-#选择1：直接提供可用数据库
+# 选择1：直接提供可用数据库
 
-#选择2：快速启动数据库
+# 选择2：快速启动数据库
 docker run -d --net host --restart=always --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" harbor.cloud.pixiuio.com/pixiuio/mysql:5.7
 
-#创建 pixiu 数据库
+# 创建 pixiu 数据库
 CREATE DATABASE pixiu;
 ```
 
@@ -21,10 +21,10 @@ docker pull harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
 
 # 启动 pixiu 服务端
 ```bash
-#创建配置文件夹
+# 创建配置文件夹
 mkdir -p /etc/pixiu/
 
-#后端配置(host 根据实际情况调整)
+# 后端配置(host 根据实际情况调整)
 vim /etc/pixiu/config.yaml 写入后端如下配置
 default:
   # 运行模式，可选 debug 和 release
