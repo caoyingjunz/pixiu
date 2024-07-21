@@ -15,8 +15,8 @@ CREATE DATABASE pixiu;
 
 # 获取部署驱动镜像
 ```shell
-docker pull  harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
-docker pull  harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+docker pull harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
+docker pull harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
 ```
 
 # 启动 pixiu 服务端
@@ -34,9 +34,9 @@ default:
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
 
-# 数据库地址信息
+# 数据库地址信息, 根据实际情况配置
 mysql:
-  host: pixiu
+  host: pixiu # 数据库的ip
   user: root
   password: Pixiu868686
   port: 3306
