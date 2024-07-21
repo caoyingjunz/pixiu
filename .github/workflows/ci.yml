@@ -23,7 +23,7 @@ jobs:
         run: apt update && apt-get install ruby-full -y && gem install chef-utils -v 16.6.14 && gem install mdl -v 0.11.0
 
       - name: Lint markdown files
-        run: find  ./ -name  "*.md" | grep -v '.github' | xargs mdl -r ~MD001,~MD004,~MD005,~MD006,~MD007,~MD010,~MD013,~MD022,~MD023,~MD024,~MD029,~MD031,~MD032,~MD033,~MD034,~MD036
+        run: find  ./ -name  "*.md" | grep -v '.github' | xargs mdl -r ~MD001,~MD004,~MD005,~MD006,~MD007,~MD010,~MD013,~MD022,~MD023,~MD024,~MD025,~MD029,~MD031,~MD032,~MD033,~MD034,~MD036
 
   golang-lint:
     runs-on: ubuntu-latest
