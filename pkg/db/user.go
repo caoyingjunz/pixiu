@@ -27,7 +27,7 @@ import (
 )
 
 type UserInterface interface {
-	Create(ctx context.Context, object *model.User) (*model.User, error)
+	Create(ctx context.Context, object *model.User, fns ...TxFunc) (*model.User, error)
 	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
@@ -42,15 +42,25 @@ type user struct {
 	db *gorm.DB
 }
 
-func (u *user) Create(ctx context.Context, object *model.User) (*model.User, error) {
+func (u *user) Create(ctx context.Context, object *model.User, fns ...TxFunc) (*model.User, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
 
-	if err := u.db.WithContext(ctx).Create(object).Error; err != nil {
+	if err := u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(object).Error; err != nil {
+			return err
+		}
+
+		for _, fn := range fns {
+			if err := fn(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
 	return object, nil
 }
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -152,4 +153,28 @@ func GetUserIdFromRequest(ctx context.Context) (int64, error) {
 
 func SetUserToContext(c *gin.Context, user *model.User) {
 	c.Set(userKey, user)
+}
+
+func GetObjectFromRequest(c *gin.Context) (string, string, bool) {
+	return getObjectFromRequest(c.Request.URL.Path)
+}
+
+// getObjectFromRequest cuts and returns the object from the request path.
+// e.g. /pixiu/clusters/1 -> "clusters" "1" true
+func getObjectFromRequest(path string) (obj, sid string, ok bool) {
+	// must start with /
+	l := len(path)
+	if l == 0 || path[0] != '/' {
+		return
+	}
+	subs := strings.Split(path[1:l], "/")
+	l = len(subs)
+	if l < 2 || subs[0] != "pixiu" {
+		return
+	}
+	if l == 2 {
+		// e.g. /pixiu/clusters -> "clusters" "" true
+		return subs[1], "", subs[1] != ""
+	}
+	return subs[1], subs[2], subs[1] != "" && subs[2] != ""
 }
