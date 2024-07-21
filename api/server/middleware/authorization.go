@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
@@ -60,6 +61,12 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 		case 2:
 			// 禁用用户无法进行任何操作
 			httputils.AbortFailedWithCode(c, http.StatusForbidden, fmt.Errorf("用户已被禁用"))
+			return
+		}
+
+		// Proxy path should be skipped now.
+		// TODO: get object and ID from proxy path
+		if proxy.IsProxyPath(c) {
 			return
 		}
 
