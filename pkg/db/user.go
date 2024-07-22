@@ -61,6 +61,7 @@ func (u *user) Create(ctx context.Context, object *model.User, fns ...TxFunc) (*
 	}); err != nil {
 		return nil, err
 	}
+
 	return object, nil
 }
 
