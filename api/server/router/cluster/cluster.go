@@ -23,6 +23,11 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
+const (
+	kubeProxyBaseURL = "/pixiu/kubeproxy"
+	helmBaseURL      = "/pixiu/helms"
+)
+
 // clusterRouter is a router to talk with the cluster controller
 type clusterRouter struct {
 	c controller.PixiuInterface
@@ -53,7 +58,7 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	}
 
 	// 调用 kubernetes 对象
-	kubeRoute := httpEngine.Group("/pixiu/kubeproxy")
+	kubeRoute := httpEngine.Group(kubeProxyBaseURL)
 	{
 		// Deprecated 聚合 events
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
@@ -65,7 +70,7 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	}
 
 	// 调用 helm 对象
-	helmRoute := httpEngine.Group("/pixiu/helms")
+	helmRoute := httpEngine.Group(helmBaseURL)
 	{
 		// 获取 release 列表
 		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.ListReleases)
