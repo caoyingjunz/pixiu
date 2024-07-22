@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -66,7 +67,7 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 
 		// Proxy path should be skipped now.
 		// TODO: get object and ID from proxy path
-		if proxy.IsProxyPath(c) {
+		if proxy.IsProxyPath(c) || cluster.IsKubeProxyPath(c) || cluster.IsHelmPath(c) {
 			return
 		}
 
