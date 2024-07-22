@@ -19,7 +19,9 @@ package user
 import (
 	"context"
 	"fmt"
+	"net/http"
 
+	"github.com/casbin/casbin/v2"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
@@ -67,8 +69,9 @@ type Interface interface {
 }
 
 type user struct {
-	cc      config.Config
-	factory db.ShareDaoFactory
+	cc       config.Config
+	factory  db.ShareDaoFactory
+	enforcer *casbin.SyncedEnforcer
 }
 
 func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
@@ -87,6 +90,13 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		return errors.ErrUserExists
 	}
 
+	txFunc := func() (err error) {
+		if req.Role == model.RoleRoot {
+			_, err = u.enforcer.AddGroupingPolicy(req.Name, "root")
+		}
+		return
+	}
+
 	if _, err = u.factory.User().Create(ctx, &model.User{
 		Name:        req.Name,
 		Password:    encrypt,
@@ -94,7 +104,7 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		Role:        req.Role,
 		Email:       req.Email,
 		Description: req.Description,
-	}); err != nil {
+	}, txFunc); err != nil {
 		klog.Errorf("failed to create user %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
@@ -276,6 +286,14 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 		return nil, errors.ErrInvalidPassword
 	}
 
+	// for compatibility
+	if object.Role == model.RoleRoot {
+		if _, err := u.enforcer.AddGroupingPolicy(object.Name, "root"); err != nil {
+			klog.Errorf("failed to add root policy for user(%s): %v", err, object.Name)
+			return nil, errors.NewError(fmt.Errorf("添加 root 组权限规则失败: %v", err), http.StatusInternalServerError)
+		}
+	}
+
 	// 生成登陆的 token 信息
 	key := u.GetTokenKey()
 	token, err := tokenutil.GenerateToken(object.Id, object.Name, key)
@@ -333,9 +351,10 @@ func model2Type(o *model.User) *types.User {
 	}
 }
 
-func NewUser(cfg config.Config, f db.ShareDaoFactory) *user {
+func NewUser(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *user {
 	return &user{
-		cc:      cfg,
-		factory: f,
+		cc:       cfg,
+		factory:  f,
+		enforcer: e,
 	}
 }

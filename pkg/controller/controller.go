@@ -17,6 +17,8 @@ limitations under the License.
 package controller
 
 import (
+	"github.com/casbin/casbin/v2"
+
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
@@ -33,18 +35,20 @@ type PixiuInterface interface {
 }
 
 type pixiu struct {
-	cc      config.Config
-	factory db.ShareDaoFactory
+	cc       config.Config
+	factory  db.ShareDaoFactory
+	enforcer *casbin.SyncedEnforcer
 }
 
 func (p *pixiu) Cluster() cluster.Interface { return cluster.NewCluster(p.cc, p.factory) }
 func (p *pixiu) Tenant() tenant.Interface   { return tenant.NewTenant(p.cc, p.factory) }
-func (p *pixiu) User() user.Interface       { return user.NewUser(p.cc, p.factory) }
+func (p *pixiu) User() user.Interface       { return user.NewUser(p.cc, p.factory, p.enforcer) }
 func (p *pixiu) Plan() plan.Interface       { return plan.NewPlan(p.cc, p.factory) }
 
-func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
+func New(cfg config.Config, f db.ShareDaoFactory, enforcer *casbin.SyncedEnforcer) PixiuInterface {
 	return &pixiu{
-		cc:      cfg,
-		factory: f,
+		cc:       cfg,
+		factory:  f,
+		enforcer: enforcer,
 	}
 }
