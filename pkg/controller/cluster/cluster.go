@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
@@ -77,6 +78,8 @@ type Interface interface {
 	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
+
+	GetPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request
 }
 
 var clusterIndexer client.Cache
@@ -324,6 +327,20 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 	}
 
 	return clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
+}
+
+func (c *cluster) GetPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request {
+	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
+	if err != nil {
+		return nil
+	}
+
+	return clusterSet.Client.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
+		Container:  containerName,
+		Follow:     true,
+		TailLines:  &tailLine,
+		Timestamps: true,
+	})
 }
 
 // AggregateEvents 聚合 k8s 资源的所有 events，比如 kind 为 deployment 时，则聚合 deployment，所属 rs 以及 pod 的事件

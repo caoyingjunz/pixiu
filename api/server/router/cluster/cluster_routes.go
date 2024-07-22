@@ -17,9 +17,15 @@ limitations under the License.
 package cluster
 
 import (
+	"context"
+	"io"
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -284,4 +290,53 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 	}
 
 	httputils.SetSuccess(c, r)
+}
+
+func (cr *clusterRouter) getPodLog(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		opts struct {
+			Cluster   string `uri:"cluster" binding:"required"`
+			Namespace string `uri:"namespace" binding:"required"`
+			Name      string `uri:"name" binding:"required"`
+			Container string `uri:"container" binding:"required"`
+			Lines     int64  `uri:"lines" binding:"required"`
+		}
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &opts, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	req := cr.c.Cluster().GetPodLog(c, opts.Cluster, opts.Namespace, opts.Name, opts.Container, opts.Lines)
+	withTimeout, cancelFunc := context.WithTimeout(c, time.Minute*10)
+	defer cancelFunc()
+	reader, err := req.Stream(withTimeout)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	defer reader.Close()
+	conn, err := client.Upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	defer conn.Close()
+	client.Upgrader.Subprotocols = []string{c.Request.Header.Get("Sec-WebSocket-Protocol")}
+	wsClient := client.NewWsClient(conn, opts.Cluster, "log")
+	for {
+		buf := make([]byte, 1024)
+		n, err := reader.Read(buf)
+		if err != nil && err != io.EOF {
+			break
+		}
+
+		err = wsClient.Conn.WriteMessage(websocket.TextMessage, buf[0:n])
+		if err != nil {
+			break
+		}
+	}
+
 }
