@@ -332,6 +332,7 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request {
 	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
+		klog.Errorf("failed to get cluster(%s) clientSet: %v", cluster, err)
 		return nil
 	}
 

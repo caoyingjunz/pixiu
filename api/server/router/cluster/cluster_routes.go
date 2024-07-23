@@ -18,15 +18,16 @@ package cluster
 
 import (
 	"context"
-	"github.com/caoyingjunz/pixiu/pkg/client"
-	"github.com/gorilla/websocket"
 	"io"
-	"k8s.io/klog/v2"
 	"time"
 
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"k8s.io/klog/v2"
+
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/client"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type IdMeta struct {
@@ -309,6 +310,10 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 		return
 	}
 	req := cr.c.Cluster().WatchPodLog(c, opts.Cluster, opts.Namespace, opts.Name, logOpt.Container, logOpt.TailLines)
+	if req == nil {
+		klog.Errorf("failed to get request: %v", err)
+		return
+	}
 	withTimeout, cancelFunc := context.WithTimeout(c, time.Minute*10)
 	defer cancelFunc()
 
@@ -328,6 +333,7 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	client.WebsocketStore.Add(opts.Cluster, "log", conn)
 	client.WebsocketUpgrade.Subprotocols = []string{c.Request.Header.Get("Sec-WebSocket-Protocol")}
 	wsClient := client.NewWsClient(conn, opts.Cluster, "log")
 	for {
@@ -337,7 +343,6 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 			klog.Errorf("failed to read message: %v", err)
 			break
 		}
-		klog.Infof("read %v bytes", string(buf[0:n]))
 		err = wsClient.Conn.WriteMessage(websocket.TextMessage, buf[0:n])
 		if err != nil {
 			klog.Errorf("failed to write message: %v", err)
