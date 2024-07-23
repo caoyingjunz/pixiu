@@ -295,32 +295,33 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 
 func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 	r := httputils.NewResponse()
+
 	var (
 		opts struct {
 			Cluster   string `uri:"cluster" binding:"required"`
 			Namespace string `uri:"namespace" binding:"required"`
-			Name      string `uri:"name" binding:"required"` //pod name
+			Pod       string `uri:"pod" binding:"required"` //pod name
 		}
 		logOpt types.PodLogOptions
 		err    error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &opts, &logOpt); err != nil {
-		klog.Errorf("failed to bind request: %v", err)
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	req := cr.c.Cluster().WatchPodLog(c, opts.Cluster, opts.Namespace, opts.Name, logOpt.Container, logOpt.TailLines)
+
+	req := cr.c.Cluster().WatchPodLog(c, opts.Cluster, opts.Namespace, opts.Pod, logOpt.Container, logOpt.TailLines)
 	if req == nil {
-		klog.Errorf("failed to get request: %v", err)
+		klog.Errorf("failed to get request")
 		return
 	}
+
 	withTimeout, cancelFunc := context.WithTimeout(c, time.Minute*10)
 	defer cancelFunc()
 
 	reader, err := req.Stream(withTimeout)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
-		klog.Errorf("failed to stream: %v", err)
 		return
 	}
 	defer reader.Close()
@@ -328,7 +329,6 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 	conn, err := client.WebsocketUpgrade.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
-		klog.Errorf("failed to upgrade connection: %v", err)
 		return
 	}
 	defer conn.Close()
