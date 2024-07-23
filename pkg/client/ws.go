@@ -1,37 +1,52 @@
+/*
+Copyright 2021 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package client
 
 import (
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"k8s.io/klog/v2"
 )
 
 var (
-	WebsocketStore *WsClientStore
-	Upgrader       = websocket.Upgrader{
+	WebsocketStore   *WsClientStore
+	WebsocketUpgrade = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		}}
+	WsLock sync.Mutex
 )
 
 func init() {
 	WebsocketStore = &WsClientStore{}
 }
 
-var WsLock sync.Mutex
-
 type WsClientStore struct {
 	data sync.Map
 	lock sync.Mutex
 }
 
-func (w *WsClientStore) Store(cluster, resource string, conn *websocket.Conn) {
+func (w *WsClientStore) Add(cluster, resource string, conn *websocket.Conn) {
 	wc := NewWsClient(conn, cluster, resource)
 	w.data.Store(conn.RemoteAddr().String(), wc)
 	go wc.Ping(time.Second * 3)
@@ -49,7 +64,7 @@ func (w *WsClientStore) SendAll(msg interface{}) {
 		err := c.WriteJSON(msg)
 		if err != nil {
 			w.Remove(c)
-			log.Println(err)
+			klog.Errorf("send message to %s error, remove conn from store,error info : %v", c.RemoteAddr().String(), err)
 		}
 		return true
 	})
@@ -67,8 +82,9 @@ func (w *WsClientStore) SendClusterResource(clusterName, resource string, msg in
 		for _, name := range resourceName {
 			if c.Cluster == clusterName && name == resource {
 				err := c.Conn.WriteJSON(msg)
+				// 如果发生错误就从 map 中移除该连接
 				if err != nil {
-					log.Println(err)
+					klog.Error(err)
 					w.Remove(c.Conn)
 				}
 			}

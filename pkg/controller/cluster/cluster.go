@@ -79,7 +79,7 @@ type Interface interface {
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
-	GetPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request
+	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request
 }
 
 var clusterIndexer client.Cache
@@ -329,7 +329,7 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 	return clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
 }
 
-func (c *cluster) GetPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request {
+func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request {
 	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		return nil

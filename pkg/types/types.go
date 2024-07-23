@@ -228,6 +228,10 @@ type EventOptions struct {
 	Namespaced bool   `form:"namespaced"`
 	Limit      int64  `form:"limit"`
 }
+type PodLogOptions struct {
+	Container string `form:"container"`
+	TailLines int64  `form:"tailLines"`
+}
 
 type KubernetesSpec struct {
 	EnablePublicIp    bool   `json:"enable_public_ip"`

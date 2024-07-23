@@ -17,16 +17,17 @@ limitations under the License.
 package cluster
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
+	"k8s.io/klog/v2"
+	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
-
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/gin-gonic/gin"
 )
 
 type IdMeta struct {
@@ -292,51 +293,126 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (cr *clusterRouter) getPodLog(c *gin.Context) {
+func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		opts struct {
 			Cluster   string `uri:"cluster" binding:"required"`
 			Namespace string `uri:"namespace" binding:"required"`
-			Name      string `uri:"name" binding:"required"`
-			Container string `uri:"container" binding:"required"`
-			Lines     int64  `uri:"lines" binding:"required"`
+			Name      string `uri:"name" binding:"required"` //pod name
 		}
-		err error
+		logOpt types.PodLogOptions
+		err    error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &opts, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &opts, &logOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	req := cr.c.Cluster().GetPodLog(c, opts.Cluster, opts.Namespace, opts.Name, opts.Container, opts.Lines)
+	req := cr.c.Cluster().WatchPodLog(c, opts.Cluster, opts.Namespace, opts.Name, logOpt.Container, logOpt.TailLines)
 	withTimeout, cancelFunc := context.WithTimeout(c, time.Minute*10)
 	defer cancelFunc()
+
 	reader, err := req.Stream(withTimeout)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	defer reader.Close()
-	conn, err := client.Upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	defer conn.Close()
-	client.Upgrader.Subprotocols = []string{c.Request.Header.Get("Sec-WebSocket-Protocol")}
-	wsClient := client.NewWsClient(conn, opts.Cluster, "log")
-	for {
-		buf := make([]byte, 1024)
-		n, err := reader.Read(buf)
-		if err != nil && err != io.EOF {
-			break
-		}
 
-		err = wsClient.Conn.WriteMessage(websocket.TextMessage, buf[0:n])
-		if err != nil {
-			break
+	flush, _ := c.Writer.(http.Flusher)
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+			buf := make([]byte, 1024)  // 定义缓冲区大小为 1024 字节
+			n, err := reader.Read(buf) // 读取数据到缓冲区
+			if err != nil {
+				if err != io.EOF {
+					klog.Errorf("read error: %v", err)
+					return
+				}
+				// 这里是 EOF，没有更多的数据可读
+			}
+
+			// 查找缓冲区中的第一个换行符
+			newlineIndex := bytes.IndexByte(buf[:n], '\n')
+			for newlineIndex != -1 {
+				// 将缓冲区中从开始到换行符之前的数据写入
+				if newlineIndex > 0 {
+					klog.Errorf("-2-------------: %v", string(buf[:newlineIndex]))
+					if err := json.NewEncoder(c.Writer).Encode(string(buf[:newlineIndex-2])); err != nil {
+						klog.Errorf("failed to encode: %v", err)
+						return
+					}
+					flush.Flush()
+				}
+
+				// 如果换行符之后还有数据，继续处理剩余的数据
+				if newlineIndex < n-1 {
+					// 移动未处理的数据到缓冲区的开始位置
+					copy(buf, buf[newlineIndex+1:])
+					n = n - newlineIndex - 1 // 更新剩余数据的长度
+					newlineIndex = bytes.IndexByte(buf[:n], '\n')
+				} else {
+					// 没有更多的数据了，退出循环
+					newlineIndex = -1
+				}
+			}
+
+			// 如果没有找到换行符，检查缓冲区末尾是否有不完整的行
+			if newlineIndex == -1 && n > 0 {
+				klog.Errorf("-3-------------: %v", string(buf[:n]))
+				if err := json.NewEncoder(c.Writer).Encode(string(buf[:n])); err != nil {
+					klog.Errorf("failed to encode: %v", err)
+					return
+				}
+				flush.Flush()
+			}
 		}
 	}
+	//for {
+	//	select {
+	//	case <-c.Request.Context().Done():
+	//		return
+	//	default:
+	//		buf := make([]byte, 1024)
+	//		n, err := reader.Read(buf)
+	//		if err != nil && err != io.EOF {
+	//			return
+	//		}
+	//		klog.Errorf("-2-------------", string(buf[0:n]))
+	//		if err := json.NewEncoder(c.Writer).Encode(string(buf[0:n])); err != nil {
+	//			klog.Errorf("failed to encode : %v", err)
+	//			return
+	//		}
+	//		flush.Flush()
+	//	}
+	//}
+
+	//conn, err := client.WebsocketUpgrade.Upgrade(c.Writer, c.Request, nil)
+	//if err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	//defer conn.Close()
+	//
+	//client.WebsocketUpgrade.Subprotocols = []string{c.Request.Header.Get("Sec-WebSocket-Protocol")}
+	//wsClient := client.NewWsClient(conn, opts.Cluster, "log")
+	//for {
+	//	buf := make([]byte, 1024)
+	//	n, err := reader.Read(buf)
+	//	if err != nil && err != io.EOF {
+	//		break
+	//	}
+	//
+	//	err = wsClient.Conn.WriteMessage(websocket.TextMessage, buf[0:n])
+	//	if err != nil {
+	//		break
+	//	}
+	//}
 
 }

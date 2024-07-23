@@ -55,9 +55,8 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	// 调用 kubernetes 对象
 	kubeRoute := httpEngine.Group("/pixiu/kubeproxy")
 	{
-
 		// 获取指定对象的日志
-		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/pods/:name/container/:container/lines/:lines", cr.getPodLog)
+		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/pods/:name", cr.watchPodLog)
 		// Deprecated 聚合 events
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
 		// 获取指定对象的 events，支持事件聚合
