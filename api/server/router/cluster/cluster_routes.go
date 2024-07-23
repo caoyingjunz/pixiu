@@ -17,9 +17,16 @@ limitations under the License.
 package cluster
 
 import (
+	"context"
+	"io"
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -284,4 +291,62 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 	}
 
 	httputils.SetSuccess(c, r)
+}
+
+func (cr *clusterRouter) watchPodLog(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		opts struct {
+			Cluster   string `uri:"cluster" binding:"required"`
+			Namespace string `uri:"namespace" binding:"required"`
+			Pod       string `uri:"pod" binding:"required"` //pod name
+		}
+		logOpt types.PodLogOptions
+		err    error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &opts, &logOpt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	req := cr.c.Cluster().WatchPodLog(c, opts.Cluster, opts.Namespace, opts.Pod, logOpt.Container, logOpt.TailLines)
+	if req == nil {
+		klog.Errorf("failed to get request")
+		return
+	}
+
+	withTimeout, cancelFunc := context.WithTimeout(c, time.Minute*10)
+	defer cancelFunc()
+
+	reader, err := req.Stream(withTimeout)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	defer reader.Close()
+
+	conn, err := client.WebsocketUpgrade.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	defer conn.Close()
+
+	client.WebsocketStore.Add(opts.Cluster, "log", conn)
+	client.WebsocketUpgrade.Subprotocols = []string{c.Request.Header.Get("Sec-WebSocket-Protocol")}
+	wsClient := client.NewWsClient(conn, opts.Cluster, "log")
+	for {
+		buf := make([]byte, 1024)
+		n, err := reader.Read(buf)
+		if err != nil && err != io.EOF {
+			klog.Errorf("failed to read message: %v", err)
+			break
+		}
+		err = wsClient.Conn.WriteMessage(websocket.TextMessage, buf[0:n])
+		if err != nil {
+			klog.Errorf("failed to write message: %v", err)
+			break
+		}
+	}
 }
