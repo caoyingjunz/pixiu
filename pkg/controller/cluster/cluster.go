@@ -342,7 +342,7 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 		Container:  containerName,
 		Follow:     true,
 		TailLines:  &tailLine,
-		Timestamps: true,
+		Timestamps: false,
 	})
 	if req == nil {
 		klog.Errorf("failed to get stream")
