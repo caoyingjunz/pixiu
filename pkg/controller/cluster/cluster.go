@@ -373,21 +373,13 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 	}
 	defer reader.Close()
 
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		}}
-
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := util.BuildWebSocketConnection(w, r)
 	if err != nil {
-		klog.Errorf("failed to upgrade: %v", err)
+		klog.Errorf("failed to build websocket connection: %v", err)
 		return err
 	}
 	defer conn.Close()
 
-	upgrader.Subprotocols = []string{r.Header.Get("Sec-WebSocket-Protocol")}
 	for {
 		buf := make([]byte, 1024)
 		n, err := reader.Read(buf)
