@@ -19,12 +19,15 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"helm.sh/helm/v3/pkg/release"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
@@ -79,7 +81,7 @@ type Interface interface {
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
-	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request
+	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 }
 
 var clusterIndexer client.Cache
@@ -329,19 +331,68 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 	return clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
 }
 
-func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64) *rest.Request {
+// WatchPodLog streams the logs of a pod in a cluster to a websocket connection.
+//
+// Parameters:
+// - ctx: The context.Context object for the request.
+// - cluster: The name of the cluster.
+// - namespace: The namespace of the pod.
+// - podName: The name of the pod.
+// - containerName: The name of the container.
+// - tailLine: The number of lines to show from the end of the logs.
+// - w: The http.ResponseWriter object for the websocket connection.
+// - r: The *http.Request object for the websocket connection.
+//
+// Returns:
+// - error: An error if there was a problem streaming the logs.
+func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error {
 	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		klog.Errorf("failed to get cluster(%s) clientSet: %v", cluster, err)
-		return nil
+		return err
 	}
 
-	return clusterSet.Client.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
+	req := clusterSet.Client.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
 		Container:  containerName,
 		Follow:     true,
 		TailLines:  &tailLine,
-		Timestamps: true,
+		Timestamps: false,
 	})
+	if req == nil {
+		klog.Errorf("failed to get stream")
+		return fmt.Errorf("failed to get stream")
+	}
+
+	withTimeout, cancelFunc := context.WithTimeout(ctx, time.Minute*10)
+	defer cancelFunc()
+
+	reader, err := req.Stream(withTimeout)
+	if err != nil {
+		klog.Errorf("failed to get stream: %v", err)
+		return err
+	}
+	defer reader.Close()
+
+	conn, err := util.BuildWebSocketConnection(w, r)
+	if err != nil {
+		klog.Errorf("failed to build websocket connection: %v", err)
+		return err
+	}
+	defer conn.Close()
+
+	for {
+		buf := make([]byte, 1024)
+		n, err := reader.Read(buf)
+		if err != nil && err != io.EOF {
+			break
+		}
+		err = conn.WriteMessage(websocket.TextMessage, buf[0:n])
+		if err != nil {
+			klog.Errorf("failed to write message: %v ,this websocket connection will be closed", err)
+			break
+		}
+	}
+	return nil
 }
 
 // AggregateEvents 聚合 k8s 资源的所有 events，比如 kind 为 deployment 时，则聚合 deployment，所属 rs 以及 pod 的事件
