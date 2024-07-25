@@ -81,7 +81,7 @@ type Interface interface {
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
-	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request)
+	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 }
 
 var clusterIndexer client.Cache
@@ -331,11 +331,25 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 	return clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
 }
 
-func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) {
+// WatchPodLog streams the logs of a pod in a cluster to a websocket connection.
+//
+// Parameters:
+// - ctx: The context.Context object for the request.
+// - cluster: The name of the cluster.
+// - namespace: The namespace of the pod.
+// - podName: The name of the pod.
+// - containerName: The name of the container.
+// - tailLine: The number of lines to show from the end of the logs.
+// - w: The http.ResponseWriter object for the websocket connection.
+// - r: The *http.Request object for the websocket connection.
+//
+// Returns:
+// - error: An error if there was a problem streaming the logs.
+func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error {
 	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		klog.Errorf("failed to get cluster(%s) clientSet: %v", cluster, err)
-		return
+		return err
 	}
 
 	req := clusterSet.Client.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
@@ -346,7 +360,7 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 	})
 	if req == nil {
 		klog.Errorf("failed to get stream")
-		return
+		return fmt.Errorf("failed to get stream")
 	}
 
 	withTimeout, cancelFunc := context.WithTimeout(ctx, time.Minute*10)
@@ -355,32 +369,38 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 	reader, err := req.Stream(withTimeout)
 	if err != nil {
 		klog.Errorf("failed to get stream: %v", err)
-		return
+		return err
 	}
 	defer reader.Close()
 
-	conn, err := client.WebsocketUpgrade.Upgrade(w, r, nil)
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		}}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		klog.Errorf("failed to upgrade: %v", err)
-		return
+		return err
 	}
 	defer conn.Close()
 
-	client.WebsocketStore.Add(cluster, "log", conn)
-	client.WebsocketUpgrade.Subprotocols = []string{r.Header.Get("Sec-WebSocket-Protocol")}
-	wsClient := client.NewWsClient(conn, cluster, "log")
+	upgrader.Subprotocols = []string{r.Header.Get("Sec-WebSocket-Protocol")}
 	for {
 		buf := make([]byte, 1024)
 		n, err := reader.Read(buf)
 		if err != nil && err != io.EOF {
 			break
 		}
-		err = wsClient.Conn.WriteMessage(websocket.TextMessage, buf[0:n])
+		err = conn.WriteMessage(websocket.TextMessage, buf[0:n])
 		if err != nil {
-			klog.Errorf("failed to write message: %v", err)
+			klog.Errorf("failed to write message: %v ,this websocket connection will be closed", err)
 			break
 		}
 	}
+	return nil
 }
 
 // AggregateEvents 聚合 k8s 资源的所有 events，比如 kind 为 deployment 时，则聚合 deployment，所属 rs 以及 pod 的事件
