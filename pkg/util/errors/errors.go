@@ -37,6 +37,7 @@ var (
 	ErrInternal           = errors.New("服务器内部错误")
 	ErrTenantNotFound     = errors.New("租户不存在")
 	ErrDuplicatedPassword = errors.New("新密码与旧密码相同")
+	ErrAuditNotFound      = errors.New("审计记录不存在")
 
 	ErrContainerNotFound = errors.New("容器不存在")
 
@@ -51,6 +52,7 @@ var (
 	MenusExistError    = errors.New("权限已存在")
 	MenusNtoExistError = errors.New("权限不存在")
 	TenantExistError   = errors.New("租户已存在")
+	ErrAuditExists     = errors.New("审计记录已存在")
 )
 
 func IsRecordNotFound(err error) bool {

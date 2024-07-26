@@ -129,6 +129,16 @@ type PlanNode struct {
 	Auth   PlanNodeAuth `json:"auth,omitempty"`
 }
 
+type Audit struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Ip       string `json:"ip"`
+	Action   string `json:"action"`   // 操作动作
+	Content  string `json:"content"`  // 操作内容
+	Operator string `json:"operator"` // 操作人
+}
+
 type AuthType string
 
 const (

@@ -87,4 +87,12 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.ErrTenantNotFound,
 	}
+	ErrAuditNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrAuditNotFound,
+	}
+	ErrAuditExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.ErrAuditExists,
+	}
 )
