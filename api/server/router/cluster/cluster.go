@@ -55,6 +55,9 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 
 		// 设置集群的删除保护模式
 		clusterRoute.POST("/protect/:clusterId", cr.protectCluster)
+
+		// 设置集群缓存
+		clusterRoute.PUT("/cache/:clusterId", cr.setCache)
 	}
 
 	// 调用 kubernetes 对象

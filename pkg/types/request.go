@@ -57,6 +57,7 @@ type (
 		KubeConfig  string            `json:"kube_config" binding:"required"`             // required
 		Description string            `json:"description" binding:"omitempty"`            // optional
 		Protected   bool              `json:"protected" binding:"omitempty"`              // optional
+		Cache       bool              `json:"cache" binding:"omitempty"`                  // optional
 	}
 
 	UpdateClusterRequest struct {
@@ -69,6 +70,12 @@ type (
 	ProtectClusterRequest struct {
 		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
 		Protected       bool   `json:"protected" binding:"omitempty"`       // optional
+	}
+
+	SyncCacheRequest struct {
+		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
+		Cache           bool   `json:"cache" binding:"omitempty"`           // required
+		ClusterName     string `json:"cluster_name" binding:"required"`     // required
 	}
 
 	CreateTenantRequest struct {

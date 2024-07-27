@@ -63,6 +63,9 @@ type Cluster struct {
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
 
+	//是否开启缓存
+	Cache bool `json:"cache"`
+
 	KubernetesMeta `json:",inline"`
 	TimeMeta       `json:",inline"`
 }
