@@ -17,7 +17,6 @@ limitations under the License.
 package tenant
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -37,10 +36,6 @@ func (t *tenantRouter) createTenant(c *gin.Context) {
 		return
 	}
 	if err := t.c.Tenant().Create(c, &req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err := t.c.Audit().Create(c, model.CreatedAudit, model.TenantCreate); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -68,10 +63,6 @@ func (t *tenantRouter) updateTenant(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := t.c.Audit().Create(c, model.UpdatedAudit, model.TenantUpdate); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -88,10 +79,6 @@ func (t *tenantRouter) deleteTenant(c *gin.Context) {
 		return
 	}
 	if err = t.c.Tenant().Delete(c, opt.TenantId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err := t.c.Audit().Create(c, model.DeletedAudit, model.TenantDelete); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

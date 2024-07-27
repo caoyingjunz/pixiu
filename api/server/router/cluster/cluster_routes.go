@@ -17,11 +17,9 @@ limitations under the License.
 package cluster
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/gin-gonic/gin"
-
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/gin-gonic/gin"
 )
 
 type IdMeta struct {
@@ -51,11 +49,6 @@ func (cr *clusterRouter) createCluster(c *gin.Context) {
 		return
 	}
 	if err := cr.c.Cluster().Create(c, &req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	if err := cr.c.Audit().Create(c, model.CreatedAudit, model.ClusterCreate); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -100,11 +93,6 @@ func (cr *clusterRouter) updateCluster(c *gin.Context) {
 		return
 	}
 
-	if err := cr.c.Audit().Create(c, model.UpdatedAudit, model.ClusterUpdate); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
 	httputils.SetSuccess(c, r)
 }
 
@@ -139,10 +127,6 @@ func (cr *clusterRouter) deleteCluster(c *gin.Context) {
 		return
 	}
 
-	if err := cr.c.Audit().Create(c, model.DeletedAudit, model.ClusterDelete); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
 	httputils.SetSuccess(c, r)
 }
 
@@ -241,25 +225,15 @@ func (cr *clusterRouter) pingCluster(c *gin.Context) {
 func (cr *clusterRouter) protectCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		idMeta    IdMeta
-		req       types.ProtectClusterRequest
-		err       error
-		protected string
+		idMeta IdMeta
+		req    types.ProtectClusterRequest
+		err    error
 	)
 	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 	if err = cr.c.Cluster().Protect(c, idMeta.ClusterId, &req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if req.Protected {
-		protected = model.ClusterProtectStart
-	} else {
-		protected = model.ClusterProtectStop
-	}
-	if err := cr.c.Audit().Create(c, model.UpdatedAudit, protected); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -17,7 +17,6 @@ limitations under the License.
 package router
 
 import (
-	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +28,7 @@ import (
 	_ "github.com/caoyingjunz/pixiu/api/server/validator"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
+	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"

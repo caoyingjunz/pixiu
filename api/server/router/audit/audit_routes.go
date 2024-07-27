@@ -1,8 +1,9 @@
 package audit
 
 import (
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 )
 
 type AuditMeta struct {

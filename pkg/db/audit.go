@@ -2,10 +2,12 @@ package db
 
 import (
 	"context"
+	"time"
+
+	"gorm.io/gorm"
+
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
-	"gorm.io/gorm"
-	"time"
 )
 
 type AuditInterface interface {

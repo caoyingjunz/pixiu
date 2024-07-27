@@ -128,7 +128,10 @@ func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}
 	return nil
 }
 
-const userKey = "user"
+const (
+	userKey = "user"
+	ip      = "ip"
+)
 
 func GetUserFromRequest(ctx context.Context) (*model.User, error) {
 	val := ctx.Value(userKey)
@@ -156,7 +159,7 @@ func SetUserToContext(c *gin.Context, user *model.User) {
 }
 
 func SetIPToContext(c *gin.Context) {
-	c.Set("ip", c.ClientIP())
+	c.Set(ip, c.ClientIP())
 }
 
 func GetObjectFromRequest(c *gin.Context) (string, string, bool) {

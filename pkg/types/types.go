@@ -20,12 +20,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-
 	"github.com/gorilla/websocket"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 type PixiuMeta struct {

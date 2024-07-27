@@ -1,9 +1,10 @@
 package audit
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
-	"github.com/gin-gonic/gin"
 )
 
 type auditRouter struct {
@@ -17,9 +18,13 @@ func NewRouter(o *options.Options) {
 	router.initRoutes(o.HttpEngine)
 }
 
-func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
-	//get日志
-	ginEngine.GET("/:auditId", a.getAudit)
-	ginEngine.GET("/", a.listAudits)
-	ginEngine.DELETE("/:auditId", a.deleteAudit)
+func (a *auditRouter) initRoutes(httpEngine *gin.Engine) {
+	auditRoute := httpEngine.Group("/pixiu/audits")
+	{
+		//get日志
+		auditRoute.GET("/:auditId", a.getAudit)
+		auditRoute.GET("/", a.listAudits)
+		auditRoute.DELETE("/:auditId", a.deleteAudit)
+	}
+
 }

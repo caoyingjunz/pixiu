@@ -78,6 +78,6 @@ func InstallMiddlewares(o *options.Options) {
 		Authentication(o),
 		Authorization(o),
 		Admission(),
-		Audit(),
+		Audit(o),
 	)
 }
