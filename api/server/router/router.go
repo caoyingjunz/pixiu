@@ -17,6 +17,7 @@ limitations under the License.
 package router
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +41,7 @@ type RegisterFunc func(o *options.Options)
 
 func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
-		middleware.InstallMiddlewares, cluster.NewRouter, proxy.NewRouter, tenant.NewRouter, user.NewRouter, plan.NewRouter,
+		middleware.InstallMiddlewares, cluster.NewRouter, proxy.NewRouter, tenant.NewRouter, user.NewRouter, plan.NewRouter, audit.NewRouter,
 	}
 
 	install(o, fs...)

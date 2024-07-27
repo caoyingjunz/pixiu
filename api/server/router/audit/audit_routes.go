@@ -20,7 +20,7 @@ func (a *auditRouter) getAudit(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = a.c.Tenant().Get(c, opt.AuditId); err != nil {
+	if r.Result, err = a.c.Audit().Get(c, opt.AuditId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -39,7 +39,7 @@ func (a *auditRouter) deleteAudit(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = a.c.Tenant().Delete(c, opt.AuditId); err != nil {
+	if err = a.c.Audit().Delete(c, opt.AuditId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -51,7 +51,7 @@ func (a *auditRouter) listAudits(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var err error
-	if r.Result, err = a.c.Tenant().List(c); err != nil {
+	if r.Result, err = a.c.Audit().List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

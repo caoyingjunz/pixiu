@@ -17,6 +17,7 @@ limitations under the License.
 package plan
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -31,6 +32,10 @@ type taskNodeMeta struct {
 func (t *planRouter) runTasks(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	if err := t.c.Audit().Create(c, model.StartedAudit, model.PlanRunTask); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }
 

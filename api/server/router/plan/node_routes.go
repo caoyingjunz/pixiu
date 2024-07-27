@@ -17,6 +17,7 @@ limitations under the License.
 package plan
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -45,6 +46,10 @@ func (t *planRouter) createPlanNode(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err := t.c.Audit().Create(c, model.CreatedAudit, model.PlanNodeCreate); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -65,6 +70,10 @@ func (t *planRouter) updatePlanNode(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err := t.c.Audit().Create(c, model.UpdatedAudit, model.PlanNodeUpdate); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -81,6 +90,10 @@ func (t *planRouter) deletePlanNode(c *gin.Context) {
 		return
 	}
 	if err = t.c.Plan().DeleteNode(c, opt.PlanId, opt.NodeId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := t.c.Audit().Create(c, model.DeletedAudit, model.PlanNodeDelete); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

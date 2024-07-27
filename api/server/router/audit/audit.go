@@ -20,4 +20,6 @@ func NewRouter(o *options.Options) {
 func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
 	//get日志
 	ginEngine.GET("/:auditId", a.getAudit)
+	ginEngine.GET("/", a.listAudits)
+	ginEngine.DELETE("/:auditId", a.deleteAudit)
 }

@@ -27,10 +27,10 @@ func (a *audit) Create(ctx context.Context, object *model.Audit) (*model.Audit, 
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
+
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
-
 	return object, nil
 }
 
@@ -39,6 +39,7 @@ func (a *audit) Delete(ctx context.Context, aid int64) (*model.Audit, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := a.db.WithContext(ctx).Where("id = ?", aid).Delete(&model.Audit{}).Error; err != nil {
 		return nil, err
 	}
@@ -61,5 +62,6 @@ func (a *audit) List(ctx context.Context) ([]model.Audit, error) {
 	if err := a.db.WithContext(ctx).Find(&audits).Error; err != nil {
 		return nil, err
 	}
+
 	return audits, nil
 }
