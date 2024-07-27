@@ -17,6 +17,7 @@ limitations under the License.
 package user
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -56,6 +57,10 @@ func (u *userRouter) createUser(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err := u.c.Audit().Create(c, model.CreatedAudit, model.UserCreate); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -88,6 +93,10 @@ func (u *userRouter) updateUser(c *gin.Context) {
 		return
 	}
 	if err = u.c.User().Update(c, idMeta.UserId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := u.c.Audit().Create(c, model.UpdatedAudit, model.UserUpdate); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -126,6 +135,10 @@ func (u *userRouter) updatePassword(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err := u.c.Audit().Create(c, model.UpdatedAudit, model.UserPasswordUpdate); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
@@ -156,6 +169,10 @@ func (u *userRouter) deleteUser(c *gin.Context) {
 		return
 	}
 	if err = u.c.User().Delete(c, idMeta.UserId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := u.c.Audit().Create(c, model.DeletedAudit, model.UserDelete); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
