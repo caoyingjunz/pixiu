@@ -20,12 +20,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-
 	"github.com/gorilla/websocket"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 type PixiuMeta struct {
@@ -127,6 +127,18 @@ type PlanNode struct {
 	CRI    model.CRI    `json:"cri"`
 	Ip     string       `json:"ip"`
 	Auth   PlanNodeAuth `json:"auth,omitempty"`
+}
+
+type Audit struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Ip           string                `json:"ip"`
+	Action       string                `json:"action"`        // 操作动作
+	Status       model.OperationStatus `json:"status"`        // 操作状态
+	Operator     string                `json:"operator"`      // 操作人
+	Path         string                `json:"path"`          // 操作路径
+	ResourceType string                `json:"resource_type"` // 资源类型
 }
 
 type AuthType string

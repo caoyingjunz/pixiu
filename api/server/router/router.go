@@ -28,6 +28,7 @@ import (
 	_ "github.com/caoyingjunz/pixiu/api/server/validator"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
+	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
@@ -40,7 +41,7 @@ type RegisterFunc func(o *options.Options)
 
 func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
-		middleware.InstallMiddlewares, cluster.NewRouter, proxy.NewRouter, tenant.NewRouter, user.NewRouter, plan.NewRouter,
+		middleware.InstallMiddlewares, cluster.NewRouter, proxy.NewRouter, tenant.NewRouter, user.NewRouter, plan.NewRouter, audit.NewRouter,
 	}
 
 	install(o, fs...)
