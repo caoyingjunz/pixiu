@@ -63,10 +63,12 @@ func (a *audit) model2Type(o *model.Audit) *types.Audit {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Ip:       o.Ip,
-		Action:   o.Action,
-		Content:  o.Content,
-		Operator: o.Operator,
+		Ip:           o.Ip,
+		Action:       o.Action,
+		Content:      o.Content,
+		Operator:     o.Operator,
+		Path:         o.Path,
+		ResourceType: o.ResourceType,
 	}
 }
 

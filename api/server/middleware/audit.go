@@ -56,17 +56,19 @@ func saveAudit(o *options.Options, c *gin.Context, obj, sid string) {
 		} else {
 			userModel, err := o.Factory.User().Get(context.TODO(), StringToInt64(sid))
 			if err != nil {
-				u.Name = "操作对象已经不存在"
+				u.Name = "未获取操作对象"
 			} else {
 				u = userModel
 			}
 		}
 
 		object := &model.Audit{
-			Action:   c.Request.Method,
-			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, u),
-			Ip:       ip,
-			Operator: userName,
+			Action:       c.Request.Method,
+			Content:      buildContent(obj, c.Request.Method, c.Request.RequestURI, u),
+			Ip:           ip,
+			Operator:     userName,
+			Path:         c.Request.RequestURI,
+			ResourceType: obj,
 		}
 		o.Factory.Audit().Create(context.TODO(), object)
 	case Cluster:
@@ -76,17 +78,19 @@ func saveAudit(o *options.Options, c *gin.Context, obj, sid string) {
 		} else {
 			clusterModel, err := o.Factory.Cluster().Get(context.TODO(), StringToInt64(sid))
 			if err != nil {
-				cluster.Name = "操作对象已经不存在"
+				cluster.Name = "未获取操作对象"
 			} else {
 				cluster = clusterModel
 			}
 		}
 
 		object := &model.Audit{
-			Action:   c.Request.Method,
-			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, cluster),
-			Ip:       ip,
-			Operator: userName,
+			Action:       c.Request.Method,
+			Content:      buildContent(obj, c.Request.Method, c.Request.RequestURI, cluster),
+			Ip:           ip,
+			Operator:     userName,
+			Path:         c.Request.RequestURI,
+			ResourceType: obj,
 		}
 		o.Factory.Audit().Create(context.TODO(), object)
 	case Plan:
@@ -96,17 +100,19 @@ func saveAudit(o *options.Options, c *gin.Context, obj, sid string) {
 		} else {
 			planModel, err := o.Factory.Plan().Get(context.TODO(), StringToInt64(sid))
 			if err != nil {
-				plan.Name = "操作对象已经不存在"
+				plan.Name = "未获取操作对象"
 			} else {
 				plan = planModel
 			}
 		}
 
 		object := &model.Audit{
-			Action:   c.Request.Method,
-			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, plan),
-			Ip:       ip,
-			Operator: userName,
+			Action:       c.Request.Method,
+			Content:      buildContent(obj, c.Request.Method, c.Request.RequestURI, plan),
+			Ip:           ip,
+			Operator:     userName,
+			Path:         c.Request.RequestURI,
+			ResourceType: obj,
 		}
 		o.Factory.Audit().Create(context.TODO(), object)
 	case Tenant:
@@ -116,25 +122,29 @@ func saveAudit(o *options.Options, c *gin.Context, obj, sid string) {
 		} else {
 			tenantModel, err := o.Factory.Tenant().Get(context.TODO(), StringToInt64(sid))
 			if err != nil {
-				tenant.Name = "操作对象已经不存在"
+				tenant.Name = "未获取操作对象"
 			} else {
 				tenant = tenantModel
 			}
 		}
 
 		object := &model.Audit{
-			Action:   c.Request.Method,
-			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, tenant),
-			Ip:       ip,
-			Operator: userName,
+			Action:       c.Request.Method,
+			Content:      buildContent(obj, c.Request.Method, c.Request.RequestURI, tenant),
+			Ip:           ip,
+			Operator:     userName,
+			Path:         c.Request.RequestURI,
+			ResourceType: obj,
 		}
 		o.Factory.Audit().Create(context.TODO(), object)
 	default:
 		object := &model.Audit{
-			Action:   c.Request.Method,
-			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, nil),
-			Ip:       ip,
-			Operator: userName,
+			Action:       c.Request.Method,
+			Content:      buildContent(obj, c.Request.Method, c.Request.RequestURI, nil),
+			Ip:           ip,
+			Operator:     userName,
+			Path:         c.Request.RequestURI,
+			ResourceType: obj,
 		}
 		o.Factory.Audit().Create(context.TODO(), object)
 	}

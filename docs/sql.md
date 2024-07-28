@@ -160,6 +160,8 @@ CREATE TABLE `audit` (
   `operator` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT '操作人',
   `action` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT '动作',
   `ip` varchar(128) COLLATE utf8mb4_bin NOT NULL COMMENT '来源ip',
-  `content` text COLLATE utf8mb4_bin NOT NULL COMMENT '详细内容'
+  `content` text COLLATE utf8mb4_bin NOT NULL COMMENT '详细内容',
+  `path` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT '详细内容',
+  `resource_type` varchar(128) COLLATE utf8mb4_bin NOT NULL COMMENT '操作的资源类型'
 ) ENGINE=InnoDB AUTO_INCREMENT=3355 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin
 ```
