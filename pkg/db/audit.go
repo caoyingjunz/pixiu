@@ -13,7 +13,6 @@ import (
 type AuditInterface interface {
 	List(ctx context.Context) ([]model.Audit, error)
 	Get(ctx context.Context, id int64) (*model.Audit, error)
-	Delete(ctx context.Context, id int64) (*model.Audit, error)
 	Create(ctx context.Context, object *model.Audit) (*model.Audit, error)
 }
 
@@ -31,18 +30,6 @@ func (a *audit) Create(ctx context.Context, object *model.Audit) (*model.Audit, 
 	object.GmtModified = now
 
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
-		return nil, err
-	}
-	return object, nil
-}
-
-func (a *audit) Delete(ctx context.Context, aid int64) (*model.Audit, error) {
-	object, err := a.Get(ctx, aid)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := a.db.WithContext(ctx).Where("id = ?", aid).Delete(&model.Audit{}).Error; err != nil {
 		return nil, err
 	}
 	return object, nil
