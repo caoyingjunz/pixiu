@@ -64,7 +64,7 @@ func Audit(o *options.Options) gin.HandlerFunc {
 		// 尝试解析 JSON 数据
 		status := model.OperationSuccess
 		if err := json.Unmarshal([]byte(respBody), &respData); err != nil {
-			status = model.OperationUnknow
+			status = model.OperationUnknown
 		}
 		if respData != nil && respData["code"] != http.StatusOK {
 			status = model.OperationFail
