@@ -65,7 +65,7 @@ func (a *audit) model2Type(o *model.Audit) *types.Audit {
 		},
 		Ip:           o.Ip,
 		Action:       o.Action,
-		Content:      o.Content,
+		Status:       o.Status,
 		Operator:     o.Operator,
 		Path:         o.Path,
 		ResourceType: o.ResourceType,
