@@ -876,6 +876,8 @@ func (c *cluster) syncClusterCache(ctx context.Context, name string, enable bool
 
 	if !enable && cs.SyncCache {
 		close(cs.StopChan)
+		// 关闭后，设置缓存状态为 false
+		cs.SyncCache = false
 	}
 
 	return nil
