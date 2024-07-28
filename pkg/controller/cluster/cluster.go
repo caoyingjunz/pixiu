@@ -46,6 +46,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	kubernetescache "github.com/caoyingjunz/pixiu/pkg/controller/kubernetesCache"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -90,7 +91,7 @@ type Interface interface {
 
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 
-	// GenerateLister(ctx context.Context, cluster, group, version, resources string) (*metav1.Object, error)
+	kubernetescache.PodGetter
 }
 
 var clusterIndexer client.Cache
@@ -110,6 +111,15 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 		return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
 	}
 	return nil
+}
+
+func (c *cluster) Pod(clusterName, namespace string) kubernetescache.PodInterface {
+	cs, err := c.GetClusterSetByName(context.TODO(), clusterName)
+	if err != nil {
+		klog.Errorf("failed to get cluster %s: %v", clusterName, err)
+		return nil
+	}
+	return kubernetescache.NewPod(cs, namespace)
 }
 
 func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) error {
@@ -847,7 +857,8 @@ func (c *cluster) syncClusterCache(ctx context.Context, name string, enable bool
 		cs.SyncCache = enable
 		cs.StopChan = make(chan struct{})
 		cs.SharedInformerFactory = informers.NewSharedInformerFactory(cs.Client, 0)
-		cs.SyncCache = false
+		cs.SyncCache = true
+
 		cs.SharedInformerFactory.Core().V1().Pods().Informer()
 		cs.SharedInformerFactory.Apps().V1().Deployments().Informer()
 

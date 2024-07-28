@@ -58,6 +58,9 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 
 		// 设置集群缓存
 		clusterRoute.PUT("/cache/:clusterId", cr.setCache)
+
+		//从缓存中获取pod列表 http://127.0.0.1:8090/pixiu/clusters/cache/pixiu-jmxucsir/namespace/default/pods
+		clusterRoute.GET("/cache/:cluster/namespace/:namespace/pods", cr.listPod)
 	}
 
 	// 调用 kubernetes 对象
