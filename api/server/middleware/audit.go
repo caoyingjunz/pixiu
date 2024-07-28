@@ -19,6 +19,8 @@ const (
 	Cluster = "clusters"
 	Tenant  = "tenants"
 	Plan    = "plans"
+
+	emptyString = ""
 )
 
 func Audit(o *options.Options) gin.HandlerFunc {
@@ -48,22 +50,38 @@ func saveAudit(o *options.Options, c *gin.Context, obj, sid string) {
 	}
 	switch obj {
 	case User:
-		user, err := o.Factory.User().Get(context.TODO(), StringToInt64(sid))
-		if err != nil {
-			user = &model.User{}
+		u := &model.User{}
+		if sid == emptyString {
+			u.Name = "新增user"
+		} else {
+			userModel, err := o.Factory.User().Get(context.TODO(), StringToInt64(sid))
+			if err != nil {
+				u.Name = "操作对象已经不存在"
+			} else {
+				u = userModel
+			}
 		}
+
 		object := &model.Audit{
 			Action:   c.Request.Method,
-			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, user),
+			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, u),
 			Ip:       ip,
 			Operator: userName,
 		}
 		o.Factory.Audit().Create(context.TODO(), object)
 	case Cluster:
-		cluster, err := o.Factory.Cluster().Get(context.TODO(), StringToInt64(sid))
-		if err != nil {
-			cluster = &model.Cluster{}
+		cluster := &model.Cluster{}
+		if sid == emptyString {
+			cluster.Name = "新增cluster"
+		} else {
+			clusterModel, err := o.Factory.Cluster().Get(context.TODO(), StringToInt64(sid))
+			if err != nil {
+				cluster.Name = "操作对象已经不存在"
+			} else {
+				cluster = clusterModel
+			}
 		}
+
 		object := &model.Audit{
 			Action:   c.Request.Method,
 			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, cluster),
@@ -72,10 +90,18 @@ func saveAudit(o *options.Options, c *gin.Context, obj, sid string) {
 		}
 		o.Factory.Audit().Create(context.TODO(), object)
 	case Plan:
-		plan, err := o.Factory.Plan().Get(context.TODO(), StringToInt64(sid))
-		if err != nil {
-			plan = &model.Plan{}
+		plan := &model.Plan{}
+		if sid == emptyString {
+			plan.Name = "新增plan"
+		} else {
+			planModel, err := o.Factory.Plan().Get(context.TODO(), StringToInt64(sid))
+			if err != nil {
+				plan.Name = "操作对象已经不存在"
+			} else {
+				plan = planModel
+			}
 		}
+
 		object := &model.Audit{
 			Action:   c.Request.Method,
 			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, plan),
@@ -84,13 +110,29 @@ func saveAudit(o *options.Options, c *gin.Context, obj, sid string) {
 		}
 		o.Factory.Audit().Create(context.TODO(), object)
 	case Tenant:
-		tenant, err := o.Factory.Tenant().Get(context.TODO(), StringToInt64(sid))
-		if err != nil {
-			tenant = &model.Tenant{}
+		tenant := &model.Tenant{}
+		if sid == emptyString {
+			tenant.Name = "新增plan"
+		} else {
+			tenantModel, err := o.Factory.Tenant().Get(context.TODO(), StringToInt64(sid))
+			if err != nil {
+				tenant.Name = "操作对象已经不存在"
+			} else {
+				tenant = tenantModel
+			}
 		}
+
 		object := &model.Audit{
 			Action:   c.Request.Method,
 			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, tenant),
+			Ip:       ip,
+			Operator: userName,
+		}
+		o.Factory.Audit().Create(context.TODO(), object)
+	default:
+		object := &model.Audit{
+			Action:   c.Request.Method,
+			Content:  buildContent(obj, c.Request.Method, c.Request.RequestURI, nil),
 			Ip:       ip,
 			Operator: userName,
 		}
@@ -101,15 +143,15 @@ func saveAudit(o *options.Options, c *gin.Context, obj, sid string) {
 func buildContent(obj, method, url string, objModel interface{}) string {
 	switch objModel.(type) {
 	case *model.User:
-		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象[%s]", obj, method, url, objModel.(*model.User).Name)
+		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象信息[%s]", obj, method, url, objModel.(*model.User).Name)
 	case *model.Cluster:
-		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象[%s]", obj, method, url, objModel.(*model.Cluster).Name)
+		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象信息[%s]", obj, method, url, objModel.(*model.Cluster).Name)
 	case *model.Plan:
-		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象[%s]", obj, method, url, objModel.(*model.Plan).Name)
+		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象信息[%s]", obj, method, url, objModel.(*model.Plan).Name)
 	case *model.Tenant:
-		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象[%s]", obj, method, url, objModel.(*model.Tenant).Name)
+		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象信息[%s]", obj, method, url, objModel.(*model.Tenant).Name)
 	default:
-		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象[%s]", obj, method, url, "新增model请添加审计")
+		return fmt.Sprintf("操作资源[%s];操作请求[%s]:[%s];被操作对象信息[%s]", obj, method, url, "新增model请添加审计信息")
 	}
 }
 
