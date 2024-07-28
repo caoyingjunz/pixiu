@@ -18,16 +18,21 @@ package model
 
 import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
+func init() {
+	register(&Audit{})
+}
+
 type OperationStatus uint8
 
 const (
 	OperationFail    OperationStatus = iota // 执行失败
 	OperationSuccess                        // 执行成功
-	OperationUnknow                         // 获取执行状态失败
+	OperationUnknown                        // 获取执行状态失败
 )
 
 type Audit struct {
 	pixiu.Model
+
 	Ip           string          `gorm:"type:varchar(128)" json:"ip"`            // 客户端ip
 	Action       string          `gorm:"type:varchar(255)" json:"action"`        // HTTP 方法[POST/DELETE/PUT/GET]
 	Operator     string          `gorm:"type:varchar(255)" json:"operator"`      // 操作人ID
@@ -37,5 +42,5 @@ type Audit struct {
 }
 
 func (a *Audit) TableName() string {
-	return "audit"
+	return "audits"
 }
