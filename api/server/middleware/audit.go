@@ -27,14 +27,20 @@ func (w responseWriter) Write(b []byte) (int, error) {
 func Audit(o *options.Options) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method
-		if method == http.MethodGet {
-			return
-		}
-
 		body := new(bytes.Buffer)
 		c.Writer = &responseWriter{c.Writer, body}
 		c.Next()
 
+		// 处理401错误处理
+		if method == http.MethodGet {
+			if c.Writer.Status() == http.StatusUnauthorized {
+				goto auditNext
+			}
+
+			return
+		}
+
+	auditNext:
 		// 获取写入的数据
 		respBody := body.String()
 		var respData map[string]interface{}
@@ -44,7 +50,7 @@ func Audit(o *options.Options) gin.HandlerFunc {
 		if err := json.Unmarshal([]byte(respBody), &respData); err != nil {
 			status = model.OperationUnknow
 		}
-		if respData["code"] != http.StatusOK {
+		if respData != nil && respData["code"] != http.StatusOK {
 			status = model.OperationFail
 		}
 
