@@ -17,10 +17,10 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/casbin/casbin/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"

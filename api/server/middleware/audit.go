@@ -1,9 +1,26 @@
+/*
+Copyright 2024 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package middleware
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"k8s.io/klog/v2"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -36,7 +53,6 @@ func Audit(o *options.Options) gin.HandlerFunc {
 			if c.Writer.Status() == http.StatusUnauthorized {
 				goto auditNext
 			}
-
 			return
 		}
 
@@ -58,9 +74,10 @@ func Audit(o *options.Options) gin.HandlerFunc {
 		if !ok {
 			return
 		}
+
+		// 持久化审计记录
 		saveAudit(o, c, obj, status)
 	}
-
 }
 
 func saveAudit(o *options.Options, c *gin.Context, obj string, status model.OperationStatus) {
@@ -72,13 +89,14 @@ func saveAudit(o *options.Options, c *gin.Context, obj string, status model.Oper
 		userName = user.(model.User).Name
 	}
 
-	object := &model.Audit{
+	if _, err := o.Factory.Audit().Create(context.TODO(), &model.Audit{
 		Action:       c.Request.Method,
 		Ip:           c.ClientIP(),
 		Operator:     userName,
 		Path:         c.Request.RequestURI,
 		ResourceType: obj,
 		Status:       status,
+	}); err != nil {
+		klog.Error("failed to save %s action record: %v", userName, err)
 	}
-	o.Factory.Audit().Create(context.TODO(), object)
 }
