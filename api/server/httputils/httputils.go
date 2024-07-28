@@ -158,10 +158,6 @@ func SetUserToContext(c *gin.Context, user *model.User) {
 	c.Set(userKey, user)
 }
 
-func SetIPToContext(c *gin.Context) {
-	c.Set(ip, c.ClientIP())
-}
-
 func GetObjectFromRequest(c *gin.Context) (string, string, bool) {
 	return getObjectFromRequest(c.Request.URL.Path)
 }

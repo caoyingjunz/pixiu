@@ -37,17 +37,15 @@ func Audit(o *options.Options) gin.HandlerFunc {
 
 		// 获取写入的数据
 		respBody := body.String()
-		var (
-			respData map[string]interface{}
-		)
+		var respData map[string]interface{}
 
 		// 尝试解析 JSON 数据
-		status := 1
+		status := model.OperationSuccess
 		if err := json.Unmarshal([]byte(respBody), &respData); err != nil {
-			status = 0
+			status = model.OperationUnknow
 		}
-		if respData["code"] != 200 {
-			status = 0
+		if respData["code"] != http.StatusOK {
+			status = model.OperationFail
 		}
 
 		obj, _, ok := httputils.GetObjectFromRequest(c)
@@ -59,9 +57,8 @@ func Audit(o *options.Options) gin.HandlerFunc {
 
 }
 
-func saveAudit(o *options.Options, c *gin.Context, obj string, status int) {
+func saveAudit(o *options.Options, c *gin.Context, obj string, status model.OperationStatus) {
 	var userName string
-	ip := c.ClientIP()
 	user := c.Value("user")
 	if _, ok := user.(model.User); !ok {
 		userName = "unknown"
@@ -71,7 +68,7 @@ func saveAudit(o *options.Options, c *gin.Context, obj string, status int) {
 
 	object := &model.Audit{
 		Action:       c.Request.Method,
-		Ip:           ip,
+		Ip:           c.ClientIP(),
 		Operator:     userName,
 		Path:         c.Request.RequestURI,
 		ResourceType: obj,

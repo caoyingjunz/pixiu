@@ -87,7 +87,8 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		return errors.ErrServerInternal
 	}
 	if object != nil {
-		return errors.ErrUserExists
+		err = errors.ErrUserExists // 记录错误
+		return err
 	}
 
 	txFunc := func() (err error) {
