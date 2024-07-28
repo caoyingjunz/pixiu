@@ -17,9 +17,10 @@ limitations under the License.
 package cluster
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/gin-gonic/gin"
 )
 
 type IdMeta struct {
@@ -126,7 +127,6 @@ func (cr *clusterRouter) deleteCluster(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	httputils.SetSuccess(c, r)
 }
 

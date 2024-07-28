@@ -29,25 +29,6 @@ func (a *auditRouter) getAudit(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (a *auditRouter) deleteAudit(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		opt AuditMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = a.c.Audit().Delete(c, opt.AuditId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
 func (a *auditRouter) listAudits(c *gin.Context) {
 	r := httputils.NewResponse()
 

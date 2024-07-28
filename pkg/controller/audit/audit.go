@@ -17,9 +17,7 @@ type AuditGetter interface {
 }
 
 type Interface interface {
-	Delete(ctx context.Context, aid int64) error
 	List(ctx context.Context) ([]types.Audit, error)
-	//Create(ctx *gin.Context, action, content string) error
 	Get(ctx context.Context, aid int64) (*types.Audit, error)
 }
 
@@ -53,16 +51,6 @@ func (a *audit) List(ctx context.Context) ([]types.Audit, error) {
 	}
 	return ts, nil
 
-}
-
-func (a *audit) Delete(ctx context.Context, aid int64) error {
-	_, err := a.factory.Audit().Delete(ctx, aid)
-	if err != nil {
-		klog.Errorf("failed to delete audit %d: %v", aid, err)
-		return errors.ErrServerInternal
-	}
-
-	return nil
 }
 
 func (a *audit) model2Type(o *model.Audit) *types.Audit {

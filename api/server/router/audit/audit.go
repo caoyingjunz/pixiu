@@ -26,5 +26,4 @@ func (a *auditRouter) initRoutes(httpEngine *gin.Engine) {
 		auditRoute.GET("/", a.listAudits)
 		auditRoute.DELETE("/:auditId", a.deleteAudit)
 	}
-
 }
