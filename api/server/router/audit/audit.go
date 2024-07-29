@@ -37,8 +37,8 @@ func NewRouter(o *options.Options) {
 func (a *auditRouter) initRoutes(httpEngine *gin.Engine) {
 	auditRoute := httpEngine.Group("/pixiu/audits")
 	{
-		//get日志
+		// get 日志
 		auditRoute.GET("/:auditId", a.getAudit)
-		auditRoute.GET("/", a.listAudits)
+		auditRoute.GET("", a.listAudits)
 	}
 }
