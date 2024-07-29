@@ -64,7 +64,7 @@ func (a *audit) Get(ctx context.Context, aid int64) (*model.Audit, error) {
 
 func (a *audit) List(ctx context.Context) ([]model.Audit, error) {
 	var audits []model.Audit
-	if err := a.db.WithContext(ctx).Find(&audits).Error; err != nil {
+	if err := a.db.WithContext(ctx).Order("gmt_create DESC").Find(&audits).Error; err != nil {
 		return nil, err
 	}
 
