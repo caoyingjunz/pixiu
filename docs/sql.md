@@ -152,7 +152,7 @@ CREATE TABLE `events` (
 
 ## 创建 `audit`
 ```sql
-CREATE TABLE `audit` (
+CREATE TABLE `audits` (
   `id` int primary key NOT NULL AUTO_INCREMENT COMMENT '主键' ,
   `gmt_create` datetime COMMENT '创建时间',
   `gmt_modified` datetime COMMENT '修改时间',
