@@ -49,6 +49,12 @@ func (r *Response) SetMessage(m interface{}) {
 	}
 }
 
+func (r *Response) IsSuccessful() bool {
+	return r.Code == http.StatusOK ||
+		r.Code == http.StatusCreated ||
+		r.Code == http.StatusAccepted
+}
+
 func (r *Response) SetMessageWithCode(m interface{}, c int) {
 	r.SetCode(c)
 	r.SetMessage(m)
