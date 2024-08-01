@@ -147,12 +147,11 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		if err == nil {
 			return nil
 		}
-		if err != nil {
-			// 非不存在报错则报异常
-			if !errors.IsRecordNotFound(err) {
-				klog.Infof("failed to get plan(%d) tasks(%s) for first created: %v", planId, name, err)
-				return err
-			}
+
+		// 非不存在报错则报异常
+		if !errors.IsRecordNotFound(err) {
+			klog.Infof("failed to get plan(%d) tasks(%s) for first created: %v", planId, name, err)
+			return err
 		}
 
 		// 不存在记录则新建

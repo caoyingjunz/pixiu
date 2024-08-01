@@ -19,13 +19,16 @@ package plan
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/docker/docker/pkg/stdcopy"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/container"
 )
 
 // RunTask
@@ -89,6 +92,58 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 	}
 }
 
+func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskName string, w http.ResponseWriter, r *http.Request) error {
+	tasks, err := p.factory.Plan().GetTaskByName(ctx, planId, taskName)
+	if err != nil {
+		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
+		return err
+	}
+
+	if tasks.Status == model.UnStartPlanStatus {
+		return fmt.Errorf("任务尚未开始")
+	}
+
+	c, err := container.NewContainer("WatchTaskLog", planId, "")
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// TODO 临时指定，后期根据步骤id去做查询判断
+	var step string
+	switch tasks.Name {
+	case "初始化部署环境":
+		step = "bootstrap-servers"
+	case "部署Master":
+		step = "deploy"
+	case "部署Node":
+		step = "deploy"
+	case "部署基础组件":
+		step = "deploy"
+	default:
+		step = "bootstrap-servers"
+	}
+
+	containerId := fmt.Sprintf("%s-%d", step, planId)
+	readCloser, err := c.WatchContainerLog(ctx, containerId, "")
+	if err != nil {
+		return err
+	}
+	defer readCloser.Close()
+
+	// 读取日志
+	_, err = stdcopy.StdCopy(w, w, readCloser)
+	if err != nil {
+		klog.Errorf("failed to read tasks log: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (p *plan) modelTask2Type(o *model.Task) *types.PlanTask {
 	return &types.PlanTask{
 		PixiuMeta: types.PixiuMeta{
@@ -104,4 +159,12 @@ func (p *plan) modelTask2Type(o *model.Task) *types.PlanTask {
 		Status:  o.Status,
 		Message: o.Message,
 	}
+}
+
+func (p *plan) modelTask2TypeList(o []*model.Task) []types.PlanTask {
+	var tasks []types.PlanTask
+	for _, object := range o {
+		tasks = append(tasks, *p.modelTask2Type(object))
+	}
+	return tasks
 }
