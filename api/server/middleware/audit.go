@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"k8s.io/klog/v2"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -31,72 +31,71 @@ import (
 )
 
 // 自定义 ResponseWriter 用于捕获写入的数据
-type responseWriter struct {
+type auditWriter struct {
 	gin.ResponseWriter
-	body *bytes.Buffer
+	resp *httputils.Response
+	opts *options.Options
 }
 
-func (w responseWriter) Write(b []byte) (int, error) {
-	w.body.Write(b)
+func newResponseWriter(w gin.ResponseWriter, o *options.Options) *auditWriter {
+	return &auditWriter{
+		ResponseWriter: w,
+		resp:           httputils.NewResponse(),
+		opts:           o,
+	}
+}
+
+func (w *auditWriter) Write(b []byte) (int, error) {
+	_ = json.NewDecoder(bytes.NewReader(b)).Decode(w.resp)
 	return w.ResponseWriter.Write(b)
 }
 
 func Audit(o *options.Options) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		method := c.Request.Method
-		body := new(bytes.Buffer)
-		c.Writer = &responseWriter{c.Writer, body}
+		auditor := newResponseWriter(c.Writer, o)
+		c.Writer = auditor
 		c.Next()
 
-		// 处理401错误处理
-		if method == http.MethodGet {
-			if c.Writer.Status() == http.StatusUnauthorized {
-				goto auditNext
-			}
-			return
-		}
-
-	auditNext:
-		// 获取写入的数据
-		respBody := body.String()
-		var respData map[string]interface{}
-
-		// 尝试解析 JSON 数据
-		status := model.OperationSuccess
-		if err := json.Unmarshal([]byte(respBody), &respData); err != nil {
-			status = model.OperationUnknown
-		}
-		if respData != nil && respData["code"] != http.StatusOK {
-			status = model.OperationFail
-		}
-
-		obj, _, ok := httputils.GetObjectFromRequest(c)
-		if !ok {
-			return
-		}
-
-		// 持久化审计记录
-		saveAudit(o, c, obj, status)
+		// do audit asynchronously
+		go auditor.asyncAudit(c)
 	}
 }
 
-func saveAudit(o *options.Options, c *gin.Context, obj string, status model.OperationStatus) {
-	var userName string
-	user := c.Value("user")
-	if _, ok := user.(model.User); !ok {
-		userName = "unknown"
-	} else {
-		userName = user.(model.User).Name
+// asyncAudit audits the request asynchronously.
+// It should be called in a goroutine.
+func (w *auditWriter) asyncAudit(c *gin.Context) {
+	if c.Request.Method == http.MethodGet &&
+		c.Writer.Status() != http.StatusUnauthorized {
+		return
 	}
 
-	if _, err := o.Factory.Audit().Create(context.TODO(), &model.Audit{
+	userName := "unknown"
+	if user, err := httputils.GetUserFromRequest(c); err == nil && user != nil {
+		userName = user.Name
+	}
+
+	obj, _, ok := httputils.GetObjectFromRequest(c)
+	if !ok {
+		return
+	}
+
+	status := model.AuditOpUnknown
+	if w.resp != nil {
+		status = model.AuditOpFail
+		if w.resp.IsSuccessful() {
+			status = model.AuditOpSuccess
+		}
+	}
+
+	audit := &model.Audit{
 		Action:       c.Request.Method,
 		Ip:           c.ClientIP(),
 		Operator:     userName,
 		Path:         c.Request.RequestURI,
 		ResourceType: obj,
 		Status:       status,
-	}); err != nil {
-		klog.Error("failed to save %s action record: %v", userName, err)
+	}
+	if _, err := w.opts.Factory.Audit().Create(context.TODO(), audit); err != nil {
+		klog.Errorf("failed to create audit record [%s]: %v", audit.String(), err)
 	}
 }

@@ -308,6 +308,7 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 		UserName: object.Name,
 		Token:    token,
 		Role:     object.Role,
+		User:     object,
 	}, nil
 }
 

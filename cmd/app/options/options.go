@@ -34,6 +34,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
@@ -69,6 +70,8 @@ type Options struct {
 
 	// Authorization enforcement and policy management
 	Enforcer *casbin.SyncedEnforcer
+
+	JobManager *jobmanager.Manager
 }
 
 func NewOptions() (*Options, error) {
@@ -121,6 +124,10 @@ func (o *Options) Complete() error {
 	}
 
 	o.Controller = controller.New(o.ComponentConfig, o.Factory, o.Enforcer)
+
+	o.JobManager = jobmanager.NewManager(
+		jobmanager.NewAuditsCleaner(o.Factory),
+	)
 	return nil
 }
 

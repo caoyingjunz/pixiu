@@ -256,10 +256,13 @@ func (u *userRouter) login(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = u.c.User().Login(c, &req); err != nil {
+	loginResp, err := u.c.User().Login(c, &req)
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	r.Result = loginResp
+	httputils.SetUserToContext(c, loginResp.User)
 
 	httputils.SetSuccess(c, r)
 }

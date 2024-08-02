@@ -64,6 +64,10 @@ func (l *DBLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql st
 	}
 }
 
+func WithDBContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, SQLContextKey, new(SQLs))
+}
+
 // GetSQLs returns all the SQL statements executed in the current context.
 func GetSQLs(ctx context.Context) SQLs {
 	if v := ctx.Value(SQLContextKey); v != nil {

@@ -136,9 +136,10 @@ type (
 
 type (
 	LoginResponse struct {
-		UserId   int64          `json:"user_id"`
-		UserName string         `json:"user_name"`
-		Token    string         `json:"token"`
-		Role     model.UserRole `json:"role"`
+		UserId      int64          `json:"user_id"`
+		UserName    string         `json:"user_name"`
+		Token       string         `json:"token"`
+		Role        model.UserRole `json:"role"`
+		*model.User `json:"-"`
 	}
 )
