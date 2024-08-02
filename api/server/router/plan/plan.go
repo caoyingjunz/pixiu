@@ -70,5 +70,8 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 
 		// 获取 os 与 os version
 		planRoute.GET("/distributions", t.getDistributions)
+
+		// 候选kubernetes版本号
+		planRoute.GET("/kubernetes/versions", t.getClusterVersions)
 	}
 }
