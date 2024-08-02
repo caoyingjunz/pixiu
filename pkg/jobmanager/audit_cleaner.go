@@ -16,14 +16,21 @@ limitations under the License.
 
 package jobmanager
 
-import "github.com/caoyingjunz/pixiu/pkg/db"
+import (
+	"time"
+
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+)
 
 type AuditsCleaner struct {
+	cc  config.Config
 	dao db.ShareDaoFactory
 }
 
-func NewAuditsCleaner(dao db.ShareDaoFactory) *AuditsCleaner {
+func NewAuditsCleaner(cfg config.Config, dao db.ShareDaoFactory) *AuditsCleaner {
 	return &AuditsCleaner{
+		cc:  cfg,
 		dao: dao,
 	}
 }
@@ -33,11 +40,27 @@ func (ac *AuditsCleaner) Name() string {
 }
 
 func (ac *AuditsCleaner) CronSpec() string {
-	// TODO:
-	return "* * * * *"
+	return ac.cc.CronJob.Cron
 }
 
 func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
-	// TODO: do clean audit records
-	return
+	timeAgo := time.Now().AddDate(0, -ac.cc.CronJob.KeepMonth*30, 0)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			num, err := ac.dao.Audit().AuditCleanUp(ctx, ac.cc.CronJob.Limit, timeAgo)
+			if err != nil {
+				return err
+			}
+
+			if num == 0 {
+				return nil
+			}
+
+			// 为了减轻数据库的压力，可以在批次之间添加延迟
+			time.Sleep(1 * time.Second)
+		}
+	}
 }

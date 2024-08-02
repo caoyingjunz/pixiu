@@ -126,7 +126,7 @@ func (o *Options) Complete() error {
 	o.Controller = controller.New(o.ComponentConfig, o.Factory, o.Enforcer)
 
 	o.JobManager = jobmanager.NewManager(
-		jobmanager.NewAuditsCleaner(o.Factory),
+		jobmanager.NewAuditsCleaner(o.ComponentConfig, o.Factory),
 	)
 	return nil
 }
