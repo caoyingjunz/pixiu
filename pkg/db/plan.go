@@ -31,13 +31,13 @@ type PlanInterface interface {
 	Update(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, pid int64) (*model.Plan, error)
 	Get(ctx context.Context, pid int64) (*model.Plan, error)
-	List(ctx context.Context) ([]model.Plan, error)
+	List(ctx context.Context, opts ...Options) ([]model.Plan, error)
 
 	CreatNode(ctx context.Context, object *model.Node) (*model.Node, error)
 	UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
-	ListNodes(ctx context.Context, pid int64) ([]model.Node, error)
+	ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
 	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
@@ -48,7 +48,7 @@ type PlanInterface interface {
 	UpdateConfig(ctx context.Context, cfgId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteConfig(ctx context.Context, cfgId int64) (*model.Config, error)
 	GetConfig(ctx context.Context, cfgId int64) (*model.Config, error)
-	ListConfigs(ctx context.Context) ([]model.Config, error)
+	ListConfigs(ctx context.Context, opts ...Options) ([]model.Config, error)
 
 	DeleteConfigByPlan(ctx context.Context, planId int64) error
 	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
@@ -56,7 +56,7 @@ type PlanInterface interface {
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
 	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error)
 	DeleteTask(ctx context.Context, pid int64) error
-	ListTasks(ctx context.Context, pid int64) ([]model.Task, error)
+	ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error)
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error)
@@ -115,9 +115,13 @@ func (p *plan) Get(ctx context.Context, pid int64) (*model.Plan, error) {
 	return &object, nil
 }
 
-func (p *plan) List(ctx context.Context) ([]model.Plan, error) {
+func (p *plan) List(ctx context.Context, opts ...Options) ([]model.Plan, error) {
 	var objects []model.Plan
-	if err := p.db.WithContext(ctx).Find(&objects).Error; err != nil {
+	tx := p.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
 
@@ -197,9 +201,13 @@ func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
 	return &object, nil
 }
 
-func (p *plan) ListNodes(ctx context.Context, pid int64) ([]model.Node, error) {
+func (p *plan) ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, error) {
 	var objects []model.Node
-	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Find(&objects).Error; err != nil {
+	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
 
@@ -261,9 +269,13 @@ func (p *plan) GetConfig(ctx context.Context, cid int64) (*model.Config, error) 
 	return &object, nil
 }
 
-func (p *plan) ListConfigs(ctx context.Context) ([]model.Config, error) {
+func (p *plan) ListConfigs(ctx context.Context, opts ...Options) ([]model.Config, error) {
 	var objects []model.Config
-	if err := p.db.WithContext(ctx).Find(&objects).Error; err != nil {
+	tx := p.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
 
@@ -310,9 +322,13 @@ func (p *plan) DeleteTask(ctx context.Context, pid int64) error {
 	return nil
 }
 
-func (p *plan) ListTasks(ctx context.Context, pid int64) ([]model.Task, error) {
+func (p *plan) ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error) {
 	var objects []model.Task
-	if err := p.db.WithContext(ctx).Where("plan_id = ?", pid).Find(&objects).Error; err != nil {
+	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
 
