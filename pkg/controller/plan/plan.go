@@ -68,6 +68,7 @@ type Interface interface {
 	RunTask(ctx context.Context, planId int64, taskId int64) error
 	ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error)
 	WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request)
+	WatchTaskLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error
 }
 
 var taskQueue workqueue.RateLimitingInterface

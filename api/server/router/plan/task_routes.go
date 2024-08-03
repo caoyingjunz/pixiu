@@ -60,3 +60,20 @@ func (t *planRouter) listTasks(c *gin.Context) {
 	// 长连接请求
 	t.c.Plan().WatchTasks(c, opt.PlanId, c.Writer, c.Request)
 }
+
+func (t *planRouter) watchTaskLog(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		opt watchTaskLogMeta
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Plan().WatchTaskLog(c, opt.PlanId, opt.TaskId, c.Writer, c.Request); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+}
