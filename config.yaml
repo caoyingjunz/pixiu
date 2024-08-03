@@ -12,11 +12,11 @@ default:
 
 cron_job:
   # 定时任务配置
-  cron: "*/1 * * * * ?"
+  cron: 0 0 * * 6
   # 清理多久的以前的任务以月为单位
   keep_month: 1
   # 单次清理的任务上限
-  limit: 100
+  limit: 1000
 
 
 # 数据库地址信息

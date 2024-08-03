@@ -44,7 +44,7 @@ func (ac *AuditsCleaner) CronSpec() string {
 }
 
 func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
-	timeAgo := time.Now().AddDate(0, -ac.cc.CronJob.KeepMonth*30, 0)
+	timeAgo := time.Now().AddDate(0, -ac.cc.CronJob.KeepMonth, 0)
 	for {
 		select {
 		case <-ctx.Done():
@@ -55,7 +55,8 @@ func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
 				return err
 			}
 
-			if num == 0 {
+			// 如果已经清理的数据小于配置的清理数量，则退出
+			if num < ac.cc.CronJob.Limit {
 				return nil
 			}
 
