@@ -28,9 +28,10 @@ type planMeta struct {
 }
 
 type watchTaskLogMeta struct {
-	PlanId   int64  `uri:"planId" binding:"required"`
-	TaskName string `uri:"taskName" binding:"required"`
+	PlanId int64 `uri:"planId" binding:"required"`
+	TaskId int64 `uri:"taskId" binding:"required"`
 }
+
 type WatchMeta struct {
 	Watch bool `form:"watch"`
 }

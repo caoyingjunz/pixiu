@@ -72,10 +72,7 @@ func (t *planRouter) watchTaskLog(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	// 不是长连接请求则直接返回
-
-	if err = t.c.Plan().WatchTaskLog(c, opt.PlanId, opt.TaskName, c.Writer, c.Request); err != nil {
+	if err = t.c.Plan().WatchTaskLog(c, opt.PlanId, opt.TaskId, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

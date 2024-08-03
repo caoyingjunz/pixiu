@@ -92,14 +92,14 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 	}
 }
 
-func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskName string, w http.ResponseWriter, r *http.Request) error {
-	tasks, err := p.factory.Plan().GetTaskByName(ctx, planId, taskName)
+func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error {
+	task, err := p.factory.Plan().GetTaskById(ctx, taskId)
 	if err != nil {
 		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
 		return err
 	}
 
-	if tasks.Status == model.UnStartPlanStatus {
+	if task.Status == model.UnStartPlanStatus {
 		return fmt.Errorf("任务尚未开始")
 	}
 
@@ -114,7 +114,7 @@ func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskName string, 
 
 	// TODO 临时指定，后期根据步骤id去做查询判断
 	var step string
-	switch tasks.Name {
+	switch task.Name {
 	case "初始化部署环境":
 		step = "bootstrap-servers"
 	case "部署Master":

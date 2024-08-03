@@ -60,6 +60,7 @@ type PlanInterface interface {
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error)
+	GetTaskById(ctx context.Context, taskId int64) (*model.Task, error)
 }
 
 type plan struct {
@@ -329,6 +330,15 @@ func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error
 		return nil, errors.ErrRecordNotFound
 	}
 	return &objects[0], nil
+}
+
+func (p *plan) GetTaskById(ctx context.Context, taskId int64) (*model.Task, error) {
+	var object model.Task
+	if err := p.db.WithContext(ctx).Where("id = ?", taskId).First(&object).Error; err != nil {
+		return nil, err
+	}
+
+	return &object, nil
 }
 
 func (p *plan) GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error) {
