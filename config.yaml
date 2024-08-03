@@ -18,7 +18,6 @@ cron_job:
   # 单次清理的任务上限
   limit: 1000
 
-
 # 数据库地址信息
 mysql:
   host: peng
