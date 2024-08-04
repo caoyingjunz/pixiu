@@ -34,7 +34,7 @@ type ClusterInterface interface {
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)
-	List(ctx context.Context) ([]model.Cluster, error)
+	List(ctx context.Context, opts ...Options) ([]model.Cluster, error)
 
 	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
 	UpdateByPlan(ctx context.Context, planId int64, updates map[string]interface{}) error
@@ -117,9 +117,13 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
 	return &object, nil
 }
 
-func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
+func (c *cluster) List(ctx context.Context, opts ...Options) ([]model.Cluster, error) {
 	var cs []model.Cluster
-	if err := c.db.WithContext(ctx).Find(&cs).Error; err != nil {
+	tx := c.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&cs).Error; err != nil {
 		return nil, err
 	}
 

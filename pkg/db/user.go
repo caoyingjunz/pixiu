@@ -31,7 +31,7 @@ type UserInterface interface {
 	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
-	List(ctx context.Context) ([]model.User, error)
+	List(ctx context.Context, opts ...Options) ([]model.User, error)
 
 	Count(ctx context.Context) (int64, error)
 
@@ -98,9 +98,13 @@ func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 
 // List 获取用户列表
 // TODO: 暂时不做分页考虑
-func (u *user) List(ctx context.Context) ([]model.User, error) {
+func (u *user) List(ctx context.Context, opts ...Options) ([]model.User, error) {
 	var objects []model.User
-	if err := u.db.WithContext(ctx).Find(&objects).Error; err != nil {
+	tx := u.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
 

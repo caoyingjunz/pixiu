@@ -27,7 +27,7 @@ import (
 )
 
 type AuditInterface interface {
-	List(ctx context.Context) ([]model.Audit, error)
+	List(ctx context.Context, opts ...Options) ([]model.Audit, error)
 	Get(ctx context.Context, id int64) (*model.Audit, error)
 	Create(ctx context.Context, object *model.Audit) (*model.Audit, error)
 }
@@ -62,9 +62,13 @@ func (a *audit) Get(ctx context.Context, aid int64) (*model.Audit, error) {
 	return audit, nil
 }
 
-func (a *audit) List(ctx context.Context) ([]model.Audit, error) {
+func (a *audit) List(ctx context.Context, opts ...Options) ([]model.Audit, error) {
 	var audits []model.Audit
-	if err := a.db.WithContext(ctx).Order("gmt_create DESC").Find(&audits).Error; err != nil {
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&audits).Error; err != nil {
 		return nil, err
 	}
 

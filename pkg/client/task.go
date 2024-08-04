@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
@@ -33,7 +34,7 @@ type WrapObject struct {
 type Task struct {
 	sync.RWMutex
 
-	Lister func(ctx context.Context, planId int64) ([]model.Task, error)
+	Lister func(ctx context.Context, planId int64, opts ...db.Options) ([]model.Task, error)
 	items  map[int64]WrapObject
 }
 
@@ -44,7 +45,7 @@ func NewTaskCache() *Task {
 	return t
 }
 
-func (t *Task) SetLister(Lister func(ctx context.Context, planId int64) ([]model.Task, error)) {
+func (t *Task) SetLister(Lister func(ctx context.Context, planId int64, opts ...db.Options) ([]model.Task, error)) {
 	t.Lock()
 	defer t.Unlock()
 

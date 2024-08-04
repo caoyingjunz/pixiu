@@ -55,7 +55,7 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 }
 
 func (a *audit) List(ctx context.Context) ([]types.Audit, error) {
-	objects, err := a.factory.Audit().List(ctx)
+	objects, err := a.factory.Audit().List(ctx, db.WithOrderByDesc())
 	if err != nil {
 		klog.Errorf("failed to get tenants: %v", err)
 		return nil, errors.ErrServerInternal
@@ -66,7 +66,6 @@ func (a *audit) List(ctx context.Context) ([]types.Audit, error) {
 		ts = append(ts, *a.model2Type(&object))
 	}
 	return ts, nil
-
 }
 
 func (a *audit) model2Type(o *model.Audit) *types.Audit {
