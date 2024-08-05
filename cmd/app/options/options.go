@@ -51,6 +51,11 @@ const (
 	defaultSlowSQLDuration = 1 * time.Second
 
 	rulesTableName = "rules"
+
+	CronSpec            = "0 0 * * 6"
+	AuditCleanLimit     = 1000
+	AuditCleanKeepMonth = 1
+	EmptyString         = ""
 )
 
 // Options has all the params needed to run a pixiu
@@ -107,11 +112,20 @@ func (o *Options) Complete() error {
 	if len(o.ComponentConfig.Default.JWTKey) == 0 {
 		o.ComponentConfig.Default.JWTKey = defaultTokenKey
 	}
-	if o.ComponentConfig.Default.LogFormat == "" {
+	if o.ComponentConfig.Default.LogFormat == EmptyString {
 		o.ComponentConfig.Default.LogFormat = defaultLogFormat
 	}
-	if o.ComponentConfig.Worker.WorkDir == "" {
+	if o.ComponentConfig.Worker.WorkDir == EmptyString {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
+	}
+	if o.ComponentConfig.Audit.Clean.Cron == EmptyString {
+		o.ComponentConfig.Audit.Clean.Cron = CronSpec
+	}
+	if o.ComponentConfig.Audit.Clean.Limit == 0 {
+		o.ComponentConfig.Audit.Clean.Limit = AuditCleanLimit
+	}
+	if o.ComponentConfig.Audit.Clean.KeepMonth == 0 {
+		o.ComponentConfig.Audit.Clean.KeepMonth = AuditCleanKeepMonth
 	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {

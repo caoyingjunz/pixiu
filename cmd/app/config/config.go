@@ -42,7 +42,7 @@ type Config struct {
 	Default DefaultOptions `yaml:"default"`
 	Mysql   MysqlOptions   `yaml:"mysql"`
 	Worker  WorkerOptions  `yaml:"worker"`
-	CronJob CronJobOptions `yaml:"cron_job"`
+	Audit   AuditOptions   `yaml:"audit"`
 }
 
 type DefaultOptions struct {
@@ -105,13 +105,17 @@ func (w WorkerOptions) Valid() error {
 	return nil
 }
 
-type CronJobOptions struct {
+type AuditOptions struct {
+	Clean AuditClean `yaml:"clean"`
+}
+
+type AuditClean struct {
 	Cron      string `yaml:"cron"`
 	KeepMonth int    `yaml:"keep_month"`
 	Limit     int    `yaml:"limit"`
 }
 
-func (j *CronJobOptions) Valid() error {
+func (a *AuditOptions) Valid() error {
 	// TODO
 	return nil
 }

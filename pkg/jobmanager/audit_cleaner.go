@@ -40,23 +40,23 @@ func (ac *AuditsCleaner) Name() string {
 }
 
 func (ac *AuditsCleaner) CronSpec() string {
-	return ac.cc.CronJob.Cron
+	return ac.cc.Audit.Clean.Cron
 }
 
 func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
-	timeAgo := time.Now().AddDate(0, -ac.cc.CronJob.KeepMonth, 0)
+	timeAgo := time.Now().AddDate(0, -ac.cc.Audit.Clean.KeepMonth, 0)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
-			num, err := ac.dao.Audit().AuditCleanUp(ctx, ac.cc.CronJob.Limit, timeAgo)
+			num, err := ac.dao.Audit().AuditCleanUp(ctx, ac.cc.Audit.Clean.Limit, timeAgo)
 			if err != nil {
 				return err
 			}
 
 			// 如果已经清理的数据小于配置的清理数量，则退出
-			if num < ac.cc.CronJob.Limit {
+			if num < ac.cc.Audit.Clean.Limit {
 				return nil
 			}
 
