@@ -23,6 +23,12 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
+const (
+	CronSpec            = "0 0 * * 6" // 每周六凌晨0点清理一次
+	AuditCleanLimit     = 1000
+	AuditCleanKeepMonth = 1
+)
+
 type AuditsCleaner struct {
 	cc  config.Config
 	dao db.ShareDaoFactory
@@ -40,28 +46,23 @@ func (ac *AuditsCleaner) Name() string {
 }
 
 func (ac *AuditsCleaner) CronSpec() string {
-	return ac.cc.Audit.Clean.Cron
+	return ac.cc.Audit.Cron
 }
 
 func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
-	timeAgo := time.Now().AddDate(0, -ac.cc.Audit.Clean.KeepMonth, 0)
+	timeAgo := time.Now().AddDate(0, -ac.cc.Audit.KeepMonth, 0)
 	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-			num, err := ac.dao.Audit().AuditCleanUp(ctx, ac.cc.Audit.Clean.Limit, timeAgo)
-			if err != nil {
-				return err
-			}
-
-			// 如果已经清理的数据小于配置的清理数量，则退出
-			if num < ac.cc.Audit.Clean.Limit {
-				return nil
-			}
-
-			// 为了减轻数据库的压力，可以在批次之间添加延迟
-			time.Sleep(1 * time.Second)
+		num, err := ac.dao.Audit().AuditCleanUp(ctx, ac.cc.Audit.Limit, timeAgo)
+		if err != nil {
+			return err
 		}
+
+		// 如果已经清理的数据小于配置的清理数量，则退出
+		if num < ac.cc.Audit.Limit {
+			return nil
+		}
+
+		// 为了减轻数据库的压力，可以在批次之间添加延迟
+		time.Sleep(1 * time.Second)
 	}
 }

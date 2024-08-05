@@ -106,10 +106,6 @@ func (w WorkerOptions) Valid() error {
 }
 
 type AuditOptions struct {
-	Clean AuditClean `yaml:"clean"`
-}
-
-type AuditClean struct {
 	Cron      string `yaml:"cron"`
 	KeepMonth int    `yaml:"keep_month"`
 	Limit     int    `yaml:"limit"`

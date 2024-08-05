@@ -51,11 +51,6 @@ const (
 	defaultSlowSQLDuration = 1 * time.Second
 
 	rulesTableName = "rules"
-
-	CronSpec            = "0 0 * * 6"
-	AuditCleanLimit     = 1000
-	AuditCleanKeepMonth = 1
-	EmptyString         = ""
 )
 
 // Options has all the params needed to run a pixiu
@@ -112,20 +107,20 @@ func (o *Options) Complete() error {
 	if len(o.ComponentConfig.Default.JWTKey) == 0 {
 		o.ComponentConfig.Default.JWTKey = defaultTokenKey
 	}
-	if o.ComponentConfig.Default.LogFormat == EmptyString {
+	if o.ComponentConfig.Default.LogFormat == "" {
 		o.ComponentConfig.Default.LogFormat = defaultLogFormat
 	}
-	if o.ComponentConfig.Worker.WorkDir == EmptyString {
+	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
 	}
-	if o.ComponentConfig.Audit.Clean.Cron == EmptyString {
-		o.ComponentConfig.Audit.Clean.Cron = CronSpec
+	if o.ComponentConfig.Audit.Cron == "" {
+		o.ComponentConfig.Audit.Cron = jobmanager.CronSpec
 	}
-	if o.ComponentConfig.Audit.Clean.Limit == 0 {
-		o.ComponentConfig.Audit.Clean.Limit = AuditCleanLimit
+	if o.ComponentConfig.Audit.Limit == 0 {
+		o.ComponentConfig.Audit.Limit = jobmanager.AuditCleanLimit
 	}
-	if o.ComponentConfig.Audit.Clean.KeepMonth == 0 {
-		o.ComponentConfig.Audit.Clean.KeepMonth = AuditCleanKeepMonth
+	if o.ComponentConfig.Audit.KeepMonth == 0 {
+		o.ComponentConfig.Audit.KeepMonth = jobmanager.AuditCleanKeepMonth
 	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
