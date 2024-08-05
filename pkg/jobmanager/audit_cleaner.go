@@ -34,6 +34,12 @@ type AuditsCleaner struct {
 	dao db.ShareDaoFactory
 }
 
+type AuditOptions struct {
+	Cron      string `yaml:"cron"`
+	KeepMonth int    `yaml:"keep_month"`
+	Limit     int    `yaml:"limit"`
+}
+
 func NewAuditsCleaner(cfg config.Config, dao db.ShareDaoFactory) *AuditsCleaner {
 	return &AuditsCleaner{
 		cc:  cfg,
@@ -65,4 +71,9 @@ func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
 		// 为了减轻数据库的压力，可以在批次之间添加延迟
 		time.Sleep(1 * time.Second)
 	}
+}
+
+func (a *AuditOptions) Valid() error {
+	// TODO
+	return nil
 }
