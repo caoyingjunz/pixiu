@@ -17,32 +17,34 @@ limitations under the License.
 package jobmanager
 
 import (
-	"time"
-
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
 const (
-	CronSpec            = "0 0 * * 6" // 每周六凌晨0点清理一次
-	AuditCleanLimit     = 1000
-	AuditCleanKeepMonth = 1
+	DefaultSchedule     = "0 0 * * 6" // 每周六 0 点执行
+	DefaultDaysReserved = 30          // 保留 30 天的审计日志
 )
 
 type AuditsCleaner struct {
-	cc  config.Config
+	cfg AuditOptions
 	dao db.ShareDaoFactory
 }
 
 type AuditOptions struct {
-	Cron      string `yaml:"cron"`
-	KeepMonth int    `yaml:"keep_month"`
-	Limit     int    `yaml:"limit"`
+	Schedule     string `yaml:"schedule"`
+	DaysReserved int    `yaml:"days_reserved"`
 }
 
-func NewAuditsCleaner(cfg config.Config, dao db.ShareDaoFactory) *AuditsCleaner {
+func DefaultOptions() AuditOptions {
+	return AuditOptions{
+		Schedule:     DefaultSchedule,
+		DaysReserved: DefaultDaysReserved,
+	}
+}
+
+func NewAuditsCleaner(cfg AuditOptions, dao db.ShareDaoFactory) *AuditsCleaner {
 	return &AuditsCleaner{
-		cc:  cfg,
+		cfg: cfg,
 		dao: dao,
 	}
 }
@@ -52,25 +54,20 @@ func (ac *AuditsCleaner) Name() string {
 }
 
 func (ac *AuditsCleaner) CronSpec() string {
-	return ac.cc.Audit.Cron
+	return ac.cfg.Schedule
 }
 
 func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
-	timeAgo := time.Now().AddDate(0, -ac.cc.Audit.KeepMonth, 0)
-	for {
-		num, err := ac.dao.Audit().AuditCleanUp(ctx, ac.cc.Audit.Limit, timeAgo)
-		if err != nil {
-			return err
-		}
-
-		// 如果已经清理的数据小于配置的清理数量，则退出
-		if num < ac.cc.Audit.Limit {
-			return nil
-		}
-
-		// 为了减轻数据库的压力，可以在批次之间添加延迟
-		time.Sleep(1 * time.Second)
+	resv := ac.cfg.DaysReserved
+	before := ctx.StartTime.AddDate(0, 0, -resv)
+	entries := map[string]interface{}{
+		"days_reserved": resv,
+		"deadline":      before,
 	}
+	entries["records_deleted"], err = ac.dao.Audit().BatchDelete(ctx, db.WithCreatedBefore(before))
+	ctx.WithLogFields(entries)
+
+	return
 }
 
 func (a *AuditOptions) Valid() error {

@@ -30,7 +30,7 @@ type AuditInterface interface {
 	List(ctx context.Context) ([]model.Audit, error)
 	Get(ctx context.Context, id int64) (*model.Audit, error)
 	Create(ctx context.Context, object *model.Audit) (*model.Audit, error)
-	AuditCleanUp(ctx context.Context, limitNum int, time time.Time) (int, error)
+	BatchDelete(ctx context.Context, opts ...Options) (int64, error)
 }
 
 type audit struct {
@@ -72,11 +72,12 @@ func (a *audit) List(ctx context.Context) ([]model.Audit, error) {
 	return audits, nil
 }
 
-func (a *audit) AuditCleanUp(ctx context.Context, limitNum int, time time.Time) (int, error) {
-	tx := a.db.WithContext(ctx).Unscoped().Where("gmt_create < ?", time).Limit(limitNum).Delete(&model.Audit{})
-	if tx.Error != nil {
-		return 0, tx.Error
+func (a *audit) BatchDelete(ctx context.Context, opts ...Options) (int64, error) {
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
 	}
 
-	return int(tx.RowsAffected), nil
+	err := tx.Delete(&model.Audit{}).Error
+	return tx.RowsAffected, err
 }
