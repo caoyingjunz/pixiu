@@ -16,7 +16,11 @@ limitations under the License.
 
 package config
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
+)
 
 type LogFormat string
 
@@ -39,9 +43,10 @@ func (m Mode) InDebug() bool {
 var ErrInvalidLogFormat = errors.New("invalid log format")
 
 type Config struct {
-	Default DefaultOptions `yaml:"default"`
-	Mysql   MysqlOptions   `yaml:"mysql"`
-	Worker  WorkerOptions  `yaml:"worker"`
+	Default DefaultOptions          `yaml:"default"`
+	Mysql   MysqlOptions            `yaml:"mysql"`
+	Worker  WorkerOptions           `yaml:"worker"`
+	Audit   jobmanager.AuditOptions `yaml:"audit"`
 }
 
 type DefaultOptions struct {
