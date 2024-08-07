@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
-	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -275,20 +275,28 @@ func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {
 		return err
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(planList))
+
 	for _, plan := range planList {
-		planId := plan.Id
-		g.Go(func() error {
-			defer func() {
-				if r := recover(); r != nil {
-					err = fmt.Errorf("panic occurred while syncing plan %d: %v", planId, r)
-				}
-			}()
-			return p.syncStatus(ctx, planId)
-		})
+		wg.Add(1)
+		go func(planId int64) {
+			defer wg.Done()
+			if err := p.syncStatus(ctx, planId); err != nil {
+				errChan <- err
+			}
+		}(plan.Id)
 	}
 
-	return g.Wait()
+	wg.Wait()
+
+	select {
+	case err := <-errChan:
+		return err
+	default:
+		return nil
+	}
+
 }
 
 // 启动前校验
