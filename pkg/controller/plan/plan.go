@@ -294,9 +294,9 @@ func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {
 	case err := <-errChan:
 		return err
 	default:
-		return nil
 	}
 
+	return nil
 }
 
 // 启动前校验

@@ -93,7 +93,7 @@ func Run(opt *options.Options) error {
 		klog.Fatal("failed to listen pixiu server: ", err)
 	}
 
-	// 同步异常部署计划任务状态
+	// 同步pixiu异常退出后的任务状态
 	if err := opt.Controller.Plan().SyncPlanTaskStatus(context.TODO()); err != nil {
 		klog.Fatal("failed to sync plan task status: ", err)
 	}
