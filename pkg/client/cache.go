@@ -17,18 +17,34 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	resourceclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 )
 
+var (
+	groupVersionResources = []schema.GroupVersionResource{
+		{Group: "apps", Version: "v1", Resource: "deployments"},
+		{Group: "", Version: "v1", Resource: "pods"},
+	}
+)
+
+type PixiuInformer struct {
+	Shared informers.SharedInformerFactory
+	Cancel context.CancelFunc
+}
+
 type ClusterSet struct {
-	Client *kubernetes.Clientset
-	Config *restclient.Config
-	Metric *resourceclient.MetricsV1beta1Client
+	Client   *kubernetes.Clientset
+	Config   *restclient.Config
+	Metric   *resourceclient.MetricsV1beta1Client
+	Informer *PixiuInformer
 }
 
 func (cs *ClusterSet) Complete(cfg []byte) error {
@@ -43,7 +59,37 @@ func (cs *ClusterSet) Complete(cfg []byte) error {
 		return err
 	}
 
+	sharedInformer, cancel, err := NewSharedInformers(cs.Config)
+	if err != nil {
+		return err
+	}
+	cs.Informer = &PixiuInformer{
+		Shared: sharedInformer,
+		Cancel: cancel,
+	}
 	return nil
+}
+
+func NewSharedInformers(c *restclient.Config) (informers.SharedInformerFactory, context.CancelFunc, error) {
+	// 重新构造客户端
+	clientSet, err := kubernetes.NewForConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	informerFactory := informers.NewSharedInformerFactory(clientSet, 0)
+	for _, gvr := range groupVersionResources {
+		if _, err = informerFactory.ForResource(gvr); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// Start all informers.
+	informerFactory.Start(ctx.Done())
+	// Wait for all caches to sync.
+	informerFactory.WaitForCacheSync(ctx.Done())
+
+	return informerFactory, cancel, nil
 }
 
 type store map[string]ClusterSet
