@@ -44,15 +44,12 @@ type IdMeta struct {
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var (
-		req types.CreateUserRequest
-		err error
-	)
-	if err = c.ShouldBindJSON(&req); err != nil {
+	var req types.CreateUserRequest
+	if err := httputils.ShouldBind(c).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = u.c.User().Create(c, &req); err != nil {
+	if err := u.c.User().Create(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -81,13 +78,12 @@ func (u *userRouter) updateUser(c *gin.Context) {
 	var (
 		idMeta IdMeta
 		req    types.UpdateUserRequest
-		err    error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&idMeta).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = u.c.User().Update(c, idMeta.UserId, &req); err != nil {
+	if err := u.c.User().Update(c, idMeta.UserId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -116,13 +112,12 @@ func (u *userRouter) updatePassword(c *gin.Context) {
 	var (
 		idMeta IdMeta
 		req    types.UpdateUserPasswordRequest
-		err    error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&idMeta).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = u.c.User().UpdatePassword(c, idMeta.UserId, &req); err != nil {
+	if err := u.c.User().UpdatePassword(c, idMeta.UserId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -147,15 +142,12 @@ func (u *userRouter) updatePassword(c *gin.Context) {
 func (u *userRouter) deleteUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var (
-		idMeta IdMeta
-		err    error
-	)
-	if err = c.ShouldBindUri(&idMeta); err != nil {
+	var idMeta IdMeta
+	if err := httputils.ShouldBind(c).WithUri(&idMeta).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = u.c.User().Delete(c, idMeta.UserId); err != nil {
+	if err := u.c.User().Delete(c, idMeta.UserId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -184,7 +176,7 @@ func (u *userRouter) getUser(c *gin.Context) {
 		idMeta IdMeta
 		err    error
 	)
-	if err = c.ShouldBindUri(&idMeta); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&idMeta).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -215,7 +207,7 @@ func (u *userRouter) listUsers(c *gin.Context) {
 		opts types.ListOptions
 		err  error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &opts); err != nil {
+	if err = httputils.ShouldBind(c).WithQuery(&opts).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -252,7 +244,7 @@ func (u *userRouter) login(c *gin.Context) {
 		req types.LoginRequest
 		err error
 	)
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.ShouldBind(c).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

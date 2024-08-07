@@ -58,7 +58,7 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	var cluster struct {
 		Name string `uri:"clusterName" binding:"required"`
 	}
-	if err := c.ShouldBindUri(&cluster); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&cluster).Error(); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

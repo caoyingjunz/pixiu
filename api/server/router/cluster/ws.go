@@ -25,15 +25,12 @@ import (
 
 func (cr *clusterRouter) webShell(c *gin.Context) {
 	r := httputils.NewResponse()
-	var (
-		err error
-		opt types.WebShellOptions
-	)
-	if err = c.ShouldBindQuery(&opt); err != nil {
+	var opt types.WebShellOptions
+	if err := httputils.ShouldBind(c).WithQuery(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().WsHandler(c, &opt, c.Writer, c.Request); err != nil {
+	if err := cr.c.Cluster().WsHandler(c, &opt, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

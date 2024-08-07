@@ -41,7 +41,7 @@ func (t *planRouter) createPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var req types.CreatePlanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := httputils.ShouldBind(c).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -59,13 +59,12 @@ func (t *planRouter) updatePlan(c *gin.Context) {
 	var (
 		opt planMeta
 		req types.UpdatePlanRequest
-		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&opt).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().Update(c, opt.PlanId, &req); err != nil {
+	if err := t.c.Plan().Update(c, opt.PlanId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -76,15 +75,12 @@ func (t *planRouter) updatePlan(c *gin.Context) {
 func (t *planRouter) deletePlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var (
-		opt planMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	var opt planMeta
+	if err := httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().Delete(c, opt.PlanId); err != nil {
+	if err := t.c.Plan().Delete(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -99,7 +95,7 @@ func (t *planRouter) getPlan(c *gin.Context) {
 		opt planMeta
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -149,15 +145,12 @@ func (t *planRouter) listPlans(c *gin.Context) {
 func (t *planRouter) startPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var (
-		opt planMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	var opt planMeta
+	if err := httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().Start(c, opt.PlanId); err != nil {
+	if err := t.c.Plan().Start(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -168,15 +161,12 @@ func (t *planRouter) startPlan(c *gin.Context) {
 func (t *planRouter) stopPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var (
-		opt planMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	var opt planMeta
+	if err := httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().Stop(c, opt.PlanId); err != nil {
+	if err := t.c.Plan().Stop(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -31,7 +31,7 @@ func (t *tenantRouter) createTenant(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var req types.CreateTenantRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := httputils.ShouldBind(c).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -48,18 +48,13 @@ func (t *tenantRouter) updateTenant(c *gin.Context) {
 
 	var (
 		opt TenantMeta
-		err error
+		req types.UpdateTenantRequest
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&opt).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	var req types.UpdateTenantRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = t.c.Tenant().Update(c, opt.TenantId, &req); err != nil {
+	if err := t.c.Tenant().Update(c, opt.TenantId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -70,15 +65,13 @@ func (t *tenantRouter) updateTenant(c *gin.Context) {
 func (t *tenantRouter) deleteTenant(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var (
-		opt TenantMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	var opt TenantMeta
+	if err := httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Tenant().Delete(c, opt.TenantId); err != nil {
+
+	if err := t.c.Tenant().Delete(c, opt.TenantId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -93,7 +86,7 @@ func (t *tenantRouter) getTenant(c *gin.Context) {
 		opt TenantMeta
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

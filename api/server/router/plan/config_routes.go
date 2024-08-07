@@ -35,13 +35,12 @@ func (t *planRouter) createPlanConfig(c *gin.Context) {
 	var (
 		opt planMeta
 		req types.CreatePlanConfigRequest
-		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&opt).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().CreateConfig(c, opt.PlanId, &req); err != nil {
+	if err := t.c.Plan().CreateConfig(c, opt.PlanId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -55,13 +54,12 @@ func (t *planRouter) updatePlanConfig(c *gin.Context) {
 	var (
 		opt planConfigMeta
 		req types.UpdatePlanConfigRequest
-		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err := httputils.ShouldBind(c).WithUri(&opt).WithBody(&req).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().UpdateConfig(c, opt.PlanId, opt.ConfigId, &req); err != nil {
+	if err := t.c.Plan().UpdateConfig(c, opt.PlanId, opt.ConfigId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -72,15 +70,12 @@ func (t *planRouter) updatePlanConfig(c *gin.Context) {
 func (t *planRouter) deletePlanConfig(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var (
-		opt planConfigMeta
-		err error
-	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+	var opt planConfigMeta
+	if err := httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().DeleteConfig(c, opt.PlanId, opt.ConfigId); err != nil {
+	if err := t.c.Plan().DeleteConfig(c, opt.PlanId, opt.ConfigId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -95,7 +90,7 @@ func (t *planRouter) getPlanConfig(c *gin.Context) {
 		opt planMeta
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&opt).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
