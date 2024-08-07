@@ -19,7 +19,10 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
+	"sort"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/proxy"
@@ -81,6 +84,10 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		return
 	}
 
+	if c.Request.Method == http.MethodGet {
+		p.interceptPath(c.Request.Context(), name, target)
+	}
+
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
 	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
 	httpProxy.ServeHTTP(c.Writer, c.Request)
@@ -98,4 +105,32 @@ func (p *proxyRouter) parseTarget(target url.URL, host string, name string) (*ur
 	target.Host = kubeURL.Host
 	target.Scheme = kubeURL.Scheme
 	return &target, nil
+}
+
+func (p *proxyRouter) interceptPath(ctx context.Context, clusterName string, url *url.URL) error {
+
+	cluster, err := p.c.Cluster().GetClusterByName(ctx, clusterName)
+	if err != nil {
+		return err
+	}
+	cache := cluster.Cache
+	//如果未开启缓存，则返回处理
+	if !cache {
+		return nil
+	}
+	urls := strings.Split(url.Path, "/")
+	res := in("pods", urls)
+	// TODO 无法识别pod的情况
+	fmt.Printf("执行pod操作------------：%v\n", res)
+
+	return nil
+}
+
+func in(target string, str_array []string) bool {
+	sort.Strings(str_array)
+	index := sort.SearchStrings(str_array, target)
+	if index < len(str_array) && str_array[index] == target {
+		return true
+	}
+	return false
 }

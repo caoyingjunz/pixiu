@@ -62,6 +62,9 @@ type Cluster struct {
 
 	// 集群用途描述，可以为空
 	Description string `gorm:"type:text" json:"description"`
+
+	// 是否开启缓存
+	Cache bool `json:"cache"`
 }
 
 func (*Cluster) TableName() string {

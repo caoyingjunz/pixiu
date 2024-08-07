@@ -19,6 +19,7 @@ package client
 import (
 	"sync"
 
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -26,9 +27,12 @@ import (
 )
 
 type ClusterSet struct {
-	Client *kubernetes.Clientset
-	Config *restclient.Config
-	Metric *resourceclient.MetricsV1beta1Client
+	Client                *kubernetes.Clientset
+	Config                *restclient.Config
+	Metric                *resourceclient.MetricsV1beta1Client
+	SharedInformerFactory informers.SharedInformerFactory
+	StopChan              chan struct{}
+	SyncCache             bool //是否开启了集群缓存
 }
 
 func (cs *ClusterSet) Complete(cfg []byte) error {
@@ -46,7 +50,7 @@ func (cs *ClusterSet) Complete(cfg []byte) error {
 	return nil
 }
 
-type store map[string]ClusterSet
+type store map[string]*ClusterSet
 
 type Cache struct {
 	sync.RWMutex
@@ -59,7 +63,7 @@ func NewClusterCache() *Cache {
 	}
 }
 
-func (s *Cache) Get(name string) (ClusterSet, bool) {
+func (s *Cache) Get(name string) (*ClusterSet, bool) {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -90,7 +94,7 @@ func (s *Cache) GetClient(name string) (*kubernetes.Clientset, bool) {
 	return clusterSet.Client, true
 }
 
-func (s *Cache) Set(name string, cs ClusterSet) {
+func (s *Cache) Set(name string, cs *ClusterSet) {
 	s.Lock()
 	defer s.Unlock()
 

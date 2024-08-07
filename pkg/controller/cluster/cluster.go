@@ -32,8 +32,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
@@ -44,6 +46,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	kubernetescache "github.com/caoyingjunz/pixiu/pkg/controller/kubernetesCache"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -68,6 +71,9 @@ type Interface interface {
 	// Protect 设置集群的保护策略
 	Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error
 
+	// SyncCache 设置是否开启缓存
+	SyncCache(ctx context.Context, cid int64, req *types.SyncCacheRequest) error
+
 	// GetEventList 获取指定对象的事件，支持做聚合
 	GetEventList(ctx context.Context, cluster string, options types.EventOptions) (*v1.EventList, error)
 
@@ -81,7 +87,11 @@ type Interface interface {
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
+	GetClusterByName(ctx context.Context, name string) (*types.Cluster, error)
+
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
+
+	kubernetescache.PodGetter
 }
 
 var clusterIndexer client.Cache
@@ -101,6 +111,15 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 		return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
 	}
 	return nil
+}
+
+func (c *cluster) Pod(clusterName, namespace string) kubernetescache.PodInterface {
+	cs, err := c.GetClusterSetByName(context.TODO(), clusterName)
+	if err != nil {
+		klog.Errorf("failed to get cluster %s: %v", clusterName, err)
+		return nil
+	}
+	return kubernetescache.NewPod(cs, namespace)
 }
 
 func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) error {
@@ -131,7 +150,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	// TODO: 暂时不做创建后动作
-	clusterIndexer.Set(req.Name, *cs)
+	clusterIndexer.Set(req.Name, cs)
 	return nil
 }
 
@@ -216,6 +235,10 @@ func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
 
 	var cs []types.Cluster
 	for _, object := range objects {
+		// 开启缓存
+		// if err := c.syncClusterCache(ctx, object.Name, object.Cache); err != nil {
+		// 	klog.Errorf("failed to sync cluster(%s) cache: %v", object.Name, err)
+		// }
 		cs = append(cs, *c.model2Type(&object))
 	}
 
@@ -249,6 +272,23 @@ func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClus
 		"protected": req.Protected,
 	}); err != nil {
 		klog.Errorf("failed to protect cluster(%d): %v", cid, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *cluster) SyncCache(ctx context.Context, cid int64, req *types.SyncCacheRequest) error {
+	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, map[string]interface{}{
+		"cache": req.Cache,
+	}); err != nil {
+		klog.Errorf("cluster(%d) failed to start cache : %v", cid, err)
+		return err
+	}
+
+	// 启动缓存
+	if err := c.syncClusterCache(ctx, req.ClusterName, req.Cache); err != nil {
+		klog.Errorf("cluster(%d) failed to start cache : %v", cid, err)
 		return err
 	}
 
@@ -551,8 +591,20 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 	return cs.Config, nil
 }
 
+func (c *cluster) GetClusterByName(ctx context.Context, name string) (*types.Cluster, error) {
+	object, err := c.factory.Cluster().GetClusterByName(ctx, name)
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, errors.ErrClusterNotFound
+	}
+
+	return c.model2Type(object), nil
+}
+
 // GetClusterSetByName 获取 ClusterSet， 缓存中不存在时，构建缓存再返回
-func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
+func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (*client.ClusterSet, error) {
 	cs, ok := clusterIndexer.Get(name)
 	if ok {
 		klog.Infof("Get %s clusterSet from indexer", name)
@@ -563,19 +615,19 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 	// 缓存中不存在，则新建并重写回缓存
 	object, err := c.factory.Cluster().GetClusterByName(ctx, name)
 	if err != nil {
-		return client.ClusterSet{}, err
+		return &client.ClusterSet{}, err
 	}
 	if object == nil {
-		return client.ClusterSet{}, errors.ErrClusterNotFound
+		return &client.ClusterSet{}, errors.ErrClusterNotFound
 	}
 	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
 	if err != nil {
-		return client.ClusterSet{}, err
+		return &client.ClusterSet{}, err
 	}
 
 	klog.Infof("set %s clusterSet into indexer", name)
-	clusterIndexer.Set(name, *newClusterSet)
-	return *newClusterSet, nil
+	clusterIndexer.Set(name, newClusterSet)
+	return newClusterSet, nil
 }
 
 // GetKubernetesMeta
@@ -726,6 +778,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		Status:      model.ClusterStatusRunning, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
 		Protected:   o.Protected,
 		Description: o.Description,
+		Cache:       o.Cache,
 	}
 
 	var (
@@ -778,10 +831,54 @@ func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatu
 
 	return status, nil
 }
+func (c *cluster) GenerateLister(ctx context.Context, name string, gvr *schema.GroupVersionResource) error {
+	cs, err := c.GetClusterSetByName(ctx, name)
+	if err != nil {
+		return err
+	}
+	cs.SharedInformerFactory.ForResource(*gvr)
+	cs.SharedInformerFactory.Core().V1().Pods().Lister()
+	return nil
+}
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
 	return &cluster{
 		cc:      cfg,
 		factory: f,
 	}
+}
+
+func (c *cluster) syncClusterCache(ctx context.Context, name string, enable bool) error {
+	cs, err := c.GetClusterSetByName(ctx, name)
+	if err != nil {
+		return err
+	}
+	if enable && !cs.SyncCache {
+		cs.SyncCache = enable
+		cs.StopChan = make(chan struct{})
+		cs.SharedInformerFactory = informers.NewSharedInformerFactory(cs.Client, 0)
+		cs.SyncCache = true
+
+		cs.SharedInformerFactory.Core().V1().Pods().Informer()
+		cs.SharedInformerFactory.Apps().V1().Deployments().Informer()
+
+		cs.SharedInformerFactory.Start(cs.StopChan)
+		res := cs.SharedInformerFactory.WaitForCacheSync(cs.StopChan)
+		//如果某个资源同步失败，则将同步状态置为false
+		for k, v := range res {
+			if !v {
+				klog.Errorf("cache sync failed: %s", k)
+				cs.SyncCache = false
+				return fmt.Errorf("cache sync failed: %s", k)
+			}
+		}
+	}
+
+	if !enable && cs.SyncCache {
+		close(cs.StopChan)
+		// 关闭后，设置缓存状态为 false
+		cs.SyncCache = false
+	}
+
+	return nil
 }
