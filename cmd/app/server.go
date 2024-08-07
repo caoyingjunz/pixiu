@@ -94,7 +94,7 @@ func Run(opt *options.Options) error {
 	}
 
 	// 修复部署计划任务状态
-	if err := opt.Controller.Plan().FixPalnTaskStatus(context.TODO()); err != nil {
+	if err := opt.Controller.Plan().SyncPlanTaskStatus(context.TODO()); err != nil {
 		klog.Fatal("failed to listen pixiu server: ", err)
 	}
 
