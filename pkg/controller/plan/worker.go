@@ -187,8 +187,24 @@ func (p *plan) GetRunner(osImage string) (string, error) {
 
 // 同步任务状态
 // 任务启动时设置为运行中，结束时同步为结束状态(成功或者失败)
-// TODO: 后续优化
-func (p *plan) syncStatus(planId int64) error {
+// TODO: 后续优化，判断对应部署容器是否在运行，根据容器的运行结果同步状态
+func (p *plan) syncStatus(ctx context.Context, planId int64) error {
+	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+	if err != nil {
+		return err
+	}
+
+	for _, task := range tasks {
+		if task.Status != model.RunningPlanStatus {
+			continue
+		}
+		if _, err = p.factory.Plan().UpdateTask(ctx, planId, task.Name, map[string]interface{}{
+			"status": model.FailedPlanStatus, "step": model.FailedPlanStep, "message": "服务异常修正，请重新启动部署计划", "gmt_modified": time.Now(),
+		}); err != nil {
+			klog.Errorf("failed to update plan(%d) status: %v", planId, err)
+			return err
+		}
+	}
 	return nil
 }
 

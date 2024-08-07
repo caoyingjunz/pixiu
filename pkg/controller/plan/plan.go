@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -43,6 +44,7 @@ type Interface interface {
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context) ([]types.Plan, error)
+	SyncPlanTaskStatus(ctx context.Context) error
 
 	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
 
@@ -265,6 +267,36 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 		ps = append(ps, *no)
 	}
 	return ps, nil
+}
+
+func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {
+	planList, err := p.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(planList))
+
+	for _, plan := range planList {
+		wg.Add(1)
+		go func(planId int64) {
+			defer wg.Done()
+			if err := p.syncStatus(ctx, planId); err != nil {
+				errChan <- err
+			}
+		}(plan.Id)
+	}
+
+	wg.Wait()
+
+	select {
+	case err := <-errChan:
+		return err
+	default:
+	}
+
+	return nil
 }
 
 // 启动前校验
