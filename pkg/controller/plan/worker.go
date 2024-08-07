@@ -195,15 +195,14 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 	}
 
 	for _, task := range taskList {
-		if task.Status == model.RunningPlanStatus {
-			_, err = p.factory.Plan().UpdateTask(ctx, planId, task.Name, map[string]interface{}{
-				"status": model.FailedPlanStatus, "step": model.FailedPlanStep, "message": "服务异常修正，请重新启动部署计划", "gmt_modified": time.Now(),
-			})
-			if err != nil {
-				klog.Errorf("failed to update plan(%d) status: %v", planId, err)
-				return err
-			}
-			break
+		if task.Status != model.RunningPlanStatus {
+			continue
+		}
+		if _, err = p.factory.Plan().UpdateTask(ctx, planId, task.Name, map[string]interface{}{
+			"status": model.FailedPlanStatus, "step": model.FailedPlanStep, "message": "服务异常修正，请重新启动部署计划", "gmt_modified": time.Now(),
+		}); err != nil {
+			klog.Errorf("failed to update plan(%d) status: %v", planId, err)
+			return err
 		}
 	}
 	return nil
