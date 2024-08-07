@@ -26,6 +26,7 @@ import (
 const (
 	kubeProxyBaseURL = "/pixiu/kubeproxy"
 	helmBaseURL      = "/pixiu/helms"
+	indexerBaseURL   = "/pixiu/indexer"
 )
 
 // clusterRouter is a router to talk with the cluster controller
@@ -69,6 +70,15 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 
 		// ws
 		kubeRoute.GET("/ws", cr.webShell)
+	}
+
+	// indexerBaseURL
+	indexerRoute := httpEngine.Group(indexerBaseURL)
+	{
+		// 从缓存中获取指定对象
+		indexerRoute.GET("/clusters/:cluster/resource/:resource/namespaces/:namespace/name/:name", cr.getIndexerResource)
+		// 从缓存中获取对象列表
+		indexerRoute.GET("/clusters/:cluster/resource/:resource/namespaces/:namespace", cr.listIndexerResources)
 	}
 
 	// 调用 helm 对象
