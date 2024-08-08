@@ -15,3 +15,20 @@ limitations under the License.
 */
 
 package cluster
+
+import (
+	"context"
+	"fmt"
+)
+
+func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error) {
+	if len(namespace) == 0 || len(name) == 0 {
+		return nil, fmt.Errorf("namespace or name is empty")
+	}
+
+	return nil, nil
+}
+
+func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string) (interface{}, error) {
+	return nil, nil
+}

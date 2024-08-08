@@ -22,14 +22,47 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 )
 
+type ResourceMeta struct {
+	Cluster   string `uri:"cluster" binding:"required"`
+	Resource  string `uri:"resource" binding:"required"`
+	Namespace string `uri:"namespace"`
+	Name      string `uri:"name"`
+}
+
 func (cr *clusterRouter) getIndexerResource(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		resourceMeta ResourceMeta
+		err          error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = cr.c.Cluster().GetIndexerResource(c, resourceMeta.Cluster, resourceMeta.Resource, resourceMeta.Namespace, resourceMeta.Name); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
 
 func (cr *clusterRouter) listIndexerResources(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		resourceMeta ResourceMeta
+		err          error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = cr.c.Cluster().ListIndexerResources(c, resourceMeta.Cluster, resourceMeta.Resource, resourceMeta.Namespace); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }
