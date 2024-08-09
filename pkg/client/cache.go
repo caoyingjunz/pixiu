@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	appsv1 "k8s.io/client-go/listers/apps/v1"
+	v1 "k8s.io/client-go/listers/core/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	resourceclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
@@ -38,6 +40,18 @@ var (
 type PixiuInformer struct {
 	Shared informers.SharedInformerFactory
 	Cancel context.CancelFunc
+}
+
+func (p PixiuInformer) PodsLister() v1.PodLister {
+	return p.Shared.Core().V1().Pods().Lister()
+}
+
+func (p PixiuInformer) NamespacesLister() v1.NamespaceLister {
+	return p.Shared.Core().V1().Namespaces().Lister()
+}
+
+func (p PixiuInformer) DeploymentsLister() appsv1.DeploymentLister {
+	return p.Shared.Apps().V1().Deployments().Lister()
 }
 
 type ClusterSet struct {
