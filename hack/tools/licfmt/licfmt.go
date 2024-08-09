@@ -207,8 +207,13 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	err = os.Chmod(tmpFile.Name(), fmode)
+	if err != nil {
+		return false, err
+	}
 
 	// rewrite the whole file to the temporary file
 	if _, err := new.WriteTo(tmpFile); err != nil {
