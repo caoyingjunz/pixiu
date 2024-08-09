@@ -163,7 +163,7 @@ func hasLicense(header []byte) bool {
 
 // addLicenseHeader adds a license header to the file if it does not exist.
 func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
-	f, err := os.OpenFile(path, os.O_RDWR, fmode)
+	f, err := os.OpenFile(path, os.O_RDONLY, fmode)
 	if err != nil {
 		return false, err
 	}
@@ -186,6 +186,14 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 		return false, nil
 	}
 
+	// create a temporary file
+	tmpFile, err := os.CreateTemp("", "licfmt-")
+	if err != nil {
+		return false, err
+	}
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
 	// add license header at the beginning
 	new := bytes.NewBufferString(license + "\n")
 	// reuse the buffer
@@ -199,13 +207,16 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 	if _, err := new.ReadFrom(f); err != nil {
 		return false, err
 	}
-	// rewrite the whole file
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+
+	// rewrite the whole file to the temporary file
+	if _, err := new.WriteTo(tmpFile); err != nil {
 		return false, err
 	}
 	if _, err := new.WriteTo(f); err != nil {
 		return false, err
 	}
-	err = f.Sync()
+
+	// rename the tmp file to the original file
+	err = os.Rename(tmpFile.Name(), path)
 	return err == nil, err
 }
