@@ -186,6 +186,22 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 		return false, nil
 	}
 
+	// add license header at the beginning
+	new := bytes.NewBufferString(license + "\n")
+	// reuse the buffer
+	if _, err := new.Write(buf.Bytes()); err != nil {
+		return false, err
+	}
+
+	// read the content after `package p`
+	if _, err := f.Seek(int64(buf.Len()), io.SeekStart); err != nil {
+		return false, err
+	}
+
+	if _, err := new.ReadFrom(f); err != nil {
+		return false, err
+	}
+
 	// create a temporary file
 	tmpFile, err := os.CreateTemp("", "licfmt-")
 	if err != nil {
@@ -194,25 +210,12 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	// add license header at the beginning
-	new := bytes.NewBufferString(license + "\n")
-	// reuse the buffer
-	if _, err := new.Write(buf.Bytes()); err != nil {
-		return false, err
-	}
-	// read the content after `package p`
-	if _, err := f.Seek(int64(buf.Len()), io.SeekStart); err != nil {
-		return false, err
-	}
-	if _, err := new.ReadFrom(f); err != nil {
-		return false, err
-	}
-
 	// rewrite the whole file to the temporary file
 	if _, err := new.WriteTo(tmpFile); err != nil {
 		return false, err
 	}
-	if _, err := new.WriteTo(f); err != nil {
+
+	if err = tmpFile.Sync(); err != nil {
 		return false, err
 	}
 
