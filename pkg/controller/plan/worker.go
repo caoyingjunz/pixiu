@@ -48,7 +48,7 @@ func newHandlerTask(data TaskData) handlerTask {
 }
 
 func (p *plan) Run(ctx context.Context, workers int) error {
-	klog.Infof("Starting Plan Manager")
+	klog.Infof("starting plan manager")
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, p.worker, time.Second)
 	}
