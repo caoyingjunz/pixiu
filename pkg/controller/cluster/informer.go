@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1 "k8s.io/client-go/listers/apps/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -36,14 +37,39 @@ func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resour
 	if len(namespace) == 0 || len(name) == 0 {
 		return nil, fmt.Errorf("namespace or name is empty")
 	}
-
 	cs, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println(cs)
-	return nil, nil
+	switch resource {
+	case ResourcePod:
+		return c.GetPod(ctx, cs.Informer.PodsLister(), namespace, name)
+	case ResourceDeployment:
+		return c.GetDeployment(ctx, cs.Informer.DeploymentsLister(), namespace, name)
+	}
+
+	return nil, fmt.Errorf("unsupported resource type %s", resource)
+}
+
+func (c *cluster) GetPod(ctx context.Context, podsLister v1.PodLister, namespace string, name string) (interface{}, error) {
+	pod, err := podsLister.Pods(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get pod (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return pod, nil
+}
+
+func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister appsv1.DeploymentLister, namespace string, name string) (interface{}, error) {
+	deploy, err := deploymentsLister.Deployments(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get deployment (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return deploy, nil
 }
 
 func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string) (interface{}, error) {
