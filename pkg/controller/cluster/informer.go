@@ -42,6 +42,7 @@ func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resour
 		return nil, err
 	}
 
+	// TODO: 后续优化 switch
 	switch resource {
 	case ResourcePod:
 		return c.GetPod(ctx, cs.Informer.PodsLister(), namespace, name)
