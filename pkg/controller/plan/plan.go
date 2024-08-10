@@ -44,8 +44,9 @@ type Interface interface {
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context) ([]types.Plan, error)
-	SyncPlanTaskStatus(ctx context.Context) error
 
+	// SyncPlanTaskStatus 进程启动时，同步任务状态
+	SyncPlanTaskStatus(ctx context.Context) error
 	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
 
 	// Start 启动部署任务
