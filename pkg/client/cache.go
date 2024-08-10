@@ -164,6 +164,14 @@ func (s *Cache) Delete(name string) {
 	s.Lock()
 	defer s.Unlock()
 
+	// Cancel informer
+	cluster, ok := s.store[name]
+	if !ok {
+		return
+	}
+	cluster.Informer.Cancel()
+
+	// 从缓存移除集群数据
 	delete(s.store, name)
 }
 
