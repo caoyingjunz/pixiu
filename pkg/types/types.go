@@ -133,12 +133,12 @@ type Audit struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Ip           string                     `json:"ip"`
-	Action       string                     `json:"action"`        // 操作动作
-	Status       model.AuditOperationStatus `json:"status"`        // 操作状态
-	Operator     string                     `json:"operator"`      // 操作人
-	Path         string                     `json:"path"`          // 操作路径
-	ResourceType string                     `json:"resource_type"` // 资源类型
+	Ip         string                     `json:"ip"`
+	Action     string                     `json:"action"`        // 操作动作
+	Status     model.AuditOperationStatus `json:"status"`        // 操作状态
+	Operator   string                     `json:"operator"`      // 操作人
+	Path       string                     `json:"path"`          // 操作路径
+	ObjectType model.ObjectType           `json:"resource_type"` // 资源类型
 }
 
 type AuthType string
