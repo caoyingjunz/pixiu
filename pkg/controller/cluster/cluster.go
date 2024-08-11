@@ -82,7 +82,7 @@ type Interface interface {
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
-	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string) (interface{}, error)
+	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error)
 
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 }

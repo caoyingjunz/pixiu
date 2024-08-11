@@ -20,12 +20,13 @@ import (
 	"context"
 	"fmt"
 
-	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1 "k8s.io/client-go/listers/apps/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
+
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
@@ -73,7 +74,7 @@ func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister appsv1.De
 	return deploy, nil
 }
 
-func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string) (interface{}, error) {
+func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error) {
 	// 获取客户端缓存
 	cs, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
@@ -82,43 +83,48 @@ func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, reso
 
 	switch resource {
 	case ResourcePod:
-		return c.ListPods(ctx, cs.Informer.PodsLister(), namespace)
+		return c.ListPods(ctx, cs.Informer.PodsLister(), namespace, pageOption)
 	case ResourceDeployment:
-		return c.ListDeployments(ctx, cs.Informer.DeploymentsLister(), namespace)
+		return c.ListDeployments(ctx, cs.Informer.DeploymentsLister(), namespace, pageOption)
 	}
 
 	return nil, fmt.Errorf("unsupported resource type %s", resource)
 }
 
-func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespace string) (interface{}, error) {
-	var (
-		pods []*corev1.Pod
-		err  error
-	)
-
-	// namespace 为空则查询全部 pod
-	if len(namespace) == 0 {
-		pods, err = podsLister.List(labels.Everything())
-	} else {
-		pods, err = podsLister.Pods(namespace).List(labels.Everything())
-	}
+func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	// TODO: 验证缓存获取是 namespace 为空是否为全部
+	pods, err := podsLister.Pods(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	return pods, nil
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(pods),
+		Items:       c.podsForPage(pods, pageOption),
+	}, nil
 }
 
-func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister appsv1.DeploymentLister, namespace string) (interface{}, error) {
-	var (
-		deployments []*apps.Deployment
-		err         error
-	)
-	if len(namespace) == 0 {
-		deployments, err = deploymentsLister.List(labels.Everything())
-	} else {
-		deployments, err = deploymentsLister.Deployments(namespace).List(labels.Everything())
+func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return pods
 	}
+
+	total := len(pods)
+	offset := (pageOption.Page - 1) * pageOption.Limit
+	if offset > total {
+		return nil
+	}
+	end := offset + pageOption.Limit
+	if end > total {
+		end = total
+	}
+
+	return pods[offset:end]
+}
+
+func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister appsv1.DeploymentLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	deployments, err := deploymentsLister.Deployments(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}

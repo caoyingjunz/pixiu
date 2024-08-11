@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type ResourceMeta struct {
@@ -53,13 +54,14 @@ func (cr *clusterRouter) listIndexerResources(c *gin.Context) {
 
 	var (
 		resourceMeta ResourceMeta
+		pageOption   types.PageRequest // 分页设置
 		err          error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, &pageOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().ListIndexerResources(c, resourceMeta.Cluster, resourceMeta.Resource, resourceMeta.Namespace); err != nil {
+	if r.Result, err = cr.c.Cluster().ListIndexerResources(c, resourceMeta.Cluster, resourceMeta.Resource, resourceMeta.Namespace, pageOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
