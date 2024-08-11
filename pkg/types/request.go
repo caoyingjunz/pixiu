@@ -34,6 +34,7 @@ type (
 		Description string           `json:"description" binding:"omitempty"` // optional
 	}
 
+	// UpdateUserRequest
 	// !Note: if you want to update description only, email also must be provided with current value
 	UpdateUserRequest struct {
 		Role            model.UserRole   `json:"role" binding:"omitempty,oneof=0 1 2"`   // required
@@ -140,6 +141,12 @@ type (
 		SID        string           `json:"sid" binding:"omitempty,rbac_sid"`
 		Operation  model.Operation  `json:"operation" binding:"required,rbac_operation"`
 	}
+
+	// PageRequest 分配配置
+	PageRequest struct {
+		Page  int `form:"page" json:"page"`   // 页数，表示第几页
+		Limit int `form:"limit" json:"limit"` // 每页数量
+	}
 )
 
 type (
@@ -149,5 +156,13 @@ type (
 		Token       string         `json:"token"`
 		Role        model.UserRole `json:"role"`
 		*model.User `json:"-"`
+	}
+
+	// PageResponse 分页查询返回值
+	PageResponse struct {
+		PageRequest `json:",inline"` // 分页请求属性
+
+		Total int         `json:"total"` // 分页总数
+		Items interface{} `json:"items"` // 指定页的元素列表
 	}
 )
