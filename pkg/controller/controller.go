@@ -21,6 +21,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
+	"github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
@@ -34,6 +35,7 @@ type PixiuInterface interface {
 	user.UserGetter
 	plan.PlanGetter
 	audit.AuditGetter
+	auth.AuthGetter
 }
 
 type pixiu struct {
@@ -47,6 +49,7 @@ func (p *pixiu) Tenant() tenant.Interface   { return tenant.NewTenant(p.cc, p.fa
 func (p *pixiu) User() user.Interface       { return user.NewUser(p.cc, p.factory, p.enforcer) }
 func (p *pixiu) Plan() plan.Interface       { return plan.NewPlan(p.cc, p.factory) }
 func (p *pixiu) Audit() audit.Interface     { return audit.NewAudit(p.cc, p.factory) }
+func (p *pixiu) Auth() auth.Interface       { return auth.NewAuth(p.factory, p.enforcer) }
 
 func New(cfg config.Config, f db.ShareDaoFactory, enforcer *casbin.SyncedEnforcer) PixiuInterface {
 	return &pixiu{

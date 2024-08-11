@@ -131,6 +131,14 @@ type (
 	}
 
 	UpdatePlanConfigRequest struct {
+		// TODO:
+	}
+
+	CreateRBACPolicyRequest struct {
+		UserId     int64            `json:"user_id" binding:"required"`
+		ObjectType model.ObjectType `json:"object_type" binding:"required,rbac_object"`
+		SID        string           `json:"sid" binding:"omitempty,rbac_sid"`
+		Operation  model.Operation  `json:"operation" binding:"required,rbac_operation"`
 	}
 )
 

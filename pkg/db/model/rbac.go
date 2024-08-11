@@ -23,10 +23,43 @@ const (
 	OpCreate Operation = "create"
 	OpUpdate Operation = "update"
 	OpDelete Operation = "delete"
+	OpAll    Operation = "*"
 )
 
 func (o Operation) String() string {
 	return string(o)
+}
+
+var OperationMap = map[Operation]struct{}{
+	OpRead:   {},
+	OpCreate: {},
+	OpUpdate: {},
+	OpDelete: {},
+	OpAll:    {},
+}
+
+type ObjectType string
+
+const (
+	ObjectUser    ObjectType = "users"
+	ObjectCluster ObjectType = "clusters"
+	ObjectTenant  ObjectType = "tenants"
+	ObjectPlan    ObjectType = "plans"
+	ObjectAuth    ObjectType = "auth"
+	ObjectAll     ObjectType = "*"
+)
+
+func (o ObjectType) String() string {
+	return string(o)
+}
+
+var ObjectTypeMap = map[ObjectType]struct{}{
+	ObjectUser:    {},
+	ObjectCluster: {},
+	ObjectTenant:  {},
+	ObjectPlan:    {},
+	ObjectAuth:    {},
+	ObjectAll:     {},
 }
 
 // TODO:
@@ -52,3 +85,9 @@ m = g(r.sub, p.sub) && keyMatch(r.obj, p.obj) && keyMatch(r.id, p.id) && keyMatc
 
 // TODO:
 type CasbinRBACImpl struct{}
+
+// MakePolicy returns a policy slice.
+// e.g. ["foo", "clusters", "*", "read"]
+func MakePolicy(username string, obj ObjectType, sid string, op Operation) []string {
+	return []string{username, obj.String(), sid, op.String()}
+}
