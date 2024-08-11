@@ -93,9 +93,12 @@ func init() {
 	clusterIndexer = *client.NewClusterCache()
 }
 
+type lister func(ctx context.Context, informer *client.PixiuInformer, namespace string) (interface{}, error)
+
 type cluster struct {
-	cc      config.Config
-	factory db.ShareDaoFactory
+	cc          config.Config
+	factory     db.ShareDaoFactory
+	listerFuncs map[string]lister
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
@@ -783,8 +786,19 @@ func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatu
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
-	return &cluster{
+	c := &cluster{
 		cc:      cfg,
 		factory: f,
 	}
+	// register resource lister functions here
+	c.listerFuncs = map[string]lister{
+		ResourcePod: func(ctx context.Context, informer *client.PixiuInformer, namespace string) (interface{}, error) {
+			return c.ListPods(ctx, informer.PodsLister(), namespace)
+		},
+		ResourceDeployment: func(ctx context.Context, informer *client.PixiuInformer, namespace string) (interface{}, error) {
+			return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace)
+		},
+		// etc...
+	}
+	return c
 }

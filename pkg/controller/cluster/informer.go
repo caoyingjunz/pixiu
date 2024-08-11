@@ -73,21 +73,19 @@ func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister appsv1.De
 	return deploy, nil
 }
 
-func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string) (interface{}, error) {
+func (c *cluster) ListIndexerResources(ctx context.Context, cluster, resource, namespace string) (interface{}, error) {
 	// 获取客户端缓存
 	cs, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	switch resource {
-	case ResourcePod:
-		return c.ListPods(ctx, cs.Informer.PodsLister(), namespace)
-	case ResourceDeployment:
-		return c.ListDeployments(ctx, cs.Informer.DeploymentsLister(), namespace)
+	// lister functions should be registered in NewCluster function
+	fn, ok := c.listerFuncs[resource]
+	if !ok {
+		return nil, fmt.Errorf("unsupported resource type %s", resource)
 	}
-
-	return nil, fmt.Errorf("unsupported resource type %s", resource)
+	return fn(ctx, cs.Informer, namespace)
 }
 
 func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespace string) (interface{}, error) {
