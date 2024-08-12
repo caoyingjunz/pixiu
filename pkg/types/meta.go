@@ -244,5 +244,5 @@ func (rs *RuntimeSpec) IsContainerd() bool {
 }
 
 func (p PageRequest) IsPaged() bool {
-	return p.Page == 0 && p.Limit == 0
+	return p.Page != 0 && p.Limit != 0
 }
