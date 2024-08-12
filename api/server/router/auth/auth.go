@@ -39,5 +39,6 @@ func (a *authRouter) initRoutes(ge *gin.Engine) {
 	{
 		policyRoute := authRoute.Group("/policy")
 		policyRoute.POST("", a.createPolicy)
+		policyRoute.DELETE("", a.deletePolicy)
 	}
 }

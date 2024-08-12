@@ -135,7 +135,7 @@ type (
 		// TODO:
 	}
 
-	CreateRBACPolicyRequest struct {
+	RBACPolicyRequest struct {
 		UserId     int64            `json:"user_id" binding:"required"`
 		ObjectType model.ObjectType `json:"object_type" binding:"required,rbac_object"`
 		SID        string           `json:"sid" binding:"omitempty,rbac_sid"`

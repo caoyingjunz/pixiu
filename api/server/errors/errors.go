@@ -95,4 +95,12 @@ var (
 		Code: http.StatusConflict,
 		Err:  errors.ErrAuditExists,
 	}
+	ErrRBACPolicyExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.PolicyExistError,
+	}
+	ErrRBACPolicyNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.PolicyNotExistError,
+	}
 )
