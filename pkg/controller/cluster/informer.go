@@ -110,7 +110,8 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 		// if the creation timestamps are equal, sort by name in ascending order
 		return pods[i].ObjectMeta.GetName() < pods[j].ObjectMeta.GetName()
 	})
-	if len(namespace) != 0 {
+	// 全量获取 pod 时，以命名空间排序
+	if len(namespace) == 0 {
 		sort.Slice(pods, func(i, j int) bool { return pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace() })
 	}
 
