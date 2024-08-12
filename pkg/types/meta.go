@@ -242,3 +242,7 @@ func (rs *RuntimeSpec) IsDocker() bool {
 func (rs *RuntimeSpec) IsContainerd() bool {
 	return rs.Runtime == string(model.ContainerdCRI)
 }
+
+func (p PageRequest) IsPaged() bool {
+	return p.Page == 0 && p.Limit == 0
+}

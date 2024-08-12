@@ -82,7 +82,7 @@ type Interface interface {
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
-	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string) (interface{}, error)
+	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error)
 
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 }
@@ -93,7 +93,7 @@ func init() {
 	clusterIndexer = *client.NewClusterCache()
 }
 
-type lister func(ctx context.Context, informer *client.PixiuInformer, namespace string) (interface{}, error)
+type lister func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error)
 
 type cluster struct {
 	cc          config.Config
@@ -792,11 +792,11 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
 	}
 	// register resource lister functions here
 	c.listerFuncs = map[string]lister{
-		ResourcePod: func(ctx context.Context, informer *client.PixiuInformer, namespace string) (interface{}, error) {
-			return c.ListPods(ctx, informer.PodsLister(), namespace)
+		ResourcePod: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+			return c.ListPods(ctx, informer.PodsLister(), namespace, pageOpts)
 		},
-		ResourceDeployment: func(ctx context.Context, informer *client.PixiuInformer, namespace string) (interface{}, error) {
-			return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace)
+		ResourceDeployment: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+			return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, pageOpts)
 		},
 		// etc...
 	}
