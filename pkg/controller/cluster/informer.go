@@ -19,6 +19,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -97,6 +98,22 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 	if err != nil {
 		return nil, err
 	}
+
+	sort.Slice(pods, func(i, j int) bool {
+		if pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace() {
+			return true
+		}
+
+		// sort by creation timestamp in descending order
+		if pods[j].ObjectMeta.GetCreationTimestamp().Time.Before(pods[i].ObjectMeta.GetCreationTimestamp().Time) {
+			return true
+		} else if pods[i].ObjectMeta.GetCreationTimestamp().Time.Before(pods[j].ObjectMeta.GetCreationTimestamp().Time) {
+			return false
+		}
+
+		// if the creation timestamps are equal, sort by name in ascending order
+		return pods[i].ObjectMeta.GetName() < pods[j].ObjectMeta.GetName()
+	})
 
 	return types.PageResponse{
 		PageRequest: pageOption,
