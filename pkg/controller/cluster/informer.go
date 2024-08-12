@@ -141,6 +141,8 @@ func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.PageRequest) 
 	return pods[offset:end]
 }
 
+// ListDeployments
+// TODO: 后续优化
 func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listersv1.DeploymentLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
 	deployments, err := deploymentsLister.Deployments(namespace).List(labels.Everything())
 	if err != nil {
