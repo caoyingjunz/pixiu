@@ -246,3 +246,17 @@ func (rs *RuntimeSpec) IsContainerd() bool {
 func (p PageRequest) IsPaged() bool {
 	return p.Page != 0 && p.Limit != 0
 }
+
+func (p PageRequest) Offset(total int) (int, int, error) {
+	offset := (p.Page - 1) * p.Limit
+	if offset > total {
+		return 0, 0, fmt.Errorf("invaild offset")
+	}
+
+	end := offset + p.Limit
+	if end > total {
+		end = total
+	}
+
+	return offset, end, nil
+}
