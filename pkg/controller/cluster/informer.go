@@ -100,10 +100,6 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 	}
 
 	sort.Slice(pods, func(i, j int) bool {
-		if pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace() {
-			return true
-		}
-
 		// sort by creation timestamp in descending order
 		if pods[j].ObjectMeta.GetCreationTimestamp().Time.Before(pods[i].ObjectMeta.GetCreationTimestamp().Time) {
 			return true
@@ -114,6 +110,9 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 		// if the creation timestamps are equal, sort by name in ascending order
 		return pods[i].ObjectMeta.GetName() < pods[j].ObjectMeta.GetName()
 	})
+	if len(namespace) != 0 {
+		sort.Slice(pods, func(i, j int) bool { return pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace() })
+	}
 
 	return types.PageResponse{
 		PageRequest: pageOption,
