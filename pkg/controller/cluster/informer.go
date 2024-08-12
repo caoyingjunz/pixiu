@@ -127,15 +127,9 @@ func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.PageRequest) 
 	if !pageOption.IsPaged() {
 		return pods
 	}
-
-	total := len(pods)
-	offset := (pageOption.Page - 1) * pageOption.Limit
-	if offset > total {
+	offset, end, err := pageOption.Offset(len(pods))
+	if err != nil {
 		return nil
-	}
-	end := offset + pageOption.Limit
-	if end > total {
-		end = total
 	}
 
 	return pods[offset:end]
@@ -177,15 +171,9 @@ func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOptio
 	if !pageOption.IsPaged() {
 		return deployments
 	}
-
-	total := len(deployments)
-	offset := (pageOption.Page - 1) * pageOption.Limit
-	if offset > total {
+	offset, end, err := pageOption.Offset(len(deployments))
+	if err != nil {
 		return nil
-	}
-	end := offset + pageOption.Limit
-	if end > total {
-		end = total
 	}
 
 	return deployments[offset:end]
