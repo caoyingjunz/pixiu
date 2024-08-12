@@ -33,7 +33,8 @@ type AuthGetter interface {
 }
 
 type Interface interface {
-	CreateRBACPolicy(ctx context.Context, req *types.CreateRBACPolicyRequest) error
+	CreateRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error
+	DeleteRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error
 }
 
 type auth struct {
@@ -48,20 +49,52 @@ func NewAuth(factory db.ShareDaoFactory, enforcer *casbin.SyncedEnforcer) Interf
 	}
 }
 
-func (a *auth) CreateRBACPolicy(ctx context.Context, req *types.CreateRBACPolicyRequest) error {
+// getPolicy returns the RBAC policy represented by the request body
+func (a *auth) getPolicy(ctx context.Context, req *types.RBACPolicyRequest) ([]string, error) {
 	user, err := a.factory.User().Get(ctx, req.UserId)
 	if err != nil {
 		klog.Errorf("failed to get user(%d): %v", req.UserId, err)
-		return errors.ErrServerInternal
+		return nil, errors.ErrServerInternal
 	}
 	if user == nil {
-		return errors.ErrUserNotFound
+		return nil, errors.ErrUserNotFound
 	}
 
-	policy := model.MakePolicy(user.Name, req.ObjectType, req.SID, req.Operation)
-	if _, err := a.enforcer.AddPolicy(policy); err != nil {
+	return model.MakePolicy(user.Name, req.ObjectType, req.SID, req.Operation), nil
+}
+
+func (a *auth) CreateRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error {
+	policy, err := a.getPolicy(ctx, req)
+	if err != nil {
+		return nil
+	}
+
+	ok, err := a.enforcer.AddPolicy(policy)
+	if err != nil {
 		klog.Errorf("failed to create policy %v: %v", policy, err)
 		return errors.ErrServerInternal
 	}
+	if !ok {
+		return errors.ErrRBACPolicyExists
+	}
+
+	return nil
+}
+
+func (a *auth) DeleteRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error {
+	policy, err := a.getPolicy(ctx, req)
+	if err != nil {
+		return nil
+	}
+
+	ok, err := a.enforcer.RemovePolicy(policy)
+	if err != nil {
+		klog.Error("failed to delete policy %v: %v", policy, err)
+		return errors.ErrServerInternal
+	}
+	if !ok {
+		return errors.ErrRBACPolicyNotFound
+	}
+
 	return nil
 }
