@@ -166,3 +166,5 @@ type (
 		Items interface{} `json:"items"` // 指定页的元素列表
 	}
 )
+
+const AllNamespace = "all_namespaces"
