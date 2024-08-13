@@ -61,7 +61,6 @@ func (cr *clusterRouter) listIndexerResources(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	if r.Result, err = cr.c.Cluster().ListIndexerResources(c, resourceMeta.Cluster, resourceMeta.Resource, resourceMeta.Namespace, pageOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
