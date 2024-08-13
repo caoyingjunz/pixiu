@@ -83,6 +83,10 @@ func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, reso
 		return nil, err
 	}
 
+	if namespace == types.AllNamespace {
+		namespace = ""
+	}
+
 	switch resource {
 	case ResourcePod:
 		return c.ListPods(ctx, cs.Informer.PodsLister(), namespace, pageOption)
