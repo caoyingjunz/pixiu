@@ -13,7 +13,7 @@ CREATE TABLE `clusters` (
     name varchar(128) COMMENT 'k8s 集群名称',
     alias_name varchar(128) COMMENT 'k8s 集群中文名称',
     cluster_type int COMMENT 'Kubernetes 集群的类型',
-    cluster_status tinyint(4) COMMENT '集群状态',
+    status tinyint(4) COMMENT '集群状态',
     kubernetes_version varchar(64) COMMENT 'k8s 集群版本',
     nodes text COMMENT '集群节点详情',
     protected bool COMMENT '集群删除保护',
