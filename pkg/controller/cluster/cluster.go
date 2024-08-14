@@ -714,10 +714,10 @@ func parseFloat64FromString(s string) float64 {
 	return f
 }
 
-func unmarshalClusterNodes(nodes string) types.NodeInfos {
-	var nodesJson types.NodeInfos
+func unmarshalClusterNodes(nodes string) types.KubeNode {
+	var nodesJson types.KubeNode
 	if err := json.Unmarshal([]byte(nodes), &nodesJson); err != nil {
-		nodesJson = types.NodeInfos{}
+		nodesJson = types.KubeNode{}
 	}
 
 	return nodesJson

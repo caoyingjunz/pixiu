@@ -81,11 +81,10 @@ func (nm *NodeMetrics) Do(ctx *JobContext) (err error) {
 		// 创建一个局部变量并赋值以确保每个 goroutine 有自己的值副本
 		clusterName := c.Name
 		nmInfo := &nodeMetricsInfo{
-			c:             &c,
-			clusterName:   clusterName,
-			clusterStatus: model.ClusterStatusInterrupt,
-			dao:           nm.dao,
-			ctx:           ctx,
+			c:           &c,
+			clusterName: clusterName,
+			dao:         nm.dao,
+			ctx:         ctx,
 		}
 		wg.Go(nmInfo.doAsync)
 	}
@@ -104,7 +103,7 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 
 	// TODO：临时构造 client，后续通过 informer 的方式维护缓存
 	updates := make(map[string]interface{})
-	status := model.ClusterStatusRunning
+	status := model.ClusterStatusInterrupt
 	kubeNode := &types.KubeNode{
 		Ready:    make([]string, 0),
 		NotReady: make([]string, 0),
@@ -112,14 +111,12 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 
 	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
 	if err != nil {
-		status = model.ClusterStatusFailed
+		updates["status"] = status
 		return nmi.dao.Cluster().Update(nmi.ctx, nmi.c.Id, nmi.c.ResourceVersion, updates, false)
 	}
 
 	nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
-	if err != nil {
-		status = model.ClusterStatusFailed
-	} else {
+	if err == nil {
 		nodes := nodeList.Items
 		// 获取 kubernetes 版本
 		if len(nodes) != 0 {
@@ -132,8 +129,12 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 			switch nodeStatus {
 			case "Ready":
 				kubeNode.Ready = append(kubeNode.Ready, node.Name)
+				status = model.ClusterStatusRunning
 			case "NotReady":
 				kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
+			}
+			if status != model.ClusterStatusRunning {
+				status = model.ClusterStatusAllNotNodeHealthy
 			}
 		}
 		data, err := kubeNode.Marshal()
