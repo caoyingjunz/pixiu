@@ -18,7 +18,7 @@ package jobmanager
 
 import (
 	"encoding/json"
-	"github.com/caoyingjunz/pixiu/pkg/types"
+
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
