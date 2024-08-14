@@ -714,7 +714,7 @@ func parseFloat64FromString(s string) float64 {
 	return f
 }
 
-func unmarshalClusterNodes(nodes string) types.KubeNode {
+func (c *cluster) unmarshalKubeNodes(nodes string) types.KubeNode {
 	var nodesJson types.KubeNode
 	if err := json.Unmarshal([]byte(nodes), &nodesJson); err != nil {
 		nodesJson = types.KubeNode{}
@@ -724,7 +724,7 @@ func unmarshalClusterNodes(nodes string) types.KubeNode {
 }
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
-	nodes := unmarshalClusterNodes(o.Nodes)
+	nodes := c.unmarshalKubeNodes(o.Nodes)
 	tc := &types.Cluster{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,

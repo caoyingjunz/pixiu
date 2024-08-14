@@ -51,12 +51,6 @@ const (
 
 type NodeHealthy uint8
 
-const (
-	UnhealthyNodeHealthy NodeHealthy = iota // 节点不健康
-	HealthyNodeHealthy                      // 节点健康
-	UnknownNodeHealthy
-)
-
 type Node struct {
 	pixiu.Model
 

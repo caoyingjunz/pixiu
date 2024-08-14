@@ -133,6 +133,7 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 			case "NotReady":
 				kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
 			}
+			// 如果没有有一个节点是 Ready，则集群状态为 AllNotNodeHealthy
 			if status != model.ClusterStatusRunning {
 				status = model.ClusterStatusAllNotNodeHealthy
 			}
