@@ -144,7 +144,6 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 				}
 			}
 		}
-
 	}
 
 	nodeBytes, err := json.Marshal(nodeInfo)
