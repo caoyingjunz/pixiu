@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"k8s.io/klog/v2"
 
@@ -88,6 +89,7 @@ func (w *auditWriter) asyncAudit(c *gin.Context) {
 	}
 
 	audit := &model.Audit{
+		RequestId:  requestid.Get(c),
 		Action:     c.Request.Method,
 		Ip:         c.ClientIP(),
 		Operator:   userName,
