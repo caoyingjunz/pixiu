@@ -63,7 +63,7 @@ type Cluster struct {
 	ClusterType model.ClusterType `json:"cluster_type"`
 	PlanId      int64             `json:"plan_id"` // 自建集群关联的 PlanId，如果是自建的集群，planId 不为 0
 
-	// 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 运行中断
+	// 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 运行中断 5: 运行中，但存在节点不健康
 	ClusterStatus model.ClusterStatus `json:"cluster_status"` // 标记集群自身的健康状态
 
 	// 集群节点数量和健康状态 0: 不健康 1: 健康 2: 未知

@@ -18,15 +18,15 @@ package jobmanager
 
 import (
 	"encoding/json"
+	"github.com/caoyingjunz/pixiu/pkg/types"
+	v1 "k8s.io/api/core/v1"
 
 	"golang.org/x/sync/errgroup"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
@@ -84,12 +84,11 @@ func (nm *NodeMetrics) Do(ctx *JobContext) (err error) {
 	for _, c := range cluster {
 		// 创建一个局部变量并赋值以确保每个 goroutine 有自己的值副本
 		clusterName := c.Name
-		clusterStatus := model.ClusterStatusRunning
 		var k8sVersion string
 		nmInfo := &nodeMetricsInfo{
 			c:                 &c,
 			clusterName:       clusterName,
-			clusterStatus:     clusterStatus,
+			clusterStatus:     model.ClusterStatusRunning,
 			kubernetesVersion: k8sVersion,
 			dao:               nm.dao,
 			ctx:               ctx,
@@ -111,38 +110,43 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 	}
 	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
 	if err != nil {
-		nmi.clusterStatus = model.ClusterStatusFailed
-	}
-	nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
-	if err != nil {
-		nmi.clusterStatus = model.ClusterStatusFailed
+		nmi.clusterStatus = model.ClusterStatusInterrupt
 	}
 
 	nodeInfo := make(map[string]interface{})
 	updates := make(map[string]interface{})
-	if nodeList != nil && len(nodeList.Items) == 0 {
-		nmi.clusterStatus = model.ClusterStatusFailed
-		goto next
-	}
 
-	for _, node := range nodeList.Items {
-		status := model.HealthyNodeHealthy
-		role := model.NodeRole
+	if nmi.clusterStatus != model.ClusterStatusInterrupt {
+		nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
+		if err != nil {
+			nmi.clusterStatus = model.ClusterStatusInterrupt
+			goto next
+		}
+		if nodeList != nil && len(nodeList.Items) == 0 {
+			nmi.clusterStatus = model.ClusterStatusInterrupt
+			goto next
+		}
 
-		if len(node.Status.Conditions) > 0 {
-			lastCondition := node.Status.Conditions[len(node.Status.Conditions)-1]
-			if lastCondition.Type == v1.NodeReady && lastCondition.Status != v1.ConditionTrue {
-				status = model.UnhealthyNodeHealthy
+		for _, node := range nodeList.Items {
+			status := model.HealthyNodeHealthy
+			role := model.NodeRole
+
+			if len(node.Status.Conditions) > 0 {
+				lastCondition := node.Status.Conditions[len(node.Status.Conditions)-1]
+				if lastCondition.Type == v1.NodeReady && lastCondition.Status != v1.ConditionTrue {
+					status = model.UnhealthyNodeHealthy
+					nmi.clusterStatus = model.ClusterStatusNotAllNodeHealthy
+				}
 			}
-		}
-		if node.Labels[LabelNodeRoleControlPlane] == "" || node.Labels[LabelNodeRoleOldControlPlane] == "" {
-			role = model.MasterRole
-			nmi.kubernetesVersion = node.Status.NodeInfo.KubeletVersion
-		}
+			if node.Labels[LabelNodeRoleControlPlane] == "" || node.Labels[LabelNodeRoleOldControlPlane] == "" {
+				role = model.MasterRole
+				nmi.kubernetesVersion = node.Status.NodeInfo.KubeletVersion
+			}
 
-		nodeInfo[node.Name] = &types.NodeInfo{
-			Status: status,
-			Role:   role,
+			nodeInfo[node.Name] = &types.NodeInfo{
+				Status: status,
+				Role:   role,
+			}
 		}
 	}
 
@@ -154,9 +158,10 @@ next:
 	if len(nodeBytes) > 0 {
 		updates["nodes"] = nodeBytes
 	}
-	if object.KubernetesVersion != nmi.kubernetesVersion {
+	if object.KubernetesVersion == "" {
 		updates["kubernetes_version"] = nmi.kubernetesVersion
 	}
+
 	updates["cluster_status"] = nmi.clusterStatus
 
 	return nmi.dao.Cluster().Update(nmi.ctx, nmi.c.Id, nmi.c.ResourceVersion, updates, false)
