@@ -18,6 +18,7 @@ package jobmanager
 
 import (
 	"encoding/json"
+	"strings"
 
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
@@ -30,9 +31,7 @@ import (
 )
 
 const (
-	NMDefaultSchedule            = "@every 5s"
-	LabelNodeRoleControlPlane    = "node-role.kubernetes.io/control-plane"
-	LabelNodeRoleOldControlPlane = "node-role.kubernetes.io/master"
+	NMDefaultSchedule = "@every 5s"
 )
 
 type NodeMetrics struct {
@@ -84,14 +83,12 @@ func (nm *NodeMetrics) Do(ctx *JobContext) (err error) {
 	for _, c := range cluster {
 		// 创建一个局部变量并赋值以确保每个 goroutine 有自己的值副本
 		clusterName := c.Name
-		var k8sVersion string
 		nmInfo := &nodeMetricsInfo{
-			c:                 &c,
-			clusterName:       clusterName,
-			clusterStatus:     model.ClusterStatusRunning,
-			kubernetesVersion: k8sVersion,
-			dao:               nm.dao,
-			ctx:               ctx,
+			c:             &c,
+			clusterName:   clusterName,
+			clusterStatus: c.ClusterStatus,
+			dao:           nm.dao,
+			ctx:           ctx,
 		}
 		wg.Go(nmInfo.doAsync)
 	}
@@ -113,8 +110,13 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 		nmi.clusterStatus = model.ClusterStatusInterrupt
 	}
 
-	nodeInfo := make(map[string]interface{})
-	updates := make(map[string]interface{})
+	var (
+		ready    string
+		notReady string
+		flag     = false
+		updates  = make(map[string]interface{})
+		nodeInfo = &types.NodeInfo{}
+	)
 
 	if nmi.clusterStatus != model.ClusterStatusInterrupt {
 		nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
@@ -123,25 +125,28 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 		}
 		if nodeList != nil && len(nodeList.Items) != 0 {
 			for _, node := range nodeList.Items {
-				status := model.HealthyNodeHealthy
-				role := model.NodeRole
-
+				if object.KubernetesVersion == "" {
+					object.KubernetesVersion = node.Status.NodeInfo.KubeletVersion
+					updates["kubernetes_version"] = node.Status.NodeInfo.KubeletVersion
+				}
 				if len(node.Status.Conditions) > 0 {
 					lastCondition := node.Status.Conditions[len(node.Status.Conditions)-1]
 					if lastCondition.Type == v1.NodeReady && lastCondition.Status != v1.ConditionTrue {
-						status = model.UnhealthyNodeHealthy
-						nmi.clusterStatus = model.ClusterStatusNotAllNodeHealthy
-					}
-				}
-				if node.Labels[LabelNodeRoleControlPlane] == "" || node.Labels[LabelNodeRoleOldControlPlane] == "" {
-					role = model.MasterRole
-					nmi.kubernetesVersion = node.Status.NodeInfo.KubeletVersion
-				}
+						// 存在 node 并且全 not ready 的情况，则更新集群状态为 AllNotNodeHealthy
+						nmi.clusterStatus = model.ClusterStatusAllNotNodeHealthy
 
-				nodeInfo[node.Name] = &types.NodeInfo{
-					Status: status,
-					Role:   role,
+						notReady = strings.Join([]string{notReady, node.Name}, ",")
+						continue
+					}
+
+					ready = strings.Join([]string{ready, node.Name}, ",")
+					// 存在一个 ready 的情况，则更新集群状态为 Running
+					flag = true
 				}
+			}
+			nodeInfo = &types.NodeInfo{
+				Ready:    ready,
+				NotReady: notReady,
 			}
 		}
 	}
@@ -153,10 +158,9 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 	if len(nodeBytes) > 0 {
 		updates["nodes"] = nodeBytes
 	}
-	if object.KubernetesVersion == "" {
-		updates["kubernetes_version"] = nmi.kubernetesVersion
+	if flag {
+		nmi.clusterStatus = model.ClusterStatusRunning
 	}
-
 	updates["cluster_status"] = nmi.clusterStatus
 
 	return nmi.dao.Cluster().Update(nmi.ctx, nmi.c.Id, nmi.c.ResourceVersion, updates, false)

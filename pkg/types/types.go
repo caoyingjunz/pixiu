@@ -48,8 +48,8 @@ type NodeInfos struct {
 }
 
 type NodeInfo struct {
-	Role   string            `json:"role"`
-	Status model.NodeHealthy `json:"status"`
+	Ready    string `json:"ready"`
+	NotReady string `json:"not_ready"`
 }
 
 type Cluster struct {

@@ -38,7 +38,7 @@ const (
 	ClusterStatusUnStart                                // 等待部署
 	ClusterStatusFailed                                 // 部署失败
 	ClusterStatusInterrupt                              // 运行中断
-	ClusterStatusNotAllNodeHealthy                      // 存在 node 不健康
+	ClusterStatusAllNotNodeHealthy                      // 存在 node 且全部不健康
 )
 
 // Cluster kubernetes 集群信息
@@ -56,7 +56,7 @@ type Cluster struct {
 	PlanId int64
 
 	// 集群运行状态 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 运行中断 5: 存在 node 不健康
-	ClusterStatus `gorm:"type:tinyint" json:"cluster_status"`
+	ClusterStatus `gorm:"type:tinyint" json:"status"`
 
 	// 集群的版本
 	KubernetesVersion string `gorm:"type:varchar(255)" json:"kubernetes_version,omitempty"`
