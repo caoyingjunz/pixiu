@@ -17,9 +17,6 @@ limitations under the License.
 package jobmanager
 
 import (
-	"encoding/json"
-	"strings"
-
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,15 +94,6 @@ func (nm *NodeMetrics) Do(ctx *JobContext) (err error) {
 }
 
 func (nmi *nodeMetricsInfo) doAsync() error {
-	// TODO：临时构造 client，后续通过 informer 的方式维护缓存
-	var (
-		ready    string
-		notReady string
-		flag     = false
-		updates  = make(map[string]interface{})
-		nodeInfo = &types.NodeInfo{}
-	)
-
 	object, err := nmi.dao.Cluster().GetClusterByName(nmi.ctx, nmi.clusterName)
 	if err != nil {
 		return err
@@ -113,55 +101,61 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 	if object == nil {
 		return err
 	}
+
+	// TODO：临时构造 client，后续通过 informer 的方式维护缓存
+	updates := make(map[string]interface{})
+	status := model.ClusterStatusRunning
+	kubeNode := &types.KubeNode{
+		Ready:    make([]string, 0),
+		NotReady: make([]string, 0),
+	}
+
 	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
 	if err != nil {
-		updates["cluster_status"] = nmi.clusterStatus
+		status = model.ClusterStatusFailed
 		return nmi.dao.Cluster().Update(nmi.ctx, nmi.c.Id, nmi.c.ResourceVersion, updates, false)
 	}
 
 	nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
 	if err != nil {
-		updates["cluster_status"] = nmi.clusterStatus
-		return nmi.dao.Cluster().Update(nmi.ctx, nmi.c.Id, nmi.c.ResourceVersion, updates, false)
-	}
-
-	for _, node := range nodeList.Items {
-		if object.KubernetesVersion == "" {
-			object.KubernetesVersion = node.Status.NodeInfo.KubeletVersion
-			updates["kubernetes_version"] = node.Status.NodeInfo.KubeletVersion
+		status = model.ClusterStatusFailed
+	} else {
+		nodes := nodeList.Items
+		// 获取 kubernetes 版本
+		if len(nodes) != 0 {
+			updates["kubernetes_version"] = nodes[0].Status.NodeInfo.KubeletVersion
 		}
-		if len(node.Status.Conditions) > 0 {
-			lastCondition := node.Status.Conditions[len(node.Status.Conditions)-1]
-			if lastCondition.Type == v1.NodeReady && lastCondition.Status != v1.ConditionTrue {
-				// 存在 node 并且全 not ready 的情况，则更新集群状态为 AllNotNodeHealthy
-				nmi.clusterStatus = model.ClusterStatusAllNotNodeHealthy
 
-				notReady = strings.Join([]string{notReady, node.Name}, ",")
-				continue
+		// 获取存储状态
+		for _, node := range nodes {
+			nodeStatus := parseKubeNodeStatus(node)
+			switch nodeStatus {
+			case "Ready":
+				kubeNode.Ready = append(kubeNode.Ready, node.Name)
+			case "NotReady":
+				kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
 			}
-
-			ready = strings.Join([]string{ready, node.Name}, ",")
-			// 存在一个 ready 的情况，则更新集群状态为 Running
-			flag = true
+		}
+		data, err := kubeNode.Marshal()
+		if err == nil {
+			updates["nodes"] = data
 		}
 	}
 
-	nodeInfo = &types.NodeInfo{
-		Ready:    ready,
-		NotReady: notReady,
-	}
-
-	nodeBytes, err := json.Marshal(nodeInfo)
-	if err != nil {
-		return err
-	}
-	if len(nodeBytes) > 0 {
-		updates["nodes"] = nodeBytes
-	}
-	if flag {
-		nmi.clusterStatus = model.ClusterStatusRunning
-	}
-	updates["cluster_status"] = nmi.clusterStatus
-
+	updates["status"] = status
 	return nmi.dao.Cluster().Update(nmi.ctx, nmi.c.Id, nmi.c.ResourceVersion, updates, false)
+}
+
+func parseKubeNodeStatus(node v1.Node) string {
+	status := "Ready"
+	for _, condition := range node.Status.Conditions {
+		if condition.Type != v1.NodeReady {
+			continue
+		}
+		if condition.Status != "True" {
+			status = "NotReady"
+		}
+	}
+
+	return status
 }

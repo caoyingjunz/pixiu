@@ -42,14 +42,9 @@ type TimeMeta struct {
 	GmtModified time.Time `json:"gmt_modified"`
 }
 
-// 用于解析 nodes 字段
-type NodeInfos struct {
-	NodeInfo map[string]NodeInfo `json:"nodes"`
-}
-
-type NodeInfo struct {
-	Ready    string `json:"ready"`
-	NotReady string `json:"not_ready"`
+type KubeNode struct {
+	Ready    []string `json:"ready"`
+	NotReady []string `json:"not_ready"`
 }
 
 type Cluster struct {
@@ -66,11 +61,10 @@ type Cluster struct {
 	// 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 运行中断 5: 运行中，但存在节点不健康
 	ClusterStatus model.ClusterStatus `json:"cluster_status"` // 标记集群自身的健康状态
 
-	// 集群节点数量和健康状态 0: 不健康 1: 健康 2: 未知
-	Nodes NodeInfos `json:"nodes"`
-
 	// 集群的版本
 	KubernetesVersion string `json:"kubernetes_version,omitempty"`
+	// 集群节点数量和健康状态 0: 不健康 1: 健康 2: 未知
+	Nodes KubeNode `json:"nodes"`
 
 	// 集群删除保护，开启集群删除保护时不允许删除集群
 	// 0: 关闭集群删除保护 1: 开启集群删除保护

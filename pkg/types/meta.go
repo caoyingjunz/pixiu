@@ -246,3 +246,18 @@ func (rs *RuntimeSpec) IsContainerd() bool {
 func (p PageRequest) IsPaged() bool {
 	return p.Page == 0 && p.Limit == 0
 }
+
+func (node *KubeNode) Marshal() (string, error) {
+	data, err := json.Marshal(node)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (node *KubeNode) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), node); err != nil {
+		return err
+	}
+	return nil
+}
