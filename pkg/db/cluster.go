@@ -31,7 +31,7 @@ type TxFunc func() error
 
 type ClusterInterface interface {
 	Create(ctx context.Context, object *model.Cluster, fns ...TxFunc) (*model.Cluster, error)
-	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
+	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}, isUpdate bool) error
 	Delete(ctx context.Context, cid int64) (*model.Cluster, error)
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)
 	List(ctx context.Context) ([]model.Cluster, error)
@@ -66,10 +66,12 @@ func (c *cluster) Create(ctx context.Context, object *model.Cluster, fns ...TxFu
 	return object, nil
 }
 
-func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error {
+func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}, isUpdate bool) error {
 	// 系统维护字段
 	updates["gmt_modified"] = time.Now()
-	updates["resource_version"] = resourceVersion + 1
+	if isUpdate {
+		updates["resource_version"] = resourceVersion + 1
+	}
 
 	f := c.db.WithContext(ctx).Model(&model.Cluster{}).Where("id = ? and resource_version = ?", cid, resourceVersion).Updates(updates)
 	if f.Error != nil {

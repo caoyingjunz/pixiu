@@ -42,6 +42,16 @@ type TimeMeta struct {
 	GmtModified time.Time `json:"gmt_modified"`
 }
 
+// 用于解析 nodes 字段
+type NodeInfos struct {
+	NodeInfo map[string]NodeInfo `json:"nodes"`
+}
+
+type NodeInfo struct {
+	Role   string            `json:"role"`
+	Status model.NodeHealthy `json:"status"`
+}
+
 type Cluster struct {
 	PixiuMeta `json:",inline"`
 
@@ -52,6 +62,15 @@ type Cluster struct {
 	// 0: 标准集群 1: 自建集群
 	ClusterType model.ClusterType `json:"cluster_type"`
 	PlanId      int64             `json:"plan_id"` // 自建集群关联的 PlanId，如果是自建的集群，planId 不为 0
+
+	// 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 运行中断
+	ClusterStatus model.ClusterStatus `json:"cluster_status"` // 标记集群自身的健康状态
+
+	// 集群节点数量和健康状态 0: 不健康 1: 健康 2: 未知
+	Nodes NodeInfos `json:"nodes"`
+
+	// 集群的版本
+	KubernetesVersion string `json:"kubernetes_version,omitempty"`
 
 	// 集群删除保护，开启集群删除保护时不允许删除集群
 	// 0: 关闭集群删除保护 1: 开启集群删除保护

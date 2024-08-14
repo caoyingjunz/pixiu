@@ -133,6 +133,7 @@ func (o *Options) Complete() error {
 
 	o.JobManager = jobmanager.NewManager(
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
+		jobmanager.NewNodeMetrics(jobmanager.NMDefaultOptions(), o.Factory),
 	)
 	return nil
 }
