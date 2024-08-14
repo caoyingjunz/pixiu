@@ -714,12 +714,17 @@ func parseFloat64FromString(s string) float64 {
 	return f
 }
 
-func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
-	var nodes types.NodeInfos
-	if err := json.Unmarshal([]byte(o.Nodes), nodes); err != nil {
-		nodes = types.NodeInfos{}
+func unmarshalClusterNodes(nodes string) types.NodeInfos {
+	var nodesJson types.NodeInfos
+	if err := json.Unmarshal([]byte(nodes), &nodesJson); err != nil {
+		nodesJson = types.NodeInfos{}
 	}
 
+	return nodesJson
+}
+
+func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
+	nodes := unmarshalClusterNodes(o.Nodes)
 	tc := &types.Cluster{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
