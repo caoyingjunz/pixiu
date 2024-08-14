@@ -19,9 +19,8 @@ package jobmanager
 import (
 	"encoding/json"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	v1 "k8s.io/api/core/v1"
-
 	"golang.org/x/sync/errgroup"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
@@ -120,37 +119,33 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 		nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
 		if err != nil {
 			nmi.clusterStatus = model.ClusterStatusInterrupt
-			goto next
 		}
-		if nodeList != nil && len(nodeList.Items) == 0 {
-			nmi.clusterStatus = model.ClusterStatusInterrupt
-			goto next
-		}
+		if nodeList != nil && len(nodeList.Items) != 0 {
+			for _, node := range nodeList.Items {
+				status := model.HealthyNodeHealthy
+				role := model.NodeRole
 
-		for _, node := range nodeList.Items {
-			status := model.HealthyNodeHealthy
-			role := model.NodeRole
+				if len(node.Status.Conditions) > 0 {
+					lastCondition := node.Status.Conditions[len(node.Status.Conditions)-1]
+					if lastCondition.Type == v1.NodeReady && lastCondition.Status != v1.ConditionTrue {
+						status = model.UnhealthyNodeHealthy
+						nmi.clusterStatus = model.ClusterStatusNotAllNodeHealthy
+					}
+				}
+				if node.Labels[LabelNodeRoleControlPlane] == "" || node.Labels[LabelNodeRoleOldControlPlane] == "" {
+					role = model.MasterRole
+					nmi.kubernetesVersion = node.Status.NodeInfo.KubeletVersion
+				}
 
-			if len(node.Status.Conditions) > 0 {
-				lastCondition := node.Status.Conditions[len(node.Status.Conditions)-1]
-				if lastCondition.Type == v1.NodeReady && lastCondition.Status != v1.ConditionTrue {
-					status = model.UnhealthyNodeHealthy
-					nmi.clusterStatus = model.ClusterStatusNotAllNodeHealthy
+				nodeInfo[node.Name] = &types.NodeInfo{
+					Status: status,
+					Role:   role,
 				}
 			}
-			if node.Labels[LabelNodeRoleControlPlane] == "" || node.Labels[LabelNodeRoleOldControlPlane] == "" {
-				role = model.MasterRole
-				nmi.kubernetesVersion = node.Status.NodeInfo.KubeletVersion
-			}
-
-			nodeInfo[node.Name] = &types.NodeInfo{
-				Status: status,
-				Role:   role,
-			}
 		}
+
 	}
 
-next:
 	nodeBytes, err := json.Marshal(nodeInfo)
 	if err != nil {
 		return err
