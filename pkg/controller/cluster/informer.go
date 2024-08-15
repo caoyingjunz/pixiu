@@ -104,20 +104,14 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 		return nil, err
 	}
 
-	sort.Slice(pods, func(i, j int) bool {
-		// sort by creation timestamp in descending order
-		if pods[j].ObjectMeta.GetCreationTimestamp().Time.Before(pods[i].ObjectMeta.GetCreationTimestamp().Time) {
-			return true
-		} else if pods[i].ObjectMeta.GetCreationTimestamp().Time.Before(pods[j].ObjectMeta.GetCreationTimestamp().Time) {
-			return false
-		}
-
-		// if the creation timestamps are equal, sort by name in ascending order
+	sort.SliceStable(pods, func(i, j int) bool {
 		return pods[i].ObjectMeta.GetName() < pods[j].ObjectMeta.GetName()
 	})
 	// 全量获取 pod 时，以命名空间排序
 	if len(namespace) == 0 {
-		sort.Slice(pods, func(i, j int) bool { return pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace() })
+		sort.SliceStable(pods, func(i, j int) bool {
+			return pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace()
+		})
 	}
 
 	return types.PageResponse{
@@ -147,19 +141,11 @@ func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listers
 		return nil, err
 	}
 
-	sort.Slice(deployments, func(i, j int) bool {
-		// sort by creation timestamp in descending order
-		if deployments[j].ObjectMeta.GetCreationTimestamp().Time.Before(deployments[i].ObjectMeta.GetCreationTimestamp().Time) {
-			return true
-		} else if deployments[i].ObjectMeta.GetCreationTimestamp().Time.Before(deployments[j].ObjectMeta.GetCreationTimestamp().Time) {
-			return false
-		}
-
-		// if the creation timestamps are equal, sort by name in ascending order
+	sort.SliceStable(deployments, func(i, j int) bool {
 		return deployments[i].ObjectMeta.GetName() < deployments[j].ObjectMeta.GetName()
 	})
 	if len(namespace) == 0 {
-		sort.Slice(deployments, func(i, j int) bool {
+		sort.SliceStable(deployments, func(i, j int) bool {
 			return deployments[i].ObjectMeta.GetNamespace() < deployments[j].ObjectMeta.GetNamespace()
 		})
 	}
