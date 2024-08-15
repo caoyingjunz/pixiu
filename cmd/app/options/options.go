@@ -119,6 +119,9 @@ func (o *Options) Complete() error {
 	if o.ComponentConfig.Audit.DaysReserved == 0 {
 		o.ComponentConfig.Audit.DaysReserved = jobmanager.DefaultDaysReserved
 	}
+	if o.ComponentConfig.NodeMetrics.Schedule == "" {
+		o.ComponentConfig.NodeMetrics.Schedule = jobmanager.NMDefaultSchedule
+	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
 		return err
@@ -133,7 +136,7 @@ func (o *Options) Complete() error {
 
 	o.JobManager = jobmanager.NewManager(
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
-		jobmanager.NewNodeMetrics(jobmanager.NMDefaultOptions(), o.Factory),
+		jobmanager.NewNodeMetrics(o.ComponentConfig.NodeMetrics, o.Factory),
 	)
 	return nil
 }

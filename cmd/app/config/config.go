@@ -43,10 +43,11 @@ func (m Mode) InDebug() bool {
 var ErrInvalidLogFormat = errors.New("invalid log format")
 
 type Config struct {
-	Default DefaultOptions          `yaml:"default"`
-	Mysql   MysqlOptions            `yaml:"mysql"`
-	Worker  WorkerOptions           `yaml:"worker"`
-	Audit   jobmanager.AuditOptions `yaml:"audit"`
+	Default     DefaultOptions                `yaml:"default"`
+	Mysql       MysqlOptions                  `yaml:"mysql"`
+	Worker      WorkerOptions                 `yaml:"worker"`
+	Audit       jobmanager.AuditOptions       `yaml:"audit"`
+	NodeMetrics jobmanager.NodeMetricsOptions `yaml:"node_metrics"`
 }
 
 type DefaultOptions struct {
