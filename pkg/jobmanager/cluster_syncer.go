@@ -28,49 +28,34 @@ import (
 )
 
 const (
-	NMDefaultSchedule = "@every 5s"
+	DefaultSyncInterval = "@every 5s"
 )
 
-type NodeMetrics struct {
-	cfg NodeMetricsOptions
-	dao db.ShareDaoFactory
-}
-
-type NodeMetricsOptions struct {
-	Schedule string `yaml:"schedule"`
+type ClusterSyncer struct {
+	factory db.ShareDaoFactory
 }
 
 type nodeMetricsInfo struct {
 	kubernetesVersion string
 	clusterName       string
 	clusterStatus     model.ClusterStatus
-	dao               db.ShareDaoFactory
+	factory           db.ShareDaoFactory
 	ctx               *JobContext
 	c                 *model.Cluster
 }
 
-func NMDefaultOptions() NodeMetricsOptions {
-	return NodeMetricsOptions{
-		Schedule: NMDefaultSchedule,
+func NewNodeMetrics(f db.ShareDaoFactory) *ClusterSyncer {
+	return &ClusterSyncer{
+		factory: f,
 	}
 }
 
-func NewNodeMetrics(dao db.ShareDaoFactory) *NodeMetrics {
-	return &NodeMetrics{
-		dao: dao,
-	}
+func (nm *ClusterSyncer) Name() string {
+	return "ClusterSyncer"
 }
 
-func (nm *NodeMetrics) Name() string {
-	return "NodeMetrics"
-}
-
-func (nm *NodeMetrics) CronSpec() string {
-	return nm.cfg.Schedule
-}
-
-func (nm *NodeMetrics) Do(ctx *JobContext) (err error) {
-	cluster, err := nm.dao.Cluster().List(ctx)
+func (nm *ClusterSyncer) Do(ctx *JobContext) (err error) {
+	cluster, err := nm.factory.Cluster().List(ctx)
 	if err != nil {
 		return err
 	}
@@ -82,7 +67,6 @@ func (nm *NodeMetrics) Do(ctx *JobContext) (err error) {
 		nmInfo := &nodeMetricsInfo{
 			c:           &c,
 			clusterName: clusterName,
-			dao:         nm.dao,
 			ctx:         ctx,
 		}
 		wg.Go(nmInfo.doAsync)

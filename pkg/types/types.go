@@ -58,10 +58,9 @@ type Cluster struct {
 	ClusterType model.ClusterType `json:"cluster_type"`
 	PlanId      int64             `json:"plan_id"` // 自建集群关联的 PlanId，如果是自建的集群，planId 不为 0
 
-	// 集群的版本
-	KubernetesVersion string `json:"kubernetes_version,omitempty"`
-	// 集群节点数量和健康状态 0: 不健康 1: 健康 2: 未知
-	Nodes KubeNode `json:"nodes"`
+	// kubernetes 集群的版本和状态
+	KubernetesVersion string   `json:"kubernetes_version"`
+	Nodes             KubeNode `json:"nodes"`
 
 	// 集群删除保护，开启集群删除保护时不允许删除集群
 	// 0: 关闭集群删除保护 1: 开启集群删除保护
