@@ -737,11 +737,10 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		Name:              o.Name,
 		AliasName:         o.AliasName,
 		ClusterType:       o.ClusterType,
-		ClusterStatus:     o.ClusterStatus,
 		KubernetesVersion: o.KubernetesVersion,
 		Nodes:             nodes,
 		PlanId:            o.PlanId,
-		Status:            model.ClusterStatusRunning, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
+		Status:            o.ClusterStatus, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
 		Protected:         o.Protected,
 		Description:       o.Description,
 	}
