@@ -42,7 +42,7 @@ func (t *planRouter) listTasks(c *gin.Context) {
 		watch WatchMeta
 		err   error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, &watch); err != nil {
+	if err = httputils.ShouldBind(c).WithUri(&opt).WithQuery(&watch).Error(); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

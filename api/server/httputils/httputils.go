@@ -114,24 +114,61 @@ func AbortFailedWithCode(c *gin.Context, code int, err error) {
 	c.Abort()
 }
 
-func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}, queryObject interface{}) error {
-	var err error
-	if jsonObject != nil {
-		if err = c.ShouldBindJSON(jsonObject); err != nil {
-			return err
-		}
+// func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}, queryObject interface{}) error {
+// 	var err error
+// 	if jsonObject != nil {
+// 		if err = c.ShouldBindJSON(jsonObject); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	if uriObject != nil {
+// 		if err = c.ShouldBindUri(uriObject); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	if queryObject != nil {
+// 		if err = c.ShouldBindQuery(queryObject); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
+
+type errBind struct {
+	ctx *gin.Context
+	err error
+}
+
+func ShouldBind(c *gin.Context) *errBind {
+	return &errBind{
+		ctx: c,
 	}
-	if uriObject != nil {
-		if err = c.ShouldBindUri(uriObject); err != nil {
-			return err
-		}
+}
+
+func (b *errBind) doBind(obj interface{}, bind func(obj interface{}) error) {
+	if b.err != nil {
+		return
 	}
-	if queryObject != nil {
-		if err = c.ShouldBindQuery(queryObject); err != nil {
-			return err
-		}
-	}
-	return nil
+	b.err = bind(obj)
+}
+
+func (b *errBind) WithBody(json interface{}) *errBind {
+	b.doBind(json, b.ctx.ShouldBindJSON)
+	return b
+}
+
+func (b *errBind) WithUri(uri interface{}) *errBind {
+	b.doBind(uri, b.ctx.ShouldBindUri)
+	return b
+}
+
+func (b *errBind) WithQuery(query interface{}) *errBind {
+	b.doBind(query, b.ctx.ShouldBindQuery)
+	return b
+}
+
+func (b *errBind) Error() error {
+	return b.err
 }
 
 const userKey = "user"

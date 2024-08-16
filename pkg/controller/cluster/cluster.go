@@ -116,7 +116,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	var cs *client.ClusterSet
-	var txFunc db.TxFunc = func() (err error) {
+	var txFunc = func() (err error) {
 		cs, err = client.NewClusterSet(req.KubeConfig)
 		return err
 	}
