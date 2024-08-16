@@ -44,7 +44,7 @@ type nodeMetricsInfo struct {
 	c                 *model.Cluster
 }
 
-func NewNodeMetrics(f db.ShareDaoFactory) *ClusterSyncer {
+func NewClusterSyncer(f db.ShareDaoFactory) *ClusterSyncer {
 	return &ClusterSyncer{
 		factory: f,
 	}
@@ -52,6 +52,10 @@ func NewNodeMetrics(f db.ShareDaoFactory) *ClusterSyncer {
 
 func (nm *ClusterSyncer) Name() string {
 	return "ClusterSyncer"
+}
+
+func (nm *ClusterSyncer) CronSpec() string {
+	return DefaultSyncInterval
 }
 
 func (nm *ClusterSyncer) Do(ctx *JobContext) (err error) {
