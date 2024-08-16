@@ -50,11 +50,9 @@ type KubeNode struct {
 type Cluster struct {
 	PixiuMeta `json:",inline"`
 
-	Name      string `json:"name"`
-	AliasName string `json:"alias_name"`
-
-	// 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 运行中断 5: 运行中，但存在节点不健康
-	Status model.ClusterStatus `json:"status"` // 标记集群状态，自建集群有部署更新状态
+	Name      string              `json:"name"`
+	AliasName string              `json:"alias_name"`
+	Status    model.ClusterStatus `json:"status"` // 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 集群失联，API不可用
 
 	// 0: 标准集群 1: 自建集群
 	ClusterType model.ClusterType `json:"cluster_type"`

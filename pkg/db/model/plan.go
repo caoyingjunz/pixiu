@@ -49,8 +49,6 @@ const (
 	ContainerdCRI CRI = "containerd"
 )
 
-type NodeHealthy uint8
-
 type Node struct {
 	pixiu.Model
 

@@ -89,7 +89,6 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 func (c *cluster) InternalUpdate(ctx context.Context, cid int64, updates map[string]interface{}) error {
 	// 系统维护字段
 	updates["gmt_modified"] = time.Now()
-
 	f := c.db.WithContext(ctx).Model(&model.Cluster{}).Where("id = ?", cid).Updates(updates)
 	if f.Error != nil {
 		return f.Error

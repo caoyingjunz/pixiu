@@ -55,9 +55,8 @@ func NMDefaultOptions() NodeMetricsOptions {
 	}
 }
 
-func NewNodeMetrics(cfg NodeMetricsOptions, dao db.ShareDaoFactory) *NodeMetrics {
+func NewNodeMetrics(dao db.ShareDaoFactory) *NodeMetrics {
 	return &NodeMetrics{
-		cfg: cfg,
 		dao: dao,
 	}
 }
@@ -103,7 +102,7 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 
 	// TODO：临时构造 client，后续通过 informer 的方式维护缓存
 	updates := make(map[string]interface{})
-	status := model.ClusterStatusInterrupt
+	status := model.ClusterStatusRunning
 	kubeNode := &types.KubeNode{
 		Ready:    make([]string, 0),
 		NotReady: make([]string, 0),
@@ -112,7 +111,7 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
 	if err != nil {
 		updates["status"] = status
-		return nmi.dao.Cluster().Update(nmi.ctx, nmi.c.Id, nmi.c.ResourceVersion, updates, false)
+		return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
 	}
 
 	nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
@@ -133,10 +132,6 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 			case "NotReady":
 				kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
 			}
-			// 如果没有有一个节点是 Ready，则集群状态为 AllNotNodeHealthy
-			if status != model.ClusterStatusRunning {
-				status = model.ClusterStatusAllNotNodeHealthy
-			}
 		}
 		data, err := kubeNode.Marshal()
 		if err == nil {
@@ -145,7 +140,7 @@ func (nmi *nodeMetricsInfo) doAsync() error {
 	}
 
 	updates["status"] = status
-	return nmi.dao.Cluster().Update(nmi.ctx, nmi.c.Id, nmi.c.ResourceVersion, updates, false)
+	return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
 }
 
 func parseKubeNodeStatus(node v1.Node) string {
