@@ -33,12 +33,11 @@ const (
 type ClusterStatus uint8
 
 const (
-	ClusterStatusRunning           ClusterStatus = iota // 运行中
-	ClusterStatusDeploy                                 // 部署中
-	ClusterStatusUnStart                                // 等待部署
-	ClusterStatusFailed                                 // 部署失败
-	ClusterStatusInterrupt                              // 运行中断
-	ClusterStatusAllNotNodeHealthy                      // 存在 node 且全部不健康
+	ClusterStatusRunning ClusterStatus = iota // 运行中
+	ClusterStatusDeploy                       // 部署中
+	ClusterStatusUnStart                      // 等待部署
+	ClusterStatusFailed                       // 部署失败
+	ClusterStatusError                        // 集群失联，API不可用
 )
 
 // Cluster kubernetes 集群信息

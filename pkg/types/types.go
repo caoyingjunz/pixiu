@@ -75,8 +75,7 @@ type Cluster struct {
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
 
-	KubernetesMeta `json:",inline"`
-	TimeMeta       `json:",inline"`
+	TimeMeta `json:",inline"`
 }
 
 // KubernetesMeta 记录 kubernetes 集群的数据

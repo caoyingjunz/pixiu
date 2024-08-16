@@ -123,13 +123,12 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
-		Name:          req.Name,
-		AliasName:     req.AliasName,
-		ClusterType:   req.Type,
-		ClusterStatus: model.ClusterStatusUnStart,
-		Protected:     req.Protected,
-		KubeConfig:    req.KubeConfig,
-		Description:   req.Description,
+		Name:        req.Name,
+		AliasName:   req.AliasName,
+		ClusterType: req.Type,
+		Protected:   req.Protected,
+		KubeConfig:  req.KubeConfig,
+		Description: req.Description,
 	}, txFunc); err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return errors.ErrServerInternal
@@ -159,7 +158,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 	if len(updates) == 0 {
 		return errors.ErrInvalidRequest
 	}
-	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates, true); err != nil {
+	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
@@ -252,7 +251,7 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error {
 	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, map[string]interface{}{
 		"protected": req.Protected,
-	}, true); err != nil {
+	}); err != nil {
 		klog.Errorf("failed to protect cluster(%d): %v", cid, err)
 		return err
 	}
@@ -714,17 +713,13 @@ func parseFloat64FromString(s string) float64 {
 	return f
 }
 
-func (c *cluster) unmarshalKubeNodes(nodes string) types.KubeNode {
-	var nodesJson types.KubeNode
-	if err := json.Unmarshal([]byte(nodes), &nodesJson); err != nil {
-		nodesJson = types.KubeNode{}
+func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
+	nodes := types.KubeNode{}
+	if err := nodes.Unmarshal(o.Nodes); err != nil {
+		// 非核心数据
+		klog.Warningf("failed to unmarshal cluster nodes: %v", err)
 	}
 
-	return nodesJson
-}
-
-func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
-	nodes := c.unmarshalKubeNodes(o.Nodes)
 	tc := &types.Cluster{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
