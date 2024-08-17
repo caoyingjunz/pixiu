@@ -93,6 +93,28 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 }
 
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
+	var (
+		status            string
+		kubernetesVersion string
+		nodeData          string
+		err               error
+	)
+
+	nodeData, kubernetesVersion, err = parseStatus(cluster)
+	if err != nil {
+
+	} else {
+
+	}
+
+	fmt.Println("status", status)
+	fmt.Println("nodes", nodeData)
+	fmt.Println("kubernetesVersion", kubernetesVersion)
+
+	return err
+}
+
+func parseStatus(cluster model.Cluster) (string, string, error) {
 	name := cluster.Name
 
 	var (
@@ -103,7 +125,7 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	if !ok {
 		clusterSet, err := client.NewClusterSet(cluster.KubeConfig)
 		if err != nil {
-			return err
+			return "", "", err
 		}
 		cs = *clusterSet
 		indexer.Set(name, cs)
@@ -111,7 +133,7 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 
 	nodes, err := cs.Informer.NodesLister().List(labels.Everything())
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	kubeNode := &types.KubeNode{Ready: make([]string, 0), NotReady: make([]string, 0)}
 	// 获取存储状态
@@ -125,8 +147,17 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 		}
 	}
 
-	fmt.Println("kubeNode,kubeNode", kubeNode)
-	return nil
+	nodeData, err := kubeNode.Marshal()
+	if err != nil {
+		return "", "", err
+	}
+
+	var kubernetesVersion string
+	if len(nodes) != 0 {
+		kubernetesVersion = nodes[0].Status.NodeInfo.KubeletVersion
+	}
+
+	return nodeData, kubernetesVersion, nil
 }
 
 //func (nmi *nodeMetricsInfo) doAsync() error {
@@ -180,6 +211,10 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 //	updates["status"] = status
 //	return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
 //}
+
+func CleanCache() {
+
+}
 
 func parseKubeNodeStatus(node *v1.Node) string {
 	status := "Ready"
