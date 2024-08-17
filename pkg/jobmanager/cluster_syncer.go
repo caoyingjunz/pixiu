@@ -119,7 +119,7 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 
 func parseStatus(update map[string]interface{}, status model.ClusterStatus, kubernetesVersion string, nodeData string, cluster model.Cluster) {
 	if status != cluster.ClusterStatus {
-		update["status"] = status
+		update["cluster_status"] = status
 	}
 	if kubernetesVersion != cluster.KubernetesVersion {
 		update["kubernetes_version"] = kubernetesVersion
