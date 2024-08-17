@@ -17,14 +17,18 @@ limitations under the License.
 package jobmanager
 
 import (
-	"golang.org/x/sync/errgroup"
+	"fmt"
+	"sync"
+
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	//"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
@@ -35,13 +39,10 @@ type ClusterSyncer struct {
 	factory db.ShareDaoFactory
 }
 
-type nodeMetricsInfo struct {
-	kubernetesVersion string
-	clusterName       string
-	clusterStatus     model.ClusterStatus
-	factory           db.ShareDaoFactory
-	ctx               *JobContext
-	c                 *model.Cluster
+var indexer client.Cache
+
+func init() {
+	indexer = *client.NewClusterCache()
 }
 
 func NewClusterSyncer(f db.ShareDaoFactory) *ClusterSyncer {
@@ -50,88 +51,137 @@ func NewClusterSyncer(f db.ShareDaoFactory) *ClusterSyncer {
 	}
 }
 
-func (nm *ClusterSyncer) Name() string {
+func (cs *ClusterSyncer) Name() string {
 	return "ClusterSyncer"
 }
 
-func (nm *ClusterSyncer) CronSpec() string {
+func (cs *ClusterSyncer) CronSpec() string {
 	return DefaultSyncInterval
 }
 
-func (nm *ClusterSyncer) Do(ctx *JobContext) (err error) {
-	cluster, err := nm.factory.Cluster().List(ctx)
+func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
+	clusters, err := cs.factory.Cluster().List(ctx)
 	if err != nil {
+		klog.Error("[ClusterSyncer] failed to get clusters: %v", err)
 		return err
 	}
 
-	var wg errgroup.Group
-	for _, c := range cluster {
-		// 创建一个局部变量并赋值以确保每个 goroutine 有自己的值副本
-		clusterName := c.Name
-		nmInfo := &nodeMetricsInfo{
-			c:           &c,
-			clusterName: clusterName,
-			ctx:         ctx,
-		}
-		wg.Go(nmInfo.doAsync)
-	}
-
-	return wg.Wait()
-}
-
-func (nmi *nodeMetricsInfo) doAsync() error {
-	object, err := nmi.dao.Cluster().GetClusterByName(nmi.ctx, nmi.clusterName)
-	if err != nil {
-		return err
-	}
-	if object == nil {
-		return err
-	}
-
-	// TODO：临时构造 client，后续通过 informer 的方式维护缓存
-	updates := make(map[string]interface{})
-	status := model.ClusterStatusRunning
-	kubeNode := &types.KubeNode{
-		Ready:    make([]string, 0),
-		NotReady: make([]string, 0),
-	}
-
-	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
-	if err != nil {
-		updates["status"] = status
-		return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
-	}
-
-	nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
-	if err == nil {
-		nodes := nodeList.Items
-		// 获取 kubernetes 版本
-		if len(nodes) != 0 {
-			updates["kubernetes_version"] = nodes[0].Status.NodeInfo.KubeletVersion
-		}
-
-		// 获取存储状态
-		for _, node := range nodes {
-			nodeStatus := parseKubeNodeStatus(node)
-			switch nodeStatus {
-			case "Ready":
-				kubeNode.Ready = append(kubeNode.Ready, node.Name)
-				status = model.ClusterStatusRunning
-			case "NotReady":
-				kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
+	diff := len(clusters)
+	errCh := make(chan error, diff)
+	var wg sync.WaitGroup
+	wg.Add(diff)
+	for _, cluster := range clusters {
+		go func(c model.Cluster) {
+			defer wg.Done()
+			if err = doSync(cs.factory, c); err != nil {
+				errCh <- err
 			}
+		}(cluster)
+	}
+	wg.Wait()
+
+	select {
+	case err = <-errCh:
+		if err != nil {
+			klog.Error("failed to sync cluster status: %v", err)
 		}
-		data, err := kubeNode.Marshal()
-		if err == nil {
-			updates["nodes"] = data
+	default:
+	}
+
+	// 清理过期 clusterSet
+	return nil
+}
+
+func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
+	name := cluster.Name
+
+	var (
+		cs client.ClusterSet
+		ok bool
+	)
+	cs, ok = indexer.Get(name)
+	if !ok {
+		clusterSet, err := client.NewClusterSet(cluster.KubeConfig)
+		if err != nil {
+			return err
+		}
+		cs = *clusterSet
+		indexer.Set(name, cs)
+	}
+
+	nodes, err := cs.Informer.NodesLister().List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	kubeNode := &types.KubeNode{Ready: make([]string, 0), NotReady: make([]string, 0)}
+	// 获取存储状态
+	for _, node := range nodes {
+		nodeStatus := parseKubeNodeStatus(node)
+		switch nodeStatus {
+		case "Ready":
+			kubeNode.Ready = append(kubeNode.Ready, node.Name)
+		case "NotReady":
+			kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
 		}
 	}
 
-	updates["status"] = status
-	return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
+	fmt.Println("kubeNode,kubeNode", kubeNode)
+	return nil
 }
 
-func parseKubeNodeStatus(node v1.Node) string {
+//func (nmi *nodeMetricsInfo) doAsync() error {
+//	object, err := nmi.dao.Cluster().GetClusterByName(nmi.ctx, nmi.clusterName)
+//	if err != nil {
+//		return err
+//	}
+//	if object == nil {
+//		return err
+//	}
+//
+//	// TODO：临时构造 client，后续通过 informer 的方式维护缓存
+//	updates := make(map[string]interface{})
+//	status := model.ClusterStatusRunning
+//	kubeNode := &types.KubeNode{
+//		Ready:    make([]string, 0),
+//		NotReady: make([]string, 0),
+//	}
+//
+//	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
+//	if err != nil {
+//		updates["status"] = status
+//		return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
+//	}
+//
+//	nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
+//	if err == nil {
+//		nodes := nodeList.Items
+//		// 获取 kubernetes 版本
+//		if len(nodes) != 0 {
+//			updates["kubernetes_version"] = nodes[0].Status.NodeInfo.KubeletVersion
+//		}
+//
+//		// 获取存储状态
+//		for _, node := range nodes {
+//			nodeStatus := parseKubeNodeStatus(node)
+//			switch nodeStatus {
+//			case "Ready":
+//				kubeNode.Ready = append(kubeNode.Ready, node.Name)
+//				status = model.ClusterStatusRunning
+//			case "NotReady":
+//				kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
+//			}
+//		}
+//		data, err := kubeNode.Marshal()
+//		if err == nil {
+//			updates["nodes"] = data
+//		}
+//	}
+//
+//	updates["status"] = status
+//	return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
+//}
+
+func parseKubeNodeStatus(node *v1.Node) string {
 	status := "Ready"
 	for _, condition := range node.Status.Conditions {
 		if condition.Type != v1.NodeReady {
