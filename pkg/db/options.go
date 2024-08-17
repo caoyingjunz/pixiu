@@ -16,7 +16,11 @@ limitations under the License.
 
 package db
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Options func(*gorm.DB) *gorm.DB
 
@@ -35,7 +39,7 @@ func WithOrderByDesc() Options {
 func WithOffset(offset int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Offset(offset)
-  }
+	}
 }
 
 func WithCreatedBefore(t time.Time) Options {
