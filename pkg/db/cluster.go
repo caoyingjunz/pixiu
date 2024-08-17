@@ -33,6 +33,9 @@ type ClusterInterface interface {
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)
 	List(ctx context.Context, opts ...Options) ([]model.Cluster, error)
 
+	// InternalUpdate 内部更新，不更新版本号
+	InternalUpdate(ctx context.Context, cid int64, updates map[string]interface{}) error
+
 	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
 	UpdateByPlan(ctx context.Context, planId int64, updates map[string]interface{}) error
 }
@@ -69,6 +72,21 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 	updates["resource_version"] = resourceVersion + 1
 
 	f := c.db.WithContext(ctx).Model(&model.Cluster{}).Where("id = ? and resource_version = ?", cid, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotUpdate
+	}
+
+	return nil
+}
+
+// InternalUpdate 程序内部更新
+func (c *cluster) InternalUpdate(ctx context.Context, cid int64, updates map[string]interface{}) error {
+	// 系统维护字段
+	updates["gmt_modified"] = time.Now()
+	f := c.db.WithContext(ctx).Model(&model.Cluster{}).Where("id = ?", cid).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}

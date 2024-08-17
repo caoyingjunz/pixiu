@@ -745,6 +745,12 @@ func parseFloat64FromString(s string) float64 {
 }
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
+	nodes := types.KubeNode{}
+	if err := nodes.Unmarshal(o.Nodes); err != nil {
+		// 非核心数据
+		klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+	}
+
 	tc := &types.Cluster{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -754,37 +760,39 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Name:        o.Name,
-		AliasName:   o.AliasName,
-		ClusterType: o.ClusterType,
-		PlanId:      o.PlanId,
-		Status:      model.ClusterStatusRunning, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
-		Protected:   o.Protected,
-		Description: o.Description,
+		Name:              o.Name,
+		AliasName:         o.AliasName,
+		ClusterType:       o.ClusterType,
+		KubernetesVersion: o.KubernetesVersion,
+		Nodes:             nodes,
+		PlanId:            o.PlanId,
+		Status:            o.ClusterStatus, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
+		Protected:         o.Protected,
+		Description:       o.Description,
 	}
 
-	var (
-		kubernetesMeta *types.KubernetesMeta
-		err            error
-	)
-
-	if o.ClusterType == model.ClusterTypeStandard {
-		// 导入的集群通过API获取相关数据
-		// 获取失败时，返回空的 kubernetes Meta, 不终止主流程
-		// TODO: 后续改成并发处理
-		kubernetesMeta, err = c.GetKubernetesMeta(context.TODO(), o.Name)
-	} else {
-		// 自建的集群通过plan配置获取版本信息
-		kubernetesMeta, err = c.GetKubernetesMetaFromPlan(context.TODO(), o.PlanId)
-
-		// 自建的集群需要从 plan task 获取状态
-		tc.Status, _ = c.GetClusterStatusFromPlanTask(o.PlanId)
-	}
-	if err != nil {
-		klog.Warning("failed to get kubernetes Meta: %v", err)
-	} else {
-		tc.KubernetesMeta = *kubernetesMeta
-	}
+	//var (
+	//	kubernetesMeta *types.KubernetesMeta
+	//	err            error
+	//)
+	//
+	//if o.ClusterType == model.ClusterTypeStandard {
+	//	// 导入的集群通过API获取相关数据
+	//	// 获取失败时，返回空的 kubernetes Meta, 不终止主流程
+	//	// TODO: 后续改成并发处理
+	//	kubernetesMeta, err = c.GetKubernetesMeta(context.TODO(), o.Name)
+	//} else {
+	//	// 自建的集群通过plan配置获取版本信息
+	//	kubernetesMeta, err = c.GetKubernetesMetaFromPlan(context.TODO(), o.PlanId)
+	//
+	//	// 自建的集群需要从 plan task 获取状态
+	//	tc.Status, _ = c.GetClusterStatusFromPlanTask(o.PlanId)
+	//}
+	//if err != nil {
+	//	klog.Warning("failed to get kubernetes Meta: %v", err)
+	//} else {
+	//	tc.KubernetesMeta = *kubernetesMeta
+	//}
 
 	return tc
 }
