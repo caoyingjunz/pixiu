@@ -25,12 +25,27 @@ import (
 
 func (a *authRouter) createPolicy(c *gin.Context) {
 	r := httputils.NewResponse()
-	var req types.CreateRBACPolicyRequest
+	var req types.RBACPolicyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 	if err := a.c.Auth().CreateRBACPolicy(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) deletePolicy(c *gin.Context) {
+	r := httputils.NewResponse()
+	var req types.RBACPolicyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := a.c.Auth().DeleteRBACPolicy(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

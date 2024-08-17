@@ -19,10 +19,12 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"sort"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	appsv1 "k8s.io/client-go/listers/apps/v1"
+	listersv1 "k8s.io/client-go/listers/apps/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
@@ -64,7 +66,7 @@ func (c *cluster) GetPod(ctx context.Context, podsLister v1.PodLister, namespace
 	return pod, nil
 }
 
-func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister appsv1.DeploymentLister, namespace string, name string) (interface{}, error) {
+func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister listersv1.DeploymentLister, namespace string, name string) (interface{}, error) {
 	deploy, err := deploymentsLister.Deployments(namespace).Get(name)
 	if err != nil {
 		klog.Error("failed to get deployment (%s/%s) from indexer: %v", namespace, name, err)
@@ -96,6 +98,16 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 		return nil, err
 	}
 
+	sort.SliceStable(pods, func(i, j int) bool {
+		return pods[i].ObjectMeta.GetName() < pods[j].ObjectMeta.GetName()
+	})
+	// 全量获取 pod 时，以命名空间排序
+	if len(namespace) == 0 {
+		sort.SliceStable(pods, func(i, j int) bool {
+			return pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace()
+		})
+	}
+
 	return types.PageResponse{
 		PageRequest: pageOption,
 		Total:       len(pods),
@@ -107,25 +119,46 @@ func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.PageRequest) 
 	if !pageOption.IsPaged() {
 		return pods
 	}
-
-	total := len(pods)
-	offset := (pageOption.Page - 1) * pageOption.Limit
-	if offset > total {
+	offset, end, err := pageOption.Offset(len(pods))
+	if err != nil {
 		return nil
-	}
-	end := offset + pageOption.Limit
-	if end > total {
-		end = total
 	}
 
 	return pods[offset:end]
 }
 
-func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister appsv1.DeploymentLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+// ListDeployments
+// TODO: 后续优化
+func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listersv1.DeploymentLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
 	deployments, err := deploymentsLister.Deployments(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	return deployments, nil
+	sort.SliceStable(deployments, func(i, j int) bool {
+		return deployments[i].ObjectMeta.GetName() < deployments[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(deployments, func(i, j int) bool {
+			return deployments[i].ObjectMeta.GetNamespace() < deployments[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(deployments),
+		Items:       c.deploymentsForPage(deployments, pageOption),
+	}, nil
+}
+
+func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return deployments
+	}
+	offset, end, err := pageOption.Offset(len(deployments))
+	if err != nil {
+		return nil
+	}
+
+	return deployments[offset:end]
 }
