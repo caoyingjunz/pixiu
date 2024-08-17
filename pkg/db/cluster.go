@@ -18,7 +18,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -27,14 +26,12 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-type TxFunc func() error
-
 type ClusterInterface interface {
-	Create(ctx context.Context, object *model.Cluster, fns ...TxFunc) (*model.Cluster, error)
+	Create(ctx context.Context, object *model.Cluster, fns ...func(*model.Cluster) error) (*model.Cluster, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, cid int64) (*model.Cluster, error)
+	Delete(ctx context.Context, cluster *model.Cluster, fns ...func(*model.Cluster) error) error
 	Get(ctx context.Context, cid int64) (*model.Cluster, error)
-	List(ctx context.Context) ([]model.Cluster, error)
+	List(ctx context.Context, opts ...Options) ([]model.Cluster, error)
 
 	// InternalUpdate 内部更新，不更新版本号
 	InternalUpdate(ctx context.Context, cid int64, updates map[string]interface{}) error
@@ -47,7 +44,7 @@ type cluster struct {
 	db *gorm.DB
 }
 
-func (c *cluster) Create(ctx context.Context, object *model.Cluster, fns ...TxFunc) (*model.Cluster, error) {
+func (c *cluster) Create(ctx context.Context, object *model.Cluster, fns ...func(*model.Cluster) error) (*model.Cluster, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -58,7 +55,7 @@ func (c *cluster) Create(ctx context.Context, object *model.Cluster, fns ...TxFu
 		}
 
 		for _, fn := range fns {
-			if err := fn(); err != nil {
+			if err := fn(object); err != nil {
 				return err
 			}
 		}
@@ -100,27 +97,23 @@ func (c *cluster) InternalUpdate(ctx context.Context, cid int64, updates map[str
 	return nil
 }
 
-func (c *cluster) Delete(ctx context.Context, cid int64) (*model.Cluster, error) {
+func (c *cluster) Delete(ctx context.Context, cluster *model.Cluster, fns ...func(*model.Cluster) error) error {
 	// 仅当数据库支持回写功能时才能正常
 	//if err := c.db.Clauses(clause.Returning{}).Where("id = ?", cid).Delete(&object).Error; err != nil {
 	//	return nil, err
 	//}
-	object, err := c.Get(ctx, cid)
-	if err != nil {
-		return nil, err
-	}
-	if object == nil {
-		return nil, nil
-	}
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(cluster).Error; err != nil {
+			return err
+		}
 
-	if object.Protected {
-		return nil, fmt.Errorf("集群开启删除保护，不允许被删除")
-	}
-	if err = c.db.WithContext(ctx).Where("id = ?", cid).Delete(&model.Cluster{}).Error; err != nil {
-		return nil, err
-	}
-
-	return object, nil
+		for _, fn := range fns {
+			if err := fn(cluster); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
@@ -135,9 +128,13 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
 	return &object, nil
 }
 
-func (c *cluster) List(ctx context.Context) ([]model.Cluster, error) {
+func (c *cluster) List(ctx context.Context, opts ...Options) ([]model.Cluster, error) {
 	var cs []model.Cluster
-	if err := c.db.WithContext(ctx).Find(&cs).Error; err != nil {
+	tx := c.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&cs).Error; err != nil {
 		return nil, err
 	}
 
