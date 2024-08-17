@@ -17,7 +17,7 @@ limitations under the License.
 package jobmanager
 
 import (
-	"fmt"
+	"context"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -89,32 +89,48 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	}
 
 	// 清理过期 clusterSet
+	cleanLister(clusters)
 	return nil
 }
 
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
+	// TODO: 过滤自建集群正在部署的集群
 	var (
-		status            string
 		kubernetesVersion string
 		nodeData          string
 		err               error
 	)
+	status := model.ClusterStatusRunning
+	updates := make(map[string]interface{})
 
-	nodeData, kubernetesVersion, err = parseStatus(cluster)
+	nodeData, kubernetesVersion, err = getNewestKubeStatus(cluster)
 	if err != nil {
-
-	} else {
-
+		status = model.ClusterStatusError
+	}
+	parseStatus(updates, status, kubernetesVersion, nodeData, cluster)
+	if len(updates) == 0 {
+		return nil
 	}
 
-	fmt.Println("status", status)
-	fmt.Println("nodes", nodeData)
-	fmt.Println("kubernetesVersion", kubernetesVersion)
-
-	return err
+	if err = f.Cluster().InternalUpdate(context.TODO(), cluster.Id, updates); err != nil {
+		klog.Error("failed to update cluster(%s) status: %v", cluster.Name, err)
+	}
+	return nil
 }
 
-func parseStatus(cluster model.Cluster) (string, string, error) {
+func parseStatus(update map[string]interface{}, status model.ClusterStatus, kubernetesVersion string, nodeData string, cluster model.Cluster) {
+	if status != cluster.ClusterStatus {
+		update["status"] = status
+	}
+	if kubernetesVersion != cluster.KubernetesVersion {
+		update["kubernetes_version"] = kubernetesVersion
+	}
+	if nodeData != cluster.Nodes {
+		update["nodes"] = nodeData
+	}
+}
+
+func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 	name := cluster.Name
 
 	var (
@@ -160,60 +176,8 @@ func parseStatus(cluster model.Cluster) (string, string, error) {
 	return nodeData, kubernetesVersion, nil
 }
 
-//func (nmi *nodeMetricsInfo) doAsync() error {
-//	object, err := nmi.dao.Cluster().GetClusterByName(nmi.ctx, nmi.clusterName)
-//	if err != nil {
-//		return err
-//	}
-//	if object == nil {
-//		return err
-//	}
-//
-//	// TODO：临时构造 client，后续通过 informer 的方式维护缓存
-//	updates := make(map[string]interface{})
-//	status := model.ClusterStatusRunning
-//	kubeNode := &types.KubeNode{
-//		Ready:    make([]string, 0),
-//		NotReady: make([]string, 0),
-//	}
-//
-//	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
-//	if err != nil {
-//		updates["status"] = status
-//		return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
-//	}
-//
-//	nodeList, err := newClusterSet.Client.CoreV1().Nodes().List(nmi.ctx, metav1.ListOptions{})
-//	if err == nil {
-//		nodes := nodeList.Items
-//		// 获取 kubernetes 版本
-//		if len(nodes) != 0 {
-//			updates["kubernetes_version"] = nodes[0].Status.NodeInfo.KubeletVersion
-//		}
-//
-//		// 获取存储状态
-//		for _, node := range nodes {
-//			nodeStatus := parseKubeNodeStatus(node)
-//			switch nodeStatus {
-//			case "Ready":
-//				kubeNode.Ready = append(kubeNode.Ready, node.Name)
-//				status = model.ClusterStatusRunning
-//			case "NotReady":
-//				kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
-//			}
-//		}
-//		data, err := kubeNode.Marshal()
-//		if err == nil {
-//			updates["nodes"] = data
-//		}
-//	}
-//
-//	updates["status"] = status
-//	return nmi.dao.Cluster().InternalUpdate(nmi.ctx, nmi.c.Id, updates)
-//}
-
-func CleanCache() {
-
+func cleanLister(clusters []model.Cluster) {
+	// TODO
 }
 
 func parseKubeNodeStatus(node *v1.Node) string {
