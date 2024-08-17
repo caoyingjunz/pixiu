@@ -35,6 +35,12 @@ func WithOrderByDesc() Options {
 func WithOffset(offset int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Offset(offset)
+  }
+}
+
+func WithCreatedBefore(t time.Time) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("gmt_create < ?", t)
 	}
 }
 

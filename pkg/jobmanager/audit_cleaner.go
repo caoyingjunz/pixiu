@@ -16,14 +16,35 @@ limitations under the License.
 
 package jobmanager
 
-import "github.com/caoyingjunz/pixiu/pkg/db"
+import (
+	"github.com/caoyingjunz/pixiu/pkg/db"
+)
+
+const (
+	DefaultSchedule     = "0 0 * * 6" // 每周六 0 点执行
+	DefaultDaysReserved = 30          // 保留 30 天的审计日志
+)
 
 type AuditsCleaner struct {
+	cfg AuditOptions
 	dao db.ShareDaoFactory
 }
 
-func NewAuditsCleaner(dao db.ShareDaoFactory) *AuditsCleaner {
+type AuditOptions struct {
+	Schedule     string `yaml:"schedule"`
+	DaysReserved int    `yaml:"days_reserved"`
+}
+
+func DefaultOptions() AuditOptions {
+	return AuditOptions{
+		Schedule:     DefaultSchedule,
+		DaysReserved: DefaultDaysReserved,
+	}
+}
+
+func NewAuditsCleaner(cfg AuditOptions, dao db.ShareDaoFactory) *AuditsCleaner {
 	return &AuditsCleaner{
+		cfg: cfg,
 		dao: dao,
 	}
 }
@@ -33,11 +54,23 @@ func (ac *AuditsCleaner) Name() string {
 }
 
 func (ac *AuditsCleaner) CronSpec() string {
-	// TODO:
-	return "* * * * *"
+	return ac.cfg.Schedule
 }
 
 func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
-	// TODO: do clean audit records
+	resv := ac.cfg.DaysReserved
+	before := ctx.StartTime.AddDate(0, 0, -resv)
+	entries := map[string]interface{}{
+		"days_reserved": resv,
+		"deadline":      before,
+	}
+	entries["records_deleted"], err = ac.dao.Audit().BatchDelete(ctx, db.WithCreatedBefore(before))
+	ctx.WithLogFields(entries)
+
 	return
+}
+
+func (a *AuditOptions) Valid() error {
+	// TODO
+	return nil
 }

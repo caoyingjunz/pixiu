@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"k8s.io/klog/v2"
 
@@ -88,12 +89,13 @@ func (w *auditWriter) asyncAudit(c *gin.Context) {
 	}
 
 	audit := &model.Audit{
-		Action:       c.Request.Method,
-		Ip:           c.ClientIP(),
-		Operator:     userName,
-		Path:         c.Request.RequestURI,
-		ResourceType: obj,
-		Status:       status,
+		RequestId:  requestid.Get(c),
+		Action:     c.Request.Method,
+		Ip:         c.ClientIP(),
+		Operator:   userName,
+		Path:       c.Request.RequestURI,
+		ObjectType: model.ObjectType(obj),
+		Status:     status,
 	}
 	if _, err := w.opts.Factory.Audit().Create(context.TODO(), audit); err != nil {
 		klog.Errorf("failed to create audit record [%s]: %v", audit.String(), err)

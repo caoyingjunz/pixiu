@@ -51,7 +51,6 @@ func (c *JobContext) WithLogFields(fields map[string]interface{}) {
 
 func (c *JobContext) Logger(err error) {
 	fields := klog.Fields{
-		"time":    c.StartTime,
 		"latency": fmt.Sprintf("%dµs", time.Since(c.StartTime).Microseconds()),
 	}
 	if sqls := db.GetSQLs(c); len(sqls) > 0 {

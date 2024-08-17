@@ -113,6 +113,12 @@ func (o *Options) Complete() error {
 	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
 	}
+	if o.ComponentConfig.Audit.Schedule == "" {
+		o.ComponentConfig.Audit.Schedule = jobmanager.DefaultSchedule
+	}
+	if o.ComponentConfig.Audit.DaysReserved == 0 {
+		o.ComponentConfig.Audit.DaysReserved = jobmanager.DefaultDaysReserved
+	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
 		return err
@@ -126,7 +132,7 @@ func (o *Options) Complete() error {
 	o.Controller = controller.New(o.ComponentConfig, o.Factory, o.Enforcer)
 
 	o.JobManager = jobmanager.NewManager(
-		jobmanager.NewAuditsCleaner(o.Factory),
+		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 	)
 	return nil
 }
