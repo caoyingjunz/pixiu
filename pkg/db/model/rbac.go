@@ -16,6 +16,10 @@ limitations under the License.
 
 package model
 
+import (
+	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
+)
+
 type Operation string
 
 const (
@@ -90,4 +94,10 @@ type CasbinRBACImpl struct{}
 // e.g. ["foo", "clusters", "*", "read"]
 func MakePolicy(username string, obj ObjectType, sid string, op Operation) []string {
 	return []string{username, obj.String(), sid, op.String()}
+}
+
+// MakePolicyFromModels returns a policy slice.
+// e.g. ["foo", "clusters", "*", "*"]
+func MakePolicyFromModels(user *User, obj ObjectType, model pixiu.Model, op Operation) []string {
+	return MakePolicy(user.Name, obj, model.GetSID(), op)
 }
