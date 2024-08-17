@@ -45,15 +45,12 @@ func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resour
 		return nil, err
 	}
 
-	// TODO: 后续优化 switch
-	switch resource {
-	case ResourcePod:
-		return c.GetPod(ctx, cs.Informer.PodsLister(), namespace, name)
-	case ResourceDeployment:
-		return c.GetDeployment(ctx, cs.Informer.DeploymentsLister(), namespace, name)
+	// getter functions should be registered in NewCluster function
+	fn, ok := c.getterFuncs[resource]
+	if !ok {
+		return nil, fmt.Errorf("unsupported resource type %s", resource)
 	}
-
-	return nil, fmt.Errorf("unsupported resource type %s", resource)
+	return fn(ctx, cs.Informer, namespace, name)
 }
 
 func (c *cluster) GetPod(ctx context.Context, podsLister v1.PodLister, namespace string, name string) (interface{}, error) {

@@ -93,12 +93,16 @@ func init() {
 	clusterIndexer = *client.NewClusterCache()
 }
 
-type lister func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error)
+type (
+	lister func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error)
+	getter func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error)
+)
 
 type cluster struct {
 	cc          config.Config
 	factory     db.ShareDaoFactory
 	listerFuncs map[string]lister
+	getterFuncs map[string]getter
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
@@ -787,18 +791,34 @@ func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatu
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
 	c := &cluster{
-		cc:      cfg,
-		factory: f,
+		cc:          cfg,
+		factory:     f,
+		listerFuncs: make(map[string]lister),
+		getterFuncs: make(map[string]getter),
 	}
+	// TODO: code generation?
 	// register resource lister functions here
-	c.listerFuncs = map[string]lister{
-		ResourcePod: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+	c.doRegisterFuncs(ResourcePod,
+		func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
 			return c.ListPods(ctx, informer.PodsLister(), namespace, pageOpts)
 		},
-		ResourceDeployment: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+		func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+			return c.GetPod(ctx, informer.PodsLister(), namespace, name)
+		},
+	)
+	// register resource getter functions here
+	c.doRegisterFuncs(ResourceDeployment,
+		func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
 			return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, pageOpts)
 		},
-		// etc...
-	}
+		func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+			return c.GetDeployment(ctx, informer.DeploymentsLister(), namespace, name)
+		},
+	)
 	return c
+}
+
+func (c *cluster) doRegisterFuncs(resource string, listerFunc lister, getterFunc getter) {
+	c.listerFuncs[resource] = listerFunc
+	c.getterFuncs[resource] = getterFunc
 }
