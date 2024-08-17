@@ -176,7 +176,18 @@ func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 }
 
 func cleanLister(clusters []model.Cluster) {
-	// TODO
+	cs := make(map[string]bool)
+	for _, cluster := range clusters {
+		cs[cluster.Name] = true
+	}
+
+	for name := range indexer.List() {
+		if cs[name] {
+			continue
+		}
+		klog.Infof("lister %s will be delete from indexer", name)
+		indexer.Delete(name)
+	}
 }
 
 func parseKubeNodeStatus(node *v1.Node) string {
