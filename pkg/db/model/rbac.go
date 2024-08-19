@@ -17,7 +17,16 @@ limitations under the License.
 package model
 
 import (
+	"reflect"
+	"strconv"
+
 	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
+	"github.com/caoyingjunz/pixiu/pkg/util"
+)
+
+const (
+	AdminGroup = "root"
+	SidAll     = "*"
 )
 
 type Operation string
@@ -66,6 +75,27 @@ var ObjectTypeMap = map[ObjectType]struct{}{
 	ObjectAll:     {},
 }
 
+// AdminPolicy is the specific policy for admin/root user.
+var AdminPolicy = []string{AdminGroup, ObjectAll.String(), SidAll, OpAll.String()}
+
+// IsAdminPolicy returns true if the policy is the admin policy.
+func IsAdminPolicy(policy []string) bool {
+	return reflect.DeepEqual(policy, AdminPolicy)
+}
+
+// HasAdminPolicy returns true if the policies contain the admin policy.
+func HasAdminGroupPolicy(policies [][]string) bool {
+	for _, policy := range policies {
+		if len(policy) < 2 {
+			// invalid group policy
+			continue
+		} else if policy[1] == AdminGroup {
+			return true
+		}
+	}
+	return false
+}
+
 // TODO:
 type RBACInterface interface{}
 
@@ -100,4 +130,40 @@ func MakePolicy(username string, obj ObjectType, sid string, op Operation) []str
 // e.g. ["foo", "clusters", "*", "*"]
 func MakePolicyFromModels(user *User, obj ObjectType, model pixiu.Model, op Operation) []string {
 	return MakePolicy(user.Name, obj, model.GetSID(), op)
+}
+
+// NOTE: GetIdRangeFromPolicies is only used for listing API request.
+// GetIdRangeFromPolicies returns true and an empty list when policy with all operation(*) are allowed exists,
+// otherwise it returns false and a list of object IDs.
+func GetIdRangeFromPolicies(policies [][]string) (all bool, ids []int64) {
+	ids = make([]int64, 0)
+	for _, policy := range policies {
+		// e.g. ["foo", "clusters", "*", "read"]
+		if len(policy) != 4 {
+			// invalid policy
+			continue
+		}
+
+		sid := policy[2]
+		switch sid {
+		case "":
+			continue
+		case SidAll:
+			// permit to read all
+			return true, []int64{}
+		}
+
+		// operation
+		if !(policy[3] == OpRead.String() || policy[3] == OpAll.String()) {
+			continue
+		}
+
+		id, err := strconv.ParseInt(sid, 10, 64)
+		if err != nil {
+			// invalid sid
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return false, util.DeduplicateIntSlice(ids)
 }
