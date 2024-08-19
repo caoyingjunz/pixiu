@@ -175,7 +175,7 @@ func (o *Options) registerEnforcer() error {
 	}
 
 	// Add an super admin policy.
-	_, err = o.Enforcer.AddPolicy("root", "*", "*", "*")
+	_, err = o.Enforcer.AddPolicy(pixiuModel.AdminPolicy)
 	return err
 }
 

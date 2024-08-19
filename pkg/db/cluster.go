@@ -30,7 +30,7 @@ type ClusterInterface interface {
 	Create(ctx context.Context, object *model.Cluster, fns ...func(*model.Cluster) error) (*model.Cluster, error)
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cluster *model.Cluster, fns ...func(*model.Cluster) error) error
-	Get(ctx context.Context, cid int64) (*model.Cluster, error)
+	Get(ctx context.Context, cid int64, opts ...Options) (*model.Cluster, error)
 	List(ctx context.Context, opts ...Options) ([]model.Cluster, error)
 
 	// InternalUpdate 内部更新，不更新版本号
@@ -116,9 +116,13 @@ func (c *cluster) Delete(ctx context.Context, cluster *model.Cluster, fns ...fun
 	})
 }
 
-func (c *cluster) Get(ctx context.Context, cid int64) (*model.Cluster, error) {
+func (c *cluster) Get(ctx context.Context, cid int64, opts ...Options) (*model.Cluster, error) {
 	var object model.Cluster
-	if err := c.db.WithContext(ctx).Where("id = ?", cid).First(&object).Error; err != nil {
+	tx := c.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object, cid).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}

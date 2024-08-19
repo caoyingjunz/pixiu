@@ -46,6 +46,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -244,14 +245,15 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 }
 
 func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
-	objects, err := c.factory.Cluster().List(ctx)
+	opts := ctrlutil.MakeDbOptions(ctx)
+	objects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	var cs []types.Cluster
-	for _, object := range objects {
-		cs = append(cs, *c.model2Type(&object))
+	cs := make([]types.Cluster, len(objects))
+	for i, object := range objects {
+		cs[i] = *c.model2Type(&object)
 	}
 
 	return cs, nil

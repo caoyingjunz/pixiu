@@ -135,3 +135,18 @@ func BuildWebSocketConnection(w http.ResponseWriter, r *http.Request) (*websocke
 	upgrader.Subprotocols = []string{r.Header.Get("Sec-WebSocket-Protocol")}
 	return upgrader.Upgrade(w, r, nil)
 }
+
+// DeduplicateIntSlice returns a new slice with duplicated elements removed.
+func DeduplicateIntSlice(s []int64) (ret []int64) {
+	ret = make([]int64, 0)
+	m := make(map[int64]struct{})
+	for _, v := range s {
+		if _, ok := m[v]; ok {
+			continue
+		}
+		m[v] = struct{}{}
+		ret = append(ret, v)
+	}
+
+	return
+}

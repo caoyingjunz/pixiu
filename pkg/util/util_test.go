@@ -16,7 +16,10 @@ limitations under the License.
 
 package util
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestValidateStrongPassword(t *testing.T) {
 	tests := []struct {
@@ -99,6 +102,109 @@ func TestValidateStrongPassword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ValidateStrongPassword(tt.password); got != tt.want {
 				t.Errorf("ValidateStrongPassword() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDeduplicateIntSlice(t *testing.T) {
+	type args struct {
+		s []int64
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int64
+	}{
+		{
+			name: "case 1",
+			args: args{
+				s: []int64{1, 2, 3, 4, 5},
+			},
+			want: []int64{1, 2, 3, 4, 5},
+		},
+		{
+			name: "case 2",
+			args: args{
+				s: []int64{1, 1, 1, 1, 1},
+			},
+			want: []int64{1},
+		},
+		{
+			name: "case 3",
+			args: args{
+				s: []int64{1, 1, 2, 3, 4, 5},
+			},
+			want: []int64{1, 2, 3, 4, 5},
+		},
+		{
+			name: "case 4",
+			args: args{
+				s: []int64{1, 1, 2, 1, 3, 4, 5},
+			},
+			want: []int64{1, 2, 3, 4, 5},
+		},
+		{
+			name: "case 5",
+			args: args{
+				s: []int64{1, 2, 3, 4, 5, 5, 5, 5},
+			},
+			want: []int64{1, 2, 3, 4, 5},
+		},
+		{
+			name: "case 6",
+			args: args{
+				s: []int64{5, 1, 4, 2, 3, 3, 2, 4, 1, 5},
+			},
+			want: []int64{5, 1, 4, 2, 3},
+		},
+		{
+			name: "case 7",
+			args: args{
+				s: []int64{1, 1, 1, 2, 3, 3, 4, 4, 5, 5, 5},
+			},
+			want: []int64{1, 2, 3, 4, 5},
+		},
+		{
+			name: "case 8",
+			args: args{
+				s: []int64{1, 2, 3, 4, 5, 5, 5, 5, 4, 3, 2, 1},
+			},
+			want: []int64{1, 2, 3, 4, 5},
+		},
+		{
+			name: "case 9",
+			args: args{
+				s: []int64{1, 2, 3, 4, 5, 5, 5, 5, 4, 3, 2, 1, 1, 1},
+			},
+			want: []int64{1, 2, 3, 4, 5},
+		},
+		{
+			name: "case 10",
+			args: args{
+				s: []int64{1, 2, 3, 4, 5, 5, 5, 5, 4, 3, 2, 1, 1, 1, 2, 3, 4, 5},
+			},
+			want: []int64{1, 2, 3, 4, 5},
+		},
+		{
+			name: "case 11",
+			args: args{
+				s: []int64{},
+			},
+			want: []int64{},
+		},
+		{
+			name: "case 12",
+			args: args{
+				s: nil,
+			},
+			want: []int64{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DeduplicateIntSlice(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("DeduplicateIntSlice() = %v, want %v", got, tt.want)
 			}
 		})
 	}
