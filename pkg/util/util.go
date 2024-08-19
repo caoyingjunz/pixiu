@@ -135,3 +135,24 @@ func BuildWebSocketConnection(w http.ResponseWriter, r *http.Request) (*websocke
 	upgrader.Subprotocols = []string{r.Header.Get("Sec-WebSocket-Protocol")}
 	return upgrader.Upgrade(w, r, nil)
 }
+
+type ExpireValue struct {
+	Ttl      time.Duration
+	value    interface{}
+	initTime time.Time
+}
+
+func NewExpireValue(ttl time.Duration, value interface{}) *ExpireValue {
+	return &ExpireValue{
+		Ttl:      ttl,
+		value:    value,
+		initTime: time.Now(),
+	}
+}
+
+func (e *ExpireValue) Get() interface{} {
+	if time.Now().After(e.initTime.Add(e.Ttl)) {
+		return nil
+	}
+	return e.value
+}

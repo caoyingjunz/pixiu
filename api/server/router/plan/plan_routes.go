@@ -17,10 +17,14 @@ limitations under the License.
 package plan
 
 import (
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
 type planMeta struct {
@@ -203,5 +207,51 @@ func (t *planRouter) getDistributions(c *gin.Context) {
 		Rocky:     []string{"rocky8.5", "rocky9.2", "rocky9.3"},
 	}
 
+	httputils.SetSuccess(c, r)
+}
+
+var recommendK8sVersion = map[string]interface{}{
+	"1.23.6":  nil,
+	"1.20.15": nil,
+	"1.22.17": nil,
+}
+
+type k8sVersion struct {
+	Version   string `json:"version"`
+	Recommend bool   `json:"recommend"`
+}
+
+var versionCache = util.NewExpireValue(0, nil)
+
+func (t *planRouter) getClusterVersions(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	cache := versionCache.Get()
+	if cache != nil {
+		if versions, ok := cache.([]k8sVersion); ok && len(versions) > 0 {
+			r.Result = versions
+			httputils.SetSuccess(c, r)
+			return
+		}
+	}
+
+	versions, err := kubernetesReleaseVersions(c)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+	}
+
+	result := make([]k8sVersion, 0)
+	// 整理version
+	for _, version := range versions {
+		versionObj := k8sVersion{
+			Version: strings.TrimPrefix(version, "v"),
+		}
+		if _, ok := recommendK8sVersion[versionObj.Version]; ok {
+			versionObj.Recommend = true
+		}
+		result = append(result, versionObj)
+	}
+	versionCache = util.NewExpireValue(24*time.Hour, result)
+	r.Result = result
 	httputils.SetSuccess(c, r)
 }
