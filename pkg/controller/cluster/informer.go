@@ -32,8 +32,9 @@ import (
 )
 
 const (
-	ResourcePod        = "pod"
-	ResourceDeployment = "deployment"
+	ResourcePod         = "pod"
+	ResourceDeployment  = "deployment"
+	ResourceStatefulSet = "statefulset"
 )
 
 func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error) {
@@ -51,6 +52,8 @@ func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resour
 		return c.GetPod(ctx, cs.Informer.PodsLister(), namespace, name)
 	case ResourceDeployment:
 		return c.GetDeployment(ctx, cs.Informer.DeploymentsLister(), namespace, name)
+	case ResourceStatefulSet:
+		return c.GetStatefulSet(ctx, cs.Informer.StatefulSetsLister(), namespace, name)
 	}
 
 	return nil, fmt.Errorf("unsupported resource type %s", resource)
@@ -76,6 +79,16 @@ func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister listersv1
 	return deploy, nil
 }
 
+func (c *cluster) GetStatefulSet(ctx context.Context, statefulSetsLister listersv1.StatefulSetLister, namespace string, name string) (interface{}, error) {
+	statefulSet, err := statefulSetsLister.StatefulSets(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get statefulSet (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return statefulSet, nil
+}
+
 func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error) {
 	// 获取客户端缓存
 	cs, err := c.GetClusterSetByName(ctx, cluster)
@@ -92,6 +105,8 @@ func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, reso
 		return c.ListPods(ctx, cs.Informer.PodsLister(), namespace, pageOption)
 	case ResourceDeployment:
 		return c.ListDeployments(ctx, cs.Informer.DeploymentsLister(), namespace, pageOption)
+	case ResourceStatefulSet:
+		return c.ListStatefulSets(ctx, cs.Informer.StatefulSetsLister(), namespace, pageOption)
 	}
 
 	return nil, fmt.Errorf("unsupported resource type %s", resource)
@@ -157,6 +172,28 @@ func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listers
 	}, nil
 }
 
+func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister listersv1.StatefulSetLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	statefulSets, err := statefulSetsLister.StatefulSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(statefulSets, func(i, j int) bool {
+		return statefulSets[i].ObjectMeta.GetName() < statefulSets[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(statefulSets, func(i, j int) bool {
+			return statefulSets[i].ObjectMeta.GetNamespace() < statefulSets[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(statefulSets),
+		Items:       c.statefulSetsForPage(statefulSets, pageOption),
+	}, nil
+}
+
 func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return deployments
@@ -167,4 +204,16 @@ func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOptio
 	}
 
 	return deployments[offset:end]
+}
+
+func (c *cluster) statefulSetsForPage(statefulSets []*appsv1.StatefulSet, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return statefulSets
+	}
+	offset, end, err := pageOption.Offset(len(statefulSets))
+	if err != nil {
+		return nil
+	}
+
+	return statefulSets[offset:end]
 }
