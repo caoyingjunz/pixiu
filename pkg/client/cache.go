@@ -34,12 +34,17 @@ var (
 	groupVersionResources = []schema.GroupVersionResource{
 		{Group: "apps", Version: "v1", Resource: "deployments"},
 		{Group: "", Version: "v1", Resource: "pods"},
+		{Group: "", Version: "v1", Resource: "nodes"},
 	}
 )
 
 type PixiuInformer struct {
 	Shared informers.SharedInformerFactory
 	Cancel context.CancelFunc
+}
+
+func (p PixiuInformer) NodesLister() v1.NodeLister {
+	return p.Shared.Core().V1().Nodes().Lister()
 }
 
 func (p PixiuInformer) PodsLister() v1.PodLister {
@@ -52,6 +57,10 @@ func (p PixiuInformer) NamespacesLister() v1.NamespaceLister {
 
 func (p PixiuInformer) DeploymentsLister() appsv1.DeploymentLister {
 	return p.Shared.Apps().V1().Deployments().Lister()
+}
+
+func (p *PixiuInformer) StatefulSetsLister() appsv1.StatefulSetLister {
+	return p.Shared.Apps().V1().StatefulSets().Lister()
 }
 
 type ClusterSet struct {

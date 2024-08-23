@@ -149,7 +149,7 @@ func GetUserFromRequest(ctx context.Context) (*model.User, error) {
 	return user, nil
 }
 
-func GetUserIdFromRequest(ctx context.Context) (int64, error) {
+func GetUserIdFromContext(ctx context.Context) (int64, error) {
 	user, err := GetUserFromRequest(ctx)
 	if err != nil {
 		return 0, err
@@ -183,4 +183,22 @@ func getObjectFromRequest(path string) (obj, sid string, ok bool) {
 		return subs[1], "", subs[1] != ""
 	}
 	return subs[1], subs[2], subs[1] != "" && subs[2] != ""
+}
+
+const (
+	objIDsKey = "objIDs"
+)
+
+func SetIdRangeContext(c *gin.Context, ids []int64) {
+	c.Set(objIDsKey, ids)
+}
+
+func GetIdRangeFromListReq(ctx context.Context) (exists bool, ids []int64) {
+	val := ctx.Value(objIDsKey)
+	if val == nil {
+		return
+	}
+
+	ids, exists = val.([]int64)
+	return
 }

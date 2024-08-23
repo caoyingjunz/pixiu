@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
 	"helm.sh/helm/v3/pkg/release"
 	v1 "k8s.io/api/core/v1"
@@ -42,8 +43,10 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -106,8 +109,9 @@ type InformerResource struct {
 }
 
 type cluster struct {
-	cc      config.Config
-	factory db.ShareDaoFactory
+	cc       config.Config
+	factory  db.ShareDaoFactory
+	enforcer *casbin.SyncedEnforcer
 
 	listerFuncs map[string]listerFunc
 	getterFuncs map[string]getterFunc
@@ -122,6 +126,11 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 }
 
 func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) error {
+	user, err := httputils.GetUserFromRequest(ctx)
+	if err != nil {
+		return errors.NewError(err, http.StatusInternalServerError)
+	}
+
 	if err := c.preCreate(ctx, req); err != nil {
 		return errors.NewError(err, http.StatusBadRequest)
 	}
@@ -131,9 +140,15 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	var cs *client.ClusterSet
-	var txFunc db.TxFunc = func() (err error) {
-		cs, err = client.NewClusterSet(req.KubeConfig)
-		return err
+	var txFunc = func(cluster *model.Cluster) (err error) {
+		if cs, err = client.NewClusterSet(req.KubeConfig); err != nil {
+			return
+		}
+
+		// insert a RBAC policy
+		policy := model.MakePolicyFromModels(user, model.ObjectCluster, cluster.Model, model.OpAll)
+		_, err = c.enforcer.AddPolicy(policy)
+		return
 	}
 
 	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
@@ -181,36 +196,46 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 
 // 删除前置检查
 // 开启集群删除保护，则不允许删除
-func (c *cluster) preDelete(ctx context.Context, cid int64) error {
-	o, err := c.factory.Cluster().Get(ctx, cid)
-	if err != nil {
+func (c *cluster) preDelete(ctx context.Context, cid int64) (cluster *model.Cluster, err error) {
+	if cluster, err = c.factory.Cluster().Get(ctx, cid); err != nil {
 		klog.Errorf("failed to get cluster(%d): %v", cid, err)
-		return err
+		return
 	}
-	if o == nil {
-		return errors.ErrClusterNotFound
+	if cluster == nil {
+		return nil, errors.ErrClusterNotFound
 	}
 	// 开启集群删除保护，则不允许删除
-	if o.Protected {
-		return errors.NewError(fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", o.AliasName), http.StatusForbidden)
+	if cluster.Protected {
+		return nil, errors.NewError(fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", cluster.AliasName),
+			http.StatusForbidden)
 	}
 
 	// TODO: 其他删除策略检查
-	return nil
+	return
 }
 
 func (c *cluster) Delete(ctx context.Context, cid int64) error {
-	if err := c.preDelete(ctx, cid); err != nil {
+	user, err := httputils.GetUserFromRequest(ctx)
+	if err != nil {
+		return errors.NewError(err, http.StatusInternalServerError)
+	}
+
+	cluster, err := c.preDelete(ctx, cid)
+	if err != nil {
 		return err
 	}
-	object, err := c.factory.Cluster().Delete(ctx, cid)
-	if err != nil {
+
+	var txFunc = func(cluster *model.Cluster) (err error) {
+		_, err = c.enforcer.RemoveNamedPolicy("p", user.Name, model.ObjectCluster.String(), cluster.GetSID())
+		return
+	}
+	if err := c.factory.Cluster().Delete(ctx, cluster, txFunc); err != nil {
 		klog.Errorf("failed to delete cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
 
 	// 从缓存中移除 clusterSet
-	clusterIndexer.Delete(object.Name)
+	clusterIndexer.Delete(cluster.Name)
 	return nil
 }
 
@@ -227,14 +252,15 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 }
 
 func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
-	objects, err := c.factory.Cluster().List(ctx)
+	opts := ctrlutil.MakeDbOptions(ctx)
+	objects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	var cs []types.Cluster
-	for _, object := range objects {
-		cs = append(cs, *c.model2Type(&object))
+	cs := make([]types.Cluster, len(objects))
+	for i, object := range objects {
+		cs[i] = *c.model2Type(&object)
 	}
 
 	return cs, nil
@@ -728,6 +754,12 @@ func parseFloat64FromString(s string) float64 {
 }
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
+	nodes := types.KubeNode{}
+	if err := nodes.Unmarshal(o.Nodes); err != nil {
+		// 非核心数据
+		klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+	}
+
 	tc := &types.Cluster{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -737,37 +769,39 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Name:        o.Name,
-		AliasName:   o.AliasName,
-		ClusterType: o.ClusterType,
-		PlanId:      o.PlanId,
-		Status:      model.ClusterStatusRunning, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
-		Protected:   o.Protected,
-		Description: o.Description,
+		Name:              o.Name,
+		AliasName:         o.AliasName,
+		ClusterType:       o.ClusterType,
+		KubernetesVersion: o.KubernetesVersion,
+		Nodes:             nodes,
+		PlanId:            o.PlanId,
+		Status:            o.ClusterStatus, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
+		Protected:         o.Protected,
+		Description:       o.Description,
 	}
 
-	var (
-		kubernetesMeta *types.KubernetesMeta
-		err            error
-	)
-
-	if o.ClusterType == model.ClusterTypeStandard {
-		// 导入的集群通过API获取相关数据
-		// 获取失败时，返回空的 kubernetes Meta, 不终止主流程
-		// TODO: 后续改成并发处理
-		kubernetesMeta, err = c.GetKubernetesMeta(context.TODO(), o.Name)
-	} else {
-		// 自建的集群通过plan配置获取版本信息
-		kubernetesMeta, err = c.GetKubernetesMetaFromPlan(context.TODO(), o.PlanId)
-
-		// 自建的集群需要从 plan task 获取状态
-		tc.Status, _ = c.GetClusterStatusFromPlanTask(o.PlanId)
-	}
-	if err != nil {
-		klog.Warning("failed to get kubernetes Meta: %v", err)
-	} else {
-		tc.KubernetesMeta = *kubernetesMeta
-	}
+	//var (
+	//	kubernetesMeta *types.KubernetesMeta
+	//	err            error
+	//)
+	//
+	//if o.ClusterType == model.ClusterTypeStandard {
+	//	// 导入的集群通过API获取相关数据
+	//	// 获取失败时，返回空的 kubernetes Meta, 不终止主流程
+	//	// TODO: 后续改成并发处理
+	//	kubernetesMeta, err = c.GetKubernetesMeta(context.TODO(), o.Name)
+	//} else {
+	//	// 自建的集群通过plan配置获取版本信息
+	//	kubernetesMeta, err = c.GetKubernetesMetaFromPlan(context.TODO(), o.PlanId)
+	//
+	//	// 自建的集群需要从 plan task 获取状态
+	//	tc.Status, _ = c.GetClusterStatusFromPlanTask(o.PlanId)
+	//}
+	//if err != nil {
+	//	klog.Warning("failed to get kubernetes Meta: %v", err)
+	//} else {
+	//	tc.KubernetesMeta = *kubernetesMeta
+	//}
 
 	return tc
 }
@@ -804,10 +838,12 @@ func (c *cluster) registerIndexers(informerResources ...InformerResource) {
 	}
 }
 
-func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
+func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
 	c := &cluster{
-		cc:          cfg,
-		factory:     f,
+		cc:       cfg,
+		factory:  f,
+		enforcer: e,
+
 		listerFuncs: make(map[string]listerFunc),
 		getterFuncs: make(map[string]getterFunc),
 	}
@@ -830,6 +866,15 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
 				return c.GetDeployment(ctx, informer.DeploymentsLister(), namespace, name)
+			},
+		},
+		{
+			ResourceType: ResourceStatefulSet,
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+				return c.ListStatefulSets(ctx, informer.StatefulSetsLister(), namespace, pageOpts)
+			},
+			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+				return c.GetStatefulSet(ctx, informer.StatefulSetsLister(), namespace, name)
 			},
 		},
 		// TODO: 补充更多资源实现

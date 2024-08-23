@@ -260,3 +260,18 @@ func (p PageRequest) Offset(total int) (int, int, error) {
 
 	return offset, end, nil
 }
+
+func (node *KubeNode) Marshal() (string, error) {
+	data, err := json.Marshal(node)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (node *KubeNode) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), node); err != nil {
+		return err
+	}
+	return nil
+}

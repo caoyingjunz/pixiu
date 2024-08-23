@@ -133,6 +133,7 @@ func (o *Options) Complete() error {
 
 	o.JobManager = jobmanager.NewManager(
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
+		jobmanager.NewClusterSyncer(o.Factory),
 	)
 	return nil
 }
@@ -174,7 +175,7 @@ func (o *Options) registerEnforcer() error {
 	}
 
 	// Add an super admin policy.
-	_, err = o.Enforcer.AddPolicy("root", "*", "*", "*")
+	_, err = o.Enforcer.AddPolicy(pixiuModel.AdminPolicy)
 	return err
 }
 
