@@ -35,6 +35,7 @@ const (
 	ResourcePod         = "pod"
 	ResourceDeployment  = "deployment"
 	ResourceStatefulSet = "statefulset"
+	ResourceDaemonSet   = "daemonset"
 )
 
 func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error) {
@@ -54,6 +55,9 @@ func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resour
 		return c.GetDeployment(ctx, cs.Informer.DeploymentsLister(), namespace, name)
 	case ResourceStatefulSet:
 		return c.GetStatefulSet(ctx, cs.Informer.StatefulSetsLister(), namespace, name)
+	case ResourceDaemonSet:
+		return c.GetDaemonSet(ctx, cs.Informer.DaemonSetsLister(), namespace, name)
+
 	}
 
 	return nil, fmt.Errorf("unsupported resource type %s", resource)
@@ -89,6 +93,16 @@ func (c *cluster) GetStatefulSet(ctx context.Context, statefulSetsLister listers
 	return statefulSet, nil
 }
 
+func (c *cluster) GetDaemonSet(ctx context.Context, daemonSetsLister listersv1.DaemonSetLister, namespace string, name string) (interface{}, error) {
+	daemonSet, err := daemonSetsLister.DaemonSets(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get daemonset (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return daemonSet, nil
+}
+
 func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error) {
 	// 获取客户端缓存
 	cs, err := c.GetClusterSetByName(ctx, cluster)
@@ -107,6 +121,8 @@ func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, reso
 		return c.ListDeployments(ctx, cs.Informer.DeploymentsLister(), namespace, pageOption)
 	case ResourceStatefulSet:
 		return c.ListStatefulSets(ctx, cs.Informer.StatefulSetsLister(), namespace, pageOption)
+	case ResourceDaemonSet:
+		return c.ListDaemonSets(ctx, cs.Informer.DaemonSetsLister(), namespace, pageOption)
 	}
 
 	return nil, fmt.Errorf("unsupported resource type %s", resource)
@@ -194,6 +210,28 @@ func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister liste
 	}, nil
 }
 
+func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1.DaemonSetLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	daemonSets, err := daemonSetsLister.DaemonSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(daemonSets, func(i, j int) bool {
+		return daemonSets[i].ObjectMeta.GetName() < daemonSets[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(daemonSets, func(i, j int) bool {
+			return daemonSets[i].ObjectMeta.GetNamespace() < daemonSets[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(daemonSets),
+		Items:       c.daemonSetsForPage(daemonSets, pageOption),
+	}, nil
+}
+
 func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return deployments
@@ -216,4 +254,16 @@ func (c *cluster) statefulSetsForPage(statefulSets []*appsv1.StatefulSet, pageOp
 	}
 
 	return statefulSets[offset:end]
+}
+
+func (c *cluster) daemonSetsForPage(daemonSets []*appsv1.DaemonSet, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return daemonSets
+	}
+	offset, end, err := pageOption.Offset(len(daemonSets))
+	if err != nil {
+		return nil
+	}
+
+	return daemonSets[offset:end]
 }

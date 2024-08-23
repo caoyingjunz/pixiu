@@ -63,6 +63,10 @@ func (p *PixiuInformer) StatefulSetsLister() appsv1.StatefulSetLister {
 	return p.Shared.Apps().V1().StatefulSets().Lister()
 }
 
+func (p *PixiuInformer) DaemonSetsLister() appsv1.DaemonSetLister {
+	return p.Shared.Apps().V1().DaemonSets().Lister()
+}
+
 type ClusterSet struct {
 	Client   *kubernetes.Clientset
 	Config   *restclient.Config
