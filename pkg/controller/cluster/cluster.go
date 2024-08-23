@@ -78,6 +78,8 @@ type Interface interface {
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
 	// WsHandler pod 的 webShell
 	WsHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
+	// WatchPodLog 实时获取 pod 的日志
+	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 
 	// ListReleases 获取 tenant release 列表
 	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
@@ -86,8 +88,6 @@ type Interface interface {
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error)
-
-	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 }
 
 var clusterIndexer client.Cache
@@ -96,18 +96,25 @@ func init() {
 	clusterIndexer = *client.NewClusterCache()
 }
 
+type (
+	listerFunc func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error)
+	getterFunc func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error)
+)
+
+type InformerResource struct {
+	// k8s 资源类型，比如 deployment, sts, daemonset 等
+	ResourceType string
+	ListerFunc   listerFunc
+	GetterFunc   getterFunc
+}
+
 type cluster struct {
 	cc       config.Config
 	factory  db.ShareDaoFactory
 	enforcer *casbin.SyncedEnforcer
-}
 
-func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
-	return &cluster{
-		cc:       cfg,
-		factory:  f,
-		enforcer: e,
-	}
+	listerFuncs map[string]listerFunc
+	getterFuncs map[string]getterFunc
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
@@ -822,4 +829,64 @@ func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatu
 	}
 
 	return status, nil
+}
+
+func (c *cluster) registerIndexers(informerResources ...InformerResource) {
+	for _, informerResource := range informerResources {
+		c.listerFuncs[informerResource.ResourceType] = informerResource.ListerFunc
+		c.getterFuncs[informerResource.ResourceType] = informerResource.GetterFunc
+	}
+}
+
+func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
+	c := &cluster{
+		cc:       cfg,
+		factory:  f,
+		enforcer: e,
+
+		listerFuncs: make(map[string]listerFunc),
+		getterFuncs: make(map[string]getterFunc),
+	}
+
+	// TODO: code generation?
+	c.registerIndexers([]InformerResource{
+		{
+			ResourceType: ResourcePod,
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+				return c.ListPods(ctx, informer.PodsLister(), namespace, pageOpts)
+			},
+			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+				return c.GetPod(ctx, informer.PodsLister(), namespace, name)
+			},
+		},
+		{
+			ResourceType: ResourceDeployment,
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+				return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, pageOpts)
+			},
+			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+				return c.GetDeployment(ctx, informer.DeploymentsLister(), namespace, name)
+			},
+		},
+		{
+			ResourceType: ResourceStatefulSet,
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+				return c.ListStatefulSets(ctx, informer.StatefulSetsLister(), namespace, pageOpts)
+			},
+			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+				return c.GetStatefulSet(ctx, informer.StatefulSetsLister(), namespace, name)
+			},
+		},
+		{
+			ResourceType: ResourceDaemonSet,
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+				return c.ListDaemonSets(ctx, informer.DaemonSetsLister(), namespace, pageOpts)
+			},
+			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+				return c.GetDaemonSet(ctx, informer.DaemonSetsLister(), namespace, name)
+			},
+		},
+		// TODO: 补充更多资源实现
+	}...)
+	return c
 }
