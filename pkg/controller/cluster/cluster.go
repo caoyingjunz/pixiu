@@ -877,6 +877,15 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 				return c.GetStatefulSet(ctx, informer.StatefulSetsLister(), namespace, name)
 			},
 		},
+		{
+			ResourceType: ResourceDaemonSet,
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+				return c.ListDaemonSets(ctx, informer.DaemonSetsLister(), namespace, pageOpts)
+			},
+			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+				return c.GetDaemonSet(ctx, informer.DaemonSetsLister(), namespace, name)
+			},
+		},
 		// TODO: 补充更多资源实现
 	}...)
 	return c
