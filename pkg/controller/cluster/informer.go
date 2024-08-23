@@ -22,9 +22,11 @@ import (
 	"sort"
 
 	appsv1 "k8s.io/api/apps/v1"
+	api_batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersv1 "k8s.io/client-go/listers/apps/v1"
+	batchv1 "k8s.io/client-go/listers/batch/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
@@ -36,6 +38,7 @@ const (
 	ResourceDeployment  = "deployment"
 	ResourceStatefulSet = "statefulset"
 	ResourceDaemonSet   = "daemonset"
+	ResourceCronJob     = "cronjob"
 )
 
 func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error) {
@@ -93,6 +96,16 @@ func (c *cluster) GetDaemonSet(ctx context.Context, daemonSetsLister listersv1.D
 	}
 
 	return daemonSet, nil
+}
+
+func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister batchv1.CronJobLister, namespace string, name string) (interface{}, error) {
+	cronJob, err := cronJobsLister.CronJobs(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get cronjob (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return cronJob, nil
 }
 
 func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error) {
@@ -214,6 +227,28 @@ func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1
 	}, nil
 }
 
+func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister batchv1.CronJobLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	cronJobs, err := cronJobsLister.CronJobs(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(cronJobs, func(i, j int) bool {
+		return cronJobs[i].ObjectMeta.GetName() < cronJobs[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(cronJobs, func(i, j int) bool {
+			return cronJobs[i].ObjectMeta.GetNamespace() < cronJobs[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(cronJobs),
+		Items:       c.cronJobsForPage(cronJobs, pageOption),
+	}, nil
+}
+
 func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return deployments
@@ -248,4 +283,16 @@ func (c *cluster) daemonSetsForPage(daemonSets []*appsv1.DaemonSet, pageOption t
 	}
 
 	return daemonSets[offset:end]
+}
+
+func (c *cluster) cronJobsForPage(cronJobs []*api_batchv1.CronJob, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return cronJobs
+	}
+	offset, end, err := pageOption.Offset(len(cronJobs))
+	if err != nil {
+		return nil
+	}
+
+	return cronJobs[offset:end]
 }
