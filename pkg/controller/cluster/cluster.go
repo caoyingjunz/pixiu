@@ -886,6 +886,15 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 				return c.GetDaemonSet(ctx, informer.DaemonSetsLister(), namespace, name)
 			},
 		},
+		{
+			ResourceType: ResourceCronJob,
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+				return c.ListCronJobs(ctx, informer.CronJobsLister(), namespace, pageOpts)
+			},
+			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+				return c.GetCronJob(ctx, informer.CronJobsLister(), namespace, name)
+			},
+		},
 		// TODO: 补充更多资源实现
 	}...)
 	return c
