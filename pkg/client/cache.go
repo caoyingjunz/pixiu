@@ -34,7 +34,7 @@ import (
 var (
 	groupVersionResources = []schema.GroupVersionResource{
 		{Group: "", Version: "v1", Resource: "pods"},
-		{Group: "", Version: "v1", Resource: "nodes"},
+		{Group: "apps", Version: "v1", Resource: "nodes"},
 		{Group: "apps", Version: "v1", Resource: "deployments"},
 		{Group: "apps", Version: "v1", Resource: "statefulsets"},
 		{Group: "apps", Version: "v1", Resource: "daemonsets"},
