@@ -158,6 +158,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 		Protected:   req.Protected,
 		KubeConfig:  req.KubeConfig,
 		Description: req.Description,
+		Nodes:       "",
 	}, txFunc); err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return errors.ErrServerInternal
