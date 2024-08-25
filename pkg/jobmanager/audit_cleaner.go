@@ -17,6 +17,8 @@ limitations under the License.
 package jobmanager
 
 import (
+	"time"
+
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
@@ -59,7 +61,7 @@ func (ac *AuditsCleaner) CronSpec() string {
 
 func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
 	resv := ac.cfg.DaysReserved
-	before := ctx.StartTime.AddDate(0, 0, -resv)
+	before := time.Now().AddDate(0, 0, -resv)
 	entries := map[string]interface{}{
 		"days_reserved": resv,
 		"deadline":      before,

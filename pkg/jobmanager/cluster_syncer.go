@@ -51,7 +51,7 @@ func NewClusterSyncer(f db.ShareDaoFactory) *ClusterSyncer {
 }
 
 func (cs *ClusterSyncer) Name() string {
-	return "ClusterSyncer"
+	return "cluster-syncer"
 }
 
 func (cs *ClusterSyncer) CronSpec() string {
