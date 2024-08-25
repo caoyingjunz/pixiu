@@ -17,16 +17,8 @@ limitations under the License.
 package config
 
 import (
-	"errors"
-
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
-)
-
-type LogFormat string
-
-const (
-	LogFormatJson LogFormat = "json"
-	LogFormatText LogFormat = "text"
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 type Mode string
@@ -39,8 +31,6 @@ const (
 func (m Mode) InDebug() bool {
 	return m == DebugMode
 }
-
-var ErrInvalidLogFormat = errors.New("invalid log format")
 
 type Config struct {
 	Default DefaultOptions          `yaml:"default"`
@@ -57,7 +47,7 @@ type DefaultOptions struct {
 	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
 
-	LogOptions `yaml:",inline"`
+	logutil.LogOptions `yaml:",inline"`
 }
 
 func (o DefaultOptions) Valid() error {
@@ -79,19 +69,6 @@ type MysqlOptions struct {
 func (o MysqlOptions) Valid() error {
 	// TODO
 	return nil
-}
-
-type LogOptions struct {
-	LogFormat `yaml:"log_format"`
-}
-
-func (o LogOptions) Valid() error {
-	switch o.LogFormat {
-	case LogFormatJson, LogFormatText:
-		return nil
-	default:
-		return ErrInvalidLogFormat
-	}
 }
 
 type WorkerOptions struct {

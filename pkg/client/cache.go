@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	appsv1 "k8s.io/client-go/listers/apps/v1"
+	batchv1 "k8s.io/client-go/listers/batch/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -32,14 +33,22 @@ import (
 
 var (
 	groupVersionResources = []schema.GroupVersionResource{
-		{Group: "apps", Version: "v1", Resource: "deployments"},
 		{Group: "", Version: "v1", Resource: "pods"},
+		{Group: "", Version: "v1", Resource: "nodes"},
+		{Group: "apps", Version: "v1", Resource: "deployments"},
+		{Group: "apps", Version: "v1", Resource: "statefulsets"},
+		{Group: "apps", Version: "v1", Resource: "daemonsets"},
+		{Group: "batch", Version: "v1", Resource: "cronjobs"},
 	}
 )
 
 type PixiuInformer struct {
 	Shared informers.SharedInformerFactory
 	Cancel context.CancelFunc
+}
+
+func (p PixiuInformer) NodesLister() v1.NodeLister {
+	return p.Shared.Core().V1().Nodes().Lister()
 }
 
 func (p PixiuInformer) PodsLister() v1.PodLister {
@@ -52,6 +61,18 @@ func (p PixiuInformer) NamespacesLister() v1.NamespaceLister {
 
 func (p PixiuInformer) DeploymentsLister() appsv1.DeploymentLister {
 	return p.Shared.Apps().V1().Deployments().Lister()
+}
+
+func (p *PixiuInformer) StatefulSetsLister() appsv1.StatefulSetLister {
+	return p.Shared.Apps().V1().StatefulSets().Lister()
+}
+
+func (p *PixiuInformer) DaemonSetsLister() appsv1.DaemonSetLister {
+	return p.Shared.Apps().V1().DaemonSets().Lister()
+}
+
+func (p *PixiuInformer) CronJobsLister() batchv1.CronJobLister {
+	return p.Shared.Batch().V1().CronJobs().Lister()
 }
 
 type ClusterSet struct {

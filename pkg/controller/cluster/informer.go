@@ -22,9 +22,11 @@ import (
 	"sort"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersv1 "k8s.io/client-go/listers/apps/v1"
+	listersbatchv1 "k8s.io/client-go/listers/batch/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
@@ -32,8 +34,11 @@ import (
 )
 
 const (
-	ResourcePod        = "pod"
-	ResourceDeployment = "deployment"
+	ResourcePod         = "pod"
+	ResourceDeployment  = "deployment"
+	ResourceStatefulSet = "statefulset"
+	ResourceDaemonSet   = "daemonset"
+	ResourceCronJob     = "cronjob"
 )
 
 func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error) {
@@ -45,15 +50,12 @@ func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resour
 		return nil, err
 	}
 
-	// TODO: 后续优化 switch
-	switch resource {
-	case ResourcePod:
-		return c.GetPod(ctx, cs.Informer.PodsLister(), namespace, name)
-	case ResourceDeployment:
-		return c.GetDeployment(ctx, cs.Informer.DeploymentsLister(), namespace, name)
+	// getter functions should be registered in NewCluster function
+	fn, ok := c.getterFuncs[resource]
+	if !ok {
+		return nil, fmt.Errorf("unsupported resource type %s", resource)
 	}
-
-	return nil, fmt.Errorf("unsupported resource type %s", resource)
+	return fn(ctx, cs.Informer, namespace, name)
 }
 
 func (c *cluster) GetPod(ctx context.Context, podsLister v1.PodLister, namespace string, name string) (interface{}, error) {
@@ -76,6 +78,36 @@ func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister listersv1
 	return deploy, nil
 }
 
+func (c *cluster) GetStatefulSet(ctx context.Context, statefulSetsLister listersv1.StatefulSetLister, namespace string, name string) (interface{}, error) {
+	statefulSet, err := statefulSetsLister.StatefulSets(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get statefulSet (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return statefulSet, nil
+}
+
+func (c *cluster) GetDaemonSet(ctx context.Context, daemonSetsLister listersv1.DaemonSetLister, namespace string, name string) (interface{}, error) {
+	daemonSet, err := daemonSetsLister.DaemonSets(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get daemonset (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return daemonSet, nil
+}
+
+func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister listersbatchv1.CronJobLister, namespace string, name string) (interface{}, error) {
+	cronJob, err := cronJobsLister.CronJobs(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get cronjob (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return cronJob, nil
+}
+
 func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error) {
 	// 获取客户端缓存
 	cs, err := c.GetClusterSetByName(ctx, cluster)
@@ -83,18 +115,12 @@ func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, reso
 		return nil, err
 	}
 
-	if namespace == types.AllNamespace {
-		namespace = ""
+	// lister functions should be registered in NewCluster function
+	fn, ok := c.listerFuncs[resource]
+	if !ok {
+		return nil, fmt.Errorf("unsupported resource type %s", resource)
 	}
-
-	switch resource {
-	case ResourcePod:
-		return c.ListPods(ctx, cs.Informer.PodsLister(), namespace, pageOption)
-	case ResourceDeployment:
-		return c.ListDeployments(ctx, cs.Informer.DeploymentsLister(), namespace, pageOption)
-	}
-
-	return nil, fmt.Errorf("unsupported resource type %s", resource)
+	return fn(ctx, cs.Informer, namespace, pageOption)
 }
 
 func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
@@ -157,6 +183,72 @@ func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listers
 	}, nil
 }
 
+func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister listersv1.StatefulSetLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	statefulSets, err := statefulSetsLister.StatefulSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(statefulSets, func(i, j int) bool {
+		return statefulSets[i].ObjectMeta.GetName() < statefulSets[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(statefulSets, func(i, j int) bool {
+			return statefulSets[i].ObjectMeta.GetNamespace() < statefulSets[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(statefulSets),
+		Items:       c.statefulSetsForPage(statefulSets, pageOption),
+	}, nil
+}
+
+func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1.DaemonSetLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	daemonSets, err := daemonSetsLister.DaemonSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(daemonSets, func(i, j int) bool {
+		return daemonSets[i].ObjectMeta.GetName() < daemonSets[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(daemonSets, func(i, j int) bool {
+			return daemonSets[i].ObjectMeta.GetNamespace() < daemonSets[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(daemonSets),
+		Items:       c.daemonSetsForPage(daemonSets, pageOption),
+	}, nil
+}
+
+func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv1.CronJobLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	cronJobs, err := cronJobsLister.CronJobs(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(cronJobs, func(i, j int) bool {
+		return cronJobs[i].ObjectMeta.GetName() < cronJobs[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(cronJobs, func(i, j int) bool {
+			return cronJobs[i].ObjectMeta.GetNamespace() < cronJobs[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(cronJobs),
+		Items:       c.cronJobsForPage(cronJobs, pageOption),
+	}, nil
+}
+
 func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return deployments
@@ -167,4 +259,40 @@ func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOptio
 	}
 
 	return deployments[offset:end]
+}
+
+func (c *cluster) statefulSetsForPage(statefulSets []*appsv1.StatefulSet, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return statefulSets
+	}
+	offset, end, err := pageOption.Offset(len(statefulSets))
+	if err != nil {
+		return nil
+	}
+
+	return statefulSets[offset:end]
+}
+
+func (c *cluster) daemonSetsForPage(daemonSets []*appsv1.DaemonSet, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return daemonSets
+	}
+	offset, end, err := pageOption.Offset(len(daemonSets))
+	if err != nil {
+		return nil
+	}
+
+	return daemonSets[offset:end]
+}
+
+func (c *cluster) cronJobsForPage(cronJobs []*batchv1.CronJob, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return cronJobs
+	}
+	offset, end, err := pageOption.Offset(len(cronJobs))
+	if err != nil {
+		return nil
+	}
+
+	return cronJobs[offset:end]
 }

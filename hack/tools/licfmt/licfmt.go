@@ -174,19 +174,7 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 	}
 	defer f.Close()
 
-	buf := bytes.Buffer{}
-	scanner := bufio.NewScanner(f)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if bytes.HasPrefix(line, []byte("package ")) {
-			// reading until the line contains `package p`
-			break
-		}
-		buf.Write(line)
-		buf.WriteString("\n")
-	}
-
+	buf, dropped := scanLines(f)
 	if hasLicense(buf.Bytes()) || notAlowEditd(buf.Bytes()) {
 		return false, nil
 	}
@@ -197,8 +185,14 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 		return false, err
 	}
 
-	// read the content after `package p`
-	if _, err := f.Seek(int64(buf.Len()), io.SeekStart); err != nil {
+	// Caculate position of the line contains `package `.
+	offset := int64(buf.Len())
+	if dropped > 1 {
+		// CR characters are dropped, they should be added back.
+		offset += dropped - 1
+	}
+	// Move the cursor of original go file to the position.
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
 		return false, err
 	}
 
@@ -214,8 +208,7 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
 
-	err = os.Chmod(tmpFile.Name(), fmode)
-	if err != nil {
+	if err = os.Chmod(tmpFile.Name(), fmode); err != nil {
 		return false, err
 	}
 
@@ -231,4 +224,44 @@ func addLicenseHeader(path, license string, fmode os.FileMode) (bool, error) {
 	// rename the tmp file to the original file
 	err = os.Rename(tmpFile.Name(), path)
 	return err == nil, err
+}
+
+// scanLines handles the file line by line
+// buf: the lines before the package declaration
+// dropped: the number of CR (`\r`) characters dropped
+func scanLines(file *os.File) (buf bytes.Buffer, dropped int64) {
+	scanner := bufio.NewScanner(file)
+	dropCR := func(data []byte) []byte {
+		if len(data) > 0 && data[len(data)-1] == '\r' {
+			dropped++
+			return data[0 : len(data)-1]
+		}
+		return data
+	}
+	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+
+		if i := bytes.IndexByte(data, '\n'); i >= 0 {
+			// We have a full newline-terminated line.
+			return i + 1, dropCR(data[0:i]), nil
+		}
+		// If we're at EOF, we have a final, non-terminated line. Return it.
+		if atEOF {
+			return len(data), dropCR(data), nil
+		}
+		// Request more data.
+		return 0, nil, nil
+	})
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if bytes.HasPrefix(line, []byte("package ")) {
+			// reading until the line contains `package p`
+			break
+		}
+		buf.Write(line)
+		buf.WriteString("\n")
+	}
+	return
 }

@@ -167,7 +167,7 @@ func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.Upda
 		return errors.ErrDuplicatedPassword
 	}
 
-	operatorId, err := httputils.GetUserIdFromRequest(ctx)
+	operatorId, err := httputils.GetUserIdFromContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 
 	// for compatibility
 	if object.Role == model.RoleRoot {
-		if _, err := u.enforcer.AddGroupingPolicy(object.Name, "root"); err != nil {
+		if _, err := u.enforcer.AddGroupingPolicy(object.Name, model.AdminGroup); err != nil {
 			klog.Errorf("failed to add root policy for user(%s): %v", err, object.Name)
 			return nil, errors.NewError(fmt.Errorf("添加 root 组权限规则失败: %v", err), http.StatusInternalServerError)
 		}

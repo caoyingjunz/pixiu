@@ -26,6 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
@@ -90,6 +91,13 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 		}
 		if !ok {
 			httputils.AbortFailedWithCode(c, http.StatusForbidden, fmt.Errorf("无操作权限"))
+		}
+		if id != "" {
+			return
+		}
+		// this is a list API
+		if err := ctrlutil.SetIdRangeContext(c, o.Enforcer, user, obj); err != nil {
+			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, err)
 		}
 	}
 }

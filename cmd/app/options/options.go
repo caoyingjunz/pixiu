@@ -35,6 +35,7 @@ import (
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
@@ -45,7 +46,7 @@ const (
 	defaultListen     = 8080
 	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
-	defaultLogFormat  = config.LogFormatJson
+	defaultLogFormat  = logutil.LogFormatJson
 	defaultWorkDir    = "/etc/pixiu"
 
 	defaultSlowSQLDuration = 1 * time.Second
@@ -124,6 +125,8 @@ func (o *Options) Complete() error {
 		return err
 	}
 
+	o.ComponentConfig.Default.LogOptions.Init()
+
 	// 注册依赖组件
 	if err := o.register(); err != nil {
 		return err
@@ -132,7 +135,9 @@ func (o *Options) Complete() error {
 	o.Controller = controller.New(o.ComponentConfig, o.Factory, o.Enforcer)
 
 	o.JobManager = jobmanager.NewManager(
+		&o.ComponentConfig.Default.LogOptions,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
+		jobmanager.NewClusterSyncer(o.Factory),
 	)
 	return nil
 }
@@ -174,7 +179,7 @@ func (o *Options) registerEnforcer() error {
 	}
 
 	// Add an super admin policy.
-	_, err = o.Enforcer.AddPolicy("root", "*", "*", "*")
+	_, err = o.Enforcer.AddPolicy(pixiuModel.AdminPolicy)
 	return err
 }
 

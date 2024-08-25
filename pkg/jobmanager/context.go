@@ -18,49 +18,25 @@ package jobmanager
 
 import (
 	"context"
-	"fmt"
-	"time"
-
-	klog "github.com/sirupsen/logrus"
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
-)
-
-const (
-	SuccessMsg = "SUCCESS"
-	FailMsg    = "FAIL"
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 type JobContext struct {
 	context.Context
-	StartTime time.Time
-	LogEntry  *klog.Entry
+	*logutil.Logger
 }
 
-func NewJobContext(name string) *JobContext {
-	return &JobContext{
-		Context:   db.WithDBContext(context.Background()),
-		StartTime: time.Now(),
-		LogEntry:  klog.WithField("job", name),
+func NewJobContext(name string, cfg *logutil.LogOptions) *JobContext {
+	jc := &JobContext{
+		Context: db.WithDBContext(context.Background()),
+		Logger:  logutil.NewLogger(cfg),
 	}
+	jc.WithLogField("job", name)
+	return jc
 }
 
-func (c *JobContext) WithLogFields(fields map[string]interface{}) {
-	c.LogEntry = c.LogEntry.WithFields(fields)
-}
-
-func (c *JobContext) Logger(err error) {
-	fields := klog.Fields{
-		"latency": fmt.Sprintf("%dµs", time.Since(c.StartTime).Microseconds()),
-	}
-	if sqls := db.GetSQLs(c); len(sqls) > 0 {
-		fields["sqls"] = sqls
-	}
-	if err != nil {
-		fields["error"] = err
-		c.LogEntry.WithFields(fields).Error(FailMsg)
-		return
-	}
-
-	c.LogEntry.WithFields(fields).Info(SuccessMsg)
+func (c *JobContext) Log(err error) {
+	c.Logger.Log(c.Context, err)
 }
