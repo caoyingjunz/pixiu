@@ -151,6 +151,8 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 		return
 	}
 
+	kubeNode := types.KubeNode{}
+	nodes, _ := kubeNode.Marshal()
 	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
 		Name:        req.Name,
 		AliasName:   req.AliasName,
@@ -158,6 +160,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 		Protected:   req.Protected,
 		KubeConfig:  req.KubeConfig,
 		Description: req.Description,
+		Nodes:       nodes,
 	}, txFunc); err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return errors.ErrServerInternal
