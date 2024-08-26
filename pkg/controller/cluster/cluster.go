@@ -151,6 +151,8 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 		return
 	}
 
+	kubeNode := types.KubeNode{}
+	nodes, _ := kubeNode.Marshal()
 	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
 		Name:        req.Name,
 		AliasName:   req.AliasName,
@@ -158,6 +160,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 		Protected:   req.Protected,
 		KubeConfig:  req.KubeConfig,
 		Description: req.Description,
+		Nodes:       nodes,
 	}, txFunc); err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return errors.ErrServerInternal
@@ -893,6 +896,15 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
 				return c.GetCronJob(ctx, informer.CronJobsLister(), namespace, name)
+			},
+		},
+		{
+			ResourceType: ResourceNode,
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+				return c.ListNodes(ctx, informer.NodesLister(), namespace, pageOpts)
+			},
+			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+				return c.GetNode(ctx, informer.NodesLister(), namespace, name)
 			},
 		},
 		// TODO: 补充更多资源实现

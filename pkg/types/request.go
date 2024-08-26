@@ -142,6 +142,13 @@ type (
 		Operation  model.Operation  `json:"operation" binding:"required,rbac_operation"`
 	}
 
+	ListRBACPolicyRequest struct {
+		UserId     int64             `form:"user_id" binding:"required"`
+		ObjectType *model.ObjectType `form:"object_type" binding:"omitempty,required_with=UserId,rbac_object"`
+		SID        *string           `form:"sid" binding:"omitempty,required_with=ObjectType,rbac_sid"`
+		Operation  *model.Operation  `form:"operation" binding:"omitempty,required_with=SID,rbac_operation"`
+	}
+
 	// PageRequest 分配配置
 	PageRequest struct {
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页

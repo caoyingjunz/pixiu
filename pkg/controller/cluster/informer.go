@@ -35,6 +35,7 @@ import (
 )
 
 const (
+	ResourceNode        = "node"
 	ResourcePod         = "pod"
 	ResourceDeployment  = "deployment"
 	ResourceStatefulSet = "statefulset"
@@ -262,6 +263,28 @@ func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv
 	}, nil
 }
 
+func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
+	nodes, err := nodesLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(nodes, func(i, j int) bool {
+		return nodes[i].ObjectMeta.GetName() < nodes[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(nodes, func(i, j int) bool {
+			return nodes[i].ObjectMeta.GetNamespace() < nodes[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		ClusterPageRequest: pageOption,
+		Total:              len(nodes),
+		Items:              c.nodesForPage(nodes, pageOption),
+	}, nil
+}
+
 func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.ClusterPageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return deployments
@@ -308,4 +331,16 @@ func (c *cluster) cronJobsForPage(cronJobs []*batchv1.CronJob, pageOption types.
 	}
 
 	return cronJobs[offset:end]
+}
+
+func (c *cluster) nodesForPage(nodes []*corev1.Node, pageOption types.ClusterPageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return nodes
+	}
+	offset, end, err := pageOption.Offset(len(nodes))
+	if err != nil {
+		return nil
+	}
+
+	return nodes[offset:end]
 }
