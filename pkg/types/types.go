@@ -305,3 +305,10 @@ type Haproxy struct {
 	Enable                    bool   `json:"enable"`                       // Enable haproxy and keepalived,
 	KeepalivedVirtualRouterId string `json:"keepalived_virtual_router_id"` // Arbitrary unique number from 0..255
 }
+
+type RBACPolicy struct {
+	Username   string           `json:"username"`
+	ObjectType model.ObjectType `json:"resource_type"`
+	StringID   string           `json:"sid"`
+	Operation  model.Operation  `json:"operation"`
+}
