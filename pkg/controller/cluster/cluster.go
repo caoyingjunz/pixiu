@@ -87,7 +87,7 @@ type Interface interface {
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
-	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.PageRequest) (interface{}, error)
+	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.ClusterPageRequest) (interface{}, error)
 }
 
 var clusterIndexer client.Cache
@@ -97,7 +97,7 @@ func init() {
 }
 
 type (
-	listerFunc func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error)
+	listerFunc func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.ClusterPageRequest) (interface{}, error)
 	getterFunc func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error)
 )
 
@@ -852,7 +852,7 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 	c.registerIndexers([]InformerResource{
 		{
 			ResourceType: ResourcePod,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.ClusterPageRequest) (interface{}, error) {
 				return c.ListPods(ctx, informer.PodsLister(), namespace, pageOpts)
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
@@ -861,7 +861,7 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 		},
 		{
 			ResourceType: ResourceDeployment,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.ClusterPageRequest) (interface{}, error) {
 				return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, pageOpts)
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
@@ -870,7 +870,7 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 		},
 		{
 			ResourceType: ResourceStatefulSet,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.ClusterPageRequest) (interface{}, error) {
 				return c.ListStatefulSets(ctx, informer.StatefulSetsLister(), namespace, pageOpts)
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
@@ -879,7 +879,7 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 		},
 		{
 			ResourceType: ResourceDaemonSet,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.ClusterPageRequest) (interface{}, error) {
 				return c.ListDaemonSets(ctx, informer.DaemonSetsLister(), namespace, pageOpts)
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
@@ -888,7 +888,7 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 		},
 		{
 			ResourceType: ResourceCronJob,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.ClusterPageRequest) (interface{}, error) {
 				return c.ListCronJobs(ctx, informer.CronJobsLister(), namespace, pageOpts)
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {

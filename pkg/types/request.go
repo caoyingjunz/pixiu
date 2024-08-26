@@ -147,6 +147,15 @@ type (
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页
 		Limit int `form:"limit" json:"limit"` // 每页数量
 	}
+
+	ClusterPageRequest struct {
+		PageRequest `json:",inline"` // 分页请求属性
+		Query       Query            `form:"query" json:"query"`
+	}
+	Query struct {
+		Label string `form:"label" json:"label"`
+		Name  string `form:"name" json:"name"`
+	}
 )
 
 type (
@@ -160,7 +169,7 @@ type (
 
 	// PageResponse 分页查询返回值
 	PageResponse struct {
-		PageRequest `json:",inline"` // 分页请求属性
+		ClusterPageRequest `json:",inline"` // 分页请求属性
 
 		Total int         `json:"total"` // 分页总数
 		Items interface{} `json:"items"` // 指定页的元素列表

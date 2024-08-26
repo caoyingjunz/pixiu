@@ -54,7 +54,7 @@ func (cr *clusterRouter) listIndexerResources(c *gin.Context) {
 
 	var (
 		resourceMeta ResourceMeta
-		pageOption   types.PageRequest // 分页设置
+		pageOption   types.ClusterPageRequest // 分页设置
 		err          error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, &pageOption); err != nil {
