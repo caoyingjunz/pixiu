@@ -18,47 +18,33 @@ package middleware
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
-	klog "github.com/sirupsen/logrus"
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
-const (
-	SuccessMsg = "SUCCESS"
-	ErrorMsg   = "ERROR"
-	FailMsg    = "FAIL"
-)
-
-func Logger() gin.HandlerFunc {
+func Logger(cfg *logutil.LogOptions) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		startTime := time.Now()
+		l := logutil.NewLogger(cfg)
 		c.Set(db.SQLContextKey, new(db.SQLs)) // set SQL context key
 
 		// 处理请求操作
 		c.Next()
 
-		fields := klog.Fields{
+		var err error
+		if errs := c.Errors; len(errs) > 0 {
+			err = fmt.Errorf("%v", errs.Errors())
+		}
+		l.WithLogFields(map[string]interface{}{
 			"request_id":  requestid.Get(c),
 			"method":      c.Request.Method,
 			"uri":         c.Request.RequestURI,
 			"status_code": c.Writer.Status(),
-			"latency":     fmt.Sprintf("%dµs", time.Since(startTime).Microseconds()),
 			"client_ip":   c.ClientIP(),
-		}
-		if sqls := db.GetSQLs(c); len(sqls) > 0 {
-			fields["sqls"] = sqls
-		}
-
-		if errs := c.Errors; len(errs) > 0 {
-			fields["raw_error"] = errs.Errors()
-			klog.WithFields(fields).Error(FailMsg)
-			return
-		}
-
-		klog.WithFields(fields).Info(SuccessMsg)
+		})
+		l.Log(c, err)
 	}
 }

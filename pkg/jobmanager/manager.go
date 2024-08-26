@@ -16,7 +16,11 @@ limitations under the License.
 
 package jobmanager
 
-import "github.com/robfig/cron/v3"
+import (
+	"github.com/robfig/cron/v3"
+
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
+)
 
 type Job interface {
 	// Name returns the job name
@@ -32,12 +36,12 @@ type Manager struct {
 	cron *cron.Cron
 }
 
-func NewManager(jobs ...Job) *Manager {
+func NewManager(lc *logutil.LogOptions, jobs ...Job) *Manager {
 	c := cron.New()
 	for _, job := range jobs {
 		c.AddFunc(job.CronSpec(), func() {
-			ctx := NewJobContext(job.Name())
-			ctx.Logger(job.Do(ctx))
+			ctx := NewJobContext(job.Name(), lc)
+			ctx.Log(job.Do(ctx))
 		})
 	}
 	return &Manager{
