@@ -110,6 +110,16 @@ func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister listersbatchv1.
 	return cronJob, nil
 }
 
+func (c *cluster) GetNode(ctx context.Context, nodesLister v1.NodeLister, namespace string, name string) (interface{}, error) {
+	node, err := nodesLister.Get(name)
+	if err != nil {
+		klog.Error("failed to get node (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return node, nil
+}
+
 func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
 	// 获取客户端缓存
 	cs, err := c.GetClusterSetByName(ctx, cluster)

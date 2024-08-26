@@ -900,7 +900,7 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 		},
 		{
 			ResourceType: ResourceNode,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.ClusterPageRequest) (interface{}, error) {
 				return c.ListNodes(ctx, informer.NodesLister(), namespace, pageOpts)
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
