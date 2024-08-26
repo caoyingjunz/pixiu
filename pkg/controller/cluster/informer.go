@@ -111,13 +111,13 @@ func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister listersbatchv1.
 }
 
 func (c *cluster) GetJob(ctx context.Context, cronJobsLister listersbatchv1.JobLister, namespace string, name string) (interface{}, error) {
-	cronJob, err := cronJobsLister.Jobs(namespace).Get(name)
+	job, err := cronJobsLister.Jobs(namespace).Get(name)
 	if err != nil {
 		klog.Error("failed to get job (%s/%s) from indexer: %v", namespace, name, err)
 		return nil, err
 	}
 
-	return cronJob, nil
+	return job, nil
 }
 
 func (c *cluster) GetNode(ctx context.Context, nodesLister v1.NodeLister, namespace string, name string) (interface{}, error) {
