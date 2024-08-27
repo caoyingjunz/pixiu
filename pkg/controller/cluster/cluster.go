@@ -900,8 +900,8 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 		},
 		{
 			ResourceType: ResourceJob,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, pageOpts types.PageRequest) (interface{}, error) {
-				return c.ListJobs(ctx, informer.JobsLister(), namespace, pageOpts)
+			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+				return c.ListJobs(ctx, informer.JobsLister(), namespace, listOption)
 			},
 			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
 				return c.GetJob(ctx, informer.JobsLister(), namespace, name)

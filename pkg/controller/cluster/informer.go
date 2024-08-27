@@ -179,23 +179,18 @@ func (c *cluster) podsForQuery(pods []*corev1.Pod, queryOption types.QueryOption
 		return pods
 	}
 
+	// TODO: 优化查询
 	queryPods := make([]*corev1.Pod, 0)
 	for _, pod := range pods {
-		if len(queryOption.LabelSelector) != 0 { // 标签搜索
-			// TODO: 多个标签存在时，存在乱序时无法生效
-			if strings.Contains(queryOption.LabelSelector, labels.FormatLabels(pod.Labels)) {
-				queryPods = append(queryPods, pod)
-			}
-		}
-		if len(queryOption.NameSelector) != 0 { // 名称搜索
-			if strings.Contains(queryOption.NameSelector, pod.Name) {
-				queryPods = append(queryPods, pod)
-			}
+		// 标签搜索
+		// TODO: 多个标签存在时，存在乱序时无法生效
+		// 名称搜索
+		if (len(queryOption.LabelSelector) != 0 && strings.Contains(queryOption.LabelSelector, labels.FormatLabels(pod.Labels))) || (len(queryOption.NameSelector) != 0 && strings.Contains(queryOption.NameSelector, pod.Name)) {
+			queryPods = append(queryPods, pod)
 		}
 	}
 
 	return queryPods
-
 }
 
 func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.PageRequest) interface{} {
@@ -300,7 +295,7 @@ func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv
 	}, nil
 }
 
-func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	jobs, err := jobsLister.Jobs(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -316,9 +311,9 @@ func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLis
 	}
 
 	return types.PageResponse{
-		PageRequest: pageOption,
+		PageRequest: listOption.PageRequest,
 		Total:       len(jobs),
-		Items:       c.jobsForPage(jobs, pageOption),
+		Items:       c.jobsForPage(jobs, listOption.PageRequest),
 	}, nil
 }
 

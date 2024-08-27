@@ -18,6 +18,8 @@ package types
 
 import "github.com/caoyingjunz/pixiu/pkg/db/model"
 
+const AllNamespace = "all_namespaces"
+
 type (
 	// LoginRequest is the request body struct for user login.
 	LoginRequest struct {
@@ -173,9 +175,8 @@ type (
 	// PageResponse 分页查询返回值
 	PageResponse struct {
 		PageRequest `json:",inline"` // 分页请求属性
-		Total       int              `json:"total"` // 分页总数
-		Items       interface{}      `json:"items"` // 指定页的元素列表
+
+		Total int         `json:"total"` // 分页总数
+		Items interface{} `json:"items"` // 指定页的元素列表
 	}
 )
-
-const AllNamespace = "all_namespaces"
