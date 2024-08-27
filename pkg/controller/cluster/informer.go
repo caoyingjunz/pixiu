@@ -120,7 +120,7 @@ func (c *cluster) GetNode(ctx context.Context, nodesLister v1.NodeLister, namesp
 	return node, nil
 }
 
-func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
+func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error) {
 	// 获取客户端缓存
 	cs, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
@@ -136,42 +136,57 @@ func (c *cluster) ListIndexerResources(ctx context.Context, cluster string, reso
 	if namespace == "all_namespaces" {
 		namespace = ""
 	}
-	return fn(ctx, cs.Informer, namespace, pageOption)
+	return fn(ctx, cs.Informer, namespace, listOption)
 }
 
-func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
-	// TODO: 验证缓存获取是 namespace 为空是否为全部
+func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	pods, err := podsLister.Pods(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	var podList = make([]*corev1.Pod, 0)
 
-	for _, item := range pods {
-		if (pageOption.Query.Name == "" || strings.Contains(item.Name, pageOption.Query.Name)) &&
-			(pageOption.Query.Label == "" || strings.Contains(labels.FormatLabels(item.Labels), pageOption.Query.Label)) {
-			podList = append(podList, item)
-		}
-	}
-
-	sort.SliceStable(podList, func(i, j int) bool {
-		return podList[i].ObjectMeta.GetName() < podList[j].ObjectMeta.GetName()
+	pods = c.podsForQuery(pods, listOption.QueryOption)
+	sort.SliceStable(pods, func(i, j int) bool {
+		return pods[i].ObjectMeta.GetName() < pods[j].ObjectMeta.GetName()
 	})
 	// 全量获取 pod 时，以命名空间排序
 	if len(namespace) == 0 {
-		sort.SliceStable(podList, func(i, j int) bool {
-			return podList[i].ObjectMeta.GetNamespace() < podList[j].ObjectMeta.GetNamespace()
+		sort.SliceStable(pods, func(i, j int) bool {
+			return pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace()
 		})
 	}
 
 	return types.PageResponse{
-		ClusterPageRequest: pageOption,
-		Total:              len(podList),
-		Items:              c.podsForPage(podList, pageOption),
+		Total: len(pods),
+		Items: c.podsForPage(pods, listOption.PageRequest),
 	}, nil
 }
 
-func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.ClusterPageRequest) interface{} {
+func (c *cluster) podsForQuery(pods []*corev1.Pod, queryOption types.QueryOption) []*corev1.Pod {
+	if len(queryOption.LabelSelector) == 0 && len(queryOption.NameSelector) == 0 {
+		return pods
+	}
+
+	queryPods := make([]*corev1.Pod, 0)
+	for _, pod := range pods {
+		if len(queryOption.LabelSelector) != 0 { // 标签搜索
+			// TODO: 多个标签存在时，存在乱序时无法生效
+			if strings.Contains(queryOption.LabelSelector, labels.FormatLabels(pod.Labels)) {
+				queryPods = append(queryPods, pod)
+			}
+		}
+		if len(queryOption.NameSelector) != 0 { // 名称搜索
+			if strings.Contains(queryOption.NameSelector, pod.Name) {
+				queryPods = append(queryPods, pod)
+			}
+		}
+	}
+
+	return queryPods
+
+}
+
+func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return pods
 	}
@@ -185,7 +200,7 @@ func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.ClusterPageRe
 
 // ListDeployments
 // TODO: 后续优化
-func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listersv1.DeploymentLister, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
+func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listersv1.DeploymentLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	deployments, err := deploymentsLister.Deployments(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -201,13 +216,12 @@ func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listers
 	}
 
 	return types.PageResponse{
-		ClusterPageRequest: pageOption,
-		Total:              len(deployments),
-		Items:              c.deploymentsForPage(deployments, pageOption),
+		Total: len(deployments),
+		Items: c.deploymentsForPage(deployments, listOption.PageRequest),
 	}, nil
 }
 
-func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister listersv1.StatefulSetLister, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
+func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister listersv1.StatefulSetLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	statefulSets, err := statefulSetsLister.StatefulSets(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -223,13 +237,12 @@ func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister liste
 	}
 
 	return types.PageResponse{
-		ClusterPageRequest: pageOption,
-		Total:              len(statefulSets),
-		Items:              c.statefulSetsForPage(statefulSets, pageOption),
+		Total: len(statefulSets),
+		Items: c.statefulSetsForPage(statefulSets, listOption.PageRequest),
 	}, nil
 }
 
-func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1.DaemonSetLister, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
+func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1.DaemonSetLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	daemonSets, err := daemonSetsLister.DaemonSets(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -245,13 +258,12 @@ func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1
 	}
 
 	return types.PageResponse{
-		ClusterPageRequest: pageOption,
-		Total:              len(daemonSets),
-		Items:              c.daemonSetsForPage(daemonSets, pageOption),
+		Total: len(daemonSets),
+		Items: c.daemonSetsForPage(daemonSets, listOption.PageRequest),
 	}, nil
 }
 
-func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv1.CronJobLister, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
+func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv1.CronJobLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	cronJobs, err := cronJobsLister.CronJobs(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -267,13 +279,12 @@ func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv
 	}
 
 	return types.PageResponse{
-		ClusterPageRequest: pageOption,
-		Total:              len(cronJobs),
-		Items:              c.cronJobsForPage(cronJobs, pageOption),
+		Total: len(cronJobs),
+		Items: c.cronJobsForPage(cronJobs, listOption.PageRequest),
 	}, nil
 }
 
-func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, namespace string, pageOption types.ClusterPageRequest) (interface{}, error) {
+func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	nodes, err := nodesLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -289,13 +300,12 @@ func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, name
 	}
 
 	return types.PageResponse{
-		ClusterPageRequest: pageOption,
-		Total:              len(nodes),
-		Items:              c.nodesForPage(nodes, pageOption),
+		Total: len(nodes),
+		Items: c.nodesForPage(nodes, listOption.PageRequest),
 	}, nil
 }
 
-func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.ClusterPageRequest) interface{} {
+func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return deployments
 	}
@@ -307,7 +317,7 @@ func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOptio
 	return deployments[offset:end]
 }
 
-func (c *cluster) statefulSetsForPage(statefulSets []*appsv1.StatefulSet, pageOption types.ClusterPageRequest) interface{} {
+func (c *cluster) statefulSetsForPage(statefulSets []*appsv1.StatefulSet, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return statefulSets
 	}
@@ -319,7 +329,7 @@ func (c *cluster) statefulSetsForPage(statefulSets []*appsv1.StatefulSet, pageOp
 	return statefulSets[offset:end]
 }
 
-func (c *cluster) daemonSetsForPage(daemonSets []*appsv1.DaemonSet, pageOption types.ClusterPageRequest) interface{} {
+func (c *cluster) daemonSetsForPage(daemonSets []*appsv1.DaemonSet, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return daemonSets
 	}
@@ -331,7 +341,7 @@ func (c *cluster) daemonSetsForPage(daemonSets []*appsv1.DaemonSet, pageOption t
 	return daemonSets[offset:end]
 }
 
-func (c *cluster) cronJobsForPage(cronJobs []*batchv1.CronJob, pageOption types.ClusterPageRequest) interface{} {
+func (c *cluster) cronJobsForPage(cronJobs []*batchv1.CronJob, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return cronJobs
 	}
@@ -343,7 +353,7 @@ func (c *cluster) cronJobsForPage(cronJobs []*batchv1.CronJob, pageOption types.
 	return cronJobs[offset:end]
 }
 
-func (c *cluster) nodesForPage(nodes []*corev1.Node, pageOption types.ClusterPageRequest) interface{} {
+func (c *cluster) nodesForPage(nodes []*corev1.Node, pageOption types.PageRequest) interface{} {
 	if !pageOption.IsPaged() {
 		return nodes
 	}

@@ -54,14 +54,14 @@ func (cr *clusterRouter) listIndexerResources(c *gin.Context) {
 
 	var (
 		resourceMeta ResourceMeta
-		pageOption   types.ClusterPageRequest // 分页设置
+		listOption   types.ListOptions // 分页设置
 		err          error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, &pageOption); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().ListIndexerResources(c, resourceMeta.Cluster, resourceMeta.Resource, resourceMeta.Namespace, pageOption); err != nil {
+	if r.Result, err = cr.c.Cluster().ListIndexerResources(c, resourceMeta.Cluster, resourceMeta.Resource, resourceMeta.Namespace, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
