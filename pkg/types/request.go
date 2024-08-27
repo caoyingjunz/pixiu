@@ -172,8 +172,9 @@ type (
 
 	// PageResponse 分页查询返回值
 	PageResponse struct {
-		Total int         `json:"total"` // 分页总数
-		Items interface{} `json:"items"` // 指定页的元素列表
+		PageRequest `json:",inline"` // 分页请求属性
+		Total       int              `json:"total"` // 分页总数
+		Items       interface{}      `json:"items"` // 指定页的元素列表
 	}
 )
 

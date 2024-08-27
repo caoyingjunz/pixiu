@@ -168,8 +168,9 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 	}
 
 	return types.PageResponse{
-		Total: len(pods),
-		Items: c.podsForPage(pods, listOption.PageRequest),
+		PageRequest: listOption.PageRequest,
+		Total:       len(pods),
+		Items:       c.podsForPage(pods, listOption.PageRequest),
 	}, nil
 }
 
@@ -227,8 +228,9 @@ func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listers
 	}
 
 	return types.PageResponse{
-		Total: len(deployments),
-		Items: c.deploymentsForPage(deployments, listOption.PageRequest),
+		PageRequest: listOption.PageRequest,
+		Total:       len(deployments),
+		Items:       c.deploymentsForPage(deployments, listOption.PageRequest),
 	}, nil
 }
 
@@ -248,8 +250,9 @@ func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister liste
 	}
 
 	return types.PageResponse{
-		Total: len(statefulSets),
-		Items: c.statefulSetsForPage(statefulSets, listOption.PageRequest),
+		PageRequest: listOption.PageRequest,
+		Total:       len(statefulSets),
+		Items:       c.statefulSetsForPage(statefulSets, listOption.PageRequest),
 	}, nil
 }
 
@@ -269,8 +272,9 @@ func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1
 	}
 
 	return types.PageResponse{
-		Total: len(daemonSets),
-		Items: c.daemonSetsForPage(daemonSets, listOption.PageRequest),
+		PageRequest: listOption.PageRequest,
+		Total:       len(daemonSets),
+		Items:       c.daemonSetsForPage(daemonSets, listOption.PageRequest),
 	}, nil
 }
 
@@ -290,11 +294,11 @@ func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv
 	}
 
 	return types.PageResponse{
-		Total: len(cronJobs),
-		Items: c.cronJobsForPage(cronJobs, listOption.PageRequest),
+		PageRequest: listOption.PageRequest,
+		Total:       len(cronJobs),
+		Items:       c.cronJobsForPage(cronJobs, listOption.PageRequest),
 	}, nil
 }
-
 
 func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
 	jobs, err := jobsLister.Jobs(namespace).List(labels.Everything())
@@ -318,7 +322,7 @@ func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLis
 	}, nil
 }
 
-func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	nodes, err := nodesLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -334,8 +338,9 @@ func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, name
 	}
 
 	return types.PageResponse{
-		Total: len(nodes),
-		Items: c.nodesForPage(nodes, listOption.PageRequest),
+		PageRequest: listOption.PageRequest,
+		Total:       len(nodes),
+		Items:       c.nodesForPage(nodes, listOption.PageRequest),
 	}, nil
 }
 
