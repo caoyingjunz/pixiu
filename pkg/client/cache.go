@@ -39,6 +39,7 @@ var (
 		{Group: "apps", Version: "v1", Resource: "statefulsets"},
 		{Group: "apps", Version: "v1", Resource: "daemonsets"},
 		{Group: "batch", Version: "v1", Resource: "cronjobs"},
+		{Group: "batch", Version: "v1", Resource: "jobs"},
 	}
 )
 
@@ -74,6 +75,8 @@ func (p *PixiuInformer) DaemonSetsLister() appsv1.DaemonSetLister {
 func (p *PixiuInformer) CronJobsLister() batchv1.CronJobLister {
 	return p.Shared.Batch().V1().CronJobs().Lister()
 }
+
+func (p *PixiuInformer) JobsLister() batchv1.JobLister { return p.Shared.Batch().V1().Jobs().Lister() }
 
 type ClusterSet struct {
 	Client   *kubernetes.Clientset

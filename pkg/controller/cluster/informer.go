@@ -40,6 +40,7 @@ const (
 	ResourceStatefulSet = "statefulset"
 	ResourceDaemonSet   = "daemonset"
 	ResourceCronJob     = "cronjob"
+	ResourceJob         = "job"
 )
 
 func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error) {
@@ -107,6 +108,16 @@ func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister listersbatchv1.
 	}
 
 	return cronJob, nil
+}
+
+func (c *cluster) GetJob(ctx context.Context, cronJobsLister listersbatchv1.JobLister, namespace string, name string) (interface{}, error) {
+	job, err := cronJobsLister.Jobs(namespace).Get(name)
+	if err != nil {
+		klog.Error("failed to get job (%s/%s) from indexer: %v", namespace, name, err)
+		return nil, err
+	}
+
+	return job, nil
 }
 
 func (c *cluster) GetNode(ctx context.Context, nodesLister v1.NodeLister, namespace string, name string) (interface{}, error) {
@@ -260,6 +271,28 @@ func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv
 	}, nil
 }
 
+func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
+	jobs, err := jobsLister.Jobs(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(jobs, func(i, j int) bool {
+		return jobs[i].ObjectMeta.GetName() < jobs[j].ObjectMeta.GetName()
+	})
+	if len(namespace) == 0 {
+		sort.SliceStable(jobs, func(i, j int) bool {
+			return jobs[i].ObjectMeta.GetNamespace() < jobs[j].ObjectMeta.GetNamespace()
+		})
+	}
+
+	return types.PageResponse{
+		PageRequest: pageOption,
+		Total:       len(jobs),
+		Items:       c.jobsForPage(jobs, pageOption),
+	}, nil
+}
+
 func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, namespace string, pageOption types.PageRequest) (interface{}, error) {
 	nodes, err := nodesLister.List(labels.Everything())
 	if err != nil {
@@ -328,6 +361,18 @@ func (c *cluster) cronJobsForPage(cronJobs []*batchv1.CronJob, pageOption types.
 	}
 
 	return cronJobs[offset:end]
+}
+
+func (c *cluster) jobsForPage(jobs []*batchv1.Job, pageOption types.PageRequest) interface{} {
+	if !pageOption.IsPaged() {
+		return jobs
+	}
+	offset, end, err := pageOption.Offset(len(jobs))
+	if err != nil {
+		return nil
+	}
+
+	return jobs[offset:end]
 }
 
 func (c *cluster) nodesForPage(nodes []*corev1.Node, pageOption types.PageRequest) interface{} {
