@@ -185,7 +185,7 @@ func (c *cluster) podsForQuery(pods []*corev1.Pod, queryOption types.QueryOption
 		// 标签搜索
 		// TODO: 多个标签存在时，存在乱序时无法生效
 		// 名称搜索
-		if (len(queryOption.LabelSelector) != 0 && strings.Contains(queryOption.LabelSelector, labels.FormatLabels(pod.Labels))) || (len(queryOption.NameSelector) != 0 && strings.Contains(queryOption.NameSelector, pod.Name)) {
+		if (len(queryOption.LabelSelector) != 0 && strings.Contains(labels.FormatLabels(pod.Labels), queryOption.LabelSelector)) || (len(queryOption.NameSelector) != 0 && strings.Contains(pod.Name, queryOption.NameSelector)) {
 			queryPods = append(queryPods, pod)
 		}
 	}
