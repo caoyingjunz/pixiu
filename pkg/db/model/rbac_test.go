@@ -22,61 +22,9 @@ import (
 	"testing"
 )
 
-func TestMakePolicy(t *testing.T) {
-	type args struct {
-		username string
-		obj      ObjectType
-		sid      string
-		op       Operation
-	}
-	tests := []struct {
-		name string
-		args args
-		want []string
-	}{
-		{
-			name: "test 1",
-			args: args{
-				username: "foo",
-				obj:      ObjectCluster,
-				sid:      "1",
-				op:       OpRead,
-			},
-			want: []string{"foo", "clusters", "1", "read"},
-		},
-		{
-			name: "test 2",
-			args: args{
-				username: "foo",
-				obj:      ObjectCluster,
-				sid:      "1",
-				op:       OpAll,
-			},
-			want: []string{"foo", "clusters", "1", "*"},
-		},
-		{
-			name: "test 3",
-			args: args{
-				username: "foo",
-				obj:      ObjectCluster,
-				sid:      "",
-				op:       OpCreate,
-			},
-			want: []string{"foo", "clusters", "", "create"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := MakePolicy(tt.args.username, tt.args.obj, tt.args.sid, tt.args.op); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MakePolicy() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestGetIdRangeFromPolicies(t *testing.T) {
 	type args struct {
-		policies [][]string
+		policies []Policy
 	}
 	tests := []struct {
 		name    string
@@ -87,7 +35,7 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 1",
 			args: args{
-				policies: [][]string{},
+				policies: []Policy{},
 			},
 			wantAll: false,
 			wantIds: []int64{},
@@ -95,8 +43,8 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 2",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
 				},
 			},
 			wantAll: false,
@@ -105,9 +53,9 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 3",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(2), OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(2), OpRead),
 				},
 			},
 			wantAll: false,
@@ -116,8 +64,8 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 4",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, "", OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, "", OpRead),
 				},
 			},
 			wantAll: false,
@@ -126,8 +74,8 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 5",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, "*", OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, "*", OpRead),
 				},
 			},
 			wantAll: true,
@@ -136,9 +84,9 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 6",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
-					MakePolicy("foo", ObjectCluster, "*", OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
+					NewUserPolicy("foo", ObjectCluster, "*", OpRead),
 				},
 			},
 			wantAll: true,
@@ -147,9 +95,9 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 7",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
 				},
 			},
 			wantAll: false,
@@ -158,10 +106,10 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 8",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
-					MakePolicy("foo", ObjectCluster, "*", OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpRead),
+					NewUserPolicy("foo", ObjectCluster, "*", OpRead),
 				},
 			},
 			wantAll: true,
@@ -170,10 +118,10 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 9",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpDelete),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(2), OpUpdate),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(3), OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpDelete),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(2), OpUpdate),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(3), OpRead),
 				},
 			},
 			wantAll: false,
@@ -182,11 +130,11 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 10",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpDelete),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(2), OpUpdate),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(3), OpRead),
-					MakePolicy("foo", ObjectCluster, "*", OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpDelete),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(2), OpUpdate),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(3), OpRead),
+					NewUserPolicy("foo", ObjectCluster, "*", OpRead),
 				},
 			},
 			wantAll: true,
@@ -195,10 +143,10 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 		{
 			name: "case 11",
 			args: args{
-				policies: [][]string{
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(1), OpDelete),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(2), OpUpdate),
-					MakePolicy("foo", ObjectCluster, strconv.Itoa(3), OpRead),
+				policies: []Policy{
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(1), OpDelete),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(2), OpUpdate),
+					NewUserPolicy("foo", ObjectCluster, strconv.Itoa(3), OpRead),
 				},
 			},
 			wantAll: false,
@@ -207,7 +155,7 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotAll, gotIds := GetIdRangeFromPolicies(tt.args.policies)
+			gotAll, gotIds := GetIdRangeFromPolicy(tt.args.policies)
 			if gotAll != tt.wantAll {
 				t.Errorf("GetIdRangeFromPolicies() gotAll = %v, want %v", gotAll, tt.wantAll)
 			}
@@ -220,7 +168,7 @@ func TestGetIdRangeFromPolicies(t *testing.T) {
 
 func TestIsAdminPolicy(t *testing.T) {
 	type args struct {
-		policy []string
+		policy Policy
 	}
 	tests := []struct {
 		name string
@@ -230,7 +178,7 @@ func TestIsAdminPolicy(t *testing.T) {
 		{
 			name: "case 1",
 			args: args{
-				policy: MakePolicy("foo", ObjectCluster, "*", OpRead),
+				policy: NewUserPolicy("foo", ObjectCluster, "*", OpRead),
 			},
 			want: false,
 		},
@@ -244,35 +192,35 @@ func TestIsAdminPolicy(t *testing.T) {
 		{
 			name: "case 2",
 			args: args{
-				policy: []string{},
+				policy: GroupPolicy{},
 			},
 			want: false,
 		},
 		{
 			name: "case 3",
 			args: args{
-				policy: []string{"*", "*", "*", "*"},
+				policy: NewGroupPolicy("*", "*", "*", "*"),
 			},
 			want: false,
 		},
 		{
 			name: "case 4",
 			args: args{
-				policy: []string{"*", "root", "*", "*"},
+				policy: NewGroupPolicy("*", "root", "*", "*"),
 			},
 			want: false,
 		},
 		{
 			name: "case 5",
 			args: args{
-				policy: []string{"*", "*", "root", "*"},
+				policy: NewGroupPolicy("*", "*", "root", "*"),
 			},
 			want: false,
 		},
 		{
 			name: "case 6",
 			args: args{
-				policy: []string{"*", "*", "*", "root"},
+				policy: NewGroupPolicy("*", "*", "*", "root"),
 			},
 			want: false,
 		},
@@ -286,9 +234,9 @@ func TestIsAdminPolicy(t *testing.T) {
 	}
 }
 
-func TestHasAdminGroupPolicy(t *testing.T) {
+func TestBindingToAdmin(t *testing.T) {
 	type args struct {
-		policies [][]string
+		policies []GroupBinding
 	}
 	tests := []struct {
 		name string
@@ -303,8 +251,8 @@ func TestHasAdminGroupPolicy(t *testing.T) {
 		{
 			name: "case 2",
 			args: args{
-				policies: [][]string{
-					{"foo", "bar"},
+				policies: []GroupBinding{
+					NewGroupBinding("foo", "bar"),
 				},
 			},
 			want: false,
@@ -312,8 +260,8 @@ func TestHasAdminGroupPolicy(t *testing.T) {
 		{
 			name: "case 3",
 			args: args{
-				policies: [][]string{
-					{"foo", AdminGroup},
+				policies: []GroupBinding{
+					NewGroupBinding("foo", AdminGroup),
 				},
 			},
 			want: true,
@@ -321,9 +269,9 @@ func TestHasAdminGroupPolicy(t *testing.T) {
 		{
 			name: "case 4",
 			args: args{
-				policies: [][]string{
-					{"foo", "bar"},
-					{"foo", AdminGroup},
+				policies: []GroupBinding{
+					NewGroupBinding("foo", "bar"),
+					NewGroupBinding("foo", AdminGroup),
 				},
 			},
 			want: true,
@@ -331,9 +279,9 @@ func TestHasAdminGroupPolicy(t *testing.T) {
 		{
 			name: "case 5",
 			args: args{
-				policies: [][]string{
-					{"foo", "bar"},
-					{"foo", "baz"},
+				policies: []GroupBinding{
+					NewGroupBinding("foo", "bar"),
+					NewGroupBinding("foo", "baz"),
 				},
 			},
 			want: false,
@@ -341,7 +289,7 @@ func TestHasAdminGroupPolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := HasAdminGroupPolicy(tt.args.policies); got != tt.want {
+			if got := BindingToAdmin(tt.args.policies); got != tt.want {
 				t.Errorf("HasAdminGroupPolicy() = %v, want %v", got, tt.want)
 			}
 		})
