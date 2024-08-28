@@ -757,10 +757,15 @@ func parseFloat64FromString(s string) float64 {
 }
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
-	nodes := types.KubeNode{}
-	if err := nodes.Unmarshal(o.Nodes); err != nil {
-		// 非核心数据
-		klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+	nodes := types.KubeNode{
+		Ready:    []string{},
+		NotReady: []string{},
+	}
+	if len(o.Nodes) != 0 {
+		if err := nodes.Unmarshal(o.Nodes); err != nil {
+			// 非核心数据
+			klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+		}
 	}
 
 	tc := &types.Cluster{

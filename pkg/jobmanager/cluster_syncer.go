@@ -18,7 +18,6 @@ package jobmanager
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -94,7 +93,7 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 }
 
 func syncCustomCluster(f db.ShareDaoFactory, cluster model.Cluster) error {
-	fmt.Println(cluster.PlanId)
+	// TODO: 后续补充
 	return nil
 }
 
