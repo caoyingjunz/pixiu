@@ -92,8 +92,17 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	return nil
 }
 
+func syncCustomCluster(f db.ShareDaoFactory, cluster model.Cluster) error {
+	// TODO: 后续补充
+	return nil
+}
+
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
-	// TODO: 过滤自建集群正在部署的集群
+	// 处理自建集群正在部署的集群
+	if cluster.ClusterType == model.ClusterTypeCustom {
+		return syncCustomCluster(f, cluster)
+	}
+
 	var (
 		kubernetesVersion string
 		nodeData          string

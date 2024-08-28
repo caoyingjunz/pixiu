@@ -18,6 +18,8 @@ package types
 
 import "github.com/caoyingjunz/pixiu/pkg/db/model"
 
+const AllNamespace = "all_namespaces"
+
 type (
 	// LoginRequest is the request body struct for user login.
 	LoginRequest struct {
@@ -151,14 +153,15 @@ type (
 		Operation  *model.Operation  `form:"operation" binding:"omitempty,required_with=SID,rbac_operation"`
 	}
 
-	GroupPolicyRequest struct {
-		// TODO:
-	}
-
-	// PageRequest 分配配置
+	// PageRequest 分页配置
 	PageRequest struct {
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页
 		Limit int `form:"limit" json:"limit"` // 每页数量
+	}
+	// QueryOption 搜索配置
+	QueryOption struct {
+		LabelSelector string `form:"labelSelector" json:"labelSelector"` // 标签搜索
+		NameSelector  string `form:"nameSelector" json:"nameSelector"`   // 名称搜索
 	}
 )
 
@@ -179,5 +182,3 @@ type (
 		Items interface{} `json:"items"` // 指定页的元素列表
 	}
 )
-
-const AllNamespace = "all_namespaces"

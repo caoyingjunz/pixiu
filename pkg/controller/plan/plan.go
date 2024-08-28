@@ -120,7 +120,7 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 
 	// 如果启用pixiu注册功能，则创建容器服务
 	if req.Config.Kubernetes.Register {
-		kubeNode := types.KubeNode{}
+		kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
 		nodes, _ := kubeNode.Marshal()
 		_, err := p.factory.Cluster().Create(ctx, &model.Cluster{
 			Name:        uuid.NewRandName(8),
