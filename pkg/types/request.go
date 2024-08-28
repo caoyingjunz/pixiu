@@ -138,7 +138,9 @@ type (
 	}
 
 	RBACPolicyRequest struct {
-		UserId     int64            `json:"user_id" binding:"required"`
+		// user ID or group name is required
+		UserId     *int64           `json:"user_id" binding:"required_without=GroupName,excluded_with=GroupName"`
+		GroupName  *string          `json:"group_name" binding:"required_without=UserId,excluded_with=UserId"`
 		ObjectType model.ObjectType `json:"object_type" binding:"required,rbac_object"`
 		SID        string           `json:"sid" binding:"omitempty,rbac_sid"`
 		Operation  model.Operation  `json:"operation" binding:"required,rbac_operation"`

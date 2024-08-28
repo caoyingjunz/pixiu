@@ -75,27 +75,6 @@ var ObjectTypeMap = map[ObjectType]struct{}{
 	ObjectAll:     {},
 }
 
-// AdminPolicy is the specific policy for admin/root user.
-var AdminPolicy = []string{AdminGroup, ObjectAll.String(), SidAll, OpAll.String()}
-
-// IsAdminPolicy returns true if the policy is the admin policy.
-func IsAdminPolicy(policy []string) bool {
-	return reflect.DeepEqual(policy, AdminPolicy)
-}
-
-// HasAdminPolicy returns true if the policies contain the admin policy.
-func HasAdminGroupPolicy(policies [][]string) bool {
-	for _, policy := range policies {
-		if len(policy) < 2 {
-			// invalid group policy
-			continue
-		} else if policy[1] == AdminGroup {
-			return true
-		}
-	}
-	return false
-}
-
 // TODO:
 type RBACInterface interface{}
 
@@ -120,31 +99,132 @@ m = g(r.sub, p.sub) && keyMatch(r.obj, p.obj) && keyMatch(r.id, p.id) && keyMatc
 // TODO:
 type CasbinRBACImpl struct{}
 
-// MakePolicy returns a policy slice.
+type Policy interface {
+	Raw() []string
+}
+
+// UserPolicy is a RBAC policy for user.
 // e.g. ["foo", "clusters", "*", "read"]
-func MakePolicy(username string, obj ObjectType, sid string, op Operation) []string {
-	return []string{username, obj.String(), sid, op.String()}
+type UserPolicy [4]string
+
+// NewUserPolicy returns a policy slice for user.
+// e.g. ["foo", "clusters", "*", "read"]: foo is a user name
+func NewUserPolicy(userName string, obj ObjectType, sid string, op Operation) UserPolicy {
+	return UserPolicy{userName, obj.String(), sid, op.String()}
 }
 
-// MakePolicyFromModels returns a policy slice.
+func (p UserPolicy) Raw() []string {
+	return p[:]
+}
+
+func (p UserPolicy) GetUserName() string {
+	return p[0]
+}
+
+func (p UserPolicy) GetObjectType() ObjectType {
+	return ObjectType(p[1])
+}
+
+func (p UserPolicy) GetSID() string {
+	return p[2]
+}
+
+func (p UserPolicy) GetOperation() Operation {
+	return Operation(p[3])
+}
+
+// GroupPolicy is a RBAC policy for group.
+// e.g. ["master", "clusters", "*", "*"]
+type GroupPolicy [4]string
+
+// NewGroupPolicy returns a policy slice for group.
+// e.g. ["master", "clusters", "*", "*"]: master is a group name
+func NewGroupPolicy(groupName string, obj ObjectType, sid string, op Operation) GroupPolicy {
+	return GroupPolicy{groupName, obj.String(), sid, op.String()}
+}
+
+func (p GroupPolicy) Raw() []string {
+	return p[:]
+}
+
+func (p GroupPolicy) GetGroupName() string {
+	return p[0]
+}
+
+func (p GroupPolicy) GetObjectType() ObjectType {
+	return ObjectType(p[1])
+}
+
+func (p GroupPolicy) GetSID() string {
+	return p[2]
+}
+
+func (p GroupPolicy) GetOperation() Operation {
+	return Operation(p[3])
+}
+
+// GroupBinding binds a user to a group.
+// e.g. ["foo", "master"]: user foo belongs to group master
+type GroupBinding [2]string
+
+// NewGroupBinding returns a binding slice for relationship between user and group.
+func NewGroupBinding(userName, groupName string) GroupBinding {
+	return GroupBinding{userName, groupName}
+}
+
+func (p GroupBinding) Raw() []string {
+	return p[:]
+}
+
+func (p GroupBinding) GetUserName() string {
+	return p[0]
+}
+
+func (p GroupBinding) GetGroupName() string {
+	return p[1]
+}
+
+// AdminPolicy is the specific policy for admin/root user.
+var AdminPolicy = NewGroupPolicy(AdminGroup, ObjectAll, SidAll, OpAll)
+
+// IsAdminPolicy returns true if the policy is the admin policy.
+func IsAdminPolicy(policy Policy) bool {
+	switch p := policy.(type) {
+	case GroupPolicy:
+		return reflect.DeepEqual(p.Raw(), AdminPolicy.Raw())
+	default:
+		return false
+	}
+}
+
+// BindingToAdmin returns true if policy binding to admin group exists.
+func BindingToAdmin(policies []GroupBinding) bool {
+	for _, policy := range policies {
+		if policy.GetGroupName() == AdminGroup {
+			return true
+		}
+	}
+	return false
+}
+
+// NewPolicyFromModels returns a policy slice.
 // e.g. ["foo", "clusters", "*", "*"]
-func MakePolicyFromModels(user *User, obj ObjectType, model pixiu.Model, op Operation) []string {
-	return MakePolicy(user.Name, obj, model.GetSID(), op)
+func NewPolicyFromModels(user *User, obj ObjectType, model pixiu.Model, op Operation) Policy {
+	return NewUserPolicy(user.Name, obj, model.GetSID(), op)
 }
 
-// NOTE: GetIdRangeFromPolicies is only used for listing API request.
-// GetIdRangeFromPolicies returns true and an empty list when policy with all operation(*) are allowed exists,
+// NOTE: GetIdRangeFromPolicy is only used for listing API request.
+// GetIdRangeFromPolicy returns true and an empty list when policy with all operation(*) are allowed exists,
 // otherwise it returns false and a list of object IDs.
-func GetIdRangeFromPolicies(policies [][]string) (all bool, ids []int64) {
+func GetIdRangeFromPolicy(policies []Policy) (all bool, ids []int64) {
 	ids = make([]int64, 0)
 	for _, policy := range policies {
-		// e.g. ["foo", "clusters", "*", "read"]
-		if len(policy) != 4 {
-			// invalid policy
+		if _, ok := policy.(GroupBinding); ok {
 			continue
 		}
 
-		sid := policy[2]
+		raw := policy.Raw() // e.g. ["foo", "clusters", "*", "read"]
+		sid := raw[2]
 		switch sid {
 		case "":
 			continue
@@ -154,7 +234,7 @@ func GetIdRangeFromPolicies(policies [][]string) (all bool, ids []int64) {
 		}
 
 		// operation
-		if !(policy[3] == OpRead.String() || policy[3] == OpAll.String()) {
+		if !(raw[3] == OpRead.String() || raw[3] == OpAll.String()) {
 			continue
 		}
 

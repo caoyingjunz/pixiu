@@ -145,9 +145,9 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 			return
 		}
 
-		// insert a RBAC policy
-		policy := model.MakePolicyFromModels(user, model.ObjectCluster, cluster.Model, model.OpAll)
-		_, err = c.enforcer.AddPolicy(policy)
+		// insert a user RBAC policy
+		policy := model.NewPolicyFromModels(user, model.ObjectCluster, cluster.Model, model.OpAll)
+		_, err = c.enforcer.AddPolicy(policy.Raw())
 		return
 	}
 

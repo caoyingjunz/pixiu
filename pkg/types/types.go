@@ -311,8 +311,9 @@ type Haproxy struct {
 }
 
 type RBACPolicy struct {
-	Username   string           `json:"username"`
-	ObjectType model.ObjectType `json:"resource_type"`
-	StringID   string           `json:"sid"`
-	Operation  model.Operation  `json:"operation"`
+	UserName   string           `json:"username,omitempty"`
+	GroupName  string           `json:"groupname,omitempty"`
+	ObjectType model.ObjectType `json:"resource_type,omitempty"`
+	StringID   string           `json:"sid,omitempty"`
+	Operation  model.Operation  `json:"operation,omitempty"`
 }
