@@ -19,16 +19,13 @@ package cluster
 import (
 	"context"
 	"fmt"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersv1 "k8s.io/client-go/listers/apps/v1"
 	listersbatchv1 "k8s.io/client-go/listers/batch/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
-	"sort"
 
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -163,28 +160,18 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 	return c.listObjects(objects, namespace, listOption)
 }
 
-// ListDeployments
-// TODO: 后续优化
+// ListDeployments 从缓存中获取 deployment 列表
 func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listersv1.DeploymentLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	deployments, err := deploymentsLister.Deployments(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-
-	sort.SliceStable(deployments, func(i, j int) bool {
-		return deployments[i].ObjectMeta.GetName() < deployments[j].ObjectMeta.GetName()
-	})
-	if len(namespace) == 0 {
-		sort.SliceStable(deployments, func(i, j int) bool {
-			return deployments[i].ObjectMeta.GetNamespace() < deployments[j].ObjectMeta.GetNamespace()
-		})
+	objects := make([]metav1.Object, 0)
+	for _, pod := range deployments {
+		objects = append(objects, pod)
 	}
 
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       len(deployments),
-		Items:       c.deploymentsForPage(deployments, listOption.PageRequest),
-	}, nil
+	return c.listObjects(objects, namespace, listOption)
 }
 
 func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister listersv1.StatefulSetLister, namespace string, listOption types.ListOptions) (interface{}, error) {
@@ -193,20 +180,12 @@ func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister liste
 		return nil, err
 	}
 
-	sort.SliceStable(statefulSets, func(i, j int) bool {
-		return statefulSets[i].ObjectMeta.GetName() < statefulSets[j].ObjectMeta.GetName()
-	})
-	if len(namespace) == 0 {
-		sort.SliceStable(statefulSets, func(i, j int) bool {
-			return statefulSets[i].ObjectMeta.GetNamespace() < statefulSets[j].ObjectMeta.GetNamespace()
-		})
+	objects := make([]metav1.Object, 0)
+	for _, pod := range statefulSets {
+		objects = append(objects, pod)
 	}
 
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       len(statefulSets),
-		Items:       c.statefulSetsForPage(statefulSets, listOption.PageRequest),
-	}, nil
+	return c.listObjects(objects, namespace, listOption)
 }
 
 func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1.DaemonSetLister, namespace string, listOption types.ListOptions) (interface{}, error) {
@@ -214,21 +193,12 @@ func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1
 	if err != nil {
 		return nil, err
 	}
-
-	sort.SliceStable(daemonSets, func(i, j int) bool {
-		return daemonSets[i].ObjectMeta.GetName() < daemonSets[j].ObjectMeta.GetName()
-	})
-	if len(namespace) == 0 {
-		sort.SliceStable(daemonSets, func(i, j int) bool {
-			return daemonSets[i].ObjectMeta.GetNamespace() < daemonSets[j].ObjectMeta.GetNamespace()
-		})
+	objects := make([]metav1.Object, 0)
+	for _, pod := range daemonSets {
+		objects = append(objects, pod)
 	}
 
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       len(daemonSets),
-		Items:       c.daemonSetsForPage(daemonSets, listOption.PageRequest),
-	}, nil
+	return c.listObjects(objects, namespace, listOption)
 }
 
 func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv1.CronJobLister, namespace string, listOption types.ListOptions) (interface{}, error) {
@@ -236,21 +206,12 @@ func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv
 	if err != nil {
 		return nil, err
 	}
-
-	sort.SliceStable(cronJobs, func(i, j int) bool {
-		return cronJobs[i].ObjectMeta.GetName() < cronJobs[j].ObjectMeta.GetName()
-	})
-	if len(namespace) == 0 {
-		sort.SliceStable(cronJobs, func(i, j int) bool {
-			return cronJobs[i].ObjectMeta.GetNamespace() < cronJobs[j].ObjectMeta.GetNamespace()
-		})
+	objects := make([]metav1.Object, 0)
+	for _, pod := range cronJobs {
+		objects = append(objects, pod)
 	}
 
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       len(cronJobs),
-		Items:       c.cronJobsForPage(cronJobs, listOption.PageRequest),
-	}, nil
+	return c.listObjects(objects, namespace, listOption)
 }
 
 func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLister, namespace string, listOption types.ListOptions) (interface{}, error) {
@@ -259,20 +220,11 @@ func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLis
 		return nil, err
 	}
 
-	sort.SliceStable(jobs, func(i, j int) bool {
-		return jobs[i].ObjectMeta.GetName() < jobs[j].ObjectMeta.GetName()
-	})
-	if len(namespace) == 0 {
-		sort.SliceStable(jobs, func(i, j int) bool {
-			return jobs[i].ObjectMeta.GetNamespace() < jobs[j].ObjectMeta.GetNamespace()
-		})
+	objects := make([]metav1.Object, 0)
+	for _, pod := range jobs {
+		objects = append(objects, pod)
 	}
-
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       len(jobs),
-		Items:       c.jobsForPage(jobs, listOption.PageRequest),
-	}, nil
+	return c.listObjects(objects, namespace, listOption)
 }
 
 func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, namespace string, listOption types.ListOptions) (interface{}, error) {
@@ -281,90 +233,9 @@ func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, name
 		return nil, err
 	}
 
-	sort.SliceStable(nodes, func(i, j int) bool {
-		return nodes[i].ObjectMeta.GetName() < nodes[j].ObjectMeta.GetName()
-	})
-	if len(namespace) == 0 {
-		sort.SliceStable(nodes, func(i, j int) bool {
-			return nodes[i].ObjectMeta.GetNamespace() < nodes[j].ObjectMeta.GetNamespace()
-		})
+	objects := make([]metav1.Object, 0)
+	for _, pod := range nodes {
+		objects = append(objects, pod)
 	}
-
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       len(nodes),
-		Items:       c.nodesForPage(nodes, listOption.PageRequest),
-	}, nil
-}
-
-func (c *cluster) deploymentsForPage(deployments []*appsv1.Deployment, pageOption types.PageRequest) interface{} {
-	if !pageOption.IsPaged() {
-		return deployments
-	}
-	offset, end, err := pageOption.Offset(len(deployments))
-	if err != nil {
-		return nil
-	}
-
-	return deployments[offset:end]
-}
-
-func (c *cluster) statefulSetsForPage(statefulSets []*appsv1.StatefulSet, pageOption types.PageRequest) interface{} {
-	if !pageOption.IsPaged() {
-		return statefulSets
-	}
-	offset, end, err := pageOption.Offset(len(statefulSets))
-	if err != nil {
-		return nil
-	}
-
-	return statefulSets[offset:end]
-}
-
-func (c *cluster) daemonSetsForPage(daemonSets []*appsv1.DaemonSet, pageOption types.PageRequest) interface{} {
-	if !pageOption.IsPaged() {
-		return daemonSets
-	}
-	offset, end, err := pageOption.Offset(len(daemonSets))
-	if err != nil {
-		return nil
-	}
-
-	return daemonSets[offset:end]
-}
-
-func (c *cluster) cronJobsForPage(cronJobs []*batchv1.CronJob, pageOption types.PageRequest) interface{} {
-	if !pageOption.IsPaged() {
-		return cronJobs
-	}
-	offset, end, err := pageOption.Offset(len(cronJobs))
-	if err != nil {
-		return nil
-	}
-
-	return cronJobs[offset:end]
-}
-
-func (c *cluster) jobsForPage(jobs []*batchv1.Job, pageOption types.PageRequest) interface{} {
-	if !pageOption.IsPaged() {
-		return jobs
-	}
-	offset, end, err := pageOption.Offset(len(jobs))
-	if err != nil {
-		return nil
-	}
-
-	return jobs[offset:end]
-}
-
-func (c *cluster) nodesForPage(nodes []*corev1.Node, pageOption types.PageRequest) interface{} {
-	if !pageOption.IsPaged() {
-		return nodes
-	}
-	offset, end, err := pageOption.Offset(len(nodes))
-	if err != nil {
-		return nil
-	}
-
-	return nodes[offset:end]
+	return c.listObjects(objects, namespace, listOption)
 }
