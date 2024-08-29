@@ -19,17 +19,16 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"sort"
-	"strings"
-
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersv1 "k8s.io/client-go/listers/apps/v1"
 	listersbatchv1 "k8s.io/client-go/listers/batch/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
+	"sort"
 
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -155,54 +154,13 @@ func (c *cluster) ListPods(ctx context.Context, podsLister v1.PodLister, namespa
 	if err != nil {
 		return nil, err
 	}
-
-	pods = c.podsForQuery(pods, listOption.QueryOption)
-	sort.SliceStable(pods, func(i, j int) bool {
-		return pods[i].ObjectMeta.GetName() < pods[j].ObjectMeta.GetName()
-	})
-	// 全量获取 pod 时，以命名空间排序
-	if len(namespace) == 0 {
-		sort.SliceStable(pods, func(i, j int) bool {
-			return pods[i].ObjectMeta.GetNamespace() < pods[j].ObjectMeta.GetNamespace()
-		})
-	}
-
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       len(pods),
-		Items:       c.podsForPage(pods, listOption.PageRequest),
-	}, nil
-}
-
-func (c *cluster) podsForQuery(pods []*corev1.Pod, queryOption types.QueryOption) []*corev1.Pod {
-	if len(queryOption.LabelSelector) == 0 && len(queryOption.NameSelector) == 0 {
-		return pods
-	}
-
-	// TODO: 优化查询
-	queryPods := make([]*corev1.Pod, 0)
+	// 构造通用的 objects
+	objects := make([]metav1.Object, 0)
 	for _, pod := range pods {
-		// 标签搜索
-		// TODO: 多个标签存在时，存在乱序时无法生效
-		// 名称搜索
-		if (len(queryOption.LabelSelector) != 0 && strings.Contains(labels.FormatLabels(pod.Labels), queryOption.LabelSelector)) || (len(queryOption.NameSelector) != 0 && strings.Contains(pod.Name, queryOption.NameSelector)) {
-			queryPods = append(queryPods, pod)
-		}
+		objects = append(objects, pod)
 	}
 
-	return queryPods
-}
-
-func (c *cluster) podsForPage(pods []*corev1.Pod, pageOption types.PageRequest) interface{} {
-	if !pageOption.IsPaged() {
-		return pods
-	}
-	offset, end, err := pageOption.Offset(len(pods))
-	if err != nil {
-		return nil
-	}
-
-	return pods[offset:end]
+	return c.listObjects(objects, namespace, listOption)
 }
 
 // ListDeployments
