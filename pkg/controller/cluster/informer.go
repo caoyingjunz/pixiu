@@ -167,8 +167,8 @@ func (c *cluster) ListDeployments(ctx context.Context, deploymentsLister listers
 		return nil, err
 	}
 	objects := make([]metav1.Object, 0)
-	for _, pod := range deployments {
-		objects = append(objects, pod)
+	for _, deployment := range deployments {
+		objects = append(objects, deployment)
 	}
 
 	return c.listObjects(objects, namespace, listOption)
@@ -179,10 +179,9 @@ func (c *cluster) ListStatefulSets(ctx context.Context, statefulSetsLister liste
 	if err != nil {
 		return nil, err
 	}
-
 	objects := make([]metav1.Object, 0)
-	for _, pod := range statefulSets {
-		objects = append(objects, pod)
+	for _, statefulSet := range statefulSets {
+		objects = append(objects, statefulSet)
 	}
 
 	return c.listObjects(objects, namespace, listOption)
@@ -194,8 +193,8 @@ func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1
 		return nil, err
 	}
 	objects := make([]metav1.Object, 0)
-	for _, pod := range daemonSets {
-		objects = append(objects, pod)
+	for _, daemonSet := range daemonSets {
+		objects = append(objects, daemonSet)
 	}
 
 	return c.listObjects(objects, namespace, listOption)
@@ -207,8 +206,8 @@ func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv
 		return nil, err
 	}
 	objects := make([]metav1.Object, 0)
-	for _, pod := range cronJobs {
-		objects = append(objects, pod)
+	for _, cronJob := range cronJobs {
+		objects = append(objects, cronJob)
 	}
 
 	return c.listObjects(objects, namespace, listOption)
@@ -221,8 +220,8 @@ func (c *cluster) ListJobs(ctx context.Context, jobsLister listersbatchv1.JobLis
 	}
 
 	objects := make([]metav1.Object, 0)
-	for _, pod := range jobs {
-		objects = append(objects, pod)
+	for _, job := range jobs {
+		objects = append(objects, job)
 	}
 	return c.listObjects(objects, namespace, listOption)
 }
@@ -234,8 +233,8 @@ func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, name
 	}
 
 	objects := make([]metav1.Object, 0)
-	for _, pod := range nodes {
-		objects = append(objects, pod)
+	for _, node := range nodes {
+		objects = append(objects, node)
 	}
 	return c.listObjects(objects, namespace, listOption)
 }
