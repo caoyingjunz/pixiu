@@ -34,7 +34,19 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 	keyBytes := []byte(o.ComponentConfig.Default.JWTKey)
 
 	return func(c *gin.Context) {
-		if o.ComponentConfig.Default.Mode.InDebug() || alwaysAllowPath.Has(c.Request.URL.Path) || allowCustomRequest(c) {
+		if o.ComponentConfig.Default.Mode.InDebug() {
+			// Considered all as root user when running in debug mode.
+			root, err := o.Factory.User().GetRoot(c)
+			if err != nil {
+				httputils.AbortFailedWithCode(c, http.StatusInternalServerError, err)
+				return
+			}
+
+			httputils.SetUserToContext(c, root)
+			return
+		}
+
+		if alwaysAllowPath.Has(c.Request.URL.Path) || allowCustomRequest(c) {
 			return
 		}
 

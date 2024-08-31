@@ -31,6 +31,7 @@ type UserInterface interface {
 	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
+	GetRoot(ctx context.Context) (*model.User, error)
 	List(ctx context.Context, opts ...Options) ([]model.User, error)
 
 	Count(ctx context.Context) (int64, error)
@@ -87,6 +88,18 @@ func (u *user) Delete(ctx context.Context, uid int64) error {
 func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 	var object model.User
 	if err := u.db.WithContext(ctx).Where("id = ?", uid).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+func (u *user) GetRoot(ctx context.Context) (*model.User, error) {
+	var object model.User
+	if err := u.db.WithContext(ctx).Where("role = ?", model.RoleRoot).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
