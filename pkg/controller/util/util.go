@@ -36,14 +36,9 @@ func MakeDbOptions(ctx context.Context) (opts []db.Options) {
 }
 
 func SetIdRangeContext(c *gin.Context, enforcer *casbin.SyncedEnforcer, user *model.User, obj string) error {
-	// group
-	pp, err := enforcer.GetFilteredNamedGroupingPolicy("g", 0, user.Name)
+	bindings, err := GetGroupBindings(enforcer, QueryWithUserName(user.Name))
 	if err != nil {
 		return err
-	}
-	bindings := make([]model.GroupBinding, len(pp))
-	for i, p := range pp {
-		copy(bindings[i][:], p)
 	}
 	if model.BindingToAdmin(bindings) {
 		// This user is an admin/root, it's unnecessary to set object IDs list to context.
@@ -66,8 +61,23 @@ func SetIdRangeContext(c *gin.Context, enforcer *casbin.SyncedEnforcer, user *mo
 	return nil
 }
 
-func GetGroupBindings(enforcer *casbin.SyncedEnforcer, policy model.GroupPolicy) ([]model.GroupBinding, error) {
-	pp, err := enforcer.GetFilteredNamedGroupingPolicy("g", 1, policy.GetGroupName())
+type BindingQueryCondition func() (int, string)
+
+func QueryWithGroupName(name string) BindingQueryCondition {
+	return func() (int, string) {
+		return 1, name
+	}
+}
+
+func QueryWithUserName(name string) BindingQueryCondition {
+	return func() (int, string) {
+		return 0, name
+	}
+}
+
+func GetGroupBindings(enforcer *casbin.SyncedEnforcer, cond BindingQueryCondition) ([]model.GroupBinding, error) {
+	index, name := cond()
+	pp, err := enforcer.GetFilteredNamedGroupingPolicy("g", index, name)
 	if err != nil {
 		return nil, err
 	}

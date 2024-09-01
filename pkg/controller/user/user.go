@@ -92,7 +92,8 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 
 	txFunc := func() (err error) {
 		if req.Role == model.RoleRoot {
-			_, err = u.enforcer.AddGroupingPolicy(req.Name, "root")
+			bindings := model.NewGroupBinding(req.Name, model.AdminGroup)
+			_, err = u.enforcer.AddGroupingPolicy(bindings.Raw())
 		}
 		return
 	}

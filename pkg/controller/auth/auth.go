@@ -103,7 +103,7 @@ func (a *auth) DeleteRBACPolicy(ctx context.Context, req *types.RBACPolicyReques
 	case model.GroupPolicy:
 		// check existing group bindings
 		klog.Infof("delete group policy: %v", policy.Raw())
-		bindings, err := ctrlutil.GetGroupBindings(a.enforcer, p)
+		bindings, err := ctrlutil.GetGroupBindings(a.enforcer, ctrlutil.QueryWithGroupName(p.GetGroupName()))
 		if err != nil {
 			klog.Errorf("failed to get bindings of group policy(%v): %v", policy.Raw(), err)
 			return errors.ErrServerInternal
