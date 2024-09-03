@@ -10,6 +10,7 @@ CREATE TABLE `clusters` (
     gmt_create datetime COMMENT '创建时间',
     gmt_modified datetime COMMENT '修改时间',
     resource_version int COMMENT '版本号',
+    plan_id int COMMENT 'plan表的id号',
     name varchar(128) COMMENT 'k8s 集群名称',
     alias_name varchar(128) COMMENT 'k8s 集群中文名称',
     cluster_type int COMMENT 'Kubernetes 集群的类型',
