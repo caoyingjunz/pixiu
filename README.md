@@ -54,7 +54,6 @@ Pixiu is an open source container platform for cloud-native application manageme
 - 审计管理
 ![image](https://github.com/pixiu-io/dashboard/blob/master/images/audit_manager.png?raw=true)
 
-
 ## 学习分享
 - [go-learning](https://github.com/caoyingjunz/go-learning)
 
