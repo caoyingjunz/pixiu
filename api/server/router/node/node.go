@@ -17,9 +17,10 @@ limitations under the License.
 package node
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
-	"github.com/gin-gonic/gin"
 )
 
 type nodeRouter struct {

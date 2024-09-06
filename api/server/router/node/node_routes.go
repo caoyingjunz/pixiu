@@ -17,14 +17,16 @@ limitations under the License.
 package node
 
 import (
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/node"
-	"github.com/caoyingjunz/pixiu/pkg/types"
+	"net/http"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	klog "github.com/sirupsen/logrus"
-	"net/http"
-	"time"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/node"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type WebSSHConfig struct {

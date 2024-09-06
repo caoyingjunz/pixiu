@@ -18,12 +18,13 @@ package node
 
 import (
 	"fmt"
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 	"os"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 func sshClientConfigPassword(config *types.WebSSHConfig) *model.SSHClientConfig {
