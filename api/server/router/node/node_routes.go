@@ -29,16 +29,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-type WebSSHConfig struct {
-	Host      string          `form:"host" json:"host" binding:"required"`
-	Port      int             `form:"port" json:"port"`
-	User      string          `form:"user" json:"user" binding:"required"`
-	Password  string          `form:"password" json:"password"`
-	AuthModel model.AuthModel `form:"auth_model" json:"auth_model"`
-	PkPath    string          `form:"pk_path" json:"pk_path"`
-	Protocol  string          `form:"protocol" json:"protocol"`
-}
-
 var upGrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024 * 10,
