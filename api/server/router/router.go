@@ -17,7 +17,6 @@ limitations under the License.
 package router
 
 import (
-	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -32,6 +31,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
+	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
