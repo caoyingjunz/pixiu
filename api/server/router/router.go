@@ -17,6 +17,7 @@ limitations under the License.
 package router
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,7 @@ func InstallRouters(o *options.Options) {
 		plan.NewRouter,
 		audit.NewRouter,
 		auth.NewRouter,
+		node.NewRouter,
 	}
 
 	install(o, fs...)

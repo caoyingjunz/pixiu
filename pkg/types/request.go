@@ -16,7 +16,9 @@ limitations under the License.
 
 package types
 
-import "github.com/caoyingjunz/pixiu/pkg/db/model"
+import (
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+)
 
 const AllNamespace = "all_namespaces"
 
@@ -162,6 +164,17 @@ type (
 	QueryOption struct {
 		LabelSelector string `form:"labelSelector" json:"labelSelector"` // 标签搜索
 		NameSelector  string `form:"nameSelector" json:"nameSelector"`   // 名称搜索
+	}
+
+	// webSSH 请求
+	WebSSHConfig struct {
+		Host      string          `form:"host" json:"host" binding:"required"`
+		Port      int             `form:"port" json:"port"`
+		User      string          `form:"user" json:"user" binding:"required"`
+		Password  string          `form:"password" json:"password"`
+		AuthModel model.AuthModel `form:"auth_model" json:"auth_model"`
+		PkPath    string          `form:"pk_path" json:"pk_path"`
+		Protocol  string          `form:"protocol" json:"protocol"`
 	}
 )
 
