@@ -19,62 +19,13 @@ package cluster
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 )
-
-var BufPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
-
-func (c *cluster) WsNodeHandler(ctx context.Context, sshConfig *types.WebSSHRequest, w http.ResponseWriter, r *http.Request) error {
-	upgrader := &websocket.Upgrader{
-		ReadBufferSize:   1024,
-		WriteBufferSize:  1024 * 10,
-		HandshakeTimeout: time.Second * 2,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-		Subprotocols: []string{r.Header.Get("Sec-WebSocket-Protocol")},
-	}
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	sshClient, err := sshutil.NewSSHClient(sshConfig)
-	if err != nil {
-		return err
-	}
-	defer sshClient.Close()
-
-	turn, err := types.NewTurn(conn, sshClient)
-	if err != nil {
-		return err
-	}
-	defer turn.Close()
-
-	handler(turn)
-	return nil
-}
-
-func handler(turn *types.Turn) {
-	logBuff := BufPool.Get().(*bytes.Buffer)
-	logBuff.Reset()
-	defer BufPool.Put(logBuff)
-
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go turn.StartLoopRead(ctx, wg, logBuff)
-	go turn.StartSessionWait(wg)
-
-	wg.Wait()
-}
