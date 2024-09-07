@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"golang.org/x/crypto/ssh"
 	"io"
 	"net/http"
 	"regexp"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/ssh"
 	"helm.sh/helm/v3/pkg/release"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
