@@ -68,8 +68,10 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 		// 获取指定对象的 events，支持事件聚合
 		kubeRoute.GET("/clusters/:cluster/api/v1/events", cr.getEventList)
 
-		// ws
+		// pod ws
 		kubeRoute.GET("/ws", cr.webShell)
+		// node ws
+		kubeRoute.GET("/nodes/ws", cr.nodeWebShell)
 	}
 
 	// 从 pixiu 缓存中获取 kubernetes 对象

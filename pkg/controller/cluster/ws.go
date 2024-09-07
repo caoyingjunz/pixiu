@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Pixiu Authors.
+Copyright 2021 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,33 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package cluster
 
 import (
+	"bytes"
+	"context"
 	"net/http"
+	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/node"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 )
 
-func (n *nodeRouter) serveConn(c *gin.Context) {
-	r := httputils.NewResponse()
+var BufPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 
-	var (
-		SSHConfig types.WebSSHRequest
-		err       error
-	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &SSHConfig); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
+func (c *cluster) WsNodeHandler(ctx context.Context, sshConfig *types.WebSSHRequest, w http.ResponseWriter, r *http.Request) error {
 	upgrader := &websocket.Upgrader{
 		ReadBufferSize:   1024,
 		WriteBufferSize:  1024 * 10,
@@ -48,32 +39,42 @@ func (n *nodeRouter) serveConn(c *gin.Context) {
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
-		Subprotocols: []string{c.Request.Header.Get("Sec-WebSocket-Protocol")},
+		Subprotocols: []string{r.Header.Get("Sec-WebSocket-Protocol")},
 	}
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
+		return err
 	}
 	defer conn.Close()
 
-	sshClient, err := sshutil.NewSSHClient(&SSHConfig)
+	sshClient, err := sshutil.NewSSHClient(sshConfig)
 	if err != nil {
-		WriteCloseMessage(conn, err)
-		return
+		return err
 	}
 	defer sshClient.Close()
 
 	turn, err := types.NewTurn(conn, sshClient)
 	if err != nil {
-		WriteCloseMessage(conn, err)
-		return
+		return err
 	}
 	defer turn.Close()
 
-	node.WaitFor(turn)
+	handler(turn)
+	return nil
 }
 
-func WriteCloseMessage(conn *websocket.Conn, err error) {
-	_ = conn.WriteControl(websocket.CloseMessage, []byte(err.Error()), time.Now().Add(time.Second))
+func handler(turn *types.Turn) {
+	logBuff := BufPool.Get().(*bytes.Buffer)
+	logBuff.Reset()
+	defer BufPool.Put(logBuff)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go turn.StartLoopRead(ctx, wg, logBuff)
+	go turn.StartSessionWait(wg)
+
+	wg.Wait()
 }
