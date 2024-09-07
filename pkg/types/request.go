@@ -16,9 +16,7 @@ limitations under the License.
 
 package types
 
-import (
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-)
+import "github.com/caoyingjunz/pixiu/pkg/db/model"
 
 const AllNamespace = "all_namespaces"
 
