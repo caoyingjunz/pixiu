@@ -17,7 +17,6 @@ limitations under the License.
 package cluster
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -30,7 +29,6 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
-	"golang.org/x/crypto/ssh"
 	"helm.sh/helm/v3/pkg/release"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -38,9 +36,7 @@ import (
 	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
