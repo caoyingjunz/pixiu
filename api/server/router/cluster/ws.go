@@ -38,3 +38,19 @@ func (cr *clusterRouter) webShell(c *gin.Context) {
 		return
 	}
 }
+
+func (cr *clusterRouter) nodeWebShell(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		sshConfig types.WebSSHRequest
+		err       error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &sshConfig); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = cr.c.Cluster().WsNodeHandler(c, &sshConfig, c.Writer, c.Request); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+}

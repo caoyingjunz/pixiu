@@ -163,6 +163,14 @@ type (
 		LabelSelector string `form:"labelSelector" json:"labelSelector"` // 标签搜索
 		NameSelector  string `form:"nameSelector" json:"nameSelector"`   // 名称搜索
 	}
+
+	// WebSSHRequest 主机 ssh 跳转请求
+	WebSSHRequest struct {
+		Host     string `form:"host" json:"host" binding:"required"`
+		Port     int    `form:"port" json:"port"`
+		User     string `form:"user" json:"user" binding:"required"`
+		Password string `form:"password" json:"password"`
+	}
 )
 
 type (

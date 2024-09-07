@@ -17,6 +17,7 @@ limitations under the License.
 package cluster
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/ssh"
 	"helm.sh/helm/v3/pkg/release"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -78,6 +80,9 @@ type Interface interface {
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
 	// WsHandler pod 的 webShell
 	WsHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
+	// WsNodeHandler node 的 webShell
+	WsNodeHandler(ctx context.Context, sshConfig *types.WebSSHRequest, w http.ResponseWriter, r *http.Request) error
+
 	// WatchPodLog 实时获取 pod 的日志
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 
@@ -358,6 +363,72 @@ func (c *cluster) WsHandler(ctx context.Context, opt *types.WebShellOptions, w h
 	}
 
 	return nil
+}
+
+var BufPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
+
+func (c *cluster) WsNodeHandler(ctx context.Context, sshConfig *types.WebSSHRequest, w http.ResponseWriter, r *http.Request) error {
+	upgrader := &websocket.Upgrader{
+		ReadBufferSize:   1024,
+		WriteBufferSize:  1024 * 10,
+		HandshakeTimeout: time.Second * 2,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+		Subprotocols: []string{r.Header.Get("Sec-WebSocket-Protocol")},
+	}
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	sshClient, err := NewSSHClient(sshConfig)
+	if err != nil {
+		return err
+	}
+	defer sshClient.Close()
+
+	turn, err := types.NewTurn(conn, sshClient)
+	if err != nil {
+		return err
+	}
+	defer turn.Close()
+
+	handler(turn)
+	return nil
+}
+
+func handler(turn *types.Turn) {
+	logBuff := BufPool.Get().(*bytes.Buffer)
+	logBuff.Reset()
+	defer BufPool.Put(logBuff)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go turn.StartLoopRead(ctx, wg, logBuff)
+	go turn.StartSessionWait(wg)
+
+	wg.Wait()
+}
+
+func NewSSHClient(sshConfig *types.WebSSHRequest) (*ssh.Client, error) {
+	// TODO：利用 gin 的解析，直接设置默认值
+	port := sshConfig.Port
+	if port == 0 {
+		port = 22
+	}
+
+	// TODO 补充支持 PrivateKey 场景
+	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", sshConfig.Host, port), &ssh.ClientConfig{
+		Timeout:         time.Second * 5,
+		User:            sshConfig.User,
+		Auth:            []ssh.AuthMethod{ssh.Password(sshConfig.Password)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // 忽略 know_hosts 检查
+	})
 }
 
 func (c *cluster) GetEventList(ctx context.Context, cluster string, options types.EventOptions) (*v1.EventList, error) {

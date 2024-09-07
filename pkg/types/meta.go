@@ -17,21 +17,30 @@ limitations under the License.
 package types
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/ssh"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 const (
 	timeLayout = "2006-01-02 15:04:05.999999999"
+
+	MsgData   = '1'
+	MsgResize = '2'
 )
 
 func (c *Cluster) SetId(i int64) {
@@ -158,6 +167,151 @@ func (t *TerminalSession) Next() *remotecommand.TerminalSize {
 	case <-t.doneChan:
 		return nil
 	}
+}
+
+func NewTurn(wsConn *websocket.Conn, sshClient *ssh.Client) (*Turn, error) {
+	session, err := sshClient.NewSession()
+	if err != nil {
+		return nil, err
+	}
+
+	stdinPipe, err := session.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	turn := &Turn{StdinPipe: stdinPipe, Session: session, WsConn: wsConn}
+	session.Stdout = turn
+	session.Stderr = turn
+
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          1,     // disable echo
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	}
+	if err = session.RequestPty("xterm", 150, 30, modes); err != nil {
+		return nil, err
+	}
+	if err = session.Shell(); err != nil {
+		return nil, err
+	}
+
+	return turn, nil
+}
+
+func (t *Turn) Write(p []byte) (n int, err error) {
+	writer, err := t.WsConn.NextWriter(websocket.BinaryMessage)
+	if err != nil {
+		return 0, err
+	}
+	defer writer.Close()
+
+	return writer.Write(p)
+}
+
+func (t *Turn) Close() error {
+	if t.Session != nil {
+		t.Session.Close()
+	}
+	return t.WsConn.Close()
+}
+
+func (t *Turn) Read(p []byte) (n int, err error) {
+	for {
+		msgType, reader, err := t.WsConn.NextReader()
+		if err != nil {
+			return 0, err
+		}
+		if msgType != websocket.BinaryMessage {
+			continue
+		}
+		return reader.Read(p)
+	}
+}
+
+func (t *Turn) StartLoopRead(ctx context.Context, wg *sync.WaitGroup, logBuff *bytes.Buffer) {
+	defer wg.Done()
+	err := t.loopRead(logBuff, ctx)
+	if err != nil {
+		klog.Errorf("LoopRead exit, err:%s", err)
+	}
+}
+
+func (t *Turn) loopRead(logBuff *bytes.Buffer, context context.Context) error {
+	for {
+		select {
+		case <-context.Done():
+			return fmt.Errorf("LoopRead exit")
+		default:
+			_, wsData, err := t.WsConn.ReadMessage()
+			if err != nil {
+				return fmt.Errorf("reading webSocket message err:%s", err)
+			}
+			body := decode(wsData[1:])
+
+			switch wsData[0] {
+			case MsgResize:
+				if err := t.resizeDo(body); err != nil {
+					return err
+				}
+			case MsgData:
+				if err := t.dataDo(body, logBuff); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+func (t *Turn) dataDo(body []byte, logBuff *bytes.Buffer) error {
+	if _, err := t.StdinPipe.Write(body); err != nil {
+		return fmt.Errorf("StdinPipe write err:%s", err)
+	}
+
+	if _, err := logBuff.Write(body); err != nil {
+		return fmt.Errorf("logBuff write err:%s", err)
+	}
+	return nil
+}
+
+type Resize struct {
+	Columns int
+	Rows    int
+}
+
+func (t *Turn) resizeDo(body []byte) error {
+	var args Resize
+	err := json.Unmarshal(body, &args)
+	if err != nil {
+		return fmt.Errorf("ssh pty resize windows err:%s", err)
+	}
+
+	if args.Columns > 0 && args.Rows > 0 {
+		if err := t.Session.WindowChange(args.Rows, args.Columns); err != nil {
+			return fmt.Errorf("ssh pty resize windows err:%s", err)
+		}
+	}
+	return nil
+}
+
+func (t *Turn) sessionWait() error {
+	if err := t.Session.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Turn) StartSessionWait(wg *sync.WaitGroup) {
+	defer wg.Done()
+	err := t.sessionWait()
+	if err != nil {
+		klog.Errorf("SessionWait exit, err:%s", err)
+	}
+}
+
+func decode(p []byte) []byte {
+	decodeString, _ := base64.StdEncoding.DecodeString(string(p))
+	return decodeString
 }
 
 func (a *PlanNodeAuth) Marshal() (string, error) {

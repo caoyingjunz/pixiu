@@ -17,10 +17,12 @@ limitations under the License.
 package types
 
 import (
+	"io"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/ssh"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/remotecommand"
@@ -229,11 +231,20 @@ type TerminalMessage struct {
 	Cols      uint16 `json:"cols"`
 }
 
-// TerminalSession 定义 TerminalSession 结构体，实现 PtyHandler 接口 // wsConn 是 websocket 连接 // sizeChan 用来定义终端输入和输出的宽和高 // doneChan 用于标记退出终端
+// TerminalSession 定义 TerminalSession 结构体，实现 PtyHandler 接口
+// wsConn 是 websocket 连接
+// sizeChan 用来定义终端输入和输出的宽和高
+// doneChan 用于标记退出终端
 type TerminalSession struct {
 	wsConn   *websocket.Conn
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
+}
+
+type Turn struct {
+	StdinPipe io.WriteCloser
+	Session   *ssh.Session
+	WsConn    *websocket.Conn
 }
 
 // ListOptions is the query options to a standard REST list call.
