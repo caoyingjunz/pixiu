@@ -20,17 +20,11 @@ import (
 	"bytes"
 	"context"
 	"sync"
-	"time"
 
-	"github.com/gorilla/websocket"
-	klog "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
-
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-func RunSSH(turn *Turn) {
+func WaitFor(turn *types.Turn) {
 	logBuff := BufPool.Get().(*bytes.Buffer)
 	logBuff.Reset()
 	defer BufPool.Put(logBuff)
@@ -44,40 +38,4 @@ func RunSSH(turn *Turn) {
 	go turn.StartSessionWait(wg)
 
 	wg.Wait()
-}
-
-func SelectAuthModel(conf types.WebSSHConfig) *model.SSHClientConfig {
-	var config *model.SSHClientConfig
-	switch conf.AuthModel {
-	case model.PASSWORD:
-		config = sshClientConfigPassword(&conf)
-	case model.PUBLICKEY:
-		config = sshClientConfigPulicKey(&conf)
-	}
-
-	return config
-}
-
-func NewClient(wsConn *websocket.Conn, config *model.SSHClientConfig) *ssh.Client {
-	client, err := newSSHClient(config)
-	if err != nil {
-		if err := wsConn.WriteControl(websocket.CloseMessage,
-			[]byte(err.Error()), time.Now().Add(time.Second)); err != nil {
-			klog.Printf("Failed to write close message: %v", err)
-		}
-	}
-
-	return client
-}
-
-func NewTurn(wsConn *websocket.Conn, client *ssh.Client) *Turn {
-	turn, err := newTurn(wsConn, client)
-	if err != nil {
-		if err := wsConn.WriteControl(websocket.CloseMessage,
-			[]byte(err.Error()), time.Now().Add(time.Second)); err != nil {
-			klog.Printf("Failed to write close message: %v", err)
-		}
-	}
-
-	return turn
 }

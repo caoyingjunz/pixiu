@@ -16,8 +16,6 @@ limitations under the License.
 
 package model
 
-import "time"
-
 type AuthModel int8
 
 const (
@@ -31,12 +29,8 @@ type Resize struct {
 }
 
 type SSHClientConfig struct {
-	AuthModel AuthModel
-	Host      string
-	Port      int
-	User      string
-	Password  string
-	KeyPath   string
-	Protocol  string
-	Timeout   time.Duration
+	Host     string
+	Port     int
+	User     string
+	Password string
 }

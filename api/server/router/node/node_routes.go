@@ -22,64 +22,58 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	klog "github.com/sirupsen/logrus"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/node"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 )
 
-var upGrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024 * 10,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 func (n *nodeRouter) serveConn(c *gin.Context) {
+	r := httputils.NewResponse()
+
 	var (
-		w types.WebSSHConfig
+		SSHConfig types.WebSSHRequest
+		err       error
 	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &SSHConfig); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
-	wsConn, err := upGrader.Upgrade(c.Writer, c.Request, nil)
+	upgrader := &websocket.Upgrader{
+		ReadBufferSize:   1024,
+		WriteBufferSize:  1024 * 10,
+		HandshakeTimeout: time.Second * 2,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+		Subprotocols: []string{c.Request.Header.Get("Sec-WebSocket-Protocol")},
+	}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		writeCloseMessage(wsConn, err)
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	defer wsConn.Close()
+	defer conn.Close()
 
-	if err = c.ShouldBindQuery(&w); err != nil {
-		writeCloseMessage(wsConn, err)
+	sshClient, err := sshutil.NewSSHClient(&SSHConfig)
+	if err != nil {
+		WriteCloseMessage(conn, err)
 		return
 	}
-	preCheckSSH(&w)
+	defer sshClient.Close()
 
-	config := node.SelectAuthModel(w)
-	client := node.NewClient(wsConn, config)
-	defer client.Close()
-
-	turn := node.NewTurn(wsConn, client)
+	turn, err := types.NewTurn(conn, sshClient)
+	if err != nil {
+		WriteCloseMessage(conn, err)
+		return
+	}
 	defer turn.Close()
 
-	node.RunSSH(turn)
+	node.WaitFor(turn)
 }
 
-func writeCloseMessage(wsConn *websocket.Conn, err error) {
-	if err := wsConn.WriteControl(websocket.CloseMessage,
-		[]byte(err.Error()), time.Now().Add(time.Second)); err != nil {
-		klog.Printf("Failed to write close message: %v", err)
-	}
-}
-
-func preCheckSSH(config *types.WebSSHConfig) {
-	if config.AuthModel == 0 {
-		config.AuthModel = model.PASSWORD
-	}
-	if config.Protocol == "" {
-		config.Protocol = "tcp"
-	}
-	if config.Port == 0 {
-		config.Port = 22
-	}
+func WriteCloseMessage(conn *websocket.Conn, err error) {
+	_ = conn.WriteControl(websocket.CloseMessage, []byte(err.Error()), time.Now().Add(time.Second))
 }
