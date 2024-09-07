@@ -274,8 +274,13 @@ func (t *Turn) dataDo(body []byte, logBuff *bytes.Buffer) error {
 	return nil
 }
 
+type Resize struct {
+	Columns int
+	Rows    int
+}
+
 func (t *Turn) resizeDo(body []byte) error {
-	var args model.Resize
+	var args Resize
 	err := json.Unmarshal(body, &args)
 	if err != nil {
 		return fmt.Errorf("ssh pty resize windows err:%s", err)
