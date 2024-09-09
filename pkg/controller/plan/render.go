@@ -116,7 +116,7 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 		if err != nil {
 			return multinode, err
 		}
-		nodeAuth.Key.File = fmt.Sprintf("/configs/ssh/%s", node.Name)
+		nodeAuth.Key.File = fmt.Sprintf("/configs/ssh/%s/id_rsa", node.Name)
 		planNode := types.PlanNode{Name: node.Name, Auth: nodeAuth}
 
 		roles := strings.Split(node.Role, ",")
