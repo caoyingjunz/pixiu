@@ -202,7 +202,7 @@ func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error
 		return nil
 	}
 	klog.Infof("plan(%d) node(%s) already exist and need to update %v", object.PlanId, object.Name, updates)
-	return p.factory.Plan().UpdateNode(ctx, object.PlanId, object.ResourceVersion, updates)
+	return p.factory.Plan().UpdateNode(ctx, old.Id, old.ResourceVersion, updates)
 }
 
 func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
