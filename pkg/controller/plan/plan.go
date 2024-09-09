@@ -132,6 +132,7 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 			Nodes:       nodes,
 		})
 		if err != nil {
+			klog.Errorf("failed to register cluster for plan: %v", err)
 			_ = p.Delete(ctx, planId)
 			return errors.ErrServerInternal
 		}
