@@ -122,7 +122,7 @@ func EnsureDirectoryExists(path string) error {
 }
 
 func WriteToFile(filename string, data []byte) error {
-	return os.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0600)
 }
 
 func BuildWebSocketConnection(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {

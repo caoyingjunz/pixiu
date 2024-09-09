@@ -112,11 +112,11 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 			return multinode, err
 		}
 		// 生成rsa的渲染文件
-		rsa, err := RenderRSA(data.PlanId, node.Name, workDir, nodeAuth)
+		_, err = RenderRSA(data.PlanId, node.Name, workDir, nodeAuth)
 		if err != nil {
 			return multinode, err
 		}
-		nodeAuth.Key.File = rsa
+		nodeAuth.Key.File = fmt.Sprintf("/configs/ssh/%s/id_rsa", node.Name)
 		planNode := types.PlanNode{Name: node.Name, Auth: nodeAuth}
 
 		roles := strings.Split(node.Role, ",")
