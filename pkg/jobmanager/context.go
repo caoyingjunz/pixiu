@@ -37,6 +37,6 @@ func NewJobContext(name string, cfg *logutil.LogOptions) *JobContext {
 	return jc
 }
 
-func (c *JobContext) Log(err error) {
-	c.Logger.Log(c.Context, err)
+func (c *JobContext) Log(level logutil.LogLevel, err error) {
+	c.Logger.Log(c.Context, level, err)
 }

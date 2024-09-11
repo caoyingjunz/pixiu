@@ -28,6 +28,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 const (
@@ -56,6 +57,10 @@ func (cs *ClusterSyncer) Name() string {
 
 func (cs *ClusterSyncer) CronSpec() string {
 	return DefaultSyncInterval
+}
+
+func (cs *ClusterSyncer) LogLevel() logutil.LogLevel {
+	return logutil.DebugLevel
 }
 
 func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
