@@ -77,12 +77,12 @@ func QueryWithUserName(name string) BindingQueryCondition {
 
 func GetGroupBindings(enforcer *casbin.SyncedEnforcer, cond BindingQueryCondition) ([]model.GroupBinding, error) {
 	index, name := cond()
-	pp, err := enforcer.GetFilteredNamedGroupingPolicy("g", index, name)
+	rp, err := enforcer.GetFilteredNamedGroupingPolicy("g", index, name)
 	if err != nil {
 		return nil, err
 	}
-	bindings := make([]model.GroupBinding, len(pp))
-	for i, p := range pp {
+	bindings := make([]model.GroupBinding, len(rp))
+	for i, p := range rp {
 		copy(bindings[i][:], p)
 	}
 	return bindings, nil
@@ -137,13 +137,26 @@ func GetUserPolicies(enforcer *casbin.SyncedEnforcer, user *model.User, conds ..
 		cond(pc)
 	}
 
-	pp, err := enforcer.GetFilteredNamedPolicy("p", 0, pc.get()...)
+	rp, err := enforcer.GetFilteredNamedPolicy("p", 0, pc.get()...)
 	if err != nil {
 		return nil, err
 	}
-	policies := make([]model.UserPolicy, len(pp))
-	for i, p := range pp {
+	policies := make([]model.UserPolicy, len(rp))
+	for i, p := range rp {
 		copy(policies[i][:], p)
 	}
 	return policies, nil
+}
+
+func GetGroupPolicy(enforcer *casbin.SyncedEnforcer, name string) (*model.GroupPolicy, error) {
+	rp, err := enforcer.GetFilteredNamedPolicy("p", 0, name)
+	if err != nil {
+		return nil, err
+	}
+	if len(rp) == 0 {
+		return nil, nil
+	}
+	policy := model.GroupPolicy{}
+	copy(policy[:], rp[0])
+	return &policy, nil
 }

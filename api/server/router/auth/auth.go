@@ -23,6 +23,12 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
+const (
+	AuthBasePath   = "/pixiu/auth"
+	PolicySubPath  = "/policy"
+	BindingSubPath = "/binding"
+)
+
 type authRouter struct {
 	c controller.PixiuInterface
 }
@@ -35,11 +41,15 @@ func NewRouter(o *options.Options) {
 }
 
 func (a *authRouter) initRoutes(ge *gin.Engine) {
-	authRoute := ge.Group("/pixiu/auth")
+	authRoute := ge.Group(AuthBasePath)
 	{
-		policyRoute := authRoute.Group("/policy")
+		policyRoute := authRoute.Group(PolicySubPath)
 		policyRoute.POST("", a.createPolicy)
 		policyRoute.DELETE("", a.deletePolicy)
 		policyRoute.GET("", a.listPolicies)
+	}
+	{
+		bindingRoute := authRoute.Group(BindingSubPath)
+		bindingRoute.POST("", a.createBinding)
 	}
 }

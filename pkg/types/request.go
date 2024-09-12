@@ -153,6 +153,11 @@ type (
 		Operation  *model.Operation  `form:"operation" binding:"omitempty,required_with=SID,rbac_operation"`
 	}
 
+	GroupBindingRequest struct {
+		UserId    int64  `json:"user_id" binding:"required"`
+		GroupName string `json:"group_name" binding:"required"`
+	}
+
 	// PageRequest 分页配置
 	PageRequest struct {
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页

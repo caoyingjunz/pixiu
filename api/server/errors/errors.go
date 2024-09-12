@@ -103,4 +103,12 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.PolicyNotExistError,
 	}
+	ErrGroupBindingExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.PolicyExistError,
+	}
+	ErrGroupBindingNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.PolicyNotExistError,
+	}
 )
