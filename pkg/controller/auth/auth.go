@@ -40,6 +40,8 @@ type (
 		CreateRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error
 		DeleteRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error
 		ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRequest) ([]types.RBACPolicy, error)
+
+		CreateGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error
 	}
 )
 
@@ -61,11 +63,11 @@ func (a *auth) getPolicy(ctx context.Context, req *types.RBACPolicyRequest) (mod
 		// user RBAC policy
 		user, err := a.factory.User().Get(ctx, *req.UserId)
 		if err != nil {
-			klog.Errorf("failed to get user(%d): %v", req.UserId, err)
+			klog.Errorf("failed to get user(%d): %v", *req.UserId, err)
 			return nil, errors.ErrServerInternal
 		}
 		if user == nil {
-			return nil, errors.NewError(fmt.Errorf("user(%d) is not found", req.UserId), http.StatusBadRequest)
+			return nil, errors.NewError(fmt.Errorf("user(%d) is not found", *req.UserId), http.StatusBadRequest)
 		}
 		return model.NewUserPolicy(user.Name, req.ObjectType, req.SID, req.Operation), nil
 	}
@@ -73,10 +75,33 @@ func (a *auth) getPolicy(ctx context.Context, req *types.RBACPolicyRequest) (mod
 	return model.NewGroupPolicy(*req.GroupName, req.ObjectType, req.SID, req.Operation), nil
 }
 
+// getBinding returns the group binding policy  represented by the request body
+func (a *auth) getBinding(ctx context.Context, req *types.GroupBindingRequest) (model.Policy, error) {
+	user, err := a.factory.User().Get(ctx, req.UserId)
+	if err != nil {
+		klog.Errorf("failed to get user(%d): %v", req.UserId, err)
+		return nil, errors.ErrServerInternal
+	}
+	if user == nil {
+		return nil, errors.NewError(fmt.Errorf("user(%d) is not found", req.UserId), http.StatusBadRequest)
+	}
+
+	policy, err := ctrlutil.GetGroupPolicy(a.enforcer, req.GroupName)
+	if err != nil {
+		klog.Errorf("failed to get group(%d): %v", req.GroupName, err)
+		return nil, errors.ErrServerInternal
+	}
+	if policy == nil {
+		return nil, errors.NewError(fmt.Errorf("group(%s) is not found", req.GroupName), http.StatusBadRequest)
+	}
+
+	return model.NewGroupBinding(user.Name, req.GroupName), nil
+}
+
 func (a *auth) CreateRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error {
 	policy, err := a.getPolicy(ctx, req)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	ok, err := a.enforcer.AddPolicy(policy.Raw())
@@ -94,7 +119,7 @@ func (a *auth) CreateRBACPolicy(ctx context.Context, req *types.RBACPolicyReques
 func (a *auth) DeleteRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error {
 	policy, err := a.getPolicy(ctx, req)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	switch p := policy.(type) {
@@ -149,6 +174,7 @@ func (a *auth) ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRe
 	policies, err := ctrlutil.GetUserPolicies(a.enforcer, user, conds...)
 	if err != nil {
 		klog.Errorf("failed to list policies: %v", err)
+		return nil, errors.ErrServerInternal
 	}
 
 	rbacPolicies := make([]types.RBACPolicy, len(policies))
@@ -156,6 +182,24 @@ func (a *auth) ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRe
 		rbacPolicies[i] = *model2Type(policy)
 	}
 	return rbacPolicies, nil
+}
+
+func (a *auth) CreateGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error {
+	binding, err := a.getBinding(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	ok, err := a.enforcer.AddGroupingPolicy(binding.Raw())
+	if err != nil {
+		klog.Errorf("failed to create binding %v", binding, err)
+		return errors.ErrServerInternal
+	}
+	if !ok {
+		return errors.ErrGroupBindingExists
+	}
+
+	return nil
 }
 
 func model2Type(policy model.Policy) *types.RBACPolicy {
