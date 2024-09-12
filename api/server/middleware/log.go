@@ -45,6 +45,6 @@ func Logger(cfg *logutil.LogOptions) gin.HandlerFunc {
 			"status_code": c.Writer.Status(),
 			"client_ip":   c.ClientIP(),
 		})
-		l.Log(c, err)
+		l.Log(c, logutil.InfoLevel, err)
 	}
 }

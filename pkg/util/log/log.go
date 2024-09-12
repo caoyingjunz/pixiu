@@ -39,9 +39,19 @@ const (
 
 var ErrInvalidLogFormat = errors.New("invalid log format")
 
+type LogLevel = klog.Level
+
+// Providing 3 log levels now.
+const (
+	ErrorLevel LogLevel = klog.ErrorLevel
+	InfoLevel  LogLevel = klog.InfoLevel
+	DebugLevel LogLevel = klog.DebugLevel
+)
+
 type LogOptions struct {
 	LogFormat `yaml:"log_format"`
 	LogSQL    bool `yaml:"log_sql"`
+	LogLevel  `yaml:"log_level"`
 }
 
 // DefaultLogOptions returns the default configs.
@@ -49,6 +59,7 @@ func DefaultLogOptions() *LogOptions {
 	return &LogOptions{
 		LogFormat: LogFormatJson,
 		LogSQL:    false,
+		LogLevel:  InfoLevel,
 	}
 }
 
@@ -64,6 +75,7 @@ func (o *LogOptions) Valid() error {
 // Init sets the log format only once.
 func (o *LogOptions) Init() {
 	once.Do(func() {
+		klog.SetLevel(o.LogLevel)
 		switch o.LogFormat {
 		case LogFormatJson:
 			klog.SetFormatter(&klog.JSONFormatter{
@@ -106,7 +118,7 @@ func (l *Logger) WithLogFields(fields map[string]interface{}) {
 	l.logEntry = l.logEntry.WithFields(fields)
 }
 
-func (l *Logger) Log(ctx context.Context, err error) {
+func (l *Logger) Log(ctx context.Context, level LogLevel, err error) {
 	fields := make(map[string]interface{})
 	if l.logSQL {
 		if sqls := db.GetSQLs(ctx); len(sqls) > 0 {
@@ -121,5 +133,10 @@ func (l *Logger) Log(ctx context.Context, err error) {
 		return
 	}
 
-	l.logEntry.WithFields(fields).Info(SuccessMsg)
+	switch level {
+	case DebugLevel:
+		l.logEntry.WithFields(fields).Debug(SuccessMsg)
+	case InfoLevel:
+		l.logEntry.WithFields(fields).Info(SuccessMsg)
+	}
 }

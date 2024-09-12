@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 const (
@@ -57,6 +58,10 @@ func (ac *AuditsCleaner) Name() string {
 
 func (ac *AuditsCleaner) CronSpec() string {
 	return ac.cfg.Schedule
+}
+
+func (ac *AuditsCleaner) LogLevel() logutil.LogLevel {
+	return logutil.InfoLevel
 }
 
 func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {

@@ -25,9 +25,14 @@ import (
 type Job interface {
 	// Name returns the job name
 	Name() string
+
 	// CronSpec returns the cron expression of the job
 	// e.g. "* * * * *"
 	CronSpec() string
+
+	// LogLevel returns the log level of the job
+	LogLevel() logutil.LogLevel
+
 	// Do is the job handler
 	Do(ctx *JobContext) error
 }
@@ -41,7 +46,7 @@ func NewManager(lc *logutil.LogOptions, jobs ...Job) *Manager {
 	for _, job := range jobs {
 		c.AddFunc(job.CronSpec(), func() {
 			ctx := NewJobContext(job.Name(), lc)
-			ctx.Log(job.Do(ctx))
+			ctx.Log(job.LogLevel(), job.Do(ctx))
 		})
 	}
 	return &Manager{
