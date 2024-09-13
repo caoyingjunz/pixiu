@@ -42,6 +42,7 @@ type (
 		ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRequest) ([]types.RBACPolicy, error)
 
 		CreateGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error
+		DeleteGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error
 	}
 )
 
@@ -197,6 +198,24 @@ func (a *auth) CreateGroupBinding(ctx context.Context, req *types.GroupBindingRe
 	}
 	if !ok {
 		return errors.ErrGroupBindingExists
+	}
+
+	return nil
+}
+
+func (a *auth) DeleteGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error {
+	binding, err := a.getBinding(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	ok, err := a.enforcer.RemoveGroupingPolicy(binding.Raw())
+	if err != nil {
+		klog.Errorf("failed to delete binding %v: %v", binding, err)
+		return errors.ErrServerInternal
+	}
+	if !ok {
+		return errors.ErrGroupBindingNotFound
 	}
 
 	return nil

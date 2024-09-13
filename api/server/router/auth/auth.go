@@ -51,5 +51,6 @@ func (a *authRouter) initRoutes(ge *gin.Engine) {
 	{
 		bindingRoute := authRoute.Group(BindingSubPath)
 		bindingRoute.POST("", a.createBinding)
+		bindingRoute.DELETE("", a.deleteBinding)
 	}
 }
