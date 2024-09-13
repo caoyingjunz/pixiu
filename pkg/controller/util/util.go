@@ -143,7 +143,7 @@ func GetUserPolicies(enforcer *casbin.SyncedEnforcer, user *model.User, conds ..
 	}
 	policies := make([]model.UserPolicy, len(rp))
 	for i, p := range rp {
-		copy(policies[i][:], p)
+		_ = copy(policies[i][:], p)
 	}
 	return policies, nil
 }
@@ -157,6 +157,6 @@ func GetGroupPolicy(enforcer *casbin.SyncedEnforcer, name string) (*model.GroupP
 		return nil, nil
 	}
 	policy := model.GroupPolicy{}
-	copy(policy[:], rp[0])
+	_ = copy(policy[:], rp[0])
 	return &policy, nil
 }
