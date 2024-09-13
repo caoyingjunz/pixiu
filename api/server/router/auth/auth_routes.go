@@ -75,6 +75,24 @@ func (a *authRouter) deletePolicy(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (a *authRouter) listBindings(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		req types.ListGroupBindingRequest
+		err error
+	)
+	if err = c.ShouldBindQuery(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = a.c.Auth().ListGroupBindings(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 func (a *authRouter) createBinding(c *gin.Context) {
 	r := httputils.NewResponse()
 	var req types.GroupBindingRequest

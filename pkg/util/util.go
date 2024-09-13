@@ -150,3 +150,19 @@ func DeduplicateIntSlice(s []int64) (ret []int64) {
 
 	return
 }
+
+// More returns the larger one.
+func More(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Less returns the smaller one.
+func Less(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

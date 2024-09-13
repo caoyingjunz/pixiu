@@ -158,6 +158,11 @@ type (
 		GroupName string `json:"group_name" binding:"required"`
 	}
 
+	ListGroupBindingRequest struct {
+		UserId    *int64  `form:"user_id" binding:"omitempty"`
+		GroupName *string `form:"group_name" binding:"omitempty"`
+	}
+
 	// PageRequest 分页配置
 	PageRequest struct {
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页

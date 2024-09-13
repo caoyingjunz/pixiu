@@ -25,6 +25,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/util"
 )
 
 func MakeDbOptions(ctx context.Context) (opts []db.Options) {
@@ -61,23 +62,33 @@ func SetIdRangeContext(c *gin.Context, enforcer *casbin.SyncedEnforcer, user *mo
 	return nil
 }
 
-type BindingQueryCondition func() (int, string)
+type BindingQueryCondition func(c *policyConditions) (index int)
 
 func QueryWithGroupName(name string) BindingQueryCondition {
-	return func() (int, string) {
-		return 1, name
+	return func(c *policyConditions) int {
+		c.conds[1] = &name
+		return 1
 	}
 }
 
 func QueryWithUserName(name string) BindingQueryCondition {
-	return func() (int, string) {
-		return 0, name
+	return func(c *policyConditions) int {
+		c.conds[0] = &name
+		return 0
 	}
 }
 
-func GetGroupBindings(enforcer *casbin.SyncedEnforcer, cond BindingQueryCondition) ([]model.GroupBinding, error) {
-	index, name := cond()
-	rp, err := enforcer.GetFilteredNamedGroupingPolicy("g", index, name)
+func GetGroupBindings(enforcer *casbin.SyncedEnforcer, conds ...BindingQueryCondition) ([]model.GroupBinding, error) {
+	var index int
+	pc := &policyConditions{
+		conds: [4]*string{},
+	}
+	for _, cond := range conds {
+		i := cond(pc)
+		index = util.Less(i, index)
+	}
+
+	rp, err := enforcer.GetFilteredNamedGroupingPolicy("g", index, pc.get()...)
 	if err != nil {
 		return nil, err
 	}
