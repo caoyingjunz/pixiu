@@ -17,11 +17,10 @@ limitations under the License.
 package middleware
 
 import (
-	"fmt"
-
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
@@ -34,17 +33,13 @@ func Logger(cfg *logutil.LogOptions) gin.HandlerFunc {
 		// 处理请求操作
 		c.Next()
 
-		var err error
-		if errs := c.Errors; len(errs) > 0 {
-			err = fmt.Errorf("%v", errs.Errors())
-		}
 		l.WithLogFields(map[string]interface{}{
-			"request_id":  requestid.Get(c),
-			"method":      c.Request.Method,
-			"uri":         c.Request.RequestURI,
-			"status_code": c.Writer.Status(),
-			"client_ip":   c.ClientIP(),
+			"request_id":              requestid.Get(c),
+			"method":                  c.Request.Method,
+			"uri":                     c.Request.RequestURI,
+			httputils.ResponseCodeKey: httputils.GetResponseCode(c),
+			"client_ip":               c.ClientIP(),
 		})
-		l.Log(c, logutil.InfoLevel, err)
+		l.Log(c, logutil.InfoLevel, httputils.GetRawError(c))
 	}
 }
