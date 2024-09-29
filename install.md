@@ -72,18 +72,6 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 登录效果
 浏览器登陆: http://192.168.16.156
 ```
-# 页面展示
-首页
-<img width="1647" alt="image" src="https://github.com/youdian-xiaoshuai/pixiu/assets/64686398/9fc5e005-95cd-49ee-a13c-13f22949fd74">
-
-容器服务
-![image](https://github.com/youdian-xiaoshuai/pixiu/assets/64686398/9e450085-2297-4453-80e3-40b0775796a8)
-
-集群展示
-![image](https://github.com/youdian-xiaoshuai/pixiu/assets/64686398/9d3fa88a-6da1-4d86-bfb2-0f9a50ab77d5)
-
-命名空间
-![image](https://github.com/youdian-xiaoshuai/pixiu/assets/64686398/2af3946b-4f66-4859-bee4-68589d889ef5)
 
 
 
