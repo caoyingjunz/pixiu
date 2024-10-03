@@ -81,6 +81,8 @@ type Interface interface {
 
 	// WatchPodLog 实时获取 pod 的日志
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
+	// ReRunJob 重新执行指定任务
+	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string) error
 
 	// ListReleases 获取 tenant release 列表
 	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
@@ -382,6 +384,10 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 			break
 		}
 	}
+	return nil
+}
+
+func (c *cluster) ReRunJob(ctx context.Context, cluster string, namespace string, jobName string) error {
 	return nil
 }
 

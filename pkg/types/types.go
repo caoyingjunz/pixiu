@@ -30,6 +30,12 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
+type PixiuObjectMeta struct {
+	Cluster   string `uri:"cluster" binding:"required"`
+	Namespace string `uri:"namespace" binding:"required"`
+	Name      string `uri:"name"`
+}
+
 type PixiuMeta struct {
 	// pixiu 对象 ID
 	Id int64 `json:"id"`
