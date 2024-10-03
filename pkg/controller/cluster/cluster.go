@@ -82,7 +82,7 @@ type Interface interface {
 	// WatchPodLog 实时获取 pod 的日志
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
 	// ReRunJob 重新执行指定任务
-	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string) error
+	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
 
 	// ListReleases 获取 tenant release 列表
 	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
@@ -387,7 +387,20 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 	return nil
 }
 
-func (c *cluster) ReRunJob(ctx context.Context, cluster string, namespace string, jobName string) error {
+func (c *cluster) ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error {
+	cs, err := c.GetClusterSetByName(ctx, cluster)
+	if err != nil {
+		return err
+	}
+
+	old, err := cs.Client.BatchV1().Jobs(namespace).Get(ctx, jobName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if old.ResourceVersion != resourceVersion {
+		return fmt.Errorf("please apply your changes to the latest version and try again")
+	}
+
 	return nil
 }
 

@@ -24,7 +24,8 @@ import (
 )
 
 type Action struct {
-	Act string `form:"action" binding:"required"`
+	Act             string `form:"action" binding:"required"`
+	ResourceVersion string `form:"resourceVersion" binding:"required"`
 }
 
 func (cr *clusterRouter) ReRunJob(c *gin.Context) {
@@ -38,7 +39,7 @@ func (cr *clusterRouter) ReRunJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().ReRunJob(c, jobMeta.Cluster, jobMeta.Namespace, jobMeta.Name); err != nil {
+	if err = cr.c.Cluster().ReRunJob(c, jobMeta.Cluster, jobMeta.Namespace, jobMeta.Name, action.ResourceVersion); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
