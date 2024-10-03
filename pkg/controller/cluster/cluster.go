@@ -398,7 +398,7 @@ func (c *cluster) ReRunJob(ctx context.Context, cluster string, namespace string
 		return err
 	}
 	if old.ResourceVersion != resourceVersion {
-		return fmt.Errorf("please apply your changes to the latest version and try again")
+		return fmt.Errorf("please apply your changes to the latest and re-run")
 	}
 
 	return nil
