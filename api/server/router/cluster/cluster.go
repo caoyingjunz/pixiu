@@ -72,6 +72,8 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 		kubeRoute.GET("/ws", cr.webShell)
 		// node ws
 		kubeRoute.GET("/nodes/ws", cr.nodeWebShell)
+		// 重启Job action=rerun
+		kubeRoute.POST("/clusters/:cluster/namespaces/:namespace/jobs/:name", cr.ReRunJob)
 	}
 
 	// 从 pixiu 缓存中获取 kubernetes 对象

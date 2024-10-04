@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Pixiu Authors.
+Copyright 2024 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,17 +23,23 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-func (cr *clusterRouter) ListReleases(c *gin.Context) {
+type Action struct {
+	Act             string `form:"action" binding:"required"`
+	ResourceVersion string `form:"resourceVersion" binding:"required"`
+}
+
+func (cr *clusterRouter) ReRunJob(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err      error
-		helmMeta types.PixiuObjectMeta
+		jobMeta types.PixiuObjectMeta
+		action  Action
+		err     error
 	)
-	if err = c.ShouldBindUri(&helmMeta); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &jobMeta, &action); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().ListReleases(c, helmMeta.Cluster, helmMeta.Namespace); err != nil {
+	if err = cr.c.Cluster().ReRunJob(c, jobMeta.Cluster, jobMeta.Namespace, jobMeta.Name, action.ResourceVersion); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
