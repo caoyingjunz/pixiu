@@ -17,9 +17,7 @@ limitations under the License.
 package middleware
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/gin-contrib/requestid"
@@ -33,28 +31,18 @@ import (
 
 // 自定义 ResponseWriter 用于捕获写入的数据
 type auditWriter struct {
-	gin.ResponseWriter
-	resp *httputils.Response
 	opts *options.Options
 }
 
-func newResponseWriter(w gin.ResponseWriter, o *options.Options) *auditWriter {
+func newResponseWriter(o *options.Options) *auditWriter {
 	return &auditWriter{
-		ResponseWriter: w,
-		resp:           httputils.NewResponse(),
-		opts:           o,
+		opts: o,
 	}
-}
-
-func (w *auditWriter) Write(b []byte) (int, error) {
-	_ = json.NewDecoder(bytes.NewReader(b)).Decode(w.resp)
-	return w.ResponseWriter.Write(b)
 }
 
 func Audit(o *options.Options) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		auditor := newResponseWriter(c.Writer, o)
-		c.Writer = auditor
+		auditor := newResponseWriter(o)
 		c.Next()
 
 		// do audit asynchronously
@@ -80,14 +68,6 @@ func (w *auditWriter) asyncAudit(c *gin.Context) {
 		return
 	}
 
-	status := model.AuditOpUnknown
-	if w.resp != nil {
-		status = model.AuditOpFail
-		if w.resp.IsSuccessful() {
-			status = model.AuditOpSuccess
-		}
-	}
-
 	audit := &model.Audit{
 		RequestId:  requestid.Get(c),
 		Action:     c.Request.Method,
@@ -95,9 +75,29 @@ func (w *auditWriter) asyncAudit(c *gin.Context) {
 		Operator:   userName,
 		Path:       c.Request.RequestURI,
 		ObjectType: model.ObjectType(obj),
-		Status:     status,
+		Status:     getAuditStatus(c),
 	}
 	if _, err := w.opts.Factory.Audit().Create(context.TODO(), audit); err != nil {
 		klog.Errorf("failed to create audit record [%s]: %v", audit.String(), err)
 	}
+}
+
+// getAuditStatus returns the status of operation.
+func getAuditStatus(c *gin.Context) model.AuditOperationStatus {
+	respCode := httputils.GetResponseCode(c)
+	if respCode == 0 {
+		return model.AuditOpUnknown
+	}
+
+	if responseOK(respCode) {
+		return model.AuditOpSuccess
+	}
+
+	return model.AuditOpFail
+}
+
+func responseOK(code int) bool {
+	return code == http.StatusOK ||
+		code == http.StatusCreated ||
+		code == http.StatusAccepted
 }

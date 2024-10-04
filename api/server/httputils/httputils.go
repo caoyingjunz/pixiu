@@ -18,6 +18,7 @@ package httputils
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -49,12 +50,6 @@ func (r *Response) SetMessage(m interface{}) {
 	}
 }
 
-func (r *Response) IsSuccessful() bool {
-	return r.Code == http.StatusOK ||
-		r.Code == http.StatusCreated ||
-		r.Code == http.StatusAccepted
-}
-
 func (r *Response) SetMessageWithCode(m interface{}, c int) {
 	r.SetCode(c)
 	r.SetMessage(m)
@@ -79,6 +74,7 @@ func NewResponse() *Response {
 
 // SetSuccess 设置成功返回值
 func SetSuccess(c *gin.Context, r *Response) {
+	_ = contextBind(c).withResponseCode(http.StatusOK)
 	r.SetMessageWithCode("success", http.StatusOK)
 	c.JSON(http.StatusOK, r)
 }
@@ -87,21 +83,23 @@ func SetSuccess(c *gin.Context, r *Response) {
 func SetFailed(c *gin.Context, r *Response, err error) {
 	switch e := err.(type) {
 	case errors.Error:
-		SetFailedWithCode(c, r, e.Code, e)
+		setFailedWithCode(c, r, e.Code, e)
 	case validator.ValidationErrors:
-		SetFailedWithValidationError(c, r, validatorutil.TranslateError(e))
+		setFailedWithValidationError(c, r, validatorutil.TranslateError(e))
 	default:
-		SetFailedWithCode(c, r, http.StatusBadRequest, err)
+		setFailedWithCode(c, r, http.StatusBadRequest, err)
 	}
 }
 
 // SetFailedWithCode 设置错误返回值
-func SetFailedWithCode(c *gin.Context, r *Response, code int, err error) {
+func setFailedWithCode(c *gin.Context, r *Response, code int, err error) {
+	_ = contextBind(c).withResponseCode(code).withRawError(err)
 	r.SetMessageWithCode(err, code)
 	c.JSON(http.StatusOK, r)
 }
 
-func SetFailedWithValidationError(c *gin.Context, r *Response, e string) {
+func setFailedWithValidationError(c *gin.Context, r *Response, e string) {
+	_ = contextBind(c).withResponseCode(http.StatusBadRequest).withRawError(goerrors.New(e))
 	r.SetMessageWithCode(e, http.StatusBadRequest)
 	c.JSON(http.StatusOK, r)
 }
@@ -109,6 +107,7 @@ func SetFailedWithValidationError(c *gin.Context, r *Response, e string) {
 // AbortFailedWithCode 设置错误，code 返回值并终止请求
 func AbortFailedWithCode(c *gin.Context, code int, err error) {
 	r := NewResponse()
+	_ = contextBind(c).withResponseCode(code).withRawError(err)
 	r.SetMessageWithCode(err, code)
 	c.JSON(http.StatusOK, r)
 	c.Abort()
@@ -200,5 +199,52 @@ func GetIdRangeFromListReq(ctx context.Context) (exists bool, ids []int64) {
 	}
 
 	ids, exists = val.([]int64)
+	return
+}
+
+const (
+	ResponseCodeKey = "response_code"
+	RawErrorKey     = "raw_error"
+)
+
+type ctxBind struct {
+	*gin.Context
+}
+
+func contextBind(c *gin.Context) *ctxBind {
+	return &ctxBind{c}
+}
+
+// withResponseCode puts the response code into the HTTP context.
+func (cb *ctxBind) withResponseCode(code int) *ctxBind {
+	cb.Set(ResponseCodeKey, code)
+	return cb
+}
+
+// withRawError puts the raw error into the HTTP context.
+func (cb *ctxBind) withRawError(err error) *ctxBind {
+	cb.Set(RawErrorKey, err)
+	return cb
+}
+
+// GetResponseCode gets the response code from the HTTP context.
+func GetResponseCode(ctx context.Context) (code int) {
+	val := ctx.Value(ResponseCodeKey)
+	if val == nil {
+		return
+	}
+
+	code = val.(int)
+	return
+}
+
+// GetRawError gets the raw error from the HTTP context.
+func GetRawError(ctx context.Context) (err error) {
+	val := ctx.Value(RawErrorKey)
+	if val == nil {
+		return
+	}
+
+	err = val.(error)
 	return
 }
