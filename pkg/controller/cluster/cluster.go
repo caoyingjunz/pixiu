@@ -30,6 +30,7 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
 	"helm.sh/helm/v3/pkg/release"
+	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -387,18 +388,54 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 	return nil
 }
 
+const Retries = 3
+
+// ReRunJob 重新运行(创建)任务，通过先删除在创建的方式实现，极端情况下可能导致 job 丢失
 func (c *cluster) ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error {
 	cs, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		return err
 	}
 
-	old, err := cs.Client.BatchV1().Jobs(namespace).Get(ctx, jobName, metav1.GetOptions{})
+	job, err := cs.Client.BatchV1().Jobs(namespace).Get(ctx, jobName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	if old.ResourceVersion != resourceVersion {
+	if job.ResourceVersion != resourceVersion {
 		return fmt.Errorf("please apply your changes to the latest and re-run")
+	}
+
+	newJob := *job
+	// 重置不必要字段
+	newJob.ResourceVersion = ""
+	newJob.ObjectMeta.UID = ""
+	newJob.Status = batchv1.JobStatus{}
+	// 重置 uid 和 label
+	delete(newJob.Spec.Selector.MatchLabels, "controller-uid")
+	delete(newJob.Spec.Selector.MatchLabels, "batch.kubernetes.io/controller-uid")
+	delete(newJob.Spec.Template.ObjectMeta.Labels, "controller-uid")
+	delete(newJob.Spec.Template.ObjectMeta.Labels, "batch.kubernetes.io/controller-uid")
+	delete(newJob.Spec.Template.ObjectMeta.Labels, "batch.kubernetes.io/job-name")
+	delete(newJob.Spec.Template.ObjectMeta.Labels, "job-name")
+
+	// TODO: 备份一次job，避免失败job丢失
+	// 2. 删除job
+	if err = cs.Client.BatchV1().Jobs(namespace).Delete(ctx, jobName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to rerun job(%s) %v", jobName, err)
+	}
+
+	var jobErr error
+	// 3. 新建job，最多重试 3 次
+	for i := 0; i < Retries; i++ {
+		_, jobErr = cs.Client.BatchV1().Jobs(namespace).Create(ctx, &newJob, metav1.CreateOptions{})
+		if jobErr != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+	if jobErr != nil {
+		return fmt.Errorf("failed to rerun job(%s) %v", jobName, err)
 	}
 
 	return nil
