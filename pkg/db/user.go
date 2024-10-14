@@ -32,7 +32,7 @@ type UserInterface interface {
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
 	GetRoot(ctx context.Context) (*model.User, error)
-	List(ctx context.Context, opts ...Options) ([]model.User, error)
+	List(ctx context.Context, opts ...Options) ([]model.User, int64, error)
 
 	Count(ctx context.Context) (int64, error)
 
@@ -111,17 +111,24 @@ func (u *user) GetRoot(ctx context.Context) (*model.User, error) {
 
 // List 获取用户列表
 // TODO: 暂时不做分页考虑
-func (u *user) List(ctx context.Context, opts ...Options) ([]model.User, error) {
-	var objects []model.User
+func (u *user) List(ctx context.Context, opts ...Options) ([]model.User, int64, error) {
+	var (
+		objects []model.User
+		total   int64
+	)
+
 	tx := u.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
 	if err := tx.Find(&objects).Error; err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	if err := u.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 
-	return objects, nil
+	return objects, total, nil
 }
 
 func (u *user) Count(ctx context.Context) (int64, error) {

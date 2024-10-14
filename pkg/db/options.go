@@ -64,3 +64,9 @@ func WithIDIn(ids ...int64) Options {
 		return tx.Where("id IN ?", ids)
 	}
 }
+
+func WithPagination(page, pageSize int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Offset((page - 1) * pageSize).Limit(page * pageSize)
+	}
+}

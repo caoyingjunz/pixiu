@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type taskNodeMeta struct {
@@ -39,7 +40,7 @@ func (t *planRouter) listTasks(c *gin.Context) {
 
 	var (
 		opt   planMeta
-		watch WatchMeta
+		watch types.WatchMeta
 		err   error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &opt, &watch); err != nil {
@@ -49,7 +50,7 @@ func (t *planRouter) listTasks(c *gin.Context) {
 
 	// 不是长连接请求则直接返回
 	if !watch.Watch {
-		if r.Result, err = t.c.Plan().ListTasks(c, opt.PlanId); err != nil {
+		if r.Result, err = t.c.Plan().ListTasks(c, opt.PlanId, &watch.PageRequest); err != nil {
 			httputils.SetFailed(c, r, err)
 			return
 		}

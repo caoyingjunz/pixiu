@@ -32,10 +32,6 @@ type watchTaskLogMeta struct {
 	TaskId int64 `uri:"taskId" binding:"required"`
 }
 
-type WatchMeta struct {
-	Watch bool `form:"watch"`
-}
-
 // 创建部署计划，同时创建配置和节点
 func (t *planRouter) createPlan(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -137,8 +133,15 @@ func (t *planRouter) getPlanWithSubResources(c *gin.Context) {
 func (t *planRouter) listPlans(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var err error
-	if r.Result, err = t.c.Plan().List(c); err != nil {
+	var (
+		err error
+		req types.PageRequest
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = t.c.Plan().List(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

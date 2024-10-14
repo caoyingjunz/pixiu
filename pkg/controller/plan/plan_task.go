@@ -26,6 +26,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/container"
@@ -37,19 +38,29 @@ func (p *plan) RunTask(ctx context.Context, planId int64, taskId int64) error {
 	return nil
 }
 
-func (p *plan) ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error) {
-	objects, err := p.factory.Plan().ListTasks(ctx, planId)
+func (p *plan) ListTasks(ctx context.Context, planId int64, req *types.PageRequest) (*types.PageResponse, error) {
+	var (
+		tasks    []types.PlanTask
+		pageResp types.PageResponse
+		options  db.Options
+	)
+
+	if req != nil {
+		options = db.WithPagination(req.Page, req.Limit)
+	}
+	objects, total, err := p.factory.Plan().ListTasks(ctx, planId, options)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) tasks: %v", planId, err)
 		return nil, err
 	}
 
-	var tasks []types.PlanTask
 	for _, object := range objects {
 		tasks = append(tasks, *p.modelTask2Type(&object))
 	}
+	pageResp.Total = total
+	pageResp.Items = tasks
 
-	return tasks, nil
+	return &pageResp, nil
 }
 
 func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request) {

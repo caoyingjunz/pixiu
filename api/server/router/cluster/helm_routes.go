@@ -28,12 +28,13 @@ func (cr *clusterRouter) ListReleases(c *gin.Context) {
 	var (
 		err      error
 		helmMeta types.PixiuObjectMeta
+		req      types.PageRequest
 	)
-	if err = c.ShouldBindUri(&helmMeta); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &helmMeta, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().ListReleases(c, helmMeta.Cluster, helmMeta.Namespace); err != nil {
+	if r.Result, err = cr.c.Cluster().ListReleases(c, helmMeta.Cluster, helmMeta.Namespace, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

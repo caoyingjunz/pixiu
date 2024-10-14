@@ -222,7 +222,7 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	if opts.Count {
 		r.Result, err = u.c.User().GetCount(c, opts)
 	} else {
-		r.Result, err = u.c.User().List(c, opts)
+		r.Result, err = u.c.User().List(c, &opts.PageRequest)
 	}
 	if err != nil {
 		httputils.SetFailed(c, r, err)

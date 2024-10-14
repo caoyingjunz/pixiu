@@ -180,8 +180,15 @@ func (cr *clusterRouter) getCluster(c *gin.Context) {
 func (cr *clusterRouter) listClusters(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var err error
-	if r.Result, err = cr.c.Cluster().List(c); err != nil {
+	var (
+		err error
+		req types.PageRequest
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = cr.c.Cluster().List(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -269,7 +276,8 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		opts struct {
-			Cluster string `uri:"cluster" binding:"required"`
+			Cluster           string `uri:"cluster" binding:"required"`
+			types.PageRequest `json:",inline"`
 		}
 		eventOpt types.EventOptions
 		err      error
@@ -278,7 +286,7 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt); err != nil {
+	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt, opts.PageRequest); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

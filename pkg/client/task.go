@@ -34,7 +34,7 @@ type WrapObject struct {
 type Task struct {
 	sync.RWMutex
 
-	Lister func(ctx context.Context, planId int64, opts ...db.Options) ([]model.Task, error)
+	Lister func(ctx context.Context, planId int64, opts ...db.Options) ([]model.Task, int64, error)
 	items  map[int64]WrapObject
 }
 
@@ -45,7 +45,7 @@ func NewTaskCache() *Task {
 	return t
 }
 
-func (t *Task) SetLister(Lister func(ctx context.Context, planId int64, opts ...db.Options) ([]model.Task, error)) {
+func (t *Task) SetLister(Lister func(ctx context.Context, planId int64, opts ...db.Options) ([]model.Task, int64, error)) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -127,7 +127,7 @@ func (t *Task) WaitForCacheSync(planId int64) error {
 		return nil
 	}
 
-	tasks, err := t.Lister(context.TODO(), planId)
+	tasks, _, err := t.Lister(context.TODO(), planId)
 	if err != nil {
 		return fmt.Errorf("failed to get plan(%d) tasks from database: %v", planId, err)
 	}
@@ -155,7 +155,7 @@ func (t *Task) syncTasks() {
 			continue
 		}
 
-		newTasks, err := t.Lister(context.TODO(), planId)
+		newTasks, _, err := t.Lister(context.TODO(), planId)
 		if err != nil {
 			klog.Errorf("[syncTasks] failed to list plan(%d) tasks: %v", planId, err)
 			delete(t.items, planId)
