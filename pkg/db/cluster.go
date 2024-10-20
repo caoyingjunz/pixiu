@@ -31,7 +31,7 @@ type ClusterInterface interface {
 	Update(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, cluster *model.Cluster, fns ...func(*model.Cluster) error) error
 	Get(ctx context.Context, cid int64, opts ...Options) (*model.Cluster, error)
-	List(ctx context.Context, opts ...Options) ([]model.Cluster, error)
+	List(ctx context.Context, opts ...Options) ([]model.Cluster, int64, error)
 
 	// InternalUpdate 内部更新，不更新版本号
 	InternalUpdate(ctx context.Context, cid int64, updates map[string]interface{}) error
@@ -132,17 +132,23 @@ func (c *cluster) Get(ctx context.Context, cid int64, opts ...Options) (*model.C
 	return &object, nil
 }
 
-func (c *cluster) List(ctx context.Context, opts ...Options) ([]model.Cluster, error) {
-	var cs []model.Cluster
+func (c *cluster) List(ctx context.Context, opts ...Options) ([]model.Cluster, int64, error) {
+	var (
+		cs    []model.Cluster
+		total int64
+	)
 	tx := c.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
 	if err := tx.Find(&cs).Error; err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	if err := tx.Model(&model.Cluster{}).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 
-	return cs, nil
+	return cs, total, nil
 }
 
 func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {

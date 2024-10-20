@@ -29,7 +29,6 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
-	"helm.sh/helm/v3/pkg/release"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -62,7 +61,7 @@ type Interface interface {
 	Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
-	List(ctx context.Context) ([]types.Cluster, error)
+	List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error)
 
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
@@ -71,7 +70,7 @@ type Interface interface {
 	Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error
 
 	// GetEventList 获取指定对象的事件，支持做聚合
-	GetEventList(ctx context.Context, cluster string, options types.EventOptions) (*v1.EventList, error)
+	GetEventList(ctx context.Context, cluster string, options types.EventOptions, pageReq types.PageRequest) (*types.PageResponse, error)
 
 	// AggregateEvents 聚合指定资源的 events
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
@@ -86,7 +85,7 @@ type Interface interface {
 	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
 
 	// ListReleases 获取 tenant release 列表
-	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
+	ListReleases(ctx context.Context, cluster string, namespace string, req *types.PageRequest) (*types.PageResponse, error)
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
@@ -258,9 +257,15 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	return c.model2Type(object), nil
 }
 
-func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
+func (c *cluster) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
+	var pageResp types.PageResponse
+
 	opts := ctrlutil.MakeDbOptions(ctx)
-	objects, err := c.factory.Cluster().List(ctx, opts...)
+	if req != nil {
+		opts = append(opts, db.WithPagination(req.Page, req.Limit))
+	}
+
+	objects, total, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -269,8 +274,10 @@ func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
 	for i, object := range objects {
 		cs[i] = *c.model2Type(&object)
 	}
+	pageResp.Total = total
+	pageResp.Items = cs
 
-	return cs, nil
+	return nil, nil
 }
 
 // Ping 检查和 k8s 集群的连通性
@@ -306,7 +313,8 @@ func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClus
 	return nil
 }
 
-func (c *cluster) GetEventList(ctx context.Context, cluster string, options types.EventOptions) (*v1.EventList, error) {
+func (c *cluster) GetEventList(ctx context.Context, cluster string, options types.EventOptions, pageReq types.PageRequest) (*types.PageResponse, error) {
+	var pageResp types.PageResponse
 	if options.Limit == 0 {
 		options.Limit = 500
 	}
@@ -321,7 +329,23 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 		return nil, err
 	}
 
-	return clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
+	allEvenList, err := clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+	if allEvenList == nil {
+		return nil, nil
+	}
+
+	objects := make([]metav1.Object, 0)
+	for _, event := range allEvenList.Items {
+		objects = append(objects, &event)
+	}
+
+	pageResp.Total = int64(len(allEvenList.Items))
+	pageResp.Items = c.forPage(objects, pageReq)
+
+	return &pageResp, nil
 }
 
 // WatchPodLog streams the logs of a pod in a cluster to a websocket connection.
@@ -671,7 +695,7 @@ func (c *cluster) GetKubernetesMetaFromPlan(ctx context.Context, planId int64) (
 		return nil, err
 	}
 
-	nodes, err := c.factory.Plan().ListNodes(ctx, planId)
+	nodes, _, err := c.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
 		return nil, err
 	}
@@ -813,7 +837,7 @@ func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatu
 
 	// 尝试获取最新的任务状态
 	// 获取失败也不中断返回
-	if tasks, err := c.factory.Plan().ListTasks(context.TODO(), planId); err == nil {
+	if tasks, _, err := c.factory.Plan().ListTasks(context.TODO(), planId); err == nil {
 		if len(tasks) == 0 {
 			status = model.ClusterStatusUnStart
 		} else {

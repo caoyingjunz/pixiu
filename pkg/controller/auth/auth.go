@@ -183,7 +183,24 @@ func (a *auth) ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRe
 	for i, policy := range policies {
 		rbacPolicies[i] = *model2Type(policy)
 	}
+	if req.PageRequest == nil {
+		return rbacPolicies, nil
+	}
+
+	rbacPolicies, err = a.authForPager(rbacPolicies, req.PageRequest)
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+
 	return rbacPolicies, nil
+}
+
+func (a *auth) authForPager(rbacPolicies []types.RBACPolicy, req *types.PageRequest) ([]types.RBACPolicy, error) {
+	offset, end, err := req.Offset(len(rbacPolicies))
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+	return rbacPolicies[offset:end], nil
 }
 
 func (a *auth) CreateGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error {
@@ -259,6 +276,15 @@ func (a *auth) ListGroupBindings(ctx context.Context, req *types.ListGroupBindin
 	for i, binding := range bindings {
 		bindingPolicies[i] = *model2Type(binding)
 	}
+	if req.PageRequest == nil {
+		return bindingPolicies, nil
+	}
+
+	bindingPolicies, err = a.authForPager(bindingPolicies, req.PageRequest)
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+
 	return bindingPolicies, nil
 }
 
