@@ -165,13 +165,15 @@ func (p *plan) ListNodes(ctx context.Context, pid int64, req *types.PageRequest)
 	var (
 		nodes    []types.PlanNode
 		pageResp types.PageResponse
-		options  db.Options
+		objects  []model.Node
+		total    int64
+		err      error
 	)
 	if req != nil {
-		options = db.WithPagination(req.Page, req.Limit)
+		objects, total, err = p.factory.Plan().ListNodes(ctx, pid, db.WithPagination(req.Page, req.Limit))
+	} else {
+		objects, total, err = p.factory.Plan().ListNodes(ctx, pid)
 	}
-
-	objects, total, err := p.factory.Plan().ListNodes(ctx, pid, options)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) nodes: %v", pid, err)
 		return nil, errors.ErrServerInternal

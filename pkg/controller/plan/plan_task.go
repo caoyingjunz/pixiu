@@ -42,13 +42,9 @@ func (p *plan) ListTasks(ctx context.Context, planId int64, req *types.PageReque
 	var (
 		tasks    []types.PlanTask
 		pageResp types.PageResponse
-		options  db.Options
 	)
 
-	if req != nil {
-		options = db.WithPagination(req.Page, req.Limit)
-	}
-	objects, total, err := p.factory.Plan().ListTasks(ctx, planId, options)
+	objects, total, err := p.factory.Plan().ListTasks(ctx, planId, db.WithPagination(req.Page, req.Limit))
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) tasks: %v", planId, err)
 		return nil, err

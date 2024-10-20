@@ -265,14 +265,16 @@ func (p *plan) List(ctx context.Context, req *types.PageRequest) (*types.PageRes
 	var (
 		ps       []types.Plan
 		pageResp types.PageResponse
-		options  db.Options
+		objects  []model.Plan
+		err      error
+		total    int64
 	)
 
 	if req != nil {
-		options = db.WithPagination(req.Page, req.Limit)
+		objects, total, err = p.factory.Plan().List(ctx, db.WithPagination(req.Page, req.Limit))
+	} else {
+		objects, total, err = p.factory.Plan().List(ctx)
 	}
-
-	objects, total, err := p.factory.Plan().List(ctx, options)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
 		return nil, errors.ErrServerInternal
