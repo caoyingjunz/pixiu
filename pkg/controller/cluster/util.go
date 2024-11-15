@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"helm.sh/helm/v3/pkg/release"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -55,6 +56,18 @@ func (c *cluster) forPage(objects []metav1.Object, pageOption types.PageRequest)
 	return objects[offset:end]
 }
 
+func (c *cluster) helmForPage(objects []*release.Release, pageOption *types.PageRequest) []*release.Release {
+	if !pageOption.IsPaged() {
+		return objects
+	}
+	offset, end, err := pageOption.Offset(len(objects))
+	if err != nil {
+		return nil
+	}
+
+	return objects[offset:end]
+}
+
 func (c *cluster) forSorted(objects []metav1.Object, namespace string) []metav1.Object {
 	sort.SliceStable(objects, func(i, j int) bool {
 		return objects[i].GetName() < objects[j].GetName()
@@ -74,7 +87,7 @@ func (c *cluster) listObjects(objects []metav1.Object, namespace string, listOpt
 	objects = c.forSorted(objects, namespace)
 	return types.PageResponse{
 		PageRequest: listOption.PageRequest,
-		Total:       len(objects),
+		Total:       int64(len(objects)),
 		Items:       c.forPage(objects, listOption.PageRequest),
 	}, nil
 }
