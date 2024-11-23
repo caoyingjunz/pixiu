@@ -272,7 +272,7 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 	return ps, nil
 }
 
-func (p *plan) SyncStatus(ctx context.Context) error {
+func (p *plan) SyncTaskStatus(ctx context.Context) error {
 	plans, err := p.List(ctx)
 	if err != nil {
 		return err
