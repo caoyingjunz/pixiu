@@ -105,7 +105,12 @@ func syncCustomCluster(f db.ShareDaoFactory, cluster model.Cluster) error {
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	// 处理自建集群正在部署的集群
 	if cluster.ClusterType == model.ClusterTypeCustom {
-		return syncCustomCluster(f, cluster)
+		// 自建环境，状态是部署未完成时，则直接不做同步，包含：部署中，等待部署，部署失败
+		if cluster.ClusterStatus == model.ClusterStatusUnStart ||
+			cluster.ClusterStatus == model.ClusterStatusDeploy ||
+			cluster.ClusterStatus == model.ClusterStatusFailed {
+			return nil
+		}
 	}
 
 	var (
@@ -114,12 +119,12 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 		err               error
 	)
 	status := model.ClusterStatusRunning
-	updates := make(map[string]interface{})
-
 	nodeData, kubernetesVersion, err = getNewestKubeStatus(cluster)
 	if err != nil {
 		status = model.ClusterStatusError
 	}
+
+	updates := make(map[string]interface{})
 	parseStatus(updates, status, kubernetesVersion, nodeData, cluster)
 	if len(updates) == 0 {
 		return nil
@@ -133,7 +138,7 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 
 func parseStatus(update map[string]interface{}, status model.ClusterStatus, kubernetesVersion string, nodeData string, cluster model.Cluster) {
 	if status != cluster.ClusterStatus {
-		update["cluster_status"] = status
+		update["status"] = status
 	}
 	if kubernetesVersion != cluster.KubernetesVersion {
 		update["kubernetes_version"] = kubernetesVersion
@@ -164,6 +169,7 @@ func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+
 	kubeNode := &types.KubeNode{Ready: make([]string, 0), NotReady: make([]string, 0)}
 	// 获取存储状态
 	for _, node := range nodes {
