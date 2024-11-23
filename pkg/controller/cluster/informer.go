@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/casbin/casbin/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersv1 "k8s.io/client-go/listers/apps/v1"
@@ -28,9 +27,6 @@ import (
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/client"
-	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -248,84 +244,4 @@ func (c *cluster) ListNodes(ctx context.Context, nodesLister v1.NodeLister, name
 		objects = append(objects, node)
 	}
 	return c.listObjects(objects, namespace, listOption)
-}
-
-func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
-	c := &cluster{
-		cc:       cfg,
-		factory:  f,
-		enforcer: e,
-
-		listerFuncs: make(map[string]listerFunc),
-		getterFuncs: make(map[string]getterFunc),
-	}
-
-	// TODO: code generation?
-	c.registerIndexers([]InformerResource{
-		{
-			ResourceType: ResourcePod,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListPods(ctx, informer.PodsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetPod(ctx, informer.PodsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceDeployment,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetDeployment(ctx, informer.DeploymentsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceStatefulSet,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListStatefulSets(ctx, informer.StatefulSetsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetStatefulSet(ctx, informer.StatefulSetsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceDaemonSet,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListDaemonSets(ctx, informer.DaemonSetsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetDaemonSet(ctx, informer.DaemonSetsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceCronJob,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListCronJobs(ctx, informer.CronJobsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetCronJob(ctx, informer.CronJobsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceJob,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListJobs(ctx, informer.JobsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetJob(ctx, informer.JobsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceNode,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListNodes(ctx, informer.NodesLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetNode(ctx, informer.NodesLister(), namespace, name)
-			},
-		},
-		// TODO: 补充更多资源实现
-	}...)
-	return c
 }
