@@ -36,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -845,15 +846,13 @@ func (c *cluster) registerIndexers(informerResources ...InformerResource) {
 
 func (c *cluster) Run(ctx context.Context, workers int) error {
 	klog.Infof("starting cluster manager")
-
 	// 同步集群状态，节点数，版本
-	go c.Sync(ctx)
+	go wait.UntilWithContext(ctx, c.Sync, 5*time.Second)
 
 	return nil
 }
 
 func (c *cluster) Sync(ctx context.Context) {
-
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
