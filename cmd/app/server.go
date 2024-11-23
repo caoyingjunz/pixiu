@@ -87,14 +87,13 @@ func Run(opt *options.Options) error {
 		Handler: opt.HttpEngine,
 	}
 
-	// 启动部署计划
 	// TODO: 暂未设置优雅退出
-	if err := opt.Controller.Plan().Run(context.TODO(), 5); err != nil {
-		klog.Fatal("failed to start plan manager: ", err)
-	}
-	// 启动集群同步控制器
-	if err := opt.Controller.Cluster().Run(context.TODO(), 5); err != nil {
-		klog.Fatal("failed to start cluster syncer: ", err)
+	// 启动集群相关控制器
+	runers := []func(context.Context, int) error{opt.Controller.Plan().Run, opt.Controller.Cluster().Run}
+	for _, runner := range runers {
+		if err := runner(context.TODO(), 5); err != nil {
+			klog.Fatal("failed to start manager: ", err)
+		}
 	}
 
 	// 安装 http 路由
