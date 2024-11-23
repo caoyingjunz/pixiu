@@ -45,8 +45,6 @@ type Interface interface {
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context) ([]types.Plan, error)
 
-	// SyncPlanTaskStatus 进程启动时，同步任务状态
-	SyncPlanTaskStatus(ctx context.Context) error
 	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
 
 	// Start 启动部署任务
@@ -274,25 +272,23 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 	return ps, nil
 }
 
-func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {
-	planList, err := p.List(ctx)
+func (p *plan) SyncTaskStatus(ctx context.Context) error {
+	plans, err := p.List(ctx)
 	if err != nil {
 		return err
 	}
 
 	var wg sync.WaitGroup
-	errChan := make(chan error, len(planList))
-
-	for _, plan := range planList {
+	errChan := make(chan error, len(plans))
+	for _, planP := range plans {
 		wg.Add(1)
 		go func(planId int64) {
 			defer wg.Done()
-			if err := p.syncStatus(ctx, planId); err != nil {
+			if err = p.syncStatus(ctx, planId); err != nil {
 				errChan <- err
 			}
-		}(plan.Id)
+		}(planP.Id)
 	}
-
 	wg.Wait()
 
 	select {
