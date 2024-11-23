@@ -833,6 +833,13 @@ func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatu
 	return status, nil
 }
 
+func (c *cluster) registerIndexers(informerResources ...InformerResource) {
+	for _, informerResource := range informerResources {
+		c.listerFuncs[informerResource.ResourceType] = informerResource.ListerFunc
+		c.getterFuncs[informerResource.ResourceType] = informerResource.GetterFunc
+	}
+}
+
 func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
 	c := &cluster{
 		cc:       cfg,

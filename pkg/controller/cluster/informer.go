@@ -40,13 +40,6 @@ const (
 	ResourceJob         = "job"
 )
 
-func (c *cluster) registerIndexers(informerResources ...InformerResource) {
-	for _, informerResource := range informerResources {
-		c.listerFuncs[informerResource.ResourceType] = informerResource.ListerFunc
-		c.getterFuncs[informerResource.ResourceType] = informerResource.GetterFunc
-	}
-}
-
 func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error) {
 	if len(namespace) == 0 || len(name) == 0 {
 		return nil, fmt.Errorf("namespace or name is empty")
