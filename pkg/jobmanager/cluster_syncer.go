@@ -97,11 +97,6 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	return nil
 }
 
-func syncCustomCluster(f db.ShareDaoFactory, cluster model.Cluster) error {
-	// TODO: 后续补充
-	return nil
-}
-
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	// 处理自建集群正在部署的集群
 	if cluster.ClusterType == model.ClusterTypeCustom {
