@@ -852,7 +852,9 @@ func (c *cluster) Run(ctx context.Context, workers int) error {
 	return nil
 }
 
-func (c *cluster) Sync(ctx context.Context) {}
+func (c *cluster) Sync(ctx context.Context) {
+	// TODO: 后续添加同步任务
+}
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
 	c := &cluster{
