@@ -36,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -92,6 +93,9 @@ type Interface interface {
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)
+
+	// Run 启动 cluster worker 处理协程
+	Run(ctx context.Context, workers int) error
 }
 
 var clusterIndexer client.Cache
@@ -838,6 +842,18 @@ func (c *cluster) registerIndexers(informerResources ...InformerResource) {
 		c.listerFuncs[informerResource.ResourceType] = informerResource.ListerFunc
 		c.getterFuncs[informerResource.ResourceType] = informerResource.GetterFunc
 	}
+}
+
+func (c *cluster) Run(ctx context.Context, workers int) error {
+	klog.Infof("starting cluster manager")
+	// 同步集群状态，节点数，版本
+	go wait.UntilWithContext(ctx, c.Sync, 5*time.Second)
+
+	return nil
+}
+
+func (c *cluster) Sync(ctx context.Context) {
+	// TODO: 后续添加同步任务
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {

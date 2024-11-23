@@ -63,7 +63,7 @@ type Interface interface {
 	DeleteConfig(ctx context.Context, pid int64, cfgId int64) error
 	GetConfig(ctx context.Context, planId int64) (*types.PlanConfig, error)
 
-	// Run 启动 worker 处理协程
+	// Run 启动 plan worker 处理协程
 	Run(ctx context.Context, workers int) error
 
 	RunTask(ctx context.Context, planId int64, taskId int64) error
