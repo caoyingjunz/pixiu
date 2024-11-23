@@ -92,6 +92,9 @@ type Interface interface {
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)
+
+	// Run 启动 cluster worker 处理协程
+	Run(ctx context.Context, workers int) error
 }
 
 var clusterIndexer client.Cache
@@ -838,6 +841,19 @@ func (c *cluster) registerIndexers(informerResources ...InformerResource) {
 		c.listerFuncs[informerResource.ResourceType] = informerResource.ListerFunc
 		c.getterFuncs[informerResource.ResourceType] = informerResource.GetterFunc
 	}
+}
+
+func (c *cluster) Run(ctx context.Context, workers int) error {
+	klog.Infof("starting cluster manager")
+
+	// 同步集群状态，节点数，版本
+	go c.Sync(ctx)
+
+	return nil
+}
+
+func (c *cluster) Sync(ctx context.Context) {
+
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
