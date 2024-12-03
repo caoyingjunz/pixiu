@@ -150,6 +150,7 @@ func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskId int64, w h
 		}
 		flush.Flush()
 	}
+
 	return nil
 }
 
