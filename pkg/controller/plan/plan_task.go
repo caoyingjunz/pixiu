@@ -17,13 +17,14 @@ limitations under the License.
 package plan
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
-	"github.com/docker/docker/pkg/stdcopy"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -135,10 +136,19 @@ func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskId int64, w h
 	defer readCloser.Close()
 
 	// 读取日志
-	_, err = stdcopy.StdCopy(w, w, readCloser)
-	if err != nil {
-		klog.Errorf("failed to read tasks log: %v", err)
-		return err
+	scanner := bufio.NewScanner(readCloser)
+	flush, _ := w.(http.Flusher)
+	for scanner.Scan() {
+		line := append(scanner.Bytes(), byte('\n'))
+		// 去掉前8不可见字符
+		_, err = w.Write(line[8:])
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		flush.Flush()
 	}
 
 	return nil
