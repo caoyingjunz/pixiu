@@ -140,6 +140,7 @@ func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskId int64, w h
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		line = append(line, byte('\n'))
+		// 去掉前8不可见字符
 		_, err = w.Write(line[8:])
 		if err == io.EOF {
 			break
