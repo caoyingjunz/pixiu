@@ -134,6 +134,7 @@ func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskId int64, w h
 		return err
 	}
 	defer readCloser.Close()
+
 	// 读取日志
 	scanner := bufio.NewScanner(readCloser)
 	flush, _ := w.(http.Flusher)
