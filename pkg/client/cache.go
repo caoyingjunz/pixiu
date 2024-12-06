@@ -39,7 +39,7 @@ var (
 		{Group: "apps", Version: "v1", Resource: "deployments"},
 		{Group: "apps", Version: "v1", Resource: "statefulsets"},
 		{Group: "apps", Version: "v1", Resource: "daemonsets"},
-		{Group: "batch", Version: "v1", Resource: "cronjobs"},
+		{Group: "batch", Version: "v1beta1", Resource: "cronjobs"},
 		{Group: "batch", Version: "v1", Resource: "jobs"},
 	}
 )
