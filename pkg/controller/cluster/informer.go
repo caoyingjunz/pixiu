@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	listersv1 "k8s.io/client-go/listers/apps/v1"
 	listersbatchv1 "k8s.io/client-go/listers/batch/v1"
+	listersbatchv1beat1 "k8s.io/client-go/listers/batch/v1beta1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
@@ -97,7 +98,7 @@ func (c *cluster) GetDaemonSet(ctx context.Context, daemonSetsLister listersv1.D
 	return daemonSet, nil
 }
 
-func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister listersbatchv1.CronJobLister, namespace string, name string) (interface{}, error) {
+func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister listersbatchv1beat1.CronJobLister, namespace string, name string) (interface{}, error) {
 	cronJob, err := cronJobsLister.CronJobs(namespace).Get(name)
 	if err != nil {
 		klog.Error("failed to get cronjob (%s/%s) from indexer: %v", namespace, name, err)
@@ -200,7 +201,7 @@ func (c *cluster) ListDaemonSets(ctx context.Context, daemonSetsLister listersv1
 	return c.listObjects(objects, namespace, listOption)
 }
 
-func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv1.CronJobLister, namespace string, listOption types.ListOptions) (interface{}, error) {
+func (c *cluster) ListCronJobs(ctx context.Context, cronJobsLister listersbatchv1beat1.CronJobLister, namespace string, listOption types.ListOptions) (interface{}, error) {
 	cronJobs, err := cronJobsLister.CronJobs(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
