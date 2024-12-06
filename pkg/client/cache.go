@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	appsv1 "k8s.io/client-go/listers/apps/v1"
 	batchv1 "k8s.io/client-go/listers/batch/v1"
+	batchv1beat1 "k8s.io/client-go/listers/batch/v1beta1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -38,7 +39,7 @@ var (
 		{Group: "apps", Version: "v1", Resource: "deployments"},
 		{Group: "apps", Version: "v1", Resource: "statefulsets"},
 		{Group: "apps", Version: "v1", Resource: "daemonsets"},
-		{Group: "batch", Version: "v1", Resource: "cronjobs"},
+		{Group: "batch", Version: "v1beta1", Resource: "cronjobs"},
 		{Group: "batch", Version: "v1", Resource: "jobs"},
 	}
 )
@@ -72,8 +73,8 @@ func (p *PixiuInformer) DaemonSetsLister() appsv1.DaemonSetLister {
 	return p.Shared.Apps().V1().DaemonSets().Lister()
 }
 
-func (p *PixiuInformer) CronJobsLister() batchv1.CronJobLister {
-	return p.Shared.Batch().V1().CronJobs().Lister()
+func (p *PixiuInformer) CronJobsLister() batchv1beat1.CronJobLister {
+	return p.Shared.Batch().V1beta1().CronJobs().Lister()
 }
 
 func (p *PixiuInformer) JobsLister() batchv1.JobLister { return p.Shared.Batch().V1().Jobs().Lister() }
