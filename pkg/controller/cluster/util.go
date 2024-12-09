@@ -48,6 +48,7 @@ func (c *cluster) forPage(objects []metav1.Object, pageOption types.PageRequest)
 	if !pageOption.IsPaged() {
 		return objects
 	}
+
 	offset, end, err := pageOption.Offset(len(objects))
 	if err != nil {
 		return nil
@@ -82,12 +83,12 @@ func (c *cluster) forSorted(objects []metav1.Object, namespace string) []metav1.
 	return objects
 }
 
-func (c *cluster) listObjects(objects []metav1.Object, namespace string, listOption types.ListOptions) (types.PageResponse, error) {
+func (c *cluster) listObjects(objects []metav1.Object, namespace string, listOption types.ListOptions) (*types.PageResponse, error) {
 	objects = c.forQuery(objects, listOption.QueryOption)
 	objects = c.forSorted(objects, namespace)
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       int64(len(objects)),
+	return &types.PageResponse{
+		Total:       len(objects),
 		Items:       c.forPage(objects, listOption.PageRequest),
+		PageRequest: listOption.PageRequest,
 	}, nil
 }

@@ -134,14 +134,14 @@ func (t *planRouter) listPlans(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		err error
-		req types.PageRequest
+		err  error
+		opts types.ListOptions
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &req); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = t.c.Plan().List(c, &req); err != nil {
+	if r.Result, err = t.c.Plan().List(c, &opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

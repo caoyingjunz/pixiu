@@ -67,6 +67,6 @@ func WithIDIn(ids ...int64) Options {
 
 func WithPagination(page, pageSize int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
-		return tx.Offset((page - 1) * pageSize).Limit(page * pageSize)
+		return tx.Offset((page - 1) * pageSize).Limit(pageSize)
 	}
 }

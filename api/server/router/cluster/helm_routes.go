@@ -26,15 +26,15 @@ import (
 func (cr *clusterRouter) ListReleases(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err      error
-		helmMeta types.PixiuObjectMeta
-		req      types.PageRequest
+		err         error
+		helmMeta    types.PixiuObjectMeta
+		listOptions types.ListOptions
 	)
-	if err = httputils.ShouldBindAny(c, nil, &helmMeta, &req); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &helmMeta, &listOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().ListReleases(c, helmMeta.Cluster, helmMeta.Namespace, &req); err != nil {
+	if r.Result, err = cr.c.Cluster().ListReleases(c, helmMeta.Cluster, helmMeta.Namespace, &listOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

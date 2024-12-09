@@ -27,10 +27,11 @@ import (
 )
 
 type AuditInterface interface {
-	List(ctx context.Context, opts ...Options) ([]model.Audit, int64, error)
+	List(ctx context.Context, opts ...Options) ([]model.Audit, error)
 	Get(ctx context.Context, id int64) (*model.Audit, error)
 	Create(ctx context.Context, object *model.Audit) (*model.Audit, error)
 	BatchDelete(ctx context.Context, opts ...Options) (int64, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
 }
 
 type audit struct {
@@ -63,23 +64,29 @@ func (a *audit) Get(ctx context.Context, aid int64) (*model.Audit, error) {
 	return audit, nil
 }
 
-func (a *audit) List(ctx context.Context, opts ...Options) ([]model.Audit, int64, error) {
-	var (
-		audits []model.Audit
-		total  int64
-	)
+func (a *audit) Count(ctx context.Context, opts ...Options) (int64, error) {
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+
+	var total int64
+	err := tx.Model(&model.Audit{}).Count(&total).Error
+	return total, err
+}
+
+func (a *audit) List(ctx context.Context, opts ...Options) ([]model.Audit, error) {
+	var audits []model.Audit
+
 	tx := a.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
 	if err := tx.Find(&audits).Error; err != nil {
-		return nil, 0, err
-	}
-	if err := tx.Model(&model.Audit{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	return audits, total, nil
+	return audits, nil
 }
 
 func (a *audit) BatchDelete(ctx context.Context, opts ...Options) (int64, error) {

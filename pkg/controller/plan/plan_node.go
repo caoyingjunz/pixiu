@@ -18,12 +18,12 @@ package plan
 
 import (
 	"context"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"strings"
 
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
@@ -72,7 +72,7 @@ func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *typ
 // 新增没有的节点
 // 更新已存在的节点
 func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
-	oldNodes, _, err := p.factory.Plan().ListNodes(ctx, planId)
+	oldNodes, err := p.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
 		return err
 	}
@@ -161,22 +161,31 @@ func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.Pla
 	return p.modelNode2Type(object)
 }
 
-func (p *plan) ListNodes(ctx context.Context, pid int64, req *types.PageRequest) (*types.PageResponse, error) {
+func (p *plan) ListNodes(ctx context.Context, pid int64, listOptions *types.ListOptions) (*types.PageResponse, error) {
 	var (
-		nodes    []types.PlanNode
-		pageResp types.PageResponse
-		objects  []model.Node
-		total    int64
-		err      error
+		nodes []types.PlanNode
+		opts  []db.Options
 	)
-	if req != nil {
-		objects, total, err = p.factory.Plan().ListNodes(ctx, pid, db.WithPagination(req.Page, req.Limit))
+
+	if listOptions == nil {
+		listOptions = &types.ListOptions{}
 	} else {
-		objects, total, err = p.factory.Plan().ListNodes(ctx, pid)
+		opts = listOptions.BuildPageNation()
 	}
+
+	total, err := p.factory.Plan().NodeCount(ctx, pid)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) node count: %v", pid, err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := p.factory.Plan().ListNodes(ctx, pid, opts...)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) nodes: %v", pid, err)
-		return nil, errors.ErrServerInternal
+		return nil, err
 	}
 
 	for _, object := range objects {
@@ -186,10 +195,12 @@ func (p *plan) ListNodes(ctx context.Context, pid int64, req *types.PageRequest)
 		}
 		nodes = append(nodes, *n)
 	}
-	pageResp.Total = total
-	pageResp.Items = nodes
 
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total:       int(total),
+		Items:       nodes,
+		PageRequest: listOptions.PageRequest,
+	}, nil
 }
 
 // CreateOrUpdateNode

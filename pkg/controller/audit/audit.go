@@ -33,7 +33,7 @@ type AuditGetter interface {
 }
 
 type Interface interface {
-	List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 	Get(ctx context.Context, aid int64) (*types.Audit, error)
 }
 
@@ -54,29 +54,35 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 	return a.model2Type(object), nil
 }
 
-func (a *audit) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
-	var (
-		ts       []types.Audit
-		pageResp types.PageResponse
-		options  = []db.Options{db.WithOrderByDesc()}
-	)
-	if req != nil {
-		options = append(options, db.WithPagination(req.Page, req.Limit))
+func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	var ts []types.Audit
+
+	// 获取对象总数量
+	total, err := a.factory.Audit().Count(ctx)
+	if err != nil {
+		klog.Errorf("failed to get audits count: %v", err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
 	}
 
-	objects, total, err := a.factory.Audit().List(ctx, options...)
+	// 获取偏移列表
+	objects, err := a.factory.Audit().List(ctx, listOption.BuildPageNation()...)
 	if err != nil {
-		klog.Errorf("failed to get tenants: %v", err)
-		return nil, errors.ErrServerInternal
+		klog.Errorf("failed to get audit events: %v", err)
+		return nil, err
 	}
 
 	for _, object := range objects {
 		ts = append(ts, *a.model2Type(&object))
 	}
-	pageResp.Total = total
-	pageResp.Items = ts
 
-	return &pageResp, nil
+	return types.PageResponse{
+		PageRequest: listOption.PageRequest,
+		Total:       int(total),
+		Items:       ts,
+	}, nil
 }
 
 func (a *audit) model2Type(o *model.Audit) *types.Audit {

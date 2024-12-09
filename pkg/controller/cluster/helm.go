@@ -23,8 +23,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace string, req *types.PageRequest) (*types.PageResponse, error) {
-	var pageResp types.PageResponse
+func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace string, listOptions *types.ListOptions) (*types.PageResponse, error) {
 	helmClient, err := c.buildHelmClient(ctx, cluster, namespace)
 	if err != nil {
 		klog.Errorf("failed to build helm client: %v", err)
@@ -37,10 +36,11 @@ func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace st
 		return nil, err
 	}
 
-	pageResp.Items = c.helmForPage(releases, req)
-	pageResp.Total = int64(len(releases))
-
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total:       len(releases),
+		Items:       c.helmForPage(releases, &listOptions.PageRequest),
+		PageRequest: listOptions.PageRequest,
+	}, nil
 }
 
 func (c *cluster) buildHelmClient(ctx context.Context, cluster string, namespace string) (helmclient.Client, error) {

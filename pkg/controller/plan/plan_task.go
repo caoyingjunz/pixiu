@@ -27,7 +27,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/container"
@@ -39,13 +38,19 @@ func (p *plan) RunTask(ctx context.Context, planId int64, taskId int64) error {
 	return nil
 }
 
-func (p *plan) ListTasks(ctx context.Context, planId int64, req *types.PageRequest) (*types.PageResponse, error) {
-	var (
-		tasks    []types.PlanTask
-		pageResp types.PageResponse
-	)
+func (p *plan) ListTasks(ctx context.Context, planId int64, listOptions *types.ListOptions) (*types.PageResponse, error) {
+	var tasks []types.PlanTask
 
-	objects, total, err := p.factory.Plan().ListTasks(ctx, planId, db.WithPagination(req.Page, req.Limit))
+	total, err := p.factory.Plan().TaskCount(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) task count: %v", planId, err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := p.factory.Plan().ListTasks(ctx, planId, listOptions.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) tasks: %v", planId, err)
 		return nil, err
@@ -54,10 +59,12 @@ func (p *plan) ListTasks(ctx context.Context, planId int64, req *types.PageReque
 	for _, object := range objects {
 		tasks = append(tasks, *p.modelTask2Type(&object))
 	}
-	pageResp.Total = total
-	pageResp.Items = tasks
 
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total:       int(total),
+		Items:       tasks,
+		PageRequest: listOptions.PageRequest,
+	}, nil
 }
 
 func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request) {

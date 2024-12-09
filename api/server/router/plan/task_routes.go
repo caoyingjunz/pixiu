@@ -50,7 +50,7 @@ func (t *planRouter) listTasks(c *gin.Context) {
 
 	// 不是长连接请求则直接返回
 	if !watch.Watch {
-		if r.Result, err = t.c.Plan().ListTasks(c, opt.PlanId, &watch.PageRequest); err != nil {
+		if r.Result, err = t.c.Plan().ListTasks(c, opt.PlanId, &watch.ListOptions); err != nil {
 			httputils.SetFailed(c, r, err)
 			return
 		}

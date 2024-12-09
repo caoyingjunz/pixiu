@@ -167,8 +167,9 @@ type (
 
 	// PageRequest 分页配置
 	PageRequest struct {
-		Page  int `form:"page" json:"page"`   // 页数，表示第几页
-		Limit int `form:"limit" json:"limit"` // 每页数量
+		Page    int    `form:"page" json:"page" binding:"required"`   // 页数，表示第几页
+		Limit   int    `form:"limit" json:"limit" binding:"required"` // 每页数量
+		Keyword string `form:"keyword" json:"keyword"`                // 排序 升序 asc，降序 desc，默认desc
 	}
 	// QueryOption 搜索配置
 	QueryOption struct {
@@ -186,7 +187,7 @@ type (
 
 	WatchMeta struct {
 		Watch       bool `form:"watch"`
-		PageRequest `json:",inline"`
+		ListOptions `json:",inline"`
 	}
 )
 
@@ -203,7 +204,7 @@ type (
 	PageResponse struct {
 		PageRequest `json:",inline"` // 分页请求属性
 
-		Total int64       `json:"total"` // 分页总数
+		Total int         `json:"total"` // 分页总数
 		Items interface{} `json:"items"` // 指定页的元素列表
 	}
 )

@@ -62,7 +62,7 @@ type Interface interface {
 	Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
-	List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error)
+	List(ctx context.Context, req *types.ListOptions) (*types.PageResponse, error)
 
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
@@ -71,7 +71,7 @@ type Interface interface {
 	Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error
 
 	// GetEventList 获取指定对象的事件，支持做聚合
-	GetEventList(ctx context.Context, cluster string, options types.EventOptions, pageReq types.PageRequest) (*types.PageResponse, error)
+	GetEventList(ctx context.Context, cluster string, options types.EventOptions, pageReq *types.ListOptions) (*types.PageResponse, error)
 
 	// AggregateEvents 聚合指定资源的 events
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
@@ -86,7 +86,7 @@ type Interface interface {
 	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
 
 	// ListReleases 获取 tenant release 列表
-	ListReleases(ctx context.Context, cluster string, namespace string, req *types.PageRequest) (*types.PageResponse, error)
+	ListReleases(ctx context.Context, cluster string, namespace string, req *types.ListOptions) (*types.PageResponse, error)
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
@@ -261,15 +261,19 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	return c.model2Type(object), nil
 }
 
-func (c *cluster) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
-	var pageResp types.PageResponse
+func (c *cluster) List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error) {
+	opts := append(ctrlutil.MakeDbOptions(ctx), listOptions.BuildPageNation()...)
 
-	opts := ctrlutil.MakeDbOptions(ctx)
-	if req != nil {
-		opts = append(opts, db.WithPagination(req.Page, req.Limit))
+	total, err := c.factory.Cluster().Count(ctx)
+	if err != nil {
+		klog.Errorf("failed to get cluster count: %v", err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
 	}
 
-	objects, total, err := c.factory.Cluster().List(ctx, opts...)
+	objects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -278,10 +282,12 @@ func (c *cluster) List(ctx context.Context, req *types.PageRequest) (*types.Page
 	for i, object := range objects {
 		cs[i] = *c.model2Type(&object)
 	}
-	pageResp.Total = total
-	pageResp.Items = cs
 
-	return nil, nil
+	return &types.PageResponse{
+		Total:       int(total),
+		Items:       cs,
+		PageRequest: listOptions.PageRequest,
+	}, nil
 }
 
 // Ping 检查和 k8s 集群的连通性
@@ -317,11 +323,11 @@ func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClus
 	return nil
 }
 
-func (c *cluster) GetEventList(ctx context.Context, cluster string, options types.EventOptions, pageReq types.PageRequest) (*types.PageResponse, error) {
-	var pageResp types.PageResponse
+func (c *cluster) GetEventList(ctx context.Context, cluster string, options types.EventOptions, listOptions *types.ListOptions) (*types.PageResponse, error) {
 	if options.Limit == 0 {
 		options.Limit = 500
 	}
+
 	opt := metav1.ListOptions{Limit: options.Limit}
 	fs := c.makeFieldSelector(apitypes.UID(options.Uid), options.Name, options.Namespace, options.Kind)
 	if len(fs) != 0 {
@@ -333,12 +339,13 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 		return nil, err
 	}
 
+	return c.getEventListForPage(ctx, clusterSet, options, opt, listOptions.PageRequest)
+}
+
+func (c *cluster) getEventListForPage(ctx context.Context, clusterSet client.ClusterSet, options types.EventOptions, opt metav1.ListOptions, pageReq types.PageRequest) (*types.PageResponse, error) {
 	allEvenList, err := clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
 	if err != nil {
 		return nil, err
-	}
-	if allEvenList == nil {
-		return nil, nil
 	}
 
 	objects := make([]metav1.Object, 0)
@@ -346,10 +353,11 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 		objects = append(objects, &event)
 	}
 
-	pageResp.Total = int64(len(allEvenList.Items))
-	pageResp.Items = c.forPage(objects, pageReq)
-
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total:       len(allEvenList.Items),
+		Items:       c.forPage(objects, pageReq),
+		PageRequest: pageReq,
+	}, nil
 }
 
 // WatchPodLog streams the logs of a pod in a cluster to a websocket connection.
@@ -699,7 +707,7 @@ func (c *cluster) GetKubernetesMetaFromPlan(ctx context.Context, planId int64) (
 		return nil, err
 	}
 
-	nodes, _, err := c.factory.Plan().ListNodes(ctx, planId)
+	nodes, err := c.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
 		return nil, err
 	}
@@ -841,7 +849,7 @@ func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatu
 
 	// 尝试获取最新的任务状态
 	// 获取失败也不中断返回
-	if tasks, _, err := c.factory.Plan().ListTasks(context.TODO(), planId); err == nil {
+	if tasks, err := c.factory.Plan().ListTasks(context.TODO(), planId); err == nil {
 		if len(tasks) == 0 {
 			status = model.ClusterStatusUnStart
 		} else {

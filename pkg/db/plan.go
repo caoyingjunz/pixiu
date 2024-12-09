@@ -31,13 +31,15 @@ type PlanInterface interface {
 	Update(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, pid int64) (*model.Plan, error)
 	Get(ctx context.Context, pid int64) (*model.Plan, error)
-	List(ctx context.Context, opts ...Options) ([]model.Plan, int64, error)
+	List(ctx context.Context, opts ...Options) ([]model.Plan, error)
+	Count(ctx context.Context) (int64, error)
 
 	CreatNode(ctx context.Context, object *model.Node) (*model.Node, error)
 	UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
-	ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, int64, error)
+	ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, error)
+	NodeCount(ctx context.Context, planId int64) (int64, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
 	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
@@ -56,7 +58,8 @@ type PlanInterface interface {
 	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
 	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error)
 	DeleteTask(ctx context.Context, pid int64) error
-	ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, int64, error)
+	ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error)
+	TaskCount(ctx context.Context, planId int64) (int64, error)
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error)
@@ -116,24 +119,26 @@ func (p *plan) Get(ctx context.Context, pid int64) (*model.Plan, error) {
 	return &object, nil
 }
 
-func (p *plan) List(ctx context.Context, opts ...Options) ([]model.Plan, int64, error) {
-	var (
-		objects []model.Plan
-		total   int64
-	)
+func (p *plan) Count(ctx context.Context) (int64, error) {
+	var total int64
+	if err := p.db.WithContext(ctx).Model(&model.Plan{}).Count(&total).Error; err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+
+func (p *plan) List(ctx context.Context, opts ...Options) ([]model.Plan, error) {
+	var objects []model.Plan
 	tx := p.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
 	if err := tx.Find(&objects).Error; err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	if err := p.db.WithContext(ctx).Model(&model.Plan{}).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return objects, total, nil
+	return objects, nil
 }
 
 func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, error) {
@@ -209,24 +214,27 @@ func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
 	return &object, nil
 }
 
-func (p *plan) ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, int64, error) {
-	var (
-		objects []model.Node
-		total   int64
-	)
+func (p *plan) NodeCount(ctx context.Context, planId int64) (int64, error) {
+	var total int64
+	if err := p.db.WithContext(ctx).Model(&model.Node{}).Where("plan_id = ?", planId).Count(&total).Error; err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+
+func (p *plan) ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, error) {
+	var objects []model.Node
+
 	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
 	if err := tx.Find(&objects).Error; err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	if err := p.db.WithContext(ctx).Model(&model.Node{}).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return objects, total, nil
+	return objects, nil
 }
 
 func (p *plan) CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error) {
@@ -337,23 +345,27 @@ func (p *plan) DeleteTask(ctx context.Context, pid int64) error {
 	return nil
 }
 
-func (p *plan) ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, int64, error) {
-	var (
-		objects []model.Task
-		total   int64
-	)
+func (p *plan) TaskCount(ctx context.Context, planId int64) (int64, error) {
+	var total int64
+	if err := p.db.WithContext(ctx).Model(&model.Task{}).Where("plan_id = ?", planId).Count(&total).Error; err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+
+func (p *plan) ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error) {
+	var objects []model.Task
+
 	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
 	if err := tx.Find(&objects).Error; err != nil {
-		return nil, 0, err
-	}
-	if err := p.db.WithContext(ctx).Model(&model.Task{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	return objects, total, nil
+	return objects, nil
 }
 
 func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error) {

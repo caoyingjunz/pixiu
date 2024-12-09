@@ -50,14 +50,14 @@ func (a *auditRouter) listAudits(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		err error
-		req types.PageRequest
+		listOption types.ListOptions // 分页设置
+		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &req); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = a.c.Audit().List(c, &req); err != nil {
+	if r.Result, err = a.c.Audit().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
