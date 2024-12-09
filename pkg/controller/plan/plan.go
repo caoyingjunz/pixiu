@@ -262,19 +262,9 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 }
 
 func (p *plan) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
-	var (
-		ps       []types.Plan
-		pageResp types.PageResponse
-		objects  []model.Plan
-		err      error
-		total    int64
-	)
+	var ps []types.Plan
 
-	if req != nil {
-		objects, total, err = p.factory.Plan().List(ctx, db.WithPagination(req.Page, req.Limit))
-	} else {
-		objects, total, err = p.factory.Plan().List(ctx)
-	}
+	objects, total, err := p.factory.Plan().List(ctx, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
 		return nil, errors.ErrServerInternal
@@ -287,10 +277,11 @@ func (p *plan) List(ctx context.Context, req *types.PageRequest) (*types.PageRes
 		}
 		ps = append(ps, *no)
 	}
-	pageResp.Total = total
-	pageResp.Items = ps
 
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total: total,
+		Items: ps,
+	}, nil
 }
 
 func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {

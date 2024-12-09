@@ -24,7 +24,6 @@ import (
 )
 
 func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace string, req *types.PageRequest) (*types.PageResponse, error) {
-	var pageResp types.PageResponse
 	helmClient, err := c.buildHelmClient(ctx, cluster, namespace)
 	if err != nil {
 		klog.Errorf("failed to build helm client: %v", err)
@@ -37,10 +36,10 @@ func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace st
 		return nil, err
 	}
 
-	pageResp.Items = c.helmForPage(releases, req)
-	pageResp.Total = int64(len(releases))
-
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total: int64(len(releases)),
+		Items: c.helmForPage(releases, req),
+	}, nil
 }
 
 func (c *cluster) buildHelmClient(ctx context.Context, cluster string, namespace string) (helmclient.Client, error) {

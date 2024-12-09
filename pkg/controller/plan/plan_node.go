@@ -23,7 +23,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
@@ -162,18 +161,9 @@ func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.Pla
 }
 
 func (p *plan) ListNodes(ctx context.Context, pid int64, req *types.PageRequest) (*types.PageResponse, error) {
-	var (
-		nodes    []types.PlanNode
-		pageResp types.PageResponse
-		objects  []model.Node
-		total    int64
-		err      error
-	)
-	if req != nil {
-		objects, total, err = p.factory.Plan().ListNodes(ctx, pid, db.WithPagination(req.Page, req.Limit))
-	} else {
-		objects, total, err = p.factory.Plan().ListNodes(ctx, pid)
-	}
+	var nodes []types.PlanNode
+
+	objects, total, err := p.factory.Plan().ListNodes(ctx, pid, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) nodes: %v", pid, err)
 		return nil, errors.ErrServerInternal
@@ -186,10 +176,11 @@ func (p *plan) ListNodes(ctx context.Context, pid int64, req *types.PageRequest)
 		}
 		nodes = append(nodes, *n)
 	}
-	pageResp.Total = total
-	pageResp.Items = nodes
 
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total: total,
+		Items: nodes,
+	}, nil
 }
 
 // CreateOrUpdateNode

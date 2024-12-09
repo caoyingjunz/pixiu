@@ -225,12 +225,9 @@ func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
 }
 
 func (u *user) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
-	var (
-		users    []types.User
-		pageResp types.PageResponse
-	)
+	var users []types.User
 
-	objects, total, err := u.factory.User().List(ctx, db.WithPagination(req.Page, req.Limit))
+	objects, total, err := u.factory.User().List(ctx, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get user list: %v", err)
 		return nil, errors.ErrServerInternal
@@ -239,10 +236,11 @@ func (u *user) List(ctx context.Context, req *types.PageRequest) (*types.PageRes
 	for _, object := range objects {
 		users = append(users, *model2Type(&object))
 	}
-	pageResp.Total = total
-	pageResp.Items = users
 
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total: total,
+		Items: users,
+	}, nil
 }
 
 func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, error) {

@@ -55,16 +55,9 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 }
 
 func (a *audit) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
-	var (
-		ts       []types.Audit
-		pageResp types.PageResponse
-		options  = []db.Options{db.WithOrderByDesc()}
-	)
-	if req != nil {
-		options = append(options, db.WithPagination(req.Page, req.Limit))
-	}
+	var ts []types.Audit
 
-	objects, total, err := a.factory.Audit().List(ctx, options...)
+	objects, total, err := a.factory.Audit().List(ctx, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get tenants: %v", err)
 		return nil, errors.ErrServerInternal
@@ -73,10 +66,11 @@ func (a *audit) List(ctx context.Context, req *types.PageRequest) (*types.PageRe
 	for _, object := range objects {
 		ts = append(ts, *a.model2Type(&object))
 	}
-	pageResp.Total = total
-	pageResp.Items = ts
 
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total: total,
+		Items: ts,
+	}, nil
 }
 
 func (a *audit) model2Type(o *model.Audit) *types.Audit {
