@@ -250,31 +250,29 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 
 	// 追加节点
 	pageResp, err := p.ListNodes(ctx, planId, nil)
-	if err != nil {
+	if err != nil && pageResp == nil {
 		return nil, err
 	}
-	if pageResp == nil {
-		return nil, nil
+
+	nodes, ok := pageResp.Items.([]types.PlanNode)
+	if !ok {
+		return nil, fmt.Errorf("assert []types.PlanNode failed")
 	}
-	result.Nodes = pageResp.Items.([]types.PlanNode)
+	result.Nodes = nodes
 
 	return result, nil
 }
 
 func (p *plan) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
 	var (
-		ps       []types.Plan
-		pageResp types.PageResponse
-		objects  []model.Plan
-		err      error
-		total    int64
+		ps   []types.Plan
+		opts []db.Options
 	)
-
 	if req != nil {
-		objects, total, err = p.factory.Plan().List(ctx, db.WithPagination(req.Page, req.Limit))
-	} else {
-		objects, total, err = p.factory.Plan().List(ctx)
+		opts = req.BuildPageNation()
 	}
+
+	objects, total, err := p.factory.Plan().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
 		return nil, errors.ErrServerInternal
@@ -287,23 +285,25 @@ func (p *plan) List(ctx context.Context, req *types.PageRequest) (*types.PageRes
 		}
 		ps = append(ps, *no)
 	}
-	pageResp.Total = total
-	pageResp.Items = ps
 
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total:       total,
+		Items:       ps,
+		PageRequest: *req,
+	}, nil
 }
 
 func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {
 	pageResp, err := p.List(ctx, nil)
-	if err != nil {
+	if err != nil && pageResp == nil {
 		return err
-	}
-	if pageResp != nil {
-		return nil
 	}
 
 	var wg sync.WaitGroup
-	planList := pageResp.Items.([]types.Plan)
+	planList, ok := pageResp.Items.([]types.Plan)
+	if !ok {
+		return fmt.Errorf("assert []types.Plan failed")
+	}
 	errChan := make(chan error, len(planList))
 
 	for _, plan := range planList {
@@ -349,7 +349,10 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 		return fmt.Errorf("部署计划暂无关联节点")
 	}
 
-	nodes := pageResp.Items.([]types.PlanNode)
+	nodes, ok := pageResp.Items.([]types.PlanNode)
+	if !ok {
+		return fmt.Errorf("assert plan(%d) nodes type failed", pid)
+	}
 	if len(nodes) == 0 {
 		return fmt.Errorf("部署计划暂无关联节点")
 	}

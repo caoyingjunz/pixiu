@@ -262,12 +262,7 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 }
 
 func (c *cluster) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
-	var pageResp types.PageResponse
-
-	opts := ctrlutil.MakeDbOptions(ctx)
-	if req != nil {
-		opts = append(opts, db.WithPagination(req.Page, req.Limit))
-	}
+	opts := append(ctrlutil.MakeDbOptions(ctx), req.BuildPageNation()...)
 
 	objects, total, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
@@ -278,10 +273,12 @@ func (c *cluster) List(ctx context.Context, req *types.PageRequest) (*types.Page
 	for i, object := range objects {
 		cs[i] = *c.model2Type(&object)
 	}
-	pageResp.Total = total
-	pageResp.Items = cs
 
-	return nil, nil
+	return &types.PageResponse{
+		Total:       total,
+		Items:       cs,
+		PageRequest: *req,
+	}, nil
 }
 
 // Ping 检查和 k8s 集群的连通性
@@ -318,10 +315,10 @@ func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClus
 }
 
 func (c *cluster) GetEventList(ctx context.Context, cluster string, options types.EventOptions, pageReq types.PageRequest) (*types.PageResponse, error) {
-	var pageResp types.PageResponse
 	if options.Limit == 0 {
 		options.Limit = 500
 	}
+
 	opt := metav1.ListOptions{Limit: options.Limit}
 	fs := c.makeFieldSelector(apitypes.UID(options.Uid), options.Name, options.Namespace, options.Kind)
 	if len(fs) != 0 {
@@ -333,12 +330,13 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 		return nil, err
 	}
 
+	return c.getEventListForPage(ctx, clusterSet, options, opt, pageReq)
+}
+
+func (c *cluster) getEventListForPage(ctx context.Context, clusterSet client.ClusterSet, options types.EventOptions, opt metav1.ListOptions, pageReq types.PageRequest) (*types.PageResponse, error) {
 	allEvenList, err := clusterSet.Client.CoreV1().Events(options.Namespace).List(ctx, opt)
 	if err != nil {
 		return nil, err
-	}
-	if allEvenList == nil {
-		return nil, nil
 	}
 
 	objects := make([]metav1.Object, 0)
@@ -346,10 +344,11 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 		objects = append(objects, &event)
 	}
 
-	pageResp.Total = int64(len(allEvenList.Items))
-	pageResp.Items = c.forPage(objects, pageReq)
-
-	return &pageResp, nil
+	return &types.PageResponse{
+		Total:       int64(len(allEvenList.Items)),
+		Items:       c.forPage(objects, pageReq),
+		PageRequest: pageReq,
+	}, nil
 }
 
 // WatchPodLog streams the logs of a pod in a cluster to a websocket connection.

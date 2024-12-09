@@ -167,8 +167,9 @@ type (
 
 	// PageRequest 分页配置
 	PageRequest struct {
-		Page  int `form:"page" json:"page"`   // 页数，表示第几页
-		Limit int `form:"limit" json:"limit"` // 每页数量
+		Page    int    `form:"page" json:"page" binding:"required"`   // 页数，表示第几页
+		Limit   int    `form:"limit" json:"limit" binding:"required"` // 每页数量
+		KeyWord string `form:"keyWord" json:"keyWord"`                // 排序 升序 asc，降序 desc，默认desc
 	}
 	// QueryOption 搜索配置
 	QueryOption struct {

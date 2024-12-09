@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
@@ -399,6 +400,24 @@ func (rs *RuntimeSpec) IsContainerd() bool {
 
 func (p PageRequest) IsPaged() bool {
 	return p.Page != 0 && p.Limit != 0
+}
+
+func (p PageRequest) IsDesc() bool {
+	if p.KeyWord != "asc" {
+		return true
+	}
+	return false
+}
+
+func (p PageRequest) BuildPageNation() []db.Options {
+	opts := []db.Options{db.WithPagination(p.Page, p.Limit)}
+	if p.IsDesc() {
+		opts = append(opts, db.WithOrderByDesc())
+	} else {
+		opts = append(opts, db.WithOrderByASC())
+	}
+
+	return opts
 }
 
 func (p PageRequest) Offset(total int) (int, int, error) {
