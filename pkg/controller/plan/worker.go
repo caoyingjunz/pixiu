@@ -48,6 +48,13 @@ func newHandlerTask(data TaskData) handlerTask {
 }
 
 func (p *plan) Run(ctx context.Context, workers int) error {
+	// 进程启动时，尝试同步任务状态
+	klog.Infof("starting to sync task manager")
+	if err := p.SyncTaskStatus(ctx); err != nil {
+		return err
+	}
+
+	// 启动部署计划控制器
 	klog.Infof("starting plan manager")
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, p.worker, time.Second)
