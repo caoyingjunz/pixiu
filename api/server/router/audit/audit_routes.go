@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type AuditMeta struct {
@@ -48,8 +49,15 @@ func (a *auditRouter) getAudit(c *gin.Context) {
 func (a *auditRouter) listAudits(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var err error
-	if r.Result, err = a.c.Audit().List(c); err != nil {
+	var (
+		listOption types.ListOptions // 分页设置
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = a.c.Audit().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
