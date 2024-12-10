@@ -33,7 +33,7 @@ type AuditGetter interface {
 }
 
 type Interface interface {
-	List(ctx context.Context) ([]types.Audit, error)
+	List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error)
 	Get(ctx context.Context, aid int64) (*types.Audit, error)
 }
 
@@ -54,18 +54,33 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 	return a.model2Type(object), nil
 }
 
-func (a *audit) List(ctx context.Context) ([]types.Audit, error) {
-	objects, err := a.factory.Audit().List(ctx, db.WithOrderByDesc())
+func (a *audit) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
+	var ts []types.Audit
+
+	total, err := a.factory.Audit().Count(ctx)
+	if err != nil {
+		klog.Errorf("failed to get tenant count: %v", err)
+		return nil, errors.ErrServerInternal
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := a.factory.Audit().List(ctx, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get tenants: %v", err)
 		return nil, errors.ErrServerInternal
 	}
 
-	var ts []types.Audit
 	for _, object := range objects {
 		ts = append(ts, *a.model2Type(&object))
 	}
-	return ts, nil
+
+	return &types.PageResponse{
+		Total:       total,
+		Items:       ts,
+		PageRequest: *req,
+	}, nil
 }
 
 func (a *audit) model2Type(o *model.Audit) *types.Audit {

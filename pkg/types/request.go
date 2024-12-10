@@ -147,10 +147,11 @@ type (
 	}
 
 	ListRBACPolicyRequest struct {
-		UserId     int64             `form:"user_id" binding:"required"`
-		ObjectType *model.ObjectType `form:"object_type" binding:"omitempty,required_with=UserId,rbac_object"`
-		SID        *string           `form:"sid" binding:"omitempty,required_with=ObjectType,rbac_sid"`
-		Operation  *model.Operation  `form:"operation" binding:"omitempty,required_with=SID,rbac_operation"`
+		UserId       int64             `form:"user_id" binding:"required"`
+		ObjectType   *model.ObjectType `form:"object_type" binding:"omitempty,required_with=UserId,rbac_object"`
+		SID          *string           `form:"sid" binding:"omitempty,required_with=ObjectType,rbac_sid"`
+		Operation    *model.Operation  `form:"operation" binding:"omitempty,required_with=SID,rbac_operation"`
+		*PageRequest `json:",inline"`
 	}
 
 	GroupBindingRequest struct {
@@ -159,14 +160,16 @@ type (
 	}
 
 	ListGroupBindingRequest struct {
-		UserId    *int64  `form:"user_id" binding:"omitempty"`
-		GroupName *string `form:"group_name" binding:"omitempty"`
+		UserId       *int64  `form:"user_id" binding:"omitempty"`
+		GroupName    *string `form:"group_name" binding:"omitempty"`
+		*PageRequest `json:",inline"`
 	}
 
 	// PageRequest 分页配置
 	PageRequest struct {
-		Page  int `form:"page" json:"page"`   // 页数，表示第几页
-		Limit int `form:"limit" json:"limit"` // 每页数量
+		Page    int    `form:"page" json:"page" binding:"required"`   // 页数，表示第几页
+		Limit   int    `form:"limit" json:"limit" binding:"required"` // 每页数量
+		KeyWord string `form:"keyWord" json:"keyWord"`                // 排序 升序 asc，降序 desc，默认desc
 	}
 	// QueryOption 搜索配置
 	QueryOption struct {
@@ -180,6 +183,11 @@ type (
 		Port     int    `form:"port" json:"port"`
 		User     string `form:"user" json:"user" binding:"required"`
 		Password string `form:"password" json:"password"`
+	}
+
+	WatchMeta struct {
+		Watch       bool `form:"watch"`
+		PageRequest `json:",inline"`
 	}
 )
 
@@ -196,7 +204,7 @@ type (
 	PageResponse struct {
 		PageRequest `json:",inline"` // 分页请求属性
 
-		Total int         `json:"total"` // 分页总数
+		Total int64       `json:"total"` // 分页总数
 		Items interface{} `json:"items"` // 指定页的元素列表
 	}
 )

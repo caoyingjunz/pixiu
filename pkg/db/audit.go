@@ -31,6 +31,7 @@ type AuditInterface interface {
 	Get(ctx context.Context, id int64) (*model.Audit, error)
 	Create(ctx context.Context, object *model.Audit) (*model.Audit, error)
 	BatchDelete(ctx context.Context, opts ...Options) (int64, error)
+	Count(ctx context.Context) (int64, error)
 }
 
 type audit struct {
@@ -63,8 +64,17 @@ func (a *audit) Get(ctx context.Context, aid int64) (*model.Audit, error) {
 	return audit, nil
 }
 
+func (a *audit) Count(ctx context.Context) (int64, error) {
+	var total int64
+	if err := a.db.WithContext(ctx).Model(&model.Audit{}).Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
 func (a *audit) List(ctx context.Context, opts ...Options) ([]model.Audit, error) {
 	var audits []model.Audit
+
 	tx := a.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
