@@ -93,7 +93,7 @@ func getAuditStatus(c *gin.Context) model.AuditOperationStatus {
 			return model.AuditOpFail
 		}
 	}
-	
+
 	respCode := httputils.GetResponseCode(c)
 	if respCode == 0 {
 		return model.AuditOpUnknown
