@@ -112,13 +112,14 @@ func (t *planRouter) listPlanNodes(c *gin.Context) {
 
 	var (
 		opt planMeta
+		req types.PageRequest
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &opt, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = t.c.Plan().ListNodes(c, opt.PlanId); err != nil {
+	if r.Result, err = t.c.Plan().ListNodes(c, opt.PlanId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

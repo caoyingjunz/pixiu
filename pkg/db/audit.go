@@ -27,7 +27,7 @@ import (
 )
 
 type AuditInterface interface {
-	List(ctx context.Context, opts ...Options) ([]model.Audit, error)
+	List(ctx context.Context, opts ...Options) ([]model.Audit, int64, error)
 	Get(ctx context.Context, id int64) (*model.Audit, error)
 	Create(ctx context.Context, object *model.Audit) (*model.Audit, error)
 	BatchDelete(ctx context.Context, opts ...Options) (int64, error)
@@ -63,17 +63,23 @@ func (a *audit) Get(ctx context.Context, aid int64) (*model.Audit, error) {
 	return audit, nil
 }
 
-func (a *audit) List(ctx context.Context, opts ...Options) ([]model.Audit, error) {
-	var audits []model.Audit
+func (a *audit) List(ctx context.Context, opts ...Options) ([]model.Audit, int64, error) {
+	var (
+		audits []model.Audit
+		total  int64
+	)
 	tx := a.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
 	if err := tx.Find(&audits).Error; err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	if err := tx.Model(&model.Audit{}).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 
-	return audits, nil
+	return audits, total, nil
 }
 
 func (a *audit) BatchDelete(ctx context.Context, opts ...Options) (int64, error) {

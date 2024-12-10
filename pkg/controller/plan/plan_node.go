@@ -71,7 +71,7 @@ func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *typ
 // 新增没有的节点
 // 更新已存在的节点
 func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
-	oldNodes, err := p.factory.Plan().ListNodes(ctx, planId)
+	oldNodes, _, err := p.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
 		return err
 	}
@@ -160,14 +160,15 @@ func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.Pla
 	return p.modelNode2Type(object)
 }
 
-func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
-	objects, err := p.factory.Plan().ListNodes(ctx, pid)
+func (p *plan) ListNodes(ctx context.Context, pid int64, req *types.PageRequest) (*types.PageResponse, error) {
+	var nodes []types.PlanNode
+
+	objects, total, err := p.factory.Plan().ListNodes(ctx, pid, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) nodes: %v", pid, err)
 		return nil, errors.ErrServerInternal
 	}
 
-	var nodes []types.PlanNode
 	for _, object := range objects {
 		n, err := p.modelNode2Type(&object)
 		if err != nil {
@@ -175,7 +176,11 @@ func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, erro
 		}
 		nodes = append(nodes, *n)
 	}
-	return nodes, nil
+
+	return &types.PageResponse{
+		Total: total,
+		Items: nodes,
+	}, nil
 }
 
 // CreateOrUpdateNode

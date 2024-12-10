@@ -64,7 +64,7 @@ func (cs *ClusterSyncer) LogLevel() logutil.LogLevel {
 }
 
 func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
-	clusters, err := cs.factory.Cluster().List(ctx)
+	clusters, _, err := cs.factory.Cluster().List(ctx)
 	if err != nil {
 		klog.Error("[ClusterSyncer] failed to get clusters: %v", err)
 		return err

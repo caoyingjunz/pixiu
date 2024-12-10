@@ -43,8 +43,10 @@ type Interface interface {
 	Update(ctx context.Context, planID int64, req *types.UpdatePlanRequest) error
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
-	List(ctx context.Context) ([]types.Plan, error)
+	List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error)
 
+	// SyncPlanTaskStatus 进程启动时，同步任务状态
+	SyncPlanTaskStatus(ctx context.Context) error
 	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
 
 	// Start 启动部署任务
@@ -56,18 +58,18 @@ type Interface interface {
 	UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error
 	DeleteNode(ctx context.Context, pid int64, nodeId int64) error
 	GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error)
-	ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error)
+	ListNodes(ctx context.Context, pid int64, req *types.PageRequest) (*types.PageResponse, error)
 
 	CreateConfig(ctx context.Context, planId int64, req *types.CreatePlanConfigRequest) error
 	UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error
 	DeleteConfig(ctx context.Context, pid int64, cfgId int64) error
 	GetConfig(ctx context.Context, planId int64) (*types.PlanConfig, error)
 
-	// Run 启动 plan worker 处理协程
+	// Run 启动 worker 处理协程
 	Run(ctx context.Context, workers int) error
 
 	RunTask(ctx context.Context, planId int64, taskId int64) error
-	ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error)
+	ListTasks(ctx context.Context, planId int64, req *types.PageRequest) (*types.PageResponse, error)
 	WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request)
 	WatchTaskLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error
 }
@@ -247,21 +249,27 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 	result.Config = *cfg
 
 	// 追加节点
-	result.Nodes, err = p.ListNodes(ctx, planId)
+	pageResp, err := p.ListNodes(ctx, planId, nil)
 	if err != nil {
 		return nil, err
 	}
+	if pageResp == nil {
+		return nil, nil
+	}
+	result.Nodes = pageResp.Items.([]types.PlanNode)
+
 	return result, nil
 }
 
-func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
-	objects, err := p.factory.Plan().List(ctx)
+func (p *plan) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
+	var ps []types.Plan
+
+	objects, total, err := p.factory.Plan().List(ctx, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
 		return nil, errors.ErrServerInternal
 	}
 
-	var ps []types.Plan
 	for _, object := range objects {
 		no, err := p.model2Type(&object)
 		if err != nil {
@@ -269,26 +277,36 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 		}
 		ps = append(ps, *no)
 	}
-	return ps, nil
+
+	return &types.PageResponse{
+		Total: total,
+		Items: ps,
+	}, nil
 }
 
-func (p *plan) SyncTaskStatus(ctx context.Context) error {
-	plans, err := p.List(ctx)
+func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {
+	pageResp, err := p.List(ctx, nil)
 	if err != nil {
 		return err
 	}
+	if pageResp != nil {
+		return nil
+	}
 
 	var wg sync.WaitGroup
-	errChan := make(chan error, len(plans))
-	for _, planP := range plans {
+	planList := pageResp.Items.([]types.Plan)
+	errChan := make(chan error, len(planList))
+
+	for _, plan := range planList {
 		wg.Add(1)
 		go func(planId int64) {
 			defer wg.Done()
-			if err = p.syncStatus(ctx, planId); err != nil {
+			if err := p.syncStatus(ctx, planId); err != nil {
 				errChan <- err
 			}
-		}(planP.Id)
+		}(plan.Id)
 	}
+
 	wg.Wait()
 
 	select {
@@ -314,10 +332,15 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	// TODO: 根据具体情况对参数
 
 	// 2. 校验节点
-	nodes, err := p.ListNodes(ctx, pid)
+	pageResp, err := p.ListNodes(ctx, pid, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get plan(%d) nodes %v", pid, err)
 	}
+	if pageResp == nil {
+		return fmt.Errorf("部署计划暂无关联节点")
+	}
+
+	nodes := pageResp.Items.([]types.PlanNode)
 	if len(nodes) == 0 {
 		return fmt.Errorf("部署计划暂无关联节点")
 	}
@@ -344,7 +367,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 // TaskIsRunning
 // 校验是否有任务正在运行
 func (p *plan) TaskIsRunning(ctx context.Context, planId int64) (bool, error) {
-	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+	tasks, _, err := p.factory.Plan().ListTasks(ctx, planId)
 	if err != nil {
 		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
 		return false, errors.ErrServerInternal
@@ -379,7 +402,7 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 
 	// 尝试获取最新的任务状态
 	// 获取失败也不中断返回
-	if tasks, err := p.factory.Plan().ListTasks(context.TODO(), o.Id); err == nil {
+	if tasks, _, err := p.factory.Plan().ListTasks(context.TODO(), o.Id); err == nil {
 		if len(tasks) == 0 {
 			status = model.UnStartPlanStatus
 		} else {
