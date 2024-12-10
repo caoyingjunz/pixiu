@@ -84,6 +84,15 @@ func (w *auditWriter) asyncAudit(c *gin.Context) {
 
 // getAuditStatus returns the status of operation.
 func getAuditStatus(c *gin.Context) model.AuditOperationStatus {
+	// 对 /pixiu/proxy 的请求直接使用 kubernetes 的原生结构体，做单独处理
+	if strings.Contains(c.Request.RequestURI, "/pixiu/proxy") {
+		if responseOK(c.Writer.Status()) {
+			return model.AuditOpSuccess
+		} else {
+			return model.AuditOpFail
+		}
+	}
+	
 	respCode := httputils.GetResponseCode(c)
 	if respCode == 0 {
 		return model.AuditOpUnknown
