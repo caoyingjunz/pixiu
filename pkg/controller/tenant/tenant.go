@@ -121,10 +121,19 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*types.Tenant, error) {
 func (t *tenant) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
 	var ts []types.Tenant
 
-	objects, total, err := t.factory.Tenant().List(ctx, req.BuildPageNation()...)
+	total, err := t.factory.Tenant().Count(ctx)
+	if err != nil {
+		klog.Errorf("failed to get tenant count: %v", err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := t.factory.Tenant().List(ctx, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get tenants: %v", err)
-		return nil, errors.ErrServerInternal
+		return nil, err
 	}
 
 	for _, object := range objects {

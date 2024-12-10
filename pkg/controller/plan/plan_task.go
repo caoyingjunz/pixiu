@@ -41,7 +41,16 @@ func (p *plan) RunTask(ctx context.Context, planId int64, taskId int64) error {
 func (p *plan) ListTasks(ctx context.Context, planId int64, req *types.PageRequest) (*types.PageResponse, error) {
 	var tasks []types.PlanTask
 
-	objects, total, err := p.factory.Plan().ListTasks(ctx, planId, req.BuildPageNation()...)
+	total, err := p.factory.Plan().TaskCount(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) task count: %v", planId, err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := p.factory.Plan().ListTasks(ctx, planId, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) tasks: %v", planId, err)
 		return nil, err

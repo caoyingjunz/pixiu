@@ -264,7 +264,15 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 func (c *cluster) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
 	opts := append(ctrlutil.MakeDbOptions(ctx), req.BuildPageNation()...)
 
-	objects, total, err := c.factory.Cluster().List(ctx, opts...)
+	total, err := c.factory.Cluster().Count(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster count: %v", err)
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -698,7 +706,7 @@ func (c *cluster) GetKubernetesMetaFromPlan(ctx context.Context, planId int64) (
 		return nil, err
 	}
 
-	nodes, _, err := c.factory.Plan().ListNodes(ctx, planId)
+	nodes, err := c.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
 		return nil, err
 	}
@@ -840,7 +848,7 @@ func (c *cluster) GetClusterStatusFromPlanTask(planId int64) (model.ClusterStatu
 
 	// 尝试获取最新的任务状态
 	// 获取失败也不中断返回
-	if tasks, _, err := c.factory.Plan().ListTasks(context.TODO(), planId); err == nil {
+	if tasks, err := c.factory.Plan().ListTasks(context.TODO(), planId); err == nil {
 		if len(tasks) == 0 {
 			status = model.ClusterStatusUnStart
 		} else {

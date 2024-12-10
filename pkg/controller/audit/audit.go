@@ -57,7 +57,16 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 func (a *audit) List(ctx context.Context, req *types.PageRequest) (*types.PageResponse, error) {
 	var ts []types.Audit
 
-	objects, total, err := a.factory.Audit().List(ctx, req.BuildPageNation()...)
+	total, err := a.factory.Audit().Count(ctx)
+	if err != nil {
+		klog.Errorf("failed to get tenant count: %v", err)
+		return nil, errors.ErrServerInternal
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := a.factory.Audit().List(ctx, req.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get tenants: %v", err)
 		return nil, errors.ErrServerInternal

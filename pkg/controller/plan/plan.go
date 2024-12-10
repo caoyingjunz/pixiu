@@ -272,10 +272,19 @@ func (p *plan) List(ctx context.Context, req *types.PageRequest) (*types.PageRes
 		opts = req.BuildPageNation()
 	}
 
-	objects, total, err := p.factory.Plan().List(ctx, opts...)
+	total, err := p.factory.Plan().Count(ctx)
+	if err != nil {
+		klog.Errorf("failed to get plan count: %v", err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := p.factory.Plan().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
-		return nil, errors.ErrServerInternal
+		return nil, err
 	}
 
 	for _, object := range objects {
@@ -379,7 +388,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 // TaskIsRunning
 // 校验是否有任务正在运行
 func (p *plan) TaskIsRunning(ctx context.Context, planId int64) (bool, error) {
-	tasks, _, err := p.factory.Plan().ListTasks(ctx, planId)
+	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
 	if err != nil {
 		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
 		return false, errors.ErrServerInternal
@@ -414,7 +423,7 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 
 	// 尝试获取最新的任务状态
 	// 获取失败也不中断返回
-	if tasks, _, err := p.factory.Plan().ListTasks(context.TODO(), o.Id); err == nil {
+	if tasks, err := p.factory.Plan().ListTasks(context.TODO(), o.Id); err == nil {
 		if len(tasks) == 0 {
 			status = model.UnStartPlanStatus
 		} else {
