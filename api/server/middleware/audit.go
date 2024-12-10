@@ -19,6 +19,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
