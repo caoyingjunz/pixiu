@@ -36,6 +36,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/static"
 )
 
 type RegisterFunc func(o *options.Options)
@@ -53,7 +54,7 @@ func InstallRouters(o *options.Options) {
 	}
 
 	install(o, fs...)
-
+	o.HttpEngine.Use(static.Serve("/", static.LocalFile("./static", true)))
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
