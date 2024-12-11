@@ -21,6 +21,9 @@ build:
 image:
 	docker build -t $(dockerhubUser)/$(releaseName):$(tag) --build-arg VERSION=$(version) .
 
+image-aio:
+	DOCKER_BUILDKIT=1 docker buildx build --platform linux/amd64 -t $(dockerhubUser)/$(releaseName):$(tag) --build-arg VERSION=$(version) -f Dockerfile-aio .
+
 push: image
 	docker push $(dockerhubUser)/$(releaseName):$(tag)
 
