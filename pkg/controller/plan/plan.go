@@ -250,13 +250,13 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 
 	// 追加节点
 	pageResp, err := p.ListNodes(ctx, planId, nil)
-	if err != nil && pageResp == nil {
-		return nil, err
+	if err != nil {
+		return nil, errors.ErrServerInternal
 	}
 
 	nodes, ok := pageResp.Items.([]types.PlanNode)
 	if !ok {
-		return nil, fmt.Errorf("assert []types.PlanNode failed")
+		return nil, nil
 	}
 	result.Nodes = nodes
 
@@ -312,7 +312,8 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 
 	plans, ok := pageResp.Items.([]types.Plan)
 	if !ok {
-		return fmt.Errorf("assert []types.Plan failed")
+		// Items 为空指针也就是 list 查询是空的时候断言失败，直接返回
+		return nil
 	}
 
 	var wg sync.WaitGroup
@@ -339,14 +340,14 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 
 func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {
 	pageResp, err := p.List(ctx, nil)
-	if err != nil && pageResp == nil {
+	if err != nil {
 		return err
 	}
 
 	var wg sync.WaitGroup
 	planList, ok := pageResp.Items.([]types.Plan)
 	if !ok {
-		return fmt.Errorf("assert []types.Plan failed")
+		return nil
 	}
 	errChan := make(chan error, len(planList))
 
@@ -389,13 +390,10 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	if err != nil {
 		return fmt.Errorf("failed to get plan(%d) nodes %v", pid, err)
 	}
-	if pageResp == nil {
-		return fmt.Errorf("部署计划暂无关联节点")
-	}
 
 	nodes, ok := pageResp.Items.([]types.PlanNode)
 	if !ok {
-		return fmt.Errorf("assert plan(%d) nodes type failed", pid)
+		return nil
 	}
 	if len(nodes) == 0 {
 		return fmt.Errorf("部署计划暂无关联节点")

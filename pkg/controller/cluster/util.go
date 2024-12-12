@@ -20,10 +20,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/caoyingjunz/pixiu/pkg/types"
 	"helm.sh/helm/v3/pkg/release"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 func (c *cluster) forQuery(objects []metav1.Object, queryOption types.QueryOption) []metav1.Object {
@@ -48,7 +49,6 @@ func (c *cluster) forPage(objects []metav1.Object, pageOption types.PageRequest)
 	if !pageOption.IsPaged() {
 		return objects
 	}
-
 	offset, end, err := pageOption.Offset(len(objects))
 	if err != nil {
 		return nil
