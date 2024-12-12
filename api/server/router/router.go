@@ -54,10 +54,11 @@ func InstallRouters(o *options.Options) {
 	}
 
 	install(o, fs...)
-	// StaticFiles 目录为空不影响 api 调用
-	// 运行过程中 StaticFiles 添加上了，前端页面自动生效
-	o.HttpEngine.Use(static.Serve("/", static.LocalFile(o.ComponentConfig.Default.StaticFiles,
-		true)))
+
+	// StaticFiles 目录不为空时，启用前端集成
+	if len(o.ComponentConfig.Default.StaticFiles) != 0 {
+		o.HttpEngine.Use(static.Serve("/", static.LocalFile(o.ComponentConfig.Default.StaticFiles, true)))
+	}
 
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
