@@ -21,14 +21,8 @@ build:
 image:
 	docker build -t $(dockerhubUser)/$(releaseName):$(tag) --build-arg VERSION=$(version) .
 
-image-aio:
-	docker build -t $(dockerhubUser)/pixiu-aio:v3.0.1 --build-arg VERSION=$(version) -f Dockerfile-aio .
-
 push: image
 	docker push $(dockerhubUser)/$(releaseName):$(tag)
-
-push-aio: image-aio
-	docker push $(dockerhubUser)/pixiu-aio:v1.1.0
 
 webshell-image:
 	docker build --build-arg K8S_VERSION=$(k8sVersion) \
