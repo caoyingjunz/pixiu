@@ -36,6 +36,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/static"
 )
 
 type RegisterFunc func(o *options.Options)
@@ -53,6 +54,11 @@ func InstallRouters(o *options.Options) {
 	}
 
 	install(o, fs...)
+
+	// StaticFiles 目录不为空时，启用前端集成
+	if len(o.ComponentConfig.Default.StaticFiles) != 0 {
+		o.HttpEngine.Use(static.Serve("/", static.LocalFile(o.ComponentConfig.Default.StaticFiles, true)))
+	}
 
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })

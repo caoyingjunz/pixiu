@@ -10,6 +10,8 @@ default:
   # 日志的格式，可选 text 和 json
   log_format: json
   log_level: info
+  # 静态文件路径
+  static_files: ./static
 
 # 数据库地址信息
 mysql:
