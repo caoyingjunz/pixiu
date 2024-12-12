@@ -10,8 +10,8 @@ WORKDIR /build
 RUN git clone https://github.com/pixiu-io/dashboard.git
 RUN cd dashboard && npm install && npm run build
 
-FROM nginx:alpine
-LABEL MAINTAINER="PIXIU"
+FROM jacky06/static:nonroot
+LABEL MAINTAINER="caoyingjunz"
 
 COPY --from=pixiu-builder /app/pixiu /app
 COPY --from=builder /build/dashboard/dist /static
