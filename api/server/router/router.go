@@ -54,7 +54,9 @@ func InstallRouters(o *options.Options) {
 	}
 
 	install(o, fs...)
-	o.HttpEngine.Use(static.Serve("/", static.LocalFile("./static", true)))
+	o.HttpEngine.Use(static.Serve("/", static.LocalFile(o.ComponentConfig.Default.StaticFiles,
+		true)))
+
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
