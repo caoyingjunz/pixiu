@@ -4,11 +4,12 @@ go 1.16
 
 require (
 	github.com/BurntSushi/toml v1.2.0 // indirect
+	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/caoyingjunz/pixiulib v0.0.0-20220819163605-c3c10ec3ed3c
 	github.com/casbin/casbin/v2 v2.97.0
 	github.com/casbin/gorm-adapter/v3 v3.12.0
-	github.com/docker/docker v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
+	github.com/docker/docker v20.10.12+incompatible
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-contrib/requestid v0.0.6
 	github.com/gin-gonic/gin v1.8.1
@@ -21,15 +22,14 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2
-	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/juju/ratelimit v1.0.2
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mittwald/go-helm-client v0.8.1
 	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.6
 	github.com/robfig/cron/v3 v3.0.0
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
@@ -49,14 +49,14 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	gorm.io/driver/mysql v1.4.1
 	gorm.io/gorm v1.24.0
-	helm.sh/helm/v3 v3.6.3
-	k8s.io/api v0.22.1
-	k8s.io/apimachinery v0.22.1
-	k8s.io/client-go v0.22.1
+	helm.sh/helm/v3 v3.8.2
+	k8s.io/api v0.23.5
+	k8s.io/apimachinery v0.23.5
+	k8s.io/cli-runtime v0.23.5
+	k8s.io/client-go v0.23.5
 	k8s.io/klog/v2 v2.80.1
-	k8s.io/metrics v0.21.0
+	k8s.io/metrics v0.23.5
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (

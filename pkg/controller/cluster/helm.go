@@ -17,44 +17,119 @@ limitations under the License.
 package cluster
 
 import (
-	"context"
+	"os"
 
-	helmclient "github.com/mittwald/go-helm-client"
-	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/cli"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 )
 
-func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error) {
-	helmClient, err := c.buildHelmClient(ctx, cluster, namespace)
-	if err != nil {
-		klog.Errorf("failed to build helm client: %v", err)
-		return nil, err
-	}
-
-	releases, err := helmClient.ListDeployedReleases()
-	if err != nil {
-		klog.Errorf("failed to list helm release: %v", err)
-		return nil, err
-	}
-	return releases, nil
+type IHelm interface {
+	Releases(namespace string) IReleases
+	Repositories() IRepositories
 }
 
-func (c *cluster) buildHelmClient(ctx context.Context, cluster string, namespace string) (helmclient.Client, error) {
-	kubeConfig, err := c.GetKubeConfigByName(ctx, cluster)
+type Helm struct {
+	settings          *cli.EnvSettings
+	actionConfig      *action.Configuration
+	resetClientGetter *HelmRESTClientGeeter
+}
+
+func (h *Helm) Releases(namespace string) IReleases {
+	h.settings.SetNamespace(namespace)
+	if err := h.actionConfig.Init(
+		h.resetClientGetter,
+		h.settings.Namespace(),
+		os.Getenv("HELM_DRIVER"),
+		klog.Infof,
+	); err != nil {
+		klog.Errorf("failed to init helm action config: %v", err)
+		return nil
+	}
+	return newReleases(h.actionConfig, h.settings)
+}
+
+func (h *Helm) Repositories() IRepositories {
+	return newRepositories(h.settings)
+}
+
+func NewHelm(kubeConfig *rest.Config) *Helm {
+	settings := cli.New()
+	actionCofnig := new(action.Configuration)
+	resetClientGetter := newHelmRESTClientGeeter(kubeConfig)
+	// if err := actionCofnig.Init(
+	// 	resetClientGetter,
+	// 	settings.Namespace(),
+	// 	os.Getenv("HELM_DRIVER"),
+	// 	klog.Infof,
+	// ); err != nil {
+	// 	klog.Errorf("failed to init helm action config: %v", err)
+	// 	return nil
+	// }
+	// registryClient, err := registry.NewClient(
+	// 	registry.ClientOptDebug(settings.Debug),
+	// 	registry.ClientOptCredentialsFile(settings.RegistryConfig),
+	// )
+	// if err != nil {
+	// 	klog.Errorf("failed to init helm registry client: %v", err)
+	// 	return nil
+	// }
+	// actionCofnig.RegistryClient = registryClient
+	return &Helm{
+		settings:          settings,
+		actionConfig:      actionCofnig,
+		resetClientGetter: resetClientGetter,
+	}
+}
+
+type HelmRESTClientGeeter struct {
+	kubeConfig *rest.Config
+}
+
+var _ genericclioptions.RESTClientGetter = &HelmRESTClientGeeter{}
+
+// ToDiscoveryClient implements action.RESTClientGetter.
+func (h *HelmRESTClientGeeter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	h.kubeConfig.Burst = 100
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(h.kubeConfig)
 	if err != nil {
 		return nil, err
 	}
+	return memory.NewMemCacheClient(discoveryClient), nil
+}
 
-	// TODO: 目前 helm 的官方库，不支持在实例化之后修改 namespace，只能重新构造
-	return helmclient.NewClientFromRestConf(&helmclient.RestConfClientOptions{
-		Options: &helmclient.Options{
-			Namespace: namespace,
-			Debug:     true,
-			Linting:   false,
-			DebugLog: func(format string, v ...interface{}) {
-				klog.Infof(format, v)
-			},
-		},
-		RestConfig: kubeConfig,
-	})
+// ToRESTConfig implements action.RESTClientGetter.
+func (h *HelmRESTClientGeeter) ToRESTConfig() (*rest.Config, error) {
+	return h.kubeConfig, nil
+}
+
+// ToRESTMapper implements action.RESTClientGetter.
+func (h *HelmRESTClientGeeter) ToRESTMapper() (meta.RESTMapper, error) {
+
+	discoveryClient, err := h.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
+	expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
+	return expander, nil
+}
+func (h *HelmRESTClientGeeter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
+	overrides := &clientcmd.ConfigOverrides{ClusterDefaults: clientcmd.ClusterDefaults}
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
+}
+
+func newHelmRESTClientGeeter(kubeConfig *rest.Config) *HelmRESTClientGeeter {
+	return &HelmRESTClientGeeter{
+		kubeConfig: kubeConfig,
+	}
 }

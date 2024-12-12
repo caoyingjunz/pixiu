@@ -29,7 +29,6 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
-	"helm.sh/helm/v3/pkg/release"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -86,9 +85,6 @@ type Interface interface {
 	// ReRunJob 重新执行指定任务
 	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
 
-	// ListReleases 获取 tenant release 列表
-	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
-
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
@@ -96,6 +92,9 @@ type Interface interface {
 
 	// Run 启动 cluster worker 处理协程
 	Run(ctx context.Context, workers int) error
+
+	// Helm 命令
+	Helm(cluster string) IHelm
 }
 
 var clusterIndexer client.Cache
@@ -123,6 +122,15 @@ type cluster struct {
 
 	listerFuncs map[string]listerFunc
 	getterFuncs map[string]getterFunc
+}
+
+func (c *cluster) Helm(cluster string) IHelm {
+	kubeConfig, err := c.GetKubeConfigByName(context.TODO(), cluster)
+	if err != nil {
+		klog.Errorf("failed to get kube config: %v", err)
+		return &Helm{}
+	}
+	return NewHelm(kubeConfig)
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
