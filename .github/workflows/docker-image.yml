@@ -46,3 +46,15 @@ jobs:
             harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:latest
             harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:v0.1
             harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:${{ env.COMMIT_HASH }}
+
+      - name: Build and push the pixiu aio image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile-aio
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
+          push: true
+          tags: |
+            harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu-aio:v1.1.0
