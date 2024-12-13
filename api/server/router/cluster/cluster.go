@@ -90,5 +90,15 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	{
 		// 获取 release 列表
 		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.ListReleases)
+
+		// helm reposistories
+		helmRoute.GET("/clusters/:cluster/reposistories", cr.listReposistories)
+		helmRoute.POST("/clusters/:cluster/reposistories", cr.createReposistories)
+		helmRoute.GET("/clusters/:cluster/reposistories/:id", cr.getReposistory)
+		helmRoute.GET("/clusters/:cluster/reposistories/name/:name", cr.getReposistoryByName)
+		helmRoute.PUT("/clusters/:cluster/reposistories/:id", cr.updateReposistory)
+		helmRoute.DELETE("/clusters/:cluster/reposistories/:id", cr.deleteReposistory)
+		helmRoute.GET("/clusters/:cluster/reposistories/:id/charts", cr.getRepoCharts)
+		helmRoute.GET("/clusters/:cluster/reposistories/charts", cr.getRepoChartsByURL)
 	}
 }

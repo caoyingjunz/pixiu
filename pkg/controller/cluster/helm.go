@@ -19,6 +19,7 @@ package cluster
 import (
 	"os"
 
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -37,6 +38,8 @@ type IHelm interface {
 }
 
 type Helm struct {
+	cluster           string
+	factory           db.ShareDaoFactory
 	settings          *cli.EnvSettings
 	actionConfig      *action.Configuration
 	resetClientGetter *HelmRESTClientGeeter
@@ -57,35 +60,19 @@ func (h *Helm) Releases(namespace string) IReleases {
 }
 
 func (h *Helm) Repositories() IRepositories {
-	return newRepositories(h.settings)
+	return newRepositories(h.cluster, h.settings, h.factory)
 }
 
-func newHelm(kubeConfig *rest.Config) *Helm {
+func newHelm(kubeConfig *rest.Config, cluster string, factory db.ShareDaoFactory) *Helm {
 	settings := cli.New()
 	actionCofnig := new(action.Configuration)
 	resetClientGetter := newHelmRESTClientGeeter(kubeConfig)
-	// if err := actionCofnig.Init(
-	// 	resetClientGetter,
-	// 	settings.Namespace(),
-	// 	os.Getenv("HELM_DRIVER"),
-	// 	klog.Infof,
-	// ); err != nil {
-	// 	klog.Errorf("failed to init helm action config: %v", err)
-	// 	return nil
-	// }
-	// registryClient, err := registry.NewClient(
-	// 	registry.ClientOptDebug(settings.Debug),
-	// 	registry.ClientOptCredentialsFile(settings.RegistryConfig),
-	// )
-	// if err != nil {
-	// 	klog.Errorf("failed to init helm registry client: %v", err)
-	// 	return nil
-	// }
-	// actionCofnig.RegistryClient = registryClient
 	return &Helm{
 		settings:          settings,
 		actionConfig:      actionCofnig,
 		resetClientGetter: resetClientGetter,
+		cluster:           cluster,
+		factory:           factory,
 	}
 }
 

@@ -1,15 +1,20 @@
 package types
 
 type RepoId struct {
-	Id int64 `json:"id" binding:"required"`
+	Cluster string `uri:"cluster" binding:"required"`
+	Id      int64  `uri:"id" binding:"required"`
 }
 
 type RepoName struct {
-	Name string `json:"name" binding:"required"`
+	Cluster string `uri:"cluster" binding:"required"`
+	Name    string `uri:"name" binding:"required"`
 }
 
 type RepoURL struct {
 	Url string `form:"url" binding:"required"`
+}
+type RepoObjectMeta struct {
+	Cluster string `uri:"cluster" binding:"required"`
 }
 
 type RepoForm struct {

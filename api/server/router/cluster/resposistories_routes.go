@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package reposistories
+package cluster
 
 import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -22,28 +22,34 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// createReposistories create a reposistories
+// createReposistories creates a new repository
 //
-// @Summary create a reposistories
-// @Description create a reposistories
+// @Summary create a new repository
+// @Description creates a new repository from the system
 // @Tags reposistories
-// @Accept  json
-// @Produce  json
-// @Param   body     body     types.RepoForm  true  "create reposistories"
+// @Accept json
+// @Produce json
+// @Param cluster body types.RepoObjectMeta true "Kubernetes cluster name"
+// @Param repoForm body types.RepoForm true "repository information"
 // @Success 200 {object} httputils.Response
+// @Failure 400 {object} httputils.Response
+// @Failure 500 {object} httputils.Response
 // @Router /reposistories [post]
-func (re *reposistoriesRouter) createReposistories(c *gin.Context) {
+func (re *clusterRouter) createReposistories(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		err      error
-		formData types.RepoForm
+		err       error
+		formData  types.RepoForm
+		pixiuMeta types.RepoObjectMeta
 	)
-	if err = c.ShouldBindJSON(&formData); err != nil {
+
+	if err = httputils.ShouldBindAny(c, &formData, &pixiuMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = re.c.Repositories().Create(c, &formData); err != nil {
+
+	if err = re.c.Cluster().Helm(pixiuMeta.Cluster).Repositories().Create(c, &formData); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -64,7 +70,7 @@ func (re *reposistoriesRouter) createReposistories(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /reposistories/{id} [delete]
-func (re *reposistoriesRouter) deleteReposistory(c *gin.Context) {
+func (re *clusterRouter) deleteReposistory(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -75,7 +81,7 @@ func (re *reposistoriesRouter) deleteReposistory(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = re.c.Repositories().Delete(c, repoMeta.Id); err != nil {
+	if err = re.c.Cluster().Helm(repoMeta.Cluster).Repositories().Delete(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -86,18 +92,19 @@ func (re *reposistoriesRouter) deleteReposistory(c *gin.Context) {
 // updateReposistory updates a repository by its ID
 //
 // @Summary update a repository by ID
-// @Description updates a repository from the system using the provided ID
+// @Description updates a repository in the system using the provided ID
 // @Tags reposistories
 // @Accept json
 // @Produce json
 // @Param id path int true "Repository ID"
-// @Param repository body types.RepUpdateForm true "repository information"
+// @Param repoForm body types.RepoUpdateForm true "repository information"
 // @Success 200 {object} httputils.Response
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /reposistories/{id} [put]
-func (re *reposistoriesRouter) updateReposistory(c *gin.Context) {
+
+func (re *clusterRouter) updateReposistory(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -109,7 +116,7 @@ func (re *reposistoriesRouter) updateReposistory(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = re.c.Repositories().Update(c, repoMeta.Id, &formData); err != nil {
+	if err = re.c.Cluster().Helm(repoMeta.Cluster).Repositories().Update(c, repoMeta.Id, &formData); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -130,7 +137,7 @@ func (re *reposistoriesRouter) updateReposistory(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /reposistories/{id} [get]
-func (re *reposistoriesRouter) getReposistory(c *gin.Context) {
+func (re *clusterRouter) getReposistory(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -141,7 +148,7 @@ func (re *reposistoriesRouter) getReposistory(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = re.c.Repositories().Get(c, repoMeta.Id); err != nil {
+	if r.Result, err = re.c.Cluster().Helm(repoMeta.Cluster).Repositories().Get(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -156,13 +163,13 @@ func (re *reposistoriesRouter) getReposistory(c *gin.Context) {
 // @Tags reposistories
 // @Accept json
 // @Produce json
-// @Param name path string true "Repository Name"
+// @Param name path string true "Repository name"
 // @Success 200 {object} httputils.Response{result=types.Repo}
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /reposistories/name/{name} [get]
-func (re *reposistoriesRouter) getReposistoryByName(c *gin.Context) {
+func (re *clusterRouter) getReposistoryByName(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -173,7 +180,7 @@ func (re *reposistoriesRouter) getReposistoryByName(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = re.c.Repositories().GetByName(c, repoMeta.Name); err != nil {
+	if r.Result, err = re.c.Cluster().Helm(repoMeta.Cluster).Repositories().GetByName(c, repoMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -181,20 +188,31 @@ func (re *reposistoriesRouter) getReposistoryByName(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// listReposistories list all reposistories
+// listReposistories lists all repositories in the specified cluster
 //
-// @Summary list all reposistories
-// @Description list all reposistories
+// @Summary list all repositories
+// @Description retrieves a list of all repositories from the specified Kubernetes cluster
 // @Tags reposistories
-// @Accept  json
-// @Produce  json
-// @Success 200 {object} httputils.Response{result=[]types.Repo}
+// @Accept json
+// @Produce json
+// @Param cluster query string true "Kubernetes cluster name"
+// @Success 200 {object} httputils.Response{result=[]model.Repositories}
+// @Failure 400 {object} httputils.Response
+// @Failure 404 {object} httputils.Response
+// @Failure 500 {object} httputils.Response
 // @Router /reposistories [get]
-func (re *reposistoriesRouter) listReposistories(c *gin.Context) {
+func (re *clusterRouter) listReposistories(c *gin.Context) {
 	r := httputils.NewResponse()
-	var err error
+	var (
+		err       error
+		pixiuMeta types.RepoObjectMeta
+	)
+	if err = c.ShouldBindUri(&pixiuMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
-	if r.Result, err = re.c.Repositories().List(c); err != nil {
+	if r.Result, err = re.c.Cluster().Helm(pixiuMeta.Cluster).Repositories().List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -202,10 +220,10 @@ func (re *reposistoriesRouter) listReposistories(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// getDetail retrieves detailed information about a repository by its ID
+// getRepoCharts retrieves charts of a repository by its ID
 //
-// @Summary get detailed repository information by ID
-// @Description retrieves detailed information about a repository from the system using the provided ID
+// @Summary get repository charts by ID
+// @Description retrieves charts associated with a repository from the system using the provided ID
 // @Tags reposistories
 // @Accept json
 // @Produce json
@@ -214,9 +232,8 @@ func (re *reposistoriesRouter) listReposistories(c *gin.Context) {
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
-// @Router /reposistories/{id}/detail [get]
-
-func (re *reposistoriesRouter) getRepoCharts(c *gin.Context) {
+// @Router /reposistories/{id}/charts [get]
+func (re *clusterRouter) getRepoCharts(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err      error
@@ -227,7 +244,7 @@ func (re *reposistoriesRouter) getRepoCharts(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = re.c.Repositories().GetRepoChartsById(c, repoMeta.Id); err != nil {
+	if r.Result, err = re.c.Cluster().Helm(repoMeta.Cluster).Repositories().GetRepoChartsById(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -235,31 +252,33 @@ func (re *reposistoriesRouter) getRepoCharts(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// GetRepoChartsByURL retrieves detailed information about a repository by its URL
+// getRepoChartsByURL retrieves charts of a repository by its URL
 //
-// @Summary get detailed repository information by URL
-// @Description retrieves detailed information about a repository from the system using the provided URL
+// @Summary get repository charts by URL
+// @Description retrieves charts associated with a repository from the system using the provided URL
 // @Tags reposistories
 // @Accept json
 // @Produce json
-// @Param url path string true "Repository URL"
+// @Param cluster query string true "Kubernetes cluster name"
+// @Param url query string true "Repository URL"
 // @Success 200 {object} httputils.Response{result=model.ChartIndex}
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
-// @Router /reposistories/url/{url}/detail [get]
-func (re *reposistoriesRouter) getRepoChartsByURL(c *gin.Context) {
+// @Router /reposistories/charts [get]
+func (re *clusterRouter) getRepoChartsByURL(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err      error
-		repoMeta types.RepoURL
+		err       error
+		repoMeta  types.RepoURL
+		pixiuMeta types.RepoObjectMeta
 	)
 
-	if err = httputils.ShouldBindAny(c, nil, nil, &repoMeta); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &pixiuMeta, &repoMeta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = re.c.Repositories().GetRepoChartsByURL(c, repoMeta.Url); err != nil {
+	if r.Result, err = re.c.Cluster().Helm(pixiuMeta.Cluster).Repositories().GetRepoChartsByURL(c, repoMeta.Url); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -41,21 +41,3 @@ func (cr *clusterRouter) ListReleases(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
-func (cr *clusterRouter) ListRepositories(c *gin.Context) {
-	r := httputils.NewResponse()
-	var (
-		err      error
-		helmMeta types.HelmObjectMeta
-	)
-	if err = c.ShouldBindUri(&helmMeta); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Repositories().List(); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
