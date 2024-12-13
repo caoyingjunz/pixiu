@@ -12,8 +12,8 @@ default:
   log_level: info
 
 # 默认数据库
-sqlite3:
-  db_file: pixiu.db
+#sqlite3:
+#  db_file: pixiu.db
 
 # 数据库地址信息
 mysql:
