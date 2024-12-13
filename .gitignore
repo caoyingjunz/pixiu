@@ -25,6 +25,9 @@ testbin/*
 # output
 dist
 
+# sqlite
+pixiu.db
+
 # licensefmt
 hack/tools/licfmt/licfmt
 
