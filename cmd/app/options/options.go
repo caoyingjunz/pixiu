@@ -53,6 +53,8 @@ const (
 	defaultSlowSQLDuration = 1 * time.Second
 
 	rulesTableName = "rules"
+
+	defaultSqlite3DSN = defaultWorkDir + "/" + "pixiu.db"
 )
 
 // Options has all the params needed to run a pixiu
@@ -120,6 +122,9 @@ func (o *Options) Complete() error {
 	}
 	if o.ComponentConfig.Audit.DaysReserved == 0 {
 		o.ComponentConfig.Audit.DaysReserved = jobmanager.DefaultDaysReserved
+	}
+	if o.ComponentConfig.Sqlite == nil && o.ComponentConfig.Mysql == nil {
+		o.ComponentConfig.Sqlite = &config.SqliteOptions{DSN: defaultSqlite3DSN}
 	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
