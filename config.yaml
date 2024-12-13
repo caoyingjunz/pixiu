@@ -11,6 +11,10 @@ default:
   log_format: json
   log_level: info
 
+# 默认数据库
+sqlite3:
+  db_file: pixiu.db
+
 # 数据库地址信息
 mysql:
   host: peng
