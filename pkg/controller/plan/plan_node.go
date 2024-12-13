@@ -18,6 +18,7 @@ package plan
 
 import (
 	"context"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -160,14 +161,33 @@ func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.Pla
 	return p.modelNode2Type(object)
 }
 
-func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
-	objects, err := p.factory.Plan().ListNodes(ctx, pid)
-	if err != nil {
-		klog.Errorf("failed to get plan(%d) nodes: %v", pid, err)
-		return nil, errors.ErrServerInternal
+func (p *plan) ListNodes(ctx context.Context, pid int64, listOptions *types.ListOptions) (*types.PageResponse, error) {
+	var (
+		nodes []types.PlanNode
+		opts  []db.Options
+	)
+
+	if listOptions == nil {
+		listOptions = &types.ListOptions{}
+	} else {
+		opts = listOptions.BuildPageNation()
 	}
 
-	var nodes []types.PlanNode
+	total, err := p.factory.Plan().NodeCount(ctx, pid)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) node count: %v", pid, err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := p.factory.Plan().ListNodes(ctx, pid, opts...)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) nodes: %v", pid, err)
+		return nil, err
+	}
+
 	for _, object := range objects {
 		n, err := p.modelNode2Type(&object)
 		if err != nil {
@@ -175,7 +195,12 @@ func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, erro
 		}
 		nodes = append(nodes, *n)
 	}
-	return nodes, nil
+
+	return &types.PageResponse{
+		Total:       int(total),
+		Items:       nodes,
+		PageRequest: listOptions.PageRequest,
+	}, nil
 }
 
 // CreateOrUpdateNode

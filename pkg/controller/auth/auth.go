@@ -39,11 +39,11 @@ type (
 	Interface interface {
 		CreateRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error
 		DeleteRBACPolicy(ctx context.Context, req *types.RBACPolicyRequest) error
-		ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRequest) ([]types.RBACPolicy, error)
+		ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRequest) (*types.PageResponse, error)
 
 		CreateGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error
 		DeleteGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error
-		ListGroupBindings(ctx context.Context, req *types.ListGroupBindingRequest) ([]types.RBACPolicy, error)
+		ListGroupBindings(ctx context.Context, req *types.ListGroupBindingRequest) (*types.PageResponse, error)
 	}
 )
 
@@ -152,7 +152,7 @@ func (a *auth) DeleteRBACPolicy(ctx context.Context, req *types.RBACPolicyReques
 	return nil
 }
 
-func (a *auth) ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRequest) ([]types.RBACPolicy, error) {
+func (a *auth) ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRequest) (*types.PageResponse, error) {
 	user, err := a.factory.User().Get(ctx, req.UserId)
 	if err != nil {
 		klog.Errorf("failed to get user(%d): %v", req.UserId, err)
@@ -183,7 +183,25 @@ func (a *auth) ListRBACPolicies(ctx context.Context, req *types.ListRBACPolicyRe
 	for i, policy := range policies {
 		rbacPolicies[i] = *model2Type(policy)
 	}
-	return rbacPolicies, nil
+
+	rbacPolicies, err = a.authForPager(rbacPolicies, req.PageRequest)
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+
+	return &types.PageResponse{
+		Total:       len(policies),
+		Items:       rbacPolicies,
+		PageRequest: *req.PageRequest,
+	}, nil
+}
+
+func (a *auth) authForPager(rbacPolicies []types.RBACPolicy, req *types.PageRequest) ([]types.RBACPolicy, error) {
+	offset, end, err := req.Offset(len(rbacPolicies))
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+	return rbacPolicies[offset:end], nil
 }
 
 func (a *auth) CreateGroupBinding(ctx context.Context, req *types.GroupBindingRequest) error {
@@ -222,7 +240,7 @@ func (a *auth) DeleteGroupBinding(ctx context.Context, req *types.GroupBindingRe
 	return nil
 }
 
-func (a *auth) ListGroupBindings(ctx context.Context, req *types.ListGroupBindingRequest) ([]types.RBACPolicy, error) {
+func (a *auth) ListGroupBindings(ctx context.Context, req *types.ListGroupBindingRequest) (*types.PageResponse, error) {
 	conds := make([]ctrlutil.BindingQueryCondition, 0)
 	if req.UserId != nil {
 		user, err := a.factory.User().Get(ctx, *req.UserId)
@@ -259,7 +277,17 @@ func (a *auth) ListGroupBindings(ctx context.Context, req *types.ListGroupBindin
 	for i, binding := range bindings {
 		bindingPolicies[i] = *model2Type(binding)
 	}
-	return bindingPolicies, nil
+
+	bindingPolicies, err = a.authForPager(bindingPolicies, req.PageRequest)
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+
+	return &types.PageResponse{
+		Total:       len(bindings),
+		Items:       bindingPolicies,
+		PageRequest: *req.PageRequest,
+	}, nil
 }
 
 func model2Type(policy model.Policy) *types.RBACPolicy {

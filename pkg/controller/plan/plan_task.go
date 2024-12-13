@@ -38,19 +38,33 @@ func (p *plan) RunTask(ctx context.Context, planId int64, taskId int64) error {
 	return nil
 }
 
-func (p *plan) ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error) {
-	objects, err := p.factory.Plan().ListTasks(ctx, planId)
+func (p *plan) ListTasks(ctx context.Context, planId int64, listOptions *types.ListOptions) (*types.PageResponse, error) {
+	var tasks []types.PlanTask
+
+	total, err := p.factory.Plan().TaskCount(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d) task count: %v", planId, err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
+	}
+
+	objects, err := p.factory.Plan().ListTasks(ctx, planId, listOptions.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) tasks: %v", planId, err)
 		return nil, err
 	}
 
-	var tasks []types.PlanTask
 	for _, object := range objects {
 		tasks = append(tasks, *p.modelTask2Type(&object))
 	}
 
-	return tasks, nil
+	return &types.PageResponse{
+		Total:       int(total),
+		Items:       tasks,
+		PageRequest: listOptions.PageRequest,
+	}, nil
 }
 
 func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request) {

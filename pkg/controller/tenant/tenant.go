@@ -37,7 +37,7 @@ type Interface interface {
 	Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error
 	Delete(ctx context.Context, tid int64) error
 	Get(ctx context.Context, tid int64) (*types.Tenant, error)
-	List(ctx context.Context) ([]types.Tenant, error)
+	List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error)
 }
 
 type tenant struct {
@@ -118,18 +118,33 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*types.Tenant, error) {
 	return t.model2Type(object), nil
 }
 
-func (t *tenant) List(ctx context.Context) ([]types.Tenant, error) {
-	objects, err := t.factory.Tenant().List(ctx)
+func (t *tenant) List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error) {
+	var ts []types.Tenant
+
+	total, err := t.factory.Tenant().Count(ctx)
 	if err != nil {
-		klog.Errorf("failed to get tenants: %v", err)
-		return nil, errors.ErrServerInternal
+		klog.Errorf("failed to get tenant count: %v", err)
+		return nil, err
+	}
+	if total == 0 {
+		return &types.PageResponse{}, nil
 	}
 
-	var ts []types.Tenant
+	objects, err := t.factory.Tenant().List(ctx, listOptions.BuildPageNation()...)
+	if err != nil {
+		klog.Errorf("failed to get tenants: %v", err)
+		return nil, err
+	}
+
 	for _, object := range objects {
 		ts = append(ts, *t.model2Type(&object))
 	}
-	return ts, nil
+
+	return &types.PageResponse{
+		Total:       int(total),
+		Items:       ts,
+		PageRequest: listOptions.PageRequest,
+	}, nil
 }
 
 func (t *tenant) model2Type(o *model.Tenant) *types.Tenant {

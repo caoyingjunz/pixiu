@@ -20,9 +20,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/caoyingjunz/pixiu/pkg/types"
+	"helm.sh/helm/v3/pkg/release"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 func (c *cluster) forQuery(objects []metav1.Object, queryOption types.QueryOption) []metav1.Object {
@@ -55,6 +57,18 @@ func (c *cluster) forPage(objects []metav1.Object, pageOption types.PageRequest)
 	return objects[offset:end]
 }
 
+func (c *cluster) helmForPage(objects []*release.Release, pageOption *types.PageRequest) []*release.Release {
+	if !pageOption.IsPaged() {
+		return objects
+	}
+	offset, end, err := pageOption.Offset(len(objects))
+	if err != nil {
+		return nil
+	}
+
+	return objects[offset:end]
+}
+
 func (c *cluster) forSorted(objects []metav1.Object, namespace string) []metav1.Object {
 	sort.SliceStable(objects, func(i, j int) bool {
 		return objects[i].GetName() < objects[j].GetName()
@@ -69,12 +83,12 @@ func (c *cluster) forSorted(objects []metav1.Object, namespace string) []metav1.
 	return objects
 }
 
-func (c *cluster) listObjects(objects []metav1.Object, namespace string, listOption types.ListOptions) (types.PageResponse, error) {
+func (c *cluster) listObjects(objects []metav1.Object, namespace string, listOption types.ListOptions) (*types.PageResponse, error) {
 	objects = c.forQuery(objects, listOption.QueryOption)
 	objects = c.forSorted(objects, namespace)
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
+	return &types.PageResponse{
 		Total:       len(objects),
 		Items:       c.forPage(objects, listOption.PageRequest),
+		PageRequest: listOption.PageRequest,
 	}, nil
 }

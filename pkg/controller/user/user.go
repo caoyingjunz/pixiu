@@ -53,7 +53,7 @@ type Interface interface {
 	Update(ctx context.Context, userId int64, req *types.UpdateUserRequest) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
-	List(ctx context.Context, opts types.ListOptions) ([]types.User, error)
+	List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error)
 
 	// UpdatePassword 用户修改密码或者管理员重置密码
 	UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error
@@ -224,19 +224,30 @@ func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
 	return model2Type(object), nil
 }
 
-func (u *user) List(ctx context.Context, opts types.ListOptions) ([]types.User, error) {
-	objects, err := u.factory.User().List(ctx)
+func (u *user) List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error) {
+	var users []types.User
+
+	total, err := u.factory.User().Count(ctx)
 	if err != nil {
-		klog.Errorf("failed to get user list: %v", err)
-		return nil, errors.ErrServerInternal
+		klog.Errorf("failed to get user count: %v", err)
+		return nil, err
 	}
 
-	var users []types.User
+	objects, err := u.factory.User().List(ctx, listOptions.BuildPageNation()...)
+	if err != nil {
+		klog.Errorf("failed to get user list: %v", err)
+		return nil, err
+	}
+
 	for _, object := range objects {
 		users = append(users, *model2Type(&object))
 	}
 
-	return users, nil
+	return &types.PageResponse{
+		Total:       int(total),
+		Items:       users,
+		PageRequest: listOptions.PageRequest,
+	}, nil
 }
 
 func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, error) {

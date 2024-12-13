@@ -113,6 +113,7 @@ func (u *user) GetRoot(ctx context.Context) (*model.User, error) {
 // TODO: 暂时不做分页考虑
 func (u *user) List(ctx context.Context, opts ...Options) ([]model.User, error) {
 	var objects []model.User
+
 	tx := u.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)

@@ -180,8 +180,15 @@ func (cr *clusterRouter) getCluster(c *gin.Context) {
 func (cr *clusterRouter) listClusters(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var err error
-	if r.Result, err = cr.c.Cluster().List(c); err != nil {
+	var (
+		err         error
+		listOptions types.ListOptions
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOptions); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = cr.c.Cluster().List(c, &listOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -271,14 +278,17 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 		opts struct {
 			Cluster string `uri:"cluster" binding:"required"`
 		}
-		eventOpt types.EventOptions
-		err      error
+		eventOpt struct {
+			types.EventOptions `json:",inline"`
+			types.ListOptions  `json:",inline"`
+		}
+		err error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &opts, &eventOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt); err != nil {
+	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt.EventOptions, &eventOpt.ListOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

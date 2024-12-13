@@ -55,6 +55,7 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 }
 
 func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	var ts []types.Audit
 	// 获取对象总数量
 	total, err := a.factory.Audit().Count(ctx)
 	if err != nil {
@@ -69,10 +70,10 @@ func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interfa
 		return nil, errors.ErrServerInternal
 	}
 
-	var ts []types.Audit
 	for _, object := range objects {
 		ts = append(ts, *a.model2Type(&object))
 	}
+
 	return types.PageResponse{
 		PageRequest: listOption.PageRequest,
 		Total:       int(total),
