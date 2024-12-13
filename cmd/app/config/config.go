@@ -34,7 +34,8 @@ func (m Mode) InDebug() bool {
 
 type Config struct {
 	Default DefaultOptions          `yaml:"default"`
-	Mysql   MysqlOptions            `yaml:"mysql"`
+	Mysql   *MysqlOptions           `yaml:"mysql"`
+	Sqlite  *SqliteOptions          `yaml:"sqlite3"`
 	Worker  WorkerOptions           `yaml:"worker"`
 	Audit   jobmanager.AuditOptions `yaml:"audit"`
 }
@@ -64,6 +65,10 @@ type MysqlOptions struct {
 	Password string `yaml:"password"`
 	Port     int    `yaml:"port"`
 	Name     string `yaml:"name"`
+}
+
+type SqliteOptions struct {
+	DSN string `yaml:"dsn"`
 }
 
 func (o MysqlOptions) Valid() error {
