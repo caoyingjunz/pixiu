@@ -60,7 +60,7 @@ func (h *Helm) Repositories() IRepositories {
 	return newRepositories(h.settings)
 }
 
-func NewHelm(kubeConfig *rest.Config) *Helm {
+func newHelm(kubeConfig *rest.Config) *Helm {
 	settings := cli.New()
 	actionCofnig := new(action.Configuration)
 	resetClientGetter := newHelmRESTClientGeeter(kubeConfig)

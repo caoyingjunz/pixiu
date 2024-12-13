@@ -4,7 +4,6 @@ go 1.16
 
 require (
 	github.com/BurntSushi/toml v1.2.0 // indirect
-	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/caoyingjunz/pixiulib v0.0.0-20220819163605-c3c10ec3ed3c
 	github.com/casbin/casbin/v2 v2.97.0
@@ -29,7 +28,6 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.6
 	github.com/robfig/cron/v3 v3.0.0
 	github.com/rogpeppe/go-internal v1.12.0 // indirect

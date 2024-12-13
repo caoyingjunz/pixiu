@@ -130,7 +130,7 @@ func (c *cluster) Helm(cluster string) IHelm {
 		klog.Errorf("failed to get kube config: %v", err)
 		return &Helm{}
 	}
-	return NewHelm(kubeConfig)
+	return newHelm(kubeConfig)
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
