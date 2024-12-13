@@ -17,6 +17,7 @@ limitations under the License.
 package router
 
 import (
+	"embed"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -36,9 +37,13 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/static"
 )
 
 type RegisterFunc func(o *options.Options)
+
+//go:embed static
+var EmbedFS embed.FS
 
 func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
@@ -54,6 +59,7 @@ func InstallRouters(o *options.Options) {
 
 	install(o, fs...)
 
+	o.HttpEngine.GET("/", static.ServeEmbed("static", EmbedFS))
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
