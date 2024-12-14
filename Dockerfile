@@ -8,6 +8,6 @@ COPY ./go.sum ./
 COPY . .
 RUN CGO_ENABLED=1 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixiu ./cmd
 
-FROM busybox as runner
+FROM jacky06/static:nonroot as runner
 COPY --from=builder /app/pixiu /app
 ENTRYPOINT ["/app"]
