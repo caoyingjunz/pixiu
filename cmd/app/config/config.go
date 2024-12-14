@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
@@ -67,12 +68,21 @@ type MysqlOptions struct {
 	Name     string `yaml:"name"`
 }
 
+func (o *MysqlOptions) Valid() error {
+	// TODO
+	return nil
+}
+
 type SqliteOptions struct {
 	DSN string `yaml:"dsn"`
 }
 
-func (o MysqlOptions) Valid() error {
-	// TODO
+func (s *SqliteOptions) Valid() error {
+	if s != nil {
+		if len(s.DSN) == 0 {
+			return fmt.Errorf("empty sqlite3 dsn")
+		}
+	}
 	return nil
 }
 
