@@ -6,7 +6,7 @@ COPY ./go.mod ./
 COPY ./go.sum ./
 #RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixiu ./cmd
+RUN CGO_ENABLED=1 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixiu ./cmd
 
 FROM busybox as runner
 COPY --from=builder /app/pixiu /app
