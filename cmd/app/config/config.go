@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
+
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
@@ -34,7 +36,8 @@ func (m Mode) InDebug() bool {
 
 type Config struct {
 	Default DefaultOptions          `yaml:"default"`
-	Mysql   MysqlOptions            `yaml:"mysql"`
+	Mysql   *MysqlOptions           `yaml:"mysql"`
+	Sqlite  *SqliteOptions          `yaml:"sqlite3"`
 	Worker  WorkerOptions           `yaml:"worker"`
 	Audit   jobmanager.AuditOptions `yaml:"audit"`
 }
@@ -66,8 +69,21 @@ type MysqlOptions struct {
 	Name     string `yaml:"name"`
 }
 
-func (o MysqlOptions) Valid() error {
+func (o *MysqlOptions) Valid() error {
 	// TODO
+	return nil
+}
+
+type SqliteOptions struct {
+	DSN string `yaml:"dsn"`
+}
+
+func (s *SqliteOptions) Valid() error {
+	if s != nil {
+		if len(s.DSN) == 0 {
+			return fmt.Errorf("empty sqlite3 dsn")
+		}
+	}
 	return nil
 }
 

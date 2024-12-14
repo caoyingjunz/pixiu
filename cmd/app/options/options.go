@@ -27,6 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -52,6 +53,8 @@ const (
 	defaultSlowSQLDuration = 1 * time.Second
 
 	rulesTableName = "rules"
+
+	defaultSqlite3DSN = defaultWorkDir + "/" + "pixiu.db"
 )
 
 // Options has all the params needed to run a pixiu
@@ -120,6 +123,9 @@ func (o *Options) Complete() error {
 	if o.ComponentConfig.Audit.DaysReserved == 0 {
 		o.ComponentConfig.Audit.DaysReserved = jobmanager.DefaultDaysReserved
 	}
+	if o.ComponentConfig.Sqlite == nil && o.ComponentConfig.Mysql == nil {
+		o.ComponentConfig.Sqlite = &config.SqliteOptions{DSN: defaultSqlite3DSN}
+	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
 		return err
@@ -184,18 +190,26 @@ func (o *Options) registerEnforcer() error {
 }
 
 func (o *Options) registerDatabase() error {
-	sqlConfig := o.ComponentConfig.Mysql
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
-		sqlConfig.User,
-		sqlConfig.Password,
-		sqlConfig.Host,
-		sqlConfig.Port,
-		sqlConfig.Name)
-
 	opt := &gorm.Config{
 		Logger: pixiudb.NewLogger(logger.Info, defaultSlowSQLDuration),
 	}
-	db, err := gorm.Open(mysql.Open(dsn), opt)
+
+	var dial gorm.Dialector
+	if o.ComponentConfig.Mysql != nil {
+		sqlConfig := o.ComponentConfig.Mysql
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
+			sqlConfig.User,
+			sqlConfig.Password,
+			sqlConfig.Host,
+			sqlConfig.Port,
+			sqlConfig.Name)
+		dial = mysql.Open(dsn)
+	}
+	if o.ComponentConfig.Sqlite != nil {
+		dial = sqlite.Open(o.ComponentConfig.Sqlite.DSN)
+	}
+
+	db, err := gorm.Open(dial, opt)
 	if err != nil {
 		return err
 	}
