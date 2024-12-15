@@ -19,6 +19,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
@@ -84,6 +85,15 @@ func (w *auditWriter) asyncAudit(c *gin.Context) {
 
 // getAuditStatus returns the status of operation.
 func getAuditStatus(c *gin.Context) model.AuditOperationStatus {
+	// Directly use the native structure of kubernetes for the request of /pixiu/proxy and do separate processing
+	if strings.Contains(c.Request.RequestURI, "/pixiu/proxy") {
+		if responseOK(c.Writer.Status()) {
+			return model.AuditOpSuccess
+		} else {
+			return model.AuditOpFail
+		}
+	}
+
 	respCode := httputils.GetResponseCode(c)
 	if respCode == 0 {
 		return model.AuditOpUnknown
