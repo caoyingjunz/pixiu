@@ -285,3 +285,40 @@ func (re *clusterRouter) getRepoChartsByURL(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+// getChartValues retrieves values of a chart in a repository
+//
+// @Summary get chart values
+// @Description retrieves values of a chart in a repository from the system using the provided chart name and version
+// @Tags reposistories
+// @Accept json
+// @Produce json
+// @Param cluster query string true "Kubernetes cluster name"
+// @Param chart query string true "Chart name"
+// @Param version query string true "Chart version"
+// @Success 200 {object} httputils.Response{result=model.ChartValues}
+// @Failure 400 {object} httputils.Response
+// @Failure 404 {object} httputils.Response
+// @Failure 500 {object} httputils.Response
+// @Router /reposistories/values [get]
+func (re *clusterRouter) getChartValues(c *gin.Context) {
+
+	r := httputils.NewResponse()
+	var (
+		err       error
+		repoMeta  types.ChartValues
+		pixiuMeta types.RepoObjectMeta
+	)
+
+	if err = httputils.ShouldBindAny(c, nil, &pixiuMeta, &repoMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = re.c.Cluster().Helm(pixiuMeta.Cluster).Repositories().GetRepoChartValues(c, repoMeta.Chart, repoMeta.Version); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+
+}

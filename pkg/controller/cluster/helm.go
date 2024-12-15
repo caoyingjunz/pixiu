@@ -60,7 +60,7 @@ func (h *Helm) Releases(namespace string) IReleases {
 }
 
 func (h *Helm) Repositories() IRepositories {
-	return newRepositories(h.cluster, h.settings, h.factory)
+	return newRepositories(h.cluster, h.settings, h.actionConfig, h.factory)
 }
 
 func newHelm(kubeConfig *rest.Config, cluster string, factory db.ShareDaoFactory) *Helm {

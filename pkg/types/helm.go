@@ -13,8 +13,23 @@ type RepoName struct {
 type RepoURL struct {
 	Url string `form:"url" binding:"required"`
 }
+type ChartValues struct {
+	Chart   string `form:"chart" binding:"required"`
+	Version string `form:"version" binding:"required"`
+}
 type RepoObjectMeta struct {
 	Cluster string `uri:"cluster" binding:"required"`
+}
+type ReleaseForm struct {
+	Chart   string                 `json:"chart" binding:"required"`
+	Version string                 `json:"version" binding:"required"`
+	Values  map[string]interface{} `json:"values"`
+	Name    string                 `json:"name" binding:"required"`
+	Preview bool                   `json:"preview"`
+}
+
+type ReleaseHistory struct {
+	Version int `form:"version"`
 }
 
 type RepoForm struct {

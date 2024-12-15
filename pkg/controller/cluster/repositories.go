@@ -25,6 +25,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/repo"
@@ -45,16 +46,18 @@ type IRepositories interface {
 
 	GetRepoChartsById(ctx context.Context, id int64) (*model.ChartIndex, error)
 	GetRepoChartsByURL(ctx context.Context, repoURL string) (*model.ChartIndex, error)
+	GetRepoChartValues(ctx context.Context, chart, version string) (string, error)
 }
 
 type Repositories struct {
-	cluster  string
-	settings *cli.EnvSettings
-	factory  db.ShareDaoFactory
+	cluster      string
+	settings     *cli.EnvSettings
+	actionConfig *action.Configuration
+	factory      db.ShareDaoFactory
 }
 
-func newRepositories(cluster string, settings *cli.EnvSettings, f db.ShareDaoFactory) *Repositories {
-	return &Repositories{cluster: cluster, settings: settings, factory: f}
+func newRepositories(cluster string, settings *cli.EnvSettings, actionConfig *action.Configuration, f db.ShareDaoFactory) *Repositories {
+	return &Repositories{cluster: cluster, settings: settings, actionConfig: actionConfig, factory: f}
 }
 
 var _ IRepositories = &Repositories{}
@@ -138,6 +141,22 @@ func (r *Repositories) GetRepoChartsByURL(ctx context.Context, repoURL string) (
 	return r.fetch(ctx, entry)
 }
 
+func (r *Repositories) GetRepoChartValues(ctx context.Context, chart, version string) (string, error) {
+	client := action.NewShowWithConfig(action.ShowValues, r.actionConfig)
+	client.Version = version
+	cp, err := client.ChartPathOptions.LocateChart(chart, r.settings)
+	if err != nil {
+		return "", err
+	}
+
+	out, err := client.Run(cp)
+	if err != nil {
+		return "", err
+	}
+
+	return out, nil
+}
+
 func (r *Repositories) resolveReferenceURL(baseURL, refURL string) (string, error) {
 	parsedRefURL, err := url.Parse(refURL)
 	if err != nil {
@@ -166,6 +185,11 @@ func (r *Repositories) fetch(ctx context.Context, entry *repo.Entry) (*model.Cha
 
 	rep, err := repo.NewChartRepository(entry, getter.All(r.settings))
 	if err != nil {
+		return nil, err
+	}
+
+	// download index
+	if _, err = rep.DownloadIndexFile(); err != nil {
 		return nil, err
 	}
 
