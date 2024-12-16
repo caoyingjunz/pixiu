@@ -1,4 +1,4 @@
-FROM node:16.18.0-alpine as builder
+FROM node:16.18.0-alpine as dashboard-builder
 WORKDIR /build
 RUN apk add --no-cache git
 RUN git clone https://github.com/pixiu-io/dashboard.git
@@ -12,7 +12,7 @@ ENV GOPROXY=https://goproxy.cn
 #COPY ./go.sum ./
 #RUN go mod download
 COPY . .
-COPY --from=builder /build/dashboard/dist /app/pixiu/api/server/router/static
+COPY --from=dashboard-builder /build/dashboard/dist /app/pixiu/api/server/router/static
 RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixiu ./cmd
 
 FROM busybox as runner
