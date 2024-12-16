@@ -11,6 +11,10 @@ default:
   log_format: json
   log_level: info
 
+#tls:
+#  cert_file: test.pem
+#  key_file: test.key
+
 # 数据库地址信息
 mysql:
   host: peng
