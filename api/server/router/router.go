@@ -59,7 +59,7 @@ func InstallRouters(o *options.Options) {
 
 	install(o, fs...)
 
-	o.HttpEngine.GET("/", static.ServeEmbed("static", EmbedFS))
+	o.HttpEngine.Use(static.ServeEmbed("static", EmbedFS))
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
