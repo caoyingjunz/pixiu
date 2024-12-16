@@ -12,7 +12,7 @@ ENV GOPROXY=https://goproxy.cn
 #COPY ./go.sum ./
 #RUN go mod download
 COPY . .
-COPY --from=dashboard-builder /build/dashboard/dist /app/pixiu/api/server/router/static
+COPY --from=dashboard-builder /build/dashboard/dist /app/api/server/router/static
 RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixiu ./cmd
 
 FROM busybox as runner
