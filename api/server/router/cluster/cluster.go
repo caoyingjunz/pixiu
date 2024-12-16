@@ -88,24 +88,24 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	// 调用 helm 对象
 	helmRoute := httpEngine.Group(helmBaseURL)
 	{
-		// 获取 release 列表
-		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.ListReleases)
+		// 获取 helm release 列表
 		helmRoute.POST("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.InstallRelease)
 		helmRoute.PUT("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.UpgradeRelease)
-		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.GetRelease)
 		helmRoute.DELETE("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.UninstallRelease)
+		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.GetRelease)
+		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.ListReleases)
+
 		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases/:name/history", cr.GetReleaseHistory)
 		helmRoute.POST("/clusters/:cluster/v1/namespaces/:namespace/releases/:name/rollback", cr.RollbackRelease)
 
-		// helm reposistories
-		helmRoute.GET("/clusters/:cluster/reposistories", cr.listReposistories)
-		helmRoute.POST("/clusters/:cluster/reposistories", cr.createReposistories)
-		helmRoute.GET("/clusters/:cluster/reposistories/:id", cr.getReposistory)
-		helmRoute.GET("/clusters/:cluster/reposistories/name/:name", cr.getReposistoryByName)
-		helmRoute.PUT("/clusters/:cluster/reposistories/:id", cr.updateReposistory)
-		helmRoute.DELETE("/clusters/:cluster/reposistories/:id", cr.deleteReposistory)
-		helmRoute.GET("/clusters/:cluster/reposistories/:id/charts", cr.getRepoCharts)
-		helmRoute.GET("/clusters/:cluster/reposistories/charts", cr.getRepoChartsByURL)
-		helmRoute.GET("/clusters/:cluster/reposistories/values", cr.getChartValues)
+		// helm Reposistory
+		helmRoute.GET("/clusters/:cluster/repositories", cr.listRepositories)
+		helmRoute.POST("/clusters/:cluster/repositories", cr.createReposistory)
+		helmRoute.GET("/clusters/:cluster/repositories/:id", cr.getReposistory)
+		helmRoute.PUT("/clusters/:cluster/repositories/:id", cr.updateReposistory)
+		helmRoute.DELETE("/clusters/:cluster/repositories/:id", cr.deleteReposistory)
+		helmRoute.GET("/clusters/:cluster/repositories/:id/charts", cr.getRepoCharts)
+		helmRoute.GET("/clusters/:cluster/repositories/charts", cr.getRepoChartsByURL)
+		helmRoute.GET("/clusters/:cluster/repositories/values", cr.getChartValues)
 	}
 }
