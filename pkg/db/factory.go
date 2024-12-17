@@ -26,7 +26,6 @@ type ShareDaoFactory interface {
 	User() UserInterface
 	Plan() PlanInterface
 	Audit() AuditInterface
-	Repository() RepoInterface
 }
 
 type shareDaoFactory struct {
@@ -38,7 +37,6 @@ func (f *shareDaoFactory) Tenant() TenantInterface   { return newTenant(f.db) }
 func (f *shareDaoFactory) User() UserInterface       { return newUser(f.db) }
 func (f *shareDaoFactory) Plan() PlanInterface       { return newPlan(f.db) }
 func (f *shareDaoFactory) Audit() AuditInterface     { return newAudit(f.db) }
-func (f *shareDaoFactory) Repository() RepoInterface { return newRepository(f.db) }
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
 	if migrate {
