@@ -94,7 +94,7 @@ type Interface interface {
 	Run(ctx context.Context, workers int) error
 
 	// Helm 命令
-	Helm(cluster string) IHelm
+	Helm(cluster string) HelmInterface
 }
 
 var clusterIndexer client.Cache
@@ -124,7 +124,7 @@ type cluster struct {
 	getterFuncs map[string]getterFunc
 }
 
-func (c *cluster) Helm(cluster string) IHelm {
+func (c *cluster) Helm(cluster string) HelmInterface {
 	kubeConfig, err := c.GetKubeConfigByName(context.TODO(), cluster)
 	if err != nil {
 		klog.Errorf("failed to get kube config: %v", err)

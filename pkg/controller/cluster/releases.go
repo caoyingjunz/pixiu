@@ -34,12 +34,13 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-type IReleases interface {
+type ReleaseInterface interface {
+	InstallRelease(ctx context.Context, form *types.Release) (*release.Release, error)
+
 	GetRelease(ctx context.Context, name string) (*release.Release, error)
 	ListRelease(ctx context.Context) ([]*release.Release, error)
-	InstallRelease(ctx context.Context, form *types.ReleaseForm) (*release.Release, error)
 	UninstallRelease(ctx context.Context, name string) (*release.UninstallReleaseResponse, error)
-	UpgradeRelease(ctx context.Context, form *types.ReleaseForm) (*release.Release, error)
+	UpgradeRelease(ctx context.Context, form *types.Release) (*release.Release, error)
 	GetReleaseHistory(ctx context.Context, name string) ([]*release.Release, error)
 	RollbackRelease(ctx context.Context, name string, toVersion int) error
 }
@@ -49,14 +50,14 @@ type Releases struct {
 	actionConfig *action.Configuration
 }
 
-func newReleases(actionCofnig *action.Configuration, settings *cli.EnvSettings) *Releases {
+func newReleases(actionConfig *action.Configuration, settings *cli.EnvSettings) *Releases {
 	return &Releases{
-		actionConfig: actionCofnig,
+		actionConfig: actionConfig,
 		settings:     settings,
 	}
 }
 
-var _ IReleases = &Releases{}
+var _ ReleaseInterface = &Releases{}
 
 func (r *Releases) GetRelease(ctx context.Context, name string) (*release.Release, error) {
 	client := action.NewGet(r.actionConfig)
@@ -68,8 +69,8 @@ func (r *Releases) ListRelease(ctx context.Context) ([]*release.Release, error) 
 	return client.Run()
 }
 
-// install release
-func (r *Releases) InstallRelease(ctx context.Context, form *types.ReleaseForm) (*release.Release, error) {
+// InstallRelease install release
+func (r *Releases) InstallRelease(ctx context.Context, form *types.Release) (*release.Release, error) {
 	client := action.NewInstall(r.actionConfig)
 	client.ReleaseName = form.Name
 	client.Namespace = r.settings.Namespace()
@@ -79,11 +80,11 @@ func (r *Releases) InstallRelease(ctx context.Context, form *types.ReleaseForm) 
 	if client.DryRun {
 		client.Description = "server"
 	}
-	chrt, err := r.locateChart(client.ChartPathOptions, form.Chart, r.settings)
+	chart, err := r.locateChart(client.ChartPathOptions, form.Chart, r.settings)
 	if err != nil {
 		return nil, err
 	}
-	out, err := client.Run(chrt, form.Values)
+	out, err := client.Run(chart, form.Values)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func (r *Releases) UninstallRelease(ctx context.Context, name string) (*release.
 }
 
 // upgrade release
-func (r *Releases) UpgradeRelease(ctx context.Context, form *types.ReleaseForm) (*release.Release, error) {
+func (r *Releases) UpgradeRelease(ctx context.Context, form *types.Release) (*release.Release, error) {
 	client := action.NewUpgrade(r.actionConfig)
 	client.Namespace = r.settings.Namespace()
 	client.DryRun = form.Preview

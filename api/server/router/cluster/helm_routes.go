@@ -108,16 +108,16 @@ func (cr *clusterRouter) ListReleases(c *gin.Context) {
 func (cr *clusterRouter) InstallRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		helmMeta    types.PixiuObjectMeta
-		relesaeForm types.ReleaseForm
+		err        error
+		helmMeta   types.PixiuObjectMeta
+		releaseOpt types.Release
 	)
-	if err = httputils.ShouldBindAny(c, &relesaeForm, &helmMeta, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, &releaseOpt, &helmMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).InstallRelease(c, &relesaeForm); err != nil {
+	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).InstallRelease(c, &releaseOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -178,16 +178,16 @@ func (cr *clusterRouter) UninstallRelease(c *gin.Context) {
 func (cr *clusterRouter) UpgradeRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err         error
-		helmMeta    types.PixiuObjectMeta
-		relesaeForm types.ReleaseForm
+		err        error
+		helmMeta   types.PixiuObjectMeta
+		releaseOpt types.Release
 	)
-	if err = httputils.ShouldBindAny(c, &relesaeForm, &helmMeta, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, &releaseOpt, &helmMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).UpgradeRelease(c, &relesaeForm); err != nil {
+	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).UpgradeRelease(c, &releaseOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

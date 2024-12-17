@@ -88,24 +88,11 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	// 调用 helm 对象
 	helmRoute := httpEngine.Group(helmBaseURL)
 	{
-		// 获取 helm release 列表
+		// Helm Release API 列表
 		helmRoute.POST("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.InstallRelease)
 		helmRoute.PUT("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.UpgradeRelease)
 		helmRoute.DELETE("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.UninstallRelease)
 		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.GetRelease)
 		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.ListReleases)
-
-		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases/:name/history", cr.GetReleaseHistory)
-		helmRoute.POST("/clusters/:cluster/v1/namespaces/:namespace/releases/:name/rollback", cr.RollbackRelease)
-
-		// helm Reposistory
-		helmRoute.GET("/clusters/:cluster/repositories", cr.listRepositories)
-		helmRoute.POST("/clusters/:cluster/repositories", cr.createReposistory)
-		helmRoute.GET("/clusters/:cluster/repositories/:id", cr.getReposistory)
-		helmRoute.PUT("/clusters/:cluster/repositories/:id", cr.updateReposistory)
-		helmRoute.DELETE("/clusters/:cluster/repositories/:id", cr.deleteReposistory)
-		helmRoute.GET("/clusters/:cluster/repositories/:id/charts", cr.getRepoCharts)
-		helmRoute.GET("/clusters/:cluster/repositories/charts", cr.getRepoChartsByURL)
-		helmRoute.GET("/clusters/:cluster/repositories/values", cr.getChartValues)
 	}
 }

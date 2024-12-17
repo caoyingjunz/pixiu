@@ -36,13 +36,15 @@ type ChartValues struct {
 type RepoObjectMeta struct {
 	Cluster string `uri:"cluster" binding:"required"`
 }
-type ReleaseForm struct {
+
+type Release struct {
+	Name    string                 `json:"name" binding:"required"`
 	Chart   string                 `json:"chart" binding:"required"`
 	Version string                 `json:"version" binding:"required"`
 	Values  map[string]interface{} `json:"values"`
-	Name    string                 `json:"name" binding:"required"`
 	Preview bool                   `json:"preview"`
 }
+
 
 type ReleaseHistory struct {
 	Version int `form:"version"`

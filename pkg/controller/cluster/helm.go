@@ -19,7 +19,6 @@ package cluster
 import (
 	"os"
 
-	"github.com/caoyingjunz/pixiu/pkg/db"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -30,11 +29,12 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+
+	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
-type IHelm interface {
-	Releases(namespace string) IReleases
-	Repositories() IRepositories
+type HelmInterface interface {
+	Releases(namespace string) ReleaseInterface
 }
 
 type Helm struct {
@@ -45,7 +45,7 @@ type Helm struct {
 	resetClientGetter *HelmRESTClientGeeter
 }
 
-func (h *Helm) Releases(namespace string) IReleases {
+func (h *Helm) Releases(namespace string) ReleaseInterface {
 	h.settings.SetNamespace(namespace)
 	if err := h.actionConfig.Init(
 		h.resetClientGetter,
@@ -59,17 +59,13 @@ func (h *Helm) Releases(namespace string) IReleases {
 	return newReleases(h.actionConfig, h.settings)
 }
 
-func (h *Helm) Repositories() IRepositories {
-	return newRepositories(h.cluster, h.settings, h.actionConfig, h.factory)
-}
-
 func newHelm(kubeConfig *rest.Config, cluster string, factory db.ShareDaoFactory) *Helm {
 	settings := cli.New()
-	actionCofnig := new(action.Configuration)
+	actionConfig := new(action.Configuration)
 	resetClientGetter := newHelmRESTClientGeeter(kubeConfig)
 	return &Helm{
 		settings:          settings,
-		actionConfig:      actionCofnig,
+		actionConfig:      actionConfig,
 		resetClientGetter: resetClientGetter,
 		cluster:           cluster,
 		factory:           factory,
