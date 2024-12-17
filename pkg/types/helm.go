@@ -16,6 +16,14 @@ limitations under the License.
 
 package types
 
+type Release struct {
+	Name    string                 `json:"name" binding:"required"`
+	Chart   string                 `json:"chart" binding:"required"`
+	Version string                 `json:"version" binding:"required"`
+	Values  map[string]interface{} `json:"values"`
+	Preview bool                   `json:"preview"`
+}
+
 type RepoId struct {
 	Cluster string `uri:"cluster" binding:"required"`
 	Id      int64  `uri:"id" binding:"required"`
@@ -36,15 +44,6 @@ type ChartValues struct {
 type RepoObjectMeta struct {
 	Cluster string `uri:"cluster" binding:"required"`
 }
-
-type Release struct {
-	Name    string                 `json:"name" binding:"required"`
-	Chart   string                 `json:"chart" binding:"required"`
-	Version string                 `json:"version" binding:"required"`
-	Values  map[string]interface{} `json:"values"`
-	Preview bool                   `json:"preview"`
-}
-
 
 type ReleaseHistory struct {
 	Version int `form:"version"`
