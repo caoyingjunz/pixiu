@@ -96,7 +96,7 @@ func (r *Releases) UninstallRelease(ctx context.Context, name string) (*release.
 	return client.Run(name)
 }
 
-// upgrade release
+// UpgradeRelease upgrade release
 func (r *Releases) UpgradeRelease(ctx context.Context, form *types.Release) (*release.Release, error) {
 	client := action.NewUpgrade(r.actionConfig)
 	client.Namespace = r.settings.Namespace()
@@ -105,12 +105,12 @@ func (r *Releases) UpgradeRelease(ctx context.Context, form *types.Release) (*re
 		client.Description = "server"
 	}
 
-	chrt, err := r.locateChart(client.ChartPathOptions, form.Chart, r.settings)
+	chart, err := r.locateChart(client.ChartPathOptions, form.Chart, r.settings)
 	if err != nil {
 		return nil, err
 	}
 
-	out, err := client.Run(form.Name, chrt, form.Values)
+	out, err := client.Run(form.Name, chart, form.Values)
 	if err != nil {
 		return nil, err
 	}
