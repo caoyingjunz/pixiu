@@ -30,7 +30,7 @@ import (
 
 type HelmInterface interface {
 	Releases(namespace string) ReleaseInterface
-	Repositories() RepositoryInterface
+	Repository() RepositoryInterface
 }
 
 type Helm struct {
@@ -55,7 +55,7 @@ func (h *Helm) Releases(namespace string) ReleaseInterface {
 	return newReleases(h.actionConfig, h.settings)
 }
 
-func (h *Helm) Repositories() RepositoryInterface {
+func (h *Helm) Repository() RepositoryInterface {
 	if err := h.actionConfig.Init(
 		h.resetClientGetter,
 		h.settings.Namespace(),

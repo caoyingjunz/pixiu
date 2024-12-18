@@ -50,7 +50,7 @@ func (cr *clusterRouter) createRepository(c *gin.Context) {
 		return
 	}
 
-	if err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repositories().Create(c, &formData); err != nil {
+	if err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().Create(c, &formData); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -82,7 +82,7 @@ func (cr *clusterRouter) deleteRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().Helm(repoMeta.Cluster).Repositories().Delete(c, repoMeta.Id); err != nil {
+	if err = cr.c.Cluster().Helm(repoMeta.Cluster).Repository().Delete(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -117,7 +117,7 @@ func (cr *clusterRouter) updateRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().Helm(repoMeta.Cluster).Repositories().Update(c, repoMeta.Id, &formData); err != nil {
+	if err = cr.c.Cluster().Helm(repoMeta.Cluster).Repository().Update(c, repoMeta.Id, &formData); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -149,7 +149,7 @@ func (cr *clusterRouter) getRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().Helm(repoMeta.Cluster).Repositories().Get(c, repoMeta.Id); err != nil {
+	if r.Result, err = cr.c.Cluster().Helm(repoMeta.Cluster).Repository().Get(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -181,7 +181,7 @@ func (cr *clusterRouter) listRepositories(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repositories().List(c); err != nil {
+	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -213,7 +213,7 @@ func (cr *clusterRouter) getRepoCharts(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().Helm(repoMeta.Cluster).Repositories().GetRepoChartsById(c, repoMeta.Id); err != nil {
+	if r.Result, err = cr.c.Cluster().Helm(repoMeta.Cluster).Repository().GetRepoChartsById(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -247,7 +247,7 @@ func (cr *clusterRouter) getRepoChartsByURL(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repositories().GetRepoChartsByURL(c, repoMeta.Url); err != nil {
+	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().GetRepoChartsByURL(c, repoMeta.Url); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -283,7 +283,7 @@ func (cr *clusterRouter) getChartValues(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repositories().GetRepoChartValues(c, repoMeta.Chart, repoMeta.Version); err != nil {
+	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().GetRepoChartValues(c, repoMeta.Chart, repoMeta.Version); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
