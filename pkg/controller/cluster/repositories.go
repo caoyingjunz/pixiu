@@ -33,15 +33,15 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-type RepoGetter interface {
-	Repositories() RepositoriesInterface
+type RepositoryGetter interface {
+	Repository() RepositoryInterface
 }
 
-type RepositoriesInterface interface {
+type RepositoryInterface interface {
 	Create(ctx context.Context, repo *types.RepoForm) error
 	Delete(ctx context.Context, id int64) error
-	Get(ctx context.Context, id int64) (*model.Repositories, error)
-	List(ctx context.Context) ([]*model.Repositories, error)
+	Get(ctx context.Context, id int64) (*model.Repository, error)
+	List(ctx context.Context) ([]*model.Repository, error)
 	Update(ctx context.Context, id int64, update *types.RepoUpdateForm) error
 
 	GetRepoChartsById(ctx context.Context, id int64) (*model.ChartIndex, error)
@@ -49,21 +49,21 @@ type RepositoriesInterface interface {
 	GetRepoChartValues(ctx context.Context, chart, version string) (string, error)
 }
 
-type Repositories struct {
+type Repository struct {
 	cluster      string
 	settings     *cli.EnvSettings
 	actionConfig *action.Configuration
 	factory      db.ShareDaoFactory
 }
 
-func newRepositories(cluster string, settings *cli.EnvSettings, actionConfig *action.Configuration, f db.ShareDaoFactory) *Repositories {
-	return &Repositories{cluster: cluster, settings: settings, actionConfig: actionConfig, factory: f}
+func newRepository(cluster string, settings *cli.EnvSettings, actionConfig *action.Configuration, f db.ShareDaoFactory) *Repository {
+	return &Repository{cluster: cluster, settings: settings, actionConfig: actionConfig, factory: f}
 }
 
-var _ RepositoriesInterface = &Repositories{}
+var _ RepositoryInterface = &Repository{}
 
-func (r *Repositories) Create(ctx context.Context, repo *types.RepoForm) error {
-	repoModel := &model.Repositories{
+func (r *Repository) Create(ctx context.Context, repo *types.RepoForm) error {
+	repoModel := &model.Repository{
 		Cluster:               r.cluster,
 		Name:                  repo.Name,
 		URL:                   repo.URL,
@@ -83,23 +83,23 @@ func (r *Repositories) Create(ctx context.Context, repo *types.RepoForm) error {
 	return err
 }
 
-func (r *Repositories) Delete(ctx context.Context, id int64) error {
+func (r *Repository) Delete(ctx context.Context, id int64) error {
 	return r.factory.Repository().Delete(ctx, r.cluster, id)
 }
 
-func (r *Repositories) Get(ctx context.Context, id int64) (*model.Repositories, error) {
+func (r *Repository) Get(ctx context.Context, id int64) (*model.Repository, error) {
 	return r.factory.Repository().Get(ctx, r.cluster, id)
 }
 
-func (r *Repositories) GetByName(ctx context.Context, name string) (*model.Repositories, error) {
+func (r *Repository) GetByName(ctx context.Context, name string) (*model.Repository, error) {
 	return r.factory.Repository().GetByName(ctx, r.cluster, name)
 }
 
-func (r *Repositories) List(ctx context.Context) ([]*model.Repositories, error) {
+func (r *Repository) List(ctx context.Context) ([]*model.Repository, error) {
 	return r.factory.Repository().List(ctx, r.cluster)
 }
 
-func (r *Repositories) Update(ctx context.Context, id int64, update *types.RepoUpdateForm) error {
+func (r *Repository) Update(ctx context.Context, id int64, update *types.RepoUpdateForm) error {
 	updates := map[string]interface{}{
 		"name":                     update.Name,
 		"url":                      update.URL,
@@ -114,7 +114,7 @@ func (r *Repositories) Update(ctx context.Context, id int64, update *types.RepoU
 	return r.factory.Repository().Update(ctx, r.cluster, id, *update.ResourceVersion, updates)
 }
 
-func (r *Repositories) GetRepoChartsById(ctx context.Context, id int64) (*model.ChartIndex, error) {
+func (r *Repository) GetRepoChartsById(ctx context.Context, id int64) (*model.ChartIndex, error) {
 	repository, err := r.Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -134,14 +134,14 @@ func (r *Repositories) GetRepoChartsById(ctx context.Context, id int64) (*model.
 	return r.fetch(ctx, entry)
 }
 
-func (r *Repositories) GetRepoChartsByURL(ctx context.Context, repoURL string) (*model.ChartIndex, error) {
+func (r *Repository) GetRepoChartsByURL(ctx context.Context, repoURL string) (*model.ChartIndex, error) {
 	entry := &repo.Entry{
 		URL: repoURL,
 	}
 	return r.fetch(ctx, entry)
 }
 
-func (r *Repositories) GetRepoChartValues(ctx context.Context, chart, version string) (string, error) {
+func (r *Repository) GetRepoChartValues(ctx context.Context, chart, version string) (string, error) {
 	client := action.NewShowWithConfig(action.ShowValues, r.actionConfig)
 	client.Version = version
 	cp, err := client.ChartPathOptions.LocateChart(chart, r.settings)
@@ -157,7 +157,7 @@ func (r *Repositories) GetRepoChartValues(ctx context.Context, chart, version st
 	return out, nil
 }
 
-func (r *Repositories) resolveReferenceURL(baseURL, refURL string) (string, error) {
+func (r *Repository) resolveReferenceURL(baseURL, refURL string) (string, error) {
 	parsedRefURL, err := url.Parse(refURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse %s as URL, %v", refURL, err)
@@ -180,7 +180,7 @@ func (r *Repositories) resolveReferenceURL(baseURL, refURL string) (string, erro
 	return resolvedURL.String(), nil
 }
 
-func (r *Repositories) fetch(_ context.Context, entry *repo.Entry) (*model.ChartIndex, error) {
+func (r *Repository) fetch(_ context.Context, entry *repo.Entry) (*model.ChartIndex, error) {
 	var charts model.ChartIndex
 
 	rep, err := repo.NewChartRepository(entry, getter.All(r.settings))
