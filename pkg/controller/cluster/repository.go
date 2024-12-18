@@ -50,21 +50,29 @@ type RepositoryInterface interface {
 }
 
 type Repository struct {
-	cluster      string
 	settings     *cli.EnvSettings
 	actionConfig *action.Configuration
 	factory      db.ShareDaoFactory
 }
 
-func newRepository(cluster string, settings *cli.EnvSettings, actionConfig *action.Configuration, f db.ShareDaoFactory) *Repository {
-	return &Repository{cluster: cluster, settings: settings, actionConfig: actionConfig, factory: f}
+func newRepository(settings *cli.EnvSettings, actionConfig *action.Configuration, f db.ShareDaoFactory) *Repository {
+	return &Repository{settings: settings, actionConfig: actionConfig, factory: f}
 }
 
 var _ RepositoryInterface = &Repository{}
 
 func (r *Repository) Create(ctx context.Context, repo *types.RepoForm) error {
+	auth := &model.RepositoryAuth{
+		Username:              repo.Username,
+		Password:              repo.Password,
+		CertFile:              repo.CertFile,
+		KeyFile:               repo.KeyFile,
+		CAFile:                repo.CAFile,
+		InsecureSkipTLSverify: repo.InsecureSkipTLSverify,
+		PassCredentialsAll:    repo.PassCredentialsAll,
+	}
+
 	repoModel := &model.Repository{
-		Cluster:               r.cluster,
 		Name:                  repo.Name,
 		URL:                   repo.URL,
 		Username:              repo.Username,
@@ -84,19 +92,19 @@ func (r *Repository) Create(ctx context.Context, repo *types.RepoForm) error {
 }
 
 func (r *Repository) Delete(ctx context.Context, id int64) error {
-	return r.factory.Repository().Delete(ctx, r.cluster, id)
+	return r.factory.Repository().Delete(ctx, id)
 }
 
 func (r *Repository) Get(ctx context.Context, id int64) (*model.Repository, error) {
-	return r.factory.Repository().Get(ctx, r.cluster, id)
+	return r.factory.Repository().Get(ctx, id)
 }
 
 func (r *Repository) GetByName(ctx context.Context, name string) (*model.Repository, error) {
-	return r.factory.Repository().GetByName(ctx, r.cluster, name)
+	return r.factory.Repository().GetByName(ctx, name)
 }
 
 func (r *Repository) List(ctx context.Context) ([]*model.Repository, error) {
-	return r.factory.Repository().List(ctx, r.cluster)
+	return r.factory.Repository().List(ctx)
 }
 
 func (r *Repository) Update(ctx context.Context, id int64, update *types.RepoUpdateForm) error {
@@ -111,7 +119,7 @@ func (r *Repository) Update(ctx context.Context, id int64, update *types.RepoUpd
 		"insecure_skip_tls_verify": update.InsecureSkipTLSverify,
 		"pass_credentials_all":     update.PassCredentialsAll,
 	}
-	return r.factory.Repository().Update(ctx, r.cluster, id, *update.ResourceVersion, updates)
+	return r.factory.Repository().Update(ctx, id, *update.ResourceVersion, updates)
 }
 
 func (r *Repository) GetRepoChartsById(ctx context.Context, id int64) (*model.ChartIndex, error) {
@@ -214,4 +222,20 @@ func (r *Repository) fetch(_ context.Context, entry *repo.Entry) (*model.ChartIn
 		return nil, err
 	}
 	return &charts, nil
+}
+
+func (r *Repository) buildAuthFromRequest(planId int64, req *types.RepoForm) (*model.Repository, error) {
+	auth, err := req.Auth.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Node{
+		Name:   req.Name,
+		PlanId: planId,
+		Role:   strings.Join(req.Role, ","),
+		CRI:    req.CRI,
+		Ip:     req.Ip,
+		Auth:   auth,
+	}, nil
 }

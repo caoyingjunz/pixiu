@@ -65,7 +65,7 @@ func (h *Helm) Repository() RepositoryInterface {
 		klog.Errorf("failed to init helm action config: %v", err)
 		return nil
 	}
-	return newRepository(h.cluster, h.settings, h.actionConfig, h.factory)
+	return newRepository(h.settings, h.actionConfig, h.factory)
 }
 
 func newHelm(kubeConfig *rest.Config, cluster string, factory db.ShareDaoFactory) *Helm {
