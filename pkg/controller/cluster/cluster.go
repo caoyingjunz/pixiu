@@ -92,9 +92,6 @@ type Interface interface {
 
 	// Run 启动 cluster worker 处理协程
 	Run(ctx context.Context, workers int) error
-
-	// Helm 命令
-	Helm(cluster string) HelmInterface
 }
 
 var clusterIndexer client.Cache

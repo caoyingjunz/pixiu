@@ -50,15 +50,10 @@ type ReleaseHistory struct {
 }
 
 type RepoForm struct {
-	Name                  string `json:"name" binding:"required"`
-	URL                   string `json:"url" binding:"required"`
-	Username              string `json:"username"`
-	Password              string `json:"password"`
-	CertFile              string `json:"certFile"`
-	KeyFile               string `json:"keyFile"`
-	CAFile                string `json:"caFile"`
-	InsecureSkipTLSverify bool   `json:"insecure_skip_tls_verify"`
-	PassCredentialsAll    bool   `json:"pass_credentials_all"`
+	Name     string `json:"name" binding:"required"`
+	URL      string `json:"url" binding:"required"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type RepoUpdateForm struct {

@@ -14,12 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package helm
 
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 	"net/url"
+	"os"
 	"strings"
 
 	"helm.sh/helm/v3/pkg/action"
@@ -55,33 +57,21 @@ type Repository struct {
 	factory      db.ShareDaoFactory
 }
 
-func newRepository(settings *cli.EnvSettings, actionConfig *action.Configuration, f db.ShareDaoFactory) *Repository {
-	return &Repository{settings: settings, actionConfig: actionConfig, factory: f}
+func NewRepository(f db.ShareDaoFactory) *Repository {
+
+	settings := cli.New()
+	actionConfig := new(action.Configuration)
+	actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), os.Getenv("HELM_DRIVER"), klog.Infof)
+	return &Repository{factory: f}
 }
 
 var _ RepositoryInterface = &Repository{}
 
 func (r *Repository) Create(ctx context.Context, repo *types.RepoForm) error {
-	auth := &model.RepositoryAuth{
-		Username:              repo.Username,
-		Password:              repo.Password,
-		CertFile:              repo.CertFile,
-		KeyFile:               repo.KeyFile,
-		CAFile:                repo.CAFile,
-		InsecureSkipTLSverify: repo.InsecureSkipTLSverify,
-		PassCredentialsAll:    repo.PassCredentialsAll,
-	}
 
 	repoModel := &model.Repository{
-		Name:                  repo.Name,
-		URL:                   repo.URL,
-		Username:              repo.Username,
-		Password:              repo.Password,
-		CertFile:              repo.CertFile,
-		KeyFile:               repo.KeyFile,
-		CAFile:                repo.CAFile,
-		InsecureSkipTLSverify: repo.InsecureSkipTLSverify,
-		PassCredentialsAll:    repo.PassCredentialsAll,
+		Name: repo.Name,
+		URL:  repo.URL,
 	}
 	if res, _ := r.GetByName(ctx, repoModel.Name); res != nil {
 		return fmt.Errorf("repository %s already exists", repoModel.Name)
@@ -129,15 +119,10 @@ func (r *Repository) GetRepoChartsById(ctx context.Context, id int64) (*model.Ch
 	}
 
 	entry := &repo.Entry{
-		Name:                  repository.Name,
-		URL:                   repository.URL,
-		Username:              repository.Username,
-		Password:              repository.Password,
-		CertFile:              repository.CertFile,
-		KeyFile:               repository.KeyFile,
-		CAFile:                repository.CAFile,
-		InsecureSkipTLSverify: repository.InsecureSkipTLSverify,
-		PassCredentialsAll:    repository.PassCredentialsAll,
+		Name:     repository.Name,
+		URL:      repository.URL,
+		Username: repository.Username,
+		Password: repository.Password,
 	}
 	return r.fetch(ctx, entry)
 }
@@ -149,7 +134,7 @@ func (r *Repository) GetRepoChartsByURL(ctx context.Context, repoURL string) (*m
 	return r.fetch(ctx, entry)
 }
 
-func (r *Repository) GetRepoChartValues(ctx context.Context, chart, version string) (string, error) {
+func (r *Repository) GetRepoChartValues(_ context.Context, chart, version string) (string, error) {
 	client := action.NewShowWithConfig(action.ShowValues, r.actionConfig)
 	client.Version = version
 	cp, err := client.ChartPathOptions.LocateChart(chart, r.settings)
@@ -222,20 +207,4 @@ func (r *Repository) fetch(_ context.Context, entry *repo.Entry) (*model.ChartIn
 		return nil, err
 	}
 	return &charts, nil
-}
-
-func (r *Repository) buildAuthFromRequest(planId int64, req *types.RepoForm) (*model.Repository, error) {
-	auth, err := req.Auth.Marshal()
-	if err != nil {
-		return nil, err
-	}
-
-	return &model.Node{
-		Name:   req.Name,
-		PlanId: planId,
-		Role:   strings.Join(req.Role, ","),
-		CRI:    req.CRI,
-		Ip:     req.Ip,
-		Auth:   auth,
-	}, nil
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package helm
 
 import (
 	"github.com/gin-gonic/gin"
@@ -36,7 +36,7 @@ import (
 // @Failure 400 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /repositories [post]
-func (cr *clusterRouter) createRepository(c *gin.Context) {
+func (hr *helmRouter) createRepository(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -50,7 +50,7 @@ func (cr *clusterRouter) createRepository(c *gin.Context) {
 		return
 	}
 
-	if err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().Create(c, &formData); err != nil {
+	if err = hr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().Create(c, &formData); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -71,7 +71,7 @@ func (cr *clusterRouter) createRepository(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /repositories/{id} [delete]
-func (cr *clusterRouter) deleteRepository(c *gin.Context) {
+func (hr *helmRouter) deleteRepository(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -82,7 +82,7 @@ func (cr *clusterRouter) deleteRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().Helm(repoMeta.Cluster).Repository().Delete(c, repoMeta.Id); err != nil {
+	if err = hr.c.Cluster().Helm(repoMeta.Cluster).Repository().Delete(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -105,7 +105,7 @@ func (cr *clusterRouter) deleteRepository(c *gin.Context) {
 // @Failure 500 {object} httputils.Response
 // @Router /repositories/{id} [put]
 
-func (cr *clusterRouter) updateRepository(c *gin.Context) {
+func (hr *helmRouter) updateRepository(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -117,7 +117,7 @@ func (cr *clusterRouter) updateRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().Helm(repoMeta.Cluster).Repository().Update(c, repoMeta.Id, &formData); err != nil {
+	if err = hr.c.Cluster().Helm(repoMeta.Cluster).Repository().Update(c, repoMeta.Id, &formData); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -138,7 +138,7 @@ func (cr *clusterRouter) updateRepository(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /repositories/{id} [get]
-func (cr *clusterRouter) getRepository(c *gin.Context) {
+func (hr *helmRouter) getRepository(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -149,7 +149,7 @@ func (cr *clusterRouter) getRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().Helm(repoMeta.Cluster).Repository().Get(c, repoMeta.Id); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(repoMeta.Cluster).Repository().Get(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -170,7 +170,7 @@ func (cr *clusterRouter) getRepository(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /repositories [get]
-func (cr *clusterRouter) listRepositories(c *gin.Context) {
+func (hr *helmRouter) listRepositories(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err       error
@@ -181,7 +181,7 @@ func (cr *clusterRouter) listRepositories(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().List(c); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -202,7 +202,7 @@ func (cr *clusterRouter) listRepositories(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /repositories/{id}/charts [get]
-func (cr *clusterRouter) getRepoCharts(c *gin.Context) {
+func (hr *helmRouter) getRepoCharts(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err      error
@@ -213,7 +213,7 @@ func (cr *clusterRouter) getRepoCharts(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().Helm(repoMeta.Cluster).Repository().GetRepoChartsById(c, repoMeta.Id); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(repoMeta.Cluster).Repository().GetRepoChartsById(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -235,7 +235,7 @@ func (cr *clusterRouter) getRepoCharts(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /repositories/charts [get]
-func (cr *clusterRouter) getRepoChartsByURL(c *gin.Context) {
+func (hr *helmRouter) getRepoChartsByURL(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err       error
@@ -247,7 +247,7 @@ func (cr *clusterRouter) getRepoChartsByURL(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().GetRepoChartsByURL(c, repoMeta.Url); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().GetRepoChartsByURL(c, repoMeta.Url); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -270,7 +270,7 @@ func (cr *clusterRouter) getRepoChartsByURL(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /repositories/values [get]
-func (cr *clusterRouter) getChartValues(c *gin.Context) {
+func (hr *helmRouter) getChartValues(c *gin.Context) {
 
 	r := httputils.NewResponse()
 	var (
@@ -283,7 +283,7 @@ func (cr *clusterRouter) getChartValues(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().GetRepoChartValues(c, repoMeta.Chart, repoMeta.Version); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().GetRepoChartValues(c, repoMeta.Chart, repoMeta.Version); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

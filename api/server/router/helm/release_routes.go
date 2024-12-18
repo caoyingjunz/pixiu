@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package helm
 
 import (
 	"github.com/gin-gonic/gin"
@@ -38,7 +38,7 @@ import (
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/release/{cluster}/{namespace}/{name} [get]
-func (cr *clusterRouter) GetRelease(c *gin.Context) {
+func (hr *helmRouter) GetRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err      error
@@ -49,11 +49,14 @@ func (cr *clusterRouter) GetRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).GetRelease(c, helmMeta.Name); err != nil {
+	//if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).GetRelease(c, helmMeta.Name); err != nil {
+	//	httputils.SetFailed(c, r, err)
+	//	return
+	//}
+	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).GetRelease(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	httputils.SetSuccess(c, r)
 }
 
@@ -71,7 +74,7 @@ func (cr *clusterRouter) GetRelease(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/releases/{cluster}/{namespace} [get]
-func (cr *clusterRouter) ListReleases(c *gin.Context) {
+func (hr *helmRouter) ListReleases(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err      error
@@ -82,7 +85,7 @@ func (cr *clusterRouter) ListReleases(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).ListRelease(c); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).ListRelease(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -105,7 +108,7 @@ func (cr *clusterRouter) ListReleases(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/releases/{cluster}/{namespace} [post]
-func (cr *clusterRouter) InstallRelease(c *gin.Context) {
+func (hr *helmRouter) InstallRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
@@ -117,7 +120,7 @@ func (cr *clusterRouter) InstallRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).InstallRelease(c, &releaseOpt); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).InstallRelease(c, &releaseOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -140,7 +143,7 @@ func (cr *clusterRouter) InstallRelease(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/releases/{cluster}/{namespace}/{name} [delete]
-func (cr *clusterRouter) UninstallRelease(c *gin.Context) {
+func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err      error
@@ -151,7 +154,7 @@ func (cr *clusterRouter) UninstallRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).UninstallRelease(c, helmMeta.Name); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).UninstallRelease(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -175,7 +178,7 @@ func (cr *clusterRouter) UninstallRelease(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/releases/{cluster}/{namespace}/{name} [put]
-func (cr *clusterRouter) UpgradeRelease(c *gin.Context) {
+func (hr *helmRouter) UpgradeRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err        error
@@ -187,7 +190,7 @@ func (cr *clusterRouter) UpgradeRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).UpgradeRelease(c, &releaseOpt); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).UpgradeRelease(c, &releaseOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -210,7 +213,7 @@ func (cr *clusterRouter) UpgradeRelease(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/releases/history/{cluster}/{namespace}/{name} [get]
-func (cr *clusterRouter) GetReleaseHistory(c *gin.Context) {
+func (hr *helmRouter) GetReleaseHistory(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err      error
@@ -221,7 +224,7 @@ func (cr *clusterRouter) GetReleaseHistory(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).GetReleaseHistory(c, helmMeta.Name); err != nil {
+	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).GetReleaseHistory(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -245,7 +248,7 @@ func (cr *clusterRouter) GetReleaseHistory(c *gin.Context) {
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/releases/rollback/{cluster}/{namespace}/{name} [post]
-func (cr *clusterRouter) RollbackRelease(c *gin.Context) {
+func (hr *helmRouter) RollbackRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err          error
@@ -257,7 +260,7 @@ func (cr *clusterRouter) RollbackRelease(c *gin.Context) {
 		return
 	}
 
-	if err = cr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).RollbackRelease(c, helmMeta.Name, reverionMeta.Version); err != nil {
+	if err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).RollbackRelease(c, helmMeta.Name, reverionMeta.Version); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

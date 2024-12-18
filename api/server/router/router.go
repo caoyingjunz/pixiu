@@ -18,6 +18,7 @@ package router
 
 import (
 	"embed"
+	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -49,6 +50,7 @@ func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
 		middleware.InstallMiddlewares,
 		cluster.NewRouter,
+		helm.NewRouter,
 		proxy.NewRouter,
 		tenant.NewRouter,
 		user.NewRouter,

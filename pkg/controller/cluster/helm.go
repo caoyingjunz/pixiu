@@ -17,6 +17,7 @@ limitations under the License.
 package cluster
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"os"
 
 	"helm.sh/helm/v3/pkg/action"
@@ -29,8 +30,8 @@ import (
 )
 
 type HelmInterface interface {
-	Releases(namespace string) ReleaseInterface
-	Repository() RepositoryInterface
+	Releases(namespace string) helm.ReleaseInterface
+	Repository() helm.RepositoryInterface
 }
 
 type Helm struct {
@@ -41,7 +42,7 @@ type Helm struct {
 	resetClientGetter *client.HelmRESTClientGetter
 }
 
-func (h *Helm) Releases(namespace string) ReleaseInterface {
+func (h *Helm) Releases(namespace string) helm.ReleaseInterface {
 	h.settings.SetNamespace(namespace)
 	if err := h.actionConfig.Init(
 		h.resetClientGetter,
@@ -52,10 +53,10 @@ func (h *Helm) Releases(namespace string) ReleaseInterface {
 		klog.Errorf("failed to init helm action config: %v", err)
 		return nil
 	}
-	return newReleases(h.actionConfig, h.settings)
+	return helm.NewReleases(h.actionConfig, h.settings)
 }
 
-func (h *Helm) Repository() RepositoryInterface {
+func (h *Helm) Repository() helm.RepositoryInterface {
 	if err := h.actionConfig.Init(
 		h.resetClientGetter,
 		h.settings.Namespace(),
@@ -65,7 +66,7 @@ func (h *Helm) Repository() RepositoryInterface {
 		klog.Errorf("failed to init helm action config: %v", err)
 		return nil
 	}
-	return newRepository(h.settings, h.actionConfig, h.factory)
+	return helm.NewRepository(h.settings, h.actionConfig, h.factory)
 }
 
 func newHelm(kubeConfig *rest.Config, cluster string, factory db.ShareDaoFactory) *Helm {

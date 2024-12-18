@@ -17,7 +17,6 @@ limitations under the License.
 package model
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
@@ -29,27 +28,10 @@ func init() {
 
 type Repository struct {
 	pixiu.Model
-	Name string `gorm:"column:name; index:idx_name,unique; not null" json:"name"`
-	URL  string `gorm:"column:url;not null" json:"url"`
-	Auth string `gorm:"column:auth;not null" json:"auth"`
-}
-
-type RepositoryAuth struct {
-	Username              string `gorm:"column:username" json:"username"`
-	Password              string `gorm:"column:password" json:"password"`
-	CertFile              string `gorm:"column:cert_file" json:"certFile"`
-	KeyFile               string `gorm:"column:key_file" json:"keyFile"`
-	CAFile                string `gorm:"column:ca_file" json:"caFile"`
-	InsecureSkipTLSverify bool   `gorm:"column:insecure_skip_tls_verify" json:"insecure_skip_tls_verify"`
-	PassCredentialsAll    bool   `gorm:"column:pass_credentials_all" json:"pass_credentials_all"`
-}
-
-func (r *RepositoryAuth) Marshal() (string, error) {
-	data, err := json.Marshal(r)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	Name     string `gorm:"column:name; index:idx_name,unique; not null" json:"name"`
+	URL      string `gorm:"column:url;not null" json:"url"`
+	Username string `gorm:"column:username" json:"username"`
+	Password string `gorm:"column:password" json:"password"`
 }
 
 func (*Repository) TableName() string {

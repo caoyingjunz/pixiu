@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package helm
 
 import (
 	"context"
@@ -50,7 +50,7 @@ type Releases struct {
 	actionConfig *action.Configuration
 }
 
-func newReleases(actionConfig *action.Configuration, settings *cli.EnvSettings) *Releases {
+func NewReleases(actionConfig *action.Configuration, settings *cli.EnvSettings) *Releases {
 	return &Releases{
 		actionConfig: actionConfig,
 		settings:     settings,
