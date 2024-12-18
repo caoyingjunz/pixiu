@@ -23,10 +23,10 @@ import (
 )
 
 func init() {
-	register(&Repositories{})
+	register(&Repository{})
 }
 
-type Repositories struct {
+type Repository struct {
 	pixiu.Model
 	Cluster               string `gorm:"column:cluster; not null" json:"cluster"`
 	Name                  string `gorm:"column:name; not null" json:"name"`
@@ -40,7 +40,7 @@ type Repositories struct {
 	PassCredentialsAll    bool   `gorm:"column:pass_credentials_all" json:"pass_credentials_all"`
 }
 
-func (*Repositories) TableName() string {
+func (*Repository) TableName() string {
 	return "repositories"
 }
 

@@ -94,5 +94,16 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 		helmRoute.DELETE("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.UninstallRelease)
 		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.GetRelease)
 		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.ListReleases)
+
+		// helm Repository
+		helmRoute.POST("/clusters/:cluster/repositories", cr.createRepository)
+		helmRoute.PUT("/clusters/:cluster/repositories/:id", cr.updateRepository)
+		helmRoute.DELETE("/clusters/:cluster/repositories/:id", cr.deleteRepository)
+		helmRoute.GET("/clusters/:cluster/repositories/:id", cr.getRepository)
+		helmRoute.GET("/clusters/:cluster/repositories", cr.listRepositories)
+
+		helmRoute.GET("/clusters/:cluster/repositories/:id/charts", cr.getRepoCharts)
+		helmRoute.GET("/clusters/:cluster/repositories/charts", cr.getRepoChartsByURL)
+		helmRoute.GET("/clusters/:cluster/repositories/values", cr.getChartValues)
 	}
 }
