@@ -40,11 +40,11 @@ type RepositoryGetter interface {
 }
 
 type RepositoryInterface interface {
-	Create(ctx context.Context, repo *types.RepoForm) error
+	Create(ctx context.Context, repo *types.CreateRepository) error
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*model.Repository, error)
 	List(ctx context.Context) ([]*model.Repository, error)
-	Update(ctx context.Context, id int64, update *types.RepoUpdateForm) error
+	Update(ctx context.Context, id int64, update *types.UpdateRepository) error
 
 	GetChartsById(ctx context.Context, id int64) (*model.ChartIndex, error)
 	GetChartsByURL(ctx context.Context, repoURL string) (*model.ChartIndex, error)
@@ -66,7 +66,7 @@ func NewRepository(f db.ShareDaoFactory) *Repository {
 
 var _ RepositoryInterface = &Repository{}
 
-func (r *Repository) Create(ctx context.Context, repo *types.RepoForm) error {
+func (r *Repository) Create(ctx context.Context, repo *types.CreateRepository) error {
 
 	repoModel := &model.Repository{
 		Name: repo.Name,
@@ -96,7 +96,7 @@ func (r *Repository) List(ctx context.Context) ([]*model.Repository, error) {
 	return r.factory.Repository().List(ctx)
 }
 
-func (r *Repository) Update(ctx context.Context, id int64, update *types.RepoUpdateForm) error {
+func (r *Repository) Update(ctx context.Context, id int64, update *types.UpdateRepository) error {
 	updates := map[string]interface{}{
 		"name":     update.Name,
 		"url":      update.URL,

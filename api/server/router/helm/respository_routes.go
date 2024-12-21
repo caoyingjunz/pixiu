@@ -40,16 +40,16 @@ func (hr *helmRouter) createRepository(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		err      error
-		formData types.RepoForm
+		err error
+		req types.CreateRepository
 	)
 
-	if err = httputils.ShouldBindAny(c, &formData, nil, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if err = hr.c.Helm().Repository().Create(c, &formData); err != nil {
+	if err = hr.c.Helm().Repository().Create(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -108,7 +108,7 @@ func (hr *helmRouter) updateRepository(c *gin.Context) {
 	var (
 		err      error
 		repoMeta types.RepoId
-		formData types.RepoUpdateForm
+		formData types.UpdateRepository
 	)
 	if err = httputils.ShouldBindAny(c, &formData, &repoMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)

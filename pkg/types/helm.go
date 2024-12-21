@@ -40,30 +40,22 @@ type ChartValues struct {
 	Chart   string `form:"chart" binding:"required"`
 	Version string `form:"version" binding:"required"`
 }
-type RepoObjectMeta struct {
-	Cluster string `uri:"cluster" binding:"required"`
-}
 
 type ReleaseHistory struct {
 	Version int `form:"version"`
 }
 
-type RepoForm struct {
+type CreateRepository struct {
 	Name     string `json:"name" binding:"required"`
 	URL      string `json:"url" binding:"required"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-type RepoUpdateForm struct {
+type UpdateRepository struct {
 	Name            string `json:"name" binding:"required"`
 	URL             string `json:"url" binding:"required"`
 	Username        string `json:"username"`
 	Password        string `json:"password"`
 	ResourceVersion *int64 `json:"resource_version" binding:"required"`
-}
-
-type HelmObjectMeta struct {
-	Cluster   string `uri:"cluster" binding:"required"`
-	Namespace string `uri:"namespace" binding:"required"`
 }
