@@ -23,24 +23,18 @@ import (
 )
 
 func init() {
-	register(&Repositories{})
+	register(&Repository{})
 }
 
-type Repositories struct {
+type Repository struct {
 	pixiu.Model
-	Cluster               string `gorm:"column:cluster; not null" json:"cluster"`
-	Name                  string `gorm:"column:name; not null" json:"name"`
-	URL                   string `gorm:"column:url;not null" json:"url"`
-	Username              string `gorm:"column:username" json:"username"`
-	Password              string `gorm:"column:password" json:"password"`
-	CertFile              string `gorm:"column:cert_file" json:"certFile"`
-	KeyFile               string `gorm:"column:key_file" json:"keyFile"`
-	CAFile                string `gorm:"column:ca_file" json:"caFile"`
-	InsecureSkipTLSverify bool   `gorm:"column:insecure_skip_tls_verify" json:"insecure_skip_tls_verify"`
-	PassCredentialsAll    bool   `gorm:"column:pass_credentials_all" json:"pass_credentials_all"`
+	Name     string `gorm:"column:name; index:idx_name,unique; not null" json:"name"`
+	URL      string `gorm:"column:url;not null" json:"url"`
+	Username string `gorm:"column:username" json:"username"`
+	Password string `gorm:"column:password" json:"password"`
 }
 
-func (*Repositories) TableName() string {
+func (*Repository) TableName() string {
 	return "repositories"
 }
 

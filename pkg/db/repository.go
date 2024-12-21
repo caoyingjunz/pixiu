@@ -25,26 +25,26 @@ import (
 	"gorm.io/gorm"
 )
 
-type RepoInterface interface {
-	Create(ctx context.Context, object *model.Repositories) (*model.Repositories, error)
-	Update(ctx context.Context, cluster string, id int64, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, cluster string, id int64) error
-	Get(ctx context.Context, cluster string, id int64) (*model.Repositories, error)
-	GetByName(ctx context.Context, cluster, name string) (*model.Repositories, error)
-	List(ctx context.Context, cluster string) ([]*model.Repositories, error)
+type RepositoryInterface interface {
+	Create(ctx context.Context, object *model.Repository) (*model.Repository, error)
+	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
+	Delete(ctx context.Context, id int64) error
+	Get(ctx context.Context, id int64) (*model.Repository, error)
+	GetByName(ctx context.Context, name string) (*model.Repository, error)
+	List(ctx context.Context) ([]*model.Repository, error)
 }
 
 type repository struct {
 	db *gorm.DB
 }
 
-func newRepository(db *gorm.DB) RepoInterface {
+func newRepository(db *gorm.DB) RepositoryInterface {
 	return &repository{db}
 }
 
-var _ RepoInterface = &repository{}
+var _ RepositoryInterface = &repository{}
 
-func (r *repository) Create(ctx context.Context, object *model.Repositories) (*model.Repositories, error) {
+func (r *repository) Create(ctx context.Context, object *model.Repository) (*model.Repository, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -55,11 +55,11 @@ func (r *repository) Create(ctx context.Context, object *model.Repositories) (*m
 	return object, nil
 }
 
-func (r *repository) Update(ctx context.Context, cluster string, id int64, resourceVersion int64, updates map[string]interface{}) error {
+func (r *repository) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
 
-	f := r.db.WithContext(ctx).Model(&model.Repositories{}).Where("id = ? and resource_version = ? and cluster = ?", id, resourceVersion, cluster).Updates(updates)
+	f := r.db.WithContext(ctx).Model(&model.Repository{}).Where("id = ? and resource_version = ? ", id, resourceVersion).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
@@ -72,8 +72,8 @@ func (r *repository) Update(ctx context.Context, cluster string, id int64, resou
 
 }
 
-func (r *repository) Delete(ctx context.Context, cluster string, id int64) error {
-	f := r.db.WithContext(ctx).Where("id = ? and cluster = ?", id, cluster).Delete(&model.Repositories{})
+func (r *repository) Delete(ctx context.Context, id int64) error {
+	f := r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Repository{})
 	if f.Error != nil {
 		return f.Error
 	}
@@ -85,27 +85,27 @@ func (r *repository) Delete(ctx context.Context, cluster string, id int64) error
 	return nil
 }
 
-func (r *repository) Get(ctx context.Context, cluster string, id int64) (*model.Repositories, error) {
-	var repo model.Repositories
-	if err := r.db.WithContext(ctx).Where("id = ? and cluster = ?", id, cluster).First(&repo).Error; err != nil {
+func (r *repository) Get(ctx context.Context, id int64) (*model.Repository, error) {
+	var repo model.Repository
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&repo).Error; err != nil {
 		return nil, err
 	}
 
 	return &repo, nil
 }
 
-func (r *repository) GetByName(ctx context.Context, cluster string, name string) (*model.Repositories, error) {
-	var repo model.Repositories
-	if err := r.db.WithContext(ctx).Where("name = ? and cluster = ?", name, cluster).First(&repo).Error; err != nil {
+func (r *repository) GetByName(ctx context.Context, name string) (*model.Repository, error) {
+	var repo model.Repository
+	if err := r.db.WithContext(ctx).Where("name = ?", name).First(&repo).Error; err != nil {
 		return nil, err
 	}
 
 	return &repo, nil
 }
 
-func (r *repository) List(ctx context.Context, cluster string) ([]*model.Repositories, error) {
-	var repos []*model.Repositories
-	if err := r.db.WithContext(ctx).Where("cluster = ?", cluster).Find(&repos).Error; err != nil {
+func (r *repository) List(ctx context.Context) ([]*model.Repository, error) {
+	var repos []*model.Repository
+	if err := r.db.WithContext(ctx).Find(&repos).Error; err != nil {
 		return nil, err
 	}
 
