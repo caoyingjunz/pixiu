@@ -85,14 +85,4 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 		indexerRoute.GET("/clusters/:cluster/resources/:resource/namespaces/:namespace", cr.listIndexerResources)
 	}
 
-	// 调用 helm 对象
-	helmRoute := httpEngine.Group(helmBaseURL)
-	{
-		// Helm Release API 列表
-		helmRoute.POST("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.InstallRelease)
-		helmRoute.PUT("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.UpgradeRelease)
-		helmRoute.DELETE("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.UninstallRelease)
-		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases/:name", cr.GetRelease)
-		helmRoute.GET("/clusters/:cluster/v1/namespaces/:namespace/releases", cr.ListReleases)
-	}
 }
