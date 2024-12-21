@@ -35,14 +35,14 @@ import (
 )
 
 type ReleaseInterface interface {
-	InstallRelease(ctx context.Context, form *types.Release) (*release.Release, error)
+	Install(ctx context.Context, form *types.Release) (*release.Release, error)
 
-	GetRelease(ctx context.Context, name string) (*release.Release, error)
-	ListRelease(ctx context.Context) ([]*release.Release, error)
-	UninstallRelease(ctx context.Context, name string) (*release.UninstallReleaseResponse, error)
-	UpgradeRelease(ctx context.Context, form *types.Release) (*release.Release, error)
-	GetReleaseHistory(ctx context.Context, name string) ([]*release.Release, error)
-	RollbackRelease(ctx context.Context, name string, toVersion int) error
+	Get(ctx context.Context, name string) (*release.Release, error)
+	List(ctx context.Context) ([]*release.Release, error)
+	Uninstall(ctx context.Context, name string) (*release.UninstallReleaseResponse, error)
+	Upgrade(ctx context.Context, form *types.Release) (*release.Release, error)
+	History(ctx context.Context, name string) ([]*release.Release, error)
+	Rollback(ctx context.Context, name string, toVersion int) error
 }
 
 type Releases struct {
@@ -59,18 +59,18 @@ func NewReleases(actionConfig *action.Configuration, settings *cli.EnvSettings) 
 
 var _ ReleaseInterface = &Releases{}
 
-func (r *Releases) GetRelease(ctx context.Context, name string) (*release.Release, error) {
+func (r *Releases) Get(ctx context.Context, name string) (*release.Release, error) {
 	client := action.NewGet(r.actionConfig)
 	return client.Run(name)
 }
 
-func (r *Releases) ListRelease(ctx context.Context) ([]*release.Release, error) {
+func (r *Releases) List(ctx context.Context) ([]*release.Release, error) {
 	client := action.NewList(r.actionConfig)
 	return client.Run()
 }
 
 // InstallRelease install release
-func (r *Releases) InstallRelease(ctx context.Context, form *types.Release) (*release.Release, error) {
+func (r *Releases) Install(ctx context.Context, form *types.Release) (*release.Release, error) {
 	client := action.NewInstall(r.actionConfig)
 	client.ReleaseName = form.Name
 	client.Namespace = r.settings.Namespace()
@@ -91,13 +91,13 @@ func (r *Releases) InstallRelease(ctx context.Context, form *types.Release) (*re
 	return out, nil
 }
 
-func (r *Releases) UninstallRelease(ctx context.Context, name string) (*release.UninstallReleaseResponse, error) {
+func (r *Releases) Uninstall(ctx context.Context, name string) (*release.UninstallReleaseResponse, error) {
 	client := action.NewUninstall(r.actionConfig)
 	return client.Run(name)
 }
 
 // UpgradeRelease upgrade release
-func (r *Releases) UpgradeRelease(ctx context.Context, form *types.Release) (*release.Release, error) {
+func (r *Releases) Upgrade(ctx context.Context, form *types.Release) (*release.Release, error) {
 	client := action.NewUpgrade(r.actionConfig)
 	client.Namespace = r.settings.Namespace()
 	client.DryRun = form.Preview
@@ -117,14 +117,14 @@ func (r *Releases) UpgradeRelease(ctx context.Context, form *types.Release) (*re
 	return out, nil
 }
 
-func (r *Releases) GetReleaseHistory(ctx context.Context, name string) ([]*release.Release, error) {
+func (r *Releases) History(ctx context.Context, name string) ([]*release.Release, error) {
 	client := action.NewHistory(r.actionConfig)
 	return client.Run(name)
 }
 
-func (r *Releases) RollbackRelease(ctx context.Context, name string, toVersion int) error {
+func (r *Releases) Rollback(ctx context.Context, name string, toVersion int) error {
 	klog.Error("version: ", toVersion)
-	_, err := r.GetRelease(ctx, name)
+	_, err := r.Get(ctx, name)
 	if err != nil {
 		return err
 	}

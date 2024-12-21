@@ -10,7 +10,6 @@ const (
 	helmBaseURL = "/pixiu/helms"
 )
 
-// clusterRouter is a router to talk with the cluster controller
 type helmRouter struct {
 	c controller.PixiuInterface
 }
@@ -26,12 +25,15 @@ func (hr *helmRouter) initRoutes(httpEngine *gin.Engine) {
 
 	helmRoute := httpEngine.Group(helmBaseURL)
 	{
-		// Helm Release API 列表
+		// Helm Release
 		helmRoute.POST("/clusters/:cluster/namespaces/:namespace/releases", hr.InstallRelease)
 		helmRoute.PUT("/clusters/:cluster/namespaces/:namespace/releases", hr.UpgradeRelease)
 		helmRoute.DELETE("/clusters/:cluster/namespaces/:namespace/releases/:name", hr.UninstallRelease)
 		helmRoute.GET("/clusters/:cluster/namespaces/:namespace/releases/:name", hr.GetRelease)
 		helmRoute.GET("/clusters/:cluster/namespaces/:namespace/releases", hr.ListReleases)
+
+		helmRoute.GET("/clusters/:cluster/namespaces/:namespace/releases/:name/history", hr.GetReleaseHistory)
+		helmRoute.POST("/clusters/:cluster/namespaces/:namespace/releases/:name/rollback", hr.RollbackRelease)
 
 		// helm Repository
 		helmRoute.POST("/repositories", hr.createRepository)

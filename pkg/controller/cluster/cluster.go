@@ -94,10 +94,10 @@ type Interface interface {
 	Run(ctx context.Context, workers int) error
 }
 
-var clusterIndexer client.Cache
+var ClusterIndexer client.Cache
 
 func init() {
-	clusterIndexer = *client.NewClusterCache()
+	ClusterIndexer = *client.NewClusterCache()
 }
 
 type (
@@ -119,15 +119,6 @@ type cluster struct {
 
 	listerFuncs map[string]listerFunc
 	getterFuncs map[string]getterFunc
-}
-
-func (c *cluster) Helm(cluster string) HelmInterface {
-	kubeConfig, err := c.GetKubeConfigByName(context.TODO(), cluster)
-	if err != nil {
-		klog.Errorf("failed to get kube config: %v", err)
-		return &Helm{}
-	}
-	return newHelm(kubeConfig, cluster, c.factory)
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
@@ -180,7 +171,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	// TODO: 暂时不做创建后动作
-	clusterIndexer.Set(req.Name, *cs)
+	ClusterIndexer.Set(req.Name, *cs)
 	return nil
 }
 
@@ -251,7 +242,7 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 	}
 
 	// 从缓存中移除 clusterSet
-	clusterIndexer.Delete(cluster.Name)
+	ClusterIndexer.Delete(cluster.Name)
 	return nil
 }
 
@@ -608,7 +599,7 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 
 // GetClusterSetByName 获取 ClusterSet， 缓存中不存在时，构建缓存再返回
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
-	cs, ok := clusterIndexer.Get(name)
+	cs, ok := ClusterIndexer.Get(name)
 	if ok {
 		klog.Infof("Get %s clusterSet from indexer", name)
 		return cs, nil
@@ -629,7 +620,7 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 	}
 
 	klog.Infof("set %s clusterSet into indexer", name)
-	clusterIndexer.Set(name, *newClusterSet)
+	ClusterIndexer.Set(name, *newClusterSet)
 	return *newClusterSet, nil
 }
 

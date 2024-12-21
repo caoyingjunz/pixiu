@@ -23,10 +23,10 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-// GetRelease retrieves a release by its name from the specified namespace and cluster
+// GetRelease retrieves a release by its name in the specified namespace and cluster
 //
-// @Summary get a release by name
-// @Description retrieves a release from the specified namespace and cluster using the provided name
+// @Summary get a release
+// @Description retrieves a release from the specified namespace and cluster
 // @Tags helm
 // @Accept json
 // @Produce json
@@ -37,7 +37,7 @@ import (
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
-// @Router /helm/release/{cluster}/{namespace}/{name} [get]
+// @Router /helm/releases/{cluster}/{namespace}/{name} [get]
 func (hr *helmRouter) GetRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -49,21 +49,17 @@ func (hr *helmRouter) GetRelease(c *gin.Context) {
 		return
 	}
 
-	//if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).GetRelease(c, helmMeta.Name); err != nil {
-	//	httputils.SetFailed(c, r, err)
-	//	return
-	//}
-	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).GetRelease(c, helmMeta.Name); err != nil {
+	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Get(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 	httputils.SetSuccess(c, r)
 }
 
-// ListReleases retrieves a list of all releases in the specified namespace and cluster
+// ListReleases lists all releases in the specified namespace and cluster
 //
-// @Summary list all releases
-// @Description retrieves a list of all releases from the specified namespace and cluster
+// @Summary list releases
+// @Description lists all releases in the specified namespace and cluster
 // @Tags helm
 // @Accept json
 // @Produce json
@@ -85,7 +81,7 @@ func (hr *helmRouter) ListReleases(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).ListRelease(c); err != nil {
+	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -95,8 +91,8 @@ func (hr *helmRouter) ListReleases(c *gin.Context) {
 
 // InstallRelease installs a new release in the specified namespace and cluster
 //
-// @Summary install a new release
-// @Description installs a new release into the specified Kubernetes namespace and cluster
+// @Summary install a release
+// @Description installs a release in the specified Kubernetes namespace and cluster
 // @Tags helm
 // @Accept json
 // @Produce json
@@ -105,7 +101,6 @@ func (hr *helmRouter) ListReleases(c *gin.Context) {
 // @Param body body types.ReleaseForm true "Release information"
 // @Success 200 {object} httputils.Response
 // @Failure 400 {object} httputils.Response
-// @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/releases/{cluster}/{namespace} [post]
 func (hr *helmRouter) InstallRelease(c *gin.Context) {
@@ -120,7 +115,7 @@ func (hr *helmRouter) InstallRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).InstallRelease(c, &releaseOpt); err != nil {
+	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Install(c, &releaseOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -131,7 +126,7 @@ func (hr *helmRouter) InstallRelease(c *gin.Context) {
 // UninstallRelease uninstalls a release from the specified namespace and cluster
 //
 // @Summary uninstall a release
-// @Description uninstalls a release from the specified namespace and cluster
+// @Description uninstalls a release from the specified Kubernetes namespace and cluster
 // @Tags helm
 // @Accept json
 // @Produce json
@@ -154,7 +149,7 @@ func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).UninstallRelease(c, helmMeta.Name); err != nil {
+	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Uninstall(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -165,7 +160,7 @@ func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 // UpgradeRelease upgrades a release in the specified namespace and cluster
 //
 // @Summary upgrade a release
-// @Description upgrades a release in the specified namespace and cluster
+// @Description upgrades a release in the specified Kubernetes namespace and cluster
 // @Tags helm
 // @Accept json
 // @Produce json
@@ -175,7 +170,6 @@ func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 // @Param body body types.ReleaseForm true "Release information"
 // @Success 200 {object} httputils.Response
 // @Failure 400 {object} httputils.Response
-// @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /helm/releases/{cluster}/{namespace}/{name} [put]
 func (hr *helmRouter) UpgradeRelease(c *gin.Context) {
@@ -190,7 +184,7 @@ func (hr *helmRouter) UpgradeRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).UpgradeRelease(c, &releaseOpt); err != nil {
+	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Upgrade(c, &releaseOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -224,7 +218,7 @@ func (hr *helmRouter) GetReleaseHistory(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).GetReleaseHistory(c, helmMeta.Name); err != nil {
+	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).History(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -232,17 +226,17 @@ func (hr *helmRouter) GetReleaseHistory(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// RollbackRelease rolls back a release in the specified namespace and cluster to a specific revision
+// RollbackRelease rolls back a release in the specified namespace and cluster to the specified revision
 //
 // @Summary rollback a release
-// @Description rolls back a release from the specified Kubernetes namespace and cluster to a specific revision
+// @Description rolls back a release from the specified Kubernetes namespace and cluster to the specified revision
 // @Tags helm
 // @Accept json
 // @Produce json
 // @Param cluster path string true "Kubernetes cluster name"
 // @Param namespace path string true "Kubernetes namespace"
 // @Param name path string true "Release name"
-// @Param version query int true "Release version"
+// @Param version query int true "Release revision"
 // @Success 200 {object} httputils.Response
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
@@ -260,7 +254,7 @@ func (hr *helmRouter) RollbackRelease(c *gin.Context) {
 		return
 	}
 
-	if err = hr.c.Cluster().Helm(helmMeta.Cluster).Releases(helmMeta.Namespace).RollbackRelease(c, helmMeta.Name, reverionMeta.Version); err != nil {
+	if err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Rollback(c, helmMeta.Name, reverionMeta.Version); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

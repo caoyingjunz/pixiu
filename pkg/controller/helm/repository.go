@@ -19,10 +19,10 @@ package helm
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"net/url"
-	"os"
 	"strings"
+
+	"k8s.io/klog/v2"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
@@ -46,9 +46,9 @@ type RepositoryInterface interface {
 	List(ctx context.Context) ([]*model.Repository, error)
 	Update(ctx context.Context, id int64, update *types.RepoUpdateForm) error
 
-	GetRepoChartsById(ctx context.Context, id int64) (*model.ChartIndex, error)
-	GetRepoChartsByURL(ctx context.Context, repoURL string) (*model.ChartIndex, error)
-	GetRepoChartValues(ctx context.Context, chart, version string) (string, error)
+	GetChartsById(ctx context.Context, id int64) (*model.ChartIndex, error)
+	GetChartsByURL(ctx context.Context, repoURL string) (*model.ChartIndex, error)
+	GetChartValues(ctx context.Context, chart, version string) (string, error)
 }
 
 type Repository struct {
@@ -58,11 +58,10 @@ type Repository struct {
 }
 
 func NewRepository(f db.ShareDaoFactory) *Repository {
-
 	settings := cli.New()
 	actionConfig := new(action.Configuration)
-	actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), os.Getenv("HELM_DRIVER"), klog.Infof)
-	return &Repository{factory: f}
+	actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), "secrets", klog.Infof)
+	return &Repository{factory: f, settings: settings, actionConfig: actionConfig}
 }
 
 var _ RepositoryInterface = &Repository{}
@@ -99,20 +98,15 @@ func (r *Repository) List(ctx context.Context) ([]*model.Repository, error) {
 
 func (r *Repository) Update(ctx context.Context, id int64, update *types.RepoUpdateForm) error {
 	updates := map[string]interface{}{
-		"name":                     update.Name,
-		"url":                      update.URL,
-		"username":                 update.Username,
-		"password":                 update.Password,
-		"cert_file":                update.CertFile,
-		"key_file":                 update.KeyFile,
-		"ca_file":                  update.CAFile,
-		"insecure_skip_tls_verify": update.InsecureSkipTLSverify,
-		"pass_credentials_all":     update.PassCredentialsAll,
+		"name":     update.Name,
+		"url":      update.URL,
+		"username": update.Username,
+		"password": update.Password,
 	}
 	return r.factory.Repository().Update(ctx, id, *update.ResourceVersion, updates)
 }
 
-func (r *Repository) GetRepoChartsById(ctx context.Context, id int64) (*model.ChartIndex, error) {
+func (r *Repository) GetChartsById(ctx context.Context, id int64) (*model.ChartIndex, error) {
 	repository, err := r.Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -127,14 +121,14 @@ func (r *Repository) GetRepoChartsById(ctx context.Context, id int64) (*model.Ch
 	return r.fetch(ctx, entry)
 }
 
-func (r *Repository) GetRepoChartsByURL(ctx context.Context, repoURL string) (*model.ChartIndex, error) {
+func (r *Repository) GetChartsByURL(ctx context.Context, repoURL string) (*model.ChartIndex, error) {
 	entry := &repo.Entry{
 		URL: repoURL,
 	}
 	return r.fetch(ctx, entry)
 }
 
-func (r *Repository) GetRepoChartValues(_ context.Context, chart, version string) (string, error) {
+func (r *Repository) GetChartValues(_ context.Context, chart, version string) (string, error) {
 	client := action.NewShowWithConfig(action.ShowValues, r.actionConfig)
 	client.Version = version
 	cp, err := client.ChartPathOptions.LocateChart(chart, r.settings)

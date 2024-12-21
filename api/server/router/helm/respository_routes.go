@@ -23,15 +23,15 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-// createRepository creates a new repository
+// createRepository creates a new repository in the specified cluster
 //
-// @Summary create a new repository
-// @Description creates a new repository from the system
+// @Summary create a repository
+// @Description creates a new repository in the specified Kubernetes cluster
 // @Tags repositories
 // @Accept json
 // @Produce json
-// @Param cluster body types.RepoObjectMeta true "Kubernetes cluster name"
-// @Param repoForm body types.RepoForm true "repository information"
+// @Param cluster query string true "Kubernetes cluster name"
+// @Param body body types.RepoForm true "Repository information"
 // @Success 200 {object} httputils.Response
 // @Failure 400 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
@@ -40,17 +40,16 @@ func (hr *helmRouter) createRepository(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		err       error
-		formData  types.RepoForm
-		pixiuMeta types.RepoObjectMeta
+		err      error
+		formData types.RepoForm
 	)
 
-	if err = httputils.ShouldBindAny(c, &formData, &pixiuMeta, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, &formData, nil, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if err = hr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().Create(c, &formData); err != nil {
+	if err = hr.c.Helm().Repository().Create(c, &formData); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -82,7 +81,7 @@ func (hr *helmRouter) deleteRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = hr.c.Cluster().Helm(repoMeta.Cluster).Repository().Delete(c, repoMeta.Id); err != nil {
+	if err = hr.c.Helm().Repository().Delete(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -93,18 +92,16 @@ func (hr *helmRouter) deleteRepository(c *gin.Context) {
 // updateRepository updates a repository by its ID
 //
 // @Summary update a repository by ID
-// @Description updates a repository in the system using the provided ID
+// @Description updates a repository in the system using the provided ID and update information
 // @Tags repositories
 // @Accept json
 // @Produce json
 // @Param id path int true "Repository ID"
-// @Param repoForm body types.RepoUpdateForm true "repository information"
+// @Param body body types.RepoUpdateForm true "Repository update information"
 // @Success 200 {object} httputils.Response
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
-// @Router /repositories/{id} [put]
-
 func (hr *helmRouter) updateRepository(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -117,7 +114,7 @@ func (hr *helmRouter) updateRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = hr.c.Cluster().Helm(repoMeta.Cluster).Repository().Update(c, repoMeta.Id, &formData); err != nil {
+	if err = hr.c.Helm().Repository().Update(c, repoMeta.Id, &formData); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -133,7 +130,7 @@ func (hr *helmRouter) updateRepository(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "Repository ID"
-// @Success 200 {object} httputils.Response{result=types.Repo}
+// @Success 200 {object} httputils.Response{result=types.Repository}
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
@@ -149,7 +146,7 @@ func (hr *helmRouter) getRepository(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = hr.c.Cluster().Helm(repoMeta.Cluster).Repository().Get(c, repoMeta.Id); err != nil {
+	if r.Result, err = hr.c.Helm().Repository().Get(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -157,31 +154,22 @@ func (hr *helmRouter) getRepository(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// listRepositories lists all repositories in the specified cluster
+// listRepositories retrieves a list of all repositories
 //
-// @Summary list all repositories
-// @Description retrieves a list of all repositories from the specified Kubernetes cluster
+// @Summary list repositories
+// @Description retrieves a list of all repositories in the system
 // @Tags repositories
 // @Accept json
 // @Produce json
-// @Param cluster query string true "Kubernetes cluster name"
-// @Success 200 {object} httputils.Response{result=[]model.Repositories}
+// @Success 200 {object} httputils.Response{result=[]types.Repository}
 // @Failure 400 {object} httputils.Response
-// @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
 // @Router /repositories [get]
 func (hr *helmRouter) listRepositories(c *gin.Context) {
 	r := httputils.NewResponse()
-	var (
-		err       error
-		pixiuMeta types.RepoObjectMeta
-	)
-	if err = c.ShouldBindUri(&pixiuMeta); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	var err error
 
-	if r.Result, err = hr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().List(c); err != nil {
+	if r.Result, err = hr.c.Helm().Repository().List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -213,7 +201,7 @@ func (hr *helmRouter) getRepoCharts(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = hr.c.Cluster().Helm(repoMeta.Cluster).Repository().GetRepoChartsById(c, repoMeta.Id); err != nil {
+	if r.Result, err = hr.c.Helm().Repository().GetChartsById(c, repoMeta.Id); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -228,7 +216,6 @@ func (hr *helmRouter) getRepoCharts(c *gin.Context) {
 // @Tags repositories
 // @Accept json
 // @Produce json
-// @Param cluster query string true "Kubernetes cluster name"
 // @Param url query string true "Repository URL"
 // @Success 200 {object} httputils.Response{result=model.ChartIndex}
 // @Failure 400 {object} httputils.Response
@@ -238,16 +225,15 @@ func (hr *helmRouter) getRepoCharts(c *gin.Context) {
 func (hr *helmRouter) getRepoChartsByURL(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
-		err       error
-		repoMeta  types.RepoURL
-		pixiuMeta types.RepoObjectMeta
+		err      error
+		repoMeta types.RepoURL
 	)
 
-	if err = httputils.ShouldBindAny(c, nil, &pixiuMeta, &repoMeta); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &repoMeta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = hr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().GetRepoChartsByURL(c, repoMeta.Url); err != nil {
+	if r.Result, err = hr.c.Helm().Repository().GetChartsByURL(c, repoMeta.Url); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -255,35 +241,33 @@ func (hr *helmRouter) getRepoChartsByURL(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// getChartValues retrieves values of a chart in a repository
+// getChartValues retrieves the values of a specific chart version
 //
 // @Summary get chart values
-// @Description retrieves values of a chart in a repository from the system using the provided chart name and version
-// @Tags repositories
+// @Description retrieves values for a specific chart version using the provided chart name and version
+// @Tags charts
 // @Accept json
 // @Produce json
-// @Param cluster query string true "Kubernetes cluster name"
 // @Param chart query string true "Chart name"
 // @Param version query string true "Chart version"
-// @Success 200 {object} httputils.Response{result=model.ChartValues}
+// @Success 200 {object} httputils.Response{result=types.ChartValues}
 // @Failure 400 {object} httputils.Response
 // @Failure 404 {object} httputils.Response
 // @Failure 500 {object} httputils.Response
-// @Router /repositories/values [get]
+// @Router /repositories/chartvalues [get]
 func (hr *helmRouter) getChartValues(c *gin.Context) {
 
 	r := httputils.NewResponse()
 	var (
-		err       error
-		repoMeta  types.ChartValues
-		pixiuMeta types.RepoObjectMeta
+		err      error
+		repoMeta types.ChartValues
 	)
 
-	if err = httputils.ShouldBindAny(c, nil, &pixiuMeta, &repoMeta); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &repoMeta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = hr.c.Cluster().Helm(pixiuMeta.Cluster).Repository().GetRepoChartValues(c, repoMeta.Chart, repoMeta.Version); err != nil {
+	if r.Result, err = hr.c.Helm().Repository().GetChartValues(c, repoMeta.Chart, repoMeta.Version); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

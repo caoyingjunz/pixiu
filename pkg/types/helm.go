@@ -25,8 +25,7 @@ type Release struct {
 }
 
 type RepoId struct {
-	Cluster string `uri:"cluster" binding:"required"`
-	Id      int64  `uri:"id" binding:"required"`
+	Id int64 `uri:"id" binding:"required"`
 }
 
 type RepoName struct {
@@ -57,16 +56,11 @@ type RepoForm struct {
 }
 
 type RepoUpdateForm struct {
-	Name                  string `json:"name" binding:"required"`
-	URL                   string `json:"url" binding:"required"`
-	Username              string `json:"username"`
-	Password              string `json:"password"`
-	CertFile              string `json:"certFile"`
-	KeyFile               string `json:"keyFile"`
-	CAFile                string `json:"caFile"`
-	InsecureSkipTLSverify bool   `json:"insecure_skip_tls_verify"`
-	PassCredentialsAll    bool   `json:"pass_credentials_all"`
-	ResourceVersion       *int64 `json:"resource_version" binding:"required"`
+	Name            string `json:"name" binding:"required"`
+	URL             string `json:"url" binding:"required"`
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	ResourceVersion *int64 `json:"resource_version" binding:"required"`
 }
 
 type HelmObjectMeta struct {
