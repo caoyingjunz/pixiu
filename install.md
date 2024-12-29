@@ -7,7 +7,7 @@
 # 选择1：直接提供可用数据库
 
 # 选择2：快速启动数据库
-docker run -d --net host --restart=always --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" harbor.cloud.pixiuio.com/pixiuio/mysql:5.7
+docker run -d --net host --restart=always --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7
 
 # 创建 pixiu 数据库
 CREATE DATABASE pixiu;
@@ -15,8 +15,8 @@ CREATE DATABASE pixiu;
 
 # 获取部署驱动镜像
 ```shell
-docker pull harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
-docker pull harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.1
+docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.1
 ```
 
 # 启动 pixiu 服务端
@@ -44,12 +44,12 @@ mysql:
 
 worker:
   engines:
-    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
+    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.1
       os_supported:
         - centos7
         - debian10
         - ubuntu18.04
-    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.1
       os_supported:
         - debian11
         - ubuntu20.04
@@ -68,7 +68,7 @@ vim /etc/pixiu/config.json
 ```
 # 启动 pixiu
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu-aio harbor.cloud.pixiuio.com/pixiuio/pixiu-aio
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu-aio ccr.ccs.tencentyun.com/pixiucloud/pixiu-aio
 登录效果
 浏览器登陆: http://192.168.16.156
 ```
