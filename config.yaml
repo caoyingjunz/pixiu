@@ -22,12 +22,12 @@ mysql:
 worker:
   work_dir: /tmp/pixiu
   engines:
-    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
+    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.1
       os_supported:
         - centos7
         - debian10
         - ubuntu18.04
-    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.1
       os_supported:
         - debian11
         - ubuntu20.04
