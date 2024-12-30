@@ -7,10 +7,6 @@ on:
     paths-ignore:
       - 'docs/**'
 
-  pull_request:
-    branches:
-      - master
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -48,5 +44,5 @@ jobs:
           push: true
           tags: |
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v0.1
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v1.0.1
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.COMMIT_HASH }}
