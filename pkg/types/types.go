@@ -156,6 +156,7 @@ type Audit struct {
 	Operator   string                     `json:"operator"`      // 操作人
 	Path       string                     `json:"path"`          // 操作路径
 	ObjectType model.ObjectType           `json:"resource_type"` // 资源类型
+	Event      string                     `json:"event"`         // 操作详情
 }
 
 type AuthType string
