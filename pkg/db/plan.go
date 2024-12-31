@@ -27,13 +27,14 @@ import (
 )
 
 type PlanInterface interface {
-	Create(ctx context.Context, object *model.Plan) (*model.Plan, error)
+	Create(ctx context.Context, object *model.Plan, opts ...CreatePlanOption) (*model.Plan, error)
 	Update(ctx context.Context, pid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, pid int64) (*model.Plan, error)
 	Get(ctx context.Context, pid int64) (*model.Plan, error)
 	List(ctx context.Context, opts ...Options) ([]model.Plan, error)
 
-	CreatNode(ctx context.Context, object *model.Node) (*model.Node, error)
+	CreateNode(ctx context.Context, object *model.Node) (*model.Node, error)
+	TxCreateNode(ctx context.Context, tx *gorm.DB, object *model.Node) error
 	UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
@@ -44,7 +45,8 @@ type PlanInterface interface {
 
 	DeleteNodesByNames(ctx context.Context, planId int64, names []string) error
 
-	CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error)
+	CreateConfig(ctx context.Context, object *model.Config) (*model.Config, error)
+	TxCreateConfig(ctx context.Context, tx *gorm.DB, object *model.Config) error
 	UpdateConfig(ctx context.Context, cfgId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteConfig(ctx context.Context, cfgId int64) (*model.Config, error)
 	GetConfig(ctx context.Context, cfgId int64) (*model.Config, error)
@@ -53,7 +55,7 @@ type PlanInterface interface {
 	DeleteConfigByPlan(ctx context.Context, planId int64) error
 	GetConfigByPlan(ctx context.Context, planId int64) (*model.Config, error)
 
-	CreatTask(ctx context.Context, object *model.Task) (*model.Task, error)
+	CreateTask(ctx context.Context, object *model.Task) (*model.Task, error)
 	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error)
 	DeleteTask(ctx context.Context, pid int64) error
 	ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error)
@@ -67,12 +69,34 @@ type plan struct {
 	db *gorm.DB
 }
 
-func (p *plan) Create(ctx context.Context, object *model.Plan) (*model.Plan, error) {
+type CreatePlanOption func(plan *model.Plan, tx *gorm.DB) (*gorm.DB, error)
+
+func (p *plan) Create(ctx context.Context, object *model.Plan, opts ...CreatePlanOption) (*model.Plan, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
 
-	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
+	if len(opts) == 0 {
+		// no transaction
+		if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
+			return nil, err
+		}
+		return object, nil
+	}
+
+	if err := p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) (err error) {
+		if err = tx.Create(object).Error; err != nil {
+			return
+		}
+
+		for _, opt := range opts {
+			if tx, err = opt(object, tx); err != nil {
+				return
+			}
+		}
+
+		return
+	}); err != nil {
 		return nil, err
 	}
 	return object, nil
@@ -129,7 +153,7 @@ func (p *plan) List(ctx context.Context, opts ...Options) ([]model.Plan, error) 
 	return objects, nil
 }
 
-func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, error) {
+func (p *plan) CreateNode(ctx context.Context, object *model.Node) (*model.Node, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -138,6 +162,15 @@ func (p *plan) CreatNode(ctx context.Context, object *model.Node) (*model.Node, 
 		return nil, err
 	}
 	return object, nil
+}
+
+// TxCreateNode creates a node object in the given transaction.
+func (p *plan) TxCreateNode(ctx context.Context, tx *gorm.DB, object *model.Node) error {
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	return tx.WithContext(ctx).Create(object).Error
 }
 
 func (p *plan) UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error {
@@ -215,7 +248,7 @@ func (p *plan) ListNodes(ctx context.Context, pid int64, opts ...Options) ([]mod
 	return objects, nil
 }
 
-func (p *plan) CreatConfig(ctx context.Context, object *model.Config) (*model.Config, error) {
+func (p *plan) CreateConfig(ctx context.Context, object *model.Config) (*model.Config, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -224,6 +257,15 @@ func (p *plan) CreatConfig(ctx context.Context, object *model.Config) (*model.Co
 		return nil, err
 	}
 	return object, nil
+}
+
+// TxCreateConfig creates a config object in the given transaction.
+func (p *plan) TxCreateConfig(ctx context.Context, tx *gorm.DB, object *model.Config) error {
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+
+	return tx.WithContext(ctx).Create(object).Error
 }
 
 func (p *plan) UpdateConfig(ctx context.Context, cid int64, resourceVersion int64, updates map[string]interface{}) error {
@@ -292,7 +334,7 @@ func (p *plan) GetConfigByPlan(ctx context.Context, planId int64) (*model.Config
 	return &object, nil
 }
 
-func (p *plan) CreatTask(ctx context.Context, object *model.Task) (*model.Task, error) {
+func (p *plan) CreateTask(ctx context.Context, object *model.Task) (*model.Task, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
