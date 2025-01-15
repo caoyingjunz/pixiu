@@ -62,13 +62,13 @@ worker:
 # 前端配置(ip 根据实际情况调整，如果是虚拟机，则配置成虚拟机的公网IP，安全组放通80和8090端口)
 vim /etc/pixiu/config.json
 {
-    "url": "http://192.168.16.156",
+    "url": "http://192.168.16.156:8090",
     "watchUrl": "http://192.168.16.156:8090"
 }
 ```
 # 启动 pixiu
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu-aio ccr.ccs.tencentyun.com/pixiucloud/pixiu-aio
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu
 登录效果
 浏览器登陆: http://192.168.16.156
 ```
