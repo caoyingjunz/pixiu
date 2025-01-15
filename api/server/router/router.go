@@ -17,6 +17,7 @@ limitations under the License.
 package router
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/static"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,9 @@ func InstallRouters(o *options.Options) {
 	}
 
 	install(o, fs...)
+
+	// StaticFiles 启用前端集成
+	o.HttpEngine.Use(static.Serve("/", static.LocalFile(o.ComponentConfig.Default.StaticFiles, true)))
 
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
