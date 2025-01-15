@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixi
 
 FROM node:16.18.0-alpine as dashboard-builder
 WORKDIR /build
-RUN apt-get install git
+RUN apk add git
 RUN git clone https://github.com/pixiu-io/dashboard.git
 RUN cd dashboard && npm install && npm run build
 
