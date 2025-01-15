@@ -34,7 +34,7 @@ jobs:
       - name: Login harbor
         uses: docker/login-action@v3
         with:
-          registry: harbor.cloud.pixiuio.com
+          registry: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
@@ -42,12 +42,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
           push: true
           tags: |
-            harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:latest
-            harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:v0.1
-            harbor.cloud.pixiuio.com/${{ secrets.HARBOR_PROJECT }}/pixiu:${{ env.COMMIT_HASH }}
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v1.0.1
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.COMMIT_HASH }}

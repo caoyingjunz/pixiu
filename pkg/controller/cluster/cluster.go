@@ -29,7 +29,6 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
-	"helm.sh/helm/v3/pkg/release"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -86,9 +85,6 @@ type Interface interface {
 	// ReRunJob 重新执行指定任务
 	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
 
-	// ListReleases 获取 tenant release 列表
-	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
-
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
@@ -98,10 +94,10 @@ type Interface interface {
 	Run(ctx context.Context, workers int) error
 }
 
-var clusterIndexer client.Cache
+var ClusterIndexer client.Cache
 
 func init() {
-	clusterIndexer = *client.NewClusterCache()
+	ClusterIndexer = *client.NewClusterCache()
 }
 
 type (
@@ -175,7 +171,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	// TODO: 暂时不做创建后动作
-	clusterIndexer.Set(req.Name, *cs)
+	ClusterIndexer.Set(req.Name, *cs)
 	return nil
 }
 
@@ -246,7 +242,7 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 	}
 
 	// 从缓存中移除 clusterSet
-	clusterIndexer.Delete(cluster.Name)
+	ClusterIndexer.Delete(cluster.Name)
 	return nil
 }
 
@@ -603,7 +599,7 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 
 // GetClusterSetByName 获取 ClusterSet， 缓存中不存在时，构建缓存再返回
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
-	cs, ok := clusterIndexer.Get(name)
+	cs, ok := ClusterIndexer.Get(name)
 	if ok {
 		klog.Infof("Get %s clusterSet from indexer", name)
 		return cs, nil
@@ -624,7 +620,7 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 	}
 
 	klog.Infof("set %s clusterSet into indexer", name)
-	clusterIndexer.Set(name, *newClusterSet)
+	ClusterIndexer.Set(name, *newClusterSet)
 	return *newClusterSet, nil
 }
 
