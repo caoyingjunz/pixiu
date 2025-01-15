@@ -48,6 +48,7 @@ const (
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = logutil.LogFormatJson
 	defaultWorkDir    = "/etc/pixiu"
+	defaultStaticDir  = "/static"
 
 	defaultSlowSQLDuration = 1 * time.Second
 
@@ -113,6 +114,9 @@ func (o *Options) Complete() error {
 	}
 	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
+	}
+	if len(o.ComponentConfig.Default.StaticFiles) == 0 {
+		o.ComponentConfig.Default.StaticFiles = defaultStaticDir
 	}
 	if o.ComponentConfig.Audit.Schedule == "" {
 		o.ComponentConfig.Audit.Schedule = jobmanager.DefaultSchedule

@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Pixiu Authors.
+Copyright 2025 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,6 +26,10 @@ import (
 type ServeFileSystem interface {
 	http.FileSystem
 	Exists(prefix string, path string) bool
+}
+
+func ServeRoot(urlPrefix, root string) gin.HandlerFunc {
+	return Serve(urlPrefix, LocalFile(root, false))
 }
 
 // Serve returns a middleware handler that serves static files in the given directory.
