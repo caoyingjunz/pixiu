@@ -37,7 +37,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile-toolbox
           platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
