@@ -48,6 +48,8 @@ type DefaultOptions struct {
 	AutoMigrate bool `yaml:"auto_migrate"`
 
 	logutil.LogOptions `yaml:",inline"`
+
+	StaticFiles string `yaml:"static_files"`
 }
 
 func (o DefaultOptions) Valid() error {

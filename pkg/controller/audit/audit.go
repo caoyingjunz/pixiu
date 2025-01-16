@@ -56,7 +56,6 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 
 func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
 	var ts []types.Audit
-
 	// 获取对象总数量
 	total, err := a.factory.Audit().Count(ctx)
 	if err != nil {
