@@ -187,7 +187,7 @@ func (p GroupBinding) GetGroupName() string {
 // AdminPolicy is the specific policy for admin/root user.
 var AdminPolicy = NewGroupPolicy(AdminGroup, ObjectAll, SidAll, OpAll)
 
-// IsAdminPolicy returns true if the policy is the ad             min policy.
+// IsAdminPolicy returns true if the policy is the admin policy.
 func IsAdminPolicy(policy Policy) bool {
 	switch p := policy.(type) {
 	case GroupPolicy:

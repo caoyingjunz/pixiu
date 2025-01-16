@@ -278,7 +278,6 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 		}
 		eventOpt struct {
 			types.EventOptions `json:",inline"`
-			types.ListOptions  `json:",inline"`
 		}
 		err error
 	)

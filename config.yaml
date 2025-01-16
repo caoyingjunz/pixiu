@@ -15,7 +15,7 @@ default:
 
 # 数据库地址信息
 mysql:
-  host: 124.222.40.110
+  host: peng
   user: root
   password: Pixiu868686
   port: 3306

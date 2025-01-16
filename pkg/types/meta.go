@@ -406,7 +406,6 @@ func (l *ListOptions) IsDesc() bool {
 	if l.Keyword == "" {
 		return false
 	}
-
 	if l.Keyword != "asc" {
 		return true
 	}
