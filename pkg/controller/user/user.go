@@ -53,12 +53,10 @@ type Interface interface {
 	Update(ctx context.Context, userId int64, req *types.UpdateUserRequest) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
-	List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error)
+	List(ctx context.Context, listOptions types.ListOptions) (interface{}, error)
 
 	// UpdatePassword 用户修改密码或者管理员重置密码
 	UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error
-	// GetCount 仅获取用户数量
-	GetCount(ctx context.Context, opts types.ListOptions) (int64, error)
 	// GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存
 	GetStatus(ctx context.Context, uid int64) (int, error)
 
@@ -224,13 +222,16 @@ func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
 	return model2Type(object), nil
 }
 
-func (u *user) List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error) {
+func (u *user) List(ctx context.Context, listOptions types.ListOptions) (interface{}, error) {
 	var users []types.User
 
 	total, err := u.factory.User().Count(ctx)
 	if err != nil {
 		klog.Errorf("failed to get user count: %v", err)
 		return nil, err
+	}
+	if total == 0 {
+		return types.PageResponse{}, nil
 	}
 
 	objects, err := u.factory.User().List(ctx, listOptions.BuildPageNation()...)
@@ -243,21 +244,11 @@ func (u *user) List(ctx context.Context, listOptions *types.ListOptions) (*types
 		users = append(users, *model2Type(&object))
 	}
 
-	return &types.PageResponse{
+	return types.PageResponse{
 		Total:       int(total),
 		Items:       users,
 		PageRequest: listOptions.PageRequest,
 	}, nil
-}
-
-func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, error) {
-	userCount, err := u.factory.User().Count(ctx)
-	if err != nil {
-		klog.Errorf("failed to get user counts: %v", err)
-		return 0, errors.ErrServerInternal
-	}
-
-	return userCount, nil
 }
 
 // GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存

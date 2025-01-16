@@ -111,4 +111,8 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.PolicyNotExistError,
 	}
+	ErrPlanNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrPlanNotFound,
+	}
 )

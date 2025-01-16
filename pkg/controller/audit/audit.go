@@ -64,14 +64,14 @@ func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interfa
 		return nil, err
 	}
 	if total == 0 {
-		return &types.PageResponse{}, nil
+		return types.PageResponse{}, nil
 	}
 
 	// 获取偏移列表
 	objects, err := a.factory.Audit().List(ctx, listOption.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get audit events: %v", err)
-		return nil, err
+		return nil, errors.ErrServerInternal
 	}
 
 	for _, object := range objects {

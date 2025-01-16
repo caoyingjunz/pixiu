@@ -34,7 +34,7 @@ func (cr *clusterRouter) ListReleases(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().ListReleases(c, helmMeta.Cluster, helmMeta.Namespace, &listOptions); err != nil {
+	if r.Result, err = cr.c.Cluster().ListReleases(c, helmMeta.Cluster, helmMeta.Namespace); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

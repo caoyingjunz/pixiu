@@ -20,12 +20,11 @@ import (
 	"context"
 
 	helmclient "github.com/mittwald/go-helm-client"
+	"helm.sh/helm/v3/pkg/release"
 	"k8s.io/klog/v2"
-
-	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace string, listOptions *types.ListOptions) (*types.PageResponse, error) {
+func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error) {
 	helmClient, err := c.buildHelmClient(ctx, cluster, namespace)
 	if err != nil {
 		klog.Errorf("failed to build helm client: %v", err)
@@ -37,12 +36,7 @@ func (c *cluster) ListReleases(ctx context.Context, cluster string, namespace st
 		klog.Errorf("failed to list helm release: %v", err)
 		return nil, err
 	}
-
-	return &types.PageResponse{
-		Total:       len(releases),
-		Items:       c.helmForPage(releases, &listOptions.PageRequest),
-		PageRequest: listOptions.PageRequest,
-	}, nil
+	return releases, nil
 }
 
 func (c *cluster) buildHelmClient(ctx context.Context, cluster string, namespace string) (helmclient.Client, error) {

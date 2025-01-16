@@ -256,9 +256,6 @@ type Turn struct {
 
 // ListOptions is the query options to a standard REST list call.
 type ListOptions struct {
-	Count bool `form:"count"`
-	//Limit int64 `form:"limit"`
-
 	PageRequest `json:",inline"` // 分页请求属性
 	QueryOption `json:",inline"` // 搜索内容
 }

@@ -37,7 +37,7 @@ type Interface interface {
 	Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error
 	Delete(ctx context.Context, tid int64) error
 	Get(ctx context.Context, tid int64) (*types.Tenant, error)
-	List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error)
+	List(ctx context.Context, listOptions types.ListOptions) (interface{}, error)
 }
 
 type tenant struct {
@@ -118,7 +118,7 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*types.Tenant, error) {
 	return t.model2Type(object), nil
 }
 
-func (t *tenant) List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error) {
+func (t *tenant) List(ctx context.Context, listOptions types.ListOptions) (interface{}, error) {
 	var ts []types.Tenant
 
 	total, err := t.factory.Tenant().Count(ctx)
@@ -127,7 +127,7 @@ func (t *tenant) List(ctx context.Context, listOptions *types.ListOptions) (*typ
 		return nil, err
 	}
 	if total == 0 {
-		return &types.PageResponse{}, nil
+		return types.PageResponse{}, nil
 	}
 
 	objects, err := t.factory.Tenant().List(ctx, listOptions.BuildPageNation()...)
@@ -140,7 +140,7 @@ func (t *tenant) List(ctx context.Context, listOptions *types.ListOptions) (*typ
 		ts = append(ts, *t.model2Type(&object))
 	}
 
-	return &types.PageResponse{
+	return types.PageResponse{
 		Total:       int(total),
 		Items:       ts,
 		PageRequest: listOptions.PageRequest,

@@ -83,12 +83,12 @@ func (c *cluster) forSorted(objects []metav1.Object, namespace string) []metav1.
 	return objects
 }
 
-func (c *cluster) listObjects(objects []metav1.Object, namespace string, listOption types.ListOptions) (*types.PageResponse, error) {
+func (c *cluster) listObjects(objects []metav1.Object, namespace string, listOption types.ListOptions) (types.PageResponse, error) {
 	objects = c.forQuery(objects, listOption.QueryOption)
 	objects = c.forSorted(objects, namespace)
-	return &types.PageResponse{
+	return types.PageResponse{
+		PageRequest: listOption.PageRequest,
 		Total:       len(objects),
 		Items:       c.forPage(objects, listOption.PageRequest),
-		PageRequest: listOption.PageRequest,
 	}, nil
 }

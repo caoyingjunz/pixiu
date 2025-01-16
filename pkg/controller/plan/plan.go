@@ -43,8 +43,9 @@ type Interface interface {
 	Update(ctx context.Context, planID int64, req *types.UpdatePlanRequest) error
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
-	List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error)
+	List(ctx context.Context, listOptions types.ListOptions) (interface{}, error)
 
+	ListAllPlans(ctx context.Context) ([]types.Plan, error)
 	// SyncPlanTaskStatus 进程启动时，同步任务状态
 	SyncPlanTaskStatus(ctx context.Context) error
 	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
@@ -58,7 +59,8 @@ type Interface interface {
 	UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error
 	DeleteNode(ctx context.Context, pid int64, nodeId int64) error
 	GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error)
-	ListNodes(ctx context.Context, pid int64, listOptions *types.ListOptions) (*types.PageResponse, error)
+	ListNodes(ctx context.Context, pid int64, listOptions types.ListOptions) (interface{}, error)
+	ListAllNodes(ctx context.Context, pid int64) ([]types.PlanNode, error)
 
 	CreateConfig(ctx context.Context, planId int64, req *types.CreatePlanConfigRequest) error
 	UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error
@@ -69,7 +71,7 @@ type Interface interface {
 	Run(ctx context.Context, workers int) error
 
 	RunTask(ctx context.Context, planId int64, taskId int64) error
-	ListTasks(ctx context.Context, planId int64, listOptions *types.ListOptions) (*types.PageResponse, error)
+	ListTasks(ctx context.Context, planId int64, listOptions *types.ListOptions) (interface{}, error)
 	WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request)
 	WatchTaskLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error
 }
@@ -249,30 +251,15 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 	result.Config = *cfg
 
 	// 追加节点
-	pageResp, err := p.ListNodes(ctx, planId, nil)
+	result.Nodes, err = p.ListAllNodes(ctx, planId)
 	if err != nil {
-		return nil, errors.ErrServerInternal
+		return nil, err
 	}
-
-	nodes, ok := pageResp.Items.([]types.PlanNode)
-	if !ok {
-		return nil, nil
-	}
-	result.Nodes = nodes
-
 	return result, nil
 }
 
-func (p *plan) List(ctx context.Context, listOptions *types.ListOptions) (*types.PageResponse, error) {
-	var (
-		ps   []types.Plan
-		opts []db.Options
-	)
-	if listOptions == nil {
-		listOptions = &types.ListOptions{}
-	} else {
-		opts = listOptions.BuildPageNation()
-	}
+func (p *plan) List(ctx context.Context, listOptions types.ListOptions) (interface{}, error) {
+	var ps []types.Plan
 
 	total, err := p.factory.Plan().Count(ctx)
 	if err != nil {
@@ -280,10 +267,10 @@ func (p *plan) List(ctx context.Context, listOptions *types.ListOptions) (*types
 		return nil, err
 	}
 	if total == 0 {
-		return &types.PageResponse{}, nil
+		return types.PageResponse{}, nil
 	}
 
-	objects, err := p.factory.Plan().List(ctx, opts...)
+	objects, err := p.factory.Plan().List(ctx, listOptions.BuildPageNation()...)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
 		return nil, err
@@ -294,26 +281,39 @@ func (p *plan) List(ctx context.Context, listOptions *types.ListOptions) (*types
 		if err != nil {
 			return nil, err
 		}
+
 		ps = append(ps, *no)
 	}
 
-	return &types.PageResponse{
+	return types.PageResponse{
 		Total:       int(total),
 		Items:       ps,
 		PageRequest: listOptions.PageRequest,
 	}, nil
 }
 
-func (p *plan) SyncTaskStatus(ctx context.Context) error {
-	pageResp, err := p.List(ctx, nil)
+func (p *plan) ListAllPlans(ctx context.Context) ([]types.Plan, error) {
+	objects, err := p.factory.Plan().List(ctx)
 	if err != nil {
-		return err
+		klog.Errorf("failed to get plans: %v", err)
+		return nil, errors.ErrServerInternal
 	}
 
-	plans, ok := pageResp.Items.([]types.Plan)
-	if !ok {
-		// Items 为空指针也就是 list 查询是空的时候断言失败，直接返回
-		return nil
+	var ps []types.Plan
+	for _, object := range objects {
+		no, err := p.model2Type(&object)
+		if err != nil {
+			return nil, err
+		}
+		ps = append(ps, *no)
+	}
+	return ps, nil
+}
+
+func (p *plan) SyncTaskStatus(ctx context.Context) error {
+	plans, err := p.ListAllPlans(ctx)
+	if err != nil {
+		return err
 	}
 
 	var wg sync.WaitGroup
@@ -339,28 +339,22 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 }
 
 func (p *plan) SyncPlanTaskStatus(ctx context.Context) error {
-	pageResp, err := p.List(ctx, nil)
+	plans, err := p.ListAllPlans(ctx)
 	if err != nil {
 		return err
 	}
 
 	var wg sync.WaitGroup
-	planList, ok := pageResp.Items.([]types.Plan)
-	if !ok {
-		return nil
-	}
-	errChan := make(chan error, len(planList))
-
-	for _, plan := range planList {
+	errChan := make(chan error, len(plans))
+	for _, planP := range plans {
 		wg.Add(1)
 		go func(planId int64) {
 			defer wg.Done()
-			if err := p.syncStatus(ctx, planId); err != nil {
+			if err = p.syncStatus(ctx, planId); err != nil {
 				errChan <- err
 			}
-		}(plan.Id)
+		}(planP.Id)
 	}
-
 	wg.Wait()
 
 	select {
@@ -386,15 +380,11 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	// TODO: 根据具体情况对参数
 
 	// 2. 校验节点
-	pageResp, err := p.ListNodes(ctx, pid, nil)
+	nodes, err := p.ListAllNodes(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("failed to get plan(%d) nodes %v", pid, err)
 	}
 
-	nodes, ok := pageResp.Items.([]types.PlanNode)
-	if !ok {
-		return nil
-	}
 	if len(nodes) == 0 {
 		return fmt.Errorf("部署计划暂无关联节点")
 	}

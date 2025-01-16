@@ -145,16 +145,15 @@ func (c *cluster) Count(ctx context.Context, opts ...Options) (int64, error) {
 }
 
 func (c *cluster) List(ctx context.Context, opts ...Options) ([]model.Cluster, error) {
-	var cs []model.Cluster
-
 	tx := c.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
+
+	var cs []model.Cluster
 	if err := tx.Find(&cs).Error; err != nil {
 		return nil, err
 	}
-
 	return cs, nil
 }
 

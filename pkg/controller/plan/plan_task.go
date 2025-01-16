@@ -38,16 +38,15 @@ func (p *plan) RunTask(ctx context.Context, planId int64, taskId int64) error {
 	return nil
 }
 
-func (p *plan) ListTasks(ctx context.Context, planId int64, listOptions *types.ListOptions) (*types.PageResponse, error) {
+func (p *plan) ListTasks(ctx context.Context, planId int64, listOptions *types.ListOptions) (interface{}, error) {
 	var tasks []types.PlanTask
-
 	total, err := p.factory.Plan().TaskCount(ctx, planId)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) task count: %v", planId, err)
 		return nil, err
 	}
 	if total == 0 {
-		return &types.PageResponse{}, nil
+		return types.PageResponse{}, nil
 	}
 
 	objects, err := p.factory.Plan().ListTasks(ctx, planId, listOptions.BuildPageNation()...)
@@ -60,7 +59,7 @@ func (p *plan) ListTasks(ctx context.Context, planId int64, listOptions *types.L
 		tasks = append(tasks, *p.modelTask2Type(&object))
 	}
 
-	return &types.PageResponse{
+	return types.PageResponse{
 		Total:       int(total),
 		Items:       tasks,
 		PageRequest: listOptions.PageRequest,

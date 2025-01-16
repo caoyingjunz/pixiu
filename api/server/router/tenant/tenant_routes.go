@@ -116,7 +116,7 @@ func (t *tenantRouter) listTenants(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = t.c.Tenant().List(c, &listOptions); err != nil {
+	if r.Result, err = t.c.Tenant().List(c, listOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

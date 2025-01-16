@@ -38,6 +38,7 @@ var (
 	ErrTenantNotFound     = errors.New("租户不存在")
 	ErrDuplicatedPassword = errors.New("新密码与旧密码相同")
 	ErrAuditNotFound      = errors.New("审计记录不存在")
+	ErrPlanNotFound       = errors.New("计划不存在")
 
 	ErrContainerNotFound = errors.New("容器不存在")
 

@@ -77,18 +77,16 @@ func (cr *clusterRouter) updateCluster(c *gin.Context) {
 	var (
 		idMeta IdMeta
 		err    error
+		req    types.UpdateClusterRequest
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	var req types.UpdateClusterRequest
 	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	if err = cr.c.Cluster().Update(c, idMeta.ClusterId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -181,14 +179,14 @@ func (cr *clusterRouter) listClusters(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		err         error
-		listOptions types.ListOptions
+		listOption types.ListOptions // 分页设置
+		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOptions); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().List(c, &listOptions); err != nil {
+	if r.Result, err = cr.c.Cluster().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -288,7 +286,7 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt.EventOptions, &eventOpt.ListOptions); err != nil {
+	if r.Result, err = cr.c.Cluster().GetEventList(c, opts.Cluster, eventOpt.EventOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

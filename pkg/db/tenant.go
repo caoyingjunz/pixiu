@@ -32,7 +32,7 @@ type TenantInterface interface {
 	Delete(ctx context.Context, cid int64) (*model.Tenant, error)
 	Get(ctx context.Context, cid int64) (*model.Tenant, error)
 	List(ctx context.Context, opts ...Options) ([]model.Tenant, error)
-	Count(ctx context.Context) (int64, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
 
 	GetTenantByName(ctx context.Context, name string) (*model.Tenant, error)
 }
@@ -96,13 +96,15 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*model.Tenant, error) {
 	return &object, nil
 }
 
-func (t *tenant) Count(ctx context.Context) (int64, error) {
-	var total int64
-	if err := t.db.WithContext(ctx).Model(&model.Tenant{}).Count(&total).Error; err != nil {
-		return 0, err
+func (t *tenant) Count(ctx context.Context, opts ...Options) (int64, error) {
+	tx := t.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
 	}
 
-	return total, nil
+	var total int64
+	err := t.db.WithContext(ctx).Model(&model.Tenant{}).Count(&total).Error
+	return total, err
 }
 
 func (t *tenant) List(ctx context.Context, opts ...Options) ([]model.Tenant, error) {

@@ -147,11 +147,10 @@ type (
 	}
 
 	ListRBACPolicyRequest struct {
-		UserId       int64             `form:"user_id" binding:"required"`
-		ObjectType   *model.ObjectType `form:"object_type" binding:"omitempty,required_with=UserId,rbac_object"`
-		SID          *string           `form:"sid" binding:"omitempty,required_with=ObjectType,rbac_sid"`
-		Operation    *model.Operation  `form:"operation" binding:"omitempty,required_with=SID,rbac_operation"`
-		*PageRequest `json:",inline"`
+		UserId     int64             `form:"user_id" binding:"required"`
+		ObjectType *model.ObjectType `form:"object_type" binding:"omitempty,required_with=UserId,rbac_object"`
+		SID        *string           `form:"sid" binding:"omitempty,required_with=ObjectType,rbac_sid"`
+		Operation  *model.Operation  `form:"operation" binding:"omitempty,required_with=SID,rbac_operation"`
 	}
 
 	GroupBindingRequest struct {
@@ -160,16 +159,15 @@ type (
 	}
 
 	ListGroupBindingRequest struct {
-		UserId       *int64  `form:"user_id" binding:"omitempty"`
-		GroupName    *string `form:"group_name" binding:"omitempty"`
-		*PageRequest `json:",inline"`
+		UserId    *int64  `form:"user_id" binding:"omitempty"`
+		GroupName *string `form:"group_name" binding:"omitempty"`
 	}
 
 	// PageRequest 分页配置
 	PageRequest struct {
-		Page    int    `form:"page" json:"page" binding:"required"`   // 页数，表示第几页
-		Limit   int    `form:"limit" json:"limit" binding:"required"` // 每页数量
-		Keyword string `form:"keyword" json:"keyword"`                // 排序 升序 asc，降序 desc，默认desc
+		Page    int    `form:"page" json:"page"`       // 页数，表示第几页
+		Limit   int    `form:"limit" json:"limit"`     // 每页数量
+		Keyword string `form:"keyword" json:"keyword"` // 排序 升序 asc，降序 desc，默认desc
 	}
 	// QueryOption 搜索配置
 	QueryOption struct {

@@ -219,11 +219,8 @@ func (u *userRouter) listUsers(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if opts.Count {
-		r.Result, err = u.c.User().GetCount(c, opts)
-	} else {
-		r.Result, err = u.c.User().List(c, &opts)
-	}
+
+	r.Result, err = u.c.User().List(c, opts)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

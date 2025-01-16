@@ -119,7 +119,7 @@ func (t *planRouter) listPlanNodes(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = t.c.Plan().ListNodes(c, opt.PlanId, &listOptions); err != nil {
+	if r.Result, err = t.c.Plan().ListNodes(c, opt.PlanId, listOptions); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

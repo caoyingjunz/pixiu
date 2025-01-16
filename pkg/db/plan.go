@@ -32,14 +32,14 @@ type PlanInterface interface {
 	Delete(ctx context.Context, pid int64) (*model.Plan, error)
 	Get(ctx context.Context, pid int64) (*model.Plan, error)
 	List(ctx context.Context, opts ...Options) ([]model.Plan, error)
-	Count(ctx context.Context) (int64, error)
+	Count(ctx context.Context, options ...Options) (int64, error)
 
 	CreatNode(ctx context.Context, object *model.Node) (*model.Node, error)
 	UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, error)
-	NodeCount(ctx context.Context, planId int64) (int64, error)
+	NodeCount(ctx context.Context, planId int64, opts ...Options) (int64, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
 	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
@@ -59,7 +59,7 @@ type PlanInterface interface {
 	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error)
 	DeleteTask(ctx context.Context, pid int64) error
 	ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error)
-	TaskCount(ctx context.Context, planId int64) (int64, error)
+	TaskCount(ctx context.Context, planId int64, opts ...Options) (int64, error)
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error)
@@ -119,21 +119,24 @@ func (p *plan) Get(ctx context.Context, pid int64) (*model.Plan, error) {
 	return &object, nil
 }
 
-func (p *plan) Count(ctx context.Context) (int64, error) {
-	var total int64
-	if err := p.db.WithContext(ctx).Model(&model.Plan{}).Count(&total).Error; err != nil {
-		return 0, err
+func (p *plan) Count(ctx context.Context, options ...Options) (int64, error) {
+	tx := p.db.WithContext(ctx)
+	for _, opt := range options {
+		tx = opt(tx)
 	}
 
-	return total, nil
+	var total int64
+	err := tx.Model(&model.Plan{}).Count(&total).Error
+	return total, err
 }
 
 func (p *plan) List(ctx context.Context, opts ...Options) ([]model.Plan, error) {
-	var objects []model.Plan
 	tx := p.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
+
+	var objects []model.Plan
 	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
@@ -214,22 +217,24 @@ func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
 	return &object, nil
 }
 
-func (p *plan) NodeCount(ctx context.Context, planId int64) (int64, error) {
-	var total int64
-	if err := p.db.WithContext(ctx).Model(&model.Node{}).Where("plan_id = ?", planId).Count(&total).Error; err != nil {
-		return 0, err
+func (p *plan) NodeCount(ctx context.Context, planId int64, opts ...Options) (int64, error) {
+	tx := p.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
 	}
 
-	return total, nil
+	var total int64
+	err := tx.Model(&model.Node{}).Where("plan_id = ?", planId).Count(&total).Error
+	return total, err
 }
 
 func (p *plan) ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, error) {
-	var objects []model.Node
-
 	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
+
+	var objects []model.Node
 	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
@@ -345,18 +350,19 @@ func (p *plan) DeleteTask(ctx context.Context, pid int64) error {
 	return nil
 }
 
-func (p *plan) TaskCount(ctx context.Context, planId int64) (int64, error) {
-	var total int64
-	if err := p.db.WithContext(ctx).Model(&model.Task{}).Where("plan_id = ?", planId).Count(&total).Error; err != nil {
-		return 0, err
+func (p *plan) TaskCount(ctx context.Context, planId int64, opts ...Options) (int64, error) {
+	tx := p.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
 	}
 
-	return total, nil
+	var total int64
+	err := tx.Model(&model.Task{}).Where("plan_id = ?", planId).Count(&total).Error
+	return total, err
 }
 
 func (p *plan) ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error) {
 	var objects []model.Task
-
 	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
 	for _, opt := range opts {
 		tx = opt(tx)
