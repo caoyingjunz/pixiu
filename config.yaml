@@ -13,6 +13,10 @@ default:
   # 静态文件路径
   static_files: /static
 
+# 配置前端请求地址
+dashboard:
+  url: http://localhost:8080
+
 #tls:
 #  cert_file: test.pem
 #  key_file: test.key
