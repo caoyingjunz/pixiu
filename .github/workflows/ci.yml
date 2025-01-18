@@ -3,10 +3,10 @@ name: CI
 on:
   push:
     branches:
-      - stable/tiger
+      - stable/rat
   pull_request:
     branches:
-      - stable/tiger
+      - stable/rat
 
 env:
   GO_VERSION: '1.17.5'

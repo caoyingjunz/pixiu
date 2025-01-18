@@ -3,12 +3,12 @@ name: Publish pixiu image
 on:
   push:
     branches:
-      - stable/tiger
+      - stable/rat
     paths-ignore:
       - 'docs/**'
   pull_request:
     branches:
-      - stable/tiger
+      - stable/rat
 
 jobs:
   build:
