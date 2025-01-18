@@ -65,7 +65,7 @@ worker:
 ```
 # 启动 pixiu
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu:v0.0.1
 登录效果
 浏览器登陆: http://192.168.16.156
 ```
