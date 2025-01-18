@@ -34,6 +34,10 @@ default:
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
 
+# 前端配置(ip 根据实际情况调整，如果是虚拟机，则配置成虚拟机的公网IP，安全组放通80(http)或者443(https)端口)
+dashboard:
+  url: http://localhost:8080
+
 # 数据库地址信息, 根据实际情况配置
 mysql:
   host: pixiu # 数据库的ip
@@ -58,17 +62,10 @@ worker:
         - rocky9.2
         - rocky9.3
         - openEuler22.03
-
-# 前端配置(ip 根据实际情况调整，如果是虚拟机，则配置成虚拟机的公网IP，安全组放通80和8090端口)
-vim /etc/pixiu/config.json
-{
-    "url": "http://192.168.16.156",
-    "watchUrl": "http://192.168.16.156:8090"
-}
 ```
 # 启动 pixiu
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu-aio ccr.ccs.tencentyun.com/pixiucloud/pixiu-aio
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu
 登录效果
 浏览器登陆: http://192.168.16.156
 ```

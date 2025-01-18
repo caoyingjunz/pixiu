@@ -17,6 +17,7 @@ limitations under the License.
 package router
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/static"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
+	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
@@ -44,6 +46,7 @@ func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
 		middleware.InstallMiddlewares,
 		cluster.NewRouter,
+		helm.NewRouter,
 		proxy.NewRouter,
 		tenant.NewRouter,
 		user.NewRouter,
@@ -53,6 +56,9 @@ func InstallRouters(o *options.Options) {
 	}
 
 	install(o, fs...)
+
+	// StaticFiles 启用前端集成
+	o.HttpEngine.Use(static.Serve("/", static.LocalFile(o.ComponentConfig.Default.StaticFiles, true)))
 
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
