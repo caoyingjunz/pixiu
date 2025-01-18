@@ -3,9 +3,12 @@ name: Publish pixiu image
 on:
   push:
     branches:
-      - "master"
+      - stable/tiger
     paths-ignore:
       - 'docs/**'
+  pull_request:
+    branches:
+      - stable/tiger
 
 jobs:
   build:
