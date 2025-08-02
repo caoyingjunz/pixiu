@@ -35,8 +35,9 @@ default:
   auto_migrate: true
 
 # 前端配置(ip 根据实际情况调整，如果是虚拟机，则配置成虚拟机的公网IP，安全组放通80(http)或者443(https)端口)
+# 前端的端口需要和后端监听端口保持一致
 dashboard:
-  url: http://localhost:8080
+  url: http://localhost:8090
 
 # 数据库地址信息, 根据实际情况配置
 mysql:
