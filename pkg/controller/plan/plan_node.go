@@ -133,7 +133,7 @@ func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePl
 		klog.Errorf("failed to build plan(%d) node from request: %v", planId, err)
 		return err
 	}
-	if _, err = p.factory.Plan().CreatNode(ctx, node); err != nil {
+	if _, err = p.factory.Plan().CreateNode(ctx, node); err != nil {
 		klog.Errorf("failed to create node(%s): %v", req.Name, err)
 		return err
 	}
@@ -188,7 +188,7 @@ func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error
 		}
 		// 不存在则创建
 		klog.Infof("plan(%d) node(%s) not exist, try to create it.", object.PlanId, object.Name)
-		_, err = p.factory.Plan().CreatNode(ctx, object)
+		_, err = p.factory.Plan().CreateNode(ctx, object)
 		if err != nil {
 			return err
 		}

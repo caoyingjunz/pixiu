@@ -48,7 +48,7 @@ func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePla
 	}
 	planConfig.PlanId = pid
 	// 创建配置
-	if _, err = p.factory.Plan().CreatConfig(ctx, planConfig); err != nil {
+	if _, err = p.factory.Plan().CreateConfig(ctx, planConfig); err != nil {
 		klog.Errorf("failed to create plan(%s) config: %v", pid, err)
 		return err
 	}
