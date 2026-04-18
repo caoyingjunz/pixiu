@@ -174,6 +174,13 @@ type (
 		NameSelector  string `form:"nameSelector" json:"nameSelector"`   // 名称搜索
 	}
 
+	// ListClusterRequest 集群列表查询参数
+	ListClusterRequest struct {
+		PageRequest `form:",inline"`
+		QueryOption `form:",inline"`
+		Status      *int `form:"status" json:"status"` // 集群状态过滤，不传则不过滤
+	}
+
 	// WebSSHRequest 主机 ssh 跳转请求
 	WebSSHRequest struct {
 		Host     string `form:"host" json:"host" binding:"required"`
