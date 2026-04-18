@@ -167,21 +167,30 @@ func (cr *clusterRouter) getCluster(c *gin.Context) {
 // ListClusters godoc
 //
 //	@Summary      List clusters
-//	@Description  List clusters
+//	@Description  List clusters with pagination and filter
 //	@Tags         Clusters
 //	@Accept       json
 //	@Produce      json
-//	@Success      200  {array}   httputils.Response{result=[]types.Cluster}
+//	@Param        page          query     int     false  "Page number (1-based)"
+//	@Param        limit         query     int     false  "Page size"
+//	@Param        nameSelector  query     string  false  "Fuzzy match on alias_name"
+//	@Param        status        query     int     false  "Cluster status (0-4)"
+//	@Success      200  {object}  httputils.Response{result=types.PageResponse}
 //	@Failure      400  {object}  httputils.Response
-//	@Failure      404  {object}  httputils.Response
 //	@Failure      500  {object}  httputils.Response
 //	@Router       /pixiu/clusters [get]
 //	@Security     Bearer
 func (cr *clusterRouter) listClusters(c *gin.Context) {
 	r := httputils.NewResponse()
 
+	var req types.ListClusterRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
 	var err error
-	if r.Result, err = cr.c.Cluster().List(c); err != nil {
+	if r.Result, err = cr.c.Cluster().List(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

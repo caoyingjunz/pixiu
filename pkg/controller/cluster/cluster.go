@@ -62,7 +62,7 @@ type Interface interface {
 	Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
-	List(ctx context.Context) ([]types.Cluster, error)
+	List(ctx context.Context, req *types.ListClusterRequest) (*types.PageResponse, error)
 
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
@@ -258,8 +258,29 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	return c.model2Type(object), nil
 }
 
-func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
+func (c *cluster) List(ctx context.Context, req *types.ListClusterRequest) (*types.PageResponse, error) {
 	opts := ctrlutil.MakeDbOptions(ctx)
+
+	if req != nil && req.NameSelector != "" {
+		opts = append(opts, db.WithAliasNameLike(req.NameSelector))
+	}
+	if req != nil && req.Status != nil {
+		opts = append(opts, db.WithClusterStatus(*req.Status))
+	}
+
+	total, err := c.factory.Cluster().Count(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	pageReq := types.PageRequest{}
+	if req != nil {
+		pageReq = req.PageRequest
+		if req.Page > 0 && req.Limit > 0 {
+			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
+		}
+	}
+
 	objects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -270,7 +291,11 @@ func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
 		cs[i] = *c.model2Type(&object)
 	}
 
-	return cs, nil
+	return &types.PageResponse{
+		PageRequest: pageReq,
+		Total:       int(total),
+		Items:       cs,
+	}, nil
 }
 
 // Ping 检查和 k8s 集群的连通性

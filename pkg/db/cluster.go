@@ -32,6 +32,7 @@ type ClusterInterface interface {
 	Delete(ctx context.Context, cluster *model.Cluster, fns ...func(*model.Cluster) error) error
 	Get(ctx context.Context, cid int64, opts ...Options) (*model.Cluster, error)
 	List(ctx context.Context, opts ...Options) ([]model.Cluster, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
 
 	// InternalUpdate 内部更新，不更新版本号
 	InternalUpdate(ctx context.Context, cid int64, updates map[string]interface{}) error
@@ -143,6 +144,18 @@ func (c *cluster) List(ctx context.Context, opts ...Options) ([]model.Cluster, e
 	}
 
 	return cs, nil
+}
+
+func (c *cluster) Count(ctx context.Context, opts ...Options) (int64, error) {
+	var total int64
+	tx := c.db.WithContext(ctx).Model(&model.Cluster{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
 }
 
 func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {

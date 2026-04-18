@@ -64,3 +64,18 @@ func WithIDIn(ids ...int64) Options {
 		return tx.Where("id IN ?", ids)
 	}
 }
+
+func WithAliasNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("alias_name like ?", "%"+name+"%")
+	}
+}
+
+func WithClusterStatus(status int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
