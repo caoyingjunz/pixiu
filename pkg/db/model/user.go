@@ -40,6 +40,7 @@ type User struct {
 	Status      UserStatus `gorm:"type:tinyint" json:"status"`
 	Role        UserRole   `gorm:"type:tinyint" json:"role"`
 	Email       string     `gorm:"type:varchar(128)" json:"email"`
+	Phone       string     `gorm:"column:phone;type:varchar(32)" json:"phone"`
 	Description string     `gorm:"type:text" json:"description"`
 	Extension   string     `gorm:"type:text" json:"extension,omitempty"`
 }

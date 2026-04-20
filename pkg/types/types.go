@@ -109,6 +109,7 @@ type User struct {
 	Status      model.UserStatus `json:"status"`                               // 用户状态标识
 	Role        model.UserRole   `json:"role"`                                 // 用户角色，目前只实现管理员，0: 普通用户 1: 管理员 2: 超级管理员
 	Email       string           `json:"email"`                                // 用户注册邮件
+	Phone       string           `json:"phone"`                                // 用户手机号
 	Description string           `json:"description"`                          // 用户描述信息
 
 	TimeMeta `json:",inline"`
