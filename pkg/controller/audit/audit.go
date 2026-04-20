@@ -62,8 +62,22 @@ func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interfa
 		return nil, err
 	}
 
-	// 获取偏移列表
-	objects, err := a.factory.Audit().List(ctx, db.WithOffset(listOption.Page-1), db.WithLimit(int(listOption.Limit)), db.WithOrderByDesc())
+	// 获取偏移列表（页码从 1 开始）
+	page := listOption.Page
+	if page <= 0 {
+		page = 1
+	}
+	limit := int(listOption.Limit)
+	if limit <= 0 {
+		limit = 20
+	}
+
+	objects, err := a.factory.Audit().List(
+		ctx,
+		db.WithOffset((page-1)*limit),
+		db.WithLimit(limit),
+		db.WithOrderByDesc(),
+	)
 	if err != nil {
 		klog.Errorf("failed to get audit events: %v", err)
 		return nil, errors.ErrServerInternal

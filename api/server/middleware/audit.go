@@ -20,6 +20,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
@@ -27,76 +29,121 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// 自定义 ResponseWriter 用于捕获写入的数据
-type auditWriter struct {
-	opts *options.Options
+const (
+	defaultAuditQueueSize = 2048
+	defaultAuditWorkers   = 2
+	auditWriteTimeout     = 3 * time.Second
+)
+
+type auditRecorder struct {
+	factory db.ShareDaoFactory
+	queue   chan *model.Audit
 }
 
-func newResponseWriter(o *options.Options) *auditWriter {
-	return &auditWriter{
-		opts: o,
+var (
+	recorderOnce sync.Once
+	recorderInst *auditRecorder
+)
+
+func getAuditRecorder(o *options.Options) *auditRecorder {
+	recorderOnce.Do(func() {
+		recorderInst = &auditRecorder{
+			factory: o.Factory,
+			queue:   make(chan *model.Audit, defaultAuditQueueSize),
+		}
+		for i := 0; i < defaultAuditWorkers; i++ {
+			go recorderInst.run()
+		}
+	})
+	return recorderInst
+}
+
+func (r *auditRecorder) run() {
+	for record := range r.queue {
+		r.write(record)
+	}
+}
+
+func (r *auditRecorder) write(record *model.Audit) {
+	ctx, cancel := context.WithTimeout(context.Background(), auditWriteTimeout)
+	defer cancel()
+
+	if _, err := r.factory.Audit().Create(ctx, record); err != nil {
+		klog.Errorf("failed to create audit record [%s]: %v", record.String(), err)
+	}
+}
+
+func (r *auditRecorder) enqueue(record *model.Audit) {
+	select {
+	case r.queue <- record:
+	default:
+		// 队列满时降级同步写入，确保非 GET 请求都能落库
+		klog.Warningf("audit queue is full, fallback to direct write: %s", record.Path)
+		r.write(record)
 	}
 }
 
 func Audit(o *options.Options) gin.HandlerFunc {
+	recorder := getAuditRecorder(o)
 	return func(c *gin.Context) {
-		auditor := newResponseWriter(o)
-		c.Next()
+		if !shouldAudit(c) {
+			c.Next()
+			return
+		}
 
-		// do audit asynchronously
-		go auditor.asyncAudit(c)
+		c.Next()
+		recorder.enqueue(buildAuditRecord(c))
 	}
 }
 
-// asyncAudit audits the request asynchronously.
-// It should be called in a goroutine.
-func (w *auditWriter) asyncAudit(c *gin.Context) {
-	if c.Request.Method == http.MethodGet &&
-		c.Writer.Status() != http.StatusUnauthorized {
-		return
-	}
-
+func buildAuditRecord(c *gin.Context) *model.Audit {
 	userName := "unknown"
 	if user, err := httputils.GetUserFromRequest(c); err == nil && user != nil {
 		userName = user.Name
 	}
 
-	obj, _, ok := httputils.GetObjectFromRequest(c)
-	if !ok {
-		return
-	}
-
-	audit := &model.Audit{
+	return &model.Audit{
 		RequestId:  requestid.Get(c),
 		Action:     c.Request.Method,
 		Ip:         c.ClientIP(),
 		Operator:   userName,
 		Path:       c.Request.RequestURI,
-		ObjectType: model.ObjectType(obj),
+		ObjectType: detectObjectType(c),
 		Status:     getAuditStatus(c),
 	}
-	if _, err := w.opts.Factory.Audit().Create(context.TODO(), audit); err != nil {
-		klog.Errorf("failed to create audit record [%s]: %v", audit.String(), err)
+}
+
+func shouldAudit(c *gin.Context) bool {
+	if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodOptions {
+		return false
 	}
+	return strings.HasPrefix(c.Request.URL.Path, "/pixiu")
+}
+
+func detectObjectType(c *gin.Context) model.ObjectType {
+	obj, _, ok := httputils.GetObjectFromRequest(c)
+	if !ok {
+		return model.ObjectAll
+	}
+	ot := model.ObjectType(obj)
+	if _, exists := model.ObjectTypeMap[ot]; exists {
+		return ot
+	}
+	return model.ObjectAll
 }
 
 // getAuditStatus returns the status of operation.
 func getAuditStatus(c *gin.Context) model.AuditOperationStatus {
-	// Directly use the native structure of kubernetes for the request of /pixiu/proxy and do separate processing
-	if strings.Contains(c.Request.RequestURI, "/pixiu/proxy") {
-		if responseOK(c.Writer.Status()) {
-			return model.AuditOpSuccess
-		} else {
-			return model.AuditOpFail
-		}
-	}
-
 	respCode := httputils.GetResponseCode(c)
 	if respCode == 0 {
-		return model.AuditOpUnknown
+		respCode = c.Writer.Status()
+		if respCode == 0 {
+			return model.AuditOpUnknown
+		}
 	}
 
 	if responseOK(respCode) {
