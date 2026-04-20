@@ -79,3 +79,36 @@ func WithClusterStatus(status int) Options {
 		return tx.Where("status = ?", status)
 	}
 }
+
+func WithUserNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name like ?", "%"+name+"%")
+	}
+}
+
+func WithUserPhoneLike(phone string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if phone == "" {
+			return tx
+		}
+		return tx.Where("phone like ?", "%"+phone+"%")
+	}
+}
+
+func WithUserEmailLike(email string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if email == "" {
+			return tx
+		}
+		return tx.Where("email like ?", "%"+email+"%")
+	}
+}
+
+func WithUserStatus(status int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
