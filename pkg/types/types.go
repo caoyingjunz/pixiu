@@ -151,12 +151,17 @@ type Audit struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Ip         string                     `json:"ip"`
-	Action     string                     `json:"action"`        // 操作动作
-	Status     model.AuditOperationStatus `json:"status"`        // 操作状态
-	Operator   string                     `json:"operator"`      // 操作人
-	Path       string                     `json:"path"`          // 操作路径
-	ObjectType model.ObjectType           `json:"resource_type"` // 资源类型
+	Ip                string                     `json:"ip"`
+	Action            string                     `json:"action"`           // 操作动作
+	Status            model.AuditOperationStatus `json:"status"`           // 操作状态
+	Operator          string                     `json:"operator"`         // 操作人
+	Path              string                     `json:"path"`             // 操作路径
+	ObjectType        model.ObjectType           `json:"resource_type"`    // 资源类型
+	Duration          int64                      `json:"duration"`         // 请求耗时 ms
+	ResponseCode      int                        `json:"response_code"`    // HTTP 响应码
+	Cluster           string                     `json:"cluster"`          // K8s 集群名
+	ResourceName      string                     `json:"resource_name"`    // 资源名称
+	ResourceNamespace string                     `json:"resource_namespace"` // 资源命名空间
 }
 
 type AuthType string
@@ -334,4 +339,16 @@ type RBACPolicy struct {
 	ObjectType model.ObjectType `json:"resource_type,omitempty"`
 	StringID   string           `json:"sid,omitempty"`
 	Operation  model.Operation  `json:"operation,omitempty"`
+}
+
+// AuditListOptions 审计列表查询选项，支持过滤
+type AuditListOptions struct {
+	ListOptions `json:",inline"`
+	Operator    string `form:"operator"`    // 模糊匹配操作人
+	Action      string `form:"action"`      // 精确匹配 HTTP 方法（POST/PUT/DELETE/PATCH）
+	ObjectType  string `form:"object_type"` // 资源类型
+	Cluster     string `form:"cluster"`     // 集群名称
+	Status      *uint8 `form:"status"`      // 操作状态（0:失败 1:成功 2:未知）
+	StartTime   string `form:"start_time"`  // 时间范围起（RFC3339，留空忽略）
+	EndTime     string `form:"end_time"`    // 时间范围止（RFC3339，留空忽略）
 }

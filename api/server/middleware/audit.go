@@ -95,26 +95,75 @@ func Audit(o *options.Options) gin.HandlerFunc {
 			return
 		}
 
+		startTime := time.Now()
 		c.Next()
-		recorder.enqueue(buildAuditRecord(c))
+		recorder.enqueue(buildAuditRecord(c, startTime))
 	}
 }
 
-func buildAuditRecord(c *gin.Context) *model.Audit {
+func buildAuditRecord(c *gin.Context, startTime time.Time) *model.Audit {
 	userName := "unknown"
 	if user, err := httputils.GetUserFromRequest(c); err == nil && user != nil {
 		userName = user.Name
 	}
 
+	cluster, resourceName, resourceNamespace := parseK8sProxyPath(c.Request.URL.Path)
+
 	return &model.Audit{
-		RequestId:  requestid.Get(c),
-		Action:     c.Request.Method,
-		Ip:         c.ClientIP(),
-		Operator:   userName,
-		Path:       c.Request.RequestURI,
-		ObjectType: detectObjectType(c),
-		Status:     getAuditStatus(c),
+		RequestId:         requestid.Get(c),
+		Action:            c.Request.Method,
+		Ip:                c.ClientIP(),
+		Operator:          userName,
+		Path:              c.Request.RequestURI,
+		ObjectType:        detectObjectType(c),
+		Status:            getAuditStatus(c),
+		Duration:          time.Since(startTime).Milliseconds(),
+		ResponseCode:      c.Writer.Status(),
+		Cluster:           cluster,
+		ResourceName:      resourceName,
+		ResourceNamespace: resourceNamespace,
 	}
+}
+
+// parseK8sProxyPath 从 K8s proxy URL 路径中解析集群、资源名称和命名空间。
+// 支持以下路径格式：
+//   - /pixiu/proxy/{cluster}/api/v1/namespaces/{namespace}/{resource}/{name}
+//   - /pixiu/proxy/{cluster}/apis/{group}/{version}/namespaces/{namespace}/{resource}/{name}
+//   - /pixiu/proxy/{cluster}/api/v1/{resource}/{name}（集群级资源）
+func parseK8sProxyPath(path string) (cluster, resourceName, resourceNamespace string) {
+	// /pixiu/proxy/{cluster}/...
+	const proxyPrefix = "/pixiu/proxy/"
+	if !strings.HasPrefix(path, proxyPrefix) {
+		return
+	}
+
+	rest := path[len(proxyPrefix):]
+	parts := strings.SplitN(rest, "/", 2)
+	if len(parts) < 1 || parts[0] == "" {
+		return
+	}
+	cluster = parts[0]
+	if len(parts) < 2 {
+		return
+	}
+
+	segments := strings.Split(parts[1], "/")
+	// 查找 namespaces/{ns} 段
+	for i := 0; i < len(segments)-1; i++ {
+		if segments[i] == "namespaces" {
+			resourceNamespace = segments[i+1]
+			// namespace 之后还有 {resource}/{name}
+			if i+3 < len(segments) {
+				resourceName = segments[i+3]
+			}
+			return
+		}
+	}
+	// 无 namespaces 段，集群级资源：api/v1/{resource}/{name} 或 apis/.../.../{resource}/{name}
+	if len(segments) > 0 {
+		resourceName = segments[len(segments)-1]
+	}
+	return
 }
 
 func shouldAudit(c *gin.Context) bool {
