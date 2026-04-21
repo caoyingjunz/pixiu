@@ -194,7 +194,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 	if len(updates) == 0 {
 		return errors.ErrInvalidRequest
 	}
-	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates); err != nil {
+	if err = c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
@@ -644,7 +644,7 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 		return client.ClusterSet{}, err
 	}
 
-	klog.Infof("set %s clusterSet into indexer", name)
+	klog.Infof("set %s clusterSet into cache", name)
 	ClusterIndexer.Set(name, *newClusterSet)
 	return *newClusterSet, nil
 }
@@ -669,7 +669,6 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	}
 
 	// 构造 kubernetes 资源数据格式
-	// TODO: 后续通过 informer 机制构造缓存
 	km := types.KubernetesMeta{
 		Nodes:             len(nodes),
 		KubernetesVersion: nodes[0].Status.NodeInfo.KubeletVersion,
@@ -888,71 +887,71 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 	}
 
 	// TODO: code generation?
-	c.registerIndexers([]InformerResource{
-		{
-			ResourceType: ResourcePod,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListPods(ctx, informer.PodsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetPod(ctx, informer.PodsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceDeployment,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetDeployment(ctx, informer.DeploymentsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceStatefulSet,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListStatefulSets(ctx, informer.StatefulSetsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetStatefulSet(ctx, informer.StatefulSetsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceDaemonSet,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListDaemonSets(ctx, informer.DaemonSetsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetDaemonSet(ctx, informer.DaemonSetsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceCronJob,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListCronJobs(ctx, informer.CronJobsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetCronJob(ctx, informer.CronJobsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceJob,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListJobs(ctx, informer.JobsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetJob(ctx, informer.JobsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceNode,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListNodes(ctx, informer.NodesLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetNode(ctx, informer.NodesLister(), namespace, name)
-			},
-		},
-		// TODO: 补充更多资源实现
-	}...)
+	//c.registerIndexers([]InformerResource{
+	//	{
+	//		ResourceType: ResourcePod,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListPods(ctx, informer.PodsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetPod(ctx, informer.PodsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceDeployment,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetDeployment(ctx, informer.DeploymentsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceStatefulSet,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListStatefulSets(ctx, informer.StatefulSetsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetStatefulSet(ctx, informer.StatefulSetsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceDaemonSet,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListDaemonSets(ctx, informer.DaemonSetsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetDaemonSet(ctx, informer.DaemonSetsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceCronJob,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListCronJobs(ctx, informer.CronJobsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetCronJob(ctx, informer.CronJobsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceJob,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListJobs(ctx, informer.JobsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetJob(ctx, informer.JobsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceNode,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListNodes(ctx, informer.NodesLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetNode(ctx, informer.NodesLister(), namespace, name)
+	//		},
+	//	},
+	//	// TODO: 补充更多资源实现
+	//}...)
 	return c
 }

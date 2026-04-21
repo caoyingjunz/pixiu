@@ -18,6 +18,7 @@ package audit
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -33,7 +34,7 @@ type AuditGetter interface {
 }
 
 type Interface interface {
-	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+	List(ctx context.Context, listOption types.AuditListOptions) (interface{}, error)
 	Get(ctx context.Context, aid int64) (*types.Audit, error)
 }
 
@@ -54,16 +55,33 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 	return a.model2Type(object), nil
 }
 
-func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
-	// 获取对象总数量
-	total, err := a.factory.Audit().Count(ctx)
+func (a *audit) List(ctx context.Context, listOption types.AuditListOptions) (interface{}, error) {
+	// 构建公共过滤 opts
+	filterOpts := buildAuditFilterOpts(listOption)
+
+	// 使用相同过滤条件获取总数
+	total, err := a.factory.Audit().Count(ctx, filterOpts...)
 	if err != nil {
 		klog.Errorf("failed to get audits count: %v", err)
 		return nil, err
 	}
 
-	// 获取偏移列表
-	objects, err := a.factory.Audit().List(ctx, db.WithOffset(listOption.Page-1), db.WithLimit(int(listOption.Limit)), db.WithOrderByDesc())
+	page := listOption.Page
+	if page <= 0 {
+		page = 1
+	}
+	limit := int(listOption.Limit)
+	if limit <= 0 {
+		limit = 20
+	}
+
+	paginationOpts := append(filterOpts,
+		db.WithOffset((page-1)*limit),
+		db.WithLimit(limit),
+		db.WithOrderByDesc(),
+	)
+
+	objects, err := a.factory.Audit().List(ctx, paginationOpts...)
 	if err != nil {
 		klog.Errorf("failed to get audit events: %v", err)
 		return nil, errors.ErrServerInternal
@@ -80,6 +98,36 @@ func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interfa
 	}, nil
 }
 
+func buildAuditFilterOpts(opt types.AuditListOptions) []db.Options {
+	var opts []db.Options
+	if opt.Operator != "" {
+		opts = append(opts, db.WithAuditOperatorLike(opt.Operator))
+	}
+	if opt.Action != "" {
+		opts = append(opts, db.WithAuditAction(opt.Action))
+	}
+	if opt.ObjectType != "" {
+		opts = append(opts, db.WithAuditObjectType(opt.ObjectType))
+	}
+	if opt.Cluster != "" {
+		opts = append(opts, db.WithAuditCluster(opt.Cluster))
+	}
+	if opt.Status != nil {
+		opts = append(opts, db.WithAuditStatus(*opt.Status))
+	}
+	if opt.StartTime != "" {
+		if t, err := time.Parse(time.RFC3339, opt.StartTime); err == nil {
+			opts = append(opts, db.WithAuditCreatedAfter(t))
+		}
+	}
+	if opt.EndTime != "" {
+		if t, err := time.Parse(time.RFC3339, opt.EndTime); err == nil {
+			opts = append(opts, db.WithCreatedBefore(t))
+		}
+	}
+	return opts
+}
+
 func (a *audit) model2Type(o *model.Audit) *types.Audit {
 	return &types.Audit{
 		PixiuMeta: types.PixiuMeta{
@@ -90,12 +138,17 @@ func (a *audit) model2Type(o *model.Audit) *types.Audit {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Ip:         o.Ip,
-		Action:     o.Action,
-		Status:     o.Status,
-		Operator:   o.Operator,
-		Path:       o.Path,
-		ObjectType: o.ObjectType,
+		Ip:                o.Ip,
+		Action:            o.Action,
+		Status:            o.Status,
+		Operator:          o.Operator,
+		Path:              o.Path,
+		ObjectType:        o.ObjectType,
+		Duration:          o.Duration,
+		ResponseCode:      o.ResponseCode,
+		Cluster:           o.Cluster,
+		ResourceName:      o.ResourceName,
+		ResourceNamespace: o.ResourceNamespace,
 	}
 }
 

@@ -55,7 +55,7 @@ func (p *plan) Run(ctx context.Context, workers int) error {
 	}
 
 	// 启动部署计划控制器
-	klog.Infof("starting plan manager")
+	klog.Infof("starting deployment manager")
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, p.worker, time.Second)
 	}

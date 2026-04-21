@@ -112,3 +112,51 @@ func WithUserStatus(status int) Options {
 		return tx.Where("status = ?", status)
 	}
 }
+
+func WithAuditOperatorLike(operator string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if operator == "" {
+			return tx
+		}
+		return tx.Where("operator like ?", "%"+operator+"%")
+	}
+}
+
+func WithAuditAction(action string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if action == "" {
+			return tx
+		}
+		return tx.Where("action = ?", action)
+	}
+}
+
+func WithAuditObjectType(ot string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if ot == "" {
+			return tx
+		}
+		return tx.Where("resource_type = ?", ot)
+	}
+}
+
+func WithAuditStatus(status uint8) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
+
+func WithAuditCreatedAfter(t time.Time) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if t.IsZero() {
+			return tx
+		}
+		return tx.Where("gmt_create >= ?", t)
+	}
+}
+
+func WithAuditCluster(cluster string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("cluster = ?", cluster)
+	}
+}

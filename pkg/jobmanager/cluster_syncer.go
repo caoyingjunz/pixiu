@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
@@ -37,12 +37,6 @@ const (
 
 type ClusterSyncer struct {
 	factory db.ShareDaoFactory
-}
-
-var indexer client.Cache
-
-func init() {
-	indexer = *client.NewClusterCache()
 }
 
 func NewClusterSyncer(f db.ShareDaoFactory) *ClusterSyncer {
@@ -92,8 +86,6 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	default:
 	}
 
-	// 清理过期 clusterSet
-	cleanLister(clusters)
 	return nil
 }
 
@@ -144,31 +136,21 @@ func parseStatus(update map[string]interface{}, status model.ClusterStatus, kube
 }
 
 func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
-	name := cluster.Name
-
-	var (
-		cs client.ClusterSet
-		ok bool
-	)
-	cs, ok = indexer.Get(name)
-	if !ok {
-		clusterSet, err := client.NewClusterSet(cluster.KubeConfig)
-		if err != nil {
-			return "", "", err
-		}
-		cs = *clusterSet
-		indexer.Set(name, cs)
-	}
-
-	nodes, err := cs.Informer.NodesLister().List(labels.Everything())
+	clusterSet, err := client.NewClusterSet(cluster.KubeConfig)
 	if err != nil {
 		return "", "", err
 	}
 
+	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return "", "", err
+	}
+	nodes := nodeList.Items
+
 	kubeNode := &types.KubeNode{Ready: make([]string, 0), NotReady: make([]string, 0)}
 	// 获取存储状态
 	for _, node := range nodes {
-		nodeStatus := parseKubeNodeStatus(node)
+		nodeStatus := parseKubeNodeStatus(&node)
 		switch nodeStatus {
 		case "Ready":
 			kubeNode.Ready = append(kubeNode.Ready, node.Name)
@@ -188,21 +170,6 @@ func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 	}
 
 	return nodeData, kubernetesVersion, nil
-}
-
-func cleanLister(clusters []model.Cluster) {
-	cs := make(map[string]bool)
-	for _, cluster := range clusters {
-		cs[cluster.Name] = true
-	}
-
-	for name := range indexer.List() {
-		if cs[name] {
-			continue
-		}
-		klog.Infof("lister %s will be delete from indexer", name)
-		indexer.Delete(name)
-	}
 }
 
 func parseKubeNodeStatus(node *v1.Node) string {
