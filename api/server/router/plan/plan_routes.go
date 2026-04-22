@@ -137,8 +137,15 @@ func (t *planRouter) getPlanWithSubResources(c *gin.Context) {
 func (t *planRouter) listPlans(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var err error
-	if r.Result, err = t.c.Plan().List(c); err != nil {
+	var (
+		req types.ListPlanRequest
+		err error
+	)
+	if err = c.ShouldBindQuery(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = t.c.Plan().List(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

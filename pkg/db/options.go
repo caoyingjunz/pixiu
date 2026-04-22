@@ -160,3 +160,12 @@ func WithAuditCluster(cluster string) Options {
 		return tx.Where("cluster = ?", cluster)
 	}
 }
+
+func WithPlanNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name like ?", "%"+name+"%")
+	}
+}

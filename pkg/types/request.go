@@ -183,6 +183,13 @@ type (
 		Status      *int `form:"status" json:"status"` // 集群状态过滤，不传则不过滤
 	}
 
+	// ListPlanRequest 部署计划列表查询参数
+	ListPlanRequest struct {
+		PageRequest  `form:",inline"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
+		Step         string `form:"step" json:"step"`                 // 状态过滤，不传则不过滤
+	}
+
 	// ListUserRequest 用户列表查询参数
 	ListUserRequest struct {
 		PageRequest `form:",inline"`

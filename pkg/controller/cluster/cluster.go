@@ -626,7 +626,7 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
 	cs, ok := ClusterIndexer.Get(name)
 	if ok {
-		klog.Infof("Get %s clusterSet from indexer", name)
+		klog.Infof("Get %s clusterSet from cache", name)
 		return cs, nil
 	}
 
@@ -781,9 +781,11 @@ func parseFloat64FromString(s string) float64 {
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	nodes := types.KubeNode{}
-	if err := nodes.Unmarshal(o.Nodes); err != nil {
+	if strings.TrimSpace(o.Nodes) != "" {
+		if err := nodes.Unmarshal(o.Nodes); err != nil {
 		// 非核心数据
-		klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+			klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+		}
 	}
 
 	tc := &types.Cluster{
