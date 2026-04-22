@@ -32,6 +32,7 @@ type PlanInterface interface {
 	Delete(ctx context.Context, pid int64) (*model.Plan, error)
 	Get(ctx context.Context, pid int64) (*model.Plan, error)
 	List(ctx context.Context, opts ...Options) ([]model.Plan, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
 
 	CreateNode(ctx context.Context, object *model.Node) (*model.Node, error)
 	TxCreateNode(ctx context.Context, tx *gorm.DB, object *model.Node) error
@@ -151,6 +152,18 @@ func (p *plan) List(ctx context.Context, opts ...Options) ([]model.Plan, error) 
 	}
 
 	return objects, nil
+}
+
+func (p *plan) Count(ctx context.Context, opts ...Options) (int64, error) {
+	var count int64
+	tx := p.db.WithContext(ctx).Model(&model.Plan{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (p *plan) CreateNode(ctx context.Context, object *model.Node) (*model.Node, error) {
