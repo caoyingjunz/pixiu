@@ -99,10 +99,12 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		Description: req.Description,
 	}
 
-	if _, err := p.factory.Plan().Create(ctx, planModel, p.createPlanSubResources(ctx, req)); err != nil {
+	createdPlan, err := p.factory.Plan().Create(ctx, planModel, p.createPlanSubResources(ctx, req))
+	if err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
+	planId := createdPlan.Id
 
 	// 如果启用pixiu注册功能，则创建容器服务
 	kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
