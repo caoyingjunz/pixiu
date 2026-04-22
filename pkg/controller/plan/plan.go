@@ -89,13 +89,22 @@ type plan struct {
 // 3. 创建节点列表
 // 3. 创建扩展组件
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
-	plan := &model.Plan{
+	planModel := &model.Plan{
 		Name:        req.Name,
 		Description: req.Description,
 	}
 
-	withConfig := func(plan *model.Plan, tx *gorm.DB) (*gorm.DB, error) {
-		if err := p.preCreateConfig(ctx, plan.Id, &req.Config); err != nil {
+	if _, err := p.factory.Plan().Create(ctx, planModel, p.createPlanSubResources(ctx, req)); err != nil {
+		klog.Errorf("failed to create plan %s: %v", req.Name, err)
+		return errors.ErrServerInternal
+	}
+
+	return nil
+}
+
+func (p *plan) createPlanSubResources(ctx context.Context, req *types.CreatePlanRequest) db.CreatePlanOption {
+	return func(planModel *model.Plan, tx *gorm.DB) (*gorm.DB, error) {
+		if err := p.preCreateConfig(ctx, planModel.Id, &req.Config); err != nil {
 			return nil, err
 		}
 
@@ -103,37 +112,28 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		if err != nil {
 			return nil, err
 		}
-		planConfig.PlanId = plan.Id
+		planConfig.PlanId = planModel.Id
 
 		if err := p.factory.Plan().TxCreateConfig(ctx, tx, planConfig); err != nil {
-			klog.Errorf("failed to create plan(%s) config: %v", plan.Id, err)
+			klog.Errorf("failed to create plan(%d) config: %v", planModel.Id, err)
 			return nil, err
 		}
-		return tx, nil
-	}
 
-	withNodes := func(plan *model.Plan, tx *gorm.DB) (*gorm.DB, error) {
-		for _, r := range req.Nodes {
-			node, err := p.buildNodeFromRequest(plan.Id, &r)
+		for i := range req.Nodes {
+			nodeReq := &req.Nodes[i]
+			node, err := p.buildNodeFromRequest(planModel.Id, nodeReq)
 			if err != nil {
-				klog.Errorf("failed to build plan(%d) node from request: %v", plan.Id, err)
+				klog.Errorf("failed to build plan(%d) node from request: %v", planModel.Id, err)
 				return nil, err
 			}
-
 			if err := p.factory.Plan().TxCreateNode(ctx, tx, node); err != nil {
-				klog.Errorf("failed to create node(%s): %v", r.Name, err)
+				klog.Errorf("failed to create node(%s): %v", nodeReq.Name, err)
 				return nil, err
 			}
 		}
+
 		return tx, nil
 	}
-
-	if _, err := p.factory.Plan().Create(ctx, plan, withConfig, withNodes); err != nil {
-		klog.Errorf("failed to create plan %s: %v", req.Name, err)
-		return errors.ErrServerInternal
-	}
-
-	return nil
 }
 
 // Update
