@@ -129,7 +129,7 @@ type Plan struct {
 
 	Name              string           `json:"name"` // 用户名称
 	Step              model.TaskStatus `json:"step"`
-	Description       string           `json:"description"` // 用户描述信息
+	Description       string           `json:"description"`        // 用户描述信息
 	KubernetesVersion string           `json:"kubernetes_version"` // k8s 版本
 	NodeCount         int              `json:"node_count"`         // 节点总数
 
@@ -154,15 +154,15 @@ type Audit struct {
 	TimeMeta  `json:",inline"`
 
 	Ip                string                     `json:"ip"`
-	Action            string                     `json:"action"`           // 操作动作
-	Status            model.AuditOperationStatus `json:"status"`           // 操作状态
-	Operator          string                     `json:"operator"`         // 操作人
-	Path              string                     `json:"path"`             // 操作路径
-	ObjectType        model.ObjectType           `json:"resource_type"`    // 资源类型
-	Duration          int64                      `json:"duration"`         // 请求耗时 ms
-	ResponseCode      int                        `json:"response_code"`    // HTTP 响应码
-	Cluster           string                     `json:"cluster"`          // K8s 集群名
-	ResourceName      string                     `json:"resource_name"`    // 资源名称
+	Action            string                     `json:"action"`             // 操作动作
+	Status            model.AuditOperationStatus `json:"status"`             // 操作状态
+	Operator          string                     `json:"operator"`           // 操作人
+	Path              string                     `json:"path"`               // 操作路径
+	ObjectType        model.ObjectType           `json:"resource_type"`      // 资源类型
+	Duration          int64                      `json:"duration"`           // 请求耗时 ms
+	ResponseCode      int                        `json:"response_code"`      // HTTP 响应码
+	Cluster           string                     `json:"cluster"`            // K8s 集群名
+	ResourceName      string                     `json:"resource_name"`      // 资源名称
 	ResourceNamespace string                     `json:"resource_namespace"` // 资源命名空间
 }
 

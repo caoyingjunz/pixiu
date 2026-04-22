@@ -783,7 +783,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	nodes := types.KubeNode{}
 	if strings.TrimSpace(o.Nodes) != "" {
 		if err := nodes.Unmarshal(o.Nodes); err != nil {
-		// 非核心数据
+			// 非核心数据
 			klog.Warningf("failed to unmarshal cluster nodes: %v", err)
 		}
 	}
