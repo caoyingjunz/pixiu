@@ -162,7 +162,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		}
 
 		// 不存在记录则新建
-		if _, err = p.factory.Plan().CreatTask(context.TODO(), &model.Task{
+		if _, err = p.factory.Plan().CreateTask(context.TODO(), &model.Task{
 			Name:   name,
 			PlanId: planId,
 			Step:   step,
