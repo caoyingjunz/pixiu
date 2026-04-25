@@ -90,6 +90,18 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		return err
 	}
 
+	// 超级管理员全局只允许存在一个
+	if req.Role == model.RoleRoot {
+		root, err := u.factory.User().GetRoot(ctx)
+		if err != nil {
+			klog.Errorf("failed to check root user: %v", err)
+			return errors.ErrServerInternal
+		}
+		if root != nil {
+			return errors.ErrRootAlreadyExists
+		}
+	}
+
 	txFunc := func() (err error) {
 		if req.Role == model.RoleRoot {
 			bindings := model.NewGroupBinding(req.Name, model.AdminGroup)

@@ -13,6 +13,10 @@ default:
   # 静态文件路径
   static_files: /static
 
+  # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
+  admin_user: pixiu
+  admin_password: 123456
+
 # 配置前端请求地址
 dashboard:
   url: http://localhost:8080

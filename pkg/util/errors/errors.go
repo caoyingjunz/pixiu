@@ -53,6 +53,8 @@ var (
 	PolicyNotExistError = errors.New("策略不存在")
 	TenantExistError    = errors.New("租户已存在")
 	ErrAuditExists      = errors.New("审计记录已存在")
+
+	ErrRootAlreadyExists = errors.New("超级管理员已存在")
 )
 
 func IsRecordNotFound(err error) bool {
