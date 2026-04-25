@@ -53,6 +53,10 @@ type DefaultOptions struct {
 	logutil.LogOptions `yaml:",inline"`
 	// 静态文件路径
 	StaticFiles string `yaml:"static_files"`
+
+	// 超级管理员初始化配置，留空则使用默认值
+	AdminUser     string `yaml:"admin_user"`
+	AdminPassword string `yaml:"admin_password"`
 }
 
 func (o DefaultOptions) Valid() error {
