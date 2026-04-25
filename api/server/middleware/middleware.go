@@ -17,9 +17,6 @@ limitations under the License.
 package middleware
 
 import (
-	"net/http"
-	"strings"
-
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,16 +33,6 @@ func init() {
 
 // 允许特定请求不经过验证
 func allowCustomRequest(c *gin.Context) bool {
-	// 用户请求
-	if strings.HasPrefix(c.Request.URL.Path, "/pixiu/users") {
-		switch c.Request.Method {
-		case http.MethodPost:
-			return c.Query("initAdmin") == "true"
-		case http.MethodGet:
-			return c.Query("count") == "true"
-		}
-	}
-
 	// TODO: 其他请求
 	return false
 }
