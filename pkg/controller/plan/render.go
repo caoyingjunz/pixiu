@@ -116,7 +116,16 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 		if err != nil {
 			return multinode, err
 		}
-		nodeAuth.Key.File = fmt.Sprintf("/configs/ssh/%s/id_rsa", node.Name)
+
+		if nodeAuth.Type == types.KeyAuth {
+			if nodeAuth.Key == nil {
+				return multinode, fmt.Errorf("node(%s) key auth config is empty", node.Name)
+			}
+			nodeAuth.Key.File = fmt.Sprintf("/configs/ssh/%s/id_rsa", node.Name)
+		}
+		if nodeAuth.Type == types.PasswordAuth && nodeAuth.Password == nil {
+			return multinode, fmt.Errorf("node(%s) password auth config is empty", node.Name)
+		}
 		planNode := types.PlanNode{Name: node.Name, Auth: nodeAuth}
 
 		roles := strings.Split(node.Role, ",")
@@ -158,6 +167,9 @@ func GetRenderFile(planId int64, workDir string, f string) (string, error) {
 
 func RenderRSA(planId int64, name string, workDir string, auth types.PlanNodeAuth) (string, error) {
 	if auth.Type == types.KeyAuth {
+		if auth.Key == nil {
+			return "", fmt.Errorf("node(%s) key auth config is empty", name)
+		}
 		f, err := GetRSAFile(planId, workDir, name)
 		if err != nil {
 			return "", err
