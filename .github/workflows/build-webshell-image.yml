@@ -5,7 +5,7 @@ on:
     branches:
       - "master"
     paths:
-      - 'docker/Dockerfile'
+      - 'docker/Dockerfile-toolbox'
       - 'Makefile'
 
 env:
@@ -39,7 +39,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./docker/Dockerfile
+          file: ./docker/Dockerfile-toolbox
           platforms: linux/amd64,linux/arm64
           build-args: |
             K8S_VERSION=${{ env.K8S_VERSION }}

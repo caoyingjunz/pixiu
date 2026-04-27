@@ -18,7 +18,10 @@ package config
 
 import (
 	"fmt"
+<<<<<<< HEAD
 	"strings"
+=======
+>>>>>>> 5fd5f7d45c3fe5873bd3de132a0f43379156d06f
 
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
@@ -36,12 +39,20 @@ func (m Mode) InDebug() bool {
 }
 
 type Config struct {
+<<<<<<< HEAD
 	Default  DefaultOptions          `yaml:"default"`
 	Database DatabaseOptions         `yaml:"database"`
 	Mysql    MysqlOptions            `yaml:"mysql"` // backward compatibility
 	Worker   WorkerOptions           `yaml:"worker"`
 	Audit    jobmanager.AuditOptions `yaml:"audit"`
 	TLS      *TLS                    `yaml:"tls"`
+=======
+	Default DefaultOptions          `yaml:"default"`
+	Mysql   MysqlOptions            `yaml:"mysql"`
+	Worker  WorkerOptions           `yaml:"worker"`
+	Audit   jobmanager.AuditOptions `yaml:"audit"`
+	TLS     *TLS                    `yaml:"tls"`
+>>>>>>> 5fd5f7d45c3fe5873bd3de132a0f43379156d06f
 }
 
 type DefaultOptions struct {
