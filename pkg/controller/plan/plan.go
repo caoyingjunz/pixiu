@@ -110,13 +110,13 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
 	nodes, _ := kubeNode.Marshal()
 	_, err = p.factory.Cluster().Create(ctx, &model.Cluster{
-		Name:        uuid.NewRandName(8),
-		AliasName:   req.Name,
-		Description: req.Description,
-		ClusterType: model.ClusterTypeCustom,
-		PlanId:      planId,
-		Protected:   true,
-		Nodes:       nodes,
+		Name:          uuid.NewRandName(8),
+		AliasName:     req.Name,
+		ClusterType:   model.ClusterTypeCustom,
+		PlanId:        planId,
+		ClusterStatus: model.ClusterStatusUnStart,
+		Protected:     true,
+		Nodes:         nodes,
 	})
 	if err != nil {
 		klog.Errorf("failed to register cluster for plan: %v", err)
@@ -168,9 +168,17 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 		klog.Errorf("failed to get plan(%d) %v", planId, err)
 		return errors.ErrServerInternal
 	}
+
+	updates := make(map[string]interface{})
 	// 必要时更新 plan
 	if oldPlan.Description != req.Description {
-		if err := p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, map[string]interface{}{"description": req.Description}); err != nil {
+		updates["description"] = req.Description
+	}
+	if oldPlan.Name != req.Name {
+		updates["name"] = req.Name
+	}
+	if len(updates) != 0 {
+		if err = p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, updates); err != nil {
 			klog.Errorf("failed to update plan %d: %v", planId, err)
 			return errors.ErrServerInternal
 		}
