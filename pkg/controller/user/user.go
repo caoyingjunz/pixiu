@@ -102,15 +102,7 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		}
 	}
 
-	txFunc := func() (err error) {
-		if req.Role == model.RoleRoot {
-			bindings := model.NewGroupBinding(req.Name, model.AdminGroup)
-			_, err = u.enforcer.AddGroupingPolicy(bindings.Raw())
-		}
-		return
-	}
-
-	if _, err = u.factory.User().Create(ctx, &model.User{
+	created, err := u.factory.User().Create(ctx, &model.User{
 		Name:        req.Name,
 		Password:    encrypt,
 		Status:      req.Status,
@@ -118,9 +110,21 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		Email:       req.Email,
 		Phone:       req.Phone,
 		Description: req.Description,
-	}, txFunc); err != nil {
+	})
+	if err != nil {
 		klog.Errorf("failed to create user %s: %v", req.Name, err)
 		return errors.ErrServerInternal
+	}
+	if req.Role == model.RoleRoot {
+		bindings := model.NewGroupBinding(req.Name, model.AdminGroup)
+		if _, err = u.enforcer.AddGroupingPolicy(bindings.Raw()); err != nil {
+			// Compensate user row if policy write fails, to avoid half-initialized root state.
+			if delErr := u.factory.User().Delete(ctx, created.Id); delErr != nil {
+				klog.Errorf("failed to rollback user(%d) after casbin write error: %v", created.Id, delErr)
+			}
+			klog.Errorf("failed to bind root user policy for %s: %v", req.Name, err)
+			return errors.ErrServerInternal
+		}
 	}
 
 	return nil

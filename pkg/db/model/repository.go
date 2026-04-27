@@ -28,7 +28,7 @@ func init() {
 
 type Repository struct {
 	pixiu.Model
-	Name     string `gorm:"column:name; index:idx_name,unique; not null" json:"name"`
+	Name     string `gorm:"column:name; uniqueIndex; not null" json:"name"`
 	URL      string `gorm:"column:url;not null" json:"url"`
 	Username string `gorm:"column:username" json:"username"`
 	Password string `gorm:"column:password" json:"password"`

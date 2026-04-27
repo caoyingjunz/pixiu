@@ -45,7 +45,7 @@ type Cluster struct {
 	pixiu.Model
 
 	// 集群名称，全局唯一
-	Name string `gorm:"index:idx_name,unique" json:"name"`
+	Name string `gorm:"uniqueIndex" json:"name"`
 	// 集群别名，可以重复，允许为中文
 	AliasName string `json:"alias_name"`
 
