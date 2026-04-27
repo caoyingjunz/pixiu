@@ -18,10 +18,12 @@ package plan
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
 
+	"gorm.io/gorm"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -43,7 +45,7 @@ type Interface interface {
 	Update(ctx context.Context, planID int64, req *types.UpdatePlanRequest) error
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
-	List(ctx context.Context) ([]types.Plan, error)
+	List(ctx context.Context, req *types.ListPlanRequest) (*types.PageResponse, error)
 
 	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
 
@@ -92,50 +94,70 @@ type plan struct {
 // 4. 创建扩展组件
 // 5. 创建容器服务
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
-	object, err := p.factory.Plan().Create(ctx, &model.Plan{
+	planModel := &model.Plan{
 		Name:        req.Name,
 		Description: req.Description,
-	})
+	}
+
+	createdPlan, err := p.factory.Plan().Create(ctx, planModel, p.createPlanSubResources(ctx, req))
 	if err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
-	planId := object.Id
-
-	// 创建计划的关联配置
-	if err = p.CreateConfig(ctx, planId, &req.Config); err != nil {
-		klog.Errorf("failed to create plan %s config: %v", req.Name, err)
-		// TODO: 事物优化
-		_ = p.Delete(ctx, planId)
-		return errors.ErrServerInternal
-	}
-	// 创建关联节点
-	if err = p.CreateNodes(ctx, planId, req.Nodes); err != nil {
-		klog.Errorf("failed to create plan %s nodes: %v", req.Name, err)
-		_ = p.Delete(ctx, planId)
-		return errors.ErrServerInternal
-	}
+	planId := createdPlan.Id
 
 	// 如果启用pixiu注册功能，则创建容器服务
-	if req.Config.Kubernetes.Register {
-		kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
-		nodes, _ := kubeNode.Marshal()
-		_, err := p.factory.Cluster().Create(ctx, &model.Cluster{
-			Name:        uuid.NewRandName(8),
-			AliasName:   req.Name,
-			Description: req.Description,
-			ClusterType: model.ClusterTypeCustom,
-			PlanId:      planId,
-			Protected:   true,
-			Nodes:       nodes,
-		})
-		if err != nil {
-			klog.Errorf("failed to register cluster for plan: %v", err)
-			_ = p.Delete(ctx, planId)
-			return errors.ErrServerInternal
-		}
+	kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
+	nodes, _ := kubeNode.Marshal()
+	_, err = p.factory.Cluster().Create(ctx, &model.Cluster{
+		Name:        uuid.NewRandName(8),
+		AliasName:   req.Name,
+		Description: req.Description,
+		ClusterType: model.ClusterTypeCustom,
+		PlanId:      planId,
+		Protected:   true,
+		Nodes:       nodes,
+	})
+	if err != nil {
+		klog.Errorf("failed to register cluster for plan: %v", err)
+		_ = p.Delete(ctx, planId)
+		return errors.ErrServerInternal
 	}
 	return nil
+}
+
+func (p *plan) createPlanSubResources(ctx context.Context, req *types.CreatePlanRequest) db.CreatePlanOption {
+	return func(planModel *model.Plan, tx *gorm.DB) (*gorm.DB, error) {
+		if err := p.preCreateConfig(ctx, planModel.Id, &req.Config); err != nil {
+			return nil, err
+		}
+
+		planConfig, err := p.buildPlanConfig(ctx, &req.Config)
+		if err != nil {
+			return nil, err
+		}
+		planConfig.PlanId = planModel.Id
+
+		if err := p.factory.Plan().TxCreateConfig(ctx, tx, planConfig); err != nil {
+			klog.Errorf("failed to create plan(%d) config: %v", planModel.Id, err)
+			return nil, err
+		}
+
+		for i := range req.Nodes {
+			nodeReq := &req.Nodes[i]
+			node, err := p.buildNodeFromRequest(planModel.Id, nodeReq)
+			if err != nil {
+				klog.Errorf("failed to build plan(%d) node from request: %v", planModel.Id, err)
+				return nil, err
+			}
+			if err := p.factory.Plan().TxCreateNode(ctx, tx, node); err != nil {
+				klog.Errorf("failed to create node(%s): %v", nodeReq.Name, err)
+				return nil, err
+			}
+		}
+
+		return tx, nil
+	}
 }
 
 // Update
@@ -254,7 +276,54 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 	return result, nil
 }
 
-func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
+func (p *plan) List(ctx context.Context, req *types.ListPlanRequest) (*types.PageResponse, error) {
+	var opts []db.Options
+	if req != nil && req.NameSelector != "" {
+		opts = append(opts, db.WithPlanNameLike(req.NameSelector))
+	}
+
+	total, err := p.factory.Plan().Count(ctx, opts...)
+	if err != nil {
+		klog.Errorf("failed to count plans: %v", err)
+		return nil, errors.ErrServerInternal
+	}
+
+	pageReq := types.PageRequest{}
+	if req != nil {
+		pageReq = req.PageRequest
+		if req.Page > 0 && req.Limit > 0 {
+			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
+		}
+	}
+
+	objects, err := p.factory.Plan().List(ctx, opts...)
+	if err != nil {
+		klog.Errorf("failed to get plans: %v", err)
+		return nil, errors.ErrServerInternal
+	}
+
+	ps := make([]types.Plan, 0, len(objects))
+	for _, object := range objects {
+		no, err := p.model2Type(&object)
+		if err != nil {
+			return nil, err
+		}
+		// 状态过滤（在内存中过滤，因为状态来自关联表）
+		if req != nil && req.Step != "" && string(no.Step) != req.Step {
+			continue
+		}
+		ps = append(ps, *no)
+	}
+
+	return &types.PageResponse{
+		PageRequest: pageReq,
+		Total:       int(total),
+		Items:       ps,
+	}, nil
+}
+
+// listAll 内部使用，返回所有计划（不带分页和过滤）
+func (p *plan) listAll(ctx context.Context) ([]types.Plan, error) {
 	objects, err := p.factory.Plan().List(ctx)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
@@ -273,7 +342,7 @@ func (p *plan) List(ctx context.Context) ([]types.Plan, error) {
 }
 
 func (p *plan) SyncTaskStatus(ctx context.Context) error {
-	plans, err := p.List(ctx)
+	plans, err := p.listAll(ctx)
 	if err != nil {
 		return err
 	}
@@ -392,6 +461,23 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		}
 	}
 
+	// 获取 kubernetes 版本，获取失败不中断
+	kubernetesVersion := ""
+	if cfg, err := p.factory.Plan().GetConfigByPlan(context.TODO(), o.Id); err == nil && cfg != nil {
+		var kubeSpec struct {
+			KubernetesVersion string `json:"kubernetes_version"`
+		}
+		if err := json.Unmarshal([]byte(cfg.Kubernetes), &kubeSpec); err == nil {
+			kubernetesVersion = kubeSpec.KubernetesVersion
+		}
+	}
+
+	// 获取节点总数，获取失败不中断
+	nodeCount := 0
+	if nodes, err := p.factory.Plan().ListNodes(context.TODO(), o.Id); err == nil {
+		nodeCount = len(nodes)
+	}
+
 	return &types.Plan{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -401,9 +487,11 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Name:        o.Name,
-		Description: o.Description,
-		Step:        status,
+		Name:              o.Name,
+		Description:       o.Description,
+		Step:              status,
+		KubernetesVersion: kubernetesVersion,
+		NodeCount:         nodeCount,
 	}, nil
 }
 

@@ -72,7 +72,7 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context, image string) 
 		Binds: []string{fmt.Sprintf("%s/%d:/configs", c.dir, c.planId)},
 	}
 	netConfig := &network.NetworkingConfig{}
-	resp, err := c.client.ContainerCreate(ctx, config, hostConfig, netConfig, c.name)
+	resp, err := c.client.ContainerCreate(ctx, config, hostConfig, netConfig, nil, c.name)
 	if err != nil {
 		return err
 	}

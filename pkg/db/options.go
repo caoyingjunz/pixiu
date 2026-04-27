@@ -64,3 +64,108 @@ func WithIDIn(ids ...int64) Options {
 		return tx.Where("id IN ?", ids)
 	}
 }
+
+func WithAliasNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("alias_name like ?", "%"+name+"%")
+	}
+}
+
+func WithClusterStatus(status int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
+
+func WithUserNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name like ?", "%"+name+"%")
+	}
+}
+
+func WithUserPhoneLike(phone string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if phone == "" {
+			return tx
+		}
+		return tx.Where("phone like ?", "%"+phone+"%")
+	}
+}
+
+func WithUserEmailLike(email string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if email == "" {
+			return tx
+		}
+		return tx.Where("email like ?", "%"+email+"%")
+	}
+}
+
+func WithUserStatus(status int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
+
+func WithAuditOperatorLike(operator string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if operator == "" {
+			return tx
+		}
+		return tx.Where("operator like ?", "%"+operator+"%")
+	}
+}
+
+func WithAuditAction(action string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if action == "" {
+			return tx
+		}
+		return tx.Where("action = ?", action)
+	}
+}
+
+func WithAuditObjectType(ot string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if ot == "" {
+			return tx
+		}
+		return tx.Where("resource_type = ?", ot)
+	}
+}
+
+func WithAuditStatus(status uint8) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
+
+func WithAuditCreatedAfter(t time.Time) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if t.IsZero() {
+			return tx
+		}
+		return tx.Where("gmt_create >= ?", t)
+	}
+}
+
+func WithAuditCluster(cluster string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("cluster = ?", cluster)
+	}
+}
+
+func WithPlanNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name like ?", "%"+name+"%")
+	}
+}

@@ -19,11 +19,8 @@ package client
 import (
 	"encoding/base64"
 
-	helmclient "github.com/mittwald/go-helm-client"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2"
 )
 
 func ParseKubeConfigBytes(cfg string) ([]byte, error) {
@@ -65,20 +62,4 @@ func NewClusterSet(cfg string) (*ClusterSet, error) {
 	}
 
 	return cs, nil
-}
-
-func NewHelmClient(namespace string, kubeConfig *rest.Config) (helmclient.Client, error) {
-	opt := &helmclient.RestConfClientOptions{
-		Options: &helmclient.Options{
-			Namespace: namespace,
-			Debug:     true,
-			Linting:   false,
-			DebugLog: func(format string, v ...interface{}) {
-				klog.Infof(format, v)
-			},
-		},
-		RestConfig: kubeConfig,
-	}
-
-	return helmclient.NewClientFromRestConf(opt)
 }

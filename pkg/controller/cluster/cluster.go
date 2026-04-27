@@ -29,7 +29,6 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
-	"helm.sh/helm/v3/pkg/release"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -63,7 +62,7 @@ type Interface interface {
 	Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
-	List(ctx context.Context) ([]types.Cluster, error)
+	List(ctx context.Context, req *types.ListClusterRequest) (*types.PageResponse, error)
 
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
@@ -86,9 +85,6 @@ type Interface interface {
 	// ReRunJob 重新执行指定任务
 	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
 
-	// ListReleases 获取 tenant release 列表
-	ListReleases(ctx context.Context, cluster string, namespace string) ([]*release.Release, error)
-
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
@@ -98,10 +94,10 @@ type Interface interface {
 	Run(ctx context.Context, workers int) error
 }
 
-var clusterIndexer client.Cache
+var ClusterIndexer client.Cache
 
 func init() {
-	clusterIndexer = *client.NewClusterCache()
+	ClusterIndexer = *client.NewClusterCache()
 }
 
 type (
@@ -175,7 +171,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	}
 
 	// TODO: 暂时不做创建后动作
-	clusterIndexer.Set(req.Name, *cs)
+	ClusterIndexer.Set(req.Name, *cs)
 	return nil
 }
 
@@ -198,7 +194,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 	if len(updates) == 0 {
 		return errors.ErrInvalidRequest
 	}
-	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates); err != nil {
+	if err = c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
@@ -246,7 +242,7 @@ func (c *cluster) Delete(ctx context.Context, cid int64) error {
 	}
 
 	// 从缓存中移除 clusterSet
-	clusterIndexer.Delete(cluster.Name)
+	ClusterIndexer.Delete(cluster.Name)
 	return nil
 }
 
@@ -262,8 +258,29 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	return c.model2Type(object), nil
 }
 
-func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
+func (c *cluster) List(ctx context.Context, req *types.ListClusterRequest) (*types.PageResponse, error) {
 	opts := ctrlutil.MakeDbOptions(ctx)
+
+	if req != nil && req.NameSelector != "" {
+		opts = append(opts, db.WithAliasNameLike(req.NameSelector))
+	}
+	if req != nil && req.Status != nil {
+		opts = append(opts, db.WithClusterStatus(*req.Status))
+	}
+
+	total, err := c.factory.Cluster().Count(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	pageReq := types.PageRequest{}
+	if req != nil {
+		pageReq = req.PageRequest
+		if req.Page > 0 && req.Limit > 0 {
+			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
+		}
+	}
+
 	objects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -274,7 +291,11 @@ func (c *cluster) List(ctx context.Context) ([]types.Cluster, error) {
 		cs[i] = *c.model2Type(&object)
 	}
 
-	return cs, nil
+	return &types.PageResponse{
+		PageRequest: pageReq,
+		Total:       int(total),
+		Items:       cs,
+	}, nil
 }
 
 // Ping 检查和 k8s 集群的连通性
@@ -603,9 +624,9 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 
 // GetClusterSetByName 获取 ClusterSet， 缓存中不存在时，构建缓存再返回
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
-	cs, ok := clusterIndexer.Get(name)
+	cs, ok := ClusterIndexer.Get(name)
 	if ok {
-		klog.Infof("Get %s clusterSet from indexer", name)
+		klog.Infof("Get %s clusterSet from cache", name)
 		return cs, nil
 	}
 
@@ -623,8 +644,8 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 		return client.ClusterSet{}, err
 	}
 
-	klog.Infof("set %s clusterSet into indexer", name)
-	clusterIndexer.Set(name, *newClusterSet)
+	klog.Infof("set %s clusterSet into cache", name)
+	ClusterIndexer.Set(name, *newClusterSet)
 	return *newClusterSet, nil
 }
 
@@ -648,7 +669,6 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 	}
 
 	// 构造 kubernetes 资源数据格式
-	// TODO: 后续通过 informer 机制构造缓存
 	km := types.KubernetesMeta{
 		Nodes:             len(nodes),
 		KubernetesVersion: nodes[0].Status.NodeInfo.KubeletVersion,
@@ -761,9 +781,11 @@ func parseFloat64FromString(s string) float64 {
 
 func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	nodes := types.KubeNode{}
-	if err := nodes.Unmarshal(o.Nodes); err != nil {
-		// 非核心数据
-		klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+	if strings.TrimSpace(o.Nodes) != "" {
+		if err := nodes.Unmarshal(o.Nodes); err != nil {
+			// 非核心数据
+			klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+		}
 	}
 
 	tc := &types.Cluster{
@@ -867,71 +889,71 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforce
 	}
 
 	// TODO: code generation?
-	c.registerIndexers([]InformerResource{
-		{
-			ResourceType: ResourcePod,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListPods(ctx, informer.PodsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetPod(ctx, informer.PodsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceDeployment,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetDeployment(ctx, informer.DeploymentsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceStatefulSet,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListStatefulSets(ctx, informer.StatefulSetsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetStatefulSet(ctx, informer.StatefulSetsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceDaemonSet,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListDaemonSets(ctx, informer.DaemonSetsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetDaemonSet(ctx, informer.DaemonSetsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceCronJob,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListCronJobs(ctx, informer.CronJobsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetCronJob(ctx, informer.CronJobsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceJob,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListJobs(ctx, informer.JobsLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetJob(ctx, informer.JobsLister(), namespace, name)
-			},
-		},
-		{
-			ResourceType: ResourceNode,
-			ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
-				return c.ListNodes(ctx, informer.NodesLister(), namespace, listOption)
-			},
-			GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
-				return c.GetNode(ctx, informer.NodesLister(), namespace, name)
-			},
-		},
-		// TODO: 补充更多资源实现
-	}...)
+	//c.registerIndexers([]InformerResource{
+	//	{
+	//		ResourceType: ResourcePod,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListPods(ctx, informer.PodsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetPod(ctx, informer.PodsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceDeployment,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListDeployments(ctx, informer.DeploymentsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetDeployment(ctx, informer.DeploymentsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceStatefulSet,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListStatefulSets(ctx, informer.StatefulSetsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetStatefulSet(ctx, informer.StatefulSetsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceDaemonSet,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListDaemonSets(ctx, informer.DaemonSetsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetDaemonSet(ctx, informer.DaemonSetsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceCronJob,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListCronJobs(ctx, informer.CronJobsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetCronJob(ctx, informer.CronJobsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceJob,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListJobs(ctx, informer.JobsLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetJob(ctx, informer.JobsLister(), namespace, name)
+	//		},
+	//	},
+	//	{
+	//		ResourceType: ResourceNode,
+	//		ListerFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace string, listOption types.ListOptions) (interface{}, error) {
+	//			return c.ListNodes(ctx, informer.NodesLister(), namespace, listOption)
+	//		},
+	//		GetterFunc: func(ctx context.Context, informer *client.PixiuInformer, namespace, name string) (interface{}, error) {
+	//			return c.GetNode(ctx, informer.NodesLister(), namespace, name)
+	//		},
+	//	},
+	//	// TODO: 补充更多资源实现
+	//}...)
 	return c
 }

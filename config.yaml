@@ -1,8 +1,8 @@
 default:
   # 运行模式，可选 debug 和 release
-  mode: debug
+  mode: release 
   # 服务监听端口
-  listen: 8090
+  listen: 8091
   # jwt 签名的 key
   jwt_key: pixiu
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
@@ -10,28 +10,42 @@ default:
   # 日志的格式，可选 text 和 json
   log_format: json
   log_level: info
+  # 静态文件路径
+  static_files: /static
 
-# 默认数据库
-#sqlite3:
-#  db_file: pixiu.db
+  # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
+  admin_user: pixiu
+  admin_password: 123456
 
-# 数据库地址信息
-mysql:
-  host: peng
-  user: root
-  password: Pixiu868686
-  port: 3306
-  name: pixiu
+# 配置前端请求地址
+dashboard:
+  url: http://localhost:8080
+
+#tls:
+#  cert_file: test.pem
+#  key_file: test.key
+
+# 数据库配置，driver 支持 mysql / sqlite
+database:
+  driver: mysql
+  mysql:
+    host: peng
+    user: root
+    password: Pixiu868686
+    port: 3306
+    name: pixiu
+  sqlite:
+    path: /tmp/pixiu/pixiu.db
 
 worker:
   work_dir: /tmp/pixiu
   engines:
-    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v2.0.1
+    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.1
       os_supported:
         - centos7
         - debian10
         - ubuntu18.04
-    - image: harbor.cloud.pixiuio.com/pixiuio/kubez-ansible:v3.0.1
+    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.1
       os_supported:
         - debian11
         - ubuntu20.04

@@ -17,8 +17,10 @@ limitations under the License.
 package options
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/casbin/casbin/v2"
@@ -30,12 +32,14 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
@@ -49,12 +53,14 @@ const (
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = logutil.LogFormatJson
 	defaultWorkDir    = "/etc/pixiu"
+	defaultStaticDir  = "/static"
+
+	defaultAdminUser     = "admin"
+	defaultAdminPassword = "Pixiu123456!"
 
 	defaultSlowSQLDuration = 1 * time.Second
 
 	rulesTableName = "rules"
-
-	defaultSqlite3DSN = defaultWorkDir + "/" + "pixiu.db"
 )
 
 // Options has all the params needed to run a pixiu
@@ -117,14 +123,20 @@ func (o *Options) Complete() error {
 	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
 	}
+	if len(o.ComponentConfig.Default.StaticFiles) == 0 {
+		o.ComponentConfig.Default.StaticFiles = defaultStaticDir
+	}
 	if o.ComponentConfig.Audit.Schedule == "" {
 		o.ComponentConfig.Audit.Schedule = jobmanager.DefaultSchedule
 	}
 	if o.ComponentConfig.Audit.DaysReserved == 0 {
 		o.ComponentConfig.Audit.DaysReserved = jobmanager.DefaultDaysReserved
 	}
-	if o.ComponentConfig.Sqlite == nil && o.ComponentConfig.Mysql == nil {
-		o.ComponentConfig.Sqlite = &config.SqliteOptions{DSN: defaultSqlite3DSN}
+	if len(o.ComponentConfig.Default.AdminUser) == 0 {
+		o.ComponentConfig.Default.AdminUser = defaultAdminUser
+	}
+	if len(o.ComponentConfig.Default.AdminPassword) == 0 {
+		o.ComponentConfig.Default.AdminPassword = defaultAdminPassword
 	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
@@ -139,6 +151,10 @@ func (o *Options) Complete() error {
 	}
 
 	o.Controller = controller.New(o.ComponentConfig, o.Factory, o.Enforcer)
+
+	if err := o.bootstrapRootUser(); err != nil {
+		return err
+	}
 
 	o.JobManager = jobmanager.NewManager(
 		&o.ComponentConfig.Default.LogOptions,
@@ -193,23 +209,31 @@ func (o *Options) registerDatabase() error {
 	opt := &gorm.Config{
 		Logger: pixiudb.NewLogger(logger.Info, defaultSlowSQLDuration),
 	}
-
-	var dial gorm.Dialector
-	if o.ComponentConfig.Mysql != nil {
-		sqlConfig := o.ComponentConfig.Mysql
+	driver := o.ComponentConfig.DatabaseDriver()
+	var (
+		db  *gorm.DB
+		err error
+	)
+	switch driver {
+	case config.DBDriverMySQL:
+		sqlConfig := o.ComponentConfig.EffectiveMysql()
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
 			sqlConfig.User,
 			sqlConfig.Password,
 			sqlConfig.Host,
 			sqlConfig.Port,
 			sqlConfig.Name)
-		dial = mysql.Open(dsn)
+		db, err = gorm.Open(mysql.Open(dsn), opt)
+	case config.DBDriverSQLite:
+		sqliteConfig := o.ComponentConfig.Database.SQLite
+		path := filepath.Clean(sqliteConfig.Path)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return fmt.Errorf("create sqlite dir failed: %w", err)
+		}
+		db, err = gorm.Open(sqlite.Open(path), opt)
+	default:
+		return fmt.Errorf("unsupported database driver %q", driver)
 	}
-	if o.ComponentConfig.Sqlite != nil {
-		dial = sqlite.Open(o.ComponentConfig.Sqlite.DSN)
-	}
-
-	db, err := gorm.Open(dial, opt)
 	if err != nil {
 		return err
 	}
@@ -231,4 +255,29 @@ func (o *Options) registerDatabase() error {
 func (o *Options) Validate() error {
 	// TODO
 	return nil
+}
+
+// bootstrapRootUser 启动时自动初始化超级管理员账户
+// 若超管已存在则跳过，若不存在则使用配置文件中的用户名和密码创建
+// 密码经由 Controller.User().Create() 内部调用 util.EncryptUserPassword() 加密后入库
+func (o *Options) bootstrapRootUser() error {
+	ctx := context.Background()
+	root, err := o.Factory.User().GetRoot(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check root user: %v", err)
+	}
+	if root != nil {
+		klog.V(2).Info("root user already exists, skipping")
+		return nil
+	}
+
+	adminUser := o.ComponentConfig.Default.AdminUser
+	adminPassword := o.ComponentConfig.Default.AdminPassword
+	klog.Infof("initializing root user: %s", adminUser)
+
+	return o.Controller.User().Create(ctx, &types.CreateUserRequest{
+		Name:     adminUser,
+		Password: adminPassword,
+		Role:     pixiuModel.RoleRoot,
+	})
 }

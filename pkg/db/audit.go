@@ -55,14 +55,14 @@ func (a *audit) Create(ctx context.Context, object *model.Audit) (*model.Audit, 
 }
 
 func (a *audit) Get(ctx context.Context, aid int64) (*model.Audit, error) {
-	var audit *model.Audit
-	if err := a.db.WithContext(ctx).Where("id = ?", aid).First(audit).Error; err != nil {
+	var object model.Audit
+	if err := a.db.WithContext(ctx).Where("id = ?", aid).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return audit, nil
+	return &object, nil
 }
 
 func (a *audit) List(ctx context.Context, opts ...Options) ([]model.Audit, error) {

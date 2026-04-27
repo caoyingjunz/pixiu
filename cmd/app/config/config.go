@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
@@ -35,11 +36,12 @@ func (m Mode) InDebug() bool {
 }
 
 type Config struct {
-	Default DefaultOptions          `yaml:"default"`
-	Mysql   *MysqlOptions           `yaml:"mysql"`
-	Sqlite  *SqliteOptions          `yaml:"sqlite3"`
-	Worker  WorkerOptions           `yaml:"worker"`
-	Audit   jobmanager.AuditOptions `yaml:"audit"`
+	Default  DefaultOptions          `yaml:"default"`
+	Database DatabaseOptions         `yaml:"database"`
+	Mysql    MysqlOptions            `yaml:"mysql"` // backward compatibility
+	Worker   WorkerOptions           `yaml:"worker"`
+	Audit    jobmanager.AuditOptions `yaml:"audit"`
+	TLS      *TLS                    `yaml:"tls"`
 }
 
 type DefaultOptions struct {
@@ -51,6 +53,12 @@ type DefaultOptions struct {
 	AutoMigrate bool `yaml:"auto_migrate"`
 
 	logutil.LogOptions `yaml:",inline"`
+	// 静态文件路径
+	StaticFiles string `yaml:"static_files"`
+
+	// 超级管理员初始化配置，留空则使用默认值
+	AdminUser     string `yaml:"admin_user"`
+	AdminPassword string `yaml:"admin_password"`
 }
 
 func (o DefaultOptions) Valid() error {
@@ -69,22 +77,64 @@ type MysqlOptions struct {
 	Name     string `yaml:"name"`
 }
 
-func (o *MysqlOptions) Valid() error {
+func (o MysqlOptions) Valid() error {
 	// TODO
 	return nil
 }
 
-type SqliteOptions struct {
-	DSN string `yaml:"dsn"`
+type DBDriver string
+
+const (
+	DBDriverMySQL  DBDriver = "mysql"
+	DBDriverSQLite DBDriver = "sqlite"
+)
+
+// DatabaseOptions 数据库配置，支持通过 driver 切换后端
+type DatabaseOptions struct {
+	Driver DBDriver      `yaml:"driver"`
+	Mysql  MysqlOptions  `yaml:"mysql"`
+	SQLite SQLiteOptions `yaml:"sqlite"`
 }
 
-func (s *SqliteOptions) Valid() error {
-	if s != nil {
-		if len(s.DSN) == 0 {
-			return fmt.Errorf("empty sqlite3 dsn")
-		}
+type SQLiteOptions struct {
+	Path string `yaml:"path"`
+}
+
+func (o SQLiteOptions) Valid() error {
+	if strings.TrimSpace(o.Path) == "" {
+		return fmt.Errorf("sqlite.path is required when using sqlite")
 	}
 	return nil
+}
+
+func (o DatabaseOptions) Valid() error {
+	if o.Driver == "" {
+		return nil
+	}
+
+	switch o.Driver {
+	case DBDriverMySQL:
+		return o.Mysql.Valid()
+	case DBDriverSQLite:
+		return o.SQLite.Valid()
+	default:
+		return fmt.Errorf("unsupported database driver %q", o.Driver)
+	}
+}
+
+func (c *Config) DatabaseDriver() DBDriver {
+	driver := c.Database.Driver
+	if driver == "" {
+		driver = DBDriverMySQL
+	}
+	return driver
+}
+
+func (c *Config) EffectiveMysql() MysqlOptions {
+	if c.Database.Mysql != (MysqlOptions{}) {
+		return c.Database.Mysql
+	}
+	return c.Mysql
 }
 
 type WorkerOptions struct {
@@ -102,15 +152,44 @@ func (w WorkerOptions) Valid() error {
 	return nil
 }
 
+type TLS struct {
+	CertFile string `yaml:"cert_file"`
+	KeyFile  string `yaml:"key_file"`
+}
+
+func (t *TLS) Valid() error {
+	if t != nil {
+		if len(t.CertFile) == 0 {
+			return fmt.Errorf("listen on tls, no cert_file found")
+		}
+
+		if len(t.KeyFile) == 0 {
+			return fmt.Errorf("listen on tls, no key_file found")
+		}
+	}
+
+	return nil
+}
+
 func (c *Config) Valid() (err error) {
 	if err = c.Default.Valid(); err != nil {
 		return
 	}
-	if err = c.Mysql.Valid(); err != nil {
+	if err = c.Database.Valid(); err != nil {
 		return
+	}
+
+	// 兼容老配置，仅有 mysql 段时校验它
+	if c.Database == (DatabaseOptions{}) {
+		if err = c.Mysql.Valid(); err != nil {
+			return
+		}
 	}
 	if err = c.Worker.Valid(); err != nil {
 		return
+	}
+	if err = c.TLS.Valid(); err != nil {
+		return err
 	}
 
 	return

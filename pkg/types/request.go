@@ -33,6 +33,7 @@ type (
 		Role        model.UserRole   `json:"role" binding:"omitempty,oneof=0 1 2"` // optional
 		Status      model.UserStatus `json:"status" binding:"omitempty"`
 		Email       string           `json:"email" binding:"omitempty,email"` // optional
+		Phone       string           `json:"phone" binding:"omitempty"`       // optional
 		Description string           `json:"description" binding:"omitempty"` // optional
 	}
 
@@ -42,6 +43,7 @@ type (
 		Role            model.UserRole   `json:"role" binding:"omitempty,oneof=0 1 2"`   // required
 		Status          model.UserStatus `json:"status" binding:"omitempty,oneof=0 1 2"` // required
 		Email           string           `json:"email" binding:"omitempty,email"`        // optional
+		Phone           string           `json:"phone" binding:"omitempty"`              // optional
 		Description     string           `json:"description" binding:"omitempty"`        // optional
 		ResourceVersion *int64           `json:"resource_version" binding:"required"`    // required
 	}
@@ -172,6 +174,29 @@ type (
 	QueryOption struct {
 		LabelSelector string `form:"labelSelector" json:"labelSelector"` // 标签搜索
 		NameSelector  string `form:"nameSelector" json:"nameSelector"`   // 名称搜索
+	}
+
+	// ListClusterRequest 集群列表查询参数
+	ListClusterRequest struct {
+		PageRequest `form:",inline"`
+		QueryOption `form:",inline"`
+		Status      *int `form:"status" json:"status"` // 集群状态过滤，不传则不过滤
+	}
+
+	// ListPlanRequest 部署计划列表查询参数
+	ListPlanRequest struct {
+		PageRequest  `form:",inline"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
+		Step         string `form:"step" json:"step"`                 // 状态过滤，不传则不过滤
+	}
+
+	// ListUserRequest 用户列表查询参数
+	ListUserRequest struct {
+		PageRequest `form:",inline"`
+		UserName    string `form:"userName" json:"userName"`
+		UserPhone   string `form:"userPhone" json:"userPhone"`
+		UserEmail   string `form:"userEmail" json:"userEmail"`
+		Status      *int   `form:"status" json:"status"`
 	}
 
 	// WebSSHRequest 主机 ssh 跳转请求

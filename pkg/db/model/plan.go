@@ -92,7 +92,7 @@ const (
 type TaskStatus string
 
 const (
-	FailedPlanStatus  TaskStatus = "部署失败"
+	FailedPlanStatus  TaskStatus = "已失败"
 	SuccessPlanStatus TaskStatus = "已成功"
 	UnStartPlanStatus TaskStatus = "未开始"
 	RunningPlanStatus TaskStatus = "运行中"

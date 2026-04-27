@@ -111,4 +111,8 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.PolicyNotExistError,
 	}
+	ErrRootAlreadyExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.ErrRootAlreadyExists,
+	}
 )
