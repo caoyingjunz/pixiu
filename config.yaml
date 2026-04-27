@@ -10,8 +10,6 @@ default:
   # 日志的格式，可选 text 和 json
   log_format: json
   log_level: info
-  # 静态文件路径
-  static_files: /static
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: pixiu

@@ -35,7 +35,7 @@ type ClusterStatus uint8
 const (
 	ClusterStatusRunning ClusterStatus = iota // 运行中
 	ClusterStatusDeploy                       // 部署中
-	ClusterStatusUnStart                      // 等待部署
+	ClusterStatusUnStart                      // 未部署
 	ClusterStatusFailed                       // 部署失败
 	ClusterStatusError                        // 集群失联，API不可用
 )
@@ -54,7 +54,7 @@ type Cluster struct {
 	// 自建集群关联的 PlanId
 	PlanId int64
 
-	// 集群运行状态 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 运行中断 5: 所有的 node 不健康
+	// 集群运行状态 0: 运行中 1: 部署中 2: 未部署 3: 部署失败 4: 运行中断 5: 所有的 node 不健康
 	ClusterStatus `gorm:"column:status;type:tinyint" json:"status"`
 
 	// 集群的版本

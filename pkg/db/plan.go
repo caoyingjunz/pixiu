@@ -113,10 +113,6 @@ func (p *plan) Update(ctx context.Context, pid int64, resourceVersion int64, upd
 		return f.Error
 	}
 
-	if f.RowsAffected == 0 {
-		return errors.ErrRecordNotFound
-	}
-
 	return nil
 }
 
