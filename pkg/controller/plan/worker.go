@@ -144,12 +144,15 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		Register{handlerTask: task, factory: p.factory},
 		DeployChart{handlerTask: task},
 	}
+
+	status := model.ClusterStatusRunning
 	if err = p.syncTasks(handlers...); err != nil {
+		status = model.ClusterStatusFailed
 		klog.Errorf("failed to sync task: %v", err)
 	}
 
-	if err = p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": model.ClusterStatusRunning}); err != nil {
-		klog.Errorf("尝试更新集群状态(%s)失败 %v", model.ClusterStatusRunning, err)
+	if err = p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": status}); err != nil {
+		klog.Errorf("尝试更新集群状态(%s)失败 %v", status, err)
 	}
 }
 
