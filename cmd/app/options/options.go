@@ -267,11 +267,7 @@ func (o *Options) bootstrapRootUser() error {
 		return fmt.Errorf("failed to check root user: %v", err)
 	}
 	if root != nil {
-<<<<<<< HEAD
 		klog.V(2).Info("root user already exists, skipping")
-=======
-		klog.Info("root user already exists, skipping")
->>>>>>> 5fd5f7d45c3fe5873bd3de132a0f43379156d06f
 		return nil
 	}
 

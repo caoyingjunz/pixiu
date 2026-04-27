@@ -12,21 +12,6 @@ default:
   log_level: info
   # 静态文件路径
   static_files: /static
-<<<<<<< HEAD
-=======
-
-  # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
-  admin_user: pixiu
-  admin_password: 123456
-
-# 配置前端请求地址
-dashboard:
-  url: http://localhost:8080
-
-#tls:
-#  cert_file: test.pem
-#  key_file: test.key
->>>>>>> 5fd5f7d45c3fe5873bd3de132a0f43379156d06f
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: pixiu
