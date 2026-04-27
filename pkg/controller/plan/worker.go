@@ -107,6 +107,7 @@ func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) 
 
 // 实际处理函数
 // 处理步骤:
+// 0. 更新集群状态为部署中
 // 1. 检查部署参数是否符合要求
 // 2. 渲染环境
 // 3. 执行部署
@@ -114,6 +115,11 @@ func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) 
 func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	klog.Infof("starting plan(%d) task", planId)
 	defer klog.Infof("completed plan(%d) task", planId)
+
+	// 尝试去更新集群状态为部署中
+	if err := p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": model.ClusterStatusDeploy}); err != nil {
+		klog.Warningf("尝试更新集群状态(%s)失败 %v, 忽略", model.ClusterStatusDeploy, err)
+	}
 
 	taskData, err := p.getTaskData(ctx, planId)
 	if err != nil {
@@ -140,6 +146,10 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	}
 	if err = p.syncTasks(handlers...); err != nil {
 		klog.Errorf("failed to sync task: %v", err)
+	}
+
+	if err = p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": model.ClusterStatusRunning}); err != nil {
+		klog.Errorf("尝试更新集群状态(%s)失败 %v", model.ClusterStatusRunning, err)
 	}
 }
 
