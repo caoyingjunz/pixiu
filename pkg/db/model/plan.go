@@ -27,7 +27,7 @@ func init() {
 type Plan struct {
 	pixiu.Model
 
-	Name        string `gorm:"uniqueIndex" json:"name"`
+	Name        string `gorm:"index:idx_name,unique" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
 }
 
