@@ -34,12 +34,16 @@ data:
       log_level: {{ .Values.default.log_level  }}
       log_dir: {{ .Values.default.log_dir  }}
       jwt_key: {{ .Values.default.jwt_key  }}
-    mysql:
-      host: {{ .Values.mysql.host  }}
-      user: {{ .Values.mysql.user  }}
-      password: {{ .Values.mysql.password  }}
-      port: {{ .Values.mysql.port  }}
-      name: {{ .Values.mysql.name  }}
+    database:
+      driver: {{ .Values.database.driver }}
+      mysql:
+        host: {{ .Values.database.mysql.host  }}
+        user: {{ .Values.database.mysql.user  }}
+        password: {{ .Values.database.mysql.password  }}
+        port: {{ .Values.database.mysql.port  }}
+        name: {{ .Values.database.mysql.name  }}
+      sqlite:
+        path: {{ .Values.database.sqlite.path }}
     cicd:
       driver: {{ .Values.cicd.driver  }}
       jenkins:

@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
@@ -35,11 +36,12 @@ func (m Mode) InDebug() bool {
 }
 
 type Config struct {
-	Default DefaultOptions          `yaml:"default"`
-	Mysql   MysqlOptions            `yaml:"mysql"`
-	Worker  WorkerOptions           `yaml:"worker"`
-	Audit   jobmanager.AuditOptions `yaml:"audit"`
-	TLS     *TLS                    `yaml:"tls"`
+	Default  DefaultOptions          `yaml:"default"`
+	Database DatabaseOptions         `yaml:"database"`
+	Mysql    MysqlOptions            `yaml:"mysql"` // backward compatibility
+	Worker   WorkerOptions           `yaml:"worker"`
+	Audit    jobmanager.AuditOptions `yaml:"audit"`
+	TLS      *TLS                    `yaml:"tls"`
 }
 
 type DefaultOptions struct {
@@ -80,6 +82,61 @@ func (o MysqlOptions) Valid() error {
 	return nil
 }
 
+type DBDriver string
+
+const (
+	DBDriverMySQL  DBDriver = "mysql"
+	DBDriverSQLite DBDriver = "sqlite"
+)
+
+// DatabaseOptions 数据库配置，支持通过 driver 切换后端
+type DatabaseOptions struct {
+	Driver DBDriver      `yaml:"driver"`
+	Mysql  MysqlOptions  `yaml:"mysql"`
+	SQLite SQLiteOptions `yaml:"sqlite"`
+}
+
+type SQLiteOptions struct {
+	Path string `yaml:"path"`
+}
+
+func (o SQLiteOptions) Valid() error {
+	if strings.TrimSpace(o.Path) == "" {
+		return fmt.Errorf("sqlite.path is required when using sqlite")
+	}
+	return nil
+}
+
+func (o DatabaseOptions) Valid() error {
+	if o.Driver == "" {
+		return nil
+	}
+
+	switch o.Driver {
+	case DBDriverMySQL:
+		return o.Mysql.Valid()
+	case DBDriverSQLite:
+		return o.SQLite.Valid()
+	default:
+		return fmt.Errorf("unsupported database driver %q", o.Driver)
+	}
+}
+
+func (c *Config) DatabaseDriver() DBDriver {
+	driver := c.Database.Driver
+	if driver == "" {
+		driver = DBDriverMySQL
+	}
+	return driver
+}
+
+func (c *Config) EffectiveMysql() MysqlOptions {
+	if c.Database.Mysql != (MysqlOptions{}) {
+		return c.Database.Mysql
+	}
+	return c.Mysql
+}
+
 type WorkerOptions struct {
 	WorkDir string   `yaml:"work_dir"`
 	Engines []Engine `yaml:"engines"`
@@ -118,8 +175,15 @@ func (c *Config) Valid() (err error) {
 	if err = c.Default.Valid(); err != nil {
 		return
 	}
-	if err = c.Mysql.Valid(); err != nil {
+	if err = c.Database.Valid(); err != nil {
 		return
+	}
+
+	// 兼容老配置，仅有 mysql 段时校验它
+	if c.Database == (DatabaseOptions{}) {
+		if err = c.Mysql.Valid(); err != nil {
+			return
+		}
 	}
 	if err = c.Worker.Valid(); err != nil {
 		return
