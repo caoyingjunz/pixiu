@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/casbin/casbin/v2"
@@ -28,6 +29,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"k8s.io/klog/v2"
@@ -204,18 +206,34 @@ func (o *Options) registerEnforcer() error {
 }
 
 func (o *Options) registerDatabase() error {
-	sqlConfig := o.ComponentConfig.Mysql
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
-		sqlConfig.User,
-		sqlConfig.Password,
-		sqlConfig.Host,
-		sqlConfig.Port,
-		sqlConfig.Name)
-
 	opt := &gorm.Config{
 		Logger: pixiudb.NewLogger(logger.Info, defaultSlowSQLDuration),
 	}
-	db, err := gorm.Open(mysql.Open(dsn), opt)
+	driver := o.ComponentConfig.DatabaseDriver()
+	var (
+		db  *gorm.DB
+		err error
+	)
+	switch driver {
+	case config.DBDriverMySQL:
+		sqlConfig := o.ComponentConfig.EffectiveMysql()
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
+			sqlConfig.User,
+			sqlConfig.Password,
+			sqlConfig.Host,
+			sqlConfig.Port,
+			sqlConfig.Name)
+		db, err = gorm.Open(mysql.Open(dsn), opt)
+	case config.DBDriverSQLite:
+		sqliteConfig := o.ComponentConfig.Database.SQLite
+		path := filepath.Clean(sqliteConfig.Path)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return fmt.Errorf("create sqlite dir failed: %w", err)
+		}
+		db, err = gorm.Open(sqlite.Open(path), opt)
+	default:
+		return fmt.Errorf("unsupported database driver %q", driver)
+	}
 	if err != nil {
 		return err
 	}
@@ -249,7 +267,7 @@ func (o *Options) bootstrapRootUser() error {
 		return fmt.Errorf("failed to check root user: %v", err)
 	}
 	if root != nil {
-		klog.Info("root user already exists, skipping")
+		klog.V(2).Info("root user already exists, skipping")
 		return nil
 	}
 

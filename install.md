@@ -39,13 +39,17 @@ default:
 dashboard:
   url: http://localhost:8090
 
-# 数据库地址信息, 根据实际情况配置
-mysql:
-  host: pixiu # 数据库的ip
-  user: root
-  password: Pixiu868686
-  port: 3306
-  name: pixiu
+# 数据库配置，根据实际情况配置（driver 支持 mysql / sqlite）
+database:
+  driver: mysql
+  mysql:
+    host: pixiu # 数据库的ip
+    user: root
+    password: Pixiu868686
+    port: 3306
+    name: pixiu
+  sqlite:
+    path: /tmp/pixiu/pixiu.db
 
 worker:
   engines:
