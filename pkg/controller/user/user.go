@@ -115,17 +115,6 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		klog.Errorf("failed to create user %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
-	if req.Role == model.RoleRoot {
-		bindings := model.NewGroupBinding(req.Name, model.AdminGroup)
-		if _, err = u.enforcer.AddGroupingPolicy(bindings.Raw()); err != nil {
-			// Compensate user row if policy write fails, to avoid half-initialized root state.
-			if delErr := u.factory.User().Delete(ctx, created.Id); delErr != nil {
-				klog.Errorf("failed to rollback user(%d) after casbin write error: %v", created.Id, delErr)
-			}
-			klog.Errorf("failed to bind root user policy for %s: %v", req.Name, err)
-			return errors.ErrServerInternal
-		}
-	}
 
 	return nil
 }
