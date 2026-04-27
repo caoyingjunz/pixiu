@@ -27,7 +27,7 @@ dashboard:
 
 # 数据库配置，driver 支持 mysql / sqlite
 database:
-  driver: mysql
+  driver: sqlite
   mysql:
     host: peng
     user: root

@@ -1,6 +1,6 @@
 module github.com/caoyingjunz/pixiu
 
-go 1.17
+go 1.25.0
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1
