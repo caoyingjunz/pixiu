@@ -47,6 +47,9 @@ import (
 const (
 	maxIdleConns = 10
 	maxOpenConns = 100
+	// SQLite writes are serialized; keep a single writable connection to reduce SQLITE_BUSY.
+	sqliteMaxOpenConns = 1
+	sqliteMaxIdleConns = 1
 
 	defaultListen     = 8080
 	defaultTokenKey   = "pixiu"
@@ -230,7 +233,9 @@ func (o *Options) registerDatabase() error {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return fmt.Errorf("create sqlite dir failed: %w", err)
 		}
-		db, err = gorm.Open(sqlite.Open(path), opt)
+		// Enable WAL and busy timeout so transient lock contention can wait-and-retry.
+		dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)", path)
+		db, err = gorm.Open(sqlite.Open(dsn), opt)
 	default:
 		return fmt.Errorf("unsupported database driver %q", driver)
 	}
@@ -246,6 +251,10 @@ func (o *Options) registerDatabase() error {
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
+	if driver == config.DBDriverSQLite {
+		sqlDB.SetMaxIdleConns(sqliteMaxIdleConns)
+		sqlDB.SetMaxOpenConns(sqliteMaxOpenConns)
+	}
 
 	o.Factory, err = pixiudb.NewDaoFactory(db, o.ComponentConfig.Default.AutoMigrate)
 	return err
@@ -273,7 +282,7 @@ func (o *Options) bootstrapRootUser() error {
 
 	adminUser := o.ComponentConfig.Default.AdminUser
 	adminPassword := o.ComponentConfig.Default.AdminPassword
-	klog.Infof("initializing root user: %s", adminUser)
+	klog.Infof("initializing root user(%s)", adminUser)
 
 	return o.Controller.User().Create(ctx, &types.CreateUserRequest{
 		Name:     adminUser,

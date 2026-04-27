@@ -28,12 +28,14 @@ dashboard:
 # 数据库配置，driver 支持 mysql / sqlite
 database:
   driver: sqlite
+  # 常规 mysql 配置
   mysql:
     host: peng
     user: root
     password: Pixiu868686
     port: 3306
     name: pixiu
+  # sqlite 只需要指定路径
   sqlite:
     path: /tmp/pixiu/pixiu.db
 
