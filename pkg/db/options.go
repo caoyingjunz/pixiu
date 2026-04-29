@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 type Options func(*gorm.DB) *gorm.DB
@@ -167,5 +169,26 @@ func WithPlanNameLike(name string) Options {
 			return tx
 		}
 		return tx.Where("name like ?", "%"+name+"%")
+	}
+}
+
+func WithNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name like ?", "%"+name+"%")
+	}
+}
+
+func WithStatus(status model.AgentStatus) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
+
+func WithUserId(userId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("user_id = ?", userId)
 	}
 }

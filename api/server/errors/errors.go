@@ -95,6 +95,10 @@ var (
 		Code: http.StatusConflict,
 		Err:  errors.ErrAuditExists,
 	}
+	ErrAgentNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrAgentNotFound,
+	}
 	ErrRBACPolicyExists = Error{
 		Code: http.StatusConflict,
 		Err:  errors.PolicyExistError,

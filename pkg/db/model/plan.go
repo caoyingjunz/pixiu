@@ -104,6 +104,7 @@ type Task struct {
 	Name    string     `json:"name"`
 	PlanId  int64      `json:"plan_id"`
 	Step    PlanStep   `json:"step"`
+	Action  string     `json:"action"`
 	Status  TaskStatus `json:"status"`
 	Message string     `json:"message"`
 }

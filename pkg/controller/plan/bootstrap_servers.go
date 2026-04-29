@@ -30,11 +30,11 @@ type BootStrap struct {
 	runner string
 }
 
-func (b BootStrap) Name() string { return "初始化部署环境" }
-
+func (b BootStrap) Name() string      { return "初始化部署环境" }
+func (b BootStrap) GetAction() string { return "bootstrap-servers" } // action 和底层 kubez-ansible 保持一致 https://github.com/pixiu-io/kubez-ansible/blob/master/tools/kubez-ansible#L260
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b BootStrap) Run() error {
-	cli, err := container.NewContainer("bootstrap-servers", b.GetPlanId(), b.dir)
+	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
 	if err != nil {
 		return err
 	}

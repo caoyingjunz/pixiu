@@ -40,7 +40,8 @@ type Render struct {
 	dir string
 }
 
-func (r Render) Name() string { return "配置渲染" }
+func (r Render) Name() string      { return "配置渲染" }
+func (r Render) GetAction() string { return "render" }
 func (r Render) Run() error {
 	// 渲染 hosts
 	if err := r.doRender("hosts", pixiutpl.HostTemplate, r.data); err != nil {
