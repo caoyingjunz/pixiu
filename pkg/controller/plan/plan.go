@@ -53,6 +53,8 @@ type Interface interface {
 	Start(ctx context.Context, pid int64) error
 	// Stop 终止部署任务
 	Stop(ctx context.Context, pid int64) error
+	// Destroy 销毁k8s集群
+	Destroy(ctx context.Context, pid int64, restart bool) error
 
 	CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error
 	UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error
@@ -448,6 +450,10 @@ func (p *plan) Start(ctx context.Context, pid int64) error {
 }
 
 func (p *plan) Stop(ctx context.Context, pid int64) error {
+	return nil
+}
+
+func (p *plan) Destroy(ctx context.Context, pid int64, restart bool) error {
 	return nil
 }
 
