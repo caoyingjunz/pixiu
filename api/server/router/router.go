@@ -29,6 +29,7 @@ import (
 	_ "github.com/caoyingjunz/pixiu/api/server/validator"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
+	"github.com/caoyingjunz/pixiu/api/server/router/agent"
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
@@ -56,6 +57,7 @@ func InstallRouters(o *options.Options) {
 		user.NewRouter,
 		plan.NewRouter,
 		audit.NewRouter,
+		agent.NewRouter,
 		auth.NewRouter,
 	}
 

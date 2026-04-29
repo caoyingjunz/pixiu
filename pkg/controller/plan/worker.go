@@ -30,6 +30,7 @@ import (
 
 type Handler interface {
 	GetPlanId() int64
+	GetAction() string // kubez-ansible {实际执行命名，比如 deploy，}
 
 	Name() string         // 检查项名称
 	Step() model.PlanStep // 未开始，运行中，异常和完成
@@ -41,6 +42,7 @@ type handlerTask struct {
 }
 
 func (t handlerTask) GetPlanId() int64     { return t.data.PlanId }
+func (t handlerTask) GetAction() string    { return "" }
 func (t handlerTask) Step() model.PlanStep { return model.RunningPlanStep }
 
 func newHandlerTask(data TaskData) handlerTask {
@@ -167,7 +169,6 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		if err == nil {
 			return nil
 		}
-
 		// 非不存在报错则报异常
 		if !errors.IsRecordNotFound(err) {
 			klog.Infof("failed to get plan(%d) tasks(%s) for first created: %v", planId, name, err)
@@ -179,6 +180,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 			Name:   name,
 			PlanId: planId,
 			Step:   step,
+			Action: task.GetAction(),
 			Status: model.UnStartPlanStatus,
 		}); err != nil {
 			klog.Errorf("failed to init plan(%d) task(%s): %v", planId, name, err)
@@ -252,7 +254,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 
 		status := model.SuccessPlanStatus
 		step := task.Step()
-		message := ""
+		message := "执行成功"
 
 		// 执行检查
 		runErr := task.Run()

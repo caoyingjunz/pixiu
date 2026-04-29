@@ -186,6 +186,7 @@ type PlanTask struct {
 
 	Name    string           `json:"name"`
 	PlanId  int64            `json:"plan_id" binding:"required"`
+	Action  string           `json:"action"`
 	Status  model.TaskStatus `json:"status"`
 	Message string           `json:"message"`
 }

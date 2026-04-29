@@ -65,10 +65,11 @@ func (t *planRouter) watchTaskLog(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		opt watchTaskLogMeta
-		err error
+		opt      watchTaskLogMeta
+		watchOpt WatchMeta
+		err      error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &opt, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &opt, &watchOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

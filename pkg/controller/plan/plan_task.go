@@ -99,37 +99,19 @@ func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskId int64, w h
 		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
 		return err
 	}
-
 	if task.Status == model.UnStartPlanStatus {
 		return fmt.Errorf("任务尚未开始")
-	}
-
-	c, err := container.NewContainer("WatchTaskLog", planId, "")
-	if err != nil {
-		return err
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// TODO 临时指定，后期根据步骤id去做查询判断
-	var step string
-	switch task.Name {
-	case "初始化部署环境":
-		step = "bootstrap-servers"
-	case "部署Master":
-		step = "deploy"
-	case "部署Node":
-		step = "deploy"
-	case "部署基础组件":
-		step = "deploy"
-	default:
-		step = "bootstrap-servers"
+	cli, err := container.NewContainer("", planId, "")
+	if err != nil {
+		return err
 	}
-
-	containerId := fmt.Sprintf("%s-%d", step, planId)
-	readCloser, err := c.WatchContainerLog(ctx, containerId, "")
+	readCloser, err := cli.WatchContainerLog(ctx, fmt.Sprintf("%s-%d", task.Action, planId), "")
 	if err != nil {
 		return err
 	}
@@ -166,6 +148,7 @@ func (p *plan) modelTask2Type(o *model.Task) *types.PlanTask {
 		},
 		Name:    o.Name,
 		PlanId:  o.PlanId,
+		Action:  o.Action,
 		Status:  o.Status,
 		Message: o.Message,
 	}

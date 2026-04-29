@@ -31,11 +31,10 @@ type Deploy struct {
 	runner string
 }
 
-func (b Deploy) Name() string { return "部署Master" }
-
-// Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
+func (b Deploy) Name() string      { return "部署Master" }
+func (b Deploy) GetAction() string { return "deploy" }
 func (b Deploy) Run() error {
-	cli, err := container.NewContainer("deploy", b.GetPlanId(), b.dir)
+	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
 	if err != nil {
 		return err
 	}
@@ -45,10 +44,16 @@ func (b Deploy) Run() error {
 	defer cancel()
 
 	// 启动执行容器
-	if err = cli.StartAndWaitForContainer(ctx, b.runner); err != nil {
-		return err
-	}
+	return cli.StartAndWaitForContainer(ctx, b.runner)
+}
 
+type AddMaster struct {
+	handlerTask
+}
+
+func (b AddMaster) Name() string      { return "新增Master" }
+func (b AddMaster) GetAction() string { return "add-master" }
+func (b AddMaster) Run() error {
 	return nil
 }
 
@@ -56,10 +61,19 @@ type DeployNode struct {
 	handlerTask
 }
 
-func (b DeployNode) Name() string { return "部署Node" }
-
-// Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
+func (b DeployNode) Name() string      { return "部署Node" }
+func (b DeployNode) GetAction() string { return "deploy-node" }
 func (b DeployNode) Run() error {
+	return nil
+}
+
+type AddNode struct {
+	handlerTask
+}
+
+func (b AddNode) Name() string      { return "新增Node" }
+func (b AddNode) GetAction() string { return "add-node" }
+func (b AddNode) Run() error {
 	return nil
 }
 
@@ -68,9 +82,8 @@ type DeployChart struct {
 }
 
 func (b DeployChart) Name() string         { return "部署基础组件" }
+func (b DeployChart) GetAction() string    { return "deploy-chart" }
 func (b DeployChart) Step() model.PlanStep { return model.CompletedPlanStep }
-
-// Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b DeployChart) Run() error {
 	return nil
 }

@@ -48,5 +48,8 @@ keepalived_virtual_router_id: "{{ .Component.Haproxy.KeepalivedVirtualRouterId }
 enable_calico: "yes"
 {{- end }}
 
+# 组件默认开关
 enable_nfs: "no"
+enable_prometheus: "no"
+enable_prometheus_adapter: "no"
 `
