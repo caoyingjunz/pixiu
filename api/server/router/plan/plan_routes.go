@@ -27,6 +27,11 @@ type planMeta struct {
 	PlanId int64 `uri:"planId" binding:"required"`
 }
 
+type planDestroyMeta struct {
+	PlanId  int64 `uri:"planId" binding:"required"`
+	Restart bool  `uri:"restart"`
+}
+
 type watchTaskLogMeta struct {
 	PlanId int64 `uri:"planId" binding:"required"`
 	TaskId int64 `uri:"taskId" binding:"required"`
@@ -184,6 +189,25 @@ func (t *planRouter) stopPlan(c *gin.Context) {
 		return
 	}
 	if err = t.c.Plan().Stop(c, opt.PlanId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (t *planRouter) destroyPlan(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		opt planDestroyMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = t.c.Plan().Destroy(c, opt.PlanId, opt.Restart); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

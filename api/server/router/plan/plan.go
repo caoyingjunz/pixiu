@@ -49,6 +49,8 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 		planRoute.POST("/:planId/start", t.startPlan)
 		// 终止部署任务
 		planRoute.POST("/:planId/stop", t.stopPlan)
+		// 销毁部署
+		planRoute.POST("/:planId/destroy", t.destroyPlan)
 
 		// 部署计划的节点API
 		planRoute.POST("/:planId/nodes", t.createPlanNode)
