@@ -92,10 +92,12 @@ const (
 type TaskStatus string
 
 const (
-	FailedPlanStatus  TaskStatus = "已失败"
-	SuccessPlanStatus TaskStatus = "已成功"
-	UnStartPlanStatus TaskStatus = "未开始"
-	RunningPlanStatus TaskStatus = "运行中"
+	FailedPlanStatus     TaskStatus = "已失败"
+	SuccessPlanStatus    TaskStatus = "已成功"
+	UnStartPlanStatus    TaskStatus = "未开始"
+	RunningPlanStatus    TaskStatus = "运行中"
+	StoppingPlanStatus   TaskStatus = "停止中"
+	DestroyingPlanStatus TaskStatus = "销毁中"
 )
 
 type Task struct {

@@ -24,16 +24,16 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/container"
 )
 
-type Deploy struct {
+type DeployMaster struct {
 	handlerTask
 
 	dir    string
 	runner string
 }
 
-func (b Deploy) Name() string      { return "部署Master" }
-func (b Deploy) GetAction() string { return "deploy" }
-func (b Deploy) Run() error {
+func (b DeployMaster) Name() string      { return "部署Master" }
+func (b DeployMaster) GetAction() string { return "deploy-master" }
+func (b DeployMaster) Run() error {
 	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
 	if err != nil {
 		return err
@@ -59,12 +59,25 @@ func (b AddMaster) Run() error {
 
 type DeployNode struct {
 	handlerTask
+
+	dir    string
+	runner string
 }
 
 func (b DeployNode) Name() string      { return "部署Node" }
 func (b DeployNode) GetAction() string { return "deploy-node" }
 func (b DeployNode) Run() error {
-	return nil
+	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
+	if err != nil {
+		return err
+	}
+	defer cli.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	// 启动执行容器
+	return cli.StartAndWaitForContainer(ctx, b.runner)
 }
 
 type AddNode struct {
@@ -79,11 +92,24 @@ func (b AddNode) Run() error {
 
 type DeployChart struct {
 	handlerTask
+
+	dir    string
+	runner string
 }
 
 func (b DeployChart) Name() string         { return "部署基础组件" }
-func (b DeployChart) GetAction() string    { return "deploy-chart" }
+func (b DeployChart) GetAction() string    { return "apply" }
 func (b DeployChart) Step() model.PlanStep { return model.CompletedPlanStep }
 func (b DeployChart) Run() error {
-	return nil
+	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
+	if err != nil {
+		return err
+	}
+	defer cli.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	// 启动执行容器
+	return cli.StartAndWaitForContainer(ctx, b.runner)
 }

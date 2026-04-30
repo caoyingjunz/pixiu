@@ -385,6 +385,15 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 // 3. 校验runner
 // 3. 运行任务
 func (p *plan) preStart(ctx context.Context, pid int64) error {
+	// 4. 校验运行任务
+	isRunning, err := p.TaskIsRunning(ctx, pid)
+	if err != nil {
+		return errors.ErrServerInternal
+	}
+	if isRunning {
+		return errors.ErrNotAcceptable
+	}
+
 	// 1. 校验配置
 	cfg, err := p.GetConfig(ctx, pid)
 	if err != nil {
@@ -407,16 +416,6 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 		return err
 	}
 	klog.Infof("plan(%d) runner is %s", pid, runner)
-
-	// 4. 校验运行任务
-	isRunning, err := p.TaskIsRunning(ctx, pid)
-	if err != nil {
-		return errors.ErrServerInternal
-	}
-	if isRunning {
-		return errors.ErrNotAcceptable
-	}
-
 	return nil
 }
 
@@ -430,7 +429,7 @@ func (p *plan) TaskIsRunning(ctx context.Context, planId int64) (bool, error) {
 	}
 
 	for _, task := range tasks {
-		if task.Status == model.RunningPlanStatus {
+		if task.Status == model.RunningPlanStatus || task.Status == model.DestroyingPlanStatus || task.Status == model.StoppingPlanStatus {
 			klog.Warningf("task %d of plan %d is running", task.Id, planId)
 			return true, nil
 		}
@@ -449,10 +448,13 @@ func (p *plan) Start(ctx context.Context, pid int64) error {
 	return nil
 }
 
+// Stop
+// 已完成的忽略，剩余非未开始的设置成停止
 func (p *plan) Stop(ctx context.Context, pid int64) error {
 	return nil
 }
 
+// Destroy 全部设置成销毁
 func (p *plan) Destroy(ctx context.Context, pid int64, restart bool) error {
 	return nil
 }

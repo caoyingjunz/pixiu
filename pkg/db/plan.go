@@ -18,6 +18,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -60,6 +61,8 @@ type PlanInterface interface {
 	UpdateTask(ctx context.Context, pid int64, name string, updates map[string]interface{}) (*model.Task, error)
 	DeleteTask(ctx context.Context, pid int64) error
 	ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error)
+
+	UpdateTaskBy(ctx context.Context, updates map[string]interface{}, opts ...Options) error
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error)
@@ -364,6 +367,24 @@ func (p *plan) UpdateTask(ctx context.Context, pid int64, name string, updates m
 	}
 
 	return p.GetTaskByName(ctx, pid, name)
+}
+
+func (p *plan) UpdateTaskBy(ctx context.Context, updates map[string]interface{}, opts ...Options) error {
+	updates["gmt_modified"] = time.Now()
+
+	tx := p.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	f := tx.Model(&model.Task{}).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return fmt.Errorf("record not updated")
+	}
+
+	return nil
 }
 
 func (p *plan) DeleteTask(ctx context.Context, pid int64) error {
