@@ -181,6 +181,15 @@ func WithNameLike(name string) Options {
 	}
 }
 
+func WithPlan(pid int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if pid == 0 {
+			return tx
+		}
+		return tx.Where("plan_id = ?", pid)
+	}
+}
+
 func WithStatus(status model.AgentStatus) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)

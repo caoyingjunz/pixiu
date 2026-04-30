@@ -141,10 +141,10 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		Check{handlerTask: task},
 		Render{handlerTask: task, dir: dir},
 		BootStrap{handlerTask: task, dir: dir, runner: runner},
-		Deploy{handlerTask: task, dir: dir, runner: runner},
-		DeployNode{handlerTask: task},
+		DeployMaster{handlerTask: task, dir: dir, runner: runner},
+		DeployNode{handlerTask: task, dir: dir, runner: runner},
 		Register{handlerTask: task, factory: p.factory},
-		DeployChart{handlerTask: task},
+		DeployChart{handlerTask: task, dir: dir, runner: runner},
 	}
 
 	status := model.ClusterStatusRunning
