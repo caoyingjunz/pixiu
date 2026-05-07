@@ -106,19 +106,26 @@ func (c *cluster) WsNodeHandler(ctx context.Context, sshConfig *types.WebSSHRequ
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		// 升级失败时尚未 hijack，可交给上层返回 JSON 错误
 		return err
 	}
 	defer conn.Close()
 
+	// Upgrade 成功后 net/http 连接已被 hijack，禁止再向 ResponseWriter 写 JSON（否则会 panic:
+	// http: connection has been hijacked）。后续错误仅记录日志并通过 WebSocket 提示客户端。
 	sshClient, err := sshutil.NewSSHClient(sshConfig)
 	if err != nil {
-		return err
+		klog.Errorf("node ssh dial failed (host=%s): %v", sshConfig.Host, err)
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("\r\n[SSH 连接失败] "+err.Error()+"\r\n"))
+		return nil
 	}
 	defer sshClient.Close()
 
 	turn, err := types.NewTurn(conn, sshClient)
 	if err != nil {
-		return err
+		klog.Errorf("node ssh session failed (host=%s): %v", sshConfig.Host, err)
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("\r\n[SSH 会话建立失败] "+err.Error()+"\r\n"))
+		return nil
 	}
 	defer turn.Close()
 
