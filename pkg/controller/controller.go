@@ -25,6 +25,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
+	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/user"
@@ -36,6 +37,7 @@ type PixiuInterface interface {
 	tenant.TenantGetter
 	user.UserGetter
 	plan.PlanGetter
+	node.NodeGetter
 	audit.AuditGetter
 	auth.AuthGetter
 	helm.HelmGetter
@@ -52,6 +54,7 @@ func (p *pixiu) Cluster() cluster.Interface { return cluster.NewCluster(p.cc, p.
 func (p *pixiu) Tenant() tenant.Interface   { return tenant.NewTenant(p.cc, p.factory) }
 func (p *pixiu) User() user.Interface       { return user.NewUser(p.cc, p.factory, p.enforcer) }
 func (p *pixiu) Plan() plan.Interface       { return plan.NewPlan(p.cc, p.factory) }
+func (p *pixiu) Node() node.Interface       { return node.NewNode(p.cc, p.factory) }
 func (p *pixiu) Audit() audit.Interface     { return audit.NewAudit(p.cc, p.factory) }
 func (p *pixiu) Auth() auth.Interface       { return auth.NewAuth(p.factory, p.enforcer) }
 func (p *pixiu) Helm() helm.Interface       { return helm.NewHelm(p.factory) }

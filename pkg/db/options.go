@@ -76,6 +76,16 @@ func WithAliasNameLike(name string) Options {
 	}
 }
 
+// WithPlanIdNode 按部署计划 ID 过滤节点（plan_id=0 表示不过滤）
+func WithPlanIdNode(planId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if planId == 0 {
+			return tx
+		}
+		return tx.Where("plan_id = ?", planId)
+	}
+}
+
 func WithClusterStatus(status int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)

@@ -41,15 +41,16 @@ func (cr *clusterRouter) webShell(c *gin.Context) {
 
 func (cr *clusterRouter) nodeWebShell(c *gin.Context) {
 	r := httputils.NewResponse()
+
 	var (
-		sshConfig types.WebSSHRequest
-		err       error
+		req types.WebSSHRequest
+		err error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &sshConfig); err != nil {
+	if err = c.ShouldBindQuery(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().WsNodeHandler(c, &sshConfig, c.Writer, c.Request); err != nil {
+	if err = cr.c.Cluster().WsNodeHandler(c, req, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

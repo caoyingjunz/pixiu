@@ -26,17 +26,27 @@ import (
 )
 
 func NewSSHClient(sshConfig *types.WebSSHRequest) (*ssh.Client, error) {
-	// TODO：利用 gin 的解析，直接设置默认值
 	port := sshConfig.Port
 	if port == 0 {
 		port = 22
 	}
 
-	// TODO 补充支持 PrivateKey 场景
-	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", sshConfig.Host, port), &ssh.ClientConfig{
+	addr := fmt.Sprintf("%s:%d", sshConfig.Host, port)
+	cfg := &ssh.ClientConfig{
 		Timeout:         time.Second * 5,
 		User:            sshConfig.User,
-		Auth:            []ssh.AuthMethod{ssh.Password(sshConfig.Password)},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // 忽略 know_hosts 检查
-	})
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	if sshConfig.PrivateKey != "" {
+		signer, err := ParsePrivateKeySigner(sshConfig.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("parse private key: %w", err)
+		}
+		cfg.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
+	} else {
+		cfg.Auth = []ssh.AuthMethod{ssh.Password(sshConfig.Password)}
+	}
+
+	return ssh.Dial("tcp", addr, cfg)
 }
