@@ -39,6 +39,8 @@ var (
 	ErrDuplicatedPassword = errors.New("新密码与旧密码相同")
 	ErrAuditNotFound      = errors.New("审计记录不存在")
 	ErrAgentNotFound      = errors.New("Agent不存在")
+	ErrNodeNotFound       = errors.New("节点不存在")
+	ErrNodeNameExists     = errors.New("该部署计划下已存在同名主机")
 
 	ErrContainerNotFound = errors.New("容器不存在")
 

@@ -40,7 +40,10 @@ type PlanInterface interface {
 	UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
+	GetNodeByIP(ctx context.Context, ip string) (*model.Node, error)
 	ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, error)
+	ListAllNodes(ctx context.Context, opts ...Options) ([]model.Node, error)
+	CountNodes(ctx context.Context, opts ...Options) (int64, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
 	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
@@ -247,6 +250,14 @@ func (p *plan) GetNode(ctx context.Context, nodeId int64) (*model.Node, error) {
 	return &object, nil
 }
 
+func (p *plan) GetNodeByIP(ctx context.Context, ip string) (*model.Node, error) {
+	var object model.Node
+	if err := p.db.WithContext(ctx).Where("ip = ?", ip).First(&object).Error; err != nil {
+		return nil, err
+	}
+	return &object, nil
+}
+
 func (p *plan) ListNodes(ctx context.Context, pid int64, opts ...Options) ([]model.Node, error) {
 	var objects []model.Node
 	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
@@ -258,6 +269,30 @@ func (p *plan) ListNodes(ctx context.Context, pid int64, opts ...Options) ([]mod
 	}
 
 	return objects, nil
+}
+
+func (p *plan) ListAllNodes(ctx context.Context, opts ...Options) ([]model.Node, error) {
+	var objects []model.Node
+	tx := p.db.WithContext(ctx).Model(&model.Node{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
+		return nil, err
+	}
+	return objects, nil
+}
+
+func (p *plan) CountNodes(ctx context.Context, opts ...Options) (int64, error) {
+	var count int64
+	tx := p.db.WithContext(ctx).Model(&model.Node{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (p *plan) CreateConfig(ctx context.Context, object *model.Config) (*model.Config, error) {

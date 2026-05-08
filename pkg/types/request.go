@@ -201,10 +201,11 @@ type (
 
 	// WebSSHRequest 主机 ssh 跳转请求
 	WebSSHRequest struct {
-		Host     string `form:"host" json:"host" binding:"required"`
-		Port     int    `form:"port" json:"port"`
-		User     string `form:"user" json:"user" binding:"required"`
-		Password string `form:"password" json:"password"`
+		Host       string `form:"host" json:"host" binding:"required"`
+		Port       int    `form:"port" json:"port"`
+		User       string `form:"user" json:"user"`
+		Password   string `form:"password" json:"password"`
+		PrivateKey string
 	}
 )
 

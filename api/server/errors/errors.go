@@ -99,6 +99,14 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.ErrAgentNotFound,
 	}
+	ErrNodeNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrNodeNotFound,
+	}
+	ErrNodeNameExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.ErrNodeNameExists,
+	}
 	ErrRBACPolicyExists = Error{
 		Code: http.StatusConflict,
 		Err:  errors.PolicyExistError,

@@ -34,6 +34,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
+	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
@@ -56,6 +57,7 @@ func InstallRouters(o *options.Options) {
 		tenant.NewRouter,
 		user.NewRouter,
 		plan.NewRouter,
+		node.NewRouter,
 		audit.NewRouter,
 		agent.NewRouter,
 		auth.NewRouter,

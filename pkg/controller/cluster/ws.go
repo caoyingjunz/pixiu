@@ -19,7 +19,6 @@ package cluster
 import (
 	"bytes"
 	"context"
-
 	"net/http"
 	"sync"
 	"time"
@@ -94,7 +93,12 @@ func (c *cluster) WsHandler(ctx context.Context, opt *types.WebShellOptions, w h
 
 var BufPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 
-func (c *cluster) WsNodeHandler(ctx context.Context, sshConfig *types.WebSSHRequest, w http.ResponseWriter, r *http.Request) error {
+func (c *cluster) WsNodeHandler(ctx context.Context, req types.WebSSHRequest, w http.ResponseWriter, r *http.Request) error {
+	sshConfig, err := c.ResolveSSHConfigForHost(ctx, req.Host)
+	if err != nil {
+		return err
+	}
+
 	upgrader := &websocket.Upgrader{
 		ReadBufferSize:   1024,
 		WriteBufferSize:  1024 * 10,
