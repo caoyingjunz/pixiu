@@ -22,12 +22,12 @@ func init() {
 	register(&User{})
 }
 
-type UserRole uint8
+type UserLevel uint8
 
 const (
-	RoleUser  UserRole = iota // 普通用户
-	RoleAdmin                 // 管理员
-	RoleRoot                  // 超级管理员
+	RoleUser  UserLevel = iota // 普通用户
+	RoleAdmin                  // 管理员
+	RoleRoot                   // 超级管理员
 )
 
 type UserStatus uint8 // TODO
@@ -35,10 +35,11 @@ type UserStatus uint8 // TODO
 type User struct {
 	pixiu.Model
 
-	Name        string     `gorm:"index:idx_name,unique" json:"name"`
+	TenantId    int64      `gorm:"not null;uniqueIndex:uk_tenant_username" json:"tenant_id"`
+	Name        string     `gorm:"type:varchar(100);not null;uniqueIndex:uk_tenant_username" json:"username"`
 	Password    string     `gorm:"type:varchar(256)" json:"-"`
 	Status      UserStatus `gorm:"type:tinyint" json:"status"`
-	Role        UserRole   `gorm:"type:tinyint" json:"role"`
+	Role        UserLevel  `gorm:"type:tinyint" json:"role"`
 	Email       string     `gorm:"type:varchar(128)" json:"email"`
 	Phone       string     `gorm:"column:phone;type:varchar(32)" json:"phone"`
 	Description string     `gorm:"type:text" json:"description"`

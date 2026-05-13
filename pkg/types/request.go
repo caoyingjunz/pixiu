@@ -30,7 +30,7 @@ type (
 	CreateUserRequest struct {
 		Name        string           `json:"name" binding:"required"`              // required
 		Password    string           `json:"password" binding:"required,password"` // required
-		Role        model.UserRole   `json:"role" binding:"omitempty,oneof=0 1 2"` // optional
+		Role        model.UserLevel  `json:"role" binding:"omitempty,oneof=0 1 2"` // optional
 		Status      model.UserStatus `json:"status" binding:"omitempty"`
 		Email       string           `json:"email" binding:"omitempty,email"` // optional
 		Phone       string           `json:"phone" binding:"omitempty"`       // optional
@@ -40,7 +40,7 @@ type (
 	// UpdateUserRequest
 	// !Note: if you want to update description only, email also must be provided with current value
 	UpdateUserRequest struct {
-		Role            model.UserRole   `json:"role" binding:"omitempty,oneof=0 1 2"`   // required
+		Role            model.UserLevel  `json:"role" binding:"omitempty,oneof=0 1 2"`   // required
 		Status          model.UserStatus `json:"status" binding:"omitempty,oneof=0 1 2"` // required
 		Email           string           `json:"email" binding:"omitempty,email"`        // optional
 		Phone           string           `json:"phone" binding:"omitempty"`              // optional
@@ -211,10 +211,10 @@ type (
 
 type (
 	LoginResponse struct {
-		UserId      int64          `json:"user_id"`
-		UserName    string         `json:"user_name"`
-		Token       string         `json:"token"`
-		Role        model.UserRole `json:"role"`
+		UserId      int64           `json:"user_id"`
+		UserName    string          `json:"user_name"`
+		Token       string          `json:"token"`
+		Role        model.UserLevel `json:"role"`
 		*model.User `json:"-"`
 	}
 

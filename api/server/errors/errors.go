@@ -123,6 +123,10 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.PolicyNotExistError,
 	}
+	ErrRBACDeprecated = Error{
+		Code: http.StatusGone,
+		Err:  errors.RBACDeprecatedError,
+	}
 	ErrRootAlreadyExists = Error{
 		Code: http.StatusConflict,
 		Err:  errors.ErrRootAlreadyExists,
