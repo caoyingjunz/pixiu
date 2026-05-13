@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -42,7 +41,6 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -113,9 +111,8 @@ type InformerResource struct {
 }
 
 type cluster struct {
-	cc       config.Config
-	factory  db.ShareDaoFactory
-	enforcer *casbin.SyncedEnforcer
+	cc      config.Config
+	factory db.ShareDaoFactory
 
 	listerFuncs map[string]listerFunc
 	getterFuncs map[string]getterFunc
@@ -130,11 +127,6 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 }
 
 func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) error {
-	user, err := httputils.GetUserFromRequest(ctx)
-	if err != nil {
-		return errors.NewError(err, http.StatusInternalServerError)
-	}
-
 	if err := c.preCreate(ctx, req); err != nil {
 		return errors.NewError(err, http.StatusBadRequest)
 	}
@@ -145,13 +137,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 
 	var cs *client.ClusterSet
 	var txFunc = func(cluster *model.Cluster) (err error) {
-		if cs, err = client.NewClusterSet(req.KubeConfig); err != nil {
-			return
-		}
-
-		// insert a user RBAC policy
-		policy := model.NewPolicyFromModels(user, model.ObjectCluster, cluster.Model, model.OpAll)
-		_, err = c.enforcer.AddPolicy(policy.Raw())
+		cs, err = client.NewClusterSet(req.KubeConfig)
 		return
 	}
 
@@ -222,21 +208,12 @@ func (c *cluster) preDelete(ctx context.Context, cid int64) (cluster *model.Clus
 }
 
 func (c *cluster) Delete(ctx context.Context, cid int64) error {
-	user, err := httputils.GetUserFromRequest(ctx)
-	if err != nil {
-		return errors.NewError(err, http.StatusInternalServerError)
-	}
-
 	cluster, err := c.preDelete(ctx, cid)
 	if err != nil {
 		return err
 	}
 
-	var txFunc = func(cluster *model.Cluster) (err error) {
-		_, err = c.enforcer.RemoveNamedPolicy("p", user.Name, model.ObjectCluster.String(), cluster.GetSID())
-		return
-	}
-	if err := c.factory.Cluster().Delete(ctx, cluster, txFunc); err != nil {
+	if err := c.factory.Cluster().Delete(ctx, cluster); err != nil {
 		klog.Errorf("failed to delete cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
@@ -878,11 +855,10 @@ func (c *cluster) Sync(ctx context.Context) {
 	// TODO: 后续添加同步任务
 }
 
-func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
+func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
 	c := &cluster{
-		cc:       cfg,
-		factory:  f,
-		enforcer: e,
+		cc:      cfg,
+		factory: f,
 
 		listerFuncs: make(map[string]listerFunc),
 		getterFuncs: make(map[string]getterFunc),

@@ -17,8 +17,6 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/casbin/casbin/v2"
-
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/agent"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
@@ -45,25 +43,23 @@ type PixiuInterface interface {
 }
 
 type pixiu struct {
-	cc       config.Config
-	factory  db.ShareDaoFactory
-	enforcer *casbin.SyncedEnforcer
+	cc      config.Config
+	factory db.ShareDaoFactory
 }
 
-func (p *pixiu) Cluster() cluster.Interface { return cluster.NewCluster(p.cc, p.factory, p.enforcer) }
+func (p *pixiu) Cluster() cluster.Interface { return cluster.NewCluster(p.cc, p.factory) }
 func (p *pixiu) Tenant() tenant.Interface   { return tenant.NewTenant(p.cc, p.factory) }
-func (p *pixiu) User() user.Interface       { return user.NewUser(p.cc, p.factory, p.enforcer) }
+func (p *pixiu) User() user.Interface       { return user.NewUser(p.cc, p.factory) }
 func (p *pixiu) Plan() plan.Interface       { return plan.NewPlan(p.cc, p.factory) }
 func (p *pixiu) Node() node.Interface       { return node.NewNode(p.cc, p.factory) }
 func (p *pixiu) Audit() audit.Interface     { return audit.NewAudit(p.cc, p.factory) }
-func (p *pixiu) Auth() auth.Interface       { return auth.NewAuth(p.factory, p.enforcer) }
+func (p *pixiu) Auth() auth.Interface       { return auth.NewAuth(p.factory) }
 func (p *pixiu) Helm() helm.Interface       { return helm.NewHelm(p.factory) }
 func (p *pixiu) Agent() agent.Interface     { return agent.NewAgent(p.cc, p.factory) }
 
-func New(cfg config.Config, f db.ShareDaoFactory, enforcer *casbin.SyncedEnforcer) PixiuInterface {
+func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{
-		cc:       cfg,
-		factory:  f,
-		enforcer: enforcer,
+		cc:      cfg,
+		factory: f,
 	}
 }
