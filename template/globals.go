@@ -67,4 +67,5 @@ enable_nfs: "no"
 enable_prometheus: "no"
 enable_prometheus_adapter: "no"
 enable_pixiu_autoscaler: "no"
+enable_helm: "no"
 `

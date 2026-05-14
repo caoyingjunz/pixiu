@@ -150,7 +150,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	status := model.ClusterStatusRunning
 	if err = p.syncTasks(handlers...); err != nil {
 		status = model.ClusterStatusFailed
-		klog.Errorf("failed to sync task: %v", err)
+		klog.Warningf("failed to sync task: %v", err)
 	}
 
 	if err = p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": status}); err != nil {
@@ -273,11 +273,11 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			return err
 		}
 		taskC.SetByTask(planId, *end)
-
-		klog.Infof("completed plan(%d) task(%s)", planId, name)
 		if runErr != nil {
+			klog.Errorf("run plan(%d) task(%s) failed %v", planId, name, err)
 			return runErr
 		}
+		klog.Infof("completed plan(%d) task(%s)", planId, name)
 	}
 
 	return nil
