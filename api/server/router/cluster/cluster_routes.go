@@ -261,7 +261,6 @@ func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 		}
 		err error
 	)
-
 	if err = c.ShouldBindUri(&optMeta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
