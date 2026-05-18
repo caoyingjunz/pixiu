@@ -48,6 +48,11 @@ keepalived_virtual_router_id: "{{ .Component.Haproxy.KeepalivedVirtualRouterId }
 enable_calico: "yes"
 {{- end }}
 
+# 自定义配置
+{{- if ne .Kubernetes.ImageRepository "" }}
+image_repository: "{{ .Kubernetes.ImageRepository }}"
+{{- end }}
+
 {{- if and .Component.MetricServer .Component.MetricServer.Enable }}
 enable_metrics_server: "yes"
 enable_metrics_scraper: "yes"
@@ -60,6 +65,16 @@ enable_metrics_scraper: "no"
 enable_ingress_nginx: "yes"
 {{- else }}
 enable_ingress_nginx: "no"
+{{- end }}
+
+{{- if ne .Runtime.DataDir "" }}
+runtime_data_dir: "{{ .Runtime.DataDir }}"
+{{- end }}
+
+{{- if .Kubernetes.SetHostname }}
+set_hostname: "yes"
+{{- else }}
+set_hostname: "no"
 {{- end }}
 
 # 组件默认开关

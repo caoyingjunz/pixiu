@@ -205,9 +205,10 @@ type PlanConfig struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	PlanId     int64          `json:"plan_id,omitempty"` // required
-	Region     string         `json:"region"`
-	OSImage    string         `json:"os_image"` // 操作系统
+	PlanId  int64  `json:"plan_id,omitempty"` // required
+	Region  string `json:"region"`
+	OSImage string `json:"os_image"` // 操作系统
+
 	Kubernetes KubernetesSpec `json:"kubernetes"`
 	Network    NetworkSpec    `json:"network"`
 	Runtime    RuntimeSpec    `json:"runtime"`
@@ -292,6 +293,9 @@ type KubernetesSpec struct {
 	KubernetesVersion string `json:"kubernetes_version"`
 	EnableHA          bool   `json:"enable_ha"`
 	Register          bool   `json:"register"`
+	ImageRepository   string `json:"image_repository,omitempty"` // kubernetes 镜像仓库地址
+	SetHostname       bool   `json:"set_hostname"`               // 自动修改k8s节点名称, Rocky 系统不生效
+	Protect           bool   `json:"protect"`                    // 开启集群保护，防止误删除
 }
 
 type NetworkSpec struct {
@@ -304,6 +308,7 @@ type NetworkSpec struct {
 
 type RuntimeSpec struct {
 	Runtime string `json:"runtime"`
+	DataDir string `json:"data_dir"` // 自定义容器运行时数据存放目录
 }
 
 type ComponentSpec struct {
