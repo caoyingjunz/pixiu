@@ -208,10 +208,15 @@ func ParseConfig(data TaskData) (*types.PlanConfig, error) {
 	if err := component.Unmarshal(config.Component); err != nil {
 		return nil, err
 	}
+	runtimeSpec := types.RuntimeSpec{}
+	if err := runtimeSpec.Unmarshal(config.Runtime); err != nil {
+		return nil, err
+	}
 
 	return &types.PlanConfig{
 		Kubernetes: kubernetes,
 		Network:    network,
 		Component:  component,
+		Runtime:    runtimeSpec,
 	}, nil
 }
