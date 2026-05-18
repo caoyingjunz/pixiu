@@ -48,8 +48,24 @@ keepalived_virtual_router_id: "{{ .Component.Haproxy.KeepalivedVirtualRouterId }
 enable_calico: "yes"
 {{- end }}
 
+{{- if and .Component.MetricServer .Component.MetricServer.Enable }}
+enable_metrics_server: "yes"
+enable_metrics_scraper: "yes"
+{{- else }}
+enable_metrics_server: "no"
+enable_metrics_scraper: "no"
+{{- end }}
+
+{{- if and .Component.IngressNginx .Component.IngressNginx.Enable }}
+enable_ingress_nginx: "yes"
+{{- else }}
+enable_ingress_nginx: "no"
+{{- end }}
+
 # 组件默认开关
 enable_nfs: "no"
 enable_prometheus: "no"
 enable_prometheus_adapter: "no"
+enable_pixiu_autoscaler: "no"
+enable_helm: "no"
 `

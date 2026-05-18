@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/casbin/casbin/v2"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
@@ -68,9 +67,8 @@ type Interface interface {
 }
 
 type user struct {
-	cc       config.Config
-	factory  db.ShareDaoFactory
-	enforcer *casbin.SyncedEnforcer
+	cc      config.Config
+	factory db.ShareDaoFactory
 }
 
 func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
@@ -102,14 +100,6 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		}
 	}
 
-	txFunc := func() (err error) {
-		if req.Role == model.RoleRoot {
-			bindings := model.NewGroupBinding(req.Name, model.AdminGroup)
-			_, err = u.enforcer.AddGroupingPolicy(bindings.Raw())
-		}
-		return
-	}
-
 	if _, err = u.factory.User().Create(ctx, &model.User{
 		Name:        req.Name,
 		Password:    encrypt,
@@ -118,7 +108,7 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		Email:       req.Email,
 		Phone:       req.Phone,
 		Description: req.Description,
-	}, txFunc); err != nil {
+	}); err != nil {
 		klog.Errorf("failed to create user %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
@@ -390,10 +380,9 @@ func model2Type(o *model.User) *types.User {
 	}
 }
 
-func NewUser(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *user {
+func NewUser(cfg config.Config, f db.ShareDaoFactory) *user {
 	return &user{
-		cc:       cfg,
-		factory:  f,
-		enforcer: e,
+		cc:      cfg,
+		factory: f,
 	}
 }

@@ -22,9 +22,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/casbin/casbin/v2"
-	"github.com/casbin/casbin/v2/model"
-	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
@@ -57,8 +54,6 @@ const (
 	defaultAdminPassword = "Pixiu123456!"
 
 	defaultSlowSQLDuration = 1 * time.Second
-
-	rulesTableName = "rules"
 )
 
 // Options has all the params needed to run a pixiu
@@ -75,9 +70,6 @@ type Options struct {
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
-
-	// Authorization enforcement and policy management
-	Enforcer *casbin.SyncedEnforcer
 
 	JobManager *jobmanager.Manager
 }
@@ -148,7 +140,7 @@ func (o *Options) Complete() error {
 		return err
 	}
 
-	o.Controller = controller.New(o.ComponentConfig, o.Factory, o.Enforcer)
+	o.Controller = controller.New(o.ComponentConfig, o.Factory)
 
 	if err := o.bootstrapRootUser(); err != nil {
 		return err
@@ -173,34 +165,15 @@ func (o *Options) register() error {
 		return err
 	}
 
-	// TODO: 注册其他依赖
-	if err := o.registerEnforcer(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
-// This panics if o.db is nil.
-func (o *Options) registerEnforcer() error {
-	// Casbin
-	a, err := gormadapter.NewAdapterByDBUseTableName(o.db, "", rulesTableName)
-	if err != nil {
-		return err
+func (o *Options) RegisterAPIs() error {
+	for _, route := range o.HttpEngine.Routes() {
+		api := pixiuModel.API{Method: route.Method, Path: route.Path}
+		o.db.Where(pixiuModel.API{Method: route.Method, Path: route.Path}).FirstOrCreate(&api)
 	}
-
-	m, err := model.NewModelFromString(pixiuModel.RBACModel)
-	if err != nil {
-		return err
-	}
-
-	if o.Enforcer, err = casbin.NewSyncedEnforcer(m, a); err != nil {
-		return err
-	}
-
-	// Add an super admin policy.
-	_, err = o.Enforcer.AddPolicy(pixiuModel.AdminPolicy.Raw())
-	return err
+	return nil
 }
 
 func (o *Options) registerDatabase() error {

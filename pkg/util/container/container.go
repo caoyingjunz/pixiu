@@ -146,8 +146,8 @@ func (c *Container) WaitContainer(ctx context.Context, containerId string, times
 	//	return err
 	//}
 
+	klog.Infof("等待任务(%s)执行完成(最长等待时间 %d 秒)", containerId, times*5)
 	for i := 0; i < times; i++ {
-		klog.Infof("waiting for container at %d times", i+1)
 		// 先等待 5s 再执行，开始等待符合业务场景，且后续的逻辑处理不受影响
 		time.Sleep(5 * time.Second)
 
@@ -183,7 +183,7 @@ func (c *Container) WaitContainer(ctx context.Context, containerId string, times
 		}
 	}
 
-	return fmt.Errorf("等待容器(%s)运行完成超时", containerId)
+	return fmt.Errorf("已等待 %d 秒，任务(%s)执行超时", times*5, containerId)
 }
 
 func (c *Container) WatchContainerLog(ctx context.Context, containerId, since string) (io.ReadCloser, error) {

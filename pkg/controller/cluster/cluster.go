@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/casbin/casbin/v2"
 	"github.com/gorilla/websocket"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -42,7 +41,6 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -113,9 +111,8 @@ type InformerResource struct {
 }
 
 type cluster struct {
-	cc       config.Config
-	factory  db.ShareDaoFactory
-	enforcer *casbin.SyncedEnforcer
+	cc      config.Config
+	factory db.ShareDaoFactory
 
 	listerFuncs map[string]listerFunc
 	getterFuncs map[string]getterFunc
@@ -130,11 +127,6 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 }
 
 func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) error {
-	user, err := httputils.GetUserFromRequest(ctx)
-	if err != nil {
-		return errors.NewError(err, http.StatusInternalServerError)
-	}
-
 	if err := c.preCreate(ctx, req); err != nil {
 		return errors.NewError(err, http.StatusBadRequest)
 	}
@@ -145,13 +137,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 
 	var cs *client.ClusterSet
 	var txFunc = func(cluster *model.Cluster) (err error) {
-		if cs, err = client.NewClusterSet(req.KubeConfig); err != nil {
-			return
-		}
-
-		// insert a user RBAC policy
-		policy := model.NewPolicyFromModels(user, model.ObjectCluster, cluster.Model, model.OpAll)
-		_, err = c.enforcer.AddPolicy(policy.Raw())
+		cs, err = client.NewClusterSet(req.KubeConfig)
 		return
 	}
 
@@ -222,21 +208,12 @@ func (c *cluster) preDelete(ctx context.Context, cid int64) (cluster *model.Clus
 }
 
 func (c *cluster) Delete(ctx context.Context, cid int64) error {
-	user, err := httputils.GetUserFromRequest(ctx)
-	if err != nil {
-		return errors.NewError(err, http.StatusInternalServerError)
-	}
-
 	cluster, err := c.preDelete(ctx, cid)
 	if err != nil {
 		return err
 	}
 
-	var txFunc = func(cluster *model.Cluster) (err error) {
-		_, err = c.enforcer.RemoveNamedPolicy("p", user.Name, model.ObjectCluster.String(), cluster.GetSID())
-		return
-	}
-	if err := c.factory.Cluster().Delete(ctx, cluster, txFunc); err != nil {
+	if err := c.factory.Cluster().Delete(ctx, cluster); err != nil {
 		klog.Errorf("failed to delete cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
@@ -477,51 +454,21 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 
 	switch kind {
 	case "deployment":
-		// TODO: 临时聚合方式，后续继续优化（简化）
-		// 获取 deployment
-		deployment, err := clusterSet.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			klog.Errorf("failed to get deployment (%s/%s), err: %v", namespace, name, err)
-			return nil, err
-		}
-		fieldSelectors = append(fieldSelectors, c.makeFieldSelector(deployment.UID, deployment.Name, deployment.Namespace, "Deployment"))
-
-		var labels []string
-		for k, v := range deployment.Spec.Selector.MatchLabels {
-			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
-		}
-		labelSelector := strings.Join(labels, ",")
-
-		kubeObject, err := c.GetKubeObjectByLabel(clusterSet.Client, namespace, labelSelector, "ReplicaSet", "Pod")
-		if err != nil {
-			return nil, err
-		}
-
-		// 获取 rs
-		allReplicaSets := kubeObject.GetReplicaSets()
-		var replicaSetUIDs []apitypes.UID
-		for _, rs := range allReplicaSets {
-			for _, ownerReference := range rs.OwnerReferences {
-				if ownerReference.Kind == "Deployment" && ownerReference.UID == deployment.UID {
-					fieldSelectors = append(fieldSelectors, c.makeFieldSelector(rs.UID, rs.Name, rs.Namespace, "ReplicaSet"))
-					replicaSetUIDs = append(replicaSetUIDs, rs.UID)
-				}
-			}
-		}
-
-		// 获取 pods
-		allPods := kubeObject.GetPods()
-		for _, p := range allPods {
-			for _, ownerReference := range p.OwnerReferences {
-				for _, replicaSetUID := range replicaSetUIDs {
-					if ownerReference.UID == replicaSetUID && ownerReference.Kind == "ReplicaSet" {
-						fieldSelectors = append(fieldSelectors, c.makeFieldSelector(p.UID, p.Name, p.Namespace, "Pod"))
-					}
-				}
-			}
-		}
+		// 获取 deployment // TODO: 临时聚合方式，后续继续优化（简化）
+		fieldSelectors, err = c.calDeploymentFieldSelectors(ctx, clusterSet.Client, namespace, name)
+	case "statefulset":
+		fieldSelectors, err = c.calStatefulsetFieldSelectors(ctx, clusterSet.Client, namespace, name)
+	case "daemonset":
+		fieldSelectors, err = c.calDaemonSetFieldSelectors(ctx, clusterSet.Client, namespace, name)
+	case "job":
+		fieldSelectors, err = c.calJobFieldSelectors(ctx, clusterSet.Client, namespace, name)
+	case "cronjob":
+		fieldSelectors, err = c.calCronJobFieldSelectors(ctx, clusterSet.Client, namespace, name)
 	default:
-		return nil, fmt.Errorf("unsupported kubernetes object kind %s", kind)
+		return nil, fmt.Errorf("unsupported kubernetes kind %s", kind)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	diff := len(fieldSelectors)
@@ -564,6 +511,162 @@ func (c *cluster) AggregateEvents(ctx context.Context, cluster string, namespace
 	}
 
 	return eventList, nil
+}
+
+func (c *cluster) calDeploymentFieldSelectors(ctx context.Context, client *kubernetes.Clientset, namespace string, name string) ([]string, error) {
+	deployment, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get deployment (%s/%s), err: %v", namespace, name, err)
+		return nil, err
+	}
+
+	var fieldSelectors []string
+
+	fieldSelectors = append(fieldSelectors, c.makeFieldSelector(deployment.UID, deployment.Name, deployment.Namespace, "Deployment"))
+
+	var labels []string
+	for k, v := range deployment.Spec.Selector.MatchLabels {
+		labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+	}
+	labelSelector := strings.Join(labels, ",")
+
+	kubeObject, err := c.GetKubeObjectByLabel(client, namespace, labelSelector, "ReplicaSet", "Pod")
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取 rs
+	allReplicaSets := kubeObject.GetReplicaSets()
+	var replicaSetUIDs []apitypes.UID
+	for _, rs := range allReplicaSets {
+		for _, ownerReference := range rs.OwnerReferences {
+			if ownerReference.Kind == "Deployment" && ownerReference.UID == deployment.UID {
+				fieldSelectors = append(fieldSelectors, c.makeFieldSelector(rs.UID, rs.Name, rs.Namespace, "ReplicaSet"))
+				replicaSetUIDs = append(replicaSetUIDs, rs.UID)
+			}
+		}
+	}
+
+	// 获取 pods
+	allPods := kubeObject.GetPods()
+	for _, p := range allPods {
+		for _, ownerReference := range p.OwnerReferences {
+			for _, replicaSetUID := range replicaSetUIDs {
+				if ownerReference.UID == replicaSetUID && ownerReference.Kind == "ReplicaSet" {
+					fieldSelectors = append(fieldSelectors, c.makeFieldSelector(p.UID, p.Name, p.Namespace, "Pod"))
+				}
+			}
+		}
+	}
+
+	return fieldSelectors, nil
+}
+
+func (c *cluster) calStatefulsetFieldSelectors(ctx context.Context, client *kubernetes.Clientset, namespace string, name string) ([]string, error) {
+	sts, err := client.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get sts (%s/%s), err: %v", namespace, name, err)
+		return nil, err
+	}
+
+	var fieldSelectors []string
+	fieldSelectors = append(fieldSelectors, c.makeFieldSelector(sts.UID, sts.Name, sts.Namespace, "StatefulSet"))
+
+	var labels []string
+	for k, v := range sts.Spec.Selector.MatchLabels {
+		labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+	}
+	labelSelector := strings.Join(labels, ",")
+
+	kubeObject, err := c.GetKubeObjectByLabel(client, namespace, labelSelector, "Pod")
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取 pods
+	allPods := kubeObject.GetPods()
+	for _, p := range allPods {
+		for _, ownerReference := range p.OwnerReferences {
+			if ownerReference.UID == sts.UID && ownerReference.Kind == "StatefulSet" {
+				fieldSelectors = append(fieldSelectors, c.makeFieldSelector(p.UID, p.Name, p.Namespace, "Pod"))
+			}
+		}
+	}
+
+	return fieldSelectors, nil
+}
+
+func (c *cluster) calDaemonSetFieldSelectors(ctx context.Context, client *kubernetes.Clientset, namespace string, name string) ([]string, error) {
+	ds, err := client.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get ds (%s/%s), err: %v", namespace, name, err)
+		return nil, err
+	}
+
+	var fieldSelectors []string
+	fieldSelectors = append(fieldSelectors, c.makeFieldSelector(ds.UID, ds.Name, ds.Namespace, "DaemonSet"))
+
+	var labels []string
+	for k, v := range ds.Spec.Selector.MatchLabels {
+		labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+	}
+	labelSelector := strings.Join(labels, ",")
+
+	kubeObject, err := c.GetKubeObjectByLabel(client, namespace, labelSelector, "Pod")
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取 pods
+	allPods := kubeObject.GetPods()
+	for _, p := range allPods {
+		for _, ownerReference := range p.OwnerReferences {
+			if ownerReference.UID == ds.UID && ownerReference.Kind == "DaemonSet" {
+				fieldSelectors = append(fieldSelectors, c.makeFieldSelector(p.UID, p.Name, p.Namespace, "Pod"))
+			}
+		}
+	}
+
+	return fieldSelectors, nil
+}
+
+func (c *cluster) calJobFieldSelectors(ctx context.Context, client *kubernetes.Clientset, namespace string, name string) ([]string, error) {
+	job, err := client.BatchV1().Jobs(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get ds (%s/%s), err: %v", namespace, name, err)
+		return nil, err
+	}
+
+	var fieldSelectors []string
+	fieldSelectors = append(fieldSelectors, c.makeFieldSelector(job.UID, job.Name, job.Namespace, "Job"))
+
+	var labels []string
+	for k, v := range job.Spec.Selector.MatchLabels {
+		labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+	}
+	labelSelector := strings.Join(labels, ",")
+
+	kubeObject, err := c.GetKubeObjectByLabel(client, namespace, labelSelector, "Pod")
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取 pods
+	allPods := kubeObject.GetPods()
+	for _, p := range allPods {
+		for _, ownerReference := range p.OwnerReferences {
+			if ownerReference.UID == job.UID && ownerReference.Kind == "Job" {
+				fieldSelectors = append(fieldSelectors, c.makeFieldSelector(p.UID, p.Name, p.Namespace, "Pod"))
+			}
+		}
+	}
+
+	return fieldSelectors, nil
+}
+
+func (c *cluster) calCronJobFieldSelectors(ctx context.Context, client *kubernetes.Clientset, namespace string, name string) ([]string, error) {
+
+	return nil, nil
 }
 
 // GetKubeObjectByLabel
@@ -878,11 +981,10 @@ func (c *cluster) Sync(ctx context.Context) {
 	// TODO: 后续添加同步任务
 }
 
-func NewCluster(cfg config.Config, f db.ShareDaoFactory, e *casbin.SyncedEnforcer) *cluster {
+func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
 	c := &cluster{
-		cc:       cfg,
-		factory:  f,
-		enforcer: e,
+		cc:      cfg,
+		factory: f,
 
 		listerFuncs: make(map[string]listerFunc),
 		getterFuncs: make(map[string]getterFunc),

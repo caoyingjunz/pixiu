@@ -97,14 +97,14 @@ func (cs *ClusterSet) Complete(cfg []byte) error {
 		return err
 	}
 
-	sharedInformer, cancel, err := NewSharedInformers(cs.Config)
-	if err != nil {
-		return err
-	}
-	cs.Informer = &PixiuInformer{
-		Shared: sharedInformer,
-		Cancel: cancel,
-	}
+	//sharedInformer, cancel, err := NewSharedInformers(cs.Config)
+	//if err != nil {
+	//	return err
+	//}
+	//cs.Informer = &PixiuInformer{
+	//	Shared: sharedInformer,
+	//	Cancel: cancel,
+	//}
 	return nil
 }
 

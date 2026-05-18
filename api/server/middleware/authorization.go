@@ -26,20 +26,9 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
-	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// HTTP method to operation
-var operationsMap = map[string]model.Operation{
-	http.MethodGet:    model.OpRead,
-	http.MethodPost:   model.OpCreate,
-	http.MethodPatch:  model.OpUpdate,
-	http.MethodPut:    model.OpUpdate,
-	http.MethodDelete: model.OpDelete,
-}
-
-// Authorization 鉴权
+// Authorization 鉴权（用户状态与只读模式）；细粒度 RBAC 已移除。
 func Authorization(o *options.Options) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 允许请求直接通过
@@ -70,34 +59,6 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 		// TODO: get object and ID from proxy path
 		if proxy.IsProxyPath(c) || cluster.IsKubeProxyPath(c) || cluster.IsHelmPath(c) {
 			return
-		}
-
-		obj, id, ok := httputils.GetObjectFromRequest(c)
-		if !ok {
-			return
-		}
-
-		op := operationsMap[c.Request.Method]
-		// load policy for consistency
-		// ref: https://github.com/casbin/casbin/issues/679#issuecomment-761525328
-		if err := o.Enforcer.LoadPolicy(); err != nil {
-			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, err)
-			return
-		}
-		ok, err = o.Enforcer.Enforce(user.Name, obj, id, op.String())
-		if err != nil {
-			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, err)
-			return
-		}
-		if !ok {
-			httputils.AbortFailedWithCode(c, http.StatusForbidden, fmt.Errorf("无操作权限"))
-		}
-		if id != "" {
-			return
-		}
-		// this is a list API
-		if err := ctrlutil.SetIdRangeContext(c, o.Enforcer, user, obj); err != nil {
-			httputils.AbortFailedWithCode(c, http.StatusInternalServerError, err)
 		}
 	}
 }

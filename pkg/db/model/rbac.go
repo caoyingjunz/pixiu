@@ -75,30 +75,6 @@ var ObjectTypeMap = map[ObjectType]struct{}{
 	ObjectAll:     {},
 }
 
-// TODO:
-type RBACInterface interface{}
-
-// Casbin RBAC model
-// ref: https://github.com/casbin/casbin/blob/master/examples/rbac_model.conf
-const RBACModel = `
-[request_definition]
-r = sub, obj, id, op
-
-[policy_definition]
-p = sub, obj, id, op
-
-[role_definition]
-g = _, _
-
-[policy_effect]
-e = some(where (p.eft == allow))
-
-[matchers]
-m = g(r.sub, p.sub) && keyMatch(r.obj, p.obj) && keyMatch(r.id, p.id) && keyMatch(r.op, p.op)`
-
-// TODO:
-type CasbinRBACImpl struct{}
-
 type Policy interface {
 	Raw() []string
 }

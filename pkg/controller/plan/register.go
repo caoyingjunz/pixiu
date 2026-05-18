@@ -54,6 +54,7 @@ func (c Register) Run() error {
 	// 如果未启用自注册功能，则直接跳过
 	if !ks.Register {
 		klog.Infof("部署计划未启用自注册功能，skipping")
+		return nil
 	}
 
 	// 从 master 节点获取 kubeConfig 内容，注入集群服务
