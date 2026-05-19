@@ -31,6 +31,10 @@ default:
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
 
+  # 超级管理初始化用户名和密码；不指定的情况下，默认为 admin/Pixiu123456!
+  admin_user: pixiu
+  admin_password: Pixiu123456!
+
 # 数据库地址信息, 根据实际情况配置
 mysql:
   host: pixiu # 数据库的ip
