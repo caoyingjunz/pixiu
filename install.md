@@ -67,6 +67,6 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 
 ## 登陆 pixiu
 ```
-# 根据配置文件中指定的账号输入，如果未指定默认用户名密码是 admin/Pixiu123456!
+# 根据配置文件中指定的账密输入；如果未指定默认用户名密码是 admin/Pixiu123456!
 浏览器登陆: http://<ip>
 ```
