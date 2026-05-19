@@ -32,7 +32,7 @@ default:
   auto_migrate: true
 
   # 超级管理初始化用户名和密码；不指定的情况下，默认为 admin/Pixiu123456!
-  admin_user: pixiu
+  admin_user: admin
   admin_password: Pixiu123456!
 
 # 数据库地址信息, 根据实际情况配置
@@ -67,6 +67,6 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 
 ## 登陆 pixiu
 ```
-# 默认用户名密码是 admin/Pixiu123456!
+# 根据配置文件中指定的账号输入，如果未指定默认用户名密码是 admin/Pixiu123456!
 浏览器登陆: http://<ip>
 ```
