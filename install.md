@@ -34,10 +34,9 @@ default:
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
 
-# 前端配置(ip 根据实际情况调整，如果是虚拟机，则配置成虚拟机的公网IP，安全组放通80(http)或者443(https)端口)
-# 前端的端口需要和后端监听端口保持一致
-dashboard:
-  url: http://localhost:8090
+  # 超级管理初始化用户名和密码；不指定的情况下，默认为 admin/Pixiu123456!
+  admin_user: pixiu
+  admin_password: Pixiu123456!
 
 # 数据库地址信息, 根据实际情况配置
 mysql:
