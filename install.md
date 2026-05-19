@@ -20,6 +20,7 @@ docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2
 ```
 
 # 启动 pixiu 服务端
+## 配置 pixiu
 ```bash
 # 创建配置文件夹
 mkdir -p /etc/pixiu/
@@ -55,13 +56,13 @@ worker:
         - rocky9.3
         - openEuler22.03
 ```
-# 启动 pixiu
+## 启动 pixiu
 ```bash
 docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.1
-
-登录效果
-浏览器登陆: http://<ip>
 ```
 
-
-
+## 登陆 pixiu
+```
+# 默认用户名密码是 admin/Pixiu123456!
+浏览器登陆: http://<ip>
+```
