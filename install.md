@@ -64,11 +64,11 @@ worker:
 ```
 ## 启动 pixiu
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.1
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.2
 ```
 
 ## 登陆 pixiu
 ```
 # 根据配置文件中指定的账密输入；如果未指定默认用户名密码是 admin/Pixiu123456!
-浏览器登陆: http://<ip>
+浏览器登陆: http://<ip>:80
 ```

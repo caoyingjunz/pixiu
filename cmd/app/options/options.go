@@ -43,7 +43,7 @@ const (
 	maxIdleConns = 10
 	maxOpenConns = 100
 
-	defaultListen     = 8080
+	defaultListen     = 8091
 	defaultTokenKey   = "pixiu"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = logutil.LogFormatJson
