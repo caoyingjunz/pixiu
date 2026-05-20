@@ -13,7 +13,7 @@ default:
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: admin
-  admin_password: 123456
+  admin_password: Pixiu123456!
 
 #tls:
 #  cert_file: test.pem
