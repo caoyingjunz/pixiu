@@ -49,7 +49,8 @@ func (hr *helmRouter) GetRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Get(c, helmMeta.Name); err != nil {
+	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
+	if r.Result, err = releaseAPI.Get(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -81,11 +82,11 @@ func (hr *helmRouter) ListReleases(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).List(c); err != nil {
+	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
+	if r.Result, err = releaseAPI.List(c); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	httputils.SetSuccess(c, r)
 }
 
@@ -115,11 +116,11 @@ func (hr *helmRouter) InstallRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Install(c, &releaseOpt); err != nil {
+	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
+	if r.Result, err = releaseAPI.Install(c, &releaseOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	httputils.SetSuccess(c, r)
 }
 
@@ -149,11 +150,11 @@ func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Uninstall(c, helmMeta.Name); err != nil {
+	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
+	if r.Result, err = releaseAPI.Uninstall(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	httputils.SetSuccess(c, r)
 }
 
@@ -184,11 +185,11 @@ func (hr *helmRouter) UpgradeRelease(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Upgrade(c, &releaseOpt); err != nil {
+	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
+	if r.Result, err = releaseAPI.Upgrade(c, &releaseOpt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	httputils.SetSuccess(c, r)
 }
 
@@ -218,11 +219,11 @@ func (hr *helmRouter) GetReleaseHistory(c *gin.Context) {
 		return
 	}
 
-	if r.Result, err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).History(c, helmMeta.Name); err != nil {
+	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
+	if r.Result, err = releaseAPI.History(c, helmMeta.Name); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	httputils.SetSuccess(c, r)
 }
 
@@ -254,10 +255,10 @@ func (hr *helmRouter) RollbackRelease(c *gin.Context) {
 		return
 	}
 
-	if err = hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace).Rollback(c, helmMeta.Name, reverionMeta.Version); err != nil {
+	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
+	if err = releaseAPI.Rollback(c, helmMeta.Name, reverionMeta.Version); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
 	httputils.SetSuccess(c, r)
 }
