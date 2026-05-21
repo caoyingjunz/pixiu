@@ -18,7 +18,7 @@ FROM nginx:1.30.1-alpine as runner
 LABEL MAINTAINER="PIXIU"
 
 COPY --from=builder /app/pixiu /app
-COPY --from=dashboard-builder /build/dashboard/dist /static
+COPY --from=dashboard-builder /build/pixiu-ui/dist /usr/share/nginx/html
 COPY docker/start.sh /usr/local/bin/pixiu_start
 
 CMD ["pixiu_start"]
