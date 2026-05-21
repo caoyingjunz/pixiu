@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine as builder
+FROM golang:1.25-alpine as builder
 WORKDIR /app
 ARG VERSION
 ENV GOPROXY=https://goproxy.cn
@@ -8,13 +8,13 @@ COPY ../go.sum ./
 COPY .. .
 RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixiu ./cmd
 
-FROM node:16.18.0-alpine as dashboard-builder
+FROM node:23.7.0-alpine as dashboard-builder
 WORKDIR /build
 RUN apk add git
-RUN git clone https://github.com/pixiu-io/dashboard.git
-RUN cd dashboard && npm install && npm run build
+RUN git clone https://github.com/caoyingjunz/pixiu-ui
+RUN cd pixiu-ui && npm install && npm run build
 
-FROM busybox as runner
+FROM nginx:1.30.1-alpine as runner
 LABEL MAINTAINER="PIXIU"
 
 COPY --from=builder /app/pixiu /app
