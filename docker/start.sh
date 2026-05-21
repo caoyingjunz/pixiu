@@ -7,7 +7,7 @@ if [[ ! -d "/etc/pixiu" ]]; then
 fi
 
 # 暂时支持 80 端口
-cp /nginx-default-80.conf /etc/nginx/conf.d/default.conf
+cp /nginx-default-80.conf /etc/nginx/nginx.conf
 
 /app &
 nginx -g "daemon off;"
