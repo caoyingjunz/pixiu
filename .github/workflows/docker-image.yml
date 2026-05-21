@@ -30,8 +30,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com
-          username: ${{ secrets.HARBOR_USERNAME }}
-          password: ${{ secrets.HARBOR_PASSWORD }}
+          username: ${{ secrets.DOCKER_NAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push the pixiu image
         uses: docker/build-push-action@v5
