@@ -12,7 +12,7 @@ FROM node:23.7.0-alpine as dashboard-builder
 WORKDIR /build
 RUN apk add git
 RUN git clone https://github.com/caoyingjunz/pixiu-ui
-RUN cd pixiu-ui && npx vite build --mode docker
+RUN cd pixiu-ui && npm install &&npx vite build --mode docker
 
 FROM nginx:1.30.1-alpine as runner
 LABEL MAINTAINER="PIXIU"
