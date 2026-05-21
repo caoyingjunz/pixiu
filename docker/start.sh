@@ -183,7 +183,7 @@ EOF
 }
 
 start_services() {
-    /usr/local/bin/pixiu-server --configfile "$PIXIU_CONFIG_PATH" &
+    /app --configfile "$PIXIU_CONFIG_PATH" &
     pixiu_pid=$!
 
     nginx -g "daemon off;" &
