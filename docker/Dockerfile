@@ -11,7 +11,7 @@ RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixi
 FROM node:23.7.0-alpine as dashboard-builder
 WORKDIR /build
 RUN apk add git
-RUN git clone https://github.com/caoyingjunz/pixiu-ui -b apiservice2
+RUN git clone https://github.com/caoyingjunz/pixiu-ui
 RUN cd pixiu-ui && npm install && npm run build
 
 FROM nginx:1.30.1-alpine as runner
