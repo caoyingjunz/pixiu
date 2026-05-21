@@ -28,8 +28,6 @@ mkdir -p /etc/pixiu/
 # 后端配置(host 根据实际情况调整)
 vim /etc/pixiu/config.yaml 写入后端如下配置
 default:
-  # 服务监听端口
-  listen: 8091
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
 
@@ -62,8 +60,10 @@ worker:
         - rocky9.3
         - openEuler22.03
 ```
+
 ## 启动 pixiu
 ```bash
+# 根据实际需要修改宿主机端口，默认使用宿主机端口，可替换 --net host 为期望端口映射 -p <hostPort>:80
 docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.2
 ```
 
