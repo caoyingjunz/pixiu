@@ -15,7 +15,10 @@ default:
   admin_user: admin
   admin_password: Pixiu123456!
 
+# 配置 http 和 https， 默认 http，
+# 启用https的时候 cert_file 和 key_file 为必填
 #tls:
+#  enable: false
 #  cert_file: test.pem
 #  key_file: test.key
 

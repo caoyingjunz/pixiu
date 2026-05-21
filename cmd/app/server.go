@@ -101,15 +101,8 @@ func Run(opt *options.Options) error {
 
 	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
 	go func() {
-		var err error
-		if opt.ComponentConfig.TLS != nil {
-			klog.Info("starting pixiu server with TLS")
-			err = srv.ListenAndServeTLS(opt.ComponentConfig.TLS.CertFile, opt.ComponentConfig.TLS.KeyFile)
-		} else {
-			klog.Info("starting pixiu server with no TLS")
-			err = srv.ListenAndServe()
-		}
-		if err != nil && err != http.ErrServerClosed {
+		klog.Infof("starting pixiu server, liston on :%d", opt.ComponentConfig.Default.Listen)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			klog.Fatal("failed to listen pixiu server: ", err)
 		}
 	}()
