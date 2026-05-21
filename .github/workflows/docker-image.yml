@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "master"
+      - "caoyingjunz-patch-1"
     paths-ignore:
       - 'docs/**'
 
