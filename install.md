@@ -6,7 +6,7 @@
 ```bash
 # 选择1：直接提供可用数据库
 
-# 选择2：快速启动数据库（生产环境自行部署或者使用高可用数据库）
+# 选择2：快速启动数据库，并初始化 pixiu 数据库（生产环境自行部署或者使用高可用数据库）
 docker run -d --net host --restart=always --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" -e MYSQL_DATABASE="pixiu" ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7
 ```
 
