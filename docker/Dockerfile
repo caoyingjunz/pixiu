@@ -20,6 +20,5 @@ LABEL MAINTAINER="PIXIU"
 COPY --from=builder /app/pixiu /app
 COPY --from=dashboard-builder /build/pixiu-ui/dist /usr/share/nginx/html
 COPY docker/start.sh /usr/local/bin/pixiu_start
-COPY docker/nginx-default-80.conf /nginx-default-80.conf
 
 CMD ["pixiu_start"]
