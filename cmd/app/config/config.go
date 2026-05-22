@@ -17,8 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
-
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
@@ -39,7 +37,6 @@ type Config struct {
 	Mysql   MysqlOptions            `yaml:"mysql"`
 	Worker  WorkerOptions           `yaml:"worker"`
 	Audit   jobmanager.AuditOptions `yaml:"audit"`
-	TLS     *TLS                    `yaml:"tls"`
 }
 
 type DefaultOptions struct {
@@ -95,25 +92,6 @@ func (w WorkerOptions) Valid() error {
 	return nil
 }
 
-type TLS struct {
-	CertFile string `yaml:"cert_file"`
-	KeyFile  string `yaml:"key_file"`
-}
-
-func (t *TLS) Valid() error {
-	if t != nil {
-		if len(t.CertFile) == 0 {
-			return fmt.Errorf("listen on tls, no cert_file found")
-		}
-
-		if len(t.KeyFile) == 0 {
-			return fmt.Errorf("listen on tls, no key_file found")
-		}
-	}
-
-	return nil
-}
-
 func (c *Config) Valid() (err error) {
 	if err = c.Default.Valid(); err != nil {
 		return
@@ -123,9 +101,6 @@ func (c *Config) Valid() (err error) {
 	}
 	if err = c.Worker.Valid(); err != nil {
 		return
-	}
-	if err = c.TLS.Valid(); err != nil {
-		return err
 	}
 
 	return
