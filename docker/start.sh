@@ -21,21 +21,22 @@ is_true() {
     esac
 }
 
-read_default_value() {
-    key="$1"
-    file="$2"
+read_section_value() {
+    section="$1"
+    key="$2"
+    file="$3"
 
-    awk -v key="$key" '
-        /^default:[[:space:]]*$/ {
-            in_default = 1
+    awk -v section="$section" -v key="$key" '
+        $0 ~ "^" section ":[[:space:]]*$" {
+            in_section = 1
             next
         }
 
-        in_default && /^[^[:space:]]/ {
-            in_default = 0
+        in_section && /^[^[:space:]]/ {
+            in_section = 0
         }
 
-        in_default && $0 ~ "^[[:space:]]+" key ":[[:space:]]*" {
+        in_section && $0 ~ "^[[:space:]]+" key ":[[:space:]]*" {
             sub("^[[:space:]]+" key ":[[:space:]]*", "", $0)
             sub(/[[:space:]]+#.*$/, "", $0)
             gsub(/^["'"'"']|["'"'"']$/, "", $0)
@@ -100,9 +101,9 @@ load_config() {
         exit 1
     fi
 
-    NGINX_ENABLE_SSL="$(read_default_value enable_ssl "$PIXIU_CONFIG_PATH")"
-    NGINX_SSL_CERT_PATH="$(read_default_value ssl_cert_path "$PIXIU_CONFIG_PATH")"
-    NGINX_SSL_KEY_PATH="$(read_default_value ssl_key_path "$PIXIU_CONFIG_PATH")"
+    NGINX_ENABLE_SSL="$(read_section_value tls enable "$PIXIU_CONFIG_PATH")"
+    NGINX_SSL_CERT_PATH="$(read_section_value tls cert_file "$PIXIU_CONFIG_PATH")"
+    NGINX_SSL_KEY_PATH="$(read_section_value tls key_file "$PIXIU_CONFIG_PATH")"
 
     if [ -z "${NGINX_ENABLE_SSL:-}" ]; then
         NGINX_ENABLE_SSL="false"
@@ -112,7 +113,7 @@ load_config() {
 validate_config() {
     if is_true "$NGINX_ENABLE_SSL"; then
         if [ -z "${NGINX_SSL_CERT_PATH:-}" ] || [ -z "${NGINX_SSL_KEY_PATH:-}" ]; then
-            log "enable_ssl is true, but ssl_cert_path or ssl_key_path is missing"
+            log "tls.enable is true, but tls.cert_file or tls.key_file is missing"
             exit 1
         fi
 
