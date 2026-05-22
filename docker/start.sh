@@ -9,8 +9,12 @@ log() {
     echo "[docker-entrypoint] $*"
 }
 
+trim() {
+    printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
 is_true() {
-    value="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+    value="$(trim "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')")"
     case "$value" in
         1|true|yes|on)
             return 0
@@ -39,7 +43,16 @@ read_section_value() {
         in_section && $0 ~ "^[[:space:]]+" key ":[[:space:]]*" {
             sub("^[[:space:]]+" key ":[[:space:]]*", "", $0)
             sub(/[[:space:]]+#.*$/, "", $0)
+
+            # Trim spaces before removing quotes.
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+
+            # Remove surrounding single or double quotes.
             gsub(/^["'"'"']|["'"'"']$/, "", $0)
+
+            # Trim again in case spaces were inside quotes or left after quote removal.
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+
             print
             exit
         }
