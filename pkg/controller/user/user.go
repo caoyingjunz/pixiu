@@ -149,9 +149,17 @@ func (u *user) preChangePassword(ctx context.Context, userId int64, operatorId i
 	if operatorId != userId {
 		return fmt.Errorf("用户只能修改自己的密码")
 	}
-	object, err := u.Get(ctx, userId)
+	if len(req.Old) == 0 {
+		return fmt.Errorf("当前密码不能为空")
+	}
+	// 须从 DB 读取 model.User：u.Get 经 model2Type 转换时会省略 Password，导致校验永远失败
+	object, err := u.factory.User().Get(ctx, userId)
 	if err != nil {
-		return err
+		klog.Errorf("failed to get user(%d): %v", userId, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrUserNotFound
 	}
 
 	// 校验旧密码是否正确
@@ -360,7 +368,7 @@ func (u *user) GetTokenKey() []byte {
 	return []byte(k)
 }
 
-// 将 model user 转换成 types
+// 将 model user 转换成 types（不含 Password，避免通过 API 泄露哈希）
 func model2Type(o *model.User) *types.User {
 	return &types.User{
 		PixiuMeta: types.PixiuMeta{
