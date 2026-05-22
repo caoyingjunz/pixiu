@@ -49,9 +49,11 @@ read_yaml_value() {
 
             key = trim(substr(line, 1, separator - 1))
             value = substr(line, separator + 1)
+
             sub(/[[:space:]]*#.*$/, "", value)
             value = trim(value)
             gsub(/^["'"'"']|["'"'"']$/, "", value)
+
             if (value == "null" || value == "~") {
                 value = ""
             }
@@ -97,22 +99,11 @@ load_config() {
         exit 1
     fi
 
-    NGINX_ENABLE_SSL="$(read_yaml_value default.tls.enable "$PIXIU_CONFIG_PATH")"
-    NGINX_SSL_CERT_PATH="$(read_yaml_value default.tls.cert_file "$PIXIU_CONFIG_PATH")"
-    NGINX_SSL_KEY_PATH="$(read_yaml_value default.tls.key_file "$PIXIU_CONFIG_PATH")"
+    NGINX_ENABLE_SSL="$(read_yaml_value tls.enable "$PIXIU_CONFIG_PATH" || true)"
+    NGINX_SSL_CERT_PATH="$(read_yaml_value tls.cert_file "$PIXIU_CONFIG_PATH" || true)"
+    NGINX_SSL_KEY_PATH="$(read_yaml_value tls.key_file "$PIXIU_CONFIG_PATH" || true)"
 
-    if [ -z "${NGINX_ENABLE_SSL:-}" ]; then
-        NGINX_ENABLE_SSL="$(read_yaml_value default.enable_ssl "$PIXIU_CONFIG_PATH")"
-    fi
-
-    if [ -z "${NGINX_SSL_CERT_PATH:-}" ]; then
-        NGINX_SSL_CERT_PATH="$(read_yaml_value default.ssl_cert_path "$PIXIU_CONFIG_PATH")"
-    fi
-
-    if [ -z "${NGINX_SSL_KEY_PATH:-}" ]; then
-        NGINX_SSL_KEY_PATH="$(read_yaml_value default.ssl_key_path "$PIXIU_CONFIG_PATH")"
-    fi
-
+    # tls 没写、tls 被注释、tls.enable 没写时，默认关闭 HTTPS
     if [ -z "${NGINX_ENABLE_SSL:-}" ]; then
         NGINX_ENABLE_SSL="false"
     fi
@@ -123,8 +114,13 @@ load_config() {
 
 validate_config() {
     if is_true "$NGINX_ENABLE_SSL"; then
-        if [ -z "${NGINX_SSL_CERT_PATH:-}" ] || [ -z "${NGINX_SSL_KEY_PATH:-}" ]; then
-            log "https is enabled, but cert_file or key_file is missing"
+        if [ -z "${NGINX_SSL_CERT_PATH:-}" ]; then
+            log "https is enabled, but tls.cert_file is empty or missing"
+            exit 1
+        fi
+
+        if [ -z "${NGINX_SSL_KEY_PATH:-}" ]; then
+            log "https is enabled, but tls.key_file is empty or missing"
             exit 1
         fi
 
