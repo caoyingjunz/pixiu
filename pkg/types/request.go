@@ -50,7 +50,7 @@ type (
 
 	UpdateUserPasswordRequest struct {
 		New             string `json:"new" binding:"required,password"`     // required
-		Old             string `json:"old" binding:"required"`              // required
+		Old             string `json:"old"`                                 // 修改自己密码时必填，管理员重置时可不填
 		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
 		Reset           bool   `json:"reset"`
 	}
