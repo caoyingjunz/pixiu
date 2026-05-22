@@ -30,7 +30,7 @@ const (
 	RoleRoot                   // 超级管理员
 )
 
-type UserStatus uint8 // TODO
+type UserStatus uint8 // 0 正常 1 禁用
 
 type User struct {
 	pixiu.Model
