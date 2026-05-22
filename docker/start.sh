@@ -21,66 +21,36 @@ is_true() {
     esac
 }
 
-read_yaml_value() {
-    path="$1"
+read_default_value() {
+    key="$1"
     file="$2"
 
-    awk -v path="$path" '
-        function trim(value) {
-            sub(/^[[:space:]]+/, "", value)
-            sub(/[[:space:]]+$/, "", value)
-            return value
-        }
-
-        /^[[:space:]]*#/ || /^[[:space:]]*$/ {
+    awk -v key="$key" '
+        /^default:[[:space:]]*$/ {
+            in_default = 1
             next
         }
 
-        {
-            match($0, /^[[:space:]]*/)
-            indent = RLENGTH
-            level = int(indent / 2)
+        in_default && /^[^[:space:]]/ {
+            in_default = 0
+        }
 
-            line = substr($0, indent + 1)
-            separator = index(line, ":")
-            if (separator == 0) {
-                next
-            }
-
-            key = trim(substr(line, 1, separator - 1))
-            value = substr(line, separator + 1)
-
-            sub(/[[:space:]]*#.*$/, "", value)
-            value = trim(value)
-            gsub(/^["'"'"']|["'"'"']$/, "", value)
-
-            if (value == "null" || value == "~") {
-                value = ""
-            }
-
-            stack[level] = key
-            for (i in stack) {
-                if (i > level) {
-                    delete stack[i]
-                }
-            }
-
-            current = stack[0]
-            for (i = 1; i <= level; i++) {
-                current = current "." stack[i]
-            }
-
-            if (current == path) {
-                print value
-                exit
-            }
+        in_default && $0 ~ "^[[:space:]]+" key ":[[:space:]]*" {
+            sub("^[[:space:]]+" key ":[[:space:]]*", "", $0)
+            sub(/[[:space:]]+#.*$/, "", $0)
+            gsub(/^["'"'"']|["'"'"']$/, "", $0)
+            print
+            exit
         }
     ' "$file"
 }
 
 write_proxy_locations() {
     cat <<'EOF'
-        location / {
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location /api/ {
             proxy_pass http://127.0.0.1:8091;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
@@ -89,6 +59,37 @@ write_proxy_locations() {
             proxy_set_header X-Forwarded-Proto $scheme;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
+        }
+
+        location /pixiu/ {
+            proxy_pass http://127.0.0.1:8091;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+
+        location = /healthz {
+            proxy_pass http://127.0.0.1:8091;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /api-ref/ {
+            proxy_pass http://127.0.0.1:8091;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.html;
         }
 EOF
 }
@@ -99,28 +100,19 @@ load_config() {
         exit 1
     fi
 
-    NGINX_ENABLE_SSL="$(read_yaml_value tls.enable "$PIXIU_CONFIG_PATH" || true)"
-    NGINX_SSL_CERT_PATH="$(read_yaml_value tls.cert_file "$PIXIU_CONFIG_PATH" || true)"
-    NGINX_SSL_KEY_PATH="$(read_yaml_value tls.key_file "$PIXIU_CONFIG_PATH" || true)"
+    NGINX_ENABLE_SSL="$(read_default_value enable_ssl "$PIXIU_CONFIG_PATH")"
+    NGINX_SSL_CERT_PATH="$(read_default_value ssl_cert_path "$PIXIU_CONFIG_PATH")"
+    NGINX_SSL_KEY_PATH="$(read_default_value ssl_key_path "$PIXIU_CONFIG_PATH")"
 
-    # tls 没写、tls 被注释、tls.enable 没写时，默认关闭 HTTPS
     if [ -z "${NGINX_ENABLE_SSL:-}" ]; then
         NGINX_ENABLE_SSL="false"
     fi
-
-    NGINX_SSL_CERT_PATH="${NGINX_SSL_CERT_PATH:-}"
-    NGINX_SSL_KEY_PATH="${NGINX_SSL_KEY_PATH:-}"
 }
 
 validate_config() {
     if is_true "$NGINX_ENABLE_SSL"; then
-        if [ -z "${NGINX_SSL_CERT_PATH:-}" ]; then
-            log "https is enabled, but tls.cert_file is empty or missing"
-            exit 1
-        fi
-
-        if [ -z "${NGINX_SSL_KEY_PATH:-}" ]; then
-            log "https is enabled, but tls.key_file is empty or missing"
+        if [ -z "${NGINX_SSL_CERT_PATH:-}" ] || [ -z "${NGINX_SSL_KEY_PATH:-}" ]; then
+            log "enable_ssl is true, but ssl_cert_path or ssl_key_path is missing"
             exit 1
         fi
 
@@ -191,7 +183,7 @@ EOF
 }
 
 start_services() {
-    /usr/local/bin/pixiu-server --configfile "$PIXIU_CONFIG_PATH" &
+    /app --configfile "$PIXIU_CONFIG_PATH" &
     pixiu_pid=$!
 
     nginx -g "daemon off;" &
