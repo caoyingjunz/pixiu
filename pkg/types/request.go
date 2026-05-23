@@ -87,6 +87,46 @@ type (
 		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
 	}
 
+	ListTenantRequest struct {
+		PageRequest  `form:",inline"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
+	}
+
+	CreateRoleRequest struct {
+		Name     string `json:"name" binding:"required"` // required
+		TenantId *int64 `json:"tenant_id"`               // optional, nil 或 0 表示系统全局角色
+	}
+
+	UpdateRoleRequest struct {
+		Name            *string `json:"name" binding:"omitempty"`            // optional
+		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
+	}
+
+	ListRoleRequest struct {
+		PageRequest  `form:",inline"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
+		TenantId     *int64 `form:"tenant_id" json:"tenant_id"`       // 租户 ID 过滤
+	}
+
+	CreateAPIRequest struct {
+		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"` // required
+		Path        string  `json:"path" binding:"required"`                                   // required
+		Description *string `json:"description" binding:"omitempty"`                           // optional
+	}
+
+	UpdateAPIRequest struct {
+		Method          *string `json:"method" binding:"omitempty,oneof=GET POST PUT DELETE PATCH"` // optional
+		Path            *string `json:"path" binding:"omitempty"`                                     // optional
+		Description     *string `json:"description" binding:"omitempty"`                              // optional
+		ResourceVersion *int64  `json:"resource_version" binding:"required"`                          // required
+	}
+
+	ListAPIRequest struct {
+		PageRequest  `form:",inline"`
+		Method       string `form:"method" json:"method"`             // HTTP 方法过滤
+		PathSelector string `form:"pathSelector" json:"pathSelector"` // 路径模糊搜索
+	}
+
 	CreatePlanRequest struct {
 		Name        string `json:"name" binding:"required"`         // required
 		Description string `json:"description" binding:"omitempty"` // optional

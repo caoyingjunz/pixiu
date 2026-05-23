@@ -52,6 +52,8 @@ var (
 	UserExistError      = errors.New("用户已存在")
 	RoleExistError      = errors.New("角色已存在")
 	RoleNotExistError   = errors.New("角色不存在")
+	APIExistError       = errors.New("API已存在")
+	APINotExistError    = errors.New("API不存在")
 	PolicyExistError    = errors.New("策略已存在")
 	PolicyNotExistError = errors.New("策略不存在")
 	RBACDeprecatedError = errors.New("RBAC 策略能力已移除")

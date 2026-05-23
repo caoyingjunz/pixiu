@@ -32,6 +32,7 @@ type TenantInterface interface {
 	Delete(ctx context.Context, cid int64) (*model.Tenant, error)
 	Get(ctx context.Context, cid int64) (*model.Tenant, error)
 	List(ctx context.Context, opts ...Options) ([]model.Tenant, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
 
 	GetTenantByName(ctx context.Context, name string) (*model.Tenant, error)
 }
@@ -62,7 +63,7 @@ func (t *tenant) Update(ctx context.Context, tid int64, resourceVersion int64, u
 	}
 
 	if f.RowsAffected == 0 {
-		return errors.ErrRecordNotFound
+		return errors.ErrRecordNotUpdate
 	}
 
 	return nil
@@ -106,6 +107,19 @@ func (t *tenant) List(ctx context.Context, opts ...Options) ([]model.Tenant, err
 	}
 
 	return objects, nil
+}
+
+func (t *tenant) Count(ctx context.Context, opts ...Options) (int64, error) {
+	var total int64
+	tx := t.db.WithContext(ctx).Model(&model.Tenant{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Count(&total).Error; err != nil {
+		return 0, err
+	}
+
+	return total, nil
 }
 
 func (t *tenant) GetTenantByName(ctx context.Context, name string) (*model.Tenant, error) {
