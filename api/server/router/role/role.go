@@ -40,9 +40,10 @@ func (r *roleRouter) initRoutes(ginEngine *gin.Engine) {
 		roleRoute.POST("", r.createRole)
 		roleRoute.PUT("/:roleId", r.updateRole)
 		roleRoute.DELETE("/:roleId", r.deleteRole)
-		roleRoute.GET("/:roleId/apis", r.getRoleAPIs)
-		roleRoute.PUT("/:roleId/apis", r.updateRoleAPIs)
 		roleRoute.GET("/:roleId", r.getRole)
 		roleRoute.GET("", r.listRoles)
+
+		roleRoute.GET("/:roleId/apis", r.getRoleAPIs)
+		roleRoute.PUT("/:roleId/apis", r.updateRoleAPIs)
 	}
 }

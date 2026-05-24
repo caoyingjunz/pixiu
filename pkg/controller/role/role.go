@@ -39,6 +39,7 @@ type Interface interface {
 	Delete(ctx context.Context, rid int64) error
 	Get(ctx context.Context, rid int64) (*types.Role, error)
 	List(ctx context.Context, req *types.ListRoleRequest) (*types.PageResponse, error)
+
 	GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse, error)
 	UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleAPIsRequest) error
 }
