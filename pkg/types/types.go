@@ -141,6 +141,11 @@ type APIResource struct {
 	Description string `json:"description"`
 }
 
+type RoleAPIsResponse struct {
+	Associated   []APIResource `json:"associated"`
+	Unassociated []APIResource `json:"unassociated"`
+}
+
 type Plan struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`

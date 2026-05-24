@@ -122,3 +122,46 @@ func (r *roleRouter) listRoles(c *gin.Context) {
 
 	httputils.SetSuccess(c, resp)
 }
+
+func (r *roleRouter) getRoleAPIs(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		opt RoleMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if resp.Result, err = r.c.Role().GetAPIs(c, opt.RoleId); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *roleRouter) updateRoleAPIs(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		opt RoleMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	var req types.UpdateRoleAPIsRequest
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Role().UpdateAPIs(c, opt.RoleId, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+
+	httputils.SetSuccess(c, resp)
+}

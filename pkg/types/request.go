@@ -110,6 +110,10 @@ type (
 		TenantId     *int64 `form:"tenant_id" json:"tenant_id"`       // 租户 ID 过滤
 	}
 
+	UpdateRoleAPIsRequest struct {
+		APIIds []int64 `json:"api_ids"` // 已关联的 API 资源 ID 列表，全量替换
+	}
+
 	CreateAPIRequest struct {
 		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"` // required
 		Path        string  `json:"path" binding:"required"`                                   // required
