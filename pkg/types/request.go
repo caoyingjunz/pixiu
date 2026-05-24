@@ -116,9 +116,9 @@ type (
 
 	UpdateAPIRequest struct {
 		Method          *string `json:"method" binding:"omitempty,oneof=GET POST PUT DELETE PATCH"` // optional
-		Path            *string `json:"path" binding:"omitempty"`                                     // optional
-		Description     *string `json:"description" binding:"omitempty"`                              // optional
-		ResourceVersion *int64  `json:"resource_version" binding:"required"`                          // required
+		Path            *string `json:"path" binding:"omitempty"`                                   // optional
+		Description     *string `json:"description" binding:"omitempty"`                            // optional
+		ResourceVersion *int64  `json:"resource_version" binding:"required"`                        // required
 	}
 
 	ListAPIRequest struct {
