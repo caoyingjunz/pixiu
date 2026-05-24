@@ -127,8 +127,9 @@ type Role struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	TenantId int64  `json:"tenant_id"` // 0 表示系统全局角色
-	Name     string `json:"name"`
+	TenantId    int64  `json:"tenant_id"` // 0 表示系统全局角色
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 type APIResource struct {

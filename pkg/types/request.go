@@ -93,12 +93,14 @@ type (
 	}
 
 	CreateRoleRequest struct {
-		Name     string `json:"name" binding:"required"` // required
-		TenantId *int64 `json:"tenant_id"`               // optional, nil 或 0 表示系统全局角色
+		Name        string  `json:"name" binding:"required"`         // required
+		TenantId    *int64  `json:"tenant_id"`                       // optional, nil 或 0 表示系统全局角色
+		Description *string `json:"description" binding:"omitempty"` // optional
 	}
 
 	UpdateRoleRequest struct {
 		Name            *string `json:"name" binding:"omitempty"`            // optional
+		Description     *string `json:"description" binding:"omitempty"`     // optional
 		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
 	}
 

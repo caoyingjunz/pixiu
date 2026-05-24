@@ -76,6 +76,9 @@ func (r *role) Create(ctx context.Context, req *types.CreateRoleRequest) error {
 		TenantId: tenantId,
 		Name:     req.Name,
 	}
+	if req.Description != nil {
+		roleObj.Description = *req.Description
+	}
 	if _, err = r.factory.Role().Create(ctx, roleObj); err != nil {
 		if utilerrors.IsUniqueConstraintError(err) {
 			return errors.ErrRoleExists
@@ -110,6 +113,9 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 			}
 		}
 		updates["name"] = *req.Name
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
 	}
 	if len(updates) == 0 {
 		return errors.ErrInvalidRequest
@@ -205,8 +211,9 @@ func (r *role) model2Type(o *model.Role) *types.Role {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		TenantId: o.TenantId,
-		Name:     o.Name,
+		TenantId:    o.TenantId,
+		Name:        o.Name,
+		Description: o.Description,
 	}
 }
 

@@ -37,8 +37,9 @@ func (tenant *Tenant) TableName() string {
 type Role struct {
 	pixiu.Model
 
-	TenantId int64  `gorm:"default:null;uniqueIndex:uk_tenant_role" json:"tenant_id"` // NULL 表示系统全局角色
-	Name     string `gorm:"type:varchar(100);not null;uniqueIndex:uk_tenant_role" json:"name"`
+	TenantId    int64  `gorm:"default:null;uniqueIndex:uk_tenant_role" json:"tenant_id"` // NULL 表示系统全局角色
+	Name        string `gorm:"type:varchar(100);not null;uniqueIndex:uk_tenant_role" json:"name"`
+	Description string `gorm:"type:text" json:"description"`
 }
 
 func (role *Role) TableName() string {
