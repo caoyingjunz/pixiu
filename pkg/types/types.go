@@ -138,6 +138,7 @@ type APIResource struct {
 
 	Method      string `json:"method"`
 	Path        string `json:"path"`
+	Group       string `json:"group"`
 	Description string `json:"description"`
 }
 

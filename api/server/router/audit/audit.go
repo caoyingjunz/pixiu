@@ -17,6 +17,7 @@ limitations under the License.
 package audit
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -34,11 +35,14 @@ func NewRouter(o *options.Options) {
 	router.initRoutes(o.HttpEngine)
 }
 
-func (a *auditRouter) initRoutes(httpEngine *gin.Engine) {
-	auditRoute := httpEngine.Group("/pixiu/audits")
-	{
-		// get 日志
-		auditRoute.GET("/:auditId", a.getAudit)
-		auditRoute.GET("", a.listAudits)
+func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
+	group := &apiregistry.Group{
+		Name:    "审计",
+		BaseURL: "/pixiu/audits",
+		Entries: []apiregistry.RouteEntry{
+			//{Method: "GET", RelativePath: "/:auditId", Handler: a.getAudit, Description: "获取审计日志详情"},
+			{Method: "GET", RelativePath: "", Handler: a.listAudits, Description: "获取审计列表"},
+		},
 	}
+	group.Register(ginEngine.Group("/pixiu/audits"), a.c.APIResource())
 }

@@ -60,8 +60,9 @@ func (ur *UserRole) TableName() string {
 type API struct {
 	pixiu.Model
 
-	Method      string `gorm:"type:varchar(10);not null;uniqueIndex:uk_method_path" json:"method"` // GET/POST/PUT/DELETE
-	Path        string `gorm:"type:varchar(255);not null;uniqueIndex:uk_method_path" json:"path"`  // 如 /api/v1/users/:id
+	Method      string `gorm:"type:varchar(10);not null;uniqueIndex:uk_method_path" json:"method"`
+	Path        string `gorm:"type:varchar(255);not null;uniqueIndex:uk_method_path" json:"path"`
+	Group       string `gorm:"column:api_group;type:varchar(100);index:idx_api_group" json:"group"`
 	Description string `gorm:"type:varchar(255)" json:"description"`
 }
 

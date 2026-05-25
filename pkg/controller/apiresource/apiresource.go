@@ -39,6 +39,8 @@ type Interface interface {
 	Delete(ctx context.Context, aid int64) error
 	Get(ctx context.Context, aid int64) (*types.APIResource, error)
 	List(ctx context.Context, req *types.ListAPIRequest) (*types.PageResponse, error)
+
+	Sync(ctx context.Context, req *types.CreateAPIRequest) error
 }
 
 type apiResource struct {
@@ -60,6 +62,9 @@ func (a *apiResource) Create(ctx context.Context, req *types.CreateAPIRequest) e
 		Method: req.Method,
 		Path:   req.Path,
 	}
+	if req.Group != nil {
+		apiObj.Group = *req.Group
+	}
 	if req.Description != nil {
 		apiObj.Description = *req.Description
 	}
@@ -73,6 +78,34 @@ func (a *apiResource) Create(ctx context.Context, req *types.CreateAPIRequest) e
 	}
 
 	return nil
+}
+
+// Sync 幂等同步 API 资源：存在则更新分组和描述，不存在则创建
+func (a *apiResource) Sync(ctx context.Context, req *types.CreateAPIRequest) error {
+	object, err := a.factory.API().GetByMethodAndPath(ctx, req.Method, req.Path)
+	if err != nil {
+		klog.Errorf("failed to get api %s %s for sync: %v", req.Method, req.Path, err)
+		return err
+	}
+
+	if object != nil {
+		updates := make(map[string]interface{})
+		if req.Group != nil && *req.Group != object.Group {
+			updates["api_group"] = *req.Group
+		}
+		if req.Description != nil && *req.Description != object.Description {
+			updates["description"] = *req.Description
+		}
+		if len(updates) > 0 {
+			if err := a.factory.API().Update(ctx, object.Id, object.ResourceVersion, updates); err != nil {
+				klog.Errorf("failed to sync api %s %s: %v", req.Method, req.Path, err)
+				return err
+			}
+		}
+		return nil
+	}
+
+	return a.Create(ctx, req)
 }
 
 func (a *apiResource) Update(ctx context.Context, aid int64, req *types.UpdateAPIRequest) error {
@@ -113,6 +146,9 @@ func (a *apiResource) Update(ctx context.Context, aid int64, req *types.UpdateAP
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
+	}
+	if req.Group != nil {
+		updates["api_group"] = *req.Group
 	}
 	if len(updates) == 0 {
 		return errors.ErrInvalidRequest
@@ -158,7 +194,7 @@ func (a *apiResource) Get(ctx context.Context, aid int64) (*types.APIResource, e
 func (a *apiResource) List(ctx context.Context, req *types.ListAPIRequest) (*types.PageResponse, error) {
 	opts := []db.Options{db.WithOrderByDesc()}
 	if req != nil {
-		opts = append(opts, db.WithMethod(req.Method), db.WithPathLike(req.PathSelector))
+		opts = append(opts, db.WithMethod(req.Method), db.WithPathLike(req.PathSelector), db.WithGroup(req.Group))
 	}
 
 	total, err := a.factory.API().Count(ctx, opts...)
@@ -205,6 +241,7 @@ func (a *apiResource) model2Type(o *model.API) *types.APIResource {
 		},
 		Method:      o.Method,
 		Path:        o.Path,
+		Group:       o.Group,
 		Description: o.Description,
 	}
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package node
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -35,12 +36,16 @@ func NewRouter(o *options.Options) {
 }
 
 func (n *nodeRouter) initRoutes(ginEngine *gin.Engine) {
-	nodeRoute := ginEngine.Group("/pixiu/nodes")
-	{
-		nodeRoute.POST("", n.createNode)
-		nodeRoute.PUT("/:nodeId", n.updateNode)
-		nodeRoute.DELETE("/:nodeId", n.deleteNode)
-		nodeRoute.GET("/:nodeId", n.getNode)
-		nodeRoute.GET("", n.listNodes)
+	group := &apiregistry.Group{
+		Name:    "节点管理",
+		BaseURL: "/pixiu/nodes",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: n.createNode, Description: "创建节点"},
+			{Method: "PUT", RelativePath: "/:nodeId", Handler: n.updateNode, Description: "更新节点"},
+			{Method: "DELETE", RelativePath: "/:nodeId", Handler: n.deleteNode, Description: "删除节点"},
+			{Method: "GET", RelativePath: "/:nodeId", Handler: n.getNode, Description: "获取节点详情"},
+			{Method: "GET", RelativePath: "", Handler: n.listNodes, Description: "获取节点列表"},
+		},
 	}
+	group.Register(ginEngine.Group("/pixiu/nodes"), n.c.APIResource())
 }

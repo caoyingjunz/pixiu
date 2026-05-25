@@ -115,22 +115,25 @@ type (
 	}
 
 	CreateAPIRequest struct {
-		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"` // required
-		Path        string  `json:"path" binding:"required"`                                   // required
-		Description *string `json:"description" binding:"omitempty"`                           // optional
+		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"`
+		Path        string  `json:"path" binding:"required"`
+		Group       *string `json:"group" binding:"omitempty"`
+		Description *string `json:"description" binding:"omitempty"`
 	}
 
 	UpdateAPIRequest struct {
-		Method          *string `json:"method" binding:"omitempty,oneof=GET POST PUT DELETE PATCH"` // optional
-		Path            *string `json:"path" binding:"omitempty"`                                   // optional
-		Description     *string `json:"description" binding:"omitempty"`                            // optional
-		ResourceVersion *int64  `json:"resource_version" binding:"required"`                        // required
+		Method          *string `json:"method" binding:"omitempty,oneof=GET POST PUT DELETE PATCH"`
+		Path            *string `json:"path" binding:"omitempty"`
+		Group           *string `json:"group" binding:"omitempty"`
+		Description     *string `json:"description" binding:"omitempty"`
+		ResourceVersion *int64  `json:"resource_version" binding:"required"`
 	}
 
 	ListAPIRequest struct {
 		PageRequest  `form:",inline"`
-		Method       string `form:"method" json:"method"`             // HTTP 方法过滤
-		PathSelector string `form:"pathSelector" json:"pathSelector"` // 路径模糊搜索
+		Method       string `form:"method" json:"method"`
+		PathSelector string `form:"pathSelector" json:"pathSelector"`
+		Group        string `form:"group" json:"group"`
 	}
 
 	CreatePlanRequest struct {

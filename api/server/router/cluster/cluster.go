@@ -17,6 +17,7 @@ limitations under the License.
 package cluster
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -42,47 +43,30 @@ func NewRouter(o *options.Options) {
 	s.initRoutes(o.HttpEngine)
 }
 
-func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
-	clusterRoute := httpEngine.Group("/pixiu/clusters")
-	{
-		clusterRoute.POST("", cr.createCluster)
-		clusterRoute.PUT("/:clusterId", cr.updateCluster)
-		clusterRoute.DELETE("/:clusterId", cr.deleteCluster)
-		clusterRoute.GET("/:clusterId", cr.getCluster)
-		clusterRoute.GET("", cr.listClusters)
-
-		// 检查 kubernetes 的连通性
-		clusterRoute.POST("/ping", cr.pingCluster)
-
-		// 设置集群的删除保护模式
-		clusterRoute.POST("/protect/:clusterId", cr.protectCluster)
+func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
+	group := &apiregistry.Group{
+		Name:    "集群管理",
+		BaseURL: "/pixiu/clusters",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: cr.createCluster, Description: "创建集群"},
+			{Method: "PUT", RelativePath: "/:clusterId", Handler: cr.updateCluster, Description: "更新集群"},
+			{Method: "DELETE", RelativePath: "/:clusterId", Handler: cr.deleteCluster, Description: "删除集群"},
+			{Method: "GET", RelativePath: "/:clusterId", Handler: cr.getCluster, Description: "获取集群详情"},
+			{Method: "GET", RelativePath: "", Handler: cr.listClusters, Description: "获取集群列表"},
+			{Method: "POST", RelativePath: "/ping", Handler: cr.pingCluster, Description: "检查K8s连通性"},
+			{Method: "POST", RelativePath: "/protect/:clusterId", Handler: cr.protectCluster, Description: "设置集群删除保护"},
+		},
 	}
+	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
 
-	// 调用 kubernetes 对象
-	kubeRoute := httpEngine.Group(kubeProxyBaseURL)
+	// kube proxy 路由（透传 K8s API，不注册到 API 管理）
+	kubeRoute := ginEngine.Group(kubeProxyBaseURL)
 	{
-		// 获取指定对象的日志
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/pods/:pod/log", cr.watchPodLog)
-		// Deprecated 聚合 events
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
-		// 获取指定对象的 events，支持事件聚合
 		kubeRoute.GET("/clusters/:cluster/api/v1/events", cr.getEventList)
-
-		// pod ws
 		kubeRoute.GET("/ws", cr.webShell)
-		// node ws
 		kubeRoute.GET("/nodes/ws", cr.nodeWebShell)
-
-		// 重启Job action=rerun
 		kubeRoute.POST("/clusters/:cluster/namespaces/:namespace/jobs/:name", cr.ReRunJob)
 	}
-
-	// 从 pixiu 缓存中获取 kubernetes 对象
-	//indexerRoute := httpEngine.Group(indexerBaseURL)
-	//{
-	//	// 从缓存中获取指定对象
-	//	indexerRoute.GET("/clusters/:cluster/resources/:resource/namespaces/:namespace/name/:name", cr.getIndexerResource)
-	//	// 从缓存中获取对象列表
-	//	indexerRoute.GET("/clusters/:cluster/resources/:resource/namespaces/:namespace", cr.listIndexerResources)
-	//}
 }

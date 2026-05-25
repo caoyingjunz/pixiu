@@ -32,7 +32,6 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/agent"
 	"github.com/caoyingjunz/pixiu/api/server/router/apiresource"
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
-	"github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/node"
@@ -64,7 +63,6 @@ func InstallRouters(o *options.Options) {
 		node.NewRouter,
 		audit.NewRouter,
 		agent.NewRouter,
-		auth.NewRouter,
 	}
 
 	install(o, fs...)
@@ -78,7 +76,7 @@ func InstallRouters(o *options.Options) {
 	o.HttpEngine.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// 注册 APIs
-	_ = o.RegisterAPIs()
+	//_ = o.RegisterAPIs()
 }
 
 func install(o *options.Options, fs ...RegisterFunc) {

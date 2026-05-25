@@ -235,3 +235,12 @@ func WithPathLike(path string) Options {
 		return tx.Where("path like ?", "%"+path+"%")
 	}
 }
+
+func WithGroup(group string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if group == "" {
+			return tx
+		}
+		return tx.Where("api_group = ?", group)
+	}
+}

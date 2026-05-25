@@ -19,6 +19,7 @@ package role
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
@@ -35,15 +36,18 @@ func NewRouter(o *options.Options) {
 }
 
 func (r *roleRouter) initRoutes(ginEngine *gin.Engine) {
-	roleRoute := ginEngine.Group("/pixiu/roles")
-	{
-		roleRoute.POST("", r.createRole)
-		roleRoute.PUT("/:roleId", r.updateRole)
-		roleRoute.DELETE("/:roleId", r.deleteRole)
-		roleRoute.GET("/:roleId", r.getRole)
-		roleRoute.GET("", r.listRoles)
-
-		roleRoute.GET("/:roleId/apis", r.getRoleAPIs)
-		roleRoute.PUT("/:roleId/apis", r.updateRoleAPIs)
+	roleGroup := &apiregistry.Group{
+		Name:    "角色管理",
+		BaseURL: "/pixiu/roles",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: r.createRole, Description: "创建角色"},
+			{Method: "PUT", RelativePath: "/:roleId", Handler: r.updateRole, Description: "更新角色"},
+			{Method: "DELETE", RelativePath: "/:roleId", Handler: r.deleteRole, Description: "删除角色"},
+			{Method: "GET", RelativePath: "/:roleId", Handler: r.getRole, Description: "查看角色详情"},
+			{Method: "GET", RelativePath: "", Handler: r.listRoles, Description: "获取角色列表"},
+			{Method: "GET", RelativePath: "/:roleId/apis", Handler: r.getRoleAPIs, Description: "获取角色API"},
+			{Method: "PUT", RelativePath: "/:roleId/apis", Handler: r.updateRoleAPIs, Description: "更新角色API"},
+		},
 	}
+	roleGroup.Register(ginEngine.Group("/pixiu/roles"), r.c.APIResource())
 }

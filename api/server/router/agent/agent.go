@@ -17,6 +17,7 @@ limitations under the License.
 package agent
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -34,13 +35,18 @@ func NewRouter(o *options.Options) {
 	router.initRoutes(o.HttpEngine)
 }
 
-func (a *agentRouter) initRoutes(httpEngine *gin.Engine) {
-	agentRoute := httpEngine.Group("/pixiu/agents")
-	{
-		agentRoute.POST("", a.createAgent)
-		agentRoute.PUT("/:agentId", a.updateAgent)
-		agentRoute.DELETE("/:agentId", a.deleteAgent)
-		agentRoute.GET("/:agentId", a.getAgent)
-		agentRoute.GET("", a.listAgents)
+func (a *agentRouter) initRoutes(ginEngine *gin.Engine) {
+	persist := false
+	group := &apiregistry.Group{
+		Name:    "代理管理",
+		BaseURL: "/pixiu/agents",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: a.createAgent, Description: "创建代理", Persist: &persist},
+			{Method: "PUT", RelativePath: "/:agentId", Handler: a.updateAgent, Description: "更新代理", Persist: &persist},
+			{Method: "DELETE", RelativePath: "/:agentId", Handler: a.deleteAgent, Description: "删除代理", Persist: &persist},
+			{Method: "GET", RelativePath: "/:agentId", Handler: a.getAgent, Description: "获取代理详情", Persist: &persist},
+			{Method: "GET", RelativePath: "", Handler: a.listAgents, Description: "获取代理列表", Persist: &persist},
+		},
 	}
+	group.Register(ginEngine.Group("/pixiu/agents"), a.c.APIResource())
 }

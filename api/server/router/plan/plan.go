@@ -17,6 +17,7 @@ limitations under the License.
 package plan
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -35,44 +36,33 @@ func NewRouter(o *options.Options) {
 }
 
 func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
-	planRoute := ginEngine.Group("/pixiu/plans")
-	{
-		planRoute.POST("", t.createPlan)
-		planRoute.PUT("/:planId", t.updatePlan)
-		planRoute.DELETE("/:planId", t.deletePlan)
-		planRoute.GET("/:planId", t.getPlan)
-		planRoute.GET("", t.listPlans)
-
-		planRoute.GET("/:planId/resources", t.getPlanWithSubResources)
-
-		// 启动部署任务
-		planRoute.POST("/:planId/start", t.startPlan)
-		// 终止部署任务
-		planRoute.POST("/:planId/stop", t.stopPlan)
-		// 销毁部署
-		planRoute.POST("/:planId/destroy", t.destroyPlan)
-
-		// 部署计划的节点API
-		planRoute.POST("/:planId/nodes", t.createPlanNode)
-		planRoute.PUT("/:planId/nodes/:nodeId", t.updatePlanNode)
-		planRoute.DELETE("/:planId/nodes/:nodeId", t.deletePlanNode)
-		planRoute.GET("/:planId/nodes/:nodeId", t.getPlanNode)
-		planRoute.GET("/:planId/nodes", t.listPlanNodes)
-
-		// 部署计划的部署配置
-		planRoute.POST("/:planId/configs", t.createPlanConfig)
-		planRoute.PUT("/:planId/configs/:configId", t.updatePlanConfig)
-		planRoute.DELETE("/:planId/configs/:configId", t.deletePlanConfig)
-		planRoute.GET("/:planId/configs", t.getPlanConfig)
-
-		// 执行指定任务
-		planRoute.POST("/:planId/tasks/:taskId", t.runTasks)
-		// 查询任务列表
-		planRoute.GET("/:planId/tasks", t.listTasks)
-		// 实时查询任务进度
-		planRoute.GET("/:planId/tasks/:taskId/logs", t.watchTaskLog)
-
-		// 获取 os 与 os version
-		planRoute.GET("/distributions", t.getDistributions)
+	group := &apiregistry.Group{
+		Name:    "部署",
+		BaseURL: "/pixiu/plans",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: t.createPlan, Description: "创建部署计划"},
+			{Method: "PUT", RelativePath: "/:planId", Handler: t.updatePlan, Description: "更新部署计划"},
+			{Method: "DELETE", RelativePath: "/:planId", Handler: t.deletePlan, Description: "删除部署计划"},
+			{Method: "GET", RelativePath: "/:planId", Handler: t.getPlan, Description: "获取部署计划详情"},
+			{Method: "GET", RelativePath: "", Handler: t.listPlans, Description: "获取部署计划列表"},
+			{Method: "GET", RelativePath: "/:planId/resources", Handler: t.getPlanWithSubResources, Description: "获取部署计划及子资源"},
+			{Method: "POST", RelativePath: "/:planId/start", Handler: t.startPlan, Description: "启动部署任务"},
+			{Method: "POST", RelativePath: "/:planId/stop", Handler: t.stopPlan, Description: "终止部署任务"},
+			{Method: "POST", RelativePath: "/:planId/destroy", Handler: t.destroyPlan, Description: "销毁部署"},
+			{Method: "POST", RelativePath: "/:planId/nodes", Handler: t.createPlanNode, Description: "创建部署计划节点"},
+			{Method: "PUT", RelativePath: "/:planId/nodes/:nodeId", Handler: t.updatePlanNode, Description: "更新部署计划节点"},
+			{Method: "DELETE", RelativePath: "/:planId/nodes/:nodeId", Handler: t.deletePlanNode, Description: "删除部署计划节点"},
+			{Method: "GET", RelativePath: "/:planId/nodes/:nodeId", Handler: t.getPlanNode, Description: "获取部署计划节点详情"},
+			{Method: "GET", RelativePath: "/:planId/nodes", Handler: t.listPlanNodes, Description: "获取部署计划节点列表"},
+			{Method: "POST", RelativePath: "/:planId/configs", Handler: t.createPlanConfig, Description: "创建部署配置"},
+			{Method: "PUT", RelativePath: "/:planId/configs/:configId", Handler: t.updatePlanConfig, Description: "更新部署配置"},
+			{Method: "DELETE", RelativePath: "/:planId/configs/:configId", Handler: t.deletePlanConfig, Description: "删除部署配置"},
+			{Method: "GET", RelativePath: "/:planId/configs", Handler: t.getPlanConfig, Description: "获取部署配置"},
+			{Method: "POST", RelativePath: "/:planId/tasks/:taskId", Handler: t.runTasks, Description: "执行指定任务"},
+			{Method: "GET", RelativePath: "/:planId/tasks", Handler: t.listTasks, Description: "查询任务列表"},
+			{Method: "GET", RelativePath: "/:planId/tasks/:taskId/logs", Handler: t.watchTaskLog, Description: "实时查询任务日志"},
+			{Method: "GET", RelativePath: "/distributions", Handler: t.getDistributions, Description: "获取OS发行版列表"},
+		},
 	}
+	group.Register(ginEngine.Group("/pixiu/plans"), t.c.APIResource())
 }

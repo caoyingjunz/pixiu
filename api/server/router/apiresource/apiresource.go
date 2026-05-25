@@ -19,6 +19,7 @@ package apiresource
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
@@ -35,12 +36,16 @@ func NewRouter(o *options.Options) {
 }
 
 func (a *apiResourceRouter) initRoutes(ginEngine *gin.Engine) {
-	apiRoute := ginEngine.Group("/pixiu/apis")
-	{
-		apiRoute.POST("", a.createAPI)
-		apiRoute.PUT("/:apiId", a.updateAPI)
-		apiRoute.DELETE("/:apiId", a.deleteAPI)
-		apiRoute.GET("/:apiId", a.getAPI)
-		apiRoute.GET("", a.listAPIs)
+	group := &apiregistry.Group{
+		Name:    "API管理",
+		BaseURL: "/pixiu/apis",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: a.createAPI, Description: "创建API"},
+			{Method: "PUT", RelativePath: "/:apiId", Handler: a.updateAPI, Description: "更新API"},
+			{Method: "DELETE", RelativePath: "/:apiId", Handler: a.deleteAPI, Description: "删除API"},
+			{Method: "GET", RelativePath: "/:apiId", Handler: a.getAPI, Description: "获取API详情"},
+			{Method: "GET", RelativePath: "", Handler: a.listAPIs, Description: "获取API列表"},
+		},
 	}
+	group.Register(ginEngine.Group("/pixiu/apis"), a.c.APIResource())
 }
