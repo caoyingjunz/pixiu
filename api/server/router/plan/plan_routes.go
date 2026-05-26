@@ -230,7 +230,7 @@ func (t *planRouter) getDistributions(c *gin.Context) {
 		Centos:    []string{"centos7"},
 		Ubuntu:    []string{"ubuntu18.04", "ubuntu20.04", "ubuntu22.04"},
 		Debian:    []string{"debian10", "debian11"},
-		OpenEuler: []string{"openEuler22.03"},
+		OpenEuler: []string{"openEuler22.03", "openEuler24.03"},
 		Rocky:     []string{"rocky8.5", "rocky9.2", "rocky9.3"},
 	}
 
