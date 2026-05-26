@@ -77,6 +77,10 @@ set_hostname: "yes"
 set_hostname: "no"
 {{- end }}
 
+{{- if not .Kubernetes.ChangeSelinux }}
+change_selinux: "no"
+{{- end }}
+
 # 组件默认开关
 enable_nfs: "no"
 enable_prometheus: "no"
