@@ -296,6 +296,7 @@ type KubernetesSpec struct {
 	ImageRepository   string `json:"image_repository,omitempty"` // kubernetes 镜像仓库地址
 	SetHostname       bool   `json:"set_hostname"`               // 自动修改k8s节点名称, Rocky 系统不生效
 	Protect           bool   `json:"protect"`                    // 开启集群保护，防止误删除
+	ChangeSelinux     bool   `json:"change_selinux"`             // 关闭 Selinux
 }
 
 type NetworkSpec struct {
