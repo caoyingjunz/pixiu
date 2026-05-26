@@ -56,6 +56,7 @@ worker:
         - rocky9.2
         - rocky9.3
         - openEuler22.03
+        - openEuler24.03
 ```
 
 ## 启动 pixiu

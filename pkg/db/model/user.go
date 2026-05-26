@@ -25,9 +25,9 @@ func init() {
 type UserLevel uint8
 
 const (
-	RoleUser  UserLevel = iota // 普通用户
+	RoleRoot  UserLevel = iota // 超级管理员
 	RoleAdmin                  // 管理员
-	RoleRoot                   // 超级管理员
+	RoleUser                   // 普通用户
 )
 
 type UserStatus uint8 // 0 正常 1 禁用
