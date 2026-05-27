@@ -43,8 +43,8 @@ func (t *tenantRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "", Handler: t.createTenant, Description: "创建租户"},
 			{Method: "PUT", RelativePath: "/:tenantId", Handler: t.updateTenant, Description: "更新租户"},
 			{Method: "DELETE", RelativePath: "/:tenantId", Handler: t.deleteTenant, Description: "删除租户"},
-			{Method: "GET", RelativePath: "/:tenantId", Handler: t.getTenant, Description: "获取租户详情"},
-			{Method: "GET", RelativePath: "", Handler: t.listTenants, Description: "获取租户列表"},
+			{Method: "GET", RelativePath: "/:tenantId", Handler: t.getTenant, Description: "租户详情"},
+			{Method: "GET", RelativePath: "", Handler: t.listTenants, Description: "租户列表"},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/tenants"), t.c.APIResource())

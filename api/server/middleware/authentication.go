@@ -23,7 +23,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
@@ -34,6 +33,7 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 	keyBytes := []byte(o.ComponentConfig.Default.JWTKey)
 
 	return func(c *gin.Context) {
+		// debug 模式，全部放通
 		if o.ComponentConfig.Default.Mode.InDebug() {
 			// Considered all as root user when running in debug mode.
 			root, err := o.Factory.User().GetRoot(c)
@@ -41,50 +41,52 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 				httputils.AbortFailedWithCode(c, http.StatusInternalServerError, err)
 				return
 			}
-
 			httputils.SetUserToContext(c, root)
 			return
 		}
 
+		// 生产模式，api级别校验
 		if alwaysAllowPath.Has(c.Request.URL.Path) || allowCustomRequest(c) {
 			return
 		}
 
-		if err := validate(c, o, keyBytes); err != nil {
+		roleId, err := parseRoleAndValidClaim(c, o, keyBytes)
+		if err != nil {
 			httputils.AbortFailedWithCode(c, http.StatusUnauthorized, err)
+			return
+		}
+		if err = o.Controller.User().ValidAccess(c, *roleId); err != nil {
+			httputils.AbortFailedWithCode(c, http.StatusForbidden, err)
 			return
 		}
 	}
 }
 
-func validate(c *gin.Context, o *options.Options, keyBytes []byte) error {
+func parseRoleAndValidClaim(c *gin.Context, o *options.Options, keyBytes []byte) (*int64, error) {
 	token, err := extractToken(c, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	claim, err := tokenutil.ParseToken(token, keyBytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	existToken, err := o.Controller.User().GetLoginToken(c, claim.Id)
 	if err != nil {
-		return fmt.Errorf("未登陆或者密码被修改，请重新登陆")
+		return nil, fmt.Errorf("未登陆或者密码被修改，请重新登陆")
 	}
 	if token != existToken {
-		return fmt.Errorf("已被他人登陆")
+		return nil, fmt.Errorf("已被他人登陆")
 	}
-
 	user, err := o.Factory.User().Get(c, claim.Id)
-	if err != nil {
-		return err
-	}
-	if user == nil {
-		return errors.ErrUnauthorized
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("无法获取用户")
 	}
 	httputils.SetUserToContext(c, user)
 
-	return nil
+	roleId := int64(user.Role)
+	return &roleId, nil
 }
 
 // 从请求头中获取 token

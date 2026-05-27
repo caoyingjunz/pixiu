@@ -257,7 +257,6 @@ func (u *userRouter) login(c *gin.Context) {
 		return
 	}
 	r.Result = loginResp
-	httputils.SetUserToContext(c, loginResp.User)
 
 	httputils.SetSuccess(c, r)
 }
@@ -265,6 +264,19 @@ func (u *userRouter) login(c *gin.Context) {
 // TODO
 func (u *userRouter) logout(c *gin.Context) {
 	r := httputils.NewResponse()
+
+	var (
+		idMeta IdMeta
+		err    error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &idMeta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = u.c.User().Logout(c, idMeta.UserId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	httputils.SetSuccess(c, r)
 }

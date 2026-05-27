@@ -10,8 +10,8 @@ A clear and concise description of what the bug is.
 For UI issues please also add a screenshot that shows the issue.
 
 **Versions Used**
-KubeSphere:
-Kubernetes: (If KubeSphere installer used, you can skip this)
+Pixiu:
+Kubernetes: (If Pixiu installer used, you can skip this)
 
 **Environment**
 How many nodes and their hardware configuration:

@@ -40,7 +40,7 @@ type Interface interface {
 	Get(ctx context.Context, aid int64) (*types.APIResource, error)
 	List(ctx context.Context, req *types.ListAPIRequest) (*types.PageResponse, error)
 
-	Sync(ctx context.Context, req *types.CreateAPIRequest) error
+	Register(ctx context.Context, req *types.CreateAPIRequest) error
 }
 
 type apiResource struct {
@@ -80,8 +80,8 @@ func (a *apiResource) Create(ctx context.Context, req *types.CreateAPIRequest) e
 	return nil
 }
 
-// Sync 幂等同步 API 资源：存在则更新分组和描述，不存在则创建
-func (a *apiResource) Sync(ctx context.Context, req *types.CreateAPIRequest) error {
+// Register 幂等同步 API 资源：存在则更新分组和描述，不存在则创建
+func (a *apiResource) Register(ctx context.Context, req *types.CreateAPIRequest) error {
 	object, err := a.factory.API().GetByMethodAndPath(ctx, req.Method, req.Path)
 	if err != nil {
 		klog.Errorf("failed to get api %s %s for sync: %v", req.Method, req.Path, err)

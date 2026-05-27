@@ -44,8 +44,8 @@ func (a *agentRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "", Handler: a.createAgent, Description: "创建代理", Persist: &persist},
 			{Method: "PUT", RelativePath: "/:agentId", Handler: a.updateAgent, Description: "更新代理", Persist: &persist},
 			{Method: "DELETE", RelativePath: "/:agentId", Handler: a.deleteAgent, Description: "删除代理", Persist: &persist},
-			{Method: "GET", RelativePath: "/:agentId", Handler: a.getAgent, Description: "获取代理详情", Persist: &persist},
-			{Method: "GET", RelativePath: "", Handler: a.listAgents, Description: "获取代理列表", Persist: &persist},
+			{Method: "GET", RelativePath: "/:agentId", Handler: a.getAgent, Description: "代理详情", Persist: &persist},
+			{Method: "GET", RelativePath: "", Handler: a.listAgents, Description: "代理列表", Persist: &persist},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/agents"), a.c.APIResource())

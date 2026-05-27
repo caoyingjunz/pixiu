@@ -19,6 +19,7 @@ package user
 import (
 	"context"
 	"fmt"
+	"github.com/gin-gonic/gin"
 
 	"k8s.io/klog/v2"
 
@@ -63,7 +64,9 @@ type Interface interface {
 
 	Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error)
 	Logout(ctx context.Context, userId int64) error
+
 	GetLoginToken(ctx context.Context, userId int64) (string, error)
+	ValidAccess(ctx *gin.Context, roleId int64) error
 }
 
 type user struct {
@@ -121,6 +124,7 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 		"status":      req.Status,
 		"email":       req.Email,
 		"phone":       req.Phone,
+		"role":        req.Role,
 		"description": req.Description,
 	}
 	if err := u.factory.User().Update(ctx, uid, *req.ResourceVersion, updates); err != nil {
@@ -321,7 +325,7 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 	}
 
 	// 如果用户已被禁用，则不允许登陆
-	if object.Status == 2 {
+	if object.Status == model.UserStatusForbidden {
 		return nil, fmt.Errorf("用户已被禁用")
 	}
 	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
@@ -331,7 +335,7 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 
 	// 生成登陆的 token 信息
 	key := u.GetTokenKey()
-	token, err := tokenutil.GenerateToken(object.Id, object.Name, key)
+	token, err := tokenutil.GenerateToken(object.Id, object.Name, object.TenantId, key)
 	if err != nil {
 		return nil, fmt.Errorf("生成用户 token 失败: %v", err)
 	}
@@ -342,13 +346,11 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 		UserName: object.Name,
 		Token:    token,
 		Role:     object.Role,
-		User:     object,
 	}, nil
 }
 
 // Logout
 // 允许用户登出登陆状态
-// TODO: 临时实现，后续优化
 func (u *user) Logout(ctx context.Context, userId int64) error {
 	tokenIndexer.Delete(userId)
 	return nil
@@ -361,6 +363,45 @@ func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) 
 	}
 
 	return t, nil
+}
+
+func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
+	// 如果 roleId 为 0，则表示为超级管理员，直接不做任何限制
+	if roleId == 0 {
+		klog.Infof("超级管理员，权限无需验证")
+		return nil
+	}
+
+	// 非管理员根据权限
+	// TODO 通过缓存提示性能
+	apisMap, err := u.FormatAPIsForRole(ctx, roleId)
+	if err != nil {
+		return err
+	}
+
+	// 获取当前请求的方法和路由模板
+	method := ctx.Request.Method
+	path := ctx.FullPath() // 如 /api/v1/users/:id
+	action := method + ":" + path
+	if !apisMap[action] {
+		return fmt.Errorf("无访问权限")
+	}
+
+	return nil
+}
+
+func (u *user) FormatAPIsForRole(ctx context.Context, roleId int64) (map[string]bool, error) {
+	apis, err := u.factory.API().GetByRoleId(ctx, roleId)
+	if err != nil {
+		return nil, err
+	}
+
+	permSet := make(map[string]bool)
+	for _, a := range apis {
+		permSet[a.Method+":"+a.Path] = true
+	}
+
+	return permSet, nil
 }
 
 func (u *user) GetTokenKey() []byte {

@@ -74,9 +74,6 @@ func InstallRouters(o *options.Options) {
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
 	o.HttpEngine.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
-	// 注册 APIs
-	//_ = o.RegisterAPIs()
 }
 
 func install(o *options.Options, fs ...RegisterFunc) {

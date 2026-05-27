@@ -51,8 +51,8 @@ func (g *Group) Register(ginGroup *gin.RouterGroup, apiSvc apiresource.Interface
 	for _, entry := range g.Entries {
 		registerGinRoute(ginGroup, entry)
 		if persistEntry(entry) {
-			if err := syncAPI(apiSvc, g.Name, g.BaseURL, entry); err != nil {
-				klog.Warning("sync api %s failed %v", g.BaseURL, err)
+			if err := registerAPI(apiSvc, g.Name, g.BaseURL, entry); err != nil {
+				klog.Warning("register api %s failed %v", g.BaseURL, err)
 			}
 		}
 	}
@@ -73,14 +73,14 @@ func registerGinRoute(ginGroup *gin.RouterGroup, entry RouteEntry) {
 	}
 }
 
-func syncAPI(apiSvc apiresource.Interface, groupName, baseURL string, entry RouteEntry) error {
+func registerAPI(apiSvc apiresource.Interface, groupName, baseURL string, entry RouteEntry) error {
 	fullPath := baseURL
 	if entry.RelativePath != "" {
 		fullPath = baseURL + entry.RelativePath
 	}
 	desc := entry.Description
 
-	return apiSvc.Sync(context.Background(), &types.CreateAPIRequest{
+	return apiSvc.Register(context.Background(), &types.CreateAPIRequest{
 		Method:      entry.Method,
 		Path:        fullPath,
 		Group:       &groupName,

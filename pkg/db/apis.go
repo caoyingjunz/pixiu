@@ -35,6 +35,7 @@ type APIInterface interface {
 	Count(ctx context.Context, opts ...Options) (int64, error)
 
 	GetByMethodAndPath(ctx context.Context, method, path string) (*model.API, error)
+	GetByRoleId(ctx context.Context, roleId int64) ([]model.API, error)
 }
 
 type apis struct {
@@ -130,6 +131,18 @@ func (a *apis) GetByMethodAndPath(ctx context.Context, method, path string) (*mo
 	}
 
 	return &object, nil
+}
+
+// GetByRoleId 通过角色 ID 获取关联的 API 资源列表
+func (a *apis) GetByRoleId(ctx context.Context, roleId int64) ([]model.API, error) {
+	var objects []model.API
+	if err := a.db.WithContext(ctx).
+		Joins("JOIN role_apis ON role_apis.api_id = apis.id").
+		Where("role_apis.role_id = ?", roleId).
+		Find(&objects).Error; err != nil {
+		return nil, err
+	}
+	return objects, nil
 }
 
 func newAPIs(db *gorm.DB) *apis {
