@@ -87,6 +87,22 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.ErrTenantNotFound,
 	}
+	ErrRoleExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.RoleExistError,
+	}
+	ErrRoleNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.RoleNotExistError,
+	}
+	ErrAPIExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.APIExistError,
+	}
+	ErrAPINotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.APINotExistError,
+	}
 	ErrAuditNotFound = Error{
 		Code: http.StatusNotFound,
 		Err:  errors.ErrAuditNotFound,

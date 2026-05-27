@@ -37,7 +37,7 @@ type Interface interface {
 	Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error
 	Delete(ctx context.Context, tid int64) error
 	Get(ctx context.Context, tid int64) (*types.Tenant, error)
-	List(ctx context.Context) ([]types.Tenant, error)
+	List(ctx context.Context, req *types.ListTenantRequest) (*types.PageResponse, error)
 }
 
 type tenant struct {
@@ -97,10 +97,13 @@ func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantR
 }
 
 func (t *tenant) Delete(ctx context.Context, tid int64) error {
-	_, err := t.factory.Tenant().Delete(ctx, tid)
+	object, err := t.factory.Tenant().Delete(ctx, tid)
 	if err != nil {
 		klog.Errorf("failed to delete tenant %d: %v", tid, err)
 		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrTenantNotFound
 	}
 
 	return nil
@@ -118,18 +121,42 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*types.Tenant, error) {
 	return t.model2Type(object), nil
 }
 
-func (t *tenant) List(ctx context.Context) ([]types.Tenant, error) {
-	objects, err := t.factory.Tenant().List(ctx)
+func (t *tenant) List(ctx context.Context, req *types.ListTenantRequest) (*types.PageResponse, error) {
+	opts := []db.Options{db.WithOrderByDesc()}
+	if req != nil && req.NameSelector != "" {
+		opts = append(opts, db.WithNameLike(req.NameSelector))
+	}
+
+	total, err := t.factory.Tenant().Count(ctx, opts...)
+	if err != nil {
+		klog.Errorf("failed to get tenant counts: %v", err)
+		return nil, errors.ErrServerInternal
+	}
+
+	pageReq := types.PageRequest{}
+	if req != nil {
+		pageReq = req.PageRequest
+		if req.Page > 0 && req.Limit > 0 {
+			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
+		}
+	}
+
+	objects, err := t.factory.Tenant().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get tenants: %v", err)
 		return nil, errors.ErrServerInternal
 	}
 
-	var ts []types.Tenant
-	for _, object := range objects {
-		ts = append(ts, *t.model2Type(&object))
+	ts := make([]types.Tenant, len(objects))
+	for i, object := range objects {
+		ts[i] = *t.model2Type(&object)
 	}
-	return ts, nil
+
+	return &types.PageResponse{
+		PageRequest: pageReq,
+		Total:       int(total),
+		Items:       ts,
+	}, nil
 }
 
 func (t *tenant) model2Type(o *model.Tenant) *types.Tenant {

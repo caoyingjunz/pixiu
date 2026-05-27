@@ -123,6 +123,30 @@ type Tenant struct {
 	Description string `json:"description"` // 用户描述信息
 }
 
+type Role struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	TenantId    int64  `json:"tenant_id"` // 0 表示系统全局角色
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type APIResource struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Method      string `json:"method"`
+	Path        string `json:"path"`
+	Group       string `json:"group"`
+	Description string `json:"description"`
+}
+
+type RoleAPIsResponse struct {
+	Associated   []APIResource `json:"associated"`
+	Unassociated []APIResource `json:"unassociated"`
+}
+
 type Plan struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`

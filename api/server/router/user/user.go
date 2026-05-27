@@ -19,6 +19,7 @@ package user
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
@@ -35,20 +36,19 @@ func NewRouter(o *options.Options) {
 }
 
 func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
-	// TODO: Base pixiu 后续作为常量定义
-	userRoute := httpEngine.Group("/pixiu/users")
-	{
-		userRoute.POST("", u.createUser)
-		userRoute.PUT("/:userId", u.updateUser)
-		userRoute.DELETE("/:userId", u.deleteUser)
-		userRoute.GET("/:userId", u.getUser)
-		userRoute.GET("", u.listUsers)
-
-		// 用户修改密码或者管理员重置密码
-		userRoute.PUT("/:userId/password", u.updatePassword)
-
-		// 用户的登陆或者退出
-		userRoute.POST("/login", u.login)
-		userRoute.POST("/:userId/logout", u.logout)
+	userGroup := &apiregistry.Group{
+		Name:    "用户管理",
+		BaseURL: "/pixiu/users",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: u.createUser, Description: "创建用户"},
+			{Method: "PUT", RelativePath: "/:userId", Handler: u.updateUser, Description: "更新用户"},
+			{Method: "DELETE", RelativePath: "/:userId", Handler: u.deleteUser, Description: "删除用户"},
+			{Method: "GET", RelativePath: "/:userId", Handler: u.getUser, Description: "用户详情"},
+			{Method: "GET", RelativePath: "", Handler: u.listUsers, Description: "用户列表"},
+			{Method: "PUT", RelativePath: "/:userId/password", Handler: u.updatePassword, Description: "修改密码"},
+			{Method: "POST", RelativePath: "/login", Handler: u.login, Description: "登录"},
+			{Method: "POST", RelativePath: "/:userId/logout", Handler: u.logout, Description: "登出"},
+		},
 	}
+	userGroup.Register(httpEngine.Group("/pixiu/users"), u.c.APIResource())
 }

@@ -168,14 +168,6 @@ func (o *Options) register() error {
 	return nil
 }
 
-func (o *Options) RegisterAPIs() error {
-	for _, route := range o.HttpEngine.Routes() {
-		api := pixiuModel.API{Method: route.Method, Path: route.Path}
-		o.db.Where(pixiuModel.API{Method: route.Method, Path: route.Path}).FirstOrCreate(&api)
-	}
-	return nil
-}
-
 func (o *Options) registerDatabase() error {
 	sqlConfig := o.ComponentConfig.Mysql
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",

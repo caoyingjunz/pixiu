@@ -17,6 +17,7 @@ limitations under the License.
 package tenant
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -35,12 +36,16 @@ func NewRouter(o *options.Options) {
 }
 
 func (t *tenantRouter) initRoutes(ginEngine *gin.Engine) {
-	tenantRoute := ginEngine.Group("/pixiu/tenants")
-	{
-		tenantRoute.POST("", t.createTenant)
-		tenantRoute.PUT("/:tenantId", t.updateTenant)
-		tenantRoute.DELETE("/:tenantId", t.deleteTenant)
-		tenantRoute.GET("/:tenantId", t.getTenant)
-		tenantRoute.GET("", t.listTenants)
+	group := &apiregistry.Group{
+		Name:    "租户管理",
+		BaseURL: "/pixiu/tenants",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: t.createTenant, Description: "创建租户"},
+			{Method: "PUT", RelativePath: "/:tenantId", Handler: t.updateTenant, Description: "更新租户"},
+			{Method: "DELETE", RelativePath: "/:tenantId", Handler: t.deleteTenant, Description: "删除租户"},
+			{Method: "GET", RelativePath: "/:tenantId", Handler: t.getTenant, Description: "租户详情"},
+			{Method: "GET", RelativePath: "", Handler: t.listTenants, Description: "租户列表"},
+		},
 	}
+	group.Register(ginEngine.Group("/pixiu/tenants"), t.c.APIResource())
 }

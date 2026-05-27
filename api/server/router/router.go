@@ -30,13 +30,14 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
 	"github.com/caoyingjunz/pixiu/api/server/router/agent"
+	"github.com/caoyingjunz/pixiu/api/server/router/apiresource"
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
-	"github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
+	"github.com/caoyingjunz/pixiu/api/server/router/role"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -55,12 +56,13 @@ func InstallRouters(o *options.Options) {
 		helm.NewRouter,
 		proxy.NewRouter,
 		tenant.NewRouter,
+		role.NewRouter,
+		apiresource.NewRouter,
 		user.NewRouter,
 		plan.NewRouter,
 		node.NewRouter,
 		audit.NewRouter,
 		agent.NewRouter,
-		auth.NewRouter,
 	}
 
 	install(o, fs...)
@@ -72,9 +74,6 @@ func InstallRouters(o *options.Options) {
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
 	o.HttpEngine.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
-	// 注册 APIs
-	_ = o.RegisterAPIs()
 }
 
 func install(o *options.Options, fs ...RegisterFunc) {

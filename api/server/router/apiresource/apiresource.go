@@ -14,35 +14,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package audit
+package apiresource
 
 import (
-	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
-type auditRouter struct {
+type apiResourceRouter struct {
 	c controller.PixiuInterface
 }
 
 func NewRouter(o *options.Options) {
-	router := &auditRouter{
+	router := &apiResourceRouter{
 		c: o.Controller,
 	}
 	router.initRoutes(o.HttpEngine)
 }
 
-func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
+func (a *apiResourceRouter) initRoutes(ginEngine *gin.Engine) {
 	group := &apiregistry.Group{
-		Name:    "审计",
-		BaseURL: "/pixiu/audits",
+		Name:    "API管理",
+		BaseURL: "/pixiu/apis",
 		Entries: []apiregistry.RouteEntry{
-			//{Method: "GET", RelativePath: "/:auditId", Handler: a.getAudit, Description: "获取审计日志详情"},
-			{Method: "GET", RelativePath: "", Handler: a.listAudits, Description: "审计列表"},
+			{Method: "POST", RelativePath: "", Handler: a.createAPI, Description: "创建API"},
+			{Method: "PUT", RelativePath: "/:apiId", Handler: a.updateAPI, Description: "更新API"},
+			{Method: "DELETE", RelativePath: "/:apiId", Handler: a.deleteAPI, Description: "删除API"},
+			{Method: "GET", RelativePath: "/:apiId", Handler: a.getAPI, Description: "API详情"},
+			{Method: "GET", RelativePath: "", Handler: a.listAPIs, Description: "API列表"},
 		},
 	}
-	group.Register(ginEngine.Group("/pixiu/audits"), a.c.APIResource())
+	group.Register(ginEngine.Group("/pixiu/apis"), a.c.APIResource())
 }

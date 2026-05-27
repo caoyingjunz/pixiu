@@ -19,12 +19,14 @@ package controller
 import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/agent"
+	"github.com/caoyingjunz/pixiu/pkg/controller/apiresource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
+	"github.com/caoyingjunz/pixiu/pkg/controller/role"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/user"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -33,6 +35,8 @@ import (
 type PixiuInterface interface {
 	cluster.ClusterGetter
 	tenant.TenantGetter
+	role.RoleGetter
+	apiresource.APIResourceGetter
 	user.UserGetter
 	plan.PlanGetter
 	node.NodeGetter
@@ -49,13 +53,17 @@ type pixiu struct {
 
 func (p *pixiu) Cluster() cluster.Interface { return cluster.NewCluster(p.cc, p.factory) }
 func (p *pixiu) Tenant() tenant.Interface   { return tenant.NewTenant(p.cc, p.factory) }
-func (p *pixiu) User() user.Interface       { return user.NewUser(p.cc, p.factory) }
-func (p *pixiu) Plan() plan.Interface       { return plan.NewPlan(p.cc, p.factory) }
-func (p *pixiu) Node() node.Interface       { return node.NewNode(p.cc, p.factory) }
-func (p *pixiu) Audit() audit.Interface     { return audit.NewAudit(p.cc, p.factory) }
-func (p *pixiu) Auth() auth.Interface       { return auth.NewAuth(p.factory) }
-func (p *pixiu) Helm() helm.Interface       { return helm.NewHelm(p.factory) }
-func (p *pixiu) Agent() agent.Interface     { return agent.NewAgent(p.cc, p.factory) }
+func (p *pixiu) Role() role.Interface       { return role.NewRole(p.cc, p.factory) }
+func (p *pixiu) APIResource() apiresource.Interface {
+	return apiresource.NewAPIResource(p.cc, p.factory)
+}
+func (p *pixiu) User() user.Interface   { return user.NewUser(p.cc, p.factory) }
+func (p *pixiu) Plan() plan.Interface   { return plan.NewPlan(p.cc, p.factory) }
+func (p *pixiu) Node() node.Interface   { return node.NewNode(p.cc, p.factory) }
+func (p *pixiu) Audit() audit.Interface { return audit.NewAudit(p.cc, p.factory) }
+func (p *pixiu) Auth() auth.Interface   { return auth.NewAuth(p.factory) }
+func (p *pixiu) Helm() helm.Interface   { return helm.NewHelm(p.factory) }
+func (p *pixiu) Agent() agent.Interface { return agent.NewAgent(p.cc, p.factory) }
 
 func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{

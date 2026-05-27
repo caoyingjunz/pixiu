@@ -26,13 +26,15 @@ import (
 type Claims struct {
 	jwt.RegisteredClaims
 
-	Id   int64  `json:"id"`
-	Name string `json:"name"`
-	Role string `json:"role"`
+	Id     int64  `json:"id"`
+	Name   string `json:"name"`   // 用户名
+	Tenant int64  `json:"tenant"` // 租户id，预留，后续可能会用到
+
+	Role int64 `json:"role"` // 角色ID
 }
 
 // GenerateToken 生成 token
-func GenerateToken(uid int64, name string, jwtKey []byte) (string, error) {
+func GenerateToken(uid int64, name string, tenant int64, jwtKey []byte) (string, error) {
 	// Generate jwt, 临时有效期 360 分钟
 	nowTime := time.Now()
 	expiresTime := nowTime.Add(360 * time.Minute)
@@ -42,8 +44,9 @@ func GenerateToken(uid int64, name string, jwtKey []byte) (string, error) {
 			IssuedAt:  jwt.NewNumericDate(nowTime),     // 签发时间
 			NotBefore: jwt.NewNumericDate(nowTime),     // 生效时间
 		},
-		Id:   uid,
-		Name: name,
+		Id:     uid,
+		Name:   name,
+		Tenant: tenant,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

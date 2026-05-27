@@ -26,6 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 // Authorization 鉴权（用户状态与只读模式）；细粒度 RBAC 已移除。
@@ -42,14 +43,9 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 			return
 		}
 
+		// 0 正常  1 禁用
 		switch user.Status {
-		case 1:
-			// status 为 1，表示用户只读模式, 只读模式只允许查询请求
-			if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodOptions {
-				httputils.AbortFailedWithCode(c, http.StatusForbidden, fmt.Errorf("无操作权限"))
-				return
-			}
-		case 2:
+		case model.UserStatusForbidden:
 			// 禁用用户无法进行任何操作
 			httputils.AbortFailedWithCode(c, http.StatusForbidden, fmt.Errorf("用户已被禁用"))
 			return

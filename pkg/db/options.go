@@ -211,3 +211,36 @@ func WithUserId(userId int64) Options {
 		return tx.Where("user_id = ?", userId)
 	}
 }
+
+func WithTenantId(tenantId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("tenant_id = ?", tenantId)
+	}
+}
+
+func WithMethod(method string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if method == "" {
+			return tx
+		}
+		return tx.Where("method = ?", method)
+	}
+}
+
+func WithPathLike(path string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if path == "" {
+			return tx
+		}
+		return tx.Where("path like ?", "%"+path+"%")
+	}
+}
+
+func WithGroup(group string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if group == "" {
+			return tx
+		}
+		return tx.Where("api_group = ?", group)
+	}
+}

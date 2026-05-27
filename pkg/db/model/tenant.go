@@ -37,8 +37,9 @@ func (tenant *Tenant) TableName() string {
 type Role struct {
 	pixiu.Model
 
-	TenantId int64  `gorm:"default:null;uniqueIndex:uk_tenant_role" json:"tenant_id"` // NULL 表示系统全局角色
-	Name     string `gorm:"type:varchar(100);not null;uniqueIndex:uk_tenant_role" json:"name"`
+	TenantId    int64  `gorm:"default:null;uniqueIndex:uk_tenant_role" json:"tenant_id"` // NULL 表示系统全局角色
+	Name        string `gorm:"type:varchar(100);not null;uniqueIndex:uk_tenant_role" json:"name"`
+	Description string `gorm:"type:text" json:"description"`
 }
 
 func (role *Role) TableName() string {
@@ -59,8 +60,9 @@ func (ur *UserRole) TableName() string {
 type API struct {
 	pixiu.Model
 
-	Method      string `gorm:"type:varchar(10);not null;uniqueIndex:uk_method_path" json:"method"` // GET/POST/PUT/DELETE
-	Path        string `gorm:"type:varchar(255);not null;uniqueIndex:uk_method_path" json:"path"`  // 如 /api/v1/users/:id
+	Method      string `gorm:"type:varchar(10);not null;uniqueIndex:uk_method_path" json:"method"`
+	Path        string `gorm:"type:varchar(255);not null;uniqueIndex:uk_method_path" json:"path"`
+	Group       string `gorm:"column:api_group;type:varchar(100);index:idx_api_group" json:"group"`
 	Description string `gorm:"type:varchar(255)" json:"description"`
 }
 

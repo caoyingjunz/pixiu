@@ -30,7 +30,7 @@ type (
 	CreateUserRequest struct {
 		Name        string           `json:"name" binding:"required"`              // required
 		Password    string           `json:"password" binding:"required,password"` // required
-		Role        model.UserLevel  `json:"role" binding:"omitempty,oneof=0 1 2"` // optional
+		Role        model.UserLevel  `json:"role" binding:"omitempty"`             // optional
 		Status      model.UserStatus `json:"status" binding:"omitempty"`
 		Email       string           `json:"email" binding:"omitempty,email"` // optional
 		Phone       string           `json:"phone" binding:"omitempty"`       // optional
@@ -40,7 +40,7 @@ type (
 	// UpdateUserRequest
 	// !Note: if you want to update description only, email also must be provided with current value
 	UpdateUserRequest struct {
-		Role            model.UserLevel  `json:"role" binding:"omitempty,oneof=0 1 2"`   // required
+		Role            model.UserLevel  `json:"role" binding:"omitempty"`               // required
 		Status          model.UserStatus `json:"status" binding:"omitempty,oneof=0 1 2"` // required
 		Email           string           `json:"email" binding:"omitempty,email"`        // optional
 		Phone           string           `json:"phone" binding:"omitempty"`              // optional
@@ -85,6 +85,55 @@ type (
 		Name            *string `json:"name" binding:"omitempty"`            // optional
 		Description     *string `json:"description" binding:"omitempty"`     // optional
 		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
+	}
+
+	ListTenantRequest struct {
+		PageRequest  `form:",inline"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
+	}
+
+	CreateRoleRequest struct {
+		Name        string  `json:"name" binding:"required"`         // required
+		TenantId    *int64  `json:"tenant_id"`                       // optional, nil 或 0 表示系统全局角色
+		Description *string `json:"description" binding:"omitempty"` // optional
+	}
+
+	UpdateRoleRequest struct {
+		Name            *string `json:"name" binding:"omitempty"`            // optional
+		Description     *string `json:"description" binding:"omitempty"`     // optional
+		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
+	}
+
+	ListRoleRequest struct {
+		PageRequest  `form:",inline"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
+		TenantId     *int64 `form:"tenant_id" json:"tenant_id"`       // 租户 ID 过滤
+	}
+
+	UpdateRoleAPIsRequest struct {
+		APIIds []int64 `json:"api_ids"` // 已关联的 API 资源 ID 列表，全量替换
+	}
+
+	CreateAPIRequest struct {
+		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"`
+		Path        string  `json:"path" binding:"required"`
+		Group       *string `json:"group" binding:"omitempty"`
+		Description *string `json:"description" binding:"omitempty"`
+	}
+
+	UpdateAPIRequest struct {
+		Method          *string `json:"method" binding:"omitempty,oneof=GET POST PUT DELETE PATCH"`
+		Path            *string `json:"path" binding:"omitempty"`
+		Group           *string `json:"group" binding:"omitempty"`
+		Description     *string `json:"description" binding:"omitempty"`
+		ResourceVersion *int64  `json:"resource_version" binding:"required"`
+	}
+
+	ListAPIRequest struct {
+		PageRequest  `form:",inline"`
+		Method       string `form:"method" json:"method"`
+		PathSelector string `form:"pathSelector" json:"pathSelector"`
+		Group        string `form:"group" json:"group"`
 	}
 
 	CreatePlanRequest struct {
