@@ -46,15 +46,27 @@ type Group struct {
 	Entries []RouteEntry
 }
 
-// Register 注册路由并同步 API 元数据到数据库
+// Register 注册 Gin 路由并同步 API 元数据到数据库
 func (g *Group) Register(ginGroup *gin.RouterGroup, apiSvc apiresource.Interface) {
 	for _, entry := range g.Entries {
 		registerGinRoute(ginGroup, entry)
-		if persistEntry(entry) {
-			if err := registerAPI(apiSvc, g.Name, g.BaseURL, entry); err != nil {
-				klog.Warning("register api %s failed %v", g.BaseURL, err)
-			}
-		}
+		g.persistAPI(apiSvc, entry)
+	}
+}
+
+// RegisterAPIs 仅将 API 元数据同步到数据库，不注册 Gin 路由（适用于 K8s 透传等单一 Handler 场景）
+func (g *Group) RegisterAPIs(apiSvc apiresource.Interface) {
+	for _, entry := range g.Entries {
+		g.persistAPI(apiSvc, entry)
+	}
+}
+
+func (g *Group) persistAPI(apiSvc apiresource.Interface, entry RouteEntry) {
+	if !persistEntry(entry) {
+		return
+	}
+	if err := registerAPI(apiSvc, g.Name, g.BaseURL, entry); err != nil {
+		klog.Warning("register api %s failed %v", g.BaseURL, err)
 	}
 }
 
@@ -70,6 +82,8 @@ func registerGinRoute(ginGroup *gin.RouterGroup, entry RouteEntry) {
 		ginGroup.DELETE(entry.RelativePath, entry.Handler)
 	case "PATCH":
 		ginGroup.PATCH(entry.RelativePath, entry.Handler)
+	case "ANY":
+		ginGroup.Any(entry.RelativePath, entry.Handler)
 	}
 }
 

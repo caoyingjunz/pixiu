@@ -46,6 +46,8 @@ func NewRouter(o *options.Options) {
 }
 
 func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
+	proxyAPIRegistryGroup().RegisterAPIs(p.c.APIResource())
+
 	proxyRoute := ginEngine.Group("/pixiu/")
 	{
 		proxyRoute.Any("/proxy/:clusterName/*act", p.proxyHandler)
