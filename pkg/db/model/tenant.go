@@ -81,3 +81,18 @@ type RoleAPI struct {
 func (api *RoleAPI) TableName() string {
 	return "role_apis"
 }
+
+type RoleAPIScope struct {
+	pixiu.Model
+
+	RoleId       int64  `gorm:"not null;index:idx_role" json:"role_id"`
+	APIId        int64  `gorm:"not null" json:"api_id"`
+	Cluster      string `gorm:"type:varchar(128);not null;index:idx_role_cluster,priority:2" json:"cluster"`
+	Namespace    string `gorm:"type:varchar(128);not null" json:"namespace"`
+	ResourceName string `gorm:"type:varchar(253);not null;default:*" json:"resource_name"`
+	Effect       string `gorm:"type:varchar(16);not null;default:allow" json:"effect"`
+}
+
+func (s *RoleAPIScope) TableName() string {
+	return "role_api_scopes"
+}

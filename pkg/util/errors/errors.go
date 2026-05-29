@@ -54,9 +54,6 @@ var (
 	RoleNotExistError   = errors.New("角色不存在")
 	APIExistError       = errors.New("API已存在")
 	APINotExistError    = errors.New("API不存在")
-	PolicyExistError    = errors.New("策略已存在")
-	PolicyNotExistError = errors.New("策略不存在")
-	RBACDeprecatedError = errors.New("RBAC 策略能力已移除")
 	TenantExistError    = errors.New("租户已存在")
 	ErrAuditExists      = errors.New("审计记录已存在")
 
