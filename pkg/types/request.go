@@ -118,6 +118,7 @@ type (
 		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"`
 		Path        string  `json:"path" binding:"required"`
 		Group       *string `json:"group" binding:"omitempty"`
+		SubGroup    *string `json:"sub_group" binding:"omitempty"`
 		Description *string `json:"description" binding:"omitempty"`
 	}
 
@@ -125,6 +126,7 @@ type (
 		Method          *string `json:"method" binding:"omitempty,oneof=GET POST PUT DELETE PATCH"`
 		Path            *string `json:"path" binding:"omitempty"`
 		Group           *string `json:"group" binding:"omitempty"`
+		SubGroup        *string `json:"sub_group" binding:"omitempty"`
 		Description     *string `json:"description" binding:"omitempty"`
 		ResourceVersion *int64  `json:"resource_version" binding:"required"`
 	}
@@ -134,6 +136,7 @@ type (
 		Method       string `form:"method" json:"method"`
 		PathSelector string `form:"pathSelector" json:"pathSelector"`
 		Group        string `form:"group" json:"group"`
+		SubGroup     string `form:"sub_group" json:"sub_group"`
 	}
 
 	CreatePlanRequest struct {

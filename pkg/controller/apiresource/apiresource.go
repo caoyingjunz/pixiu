@@ -65,6 +65,9 @@ func (a *apiResource) Create(ctx context.Context, req *types.CreateAPIRequest) e
 	if req.Group != nil {
 		apiObj.Group = *req.Group
 	}
+	if req.SubGroup != nil {
+		apiObj.SubGroup = *req.SubGroup
+	}
 	if req.Description != nil {
 		apiObj.Description = *req.Description
 	}
@@ -242,6 +245,7 @@ func (a *apiResource) model2Type(o *model.API) *types.APIResource {
 		Method:      o.Method,
 		Path:        o.Path,
 		Group:       o.Group,
+		SubGroup:    o.SubGroup,
 		Description: o.Description,
 	}
 }

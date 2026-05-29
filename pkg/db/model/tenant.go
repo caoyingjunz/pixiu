@@ -63,6 +63,7 @@ type API struct {
 	Method      string `gorm:"type:varchar(10);not null;uniqueIndex:uk_method_path" json:"method"`
 	Path        string `gorm:"type:varchar(255);not null;uniqueIndex:uk_method_path" json:"path"`
 	Group       string `gorm:"column:api_group;type:varchar(100);index:idx_api_group" json:"group"`
+	SubGroup    string `gorm:"column:api_sub_group;type:varchar(100);index:idx_api_sub_group" json:"sub_group"`
 	Description string `gorm:"type:varchar(255)" json:"description"`
 }
 
