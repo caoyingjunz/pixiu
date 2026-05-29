@@ -25,6 +25,7 @@ type ShareDaoFactory interface {
 	Tenant() TenantInterface
 	Role() RoleInterface
 	RoleAPI() RoleAPIInterface
+	RoleAPIScope() RoleAPIScopeInterface
 	API() APIInterface
 	User() UserInterface
 	Plan() PlanInterface
@@ -40,8 +41,9 @@ type shareDaoFactory struct {
 func (f *shareDaoFactory) Cluster() ClusterInterface       { return newCluster(f.db) }
 func (f *shareDaoFactory) Tenant() TenantInterface         { return newTenant(f.db) }
 func (f *shareDaoFactory) Role() RoleInterface             { return newRole(f.db) }
-func (f *shareDaoFactory) RoleAPI() RoleAPIInterface       { return newRoleAPI(f.db) }
-func (f *shareDaoFactory) API() APIInterface               { return newAPIs(f.db) }
+func (f *shareDaoFactory) RoleAPI() RoleAPIInterface             { return newRoleAPI(f.db) }
+func (f *shareDaoFactory) RoleAPIScope() RoleAPIScopeInterface   { return newRoleAPIScope(f.db) }
+func (f *shareDaoFactory) API() APIInterface                     { return newAPIs(f.db) }
 func (f *shareDaoFactory) User() UserInterface             { return newUser(f.db) }
 func (f *shareDaoFactory) Plan() PlanInterface             { return newPlan(f.db) }
 func (f *shareDaoFactory) Audit() AuditInterface           { return newAudit(f.db) }

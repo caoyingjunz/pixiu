@@ -114,10 +114,15 @@ type (
 		APIIds []int64 `json:"api_ids"` // 已关联的 API 资源 ID 列表，全量替换
 	}
 
+	UpdateRoleAPIScopesRequest struct {
+		Scopes []RoleAPIScopeRecord `json:"scopes"` // 已关联的 Kubernetes API 作用域，全量替换
+	}
+
 	CreateAPIRequest struct {
 		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"`
 		Path        string  `json:"path" binding:"required"`
 		Group       *string `json:"group" binding:"omitempty"`
+		SubGroup    *string `json:"sub_group" binding:"omitempty"`
 		Description *string `json:"description" binding:"omitempty"`
 	}
 
@@ -125,6 +130,7 @@ type (
 		Method          *string `json:"method" binding:"omitempty,oneof=GET POST PUT DELETE PATCH"`
 		Path            *string `json:"path" binding:"omitempty"`
 		Group           *string `json:"group" binding:"omitempty"`
+		SubGroup        *string `json:"sub_group" binding:"omitempty"`
 		Description     *string `json:"description" binding:"omitempty"`
 		ResourceVersion *int64  `json:"resource_version" binding:"required"`
 	}
@@ -134,6 +140,7 @@ type (
 		Method       string `form:"method" json:"method"`
 		PathSelector string `form:"pathSelector" json:"pathSelector"`
 		Group        string `form:"group" json:"group"`
+		SubGroup     string `form:"sub_group" json:"sub_group"`
 	}
 
 	CreatePlanRequest struct {
@@ -186,32 +193,6 @@ type (
 
 	UpdatePlanConfigRequest struct {
 		// TODO:
-	}
-
-	RBACPolicyRequest struct {
-		// user ID or group name is required
-		UserId     *int64           `json:"user_id" binding:"required_without=GroupName,excluded_with=GroupName"`
-		GroupName  *string          `json:"group_name" binding:"required_without=UserId,excluded_with=UserId"`
-		ObjectType model.ObjectType `json:"object_type" binding:"required,rbac_object"`
-		SID        string           `json:"sid" binding:"omitempty,rbac_sid"`
-		Operation  model.Operation  `json:"operation" binding:"required,rbac_operation"`
-	}
-
-	ListRBACPolicyRequest struct {
-		UserId     int64             `form:"user_id" binding:"required"`
-		ObjectType *model.ObjectType `form:"object_type" binding:"omitempty,required_with=UserId,rbac_object"`
-		SID        *string           `form:"sid" binding:"omitempty,required_with=ObjectType,rbac_sid"`
-		Operation  *model.Operation  `form:"operation" binding:"omitempty,required_with=SID,rbac_operation"`
-	}
-
-	GroupBindingRequest struct {
-		UserId    int64  `json:"user_id" binding:"required"`
-		GroupName string `json:"group_name" binding:"required"`
-	}
-
-	ListGroupBindingRequest struct {
-		UserId    *int64  `form:"user_id" binding:"omitempty"`
-		GroupName *string `form:"group_name" binding:"omitempty"`
 	}
 
 	// PageRequest 分页配置

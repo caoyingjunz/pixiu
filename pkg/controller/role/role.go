@@ -42,6 +42,9 @@ type Interface interface {
 
 	GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse, error)
 	UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleAPIsRequest) error
+
+	GetAPIScopes(ctx context.Context, rid int64) (*types.RoleAPIScopesResponse, error)
+	UpdateAPIScopes(ctx context.Context, rid int64, req *types.UpdateRoleAPIScopesRequest) error
 }
 
 type role struct {

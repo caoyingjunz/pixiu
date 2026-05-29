@@ -32,6 +32,7 @@ type RouteEntry struct {
 	RelativePath string // 相对路径，如 "" 或 "/:roleId"
 	Handler      gin.HandlerFunc
 	Description  string // 中文描述
+	SubGroup     string // 次级分类，如 Deployment/Service 等 K8s 资源类型
 	Persist      *bool  // 是否持久化到数据库，nil 视为 true（默认持久化），显式设为 false 则不持久化
 }
 
@@ -93,11 +94,15 @@ func registerAPI(apiSvc apiresource.Interface, groupName, baseURL string, entry 
 		fullPath = baseURL + entry.RelativePath
 	}
 	desc := entry.Description
-
-	return apiSvc.Register(context.Background(), &types.CreateAPIRequest{
+	req := &types.CreateAPIRequest{
 		Method:      entry.Method,
 		Path:        fullPath,
 		Group:       &groupName,
 		Description: &desc,
-	})
+	}
+	if entry.SubGroup != "" {
+		req.SubGroup = &entry.SubGroup
+	}
+
+	return apiSvc.Register(context.Background(), req)
 }

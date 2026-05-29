@@ -19,7 +19,7 @@ package model
 import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
 func init() {
-	register(&Tenant{}, &Role{}, &UserRole{}, &API{}, &RoleAPI{})
+	register(&Tenant{}, &Role{}, &UserRole{}, &API{}, &RoleAPI{}, &RoleAPIScope{})
 }
 
 type Tenant struct {
@@ -63,6 +63,7 @@ type API struct {
 	Method      string `gorm:"type:varchar(10);not null;uniqueIndex:uk_method_path" json:"method"`
 	Path        string `gorm:"type:varchar(255);not null;uniqueIndex:uk_method_path" json:"path"`
 	Group       string `gorm:"column:api_group;type:varchar(100);index:idx_api_group" json:"group"`
+	SubGroup    string `gorm:"column:api_sub_group;type:varchar(100);index:idx_api_sub_group" json:"sub_group"`
 	Description string `gorm:"type:varchar(255)" json:"description"`
 }
 
@@ -79,4 +80,19 @@ type RoleAPI struct {
 
 func (api *RoleAPI) TableName() string {
 	return "role_apis"
+}
+
+type RoleAPIScope struct {
+	pixiu.Model
+
+	RoleId int64 `gorm:"not null;index:idx_role" json:"role_id"`
+	APIId  int64 `gorm:"not null" json:"api_id"`
+
+	Cluster      string `gorm:"type:varchar(128);not null;index:idx_role_cluster,priority:2" json:"cluster"`
+	Namespace    string `gorm:"type:varchar(128);not null" json:"namespace"`
+	ResourceName string `gorm:"type:varchar(253);not null;default:*" json:"resource_name"`
+}
+
+func (s *RoleAPIScope) TableName() string {
+	return "role_api_scopes"
 }

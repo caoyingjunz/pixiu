@@ -47,6 +47,8 @@ func (r *roleRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "", Handler: r.listRoles, Description: "查看列表"},
 			{Method: "GET", RelativePath: "/:roleId/apis", Handler: r.getRoleAPIs, Description: "查看权限"},
 			{Method: "PUT", RelativePath: "/:roleId/apis", Handler: r.updateRoleAPIs, Description: "修改权限"},
+			{Method: "GET", RelativePath: "/:roleId/api-scopes", Handler: r.getRoleAPIScopes, Description: "查看 Kubernetes 权限"},
+			{Method: "PUT", RelativePath: "/:roleId/api-scopes", Handler: r.updateRoleAPIScopes, Description: "修改 Kubernetes 权限"},
 		},
 	}
 	roleGroup.Register(ginEngine.Group("/pixiu/roles"), r.c.APIResource())

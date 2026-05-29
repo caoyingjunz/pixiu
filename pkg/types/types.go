@@ -139,12 +139,25 @@ type APIResource struct {
 	Method      string `json:"method"`
 	Path        string `json:"path"`
 	Group       string `json:"group"`
+	SubGroup    string `json:"sub_group"`
 	Description string `json:"description"`
 }
 
 type RoleAPIsResponse struct {
 	Associated   []APIResource `json:"associated"`
 	Unassociated []APIResource `json:"unassociated"`
+}
+
+type RoleAPIScopeRecord struct {
+	APIId        int64  `json:"api_id"`
+	Cluster      string `json:"cluster"`
+	Namespace    string `json:"namespace"`
+	ResourceName string `json:"resource_name"`
+}
+
+type RoleAPIScopesResponse struct {
+	Scopes []RoleAPIScopeRecord `json:"scopes"`
+	Apis   []APIResource        `json:"apis"`
 }
 
 type Plan struct {
@@ -374,14 +387,6 @@ type Grafana struct {
 type Haproxy struct {
 	Enable                    bool   `json:"enable"`                       // Enable haproxy and keepalived,
 	KeepalivedVirtualRouterId string `json:"keepalived_virtual_router_id"` // Arbitrary unique number from 0..255
-}
-
-type RBACPolicy struct {
-	UserName   string           `json:"username,omitempty"`
-	GroupName  string           `json:"groupname,omitempty"`
-	ObjectType model.ObjectType `json:"resource_type,omitempty"`
-	StringID   string           `json:"sid,omitempty"`
-	Operation  model.Operation  `json:"operation,omitempty"`
 }
 
 // AuditListOptions 审计列表查询选项，支持过滤
