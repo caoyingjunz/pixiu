@@ -46,9 +46,7 @@ type operationValidator struct {
 }
 
 func (ov *operationValidator) validate(fl validator.FieldLevel) bool {
-	op := fl.Field().Interface().(model.Operation)
-	_, ok := model.OperationMap[op]
-	return ok
+	return false
 }
 
 type stringIDValidator struct {

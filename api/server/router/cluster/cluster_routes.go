@@ -316,3 +316,22 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 		return
 	}
 }
+
+func (cr *clusterRouter) createKubeConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.CreateKubeConfigRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = cr.c.Cluster().CreateKubeConfig(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}

@@ -88,6 +88,9 @@ type Interface interface {
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)
 
+	// CreateKubeConfig 创建 scoped kubeconfig
+	CreateKubeConfig(ctx context.Context, req *types.CreateKubeConfigRequest) error
+
 	// Run 启动 cluster worker 处理协程
 	Run(ctx context.Context, workers int) error
 }

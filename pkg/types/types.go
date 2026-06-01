@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
 	appv1 "k8s.io/api/apps/v1"
@@ -381,7 +383,6 @@ type RBACPolicy struct {
 	GroupName  string           `json:"groupname,omitempty"`
 	ObjectType model.ObjectType `json:"resource_type,omitempty"`
 	StringID   string           `json:"sid,omitempty"`
-	Operation  model.Operation  `json:"operation,omitempty"`
 }
 
 // AuditListOptions 审计列表查询选项，支持过滤
@@ -394,4 +395,31 @@ type AuditListOptions struct {
 	Status      *uint8 `form:"status"`      // 操作状态（0:失败 1:成功 2:未知）
 	StartTime   string `form:"start_time"`  // 时间范围起（RFC3339，留空忽略）
 	EndTime     string `form:"end_time"`    // 时间范围止（RFC3339，留空忽略）
+}
+
+// CreateKubeConfigRequest 创建 scoped kubeconfig 的请求参数
+type CreateKubeConfigRequest struct {
+	Cluster           string `json:"cluster" binding:"required"` // k8s 对应集群 id
+	UserId            int64  `json:"user_id"`
+	Name              string `json:"name" binding:"required"`
+	ExpirationSeconds int64  `json:"expiration_seconds"` // 默认 1 年
+
+	PType int                 `json:"p_type"` // 0 只读，1 自定义，自定义的时候需要传入rule  2 管理员
+	Rules []rbacv1.PolicyRule `json:"rules"`  // 如果 p_type是 1的时候，使用 Rules
+
+	SAName           string   `json:"sa_name"`
+	SANamespace      string   `json:"sa_namespace"`
+	TargetNamespaces []string `json:"target_namespaces"`
+}
+
+// ListKubeConfigRequest 列表查询 kubeconfig
+type ListKubeConfigRequest struct {
+	PageRequest `form:",inline"`
+	ClusterName string `form:"clusterName"`
+}
+
+// KubeConfigResponse 返回给前端的 kubeconfig 内容
+type KubeConfigResponse struct {
+	ClusterName string `json:"cluster_name"`
+	Content     string `json:"content"`
 }
