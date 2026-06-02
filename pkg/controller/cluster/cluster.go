@@ -732,7 +732,7 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
 	cs, ok := ClusterIndexer.Get(name)
 	if ok {
-		klog.Infof("Get %s clusterSet from cache", name)
+		klog.V(0).Infof("Get %s clusterSet from cache", name)
 		return cs, nil
 	}
 

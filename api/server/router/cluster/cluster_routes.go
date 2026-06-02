@@ -328,6 +328,7 @@ func (cr *clusterRouter) createPermission(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	if err = cr.c.Cluster().CreatePermission(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

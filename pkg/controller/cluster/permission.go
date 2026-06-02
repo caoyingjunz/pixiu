@@ -19,6 +19,7 @@ import (
 
 const (
 	defaultExpiration = 365 * 24 * time.Hour
+	defaultNamespace  = "pixiu-system"
 )
 
 // CreatePermission 创建 scoped kubeconfig
@@ -31,7 +32,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 
 	saNs := req.SANamespace
 	if len(saNs) == 0 {
-		saNs = "pixiu-system"
+		saNs = defaultNamespace
 	}
 	saName := req.SAName
 	if len(saName) == 0 {

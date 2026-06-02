@@ -19,6 +19,7 @@ package user
 import (
 	"context"
 	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	"k8s.io/klog/v2"
@@ -368,7 +369,7 @@ func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) 
 func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
 	// 如果 roleId 为 0，则表示为超级管理员，直接不做任何限制
 	if roleId == 0 {
-		klog.Infof("超级管理员，权限无需验证")
+		klog.V(1).Infof("超级管理员，权限无需验证")
 		return nil
 	}
 
