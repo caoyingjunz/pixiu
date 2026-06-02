@@ -322,14 +322,96 @@ func (cr *clusterRouter) createPermission(c *gin.Context) {
 
 	var (
 		req types.CreatePermissionRequest
+		meta struct {
+			ClusterName string `uri:"clusterName" binding:"required"`
+		}
 		err error
 	)
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &meta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	req.Cluster = meta.ClusterName
+
+	if r.Result, err = cr.c.Cluster().CreatePermission(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	if err = cr.c.Cluster().CreatePermission(c, &req); err != nil {
+	httputils.SetSuccess(c, r)
+}
+
+type PermissionIdMeta struct {
+	PermissionId int64 `uri:"permissionId" binding:"required"`
+}
+
+func (cr *clusterRouter) getPermission(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var meta PermissionIdMeta
+	if err := c.ShouldBindUri(&meta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	var err error
+	if r.Result, err = cr.c.Cluster().GetPermission(c, meta.PermissionId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (cr *clusterRouter) listPermissions(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var req types.ListPermissionRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	var err error
+	if r.Result, err = cr.c.Cluster().ListPermissions(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (cr *clusterRouter) updatePermission(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		meta PermissionIdMeta
+		req  types.UpdatePermissionRequest
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &meta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if err = cr.c.Cluster().UpdatePermission(c, meta.PermissionId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (cr *clusterRouter) deletePermission(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var meta PermissionIdMeta
+	if err := c.ShouldBindUri(&meta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	if err := cr.c.Cluster().DeletePermission(c, meta.PermissionId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

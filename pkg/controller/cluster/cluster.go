@@ -89,7 +89,11 @@ type Interface interface {
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)
 
 	// CreatePermission 创建 scoped kubeconfig
-	CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error
+	CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) (*types.Permission, error)
+	GetPermission(ctx context.Context, permissionId int64) (*types.Permission, error)
+	ListPermissions(ctx context.Context, req *types.ListPermissionRequest) (*types.PageResponse, error)
+	UpdatePermission(ctx context.Context, permissionId int64, req *types.UpdatePermissionRequest) error
+	DeletePermission(ctx context.Context, permissionId int64) error
 
 	// Run 启动 cluster worker 处理协程
 	Run(ctx context.Context, workers int) error
