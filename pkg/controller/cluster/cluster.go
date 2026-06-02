@@ -41,6 +41,7 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -143,7 +144,10 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 
 	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
+
+	tenantId, _ := httputils.GetTenantIdFromContext(ctx)
 	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
+		TenantId:    tenantId,
 		Name:        req.Name,
 		AliasName:   req.AliasName,
 		ClusterType: req.Type,

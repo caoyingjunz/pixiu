@@ -156,6 +156,15 @@ func GetUserIdFromContext(ctx context.Context) (int64, error) {
 	return user.Id, nil
 }
 
+// GetTenantIdFromContext 获取当前请求的租户 ID
+func GetTenantIdFromContext(ctx context.Context) (int64, error) {
+	user, err := GetUserFromRequest(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return user.TenantId, nil
+}
+
 func SetUserToContext(c *gin.Context, user *model.User) {
 	c.Set(userKey, user)
 }

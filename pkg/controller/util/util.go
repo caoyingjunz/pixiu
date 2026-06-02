@@ -21,12 +21,24 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 func MakeDbOptions(ctx context.Context) (opts []db.Options) {
 	exists, ids := httputils.GetIdRangeFromListReq(ctx)
 	if exists {
 		opts = append(opts, db.WithIDIn(ids...))
+	}
+
+	// 超级管理员可以查看所有租户的资源
+	user, err := httputils.GetUserFromRequest(ctx)
+	if err != nil {
+		return
+	}
+	if user.Role != model.RoleRoot  {
+		if user.TenantId > 0 {
+			opts = append(opts, db.WithTenantId( user.TenantId))
+		}
 	}
 	return
 }
