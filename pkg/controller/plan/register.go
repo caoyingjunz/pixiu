@@ -52,10 +52,10 @@ func (c Register) Run() error {
 		return err
 	}
 	// 如果未启用自注册功能，则直接跳过
-	if !ks.Register {
-		klog.Infof("部署计划未启用自注册功能，skipping")
-		return nil
-	}
+	//if !ks.Register {
+	//	klog.Infof("部署计划未启用自注册功能，skipping")
+	//	return nil
+	//}
 
 	// 从 master 节点获取 kubeConfig 内容，注入集群服务
 	var masterNodes []model.Node
@@ -78,6 +78,7 @@ func (c Register) Run() error {
 		}
 	}
 	if len(kubeConfig) == 0 {
+		klog.Error("get the empty kubeconfig from master nodes")
 		return fmt.Errorf("get the empty kubeconfig from master nodes")
 	}
 

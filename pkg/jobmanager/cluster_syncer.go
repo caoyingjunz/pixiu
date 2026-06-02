@@ -108,6 +108,7 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	status := model.ClusterStatusRunning
 	nodeData, kubernetesVersion, err = getNewestKubeStatus(cluster)
 	if err != nil {
+		klog.Error("[getNewestKubeStatus] failed %v, 集群状态即将被设置成不可用", err)
 		status = model.ClusterStatusError
 	}
 

@@ -317,18 +317,18 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 	}
 }
 
-func (cr *clusterRouter) createKubeConfig(c *gin.Context) {
+func (cr *clusterRouter) createPermission(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		req types.CreateKubeConfigRequest
+		req types.CreatePermissionRequest
 		err error
 	)
 	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().CreateKubeConfig(c, &req); err != nil {
+	if err = cr.c.Cluster().CreatePermission(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

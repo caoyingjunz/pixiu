@@ -18,10 +18,9 @@ package types
 
 import (
 	"io"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"sync"
 	"time"
-
-	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
@@ -383,6 +382,7 @@ type RBACPolicy struct {
 	GroupName  string           `json:"groupname,omitempty"`
 	ObjectType model.ObjectType `json:"resource_type,omitempty"`
 	StringID   string           `json:"sid,omitempty"`
+	Operation  model.Operation  `json:"operation,omitempty"`
 }
 
 // AuditListOptions 审计列表查询选项，支持过滤
@@ -397,8 +397,8 @@ type AuditListOptions struct {
 	EndTime     string `form:"end_time"`    // 时间范围止（RFC3339，留空忽略）
 }
 
-// CreateKubeConfigRequest 创建 scoped kubeconfig 的请求参数
-type CreateKubeConfigRequest struct {
+// CreatePermissionRequest 创建 scoped kubeconfig 的请求参数
+type CreatePermissionRequest struct {
 	Cluster           string `json:"cluster" binding:"required"` // k8s 对应集群 id
 	UserId            int64  `json:"user_id"`
 	Name              string `json:"name" binding:"required"`

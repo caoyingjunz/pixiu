@@ -21,8 +21,8 @@ const (
 	defaultExpiration = 365 * 24 * time.Hour
 )
 
-// CreateKubeConfig 创建 scoped kubeconfig
-func (c *cluster) CreateKubeConfig(ctx context.Context, req *types.CreateKubeConfigRequest) error {
+// CreatePermission 创建 scoped kubeconfig
+func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error {
 	clusterSet, err := c.GetClusterSetByName(ctx, req.Cluster)
 	if err != nil {
 		return fmt.Errorf("获取集群 %s 配置失败: %w", req.Cluster, err)
@@ -122,7 +122,7 @@ func createRoleBinding(ctx context.Context, clientSet *kubernetes.Clientset, nam
 }
 
 // 创建 ClusterRole（如果已存在则跳过）
-func createClusterRole(ctx context.Context, clientSet *kubernetes.Clientset, req *types.CreateKubeConfigRequest) (string, error) {
+func createClusterRole(ctx context.Context, clientSet *kubernetes.Clientset, req *types.CreatePermissionRequest) (string, error) {
 	// 只读
 	if req.PType == 0 {
 		return "view", nil
