@@ -19,6 +19,7 @@ package user
 import (
 	"context"
 	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	"k8s.io/klog/v2"
@@ -103,7 +104,17 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 		}
 	}
 
+	// 如果提供 tenant_name，先查询对应的 tenant_id
+	if req.TenantName != "" && req.TenantId == 0 {
+		tenant, err := u.factory.Tenant().GetTenantByName(ctx, req.TenantName)
+		if err != nil || tenant == nil {
+			return errors.ErrTenantNotFound
+		}
+		req.TenantId = tenant.Id
+	}
+
 	if _, err = u.factory.User().Create(ctx, &model.User{
+		TenantId:    req.TenantId,
 		Name:        req.Name,
 		Password:    encrypt,
 		Status:      req.Status,

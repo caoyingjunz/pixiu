@@ -30,6 +30,8 @@ type (
 	CreateUserRequest struct {
 		Name        string           `json:"name" binding:"required"`              // required
 		Password    string           `json:"password" binding:"required,password"` // required
+		TenantId    int64            `json:"tenant_id" binding:"omitempty"`        // optional, tenant id
+		TenantName  string           `json:"tenant_name" binding:"omitempty"`      // optional, tenant name
 		Role        model.UserLevel  `json:"role" binding:"omitempty"`             // optional
 		Status      model.UserStatus `json:"status" binding:"omitempty"`
 		Email       string           `json:"email" binding:"omitempty,email"` // optional
