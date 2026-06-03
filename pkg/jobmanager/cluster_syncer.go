@@ -91,7 +91,7 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	if cluster.PermissionId != 0 {
-		klog.Infof("授权集群%s(%d)无需检查", cluster.AliasName, cluster.Id)
+		klog.V(1).Infof("授权集群%s(%d)无需检查", cluster.AliasName, cluster.Id)
 		return nil
 	}
 
@@ -113,7 +113,7 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	status := model.ClusterStatusRunning
 	nodeData, kubernetesVersion, err = getNewestKubeStatus(cluster)
 	if err != nil {
-		klog.Error("[getNewestKubeStatus] failed %v, 集群状态即将被设置成不可用", err)
+		klog.Error("[getNewestKubeStatus] %s failed %v, 集群状态即将被设置成不可用", cluster.AliasName, err)
 		status = model.ClusterStatusError
 	}
 
