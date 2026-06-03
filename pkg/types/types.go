@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
 	appv1 "k8s.io/api/apps/v1"
@@ -416,4 +418,66 @@ type AuditListOptions struct {
 	Status      *uint8 `form:"status"`      // 操作状态（0:失败 1:成功 2:未知）
 	StartTime   string `form:"start_time"`  // 时间范围起（RFC3339，留空忽略）
 	EndTime     string `form:"end_time"`    // 时间范围止（RFC3339，留空忽略）
+}
+
+// CreatePermissionRequest 创建 scoped kubeconfig 的请求参数
+type CreatePermissionRequest struct {
+	ClusterId         int64  `json:"cluster_id" binding:"required"` // k8s 对应集群 id
+	UserId            int64  `json:"user_id"`
+	Name              string `json:"name" binding:"required"`
+	ExpirationSeconds int64  `json:"expiration_seconds"` // 默认 1 年
+	Description       string `json:"description"`
+
+	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
+	Rules []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
+
+	SAName           string   `json:"sa_name"`
+	SANamespace      string   `json:"sa_namespace"`
+	TargetNamespaces []string `json:"target_namespaces"`
+}
+
+// UpdatePermissionRequest 更新权限
+type UpdatePermissionRequest struct {
+	ResourceVersion   *int64              `json:"resource_version" binding:"required"`
+	Name              *string             `json:"name"`
+	ExpirationSeconds *int64              `json:"expiration_seconds"`
+	Description       *string             `json:"description"`
+	PType             *int                `json:"p_type"`
+	Rules             []rbacv1.PolicyRule `json:"rules"`
+	TargetNamespaces  []string            `json:"target_namespaces"`
+}
+
+// ListPermissionRequest 权限列表查询
+type ListPermissionRequest struct {
+	PageRequest `form:",inline"`
+	ClusterName string `form:"clusterName"`
+	UserId      *int64 `form:"user_id"`
+}
+
+// Permission 集群 scoped kubeconfig 授权
+type Permission struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	UserId            int64               `json:"user_id"`
+	ClusterId         int64               `json:"cluster_id"`
+	Name              string              `json:"name"`
+	ExpirationSeconds int64               `json:"expiration_seconds"`
+	PType             int                 `json:"p_type"`
+	Rules             []rbacv1.PolicyRule `json:"rules,omitempty"`
+	SAName            string              `json:"sa_name"`
+	SANamespace       string              `json:"sa_namespace"`
+	TargetNamespaces  []string            `json:"target_namespaces"`
+	KubeConfig        string              `json:"kube_config,omitempty"`
+	Content           string              `json:"content,omitempty"` // 与 kube_config 相同，便于前端展示
+	Description       string              `json:"description,omitempty"`
+}
+
+// ListKubeConfigRequest 兼容旧名
+type ListKubeConfigRequest = ListPermissionRequest
+
+// KubeConfigResponse 返回给前端的 kubeconfig 内容
+type KubeConfigResponse struct {
+	ClusterName string `json:"cluster_name"`
+	Content     string `json:"content"`
 }

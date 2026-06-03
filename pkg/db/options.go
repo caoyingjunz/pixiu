@@ -231,3 +231,30 @@ func WithAPIGroup(group string) Options {
 		return tx.Where("api_group = ?", group)
 	}
 }
+
+func WithPermissionClusterName(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("cluster_name = ?", name)
+	}
+}
+
+func WithPermissionUserId(userId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if userId == 0 {
+			return tx
+		}
+		return tx.Where("user_id = ?", userId)
+	}
+}
+
+func WithPermissionClusterNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("cluster_name LIKE ?", "%"+name+"%")
+	}
+}

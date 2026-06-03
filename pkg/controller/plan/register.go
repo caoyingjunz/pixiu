@@ -78,6 +78,7 @@ func (c Register) Run() error {
 		}
 	}
 	if len(kubeConfig) == 0 {
+		klog.Error("get the empty kubeconfig from master nodes")
 		return fmt.Errorf("get the empty kubeconfig from master nodes")
 	}
 

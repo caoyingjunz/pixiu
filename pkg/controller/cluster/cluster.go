@@ -87,6 +87,13 @@ type Interface interface {
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)
 
+	// CreatePermission 创建 scoped kubeconfig
+	CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error
+	GetPermission(ctx context.Context, permissionId int64) (*types.Permission, error)
+	ListPermissions(ctx context.Context, req *types.ListPermissionRequest) (*types.PageResponse, error)
+	UpdatePermission(ctx context.Context, permissionId int64, req *types.UpdatePermissionRequest) error
+	DeletePermission(ctx context.Context, permissionId int64) error
+
 	// Run 启动 cluster worker 处理协程
 	Run(ctx context.Context, workers int) error
 }
@@ -119,9 +126,9 @@ type cluster struct {
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
 	// 实际创建前，先创建集群的连通性
-	if err := c.Ping(ctx, req.KubeConfig); err != nil {
-		return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
-	}
+	//if err := c.Ping(ctx, req.KubeConfig); err != nil {
+	//	return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
+	//}
 	return nil
 }
 
@@ -143,14 +150,16 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
 	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
-		Name:        req.Name,
-		UserId:      req.UserId,
-		AliasName:   req.AliasName,
-		ClusterType: req.Type,
-		Protected:   req.Protected,
-		KubeConfig:  req.KubeConfig,
-		Description: req.Description,
-		Nodes:       nodes,
+		Name:           req.Name,
+		UserId:         req.UserId,
+		AliasName:      req.AliasName,
+		ClusterType:    req.Type,
+		Protected:      req.Protected,
+		KubeConfig:     req.KubeConfig,
+		Description:    req.Description,
+		PermissionId:   req.PermissionId,
+		OwnerReference: req.OwnerReference,
+		Nodes:          nodes,
 	}, txFunc); err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return errors.ErrServerInternal
@@ -734,7 +743,7 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
 	cs, ok := ClusterIndexer.Get(name)
 	if ok {
-		klog.Infof("Get %s clusterSet from cache", name)
+		klog.V(0).Infof("Get %s clusterSet from cache", name)
 		return cs, nil
 	}
 

@@ -63,6 +63,9 @@ type (
 		KubeConfig  string            `json:"kube_config" binding:"required"`             // required
 		Description string            `json:"description" binding:"omitempty"`            // optional
 		Protected   bool              `json:"protected" binding:"omitempty"`              // optional
+
+		PermissionId   int64
+		OwnerReference int64
 	}
 
 	UpdateClusterRequest struct {
