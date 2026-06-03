@@ -30,7 +30,7 @@ type Plan struct {
 	Name string `gorm:"index:idx_name,unique" json:"name"`
 
 	// 所属用户
-	UserId      int64 `gorm:"index:idx_user_id" json:"user_id"`
+	UserId      int64  `gorm:"index:idx_user_id" json:"user_id"`
 	Description string `gorm:"type:text" json:"description"`
 }
 
