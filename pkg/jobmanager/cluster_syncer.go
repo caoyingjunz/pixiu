@@ -90,6 +90,11 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 }
 
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
+	if cluster.PermissionId != 0 {
+		klog.Infof("授权集群%s(%d)无需检查", cluster.AliasName, cluster.Id)
+		return nil
+	}
+
 	// 处理自建集群正在部署的集群
 	if cluster.ClusterType == model.ClusterTypeCustom {
 		// 自建环境，状态是部署未完成时，则直接不做同步，包含：部署中，等待部署，部署失败

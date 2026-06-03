@@ -18,9 +18,10 @@ package types
 
 import (
 	"io"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"sync"
 	"time"
+
+	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
@@ -63,9 +64,13 @@ type Cluster struct {
 	AliasName string              `json:"alias_name"`
 	Status    model.ClusterStatus `json:"status"` // 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 集群失联，API不可用
 
+	UserId int64 `json:"user_id"`
+
 	// 0: 标准集群 1: 自建集群
 	ClusterType model.ClusterType `json:"cluster_type"`
 	PlanId      int64             `json:"plan_id"` // 自建集群关联的 PlanId，如果是自建的集群，planId 不为 0
+
+	PermissionId int64 `json:"permission_id"`
 
 	// kubernetes 集群的版本和状态
 	KubernetesVersion string   `json:"kubernetes_version"`
@@ -290,11 +295,29 @@ type Turn struct {
 
 // ListOptions is the query options to a standard REST list call.
 type ListOptions struct {
-	Count bool  `form:"count"`
-	Limit int64 `form:"limit"`
+	UserId int64 `form:"user_id" json:"user_id"` // 用户 id
 
+	CustomMeta  `json:",inline"`
 	PageRequest `json:",inline"` // 分页请求属性
 	QueryOption `json:",inline"` // 搜索内容
+}
+
+type CustomMeta struct {
+	Status *int
+	Step   string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
+}
+
+func (o *ListOptions) SetDefaultPageOption() {
+	// 初始化分页属性
+	if o.Page <= 0 {
+		o.Page = 1
+	}
+	if o.Limit <= 0 {
+		o.Limit = 10
+	}
+	if o.Limit > 100 {
+		o.Limit = 100
+	}
 }
 
 type EventOptions struct {
@@ -399,7 +422,7 @@ type AuditListOptions struct {
 
 // CreatePermissionRequest 创建 scoped kubeconfig 的请求参数
 type CreatePermissionRequest struct {
-	Cluster           string `json:"cluster" binding:"required"` // 集群名称
+	ClusterId         int64  `json:"cluster_id" binding:"required"` // k8s 对应集群 id
 	UserId            int64  `json:"user_id"`
 	Name              string `json:"name" binding:"required"`
 	ExpirationSeconds int64  `json:"expiration_seconds"` // 默认 1 年
@@ -437,7 +460,7 @@ type Permission struct {
 	TimeMeta  `json:",inline"`
 
 	UserId            int64               `json:"user_id"`
-	ClusterName       string              `json:"cluster_name"`
+	ClusterId         int64               `json:"cluster_id"`
 	Name              string              `json:"name"`
 	ExpirationSeconds int64               `json:"expiration_seconds"`
 	PType             int                 `json:"p_type"`

@@ -43,7 +43,6 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
-	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -60,7 +59,7 @@ type Interface interface {
 	Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error
 	Delete(ctx context.Context, cid int64) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
-	List(ctx context.Context, req *types.ListClusterRequest) (*types.PageResponse, error)
+	List(ctx context.Context, req types.ListOptions) (interface{}, error)
 
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
@@ -89,7 +88,7 @@ type Interface interface {
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)
 
 	// CreatePermission 创建 scoped kubeconfig
-	CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) (*types.Permission, error)
+	CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error
 	GetPermission(ctx context.Context, permissionId int64) (*types.Permission, error)
 	ListPermissions(ctx context.Context, req *types.ListPermissionRequest) (*types.PageResponse, error)
 	UpdatePermission(ctx context.Context, permissionId int64, req *types.UpdatePermissionRequest) error
@@ -127,9 +126,9 @@ type cluster struct {
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
 	// 实际创建前，先创建集群的连通性
-	if err := c.Ping(ctx, req.KubeConfig); err != nil {
-		return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
-	}
+	//if err := c.Ping(ctx, req.KubeConfig); err != nil {
+	//	return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
+	//}
 	return nil
 }
 
@@ -151,13 +150,16 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
 	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
-		Name:        req.Name,
-		AliasName:   req.AliasName,
-		ClusterType: req.Type,
-		Protected:   req.Protected,
-		KubeConfig:  req.KubeConfig,
-		Description: req.Description,
-		Nodes:       nodes,
+		Name:           req.Name,
+		UserId:         req.UserId,
+		AliasName:      req.AliasName,
+		ClusterType:    req.Type,
+		Protected:      req.Protected,
+		KubeConfig:     req.KubeConfig,
+		Description:    req.Description,
+		PermissionId:   req.PermissionId,
+		OwnerReference: req.OwnerReference,
+		Nodes:          nodes,
 	}, txFunc); err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return errors.ErrServerInternal
@@ -242,44 +244,49 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	return c.model2Type(object), nil
 }
 
-func (c *cluster) List(ctx context.Context, req *types.ListClusterRequest) (*types.PageResponse, error) {
-	opts := ctrlutil.MakeDbOptions(ctx)
+func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
 
-	if req != nil && req.NameSelector != "" {
-		opts = append(opts, db.WithAliasNameLike(req.NameSelector))
-	}
-	if req != nil && req.Status != nil {
-		opts = append(opts, db.WithClusterStatus(*req.Status))
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := c.factory.Cluster().Count(ctx, opts...)
+	opts := []db.Options{
+		db.WithUser(listOption.UserId),
+		db.WithAliasNameLike(listOption.NameSelector),
+	}
+
+	var err error
+	pageResult.Total, err = c.factory.Cluster().Count(ctx, opts...)
 	if err != nil {
-		return nil, err
+		klog.Errorf("获取集群总数失败 %v", err)
+		pageResult.Message = err.Error()
 	}
-
-	pageReq := types.PageRequest{}
-	if req != nil {
-		pageReq = req.PageRequest
-		if req.Page > 0 && req.Limit > 0 {
-			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
-		}
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
 
 	objects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
+		klog.Errorf("获取集群列表失败 %v", err)
+		pageResult.Message = err.Error()
 		return nil, err
 	}
 
-	cs := make([]types.Cluster, len(objects))
-	for i, object := range objects {
-		cs[i] = *c.model2Type(&object)
+	// 为保护内部数据结构做一次转换
+	cs := make([]types.Cluster, 0)
+	for _, object := range objects {
+		cs = append(cs, *c.model2Type(&object))
 	}
+	pageResult.Items = cs
 
-	return &types.PageResponse{
-		PageRequest: pageReq,
-		Total:       int(total),
-		Items:       cs,
-	}, nil
+	return pageResult, nil
 }
 
 // Ping 检查和 k8s 集群的连通性
@@ -910,6 +917,8 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		Name:              o.Name,
 		AliasName:         o.AliasName,
 		ClusterType:       o.ClusterType,
+		UserId:            o.UserId,
+		PermissionId:      o.PermissionId,
 		KubernetesVersion: o.KubernetesVersion,
 		Nodes:             nodes,
 		PlanId:            o.PlanId,

@@ -38,7 +38,7 @@ type Permission struct {
 	UserId int64 `gorm:"column:user_id;not null;index:idx_user_id;index:idx_user_cluster,priority:1;uniqueIndex:uk_user_cluster_name,priority:1" json:"user_id"`
 
 	// 目标集群名称（全局唯一集群名）
-	ClusterName string `gorm:"column:cluster_name;type:varchar(128);not null;index:idx_user_cluster,priority:2;uniqueIndex:uk_user_cluster_name,priority:2" json:"cluster_name"`
+	ClusterId int64 `gorm:"column:cluster_id;type:varchar(128);not null;index:idx_user_cluster,priority:2;uniqueIndex:uk_user_cluster_name,priority:2" json:"cluster_name"`
 
 	// 授权名称，同一用户在同一集群下唯一
 	Name string `gorm:"type:varchar(128);not null;uniqueIndex:uk_user_cluster_name,priority:3" json:"name"`
@@ -55,8 +55,6 @@ type Permission struct {
 	// JSON 序列化的命名空间列表
 	TargetNamespaces string `gorm:"column:target_namespaces" json:"target_namespaces"`
 
-	// 生成的 kubeconfig（base64 或明文 YAML）
-	KubeConfig  string `gorm:"type:text" json:"kube_config"`
 	Description string `gorm:"type:text" json:"description,omitempty"`
 }
 

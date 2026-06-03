@@ -183,14 +183,15 @@ func (cr *clusterRouter) getCluster(c *gin.Context) {
 func (cr *clusterRouter) listClusters(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var req types.ListClusterRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	var err error
-	if r.Result, err = cr.c.Cluster().List(c, &req); err != nil {
+	if r.Result, err = cr.c.Cluster().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -321,19 +322,18 @@ func (cr *clusterRouter) createPermission(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		req types.CreatePermissionRequest
-		meta struct {
-			ClusterName string `uri:"clusterName" binding:"required"`
+		req        types.CreatePermissionRequest
+		clusterOpt struct {
+			ClusterId int64 `uri:"clusterId" binding:"required"`
 		}
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &meta, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &clusterOpt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	req.Cluster = meta.ClusterName
-
-	if r.Result, err = cr.c.Cluster().CreatePermission(c, &req); err != nil {
+	req.ClusterId = clusterOpt.ClusterId
+	if err = cr.c.Cluster().CreatePermission(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

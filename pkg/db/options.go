@@ -50,6 +50,12 @@ func WithCreatedBefore(t time.Time) Options {
 	}
 }
 
+func WithModifyOrderByDesc() Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Order("gmt_modified DESC")
+	}
+}
+
 func WithLimit(limit int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if limit == 0 {
@@ -76,13 +82,12 @@ func WithAliasNameLike(name string) Options {
 	}
 }
 
-// WithPlanIdNode 按部署计划 ID 过滤节点（plan_id=0 表示不过滤）
-func WithPlanIdNode(planId int64) Options {
+func WithNameLike(name string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
-		if planId == 0 {
+		if name == "" {
 			return tx
 		}
-		return tx.Where("plan_id = ?", planId)
+		return tx.Where("name like ?", "%"+name+"%")
 	}
 }
 
@@ -92,16 +97,7 @@ func WithClusterStatus(status int) Options {
 	}
 }
 
-func WithUserNameLike(name string) Options {
-	return func(tx *gorm.DB) *gorm.DB {
-		if name == "" {
-			return tx
-		}
-		return tx.Where("name like ?", "%"+name+"%")
-	}
-}
-
-func WithUserPhoneLike(phone string) Options {
+func WithPhoneLike(phone string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if phone == "" {
 			return tx
@@ -110,7 +106,7 @@ func WithUserPhoneLike(phone string) Options {
 	}
 }
 
-func WithUserEmailLike(email string) Options {
+func WithEmailLike(email string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if email == "" {
 			return tx
@@ -182,15 +178,6 @@ func WithPlanNameLike(name string) Options {
 	}
 }
 
-func WithNameLike(name string) Options {
-	return func(tx *gorm.DB) *gorm.DB {
-		if name == "" {
-			return tx
-		}
-		return tx.Where("name like ?", "%"+name+"%")
-	}
-}
-
 func WithPlan(pid int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if pid == 0 {
@@ -206,7 +193,7 @@ func WithStatus(status model.AgentStatus) Options {
 	}
 }
 
-func WithUserId(userId int64) Options {
+func WithUser(userId int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("user_id = ?", userId)
 	}
@@ -236,7 +223,7 @@ func WithPathLike(path string) Options {
 	}
 }
 
-func WithGroup(group string) Options {
+func WithAPIGroup(group string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if group == "" {
 			return tx
