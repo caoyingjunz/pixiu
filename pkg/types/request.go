@@ -56,8 +56,9 @@ type (
 	}
 
 	CreateClusterRequest struct {
-		Name        string            `json:"name" binding:"omitempty"`                   // optional
-		AliasName   string            `json:"alias_name" binding:"omitempty"`             // optional
+		Name        string            `json:"name" binding:"omitempty"`       // optional
+		AliasName   string            `json:"alias_name" binding:"omitempty"` // optional
+		UserId      int64             `json:"user_id"`
 		Type        model.ClusterType `json:"cluster_type" binding:"omitempty,oneof=0 1"` // optional
 		KubeConfig  string            `json:"kube_config" binding:"required"`             // required
 		Description string            `json:"description" binding:"omitempty"`            // optional
@@ -139,6 +140,8 @@ type (
 	CreatePlanRequest struct {
 		Name        string `json:"name" binding:"required"`         // required
 		Description string `json:"description" binding:"omitempty"` // optional
+
+		UserId int64 `json:"user_id" binding:"required"` // 关联用户
 
 		Config CreatePlanConfigRequest `json:"config"`
 		Nodes  []CreatePlanNodeRequest `json:"nodes"`
@@ -225,20 +228,6 @@ type (
 		NameSelector  string `form:"nameSelector" json:"nameSelector"`   // 名称搜索
 	}
 
-	// ListClusterRequest 集群列表查询参数
-	ListClusterRequest struct {
-		PageRequest `form:",inline"`
-		QueryOption `form:",inline"`
-		Status      *int `form:"status" json:"status"` // 集群状态过滤，不传则不过滤
-	}
-
-	// ListPlanRequest 部署计划列表查询参数
-	ListPlanRequest struct {
-		PageRequest  `form:",inline"`
-		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
-		Step         string `form:"step" json:"step"`                 // 状态过滤，不传则不过滤
-	}
-
 	// ListUserRequest 用户列表查询参数
 	ListUserRequest struct {
 		PageRequest `form:",inline"`
@@ -273,5 +262,13 @@ type (
 
 		Total int         `json:"total"` // 分页总数
 		Items interface{} `json:"items"` // 指定页的元素列表
+	}
+
+	PageResult struct {
+		PageRequest `json:",inline"`
+
+		Total   int64       `json:"total"`   // 总记录数
+		Items   interface{} `json:"items"`   // 数据列表
+		Message string      `json:"message"` // 正常或异常信息
 	}
 )

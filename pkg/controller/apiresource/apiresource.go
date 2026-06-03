@@ -194,7 +194,7 @@ func (a *apiResource) Get(ctx context.Context, aid int64) (*types.APIResource, e
 func (a *apiResource) List(ctx context.Context, req *types.ListAPIRequest) (*types.PageResponse, error) {
 	opts := []db.Options{db.WithOrderByDesc()}
 	if req != nil {
-		opts = append(opts, db.WithMethod(req.Method), db.WithPathLike(req.PathSelector), db.WithGroup(req.Group))
+		opts = append(opts, db.WithMethod(req.Method), db.WithPathLike(req.PathSelector), db.WithAPIGroup(req.Group))
 	}
 
 	total, err := a.factory.API().Count(ctx, opts...)

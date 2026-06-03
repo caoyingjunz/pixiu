@@ -54,6 +54,11 @@ type Cluster struct {
 	// 自建集群关联的 PlanId
 	PlanId int64
 
+	// 所属用户
+	UserId int64 `gorm:"index:idx_user_id" json:"user_id"`
+	// 关联的权限Id
+	PermissionId int64
+
 	// 集群运行状态 0: 运行中 1: 部署中 2: 未部署 3: 部署失败 4: 运行中断 5: 所有的 node 不健康
 	ClusterStatus `gorm:"column:status;type:tinyint" json:"status"`
 
