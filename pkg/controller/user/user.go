@@ -244,9 +244,9 @@ func (u *user) List(ctx context.Context, req *types.ListUserRequest) (*types.Pag
 	opts := []db.Options{db.WithOrderByDesc()}
 	if req != nil {
 		opts = append(opts,
-			db.WithUserNameLike(req.UserName),
-			db.WithUserPhoneLike(req.UserPhone),
-			db.WithUserEmailLike(req.UserEmail),
+			db.WithNameLike(req.UserName),
+			db.WithPhoneLike(req.UserPhone),
+			db.WithEmailLike(req.UserEmail),
 		)
 		if req.Status != nil {
 			opts = append(opts, db.WithUserStatus(*req.Status))
@@ -368,7 +368,7 @@ func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) 
 func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
 	// 如果 roleId 为 0，则表示为超级管理员，直接不做任何限制
 	if roleId == 0 {
-		klog.Infof("超级管理员，权限无需验证")
+		klog.V(1).Infof("超级管理员，权限无需验证")
 		return nil
 	}
 

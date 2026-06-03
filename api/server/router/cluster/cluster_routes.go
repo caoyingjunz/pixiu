@@ -183,14 +183,15 @@ func (cr *clusterRouter) getCluster(c *gin.Context) {
 func (cr *clusterRouter) listClusters(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var req types.ListClusterRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	var err error
-	if r.Result, err = cr.c.Cluster().List(c, &req); err != nil {
+	if r.Result, err = cr.c.Cluster().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

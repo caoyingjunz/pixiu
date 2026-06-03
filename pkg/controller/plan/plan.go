@@ -45,7 +45,7 @@ type Interface interface {
 	Update(ctx context.Context, planID int64, req *types.UpdatePlanRequest) error
 	Delete(ctx context.Context, pid int64) error
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
-	List(ctx context.Context, req *types.ListPlanRequest) (*types.PageResponse, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
 
@@ -98,6 +98,7 @@ type plan struct {
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	planModel := &model.Plan{
 		Name:        req.Name,
+		UserId:      req.UserId,
 		Description: req.Description,
 	}
 
@@ -116,6 +117,7 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		AliasName:     req.Name,
 		ClusterType:   model.ClusterTypeCustom,
 		PlanId:        planId,
+		UserId:        req.UserId,
 		ClusterStatus: model.ClusterStatusUnStart,
 		Protected:     true,
 		Nodes:         nodes,
@@ -286,50 +288,57 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 	return result, nil
 }
 
-func (p *plan) List(ctx context.Context, req *types.ListPlanRequest) (*types.PageResponse, error) {
-	var opts []db.Options
-	if req != nil && req.NameSelector != "" {
-		opts = append(opts, db.WithPlanNameLike(req.NameSelector))
+func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := p.factory.Plan().Count(ctx, opts...)
+	opts := []db.Options{
+		db.WithUser(listOption.UserId),
+		db.WithAliasNameLike(listOption.NameSelector),
+	}
+
+	var err error
+	pageResult.Total, err = p.factory.Plan().Count(ctx, opts...)
 	if err != nil {
-		klog.Errorf("failed to count plans: %v", err)
-		return nil, errors.ErrServerInternal
+		klog.Errorf("获取部署总数失败 %v", err)
+		pageResult.Message = err.Error()
 	}
 
-	pageReq := types.PageRequest{}
-	if req != nil {
-		pageReq = req.PageRequest
-		if req.Page > 0 && req.Limit > 0 {
-			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
-		}
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
 
 	objects, err := p.factory.Plan().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get plans: %v", err)
+		pageResult.Message = err.Error()
 		return nil, errors.ErrServerInternal
 	}
 
-	ps := make([]types.Plan, 0, len(objects))
+	ps := make([]types.Plan, 0)
 	for _, object := range objects {
 		no, err := p.model2Type(&object)
 		if err != nil {
 			return nil, err
 		}
 		// 状态过滤（在内存中过滤，因为状态来自关联表）
-		if req != nil && req.Step != "" && string(no.Step) != req.Step {
+		if listOption.Step != "" && string(no.Step) != listOption.Step {
 			continue
 		}
 		ps = append(ps, *no)
 	}
+	pageResult.Items = ps
 
-	return &types.PageResponse{
-		PageRequest: pageReq,
-		Total:       int(total),
-		Items:       ps,
-	}, nil
+	return pageResult, nil
 }
 
 // listAll 内部使用，返回所有计划（不带分页和过滤）
