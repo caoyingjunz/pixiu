@@ -57,7 +57,6 @@ func (c Register) Run() error {
 	// 	return nil
 	// }
 
-
 	// 从 master 节点获取 kubeConfig 内容，注入集群服务
 	var masterNodes []model.Node
 	for _, node := range c.data.Nodes {
