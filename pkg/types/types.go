@@ -147,18 +147,6 @@ type RoleAPIsResponse struct {
 	Unassociated []APIResource `json:"unassociated"`
 }
 
-type RoleAPIScopeRecord struct {
-	APIId        int64  `json:"api_id"`
-	Cluster      string `json:"cluster"`
-	Namespace    string `json:"namespace"`
-	ResourceName string `json:"resource_name"`
-}
-
-type RoleAPIScopesResponse struct {
-	Scopes []RoleAPIScopeRecord `json:"scopes"`
-	Apis   []APIResource        `json:"apis"`
-}
-
 type Plan struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`

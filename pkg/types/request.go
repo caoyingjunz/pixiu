@@ -114,10 +114,6 @@ type (
 		APIIds []int64 `json:"api_ids"` // 已关联的 API 资源 ID 列表，全量替换
 	}
 
-	UpdateRoleAPIScopesRequest struct {
-		Scopes []RoleAPIScopeRecord `json:"scopes"` // 已关联的 Kubernetes API 作用域，全量替换
-	}
-
 	CreateAPIRequest struct {
 		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"`
 		Path        string  `json:"path" binding:"required"`

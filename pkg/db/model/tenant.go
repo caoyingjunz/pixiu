@@ -19,7 +19,7 @@ package model
 import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
 func init() {
-	register(&Tenant{}, &Role{}, &UserRole{}, &API{}, &RoleAPI{}, &RoleAPIScope{})
+	register(&Tenant{}, &Role{}, &UserRole{}, &API{}, &RoleAPI{})
 }
 
 type Tenant struct {
@@ -79,19 +79,4 @@ type RoleAPI struct {
 
 func (api *RoleAPI) TableName() string {
 	return "role_apis"
-}
-
-type RoleAPIScope struct {
-	pixiu.Model
-
-	RoleId int64 `gorm:"not null;index:idx_role" json:"role_id"`
-	APIId  int64 `gorm:"not null" json:"api_id"`
-
-	Cluster      string `gorm:"type:varchar(128);not null;index:idx_role_cluster,priority:2" json:"cluster"`
-	Namespace    string `gorm:"type:varchar(128);not null" json:"namespace"`
-	ResourceName string `gorm:"type:varchar(253);not null;default:*" json:"resource_name"`
-}
-
-func (s *RoleAPIScope) TableName() string {
-	return "role_api_scopes"
 }
