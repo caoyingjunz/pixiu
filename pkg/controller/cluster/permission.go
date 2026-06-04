@@ -317,7 +317,6 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 			return "", err
 		}
 	} else {
-		fmt.Println(" req.TargetNamespaces", req.TargetNamespaces)
 		for _, ns := range req.TargetNamespaces {
 			if err = createRoleBinding(ctx, kubeClient, ns, saNs, saName, crName); err != nil {
 				klog.Errorf("%v", err)
@@ -345,17 +344,24 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 
 func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permission) error {
 	// TODO: 直接持久化？
-	old, err := c.factory.Cluster().Get(ctx, object.ClusterId)
+	slaveClu, err := c.factory.Cluster().Get(ctx, object.ClusterId)
 	if err != nil {
-		klog.Errorf("获取主集(%d)群属性失败 %v", object.ClusterId, err)
+		klog.Errorf("获取从集群(%d)属性失败 %v", object.ClusterId, err)
 		return err
 	}
-	clusterSet, err := c.GetClusterSetByName(ctx, old.Name)
+	masterClu, err := c.factory.Cluster().Get(ctx, slaveClu.OwnerReference)
 	if err != nil {
-		return fmt.Errorf("获取集群 %s 配置失败: %w", old.Name, err)
+		klog.Errorf("获取主集群(%d)属性失败 %v", object.ClusterId, err)
+		return err
+	}
+
+	clusterSet, err := c.GetClusterSetByName(ctx, masterClu.Name)
+	if err != nil {
+		return fmt.Errorf("获取集群 %s 配置失败: %w", masterClu.Name, err)
 	}
 	clientSet := clusterSet.Client
 
+	userId := object.UserId
 	saName := object.SAName
 	saNamespace := object.SANamespace
 
@@ -365,13 +371,19 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 
 	if object.PType == 1 {
 		// 2. 删除 ClusterRoleBinding 自定义的类型需要删除
-		name := fmt.Sprintf("pixiu-cr-%d", old.UserId)
-		_ = clientSet.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{})
+		name := fmt.Sprintf("pixiu-cr-%d", userId)
+		klog.Infof("正在删除 cr(%s)", name)
+		if err = clientSet.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+			klog.Errorf("删除 cr(%s) 失败 %v", name, err)
+		}
 
 		// 3. 删除各命名空间的 ClusterRoleBinding
 		bindingName := fmt.Sprintf("pixiu-binding-%s", saName)
 		for _, targetNamespace := range decodeStringSlice(object.TargetNamespaces) {
-			_ = clientSet.RbacV1().RoleBindings(targetNamespace).Delete(ctx, bindingName, metav1.DeleteOptions{})
+			klog.Infof("正在删除 RoleBindings %s(%s)", targetNamespace, bindingName)
+			if err = clientSet.RbacV1().RoleBindings(targetNamespace).Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
+				klog.Errorf("删除 ns(%s) RoleBindings(%s) 失败 %v", targetNamespace, bindingName, err)
+			}
 		}
 	}
 
