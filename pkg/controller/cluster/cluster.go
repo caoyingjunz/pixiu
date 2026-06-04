@@ -55,9 +55,9 @@ type ClusterGetter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, req *types.CreateClusterRequest) error
+	Create(ctx context.Context, req *types.CreateClusterRequest) (*model.Cluster, error)
 	Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error
-	Delete(ctx context.Context, cid int64) error
+	Delete(ctx context.Context, cid int64, skipCheck bool) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
 	List(ctx context.Context, req types.ListOptions) (interface{}, error)
 
@@ -90,7 +90,7 @@ type Interface interface {
 	// CreatePermission 创建 scoped kubeconfig
 	CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error
 	GetPermission(ctx context.Context, permissionId int64) (*types.Permission, error)
-	ListPermissions(ctx context.Context, req *types.ListPermissionRequest) (*types.PageResponse, error)
+	ListPermissions(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 	UpdatePermission(ctx context.Context, permissionId int64, req *types.UpdatePermissionRequest) error
 	DeletePermission(ctx context.Context, permissionId int64) error
 
@@ -132,9 +132,9 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 	return nil
 }
 
-func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) error {
+func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (*model.Cluster, error) {
 	if err := c.preCreate(ctx, req); err != nil {
-		return errors.NewError(err, http.StatusBadRequest)
+		return nil, errors.NewError(err, http.StatusBadRequest)
 	}
 	// TODO: 集群名称必须是由英文，数字组成
 	if len(req.Name) == 0 {
@@ -149,7 +149,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 
 	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
-	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
+	obj, err := c.factory.Cluster().Create(ctx, &model.Cluster{
 		Name:           req.Name,
 		UserId:         req.UserId,
 		AliasName:      req.AliasName,
@@ -160,14 +160,15 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) e
 		PermissionId:   req.PermissionId,
 		OwnerReference: req.OwnerReference,
 		Nodes:          nodes,
-	}, txFunc); err != nil {
+	}, txFunc)
+	if err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
-		return errors.ErrServerInternal
+		return nil, errors.ErrServerInternal
 	}
 
 	// TODO: 暂时不做创建后动作
 	ClusterIndexer.Set(req.Name, *cs)
-	return nil
+	return obj, nil
 }
 
 func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error {
@@ -198,13 +199,18 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 
 // 删除前置检查
 // 开启集群删除保护，则不允许删除
-func (c *cluster) preDelete(ctx context.Context, cid int64) (cluster *model.Cluster, err error) {
+func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (cluster *model.Cluster, err error) {
 	if cluster, err = c.factory.Cluster().Get(ctx, cid); err != nil {
 		klog.Errorf("failed to get cluster(%d): %v", cid, err)
 		return
 	}
 	if cluster == nil {
 		return nil, errors.ErrClusterNotFound
+	}
+
+	// 跳过检查，则直接返回
+	if skipCheck {
+		return
 	}
 	// 开启集群删除保护，则不允许删除
 	if cluster.Protected {
@@ -216,19 +222,19 @@ func (c *cluster) preDelete(ctx context.Context, cid int64) (cluster *model.Clus
 	return
 }
 
-func (c *cluster) Delete(ctx context.Context, cid int64) error {
-	cluster, err := c.preDelete(ctx, cid)
+func (c *cluster) Delete(ctx context.Context, cid int64, skipCheck bool) error {
+	clu, err := c.preDelete(ctx, cid, skipCheck)
 	if err != nil {
 		return err
 	}
 
-	if err := c.factory.Cluster().Delete(ctx, cluster); err != nil {
+	if err = c.factory.Cluster().Delete(ctx, clu); err != nil {
 		klog.Errorf("failed to delete cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
 
 	// 从缓存中移除 clusterSet
-	ClusterIndexer.Delete(cluster.Name)
+	ClusterIndexer.Delete(clu.Name)
 	return nil
 }
 

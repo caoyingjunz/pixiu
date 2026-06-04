@@ -49,7 +49,7 @@ func (cr *clusterRouter) createCluster(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := cr.c.Cluster().Create(c, &req); err != nil {
+	if _, err := cr.c.Cluster().Create(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -123,7 +123,7 @@ func (cr *clusterRouter) deleteCluster(c *gin.Context) {
 		return
 	}
 
-	if err = cr.c.Cluster().Delete(c, idMeta.ClusterId); err != nil {
+	if err = cr.c.Cluster().Delete(c, idMeta.ClusterId, false); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -366,14 +366,16 @@ func (cr *clusterRouter) getPermission(c *gin.Context) {
 func (cr *clusterRouter) listPermissions(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var req types.ListPermissionRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	var err error
-	if r.Result, err = cr.c.Cluster().ListPermissions(c, &req); err != nil {
+	if r.Result, err = cr.c.Cluster().ListPermissions(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
