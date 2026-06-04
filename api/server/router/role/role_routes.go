@@ -165,4 +165,3 @@ func (r *roleRouter) updateRoleAPIs(c *gin.Context) {
 
 	httputils.SetSuccess(c, resp)
 }
-
