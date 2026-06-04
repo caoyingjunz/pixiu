@@ -31,7 +31,8 @@ mysql:
   name: pixiu
 
 worker:
-  work_dir: /tmp/pixiu
+  # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
+#  work_dir: /etc/pixiu
   engines:
     - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
       os_supported:

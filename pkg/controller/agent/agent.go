@@ -156,7 +156,7 @@ func buildFilterOpts(opt types.AgentListOptions) []db.Options {
 		opts = append(opts, db.WithNameLike(opt.NameSelector))
 	}
 	if opt.UserId != 0 {
-		opts = append(opts, db.WithUserId(opt.UserId))
+		opts = append(opts, db.WithUser(opt.UserId))
 	}
 	if opt.Status != nil {
 		opts = append(opts, db.WithStatus(*opt.Status))

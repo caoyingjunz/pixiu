@@ -33,6 +33,7 @@ var (
 	ErrUserNotFound       = errors.New("用户不存在")
 	ErrNotAcceptable      = errors.New("有任务正在执行，请稍后再试")
 	ErrClusterNotFound    = errors.New("集群不存在")
+	ErrPermissionNotFound = errors.New("权限不存在")
 	ErrUserPassword       = errors.New("密码错误")
 	ErrInternal           = errors.New("服务器内部错误")
 	ErrTenantNotFound     = errors.New("租户不存在")

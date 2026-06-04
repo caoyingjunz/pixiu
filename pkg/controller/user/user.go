@@ -245,9 +245,9 @@ func (u *user) List(ctx context.Context, req *types.ListUserRequest) (*types.Pag
 	opts := []db.Options{db.WithOrderByDesc()}
 	if req != nil {
 		opts = append(opts,
-			db.WithUserNameLike(req.UserName),
-			db.WithUserPhoneLike(req.UserPhone),
-			db.WithUserEmailLike(req.UserEmail),
+			db.WithNameLike(req.UserName),
+			db.WithPhoneLike(req.UserPhone),
+			db.WithEmailLike(req.UserEmail),
 		)
 		if req.Status != nil {
 			opts = append(opts, db.WithUserStatus(*req.Status))
