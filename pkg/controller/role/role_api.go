@@ -112,7 +112,6 @@ func (r *role) apiModel2Type(o *model.API) *types.APIResource {
 		Method:      o.Method,
 		Path:        o.Path,
 		Group:       o.Group,
-		SubGroup:    o.SubGroup,
 		Description: o.Description,
 	}
 }

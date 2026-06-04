@@ -18,6 +18,7 @@ package apiregistry
 
 import (
 	"context"
+
 	"k8s.io/klog/v2"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +33,6 @@ type RouteEntry struct {
 	RelativePath string // 相对路径，如 "" 或 "/:roleId"
 	Handler      gin.HandlerFunc
 	Description  string // 中文描述
-	SubGroup     string // 次级分类，如 Deployment/Service 等 K8s 资源类型
 	Persist      *bool  // 是否持久化到数据库，nil 视为 true（默认持久化），显式设为 false 则不持久化
 }
 
@@ -47,27 +47,15 @@ type Group struct {
 	Entries []RouteEntry
 }
 
-// Register 注册 Gin 路由并同步 API 元数据到数据库
+// Register 注册路由并同步 API 元数据到数据库
 func (g *Group) Register(ginGroup *gin.RouterGroup, apiSvc apiresource.Interface) {
 	for _, entry := range g.Entries {
 		registerGinRoute(ginGroup, entry)
-		g.persistAPI(apiSvc, entry)
-	}
-}
-
-// RegisterAPIs 仅将 API 元数据同步到数据库，不注册 Gin 路由（适用于 K8s 透传等单一 Handler 场景）
-func (g *Group) RegisterAPIs(apiSvc apiresource.Interface) {
-	for _, entry := range g.Entries {
-		g.persistAPI(apiSvc, entry)
-	}
-}
-
-func (g *Group) persistAPI(apiSvc apiresource.Interface, entry RouteEntry) {
-	if !persistEntry(entry) {
-		return
-	}
-	if err := registerAPI(apiSvc, g.Name, g.BaseURL, entry); err != nil {
-		klog.Warning("register api %s failed %v", g.BaseURL, err)
+		if persistEntry(entry) {
+			if err := registerAPI(apiSvc, g.Name, g.BaseURL, entry); err != nil {
+				klog.Warning("register api %s failed %v", g.BaseURL, err)
+			}
+		}
 	}
 }
 
@@ -83,8 +71,6 @@ func registerGinRoute(ginGroup *gin.RouterGroup, entry RouteEntry) {
 		ginGroup.DELETE(entry.RelativePath, entry.Handler)
 	case "PATCH":
 		ginGroup.PATCH(entry.RelativePath, entry.Handler)
-	case "ANY":
-		ginGroup.Any(entry.RelativePath, entry.Handler)
 	}
 }
 
@@ -99,9 +85,6 @@ func registerAPI(apiSvc apiresource.Interface, groupName, baseURL string, entry 
 		Path:        fullPath,
 		Group:       &groupName,
 		Description: &desc,
-	}
-	if entry.SubGroup != "" {
-		req.SubGroup = &entry.SubGroup
 	}
 
 	return apiSvc.Register(context.Background(), req)

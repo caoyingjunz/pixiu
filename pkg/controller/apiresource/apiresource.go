@@ -65,9 +65,6 @@ func (a *apiResource) Create(ctx context.Context, req *types.CreateAPIRequest) e
 	if req.Group != nil {
 		apiObj.Group = *req.Group
 	}
-	if req.SubGroup != nil {
-		apiObj.SubGroup = *req.SubGroup
-	}
 	if req.Description != nil {
 		apiObj.Description = *req.Description
 	}
@@ -95,9 +92,6 @@ func (a *apiResource) Register(ctx context.Context, req *types.CreateAPIRequest)
 		updates := make(map[string]interface{})
 		if req.Group != nil && *req.Group != object.Group {
 			updates["api_group"] = *req.Group
-		}
-		if req.SubGroup != nil && *req.SubGroup != object.SubGroup {
-			updates["api_sub_group"] = *req.SubGroup
 		}
 		if req.Description != nil && *req.Description != object.Description {
 			updates["description"] = *req.Description
@@ -248,7 +242,6 @@ func (a *apiResource) model2Type(o *model.API) *types.APIResource {
 		Method:      o.Method,
 		Path:        o.Path,
 		Group:       o.Group,
-		SubGroup:    o.SubGroup,
 		Description: o.Description,
 	}
 }

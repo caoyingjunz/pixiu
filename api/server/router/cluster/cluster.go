@@ -17,9 +17,9 @@ limitations under the License.
 package cluster
 
 import (
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )

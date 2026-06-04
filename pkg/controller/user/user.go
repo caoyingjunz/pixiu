@@ -367,9 +367,6 @@ func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) 
 }
 
 func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
-
-	fmt.Println("ctx", roleId)
-
 	return nil
 }
 
