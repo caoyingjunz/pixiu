@@ -400,14 +400,6 @@ type Haproxy struct {
 	KeepalivedVirtualRouterId string `json:"keepalived_virtual_router_id"` // Arbitrary unique number from 0..255
 }
 
-type RBACPolicy struct {
-	UserName   string           `json:"username,omitempty"`
-	GroupName  string           `json:"groupname,omitempty"`
-	ObjectType model.ObjectType `json:"resource_type,omitempty"`
-	StringID   string           `json:"sid,omitempty"`
-	Operation  model.Operation  `json:"operation,omitempty"`
-}
-
 // AuditListOptions 审计列表查询选项，支持过滤
 type AuditListOptions struct {
 	ListOptions `json:",inline"`

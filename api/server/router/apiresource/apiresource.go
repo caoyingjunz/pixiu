@@ -43,8 +43,8 @@ func (a *apiResourceRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "", Handler: a.createAPI, Description: "创建API"},
 			{Method: "PUT", RelativePath: "/:apiId", Handler: a.updateAPI, Description: "更新API"},
 			{Method: "DELETE", RelativePath: "/:apiId", Handler: a.deleteAPI, Description: "删除API"},
-			{Method: "GET", RelativePath: "/:apiId", Handler: a.getAPI, Description: "API详情"},
-			{Method: "GET", RelativePath: "", Handler: a.listAPIs, Description: "API列表"},
+			{Method: "GET", RelativePath: "/:apiId", Handler: a.getAPI, Description: "查看详情"},
+			{Method: "GET", RelativePath: "", Handler: a.listAPIs, Description: "查看列表"},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/apis"), a.c.APIResource())
