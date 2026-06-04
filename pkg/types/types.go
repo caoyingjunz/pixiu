@@ -439,13 +439,6 @@ type UpdatePermissionRequest struct {
 	TargetNamespaces  []string            `json:"target_namespaces"`
 }
 
-// ListPermissionRequest 权限列表查询
-type ListPermissionRequest struct {
-	PageRequest `form:",inline"`
-	ClusterName string `form:"clusterName"`
-	UserId      *int64 `form:"user_id"`
-}
-
 // Permission 集群 scoped kubeconfig 授权
 type Permission struct {
 	PixiuMeta `json:",inline"`
@@ -464,9 +457,6 @@ type Permission struct {
 	Content           string              `json:"content,omitempty"` // 与 kube_config 相同，便于前端展示
 	Description       string              `json:"description,omitempty"`
 }
-
-// ListKubeConfigRequest 兼容旧名
-type ListKubeConfigRequest = ListPermissionRequest
 
 // KubeConfigResponse 返回给前端的 kubeconfig 内容
 type KubeConfigResponse struct {
