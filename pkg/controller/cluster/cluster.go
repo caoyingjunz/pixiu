@@ -44,6 +44,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -151,23 +152,27 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
 	tenantId, _ := httputils.GetTenantIdFromContext(ctx)
-	if _, err := c.factory.Cluster().Create(ctx, &model.Cluster{
-		Name:        req.Name,
-		AliasName:   req.AliasName,
-		ClusterType: req.Type,
-		TenantId:    tenantId,
-		Protected:   req.Protected,
-		KubeConfig:  req.KubeConfig,
-		Description: req.Description,
-		Nodes:       nodes,
-	}, txFunc); err != nil {
+	newCluster, err := c.factory.Cluster().Create(ctx, &model.Cluster{
+		Name:           req.Name,
+		UserId:         req.UserId,
+		TenantId:       tenantId,
+		AliasName:      req.AliasName,
+		ClusterType:    req.Type,
+		Protected:      req.Protected,
+		KubeConfig:     req.KubeConfig,
+		Description:    req.Description,
+		PermissionId:   req.PermissionId,
+		OwnerReference: req.OwnerReference,
+		Nodes:          nodes,
+	}, txFunc)
+	if err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return nil, errors.ErrServerInternal
 	}
 
 	// TODO: 暂时不做创建后动作
 	ClusterIndexer.Set(req.Name, *cs)
-	return obj, nil
+	return newCluster, nil
 }
 
 func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error {
@@ -262,10 +267,11 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 		},
 	}
 
-	opts := []db.Options{
+	opts := ctrlutil.MakeDbOptions(ctx)
+	opts = append(opts,
 		db.WithUser(listOption.UserId),
 		db.WithAliasNameLike(listOption.NameSelector),
-	}
+	)
 
 	var err error
 	pageResult.Total, err = c.factory.Cluster().Count(ctx, opts...)

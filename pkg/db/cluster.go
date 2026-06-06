@@ -124,7 +124,7 @@ func (c *cluster) Get(ctx context.Context, cid int64, opts ...Options) (*model.C
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
-	if err := tx.First(&object, cid).Error; err != nil {
+	if err := tx.Where("id = ?", cid).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
