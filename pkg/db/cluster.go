@@ -18,6 +18,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -137,9 +138,16 @@ func (c *cluster) Get(ctx context.Context, cid int64, opts ...Options) (*model.C
 func (c *cluster) List(ctx context.Context, opts ...Options) ([]model.Cluster, error) {
 	var cs []model.Cluster
 	tx := c.db.WithContext(ctx)
+
+	// 收集所有 options 的信息
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
+
+	// Debug: 打印生成的 SQL 和参数
+	sql := tx.Session(&gorm.Session{DryRun: true}).Find(&cs).Statement.SQL.String()
+	fmt.Printf("[DEBUG SQL] List: %s\n", sql)
+
 	if err := tx.Find(&cs).Error; err != nil {
 		return nil, err
 	}

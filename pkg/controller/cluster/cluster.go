@@ -268,10 +268,12 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 	}
 
 	opts := ctrlutil.MakeDbOptions(ctx)
-	opts = append(opts,
-		db.WithUser(listOption.UserId),
-		db.WithAliasNameLike(listOption.NameSelector),
-	)
+	if listOption.UserId > 0 {
+		opts = append(opts, db.WithUser(listOption.UserId))
+	}
+	if listOption.NameSelector != "" {
+		opts = append(opts, db.WithAliasNameLike(listOption.NameSelector))
+	}
 
 	var err error
 	pageResult.Total, err = c.factory.Cluster().Count(ctx, opts...)
