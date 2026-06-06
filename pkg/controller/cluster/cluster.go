@@ -121,9 +121,9 @@ type cluster struct {
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
 	// 实际创建前，先创建集群的连通性
-	// if err := c.Ping(ctx, req.KubeConfig); err != nil {
-	// 	return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
-	// }
+	if err := c.Ping(ctx, req.KubeConfig); err != nil {
+		return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
+	}
 	return nil
 }
 
