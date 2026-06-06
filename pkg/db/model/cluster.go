@@ -43,6 +43,7 @@ const (
 // Cluster kubernetes 集群信息
 type Cluster struct {
 	pixiu.Model
+	//pixiu.TenantScopedModel
 
 	TenantId int64 `gorm:"not null;index:idx_tenant_id" json:"tenant_id"`
 	// 集群名称，全局唯一

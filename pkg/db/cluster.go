@@ -76,6 +76,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, resourceVersion int64, 
 	if f.Error != nil {
 		return f.Error
 	}
+
 	if f.RowsAffected == 0 {
 		return errors.ErrRecordNotUpdate
 	}
