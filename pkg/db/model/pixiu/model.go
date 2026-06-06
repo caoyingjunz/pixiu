@@ -31,3 +31,8 @@ type Model struct {
 func (m Model) GetSID() string {
 	return strconv.FormatInt(m.Id, 10)
 }
+
+type UserModel struct {
+	UserId   string `json:"user_id"`
+	UserName string `json:"user_name"`
+}
