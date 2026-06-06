@@ -18,7 +18,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -145,8 +144,8 @@ func (c *cluster) List(ctx context.Context, opts ...Options) ([]model.Cluster, e
 	}
 
 	// Debug: 打印生成的 SQL 和参数
-	sql := tx.Session(&gorm.Session{DryRun: true}).Find(&cs).Statement.SQL.String()
-	fmt.Printf("[DEBUG SQL] List: %s\n", sql)
+	//sql := tx.Session(&gorm.Session{DryRun: true}).Find(&cs).Statement.SQL.String()
+	//fmt.Printf("[DEBUG SQL] List: %s\n", sql)
 
 	if err := tx.Find(&cs).Error; err != nil {
 		return nil, err
