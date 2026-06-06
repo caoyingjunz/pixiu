@@ -5,7 +5,7 @@ releaseName = pixiu
 dockerhubUser ?= jacky06
 k8sVersion ?= v1.23.6
 helmVersion ?= v3.7.1
-targetDir ?= dist
+targetDir ?= __output
 commitHash = $(shell git rev-parse --short HEAD)
 # e.g. 1862ce5-20240203180617
 version = $(commitHash)-$(shell date +%Y%m%d%H%M%S)
@@ -13,7 +13,7 @@ version = $(commitHash)-$(shell date +%Y%m%d%H%M%S)
 ALL: run
 
 run: build
-	./pixiu --configfile ./config.yaml
+	./__output/pixiu --configfile ./config.yaml
 
 build:
 	go build -o $(targetDir)/$(releaseName) -ldflags "-X 'main.version=$(version)'" ./cmd/

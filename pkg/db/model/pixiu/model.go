@@ -31,3 +31,11 @@ type Model struct {
 func (m Model) GetSID() string {
 	return strconv.FormatInt(m.Id, 10)
 }
+
+// TenantScopedModel 租户作用域模型，待使用
+type TenantScopedModel struct {
+	Model
+	TenantId int64   `gorm:"column:tenant_id;type:bigint;default:0;not null;index:idx_tenant_id" json:"tenant_id"`
+	CreateBy *string `gorm:"column:create_by;type:varchar(64);default:'';not null;index:idx_create_by" json:"create_by"` // 创建人
+	ModifyBy *string `gorm:"column:modify_by;type:varchar(64);default:'';not null;index:idx_modify_by" json:"modify_by"` // 修改人
+}

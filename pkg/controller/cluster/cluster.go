@@ -41,8 +41,10 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -126,9 +128,9 @@ type cluster struct {
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
 	// 实际创建前，先创建集群的连通性
-	//if err := c.Ping(ctx, req.KubeConfig); err != nil {
-	//	return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
-	//}
+	if err := c.Ping(ctx, req.KubeConfig); err != nil {
+		return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
+	}
 	return nil
 }
 
@@ -149,9 +151,11 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 
 	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
-	obj, err := c.factory.Cluster().Create(ctx, &model.Cluster{
+	tenantId, _ := httputils.GetTenantIdFromContext(ctx)
+	newCluster, err := c.factory.Cluster().Create(ctx, &model.Cluster{
 		Name:           req.Name,
 		UserId:         req.UserId,
+		TenantId:       tenantId,
 		AliasName:      req.AliasName,
 		ClusterType:    req.Type,
 		Protected:      req.Protected,
@@ -168,11 +172,12 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 
 	// TODO: 暂时不做创建后动作
 	ClusterIndexer.Set(req.Name, *cs)
-	return obj, nil
+	return newCluster, nil
 }
 
 func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error {
-	object, err := c.factory.Cluster().Get(ctx, cid)
+	opts := ctrlutil.MakeDbOptions(ctx)
+	object, err := c.factory.Cluster().Get(ctx, cid, opts...)
 	if err != nil {
 		klog.Errorf("failed to get cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
@@ -200,7 +205,8 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 // 删除前置检查
 // 开启集群删除保护，则不允许删除
 func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (cluster *model.Cluster, err error) {
-	if cluster, err = c.factory.Cluster().Get(ctx, cid); err != nil {
+	opts := ctrlutil.MakeDbOptions(ctx)
+	if cluster, err = c.factory.Cluster().Get(ctx, cid, opts...); err != nil {
 		klog.Errorf("failed to get cluster(%d): %v", cid, err)
 		return
 	}
@@ -239,7 +245,8 @@ func (c *cluster) Delete(ctx context.Context, cid int64, skipCheck bool) error {
 }
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
-	object, err := c.factory.Cluster().Get(ctx, cid)
+	opts := ctrlutil.MakeDbOptions(ctx)
+	object, err := c.factory.Cluster().Get(ctx, cid, opts...)
 	if err != nil {
 		return nil, errors.ErrServerInternal
 	}
@@ -260,9 +267,12 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 		},
 	}
 
-	opts := []db.Options{
-		db.WithUser(listOption.UserId),
-		db.WithAliasNameLike(listOption.NameSelector),
+	opts := ctrlutil.MakeDbOptions(ctx)
+	if listOption.UserId > 0 {
+		opts = append(opts, db.WithUser(listOption.UserId))
+	}
+	if listOption.NameSelector != "" {
+		opts = append(opts, db.WithAliasNameLike(listOption.NameSelector))
 	}
 
 	var err error
@@ -318,7 +328,21 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 }
 
 func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error {
-	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, map[string]interface{}{
+	opts := ctrlutil.MakeDbOptions(ctx)
+	// 先去数据库查询集群是否存在，是否开启保护功能，是否有权限访问该集群
+	cluster, err := c.factory.Cluster().Get(ctx, cid, opts...)
+	if err != nil {
+		klog.Errorf("failed to get cluster(%d): %v", cid, err)
+		return err
+	}
+	if cluster == nil {
+		return errors.ErrNotAcceptable
+	}
+	// 如果已开启保护功能，则不允许开启保护功能
+	if cluster.Protected {
+		return errors.ErrInvalidRequest
+	}
+	if err := c.factory.Cluster().Update(ctx, cid, cluster.ResourceVersion, map[string]interface{}{
 		"protected": req.Protected,
 	}); err != nil {
 		klog.Errorf("failed to protect cluster(%d): %v", cid, err)
