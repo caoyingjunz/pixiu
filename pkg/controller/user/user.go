@@ -255,9 +255,9 @@ func (u *user) List(ctx context.Context, req *types.ListUserRequest) (*types.Pag
 	opts := []db.Options{db.WithOrderByDesc()}
 	if req != nil {
 		opts = append(opts,
-			db.WithUserNameLike(req.UserName),
-			db.WithUserPhoneLike(req.UserPhone),
-			db.WithUserEmailLike(req.UserEmail),
+			db.WithNameLike(req.UserName),
+			db.WithPhoneLike(req.UserPhone),
+			db.WithEmailLike(req.UserEmail),
 		)
 		if req.Status != nil {
 			opts = append(opts, db.WithUserStatus(*req.Status))
@@ -376,11 +376,24 @@ func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) 
 	return t, nil
 }
 
+func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
+	return nil
+}
+
 func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
 	// 如果 roleId 为 0，则表示为超级管理员，直接不做任何限制
 	if roleId == 0 {
-		klog.Infof("超级管理员，权限无需验证")
+		klog.V(1).Infof("超级管理员，权限无需验证")
 		return nil
+	}
+
+	// 获取当前请求的方法和路由模板
+	method := ctx.Request.Method
+	path := ctx.FullPath() // 如 /api/v1/users/:id
+
+	// 如果是 k8s 的 proxy
+	if path == "/proxy/:clusterName/*act" {
+		return u.ValidProxy(ctx, roleId)
 	}
 
 	// 非管理员根据权限
@@ -390,9 +403,6 @@ func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
 		return err
 	}
 
-	// 获取当前请求的方法和路由模板
-	method := ctx.Request.Method
-	path := ctx.FullPath() // 如 /api/v1/users/:id
 	action := method + ":" + path
 	if !apisMap[action] {
 		return fmt.Errorf("无访问权限")

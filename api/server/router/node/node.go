@@ -43,8 +43,8 @@ func (n *nodeRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "", Handler: n.createNode, Description: "创建节点"},
 			{Method: "PUT", RelativePath: "/:nodeId", Handler: n.updateNode, Description: "更新节点"},
 			{Method: "DELETE", RelativePath: "/:nodeId", Handler: n.deleteNode, Description: "删除节点"},
-			{Method: "GET", RelativePath: "/:nodeId", Handler: n.getNode, Description: "节点详情"},
-			{Method: "GET", RelativePath: "", Handler: n.listNodes, Description: "节点列表"},
+			{Method: "GET", RelativePath: "/:nodeId", Handler: n.getNode, Description: "查看详情"},
+			{Method: "GET", RelativePath: "", Handler: n.listNodes, Description: "查看列表"},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/nodes"), n.c.APIResource())

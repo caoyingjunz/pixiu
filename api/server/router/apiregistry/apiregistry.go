@@ -18,6 +18,7 @@ package apiregistry
 
 import (
 	"context"
+
 	"k8s.io/klog/v2"
 
 	"github.com/gin-gonic/gin"
@@ -79,11 +80,12 @@ func registerAPI(apiSvc apiresource.Interface, groupName, baseURL string, entry 
 		fullPath = baseURL + entry.RelativePath
 	}
 	desc := entry.Description
-
-	return apiSvc.Register(context.Background(), &types.CreateAPIRequest{
+	req := &types.CreateAPIRequest{
 		Method:      entry.Method,
 		Path:        fullPath,
 		Group:       &groupName,
 		Description: &desc,
-	})
+	}
+
+	return apiSvc.Register(context.Background(), req)
 }

@@ -41,7 +41,7 @@ func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
 		BaseURL: "/pixiu/audits",
 		Entries: []apiregistry.RouteEntry{
 			//{Method: "GET", RelativePath: "/:auditId", Handler: a.getAudit, Description: "获取审计日志详情"},
-			{Method: "GET", RelativePath: "", Handler: a.listAudits, Description: "审计列表"},
+			{Method: "GET", RelativePath: "", Handler: a.listAudits, Description: "查看列表"},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/audits"), a.c.APIResource())

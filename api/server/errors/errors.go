@@ -123,26 +123,6 @@ var (
 		Code: http.StatusConflict,
 		Err:  errors.ErrNodeNameExists,
 	}
-	ErrRBACPolicyExists = Error{
-		Code: http.StatusConflict,
-		Err:  errors.PolicyExistError,
-	}
-	ErrRBACPolicyNotFound = Error{
-		Code: http.StatusNotFound,
-		Err:  errors.PolicyNotExistError,
-	}
-	ErrGroupBindingExists = Error{
-		Code: http.StatusConflict,
-		Err:  errors.PolicyExistError,
-	}
-	ErrGroupBindingNotFound = Error{
-		Code: http.StatusNotFound,
-		Err:  errors.PolicyNotExistError,
-	}
-	ErrRBACDeprecated = Error{
-		Code: http.StatusGone,
-		Err:  errors.RBACDeprecatedError,
-	}
 	ErrRootAlreadyExists = Error{
 		Code: http.StatusConflict,
 		Err:  errors.ErrRootAlreadyExists,

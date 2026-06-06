@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
 	appv1 "k8s.io/api/apps/v1"
@@ -62,9 +64,13 @@ type Cluster struct {
 	AliasName string              `json:"alias_name"`
 	Status    model.ClusterStatus `json:"status"` // 0: 运行中 1: 部署中 2: 等待部署 3: 部署失败 4: 集群失联，API不可用
 
+	UserId int64 `json:"user_id"`
+
 	// 0: 标准集群 1: 自建集群
 	ClusterType model.ClusterType `json:"cluster_type"`
 	PlanId      int64             `json:"plan_id"` // 自建集群关联的 PlanId，如果是自建的集群，planId 不为 0
+
+	PermissionId int64 `json:"permission_id"`
 
 	// kubernetes 集群的版本和状态
 	KubernetesVersion string   `json:"kubernetes_version"`
@@ -289,11 +295,29 @@ type Turn struct {
 
 // ListOptions is the query options to a standard REST list call.
 type ListOptions struct {
-	Count bool  `form:"count"`
-	Limit int64 `form:"limit"`
+	UserId int64 `form:"user_id" json:"user_id"` // 用户 id
 
+	CustomMeta  `json:",inline"`
 	PageRequest `json:",inline"` // 分页请求属性
 	QueryOption `json:",inline"` // 搜索内容
+}
+
+type CustomMeta struct {
+	Status *int
+	Step   string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
+}
+
+func (o *ListOptions) SetDefaultPageOption() {
+	// 初始化分页属性
+	if o.Page <= 0 {
+		o.Page = 1
+	}
+	if o.Limit <= 0 {
+		o.Limit = 10
+	}
+	if o.Limit > 100 {
+		o.Limit = 100
+	}
 }
 
 type EventOptions struct {
@@ -376,14 +400,6 @@ type Haproxy struct {
 	KeepalivedVirtualRouterId string `json:"keepalived_virtual_router_id"` // Arbitrary unique number from 0..255
 }
 
-type RBACPolicy struct {
-	UserName   string           `json:"username,omitempty"`
-	GroupName  string           `json:"groupname,omitempty"`
-	ObjectType model.ObjectType `json:"resource_type,omitempty"`
-	StringID   string           `json:"sid,omitempty"`
-	Operation  model.Operation  `json:"operation,omitempty"`
-}
-
 // AuditListOptions 审计列表查询选项，支持过滤
 type AuditListOptions struct {
 	ListOptions `json:",inline"`
@@ -394,4 +410,56 @@ type AuditListOptions struct {
 	Status      *uint8 `form:"status"`      // 操作状态（0:失败 1:成功 2:未知）
 	StartTime   string `form:"start_time"`  // 时间范围起（RFC3339，留空忽略）
 	EndTime     string `form:"end_time"`    // 时间范围止（RFC3339，留空忽略）
+}
+
+// CreatePermissionRequest 创建 scoped kubeconfig 的请求参数
+type CreatePermissionRequest struct {
+	ClusterId         int64  `json:"cluster_id" binding:"required"` // k8s 对应集群 id
+	UserId            int64  `json:"user_id"`
+	Name              string `json:"name" binding:"required"`
+	ExpirationSeconds int64  `json:"expiration_seconds"` // 默认 1 年
+	Description       string `json:"description"`
+
+	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
+	Rules []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
+
+	SAName           string   `json:"sa_name"`
+	SANamespace      string   `json:"sa_namespace"`
+	TargetNamespaces []string `json:"target_namespaces"`
+}
+
+// UpdatePermissionRequest 更新权限
+type UpdatePermissionRequest struct {
+	ResourceVersion   *int64              `json:"resource_version" binding:"required"`
+	Name              *string             `json:"name"`
+	ExpirationSeconds *int64              `json:"expiration_seconds"`
+	Description       *string             `json:"description"`
+	PType             *int                `json:"p_type"`
+	Rules             []rbacv1.PolicyRule `json:"rules"`
+	TargetNamespaces  []string            `json:"target_namespaces"`
+}
+
+// Permission 集群 scoped kubeconfig 授权
+type Permission struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	UserId            int64               `json:"user_id"`
+	ClusterId         int64               `json:"cluster_id"`
+	Name              string              `json:"name"`
+	ExpirationSeconds int64               `json:"expiration_seconds"`
+	PType             int                 `json:"p_type"`
+	Rules             []rbacv1.PolicyRule `json:"rules,omitempty"`
+	SAName            string              `json:"sa_name"`
+	SANamespace       string              `json:"sa_namespace"`
+	TargetNamespaces  []string            `json:"target_namespaces"`
+	KubeConfig        string              `json:"kube_config,omitempty"`
+	Content           string              `json:"content,omitempty"` // 与 kube_config 相同，便于前端展示
+	Description       string              `json:"description,omitempty"`
+}
+
+// KubeConfigResponse 返回给前端的 kubeconfig 内容
+type KubeConfigResponse struct {
+	ClusterName string `json:"cluster_name"`
+	Content     string `json:"content"`
 }
