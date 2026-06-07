@@ -17,6 +17,7 @@ limitations under the License.
 package types
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -202,6 +203,12 @@ const (
 	NoneAuth     AuthType = "none"     // 已开启密码
 	KeyAuth      AuthType = "key"      // 密钥
 	PasswordAuth AuthType = "password" // 密码
+)
+
+const (
+	defaultExpiration        = 365 * 24 * time.Hour
+	defaultExpirationSeconds = int64(defaultExpiration / time.Second)
+	defaultNamespace         = "pixiu-system"
 )
 
 type PlanNodeAuth struct {
@@ -414,7 +421,7 @@ type AuditListOptions struct {
 
 // CreatePermissionRequest 创建 scoped kubeconfig 的请求参数
 type CreatePermissionRequest struct {
-	ClusterId         int64  `json:"cluster_id" binding:"required"` // k8s 对应集群 id
+	ClusterId         int64  `json:"cluster_id" binding:"required"` // 授权k8s的集群ID，主集群
 	UserId            int64  `json:"user_id"`
 	Name              string `json:"name" binding:"required"`
 	ExpirationSeconds int64  `json:"expiration_seconds"` // 默认 1 年
@@ -423,9 +430,41 @@ type CreatePermissionRequest struct {
 	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
 	Rules []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
 
-	SAName           string   `json:"sa_name"`
-	SANamespace      string   `json:"sa_namespace"`
+	SAName          string `json:"sa_name"`
+	SANamespace     string `json:"sa_namespace"`
+	ClusterRoleName string `json:"cluster_role_name"`
+	RoleBindingName string `json:"role_binding_name"`
+
 	TargetNamespaces []string `json:"target_namespaces"`
+}
+
+func (o *CreatePermissionRequest) SetDefaultOptions() {
+	if o.ExpirationSeconds <= 0 {
+		o.ExpirationSeconds = defaultExpirationSeconds
+	}
+
+	if len(o.SANamespace) == 0 {
+		o.SANamespace = defaultNamespace
+	}
+
+	if len(o.SAName) == 0 {
+		o.SAName = fmt.Sprintf("pixiu-sa-%d", o.UserId)
+	}
+
+	if len(o.ClusterRoleName) == 0 {
+		o.ClusterRoleName = fmt.Sprintf("pixiu-cr-%d", o.UserId)
+	}
+	if o.PType == 0 {
+		o.ClusterRoleName = "view"
+	}
+	if o.PType == 2 {
+		o.ClusterRoleName = "cluster-admin"
+	}
+
+	if len(o.RoleBindingName) == 0 {
+		o.RoleBindingName = fmt.Sprintf("pixiu-rb-%d", o.UserId)
+	}
+
 }
 
 // UpdatePermissionRequest 更新权限
@@ -445,7 +484,10 @@ type Permission struct {
 	TimeMeta  `json:",inline"`
 
 	UserId            int64               `json:"user_id"`
+	UserName          string              `json:"user_name"`
 	ClusterId         int64               `json:"cluster_id"`
+	ClusterName       string              `json:"cluster_name"`
+	ClusterAliasName  string              `json:"cluster_alias_name"`
 	Name              string              `json:"name"`
 	ExpirationSeconds int64               `json:"expiration_seconds"`
 	PType             int                 `json:"p_type"`

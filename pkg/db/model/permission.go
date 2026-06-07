@@ -35,13 +35,20 @@ const (
 type Permission struct {
 	pixiu.Model
 
-	UserId int64 `gorm:"column:user_id;not null;index:idx_user_id;index:idx_user_cluster,priority:1;uniqueIndex:uk_user_cluster_name,priority:1" json:"user_id"`
-
-	// 目标集群名称（全局唯一集群名）
-	ClusterId int64 `gorm:"column:cluster_id;type:varchar(128);not null;index:idx_user_cluster,priority:2;uniqueIndex:uk_user_cluster_name,priority:2" json:"cluster_name"`
-
 	// 授权名称，同一用户在同一集群下唯一
 	Name string `gorm:"type:varchar(128);not null;uniqueIndex:uk_user_cluster_name,priority:3" json:"name"`
+
+	UserId   int64  `gorm:"column:user_id;not null;index:idx_user_id;index:idx_user_cluster,priority:1;uniqueIndex:uk_user_cluster_name,priority:1" json:"user_id"`
+	UserName string `gorm:"column:user_name;not null;index:idx_user_name,priority:1" json:"user_name"`
+
+	// 目标集群名称（全局唯一集群名）
+	ClusterId   int64  `gorm:"column:cluster_id;type:varchar(128);not null;index:idx_user_cluster,priority:2;uniqueIndex:uk_user_cluster_name,priority:2" json:"cluster_name"`
+	ClusterName string `json:"cluster_name"`
+
+	// 所属主集群
+	OwnerClusterId        int64  `json:"owner_cluster_id"`
+	OwnerClusterName      string `json:"owner_cluster_name"`
+	OwnerClusterAliasName string `json:"owner_cluster_alias_name"`
 
 	ExpirationSeconds int64           `gorm:"column:expiration_seconds" json:"expiration_seconds"`
 	PType             PermissionPType `gorm:"column:p_type" json:"p_type"`
@@ -51,6 +58,9 @@ type Permission struct {
 
 	SAName      string `gorm:"column:sa_name" json:"sa_name"`
 	SANamespace string `gorm:"column:sa_namespace" json:"sa_namespace"`
+
+	ClusterRoleName string `gorm:"column:cluster_role_name" json:"cluster_role_name"`
+	RoleBindingName string `gorm:"column:role_binding_name" json:"role_binding_name"`
 
 	// JSON 序列化的命名空间列表
 	TargetNamespaces string `gorm:"column:target_namespaces" json:"target_namespaces"`

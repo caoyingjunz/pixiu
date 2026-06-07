@@ -24,39 +24,23 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-const (
-	defaultExpiration        = 365 * 24 * time.Hour
-	defaultExpirationSeconds = int64(defaultExpiration / time.Second)
-	defaultNamespace         = "pixiu-system"
-)
-
 // CreatePermission 创建 scoped kubeconfig 并持久化
 // TODO 后续优化
 func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error {
-	// 用户id 必须存在
-	if req.UserId == 0 {
+	// 用户 id 和授权集群 ID 必须存在
+	if req.UserId == 0 || req.ClusterId == 0 {
 		return errors.ErrReqParams
 	}
+	// 设置默认值
+	req.SetDefaultOptions()
 
-	if req.ExpirationSeconds <= 0 {
-		req.ExpirationSeconds = defaultExpirationSeconds
-	}
-
-	// 创建授权 k8s 集群
+	// 查询待授权 k8s 集群属性
 	old, err := c.factory.Cluster().Get(ctx, req.ClusterId)
 	if err != nil {
 		klog.Errorf("获取主集(%d)群属性失败 %v", req.ClusterId, err)
 		return err
 	}
 
-	saNs := req.SANamespace
-	if saNs == "" {
-		saNs = defaultNamespace
-	}
-	saName := req.SAName
-	if saName == "" {
-		saName = fmt.Sprintf("pixiu-sa-%d", req.UserId)
-	}
 	clusterSet, err := c.GetClusterSetByName(ctx, old.Name)
 	if err != nil {
 		return fmt.Errorf("获取集群 %s 配置失败: %w", old.Name, err)
@@ -71,19 +55,31 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 		return err
 	}
 
+	// 查询用户信息
+	userObj, err := c.factory.User().Get(ctx, req.UserId)
+	if err != nil {
+		return err
+	}
+
+	// 待补充目标集群的集群id（区别主集群id）
 	p, err := c.factory.Permission().Create(ctx, &model.Permission{
-		UserId:            req.UserId,
-		Name:              req.Name,
-		ExpirationSeconds: req.ExpirationSeconds,
-		PType:             model.PermissionPType(req.PType),
-		Rules:             rulesJSON,
-		SAName:            saName,
-		SANamespace:       saNs,
-		TargetNamespaces:  nsJSON,
-		Description:       req.Description,
+		Name:                  req.Name,
+		UserId:                req.UserId,
+		UserName:              userObj.Name,
+		OwnerClusterId:        req.ClusterId,
+		OwnerClusterName:      old.Name,
+		OwnerClusterAliasName: old.AliasName,
+		ExpirationSeconds:     req.ExpirationSeconds,
+		PType:                 model.PermissionPType(req.PType),
+		Rules:                 rulesJSON,
+		TargetNamespaces:      nsJSON,
+		SAName:                req.SAName,
+		SANamespace:           req.SANamespace,
+		ClusterRoleName:       req.ClusterRoleName,
+		RoleBindingName:       req.RoleBindingName,
+		Description:           req.Description,
 	})
 	if err != nil {
-		// TODO: 移除 k8s 已下发资源
 		if errors.IsUniqueConstraintError(err) {
 			return fmt.Errorf("同一用户在该集群下已存在同名授权")
 		}
@@ -91,32 +87,33 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 		return errors.ErrInternal
 	}
 
-	kubeConfig, err := c.addKubernetesRule(ctx, req, clusterSet, saNs, saName)
+	// 下发k8s正式规则
+	kubeConfig, err := c.addKubernetesRule(ctx, req, clusterSet)
 	if err != nil {
+		klog.Errorf("下发 kubernetes 规则失败 %v", err)
+		_ = c.DeletePermission(ctx, p.Id)
 		return err
 	}
 
 	newObj, err := c.Create(ctx, &types.CreateClusterRequest{
-		AliasName:      old.AliasName,
 		UserId:         req.UserId,
 		Type:           old.ClusterType,
 		KubeConfig:     kubeConfig,
-		Protected:      old.Protected,
-		Description:    old.Description,
 		PermissionId:   p.Id,
 		OwnerReference: old.Id,
 	})
 	if err != nil {
-		// todo 清理过程脏数据
-		klog.Errorf("创建授权集群失败")
+		_ = c.DeletePermission(ctx, p.Id)
+		klog.Errorf("创建授权集群失败 %v", err)
 		return err
 	}
 
-	// 更新权限的集群id
+	// 更新权限的子集群id
 	// TODO: 内部更新，可忽略 ResourceVersion
 	if err = c.factory.Permission().Update(ctx, p.Id, p.ResourceVersion, map[string]interface{}{
-		"cluster_id": newObj.Id,
+		"cluster_id": newObj.Id, "cluster_name": newObj.Name,
 	}); err != nil {
+		_ = c.DeletePermission(ctx, p.Id)
 		klog.Errorf("更新权限集群失败 %v", err)
 		return err
 	}
@@ -301,35 +298,32 @@ func (c *cluster) mergePermissionRequest(object *model.Permission, req *types.Up
 	return merged
 }
 
-func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermissionRequest, clusterSet client.ClusterSet, saNs, saName string) (string, error) {
+func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermissionRequest, clusterSet client.ClusterSet) (string, error) {
 	kubeClient := clusterSet.Client
-	if err := ensureServiceAccount(ctx, kubeClient, saNs, saName); err != nil {
+	if err := ensureServiceAccount(ctx, req, kubeClient); err != nil {
 		return "", fmt.Errorf("创建 SA 失败: %w", err)
 	}
 
-	crName, err := createClusterRole(ctx, kubeClient, req)
-	if err != nil {
+	if err := createClusterRole(ctx, req, kubeClient); err != nil {
 		return "", err
 	}
 
 	if req.PType == 0 || req.PType == 2 {
-		if err = createClusterRoleBinding(ctx, kubeClient, saNs, saName, crName); err != nil {
-			return "", err
-		}
+		// TODO
+		//if err := createClusterRoleBinding(ctx, req, kubeClient); err != nil {
+		//	return "", err
+		//}
 	} else {
 		for _, ns := range req.TargetNamespaces {
-			if err = createRoleBinding(ctx, kubeClient, ns, saNs, saName, crName); err != nil {
+			if err := createRoleBinding(ctx, req, kubeClient, ns); err != nil {
 				klog.Errorf("%v", err)
 				return "", err
 			}
 		}
 	}
 
-	expiration := defaultExpiration
-	if req.ExpirationSeconds > 0 {
-		expiration = time.Duration(req.ExpirationSeconds) * time.Second
-	}
-	token, err := createToken(ctx, kubeClient, saNs, saName, expiration)
+	expiration := time.Duration(req.ExpirationSeconds) * time.Second
+	token, err := createToken(ctx, kubeClient, req.SANamespace, req.SAName, expiration)
 	if err != nil {
 		return "", fmt.Errorf("创建 token 失败: %w", err)
 	}
@@ -343,27 +337,17 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 }
 
 func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permission) error {
-	// TODO: 直接持久化？
-	slaveClu, err := c.factory.Cluster().Get(ctx, object.ClusterId)
+	// 调用主集群 client 进行清理
+	clusterSet, err := c.GetClusterSetByName(ctx, object.OwnerClusterName)
 	if err != nil {
-		klog.Errorf("获取从集群(%d)属性失败 %v", object.ClusterId, err)
-		return err
-	}
-	masterClu, err := c.factory.Cluster().Get(ctx, slaveClu.OwnerReference)
-	if err != nil {
-		klog.Errorf("获取主集群(%d)属性失败 %v", object.ClusterId, err)
-		return err
-	}
-
-	clusterSet, err := c.GetClusterSetByName(ctx, masterClu.Name)
-	if err != nil {
-		return fmt.Errorf("获取集群 %s 配置失败: %w", masterClu.Name, err)
+		return fmt.Errorf("获取集群 %s 配置失败: %w", object.OwnerClusterName, err)
 	}
 	clientSet := clusterSet.Client
 
-	userId := object.UserId
 	saName := object.SAName
 	saNamespace := object.SANamespace
+	name := object.ClusterRoleName
+	bindingName := object.RoleBindingName
 
 	// 执行 k8s 资源删除
 	// 1. 删除 SA
@@ -371,14 +355,12 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 
 	if object.PType == 1 {
 		// 2. 删除 ClusterRoleBinding 自定义的类型需要删除
-		name := fmt.Sprintf("pixiu-cr-%d", userId)
 		klog.Infof("正在删除 cr(%s)", name)
 		if err = clientSet.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-			klog.Errorf("删除 cr(%s) 失败 %v", name, err)
+			klog.Errorf("删除 ClusterRole(%s) 失败 %v", name, err)
 		}
 
 		// 3. 删除各命名空间的 ClusterRoleBinding
-		bindingName := fmt.Sprintf("pixiu-binding-%s", saName)
 		for _, targetNamespace := range decodeStringSlice(object.TargetNamespaces) {
 			klog.Infof("正在删除 RoleBindings %s(%s)", targetNamespace, bindingName)
 			if err = clientSet.RbacV1().RoleBindings(targetNamespace).Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
@@ -400,14 +382,17 @@ func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		UserId:            o.UserId,
 		Name:              o.Name,
+		UserId:            o.UserId,
+		UserName:          o.UserName,
 		ExpirationSeconds: o.ExpirationSeconds,
 		PType:             int(o.PType),
 		Rules:             decodeRules(o.Rules),
 		SAName:            o.SAName,
 		SANamespace:       o.SANamespace,
-		ClusterId:         o.ClusterId,
+		ClusterId:         o.OwnerClusterId,
+		ClusterName:       o.OwnerClusterName,
+		ClusterAliasName:  o.OwnerClusterAliasName,
 		TargetNamespaces:  decodeStringSlice(o.TargetNamespaces),
 		Description:       o.Description,
 	}
@@ -458,8 +443,12 @@ func decodeStringSlice(raw string) []string {
 }
 
 // 创建 ClusterRoleBinding（将 ClusterRole 绑定到 ServiceAccount，集群级）
-func createClusterRoleBinding(ctx context.Context, clientSet *kubernetes.Clientset, saNamespace, saName, clusterRoleName string) error {
-	bindingName := fmt.Sprintf("pixiu-crb-%s", saName)
+func createClusterRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, clientSet *kubernetes.Clientset) error {
+	bindingName := req.RoleBindingName
+	clusterRoleName := req.ClusterRoleName
+	saName := req.SAName
+	saNamespace := req.SANamespace
+
 	_, err := clientSet.RbacV1().ClusterRoleBindings().Get(ctx, bindingName, metav1.GetOptions{})
 	if err == nil {
 		return nil
@@ -494,8 +483,12 @@ func createClusterRoleBinding(ctx context.Context, clientSet *kubernetes.Clients
 }
 
 // 创建 RoleBinding（将 ClusterRole 绑定到 ServiceAccount，限定在指定命名空间）
-func createRoleBinding(ctx context.Context, clientSet *kubernetes.Clientset, namespace, saNamespace, saName, clusterRoleName string) error {
-	bindingName := fmt.Sprintf("pixiu-binding-%s", saName)
+func createRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, clientSet *kubernetes.Clientset, namespace string) error {
+	bindingName := req.RoleBindingName
+	saName := req.SAName
+	saNamespace := req.SANamespace
+	clusterRoleName := req.ClusterRoleName
+
 	_, err := clientSet.RbacV1().RoleBindings(namespace).Get(ctx, bindingName, metav1.GetOptions{})
 	if err == nil {
 		return nil
@@ -529,18 +522,16 @@ func createRoleBinding(ctx context.Context, clientSet *kubernetes.Clientset, nam
 }
 
 // 创建 ClusterRole（如果已存在则跳过）
-func createClusterRole(ctx context.Context, clientSet *kubernetes.Clientset, req *types.CreatePermissionRequest) (string, error) {
-	if req.PType == 0 {
-		return "view", nil
-	}
-	if req.PType == 2 {
-		return "cluster-admin", nil
+func createClusterRole(ctx context.Context, req *types.CreatePermissionRequest, clientSet *kubernetes.Clientset) error {
+	// 自定义需要创建，只读和管理员直接复用原有cr
+	if req.PType != 1 {
+		return nil
 	}
 
-	name := fmt.Sprintf("pixiu-cr-%d", req.UserId)
+	name := req.ClusterRoleName
 	_, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
-		return name, nil
+		return nil
 	}
 
 	clusterRole := &rbacv1.ClusterRole{
@@ -554,12 +545,15 @@ func createClusterRole(ctx context.Context, clientSet *kubernetes.Clientset, req
 	}
 	_, err = clientSet.RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
 	if err != nil {
-		return "", fmt.Errorf("创建 ClusterRole 失败: %v", err)
+		return fmt.Errorf("创建 ClusterRole 失败: %v", err)
 	}
-	return name, nil
+	return nil
 }
 
-func ensureServiceAccount(ctx context.Context, client kubernetes.Interface, ns, name string) error {
+func ensureServiceAccount(ctx context.Context, req *types.CreatePermissionRequest, client kubernetes.Interface) error {
+	ns := req.SANamespace
+	name := req.SAName
+
 	saClient := client.CoreV1().ServiceAccounts(ns)
 	_, err := saClient.Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
