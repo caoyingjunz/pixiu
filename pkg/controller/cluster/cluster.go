@@ -264,30 +264,49 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 		db.WithUser(listOption.UserId),
 		db.WithAliasNameLike(listOption.NameSelector),
 	}
-
-	var err error
-	pageResult.Total, err = c.factory.Cluster().Count(ctx, opts...)
-	if err != nil {
-		klog.Errorf("获取集群总数失败 %v", err)
-		pageResult.Message = err.Error()
-	}
-	offset := (listOption.Page - 1) * listOption.Limit
-	opts = append(opts, []db.Options{
-		db.WithModifyOrderByDesc(),
-		db.WithOffset(offset),
-		db.WithLimit(listOption.Limit),
-	}...)
-
-	objects, err := c.factory.Cluster().List(ctx, opts...)
+	// 先把所有的集群查询出来
+	allObjects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("获取集群列表失败 %v", err)
 		pageResult.Message = err.Error()
 		return nil, err
 	}
 
+	masterClusterMap := make(map[int64]bool)
+	objects := make([]model.Cluster, 0)
+	slaveObjects := make([]model.Cluster, 0)
+
+	for _, object := range allObjects {
+		// 如果 PermissionId 为 0 ，表示主集群
+		if object.PermissionId == 0 {
+			masterClusterMap[object.Id] = true
+			objects = append(objects, object)
+		} else {
+			slaveObjects = append(slaveObjects, object)
+		}
+	}
+	for _, slaveObject := range slaveObjects {
+		// 主集群已经存在的时候，忽略从集群
+		if masterClusterMap[slaveObject.OwnerReference] {
+			klog.Infof("集群 %s(%s) 为 %d 的子集群，忽略", slaveObject.AliasName, slaveObject.Name, slaveObject.OwnerReference)
+			continue
+		}
+		objects = append(objects, slaveObject)
+	}
+
+	pageResult.Total = int64(len(objects))
+
+	// 然后再通过操作数组做分页
+	offset, end, err := pageResult.PageRequest.Offset(len(objects))
+	if err != nil {
+		pageResult.Items = make([]types.Cluster, 0)
+		return pageResult, nil
+	}
+	pagedObjects := objects[offset:end]
+
 	// 为保护内部数据结构做一次转换
 	cs := make([]types.Cluster, 0)
-	for _, object := range objects {
+	for _, object := range pagedObjects {
 		cs = append(cs, *c.model2Type(&object))
 	}
 	pageResult.Items = cs
@@ -931,6 +950,29 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		Status:            o.ClusterStatus, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
 		Protected:         o.Protected,
 		Description:       o.Description,
+	}
+
+	// 子集群，需要整合主集群字段
+	if o.PermissionId != 0 {
+		klog.Infof("cluster %s has permissionId %d, 补全 OwnerRef(%d)", o.Name, o.PermissionId, o.OwnerReference)
+		masterCluster, err := c.factory.Cluster().Get(context.TODO(), o.OwnerReference)
+		if err == nil {
+			masterNodes := types.KubeNode{}
+			if strings.TrimSpace(masterCluster.Nodes) != "" {
+				if err = masterNodes.Unmarshal(masterCluster.Nodes); err != nil {
+					// 非核心数据
+					klog.Warningf("failed to unmarshal cluster nodes: %v", err)
+				}
+			}
+			tc.Nodes = masterNodes
+			tc.Status = masterCluster.ClusterStatus
+			tc.AliasName = masterCluster.AliasName
+			tc.Protected = masterCluster.Protected
+			tc.KubernetesVersion = masterCluster.KubernetesVersion
+			tc.ClusterType = masterCluster.ClusterType
+		}
+
+		return tc
 	}
 
 	//var (
