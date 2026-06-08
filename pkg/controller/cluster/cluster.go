@@ -257,17 +257,17 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 // 删除前置检查
 // 开启集群删除保护，则不允许删除
 func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (cluster *model.Cluster, err error) {
-	// 跳过检查，则直接返回
-	if skipCheck {
-		return
-	}
-
 	if cluster, err = c.factory.Cluster().Get(ctx, cid); err != nil {
 		klog.Errorf("failed to get cluster(%d): %v", cid, err)
 		return
 	}
 	if cluster == nil {
 		return nil, errors.ErrClusterNotFound
+	}
+
+	// 跳过检查，则直接返回
+	if skipCheck {
+		return
 	}
 
 	// 开启集群删除保护，则不允许删除

@@ -33,6 +33,8 @@ type PermissionInterface interface {
 	Get(ctx context.Context, pid int64) (*model.Permission, error)
 	List(ctx context.Context, opts ...Options) ([]model.Permission, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
+
+	GetBy(ctx context.Context, opts ...Options) (*model.Permission, error)
 }
 
 type permission struct {
@@ -86,6 +88,18 @@ func (p *permission) Get(ctx context.Context, pid int64) (*model.Permission, err
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
+		return nil, err
+	}
+	return &object, nil
+}
+
+func (p *permission) GetBy(ctx context.Context, opts ...Options) (*model.Permission, error) {
+	var object model.Permission
+	tx := p.db.WithContext(ctx).Model(&model.Permission{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object).Error; err != nil {
 		return nil, err
 	}
 	return &object, nil
