@@ -24,9 +24,25 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
+func (c *cluster) preCreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error { // 一个集群只能授权给一个用户一次
+	_, err := c.factory.Permission().GetBy(ctx, db.WithUser(req.UserId), db.WithOwnerCluster(req.ClusterId))
+	if err == nil {
+		return fmt.Errorf("集群已关联到用户")
+	}
+	if !errors.IsRecordNotFound(err) {
+		return fmt.Errorf("创建前检查失败 %v", err)
+	}
+
+	return nil
+}
+
 // CreatePermission 创建 scoped kubeconfig 并持久化
 // TODO 后续优化
 func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error {
+	if err := c.preCreatePermission(ctx, req); err != nil {
+		return err
+	}
+
 	// 用户 id 和授权集群 ID 必须存在
 	if req.UserId == 0 || req.ClusterId == 0 {
 		return errors.ErrReqParams
