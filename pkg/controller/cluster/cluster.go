@@ -30,6 +30,7 @@ import (
 	"github.com/gorilla/websocket"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apitypes "k8s.io/apimachinery/pkg/types"
@@ -166,9 +167,65 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 		return nil, errors.ErrServerInternal
 	}
 
+	// 新增内置必要规则
+	if err = c.addPixiuClusterRole(ctx, req, cs); err != nil {
+		klog.Errorf("failed to add pixiu cluster role %s: %v", req.Name, err)
+		_ = c.Delete(ctx, obj.Id, true)
+	}
+
 	// TODO: 暂时不做创建后动作
 	ClusterIndexer.Set(req.Name, *cs)
 	return obj, nil
+}
+
+// 创建内置的 ClusterRole
+func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClusterRequest, cs *client.ClusterSet) error {
+	// 如果是子集群，不需要添加，只有主集群需要新增权限
+	if req.PermissionId != 0 {
+		return nil
+	}
+
+	clusterRoleView := "pixiu-view"
+	// 已存在则忽略
+	_, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleView, metav1.GetOptions{})
+	if err == nil {
+		return nil
+	}
+
+	clusterRoleSystemView := "view"
+	viewClusterRole, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleSystemView, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("获取内置 ClusterRoles 失败 %v", err)
+	}
+
+	rules := viewClusterRole.Rules
+	// 追加依赖rule
+	rules = append(rules, []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{"metrics.pixiu.io"},
+			Resources: []string{"api/dashboard"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"nodes"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+	}...)
+
+	_, err = cs.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterRoleView,
+			Labels: map[string]string{
+				"maintainer": "pixiu",
+			},
+		},
+		Rules: rules,
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("创建你内置 ClusterRole 失败: %v", err)
+	}
+	return nil
 }
 
 func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error {
@@ -200,6 +257,11 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 // 删除前置检查
 // 开启集群删除保护，则不允许删除
 func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (cluster *model.Cluster, err error) {
+	// 跳过检查，则直接返回
+	if skipCheck {
+		return
+	}
+
 	if cluster, err = c.factory.Cluster().Get(ctx, cid); err != nil {
 		klog.Errorf("failed to get cluster(%d): %v", cid, err)
 		return
@@ -208,13 +270,16 @@ func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (clu
 		return nil, errors.ErrClusterNotFound
 	}
 
-	// 跳过检查，则直接返回
-	if skipCheck {
-		return
-	}
 	// 开启集群删除保护，则不允许删除
 	if cluster.Protected {
 		return nil, errors.NewError(fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", cluster.AliasName),
+			http.StatusForbidden)
+	}
+
+	// 如果还存在授权，不允许删除
+	objs, err := c.factory.Permission().List(ctx, db.WithOwnerCluster(cid))
+	if err == nil && len(objs) > 0 {
+		return nil, errors.NewError(fmt.Errorf("存在授权集群，不允许删除 %s", cluster.AliasName),
 			http.StatusForbidden)
 	}
 
@@ -233,8 +298,29 @@ func (c *cluster) Delete(ctx context.Context, cid int64, skipCheck bool) error {
 		return errors.ErrServerInternal
 	}
 
+	cs, err := c.GetClusterSetByName(ctx, clu.Name)
+	if err == nil {
+		// 如果不存在客户端，则忽略，及时有遗留的 clusterRole 也没有影响
+		_ = c.deletePixiuClusterRole(ctx, clu, cs)
+	}
+
 	// 从缓存中移除 clusterSet
 	ClusterIndexer.Delete(clu.Name)
+	return nil
+}
+
+func (c *cluster) deletePixiuClusterRole(ctx context.Context, cluster *model.Cluster, cs client.ClusterSet) error {
+	if cluster.PermissionId != 0 {
+		return nil
+	}
+
+	clusterRoleView := "pixiu-view"
+	if err := cs.Client.RbacV1().ClusterRoles().Delete(ctx, clusterRoleView, metav1.DeleteOptions{}); err != nil {
+		klog.Errorf("failed to delete clusterRole(%s): %v", clusterRoleView, err)
+		return nil
+	}
+
+	klog.Infof("delete clusterRole(%s) 成功", clusterRoleView)
 	return nil
 }
 
