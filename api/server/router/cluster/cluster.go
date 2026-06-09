@@ -53,17 +53,25 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/:clusterId", Handler: cr.deleteCluster, Description: "删除集群"},
 			{Method: "GET", RelativePath: "/:clusterId", Handler: cr.getCluster, Description: "查看详情"},
 			{Method: "GET", RelativePath: "", Handler: cr.listClusters, Description: "查看列表"},
-			{Method: "POST", RelativePath: "/ping", Handler: cr.pingCluster, Description: "连通"},
-			{Method: "POST", RelativePath: "/protect/:clusterId", Handler: cr.protectCluster, Description: "保护"},
+			{Method: "POST", RelativePath: "/ping", Handler: cr.pingCluster, Description: "连通测试"},
+			{Method: "POST", RelativePath: "/protect/:clusterId", Handler: cr.protectCluster, Description: "删除保护"},
+		},
+	}
+	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
 
-			{Method: "POST", RelativePath: "/:clusterId/permissions", Handler: cr.createPermission, Description: "创建 Permission"},
+	// 集群权限
+	permGroup := &apiregistry.Group{
+		Name:    "集群权限",
+		BaseURL: "/pixiu/clusters",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "/:clusterId/permissions", Handler: cr.createPermission, Description: "创建权限"},
 			{Method: "GET", RelativePath: "/permissions", Handler: cr.listPermissions, Description: "权限列表"},
-			{Method: "GET", RelativePath: "/permissions/:permissionId", Handler: cr.getPermission, Description: "权限详情"},
+			{Method: "GET", RelativePath: "/permissions/:permissionId", Handler: cr.getPermission, Description: "查看权限"},
 			{Method: "PUT", RelativePath: "/permissions/:permissionId", Handler: cr.updatePermission, Description: "更新权限"},
 			{Method: "DELETE", RelativePath: "/permissions/:permissionId", Handler: cr.deletePermission, Description: "删除权限"},
 		},
 	}
-	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
+	permGroup.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
 
 	// kube proxy 路由（透传 K8s API，不注册到 API 管理）
 	kubeRoute := ginEngine.Group(kubeProxyBaseURL)
