@@ -73,14 +73,18 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 	}
 	permGroup.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
 
-	// kube proxy 路由（透传 K8s API，不注册到 API 管理）
-	kubeRoute := ginEngine.Group(kubeProxyBaseURL)
-	{
-		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/pods/:pod/log", cr.watchPodLog)
-		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
-		kubeRoute.GET("/clusters/:cluster/api/v1/events", cr.getEventList)
-		kubeRoute.GET("/ws", cr.webShell)
-		kubeRoute.GET("/nodes/ws", cr.nodeWebShell)
-		kubeRoute.POST("/clusters/:cluster/namespaces/:namespace/jobs/:name", cr.ReRunJob)
+	// 集群代理
+	proxyGroup := &apiregistry.Group{
+		Name:    "集群代理",
+		BaseURL: kubeProxyBaseURL,
+		Entries: []apiregistry.RouteEntry{
+			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/pods/:pod/log", Handler: cr.watchPodLog, Description: "Pod日志"},
+			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", Handler: cr.aggregateEvents, Description: "聚合事件"},
+			//{Method: "GET", RelativePath: "/clusters/:cluster/api/v1/events", Handler: cr.getEventList, Description: "事件列表"},
+			{Method: "GET", RelativePath: "/pods/ws", Handler: cr.podWebShell, Description: "Pod WebShell"},
+			{Method: "GET", RelativePath: "/nodes/ws", Handler: cr.nodeWebShell, Description: "Node WebShell"},
+			{Method: "POST", RelativePath: "/clusters/:cluster/namespaces/:namespace/jobs/:name", Handler: cr.ReRunJob, Description: "重新执行Job"},
+		},
 	}
+	proxyGroup.Register(ginEngine.Group(kubeProxyBaseURL), cr.c.APIResource())
 }

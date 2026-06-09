@@ -23,7 +23,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-func (cr *clusterRouter) webShell(c *gin.Context) {
+func (cr *clusterRouter) podWebShell(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
 		err error
