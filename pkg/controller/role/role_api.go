@@ -54,8 +54,8 @@ func (r *role) GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse,
 	}
 
 	resp := &types.RoleAPIsResponse{
-		Associated:   make([]types.APIResource, 0, len(associatedIds)),
-		Unassociated: make([]types.APIResource, 0, len(apis)-len(associatedIds)),
+		Associated:   make([]types.APIResource, 0),
+		Unassociated: make([]types.APIResource, 0),
 	}
 	for i := range apis {
 		api := r.apiModel2Type(&apis[i])

@@ -81,6 +81,11 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		return
 	}
 
+	// 清除可能导致 K8s 认证冲突的头部
+	// 浏览器发往 Pixiu 的请求带有 Pixiu 的 Authorization，透传给 K8s 会导致 K8s 认证失败
+	c.Request.Header.Del("Authorization")
+	c.Request.Header.Del("Cookie")
+
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
 	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
 	httpProxy.ServeHTTP(c.Writer, c.Request)

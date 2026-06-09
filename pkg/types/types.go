@@ -455,7 +455,7 @@ func (o *CreatePermissionRequest) SetDefaultOptions() {
 		o.ClusterRoleName = fmt.Sprintf("pixiu-cr-%d", o.UserId)
 	}
 	if o.PType == 0 {
-		o.ClusterRoleName = "view"
+		o.ClusterRoleName = "pixiu-view"
 	}
 	if o.PType == 2 {
 		o.ClusterRoleName = "cluster-admin"
@@ -464,7 +464,6 @@ func (o *CreatePermissionRequest) SetDefaultOptions() {
 	if len(o.RoleBindingName) == 0 {
 		o.RoleBindingName = fmt.Sprintf("pixiu-rb-%d", o.UserId)
 	}
-
 }
 
 // UpdatePermissionRequest 更新权限

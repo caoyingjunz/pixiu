@@ -24,9 +24,25 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
+func (c *cluster) preCreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error { // 一个集群只能授权给一个用户一次
+	_, err := c.factory.Permission().GetBy(ctx, db.WithUser(req.UserId), db.WithOwnerCluster(req.ClusterId))
+	if err == nil {
+		return fmt.Errorf("集群已关联到用户")
+	}
+	if !errors.IsRecordNotFound(err) {
+		return fmt.Errorf("创建前检查失败 %v", err)
+	}
+
+	return nil
+}
+
 // CreatePermission 创建 scoped kubeconfig 并持久化
 // TODO 后续优化
 func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error {
+	if err := c.preCreatePermission(ctx, req); err != nil {
+		return err
+	}
+
 	// 用户 id 和授权集群 ID 必须存在
 	if req.UserId == 0 || req.ClusterId == 0 {
 		return errors.ErrReqParams
@@ -308,11 +324,11 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 		return "", err
 	}
 
+	// 只读或者管理员，进行集群板顶
 	if req.PType == 0 || req.PType == 2 {
-		// TODO
-		//if err := createClusterRoleBinding(ctx, req, kubeClient); err != nil {
-		//	return "", err
-		//}
+		if err := createClusterRoleBinding(ctx, req, kubeClient); err != nil {
+			return "", err
+		}
 	} else {
 		for _, ns := range req.TargetNamespaces {
 			if err := createRoleBinding(ctx, req, kubeClient, ns); err != nil {
@@ -353,6 +369,8 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 	// 1. 删除 SA
 	_ = clientSet.CoreV1().ServiceAccounts(saNamespace).Delete(ctx, saName, metav1.DeleteOptions{})
 
+	// 自定义规则时，删除 ClusterRoles 和 RoleBindings
+	// 管理员和只读规则时，仅删除 RoleBindings
 	if object.PType == 1 {
 		// 2. 删除 ClusterRoleBinding 自定义的类型需要删除
 		klog.Infof("正在删除 cr(%s)", name)
@@ -360,12 +378,18 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 			klog.Errorf("删除 ClusterRole(%s) 失败 %v", name, err)
 		}
 
-		// 3. 删除各命名空间的 ClusterRoleBinding
+		// 3. 删除各命名空间的 rRoleBinding
 		for _, targetNamespace := range decodeStringSlice(object.TargetNamespaces) {
 			klog.Infof("正在删除 RoleBindings %s(%s)", targetNamespace, bindingName)
 			if err = clientSet.RbacV1().RoleBindings(targetNamespace).Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
-				klog.Errorf("删除 ns(%s) RoleBindings(%s) 失败 %v", targetNamespace, bindingName, err)
+				klog.Errorf("删除 namespace(%s) RoleBindings(%s) 失败 %v", targetNamespace, bindingName, err)
 			}
+		}
+	} else {
+		// 仅删除 ClusterRoleBinding
+		klog.Errorf("正在删除 clusterRole(%s) 的 ClusterRoleBindings(%s)", object.ClusterRoleName, bindingName)
+		if err = clientSet.RbacV1().ClusterRoleBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
+			klog.Errorf("删除 clusterRole(%s) 的 ClusterRoleBindings(%s) 失败 %v", object.ClusterRoleName, bindingName, err)
 		}
 	}
 
@@ -454,9 +478,11 @@ func createClusterRoleBinding(ctx context.Context, req *types.CreatePermissionRe
 		return nil
 	}
 	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("检查 ClusterRoleBinding 失败: %v", err)
+		return fmt.Errorf("检查 ClusterRoleBinding(%s) 失败: %v", clusterRoleName, err)
 	}
 
+	// 关联不存在，进行关联
+	klog.Infof("clusterRole(%s)正在关联到 %s", clusterRoleName, bindingName)
 	binding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: bindingName,
@@ -479,6 +505,7 @@ func createClusterRoleBinding(ctx context.Context, req *types.CreatePermissionRe
 	if err != nil {
 		return fmt.Errorf("创建 ClusterRoleBinding 失败: %v", err)
 	}
+
 	return nil
 }
 
