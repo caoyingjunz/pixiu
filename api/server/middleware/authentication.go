@@ -63,7 +63,8 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 }
 
 func parseRoleAndValidClaim(c *gin.Context, o *options.Options, keyBytes []byte) (*int64, error) {
-	token, err := extractToken(c, false)
+	isWs := strings.EqualFold(c.GetHeader("Upgrade"), "websocket")
+	token, err := extractToken(c, isWs)
 	if err != nil {
 		return nil, err
 	}
