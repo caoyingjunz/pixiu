@@ -240,3 +240,12 @@ func WithOwnerCluster(clusterId int64) Options {
 		return tx.Where("owner_cluster_id = ?", clusterId)
 	}
 }
+
+func WithOwnerReference(clusterId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if clusterId == 0 {
+			return tx
+		}
+		return tx.Where("owner_reference = ?", clusterId)
+	}
+}

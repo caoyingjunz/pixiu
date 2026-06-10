@@ -306,6 +306,22 @@ func (c *cluster) Delete(ctx context.Context, cid int64, skipCheck bool) error {
 
 	// 从缓存中移除 clusterSet
 	ClusterIndexer.Delete(clu.Name)
+
+	// 获取从集群列表，并删除
+	slaves, err := c.factory.Cluster().List(ctx, db.WithOwnerReference(cid))
+	if err != nil {
+		// 尝试获取从集群列表，并删除
+		klog.Errorf("failed to list cluster(%d) slave clusters: %v", cid, err)
+		return nil
+	}
+	for _, slave := range slaves {
+		err = c.factory.Cluster().Delete(ctx, &slave)
+		if err != nil {
+			klog.Errorf("failed to delete 从 cluster(%d): %v", slave.Id, err)
+		}
+		ClusterIndexer.Delete(slave.Name)
+	}
+
 	return nil
 }
 
@@ -1042,7 +1058,9 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	if o.PermissionId != 0 {
 		klog.Infof("cluster %s has permissionId %d, 补全 OwnerRef(%d)", o.Name, o.PermissionId, o.OwnerReference)
 		masterCluster, err := c.factory.Cluster().Get(context.TODO(), o.OwnerReference)
-		if err == nil {
+		if err != nil || masterCluster == nil {
+			klog.Warningf("cluster %s 主集群不存在或获取 Owner(%d) 失败: %v", o.Name, o.OwnerReference, err)
+		} else {
 			masterNodes := types.KubeNode{}
 			if strings.TrimSpace(masterCluster.Nodes) != "" {
 				if err = masterNodes.Unmarshal(masterCluster.Nodes); err != nil {
