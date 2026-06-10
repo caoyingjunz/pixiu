@@ -40,7 +40,7 @@ func (b BootStrap) Run() error {
 	}
 	defer cli.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1800*time.Second) // 半小时超时
 	defer cancel()
 
 	// 启动执行容器
