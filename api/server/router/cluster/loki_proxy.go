@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -34,30 +33,21 @@ import (
 )
 
 const (
-	defaultLokiScheme = "http"
-	defaultLokiOrgID  = "fake"
-
 	lokiNamespaceLabelKey   = "pixiu-loki"
 	lokiNamespaceLabelValue = "true"
 	lokiGatewayLabelKey     = "pixiu-loki-gateway"
 	lokiGatewayLabelValue   = "true"
+	lokiServiceScheme       = "http"
 )
-
-var preferredLokiServiceNames = []string{
-	"loki-distributed-gateway",
-	"loki-gateway",
-	"loki",
-}
 
 type lokiClusterMeta struct {
 	Cluster string `uri:"cluster" binding:"required"`
 }
 
-type lokiProxyOptions struct {
+type lokiEndpoint struct {
 	Namespace string `form:"namespace"`
-	Service   string `form:"service"`
-	Port      int    `form:"port"`
-	Scheme    string `form:"scheme"`
+	Service   string
+	Port      int
 }
 
 func (cr *clusterRouter) proxyLoki(c *gin.Context) {
@@ -79,7 +69,7 @@ func (cr *clusterRouter) proxyLoki(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	opts, err := discoverLokiProxyOptions(c, clientSet)
+	endpoint, err := discoverLokiEndpoint(c, clientSet)
 	if err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
@@ -91,52 +81,39 @@ func (cr *clusterRouter) proxyLoki(c *gin.Context) {
 		return
 	}
 
-	target, err := buildLokiProxyTarget(*c.Request.URL, config.Host, c.Param("act"), opts)
+	target, err := buildLokiProxyTarget(*c.Request.URL, config.Host, c.Param("act"), endpoint)
 	if err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	ensureDefaultLokiOrgID(c)
 
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
 	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
 	httpProxy.ServeHTTP(c.Writer, c.Request)
 }
 
-func buildLokiProxyTarget(target url.URL, host string, act string, opts lokiProxyOptions) (*url.URL, error) {
+func buildLokiProxyTarget(target url.URL, host string, act string, endpoint lokiEndpoint) (*url.URL, error) {
 	kubeURL, err := url.Parse(host)
 	if err != nil {
 		return nil, err
 	}
 
-	scheme := strings.ToLower(strings.TrimSpace(opts.Scheme))
-	if scheme != "http" && scheme != "https" {
-		return nil, fmt.Errorf("unsupported loki proxy scheme %q", opts.Scheme)
-	}
-
 	target.Host = kubeURL.Host
 	target.Scheme = kubeURL.Scheme
-	target.Path = buildLokiServiceProxyPath(act, opts.Namespace, opts.Service, opts.Port, scheme)
+	target.Path = buildLokiServiceProxyPath(act, endpoint)
 	target.RawPath = ""
 	return &target, nil
 }
 
-func buildLokiServiceProxyPath(act, namespace, service string, port int, scheme string) string {
+func buildLokiServiceProxyPath(act string, endpoint lokiEndpoint) string {
 	base := fmt.Sprintf(
 		"/api/v1/namespaces/%s/services/%s:%s:%d/proxy",
-		url.PathEscape(namespace),
-		scheme,
-		url.PathEscape(service),
-		port,
+		url.PathEscape(endpoint.Namespace),
+		lokiServiceScheme,
+		url.PathEscape(endpoint.Service),
+		endpoint.Port,
 	)
 	return base + normalizeLokiAPIPath(act)
-}
-
-func ensureDefaultLokiOrgID(c *gin.Context) {
-	if strings.TrimSpace(c.GetHeader("X-Scope-OrgID")) != "" {
-		return
-	}
-	c.Request.Header.Set("X-Scope-OrgID", defaultLokiOrgID)
 }
 
 func normalizeLokiAPIPath(act string) string {
@@ -150,84 +127,67 @@ func normalizeLokiAPIPath(act string) string {
 	return "/loki" + trimmed
 }
 
-func discoverLokiProxyOptions(ctx context.Context, clientSet kubernetes.Interface) (lokiProxyOptions, error) {
-	resolved := lokiProxyOptions{Scheme: defaultLokiScheme}
-
+func discoverLokiEndpoint(ctx context.Context, clientSet kubernetes.Interface) (lokiEndpoint, error) {
 	nsList, err := clientSet.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", lokiNamespaceLabelKey, lokiNamespaceLabelValue),
 	})
 	if err != nil {
-		return lokiProxyOptions{}, err
+		return lokiEndpoint{}, err
 	}
-	namespace := selectLokiNamespace(nsList.Items)
+	namespace, err := findLokiNamespace(nsList.Items)
 	if namespace == "" {
-		return lokiProxyOptions{}, fmt.Errorf("failed to find loki namespace by label %s=%s", lokiNamespaceLabelKey, lokiNamespaceLabelValue)
+		return lokiEndpoint{}, err
 	}
-	resolved.Namespace = namespace
 
 	serviceList, err := clientSet.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", lokiGatewayLabelKey, lokiGatewayLabelValue),
 	})
 	if err != nil {
-		return lokiProxyOptions{}, err
+		return lokiEndpoint{}, err
 	}
-	selectedService := selectLokiService(serviceList.Items)
+	selectedService, err := findLokiService(serviceList.Items)
 	if selectedService == nil {
-		return lokiProxyOptions{}, fmt.Errorf("failed to find loki gateway service in namespace %q by label %s=%s", namespace, lokiGatewayLabelKey, lokiGatewayLabelValue)
+		return lokiEndpoint{}, err
 	}
-	port := selectLokiServicePort(selectedService)
+	port := findLokiServicePort(selectedService)
 	if port == 0 {
-		return lokiProxyOptions{}, fmt.Errorf("failed to resolve a TCP port for loki service %q", selectedService.Name)
+		return lokiEndpoint{}, fmt.Errorf("failed to resolve a TCP port for loki service %q", selectedService.Name)
 	}
-	resolved.Service = selectedService.Name
-	resolved.Port = port
-	return resolved, nil
+	return lokiEndpoint{
+		Namespace: namespace,
+		Service:   selectedService.Name,
+		Port:      port,
+	}, nil
 }
 
-func selectLokiNamespace(namespaces []v1.Namespace) string {
-	if len(namespaces) == 0 {
-		return ""
+func findLokiNamespace(namespaces []v1.Namespace) (string, error) {
+	switch len(namespaces) {
+	case 0:
+		return "", fmt.Errorf("failed to find loki namespace by label %s=%s", lokiNamespaceLabelKey, lokiNamespaceLabelValue)
+	case 1:
+		return namespaces[0].Name, nil
+	default:
+		return "", fmt.Errorf("found multiple loki namespaces by label %s=%s", lokiNamespaceLabelKey, lokiNamespaceLabelValue)
 	}
-	sort.Slice(namespaces, func(i, j int) bool {
-		return namespaces[i].Name < namespaces[j].Name
-	})
-	for _, namespace := range namespaces {
-		if namespace.Labels[lokiNamespaceLabelKey] == lokiNamespaceLabelValue {
-			return namespace.Name
-		}
-	}
-	return namespaces[0].Name
 }
 
-func selectLokiService(services []v1.Service) *v1.Service {
-	if len(services) == 0 {
-		return nil
+func findLokiService(services []v1.Service) (*v1.Service, error) {
+	switch len(services) {
+	case 0:
+		return nil, fmt.Errorf("failed to find loki gateway service by label %s=%s", lokiGatewayLabelKey, lokiGatewayLabelValue)
+	case 1:
+		return &services[0], nil
+	default:
+		return nil, fmt.Errorf("found multiple loki gateway services by label %s=%s", lokiGatewayLabelKey, lokiGatewayLabelValue)
 	}
-
-	sort.Slice(services, func(i, j int) bool {
-		return services[i].Name < services[j].Name
-	})
-	for _, preferredName := range preferredLokiServiceNames {
-		for i := range services {
-			service := &services[i]
-			if service.Name == preferredName {
-				return service
-			}
-		}
-	}
-	for i := range services {
-		service := &services[i]
-		if strings.Contains(service.Name, "loki") && strings.Contains(service.Name, "gateway") {
-			return service
-		}
-	}
-	return &services[0]
 }
 
-func selectLokiServicePort(service *v1.Service) int {
+func findLokiServicePort(service *v1.Service) int {
 	if service == nil {
 		return 0
 	}
+	// Users only need to label the Loki gateway service; the proxy infers the
+	// actual HTTP port from common service port conventions.
 	for _, port := range service.Spec.Ports {
 		if strings.EqualFold(port.Name, "http") {
 			return int(port.Port)
