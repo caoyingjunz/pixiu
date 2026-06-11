@@ -63,6 +63,8 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 	{
 		// 获取指定对象的日志
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/pods/:pod/log", cr.watchPodLog)
+		kubeRoute.Any("/clusters/:cluster/loki", cr.proxyLoki)
+		kubeRoute.Any("/clusters/:cluster/loki/*act", cr.proxyLoki)
 		// Deprecated 聚合 events
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
 		// 获取指定对象的 events，支持事件聚合
