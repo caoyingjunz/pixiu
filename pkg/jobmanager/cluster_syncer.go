@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	DefaultSyncInterval = "@every 5s"
+	DefaultSyncInterval = "@every 30s"
 )
 
 type ClusterSyncer struct {

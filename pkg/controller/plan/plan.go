@@ -89,6 +89,22 @@ type plan struct {
 	factory db.ShareDaoFactory
 }
 
+func (p *plan) preCreate(ctx context.Context, req *types.CreatePlanRequest) error {
+	plans, err := p.factory.Plan().List(ctx, db.WithUser(req.UserId))
+	if err != nil {
+		klog.Errorf("list plans err: %v", err)
+		return err
+	}
+
+	for _, pp := range plans {
+		if pp.Name == req.Name {
+			return fmt.Errorf("部署集群 %s 已存在", pp.Name)
+		}
+	}
+
+	return nil
+}
+
 // Create
 // 1. 创建部署计划
 // 2. 创建部署配置
@@ -96,6 +112,10 @@ type plan struct {
 // 4. 创建扩展组件
 // 5. 创建容器服务
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
+	if err := p.preCreate(ctx, req); err != nil {
+		return err
+	}
+
 	planModel := &model.Plan{
 		Name:        req.Name,
 		UserId:      req.UserId,
@@ -300,7 +320,7 @@ func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interfac
 
 	opts := []db.Options{
 		db.WithUser(listOption.UserId),
-		db.WithAliasNameLike(listOption.NameSelector),
+		db.WithNameLike(listOption.NameSelector),
 	}
 
 	var err error
