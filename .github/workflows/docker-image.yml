@@ -1,5 +1,14 @@
 name: Publish pixiu image
 
+on:
+  push:
+    branches:
+      - "master"
+      - "caoyingjunz-patch-1"
+    paths-ignore:
+      - 'docs/**'
+
+
 jobs:
   build:
     runs-on: ubuntu-latest
