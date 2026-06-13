@@ -173,6 +173,7 @@ type PlanNode struct {
 	TimeMeta  `json:",inline"`
 
 	Name   string       `json:"name"` // required
+	UserId int64        `json:"user_id,omitempty"`
 	PlanId int64        `json:"plan_id,omitempty"`
 	Role   []string     `json:"role"` // k8s 节点的角色，master 和 node
 	CRI    model.CRI    `json:"cri"`
