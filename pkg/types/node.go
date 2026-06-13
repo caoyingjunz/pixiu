@@ -21,16 +21,18 @@ type NodeResult struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name string `json:"name"`
-	Ip   string `json:"ip"`
-	Auth string `json:"auth"`
+	Name   string `json:"name"`
+	UserId int64  `json:"user_id"`
+	Ip     string `json:"ip"`
+	Auth   string `json:"auth"`
 }
 
 // CreateNodeRequest POST /pixiu/nodes
 type CreateNodeRequest struct {
-	Name string       `json:"name" binding:"required"`
-	Ip   string       `json:"ip" binding:"required"`
-	Auth PlanNodeAuth `json:"auth" binding:"required"`
+	Name   string       `json:"name" binding:"required"`
+	UserId int64        `json:"user_id"`
+	Ip     string       `json:"ip" binding:"required"`
+	Auth   PlanNodeAuth `json:"auth" binding:"required"`
 }
 
 // UpdateNodeRequest PUT /pixiu/nodes/:nodeId

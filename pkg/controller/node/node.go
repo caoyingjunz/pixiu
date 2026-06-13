@@ -61,9 +61,10 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 	}
 
 	object := &model.Node{
-		Name: req.Name,
-		Ip:   req.Ip,
-		Auth: authStr,
+		Name:   req.Name,
+		UserId: req.UserId,
+		Ip:     req.Ip,
+		Auth:   authStr,
 	}
 
 	_, err = n.factory.Plan().CreateNode(ctx, object)
@@ -127,48 +128,50 @@ func (n *nodeController) Get(ctx context.Context, nodeId int64) (*types.NodeResu
 	return model2Node(object), nil
 }
 
-func (n *nodeController) List(ctx context.Context, opt types.ListOptions) (interface{}, error) {
-	filterOpts := []db.Options{
-		db.WithNameLike(opt.NameSelector),
+func (n *nodeController) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := n.factory.Plan().CountNodes(ctx, filterOpts...)
+	opts := []db.Options{
+		db.WithUser(listOption.UserId),
+		db.WithNameLike(listOption.NameSelector),
+	}
+
+	var err error
+	pageResult.Total, err = n.factory.Plan().CountNodes(ctx, opts...)
 	if err != nil {
 		klog.Errorf("count nodes: %v", err)
+		pageResult.Message = err.Error()
 		return nil, errors.ErrServerInternal
 	}
 
-	page := opt.Page
-	if page <= 0 {
-		page = 1
-	}
-	limit := opt.PageRequest.Limit
-	if limit <= 0 {
-		limit = 20
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
 
-	paginationOpts := append(filterOpts,
-		db.WithOffset((page-1)*limit),
-		db.WithLimit(int(limit)),
-		db.WithOrderByDesc(),
-	)
-
-	objects, err := n.factory.Plan().ListAllNodes(ctx, paginationOpts...)
+	objects, err := n.factory.Plan().ListAllNodes(ctx, opts...)
 	if err != nil {
 		klog.Errorf("list nodes: %v", err)
+		pageResult.Message = err.Error()
 		return nil, errors.ErrServerInternal
 	}
 
-	items := make([]types.NodeResult, 0, len(objects))
+	items := make([]types.NodeResult, 0)
 	for i := range objects {
 		items = append(items, *model2Node(&objects[i]))
 	}
 
-	return types.PageResponse{
-		PageRequest: types.PageRequest{Page: page, Limit: int(limit)},
-		Total:       int(total),
-		Items:       items,
-	}, nil
+	pageResult.Items = items
+	return pageResult, nil
 }
 
 func model2Node(o *model.Node) *types.NodeResult {
@@ -181,8 +184,9 @@ func model2Node(o *model.Node) *types.NodeResult {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Name: o.Name,
-		Ip:   o.Ip,
-		Auth: o.Auth,
+		Name:   o.Name,
+		UserId: o.UserId,
+		Ip:     o.Ip,
+		//Auth:   o.Auth,
 	}
 }
