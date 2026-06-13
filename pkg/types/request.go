@@ -161,6 +161,7 @@ type (
 
 	CreatePlanNodeRequest struct {
 		Name   string       `json:"name" binding:"omitempty"` // required
+		UserId int64        `json:"user_id"`
 		PlanId int64        `json:"plan_id"`
 		Role   []string     `json:"role"` // k8s 节点的角色，master 和 node
 		CRI    model.CRI    `json:"cri"`

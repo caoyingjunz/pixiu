@@ -195,6 +195,10 @@ func WithStatus(status model.AgentStatus) Options {
 
 func WithUser(userId int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
+		if userId == 0 {
+			return tx
+		}
+
 		return tx.Where("user_id = ?", userId)
 	}
 }
