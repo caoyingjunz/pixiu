@@ -55,7 +55,7 @@ const (
 type Node struct {
 	pixiu.Model
 
-	Name   string `json:"name"`                          // 主机名，相同plan内不允许重复
+	Name   string `json:"name"`                             // 主机名，相同plan内不允许重复
 	UserId int64  `gorm:"index:idx_user_id" json:"user_id"` // 所属用户
 	PlanId int64  `json:"plan_id"`
 	Role   string `json:"role"` // k8s 节点的角色，master 和 node
