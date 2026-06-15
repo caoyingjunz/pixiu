@@ -1,10 +1,10 @@
 package cluster
 
 import (
+	"net/url"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestBuildLokiServiceProxyPath(t *testing.T) {
@@ -21,6 +21,7 @@ func TestBuildLokiServiceProxyPath(t *testing.T) {
 				Namespace: "loki",
 				Service:   "loki",
 				Port:      3100,
+				Scheme:    "http",
 			},
 			want: "/api/v1/namespaces/loki/services/http:loki:3100/proxy/loki/api/v1/query_range",
 		},
@@ -31,6 +32,7 @@ func TestBuildLokiServiceProxyPath(t *testing.T) {
 				Namespace: "monitoring",
 				Service:   "loki-gateway",
 				Port:      80,
+				Scheme:    "http",
 			},
 			want: "/api/v1/namespaces/monitoring/services/http:loki-gateway:80/proxy/loki/api/v1/query_range",
 		},
@@ -79,42 +81,54 @@ func TestNormalizeLokiAPIPath(t *testing.T) {
 	}
 }
 
-func TestFindLokiNamespace(t *testing.T) {
-	namespaces := []v1.Namespace{
-		{ObjectMeta: metav1.ObjectMeta{
-			Name:   "loki",
-			Labels: map[string]string{lokiNamespaceLabelKey: lokiNamespaceLabelValue},
-		}},
-	}
-
-	got, err := findLokiNamespace(namespaces)
-	if err != nil {
-		t.Fatalf("findLokiNamespace() unexpected error = %v", err)
-	}
-	if got != "loki" {
-		t.Fatalf("findLokiNamespace() = %q, want %q", got, "loki")
-	}
-}
-
-func TestFindLokiService(t *testing.T) {
-	services := []v1.Service{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   "loki-distributed-gateway",
-				Labels: map[string]string{lokiGatewayLabelKey: lokiGatewayLabelValue},
+func TestResolveServicePortFromURL(t *testing.T) {
+	service := &v1.Service{
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{Name: "http", Port: 80},
+				{Name: "grpc", Port: 9095},
 			},
-			Spec: v1.ServiceSpec{Ports: []v1.ServicePort{{Name: "http", Port: 80}}},
 		},
 	}
 
-	got, err := findLokiService(services)
+	targetURL, err := url.Parse("http://loki.loki.svc.cluster.local:80")
 	if err != nil {
-		t.Fatalf("findLokiService() unexpected error = %v", err)
+		t.Fatalf("url.Parse() unexpected error = %v", err)
 	}
-	if got == nil || got.Name != "loki-distributed-gateway" {
-		t.Fatalf("findLokiService() = %v, want %q", got, "loki-distributed-gateway")
+
+	port := resolveServicePortFromURL(service, targetURL)
+	if port != 80 {
+		t.Fatalf("resolveServicePortFromURL() = %d, want %d", port, 80)
 	}
-	if port := findLokiServicePort(got); port != 80 {
-		t.Fatalf("findLokiServicePort() = %d, want %d", port, 80)
+}
+
+func TestJoinURLPath(t *testing.T) {
+	tests := []struct {
+		name   string
+		base   string
+		suffix string
+		want   string
+	}{
+		{
+			name:   "empty base",
+			base:   "",
+			suffix: "/loki/api/v1/query_range",
+			want:   "/loki/api/v1/query_range",
+		},
+		{
+			name:   "joins paths",
+			base:   "/proxy",
+			suffix: "/loki/api/v1/query_range",
+			want:   "/proxy/loki/api/v1/query_range",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := joinURLPath(tt.base, tt.suffix)
+			if got != tt.want {
+				t.Fatalf("joinURLPath() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
