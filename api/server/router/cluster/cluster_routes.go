@@ -251,6 +251,25 @@ func (cr *clusterRouter) protectCluster(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (cr *clusterRouter) getClusterKubeconfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		idMeta IdMeta
+		err    error
+	)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = cr.c.Cluster().GetKubeConfig(c, idMeta.ClusterId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (

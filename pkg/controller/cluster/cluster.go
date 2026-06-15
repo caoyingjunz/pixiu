@@ -62,6 +62,9 @@ type Interface interface {
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
 	List(ctx context.Context, req types.ListOptions) (interface{}, error)
 
+	// GetKubeConfig 获取集群的 kubeconfig
+	GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error)
+
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
 
@@ -350,6 +353,21 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	}
 
 	return c.model2Type(object), nil
+}
+
+func (c *cluster) GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error) {
+	object, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, errors.ErrClusterNotFound
+	}
+
+	return &types.KubeConfigResponse{
+		ClusterName: object.Name,
+		Content:     object.KubeConfig,
+	}, nil
 }
 
 func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
