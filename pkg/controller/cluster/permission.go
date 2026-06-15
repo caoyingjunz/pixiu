@@ -414,9 +414,8 @@ func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
 		Rules:             decodeRules(o.Rules),
 		SAName:            o.SAName,
 		SANamespace:       o.SANamespace,
-		ClusterId:         o.OwnerClusterId,
-		ClusterName:       o.OwnerClusterName,
-		ClusterAliasName:  o.OwnerClusterAliasName,
+		ClusterId:         o.ClusterId,   // 对应生成的k8s集群ID
+		ClusterName:       o.ClusterName, // 集群名称
 		TargetNamespaces:  decodeStringSlice(o.TargetNamespaces),
 		Description:       o.Description,
 	}
