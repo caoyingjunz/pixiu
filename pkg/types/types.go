@@ -50,6 +50,11 @@ type TimeMeta struct {
 	GmtModified time.Time `json:"gmt_modified"`
 }
 
+type HTTPHeader struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 type KubeNode struct {
 	Ready    []string `json:"ready"`
 	NotReady []string `json:"not_ready"`
@@ -82,6 +87,30 @@ type Cluster struct {
 
 	KubernetesMeta `json:",inline"`
 	TimeMeta       `json:",inline"`
+}
+
+type ClusterLogDatasource struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	ClusterId   int64                   `json:"cluster_id"`
+	Name        string                  `json:"name"`
+	Type        model.LogDatasourceType `json:"type"`
+	URL         string                  `json:"url"`
+	Username    string                  `json:"username"`
+	Headers     []HTTPHeader            `json:"headers"`
+	HasPassword bool                    `json:"has_password"`
+	IsDefault   bool                    `json:"is_default"`
+	Description string                  `json:"description"`
+}
+
+type LogDatasourceProxyConfig struct {
+	ClusterId int64                   `json:"cluster_id"`
+	Type      model.LogDatasourceType `json:"type"`
+	URL       string                  `json:"url"`
+	Username  string                  `json:"username"`
+	Password  string                  `json:"password"`
+	Headers   []HTTPHeader            `json:"headers"`
 }
 
 // KubernetesMeta 记录 kubernetes 集群的数据

@@ -23,6 +23,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
+	"github.com/caoyingjunz/pixiu/pkg/controller/logdatasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
@@ -40,6 +41,7 @@ type PixiuInterface interface {
 	auth.AuthGetter
 	helm.HelmGetter
 	agent.AgentGetter
+	logdatasource.Getter
 }
 
 type pixiu struct {
@@ -56,6 +58,9 @@ func (p *pixiu) Audit() audit.Interface     { return audit.NewAudit(p.cc, p.fact
 func (p *pixiu) Auth() auth.Interface       { return auth.NewAuth(p.factory) }
 func (p *pixiu) Helm() helm.Interface       { return helm.NewHelm(p.factory) }
 func (p *pixiu) Agent() agent.Interface     { return agent.NewAgent(p.cc, p.factory) }
+func (p *pixiu) LogDatasource() logdatasource.Interface {
+	return logdatasource.New(p.cc, p.factory)
+}
 
 func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{

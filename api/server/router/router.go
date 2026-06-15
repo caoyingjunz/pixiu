@@ -34,6 +34,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
+	"github.com/caoyingjunz/pixiu/api/server/router/logdatasource"
 	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
@@ -52,6 +53,7 @@ func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
 		middleware.InstallMiddlewares,
 		cluster.NewRouter,
+		logdatasource.NewRouter,
 		helm.NewRouter,
 		proxy.NewRouter,
 		tenant.NewRouter,
