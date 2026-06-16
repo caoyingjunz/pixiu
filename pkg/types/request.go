@@ -223,6 +223,12 @@ type (
 		Password   string `form:"password" json:"password"`
 		PrivateKey string
 	}
+
+	ClusterWebRequest struct {
+		ClusterName string `form:"cluster_name" json:"cluster_name"`
+		ClusterId   int64  `form:"cluster_id" json:"cluster_id"`
+		UserId      int64  `form:"user_id" json:"user_id"`
+	}
 )
 
 type (

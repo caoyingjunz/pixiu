@@ -33,7 +33,7 @@ func (cr *clusterRouter) podWebShell(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().WsHandler(c, &opt, c.Writer, c.Request); err != nil {
+	if err = cr.c.Cluster().WsPodHandler(c, &opt, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -51,6 +51,23 @@ func (cr *clusterRouter) nodeWebShell(c *gin.Context) {
 		return
 	}
 	if err = cr.c.Cluster().WsNodeHandler(c, req, c.Writer, c.Request); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+}
+
+func (cr *clusterRouter) clusterWebShell(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.ClusterWebRequest
+		err error
+	)
+	if err = c.ShouldBindQuery(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = cr.c.Cluster().WsClusterHandler(c, req, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
