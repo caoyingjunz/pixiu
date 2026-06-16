@@ -43,7 +43,6 @@ type Interface interface {
 	Get(ctx context.Context, clusterId, datasourceId int64) (*types.ClusterLogDatasource, error)
 	List(ctx context.Context, clusterId int64) ([]types.ClusterLogDatasource, error)
 	GetDefault(ctx context.Context, clusterId int64) (*types.ClusterLogDatasource, error)
-	GetDefaultProxyConfigByClusterName(ctx context.Context, clusterName string) (*types.LogDatasourceProxyConfig, error)
 	SetDefault(ctx context.Context, clusterId, datasourceId int64) error
 }
 
@@ -206,39 +205,6 @@ func (c *controller) SetDefault(ctx context.Context, clusterId, datasourceId int
 		return apierrors.ErrServerInternal
 	}
 	return nil
-}
-
-func (c *controller) GetDefaultProxyConfigByClusterName(ctx context.Context, clusterName string) (*types.LogDatasourceProxyConfig, error) {
-	cluster, err := c.factory.Cluster().GetClusterByName(ctx, clusterName)
-	if err != nil {
-		klog.Errorf("failed to get cluster(%s): %v", clusterName, err)
-		return nil, apierrors.ErrServerInternal
-	}
-	if cluster == nil {
-		return nil, apierrors.ErrClusterNotFound
-	}
-
-	object, err := c.factory.LogDatasource().GetDefaultByCluster(ctx, cluster.Id)
-	if err != nil {
-		klog.Errorf("failed to get default log datasource for cluster %s: %v", clusterName, err)
-		return nil, apierrors.ErrServerInternal
-	}
-	if object == nil {
-		return nil, apierrors.NewError(fmt.Errorf("no default log datasource found, please add one first"), http.StatusNotFound)
-	}
-
-	headers, err := unmarshalHeaders(object.Headers)
-	if err != nil {
-		return nil, apierrors.ErrServerInternal
-	}
-	return &types.LogDatasourceProxyConfig{
-		ClusterId: cluster.Id,
-		Type:      object.Type,
-		URL:       object.URL,
-		Username:  object.Username,
-		Password:  object.Password,
-		Headers:   headers,
-	}, nil
 }
 
 func (c *controller) mustGetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error) {

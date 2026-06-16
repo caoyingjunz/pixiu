@@ -104,15 +104,6 @@ type ClusterLogDatasource struct {
 	Description string                  `json:"description"`
 }
 
-type LogDatasourceProxyConfig struct {
-	ClusterId int64                   `json:"cluster_id"`
-	Type      model.LogDatasourceType `json:"type"`
-	URL       string                  `json:"url"`
-	Username  string                  `json:"username"`
-	Password  string                  `json:"password"`
-	Headers   []HTTPHeader            `json:"headers"`
-}
-
 // KubernetesMeta 记录 kubernetes 集群的数据
 type KubernetesMeta struct {
 	// 集群的版本
