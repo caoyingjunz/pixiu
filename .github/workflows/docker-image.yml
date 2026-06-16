@@ -8,6 +8,7 @@ on:
     paths-ignore:
       - 'docs/**'
 
+
 jobs:
   build:
     runs-on: ubuntu-latest
