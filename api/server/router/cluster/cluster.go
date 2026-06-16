@@ -51,40 +51,25 @@ func (cr *clusterRouter) initRoutes(httpEngine *gin.Engine) {
 		clusterRoute.GET("/:clusterId", cr.getCluster)
 		clusterRoute.GET("", cr.listClusters)
 
-		// 检查 kubernetes 的连通性
 		clusterRoute.POST("/ping", cr.pingCluster)
-
-		// 设置集群的删除保护模式
 		clusterRoute.POST("/protect/:clusterId", cr.protectCluster)
 	}
 
-	// 调用 kubernetes 对象
 	kubeRoute := httpEngine.Group(kubeProxyBaseURL)
 	{
-		// 获取指定对象的日志
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/pods/:pod/log", cr.watchPodLog)
-		kubeRoute.Any("/clusters/:cluster/loki", cr.proxyLoki)
-		kubeRoute.Any("/clusters/:cluster/loki/*act", cr.proxyLoki)
-		// Deprecated 聚合 events
 		kubeRoute.GET("/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", cr.aggregateEvents)
-		// 获取指定对象的 events，支持事件聚合
 		kubeRoute.GET("/clusters/:cluster/api/v1/events", cr.getEventList)
 
-		// pod ws
 		kubeRoute.GET("/ws", cr.webShell)
-		// node ws
 		kubeRoute.GET("/nodes/ws", cr.nodeWebShell)
 
-		// 重启Job action=rerun
 		kubeRoute.POST("/clusters/:cluster/namespaces/:namespace/jobs/:name", cr.ReRunJob)
 	}
 
-	// 从 pixiu 缓存中获取 kubernetes 对象
 	//indexerRoute := httpEngine.Group(indexerBaseURL)
 	//{
-	//	// 从缓存中获取指定对象
 	//	indexerRoute.GET("/clusters/:cluster/resources/:resource/namespaces/:namespace/name/:name", cr.getIndexerResource)
-	//	// 从缓存中获取对象列表
 	//	indexerRoute.GET("/clusters/:cluster/resources/:resource/namespaces/:namespace", cr.listIndexerResources)
 	//}
 }
