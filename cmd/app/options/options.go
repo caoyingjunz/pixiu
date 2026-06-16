@@ -45,6 +45,7 @@ const (
 
 	defaultListen     = 8091
 	defaultTokenKey   = "pixiu"
+	defaultToolbox    = "ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = logutil.LogFormatJson
 	defaultWorkDir    = "/etc/pixiu"
@@ -106,6 +107,9 @@ func (o *Options) Complete() error {
 	}
 	if len(o.ComponentConfig.Default.JWTKey) == 0 {
 		o.ComponentConfig.Default.JWTKey = defaultTokenKey
+	}
+	if len(o.ComponentConfig.Default.Toolbox) == 0 {
+		o.ComponentConfig.Default.Toolbox = defaultToolbox
 	}
 	if o.ComponentConfig.Default.LogFormat == "" {
 		o.ComponentConfig.Default.LogFormat = defaultLogFormat

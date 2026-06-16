@@ -55,6 +55,7 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "", Handler: cr.listClusters, Description: "查看列表"},
 			{Method: "POST", RelativePath: "/ping", Handler: cr.pingCluster, Description: "连通测试"},
 			{Method: "POST", RelativePath: "/protect/:clusterId", Handler: cr.protectCluster, Description: "删除保护"},
+			{Method: "GET", RelativePath: "/:clusterId/kubeconfig", Handler: cr.getClusterKubeconfig, Description: "查看KubeConfig"},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
@@ -81,9 +82,11 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/pods/:pod/log", Handler: cr.watchPodLog, Description: "Pod日志"},
 			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", Handler: cr.aggregateEvents, Description: "聚合事件"},
 			//{Method: "GET", RelativePath: "/clusters/:cluster/api/v1/events", Handler: cr.getEventList, Description: "事件列表"},
+			{Method: "POST", RelativePath: "/clusters/:cluster/namespaces/:namespace/jobs/:name", Handler: cr.ReRunJob, Description: "重新执行Job"},
+			// ws 相关入口
 			{Method: "GET", RelativePath: "/pods/ws", Handler: cr.podWebShell, Description: "Pod WebShell"},
 			{Method: "GET", RelativePath: "/nodes/ws", Handler: cr.nodeWebShell, Description: "Node WebShell"},
-			{Method: "POST", RelativePath: "/clusters/:cluster/namespaces/:namespace/jobs/:name", Handler: cr.ReRunJob, Description: "重新执行Job"},
+			{Method: "GET", RelativePath: "/clusters/ws", Handler: cr.clusterWebShell, Description: "Cluster WebShell"},
 		},
 	}
 	proxyGroup.Register(ginEngine.Group(kubeProxyBaseURL), cr.c.APIResource())

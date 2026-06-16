@@ -62,6 +62,9 @@ type Interface interface {
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
 	List(ctx context.Context, req types.ListOptions) (interface{}, error)
 
+	// GetKubeConfig 获取集群的 kubeconfig
+	GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error)
+
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
 
@@ -73,10 +76,12 @@ type Interface interface {
 
 	// AggregateEvents 聚合指定资源的 events
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
-	// WsHandler pod 的 webShell
-	WsHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
+
+	// WsPodHandler pod 的 webShell
+	WsPodHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
 	// WsNodeHandler node 的 webShell
 	WsNodeHandler(ctx context.Context, req types.WebSSHRequest, w http.ResponseWriter, r *http.Request) error
+	WsClusterHandler(ctx context.Context, req types.ClusterWebRequest, w http.ResponseWriter, r *http.Request) error
 
 	// WatchPodLog 实时获取 pod 的日志
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
@@ -350,6 +355,21 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	}
 
 	return c.model2Type(object), nil
+}
+
+func (c *cluster) GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error) {
+	object, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, errors.ErrClusterNotFound
+	}
+
+	return &types.KubeConfigResponse{
+		ClusterName: object.Name,
+		Content:     object.KubeConfig,
+	}, nil
 }
 
 func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {

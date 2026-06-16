@@ -116,6 +116,11 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		return err
 	}
 
+	// 为节点增加用户 id 属性
+	for i := range req.Nodes {
+		req.Nodes[i].UserId = req.UserId
+	}
+
 	planModel := &model.Plan{
 		Name:        req.Name,
 		UserId:      req.UserId,
@@ -191,6 +196,10 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) %v", planId, err)
 		return errors.ErrServerInternal
+	}
+
+	for i := range req.Nodes {
+		req.Nodes[i].UserId = oldPlan.UserId
 	}
 
 	updates := make(map[string]interface{})

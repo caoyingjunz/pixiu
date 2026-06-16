@@ -119,6 +119,7 @@ func (p *plan) buildNodeFromRequest(planId int64, req *types.CreatePlanNodeReque
 
 	return &model.Node{
 		Name:   req.Name,
+		UserId: req.UserId,
 		PlanId: planId,
 		Role:   strings.Join(req.Role, ","),
 		CRI:    req.CRI,
@@ -222,6 +223,7 @@ func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 		},
 		PlanId: o.PlanId,
 		Name:   o.Name,
+		UserId: o.UserId,
 		Role:   strings.Split(o.Role, ","),
 		Ip:     o.Ip,
 		Auth:   auth,
