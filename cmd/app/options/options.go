@@ -45,7 +45,7 @@ const (
 
 	defaultListen     = 8091
 	defaultTokenKey   = "pixiu"
-	defaultToolbox    = "ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0"
+	defaultToolbox    = "ccr.ccs.tencentyun.com/pixiucloud/pixiu-toolbox:v2.0.1"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = logutil.LogFormatJson
 	defaultWorkDir    = "/etc/pixiu"
