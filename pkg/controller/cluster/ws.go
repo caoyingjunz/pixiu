@@ -202,7 +202,7 @@ func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequ
 		Namespace: namespace,
 		Pod:       podName,
 		Container: "pixiu-ws-toolbox",
-		Command:   "/bin/sh",
+		Command:   "/bin/bash",
 	}, w, r)
 }
 
@@ -261,6 +261,7 @@ func (c *cluster) CreateAndWaitForPodRunning(ctx context.Context, clientSet clie
 							Name:            "pixiu-ws-toolbox",
 							Image:           c.cc.Default.Toolbox,
 							ImagePullPolicy: "IfNotPresent",
+							WorkingDir:      "/root",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      kubeConfigVolumeName,
