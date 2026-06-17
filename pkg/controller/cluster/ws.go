@@ -182,7 +182,7 @@ func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequ
 	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, req.UserId)
 	namespace := "pixiu-system" // 导入集群或者部署集群的时候已确保存在
 	podName := stsName + "-0"
-
+	rsync2.sh
 	_, err = clientSet.Client.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err == nil {
 		klog.Infof("pod(%s) already exists, reuse it", podName)
@@ -202,7 +202,7 @@ func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequ
 		Namespace: namespace,
 		Pod:       podName,
 		Container: "pixiu-ws-toolbox",
-		Command:   "/bin/sh",
+		Command:   "/bin/bash",
 	}, w, r)
 }
 
@@ -261,6 +261,7 @@ func (c *cluster) CreateAndWaitForPodRunning(ctx context.Context, clientSet clie
 							Name:            "pixiu-ws-toolbox",
 							Image:           c.cc.Default.Toolbox,
 							ImagePullPolicy: "IfNotPresent",
+							WorkingDir:      "/root",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      kubeConfigVolumeName,
