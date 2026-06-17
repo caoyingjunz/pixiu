@@ -182,6 +182,7 @@ func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequ
 	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, req.UserId)
 	namespace := "pixiu-system" // 导入集群或者部署集群的时候已确保存在
 	podName := stsName + "-0"
+
 	_, err = clientSet.Client.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err == nil {
 		klog.Infof("pod(%s) already exists, reuse it", podName)
