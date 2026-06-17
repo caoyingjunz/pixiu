@@ -82,8 +82,9 @@ func (p *plan) process(ctx context.Context) bool {
 
 type TaskData struct {
 	PlanId int64
-	Config *model.Config
-	Nodes  []model.Node
+	Plan   *model.Plan   // 部署属性
+	Config *model.Config // 部署配置
+	Nodes  []model.Node  // 部署节点
 }
 
 func (t TaskData) validate() error {
@@ -91,6 +92,10 @@ func (t TaskData) validate() error {
 }
 
 func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) {
+	pp, err := p.factory.Plan().Get(ctx, planId)
+	if err != nil {
+		return TaskData{}, err
+	}
 	nodes, err := p.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
 		return TaskData{}, err
@@ -102,6 +107,7 @@ func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) 
 
 	return TaskData{
 		PlanId: planId,
+		Plan:   pp,
 		Config: cfg,
 		Nodes:  nodes,
 	}, nil
@@ -154,7 +160,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	}
 
 	if err = p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": status}); err != nil {
-		klog.Errorf("尝试更新集群状态(%s)失败 %v", status, err)
+		klog.Errorf("尝试更新集群状态(%d)失败 %v", status, err)
 	}
 }
 

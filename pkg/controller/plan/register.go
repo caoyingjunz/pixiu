@@ -25,13 +25,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
 const (
@@ -81,13 +85,94 @@ func (c Register) Run() error {
 		klog.Error("get the empty kubeconfig from master nodes")
 		return fmt.Errorf("get the empty kubeconfig from master nodes")
 	}
-
 	config64 := base64.StdEncoding.EncodeToString(kubeConfig)
-	if err = c.factory.Cluster().UpdateByPlan(context.TODO(),
-		c.data.PlanId, map[string]interface{}{"kube_config": config64}); err != nil {
-		return err
+
+	// 1. 创建/更新集群
+	// 检查plan对应的集群是否存在，如果已经存在则直接更新，不存在则新建
+	objs, err := c.factory.Cluster().List(context.TODO(), db.WithUser(c.data.Plan.UserId), db.WithPlan(c.data.PlanId))
+	if err != nil {
+		return fmt.Errorf("get clusters error: %v", err)
+	}
+	if len(objs) == 0 {
+		kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
+		nodes, _ := kubeNode.Marshal()
+		_, err = c.factory.Cluster().Create(context.TODO(), &model.Cluster{
+			Name:          uuid.NewRandName(8),
+			AliasName:     c.data.Plan.Name,
+			ClusterType:   model.ClusterTypeCustom,
+			PlanId:        c.data.PlanId,
+			UserId:        c.data.Plan.UserId,
+			ClusterStatus: model.ClusterStatusDeploy,
+			Protected:     true,
+			Nodes:         nodes,
+			KubeConfig:    config64,
+		})
+		if err != nil {
+			klog.Errorf("failed to register cluster for plan: %v", err)
+			return fmt.Errorf("failed to create cluster for plan %v", err)
+		}
+	} else {
+		if err = c.factory.Cluster().UpdateByPlan(context.TODO(),
+			c.data.PlanId, map[string]interface{}{"kube_config": config64}); err != nil {
+			return err
+		}
 	}
 
+	// 2. 注册权限规则
+	if err = c.addPixiuClusterRole(context.TODO(), config64); err != nil {
+		klog.Errorf("failed to add pixiu cluster role for plan register: %v", err)
+		return err
+	}
+	return nil
+}
+
+// 创建内置的 ClusterRole
+func (c Register) addPixiuClusterRole(ctx context.Context, kubeconfig string) error {
+	cs, err := client.NewClusterSet(kubeconfig)
+	if err != nil {
+		return nil
+	}
+
+	clusterRoleView := "pixiu-view"
+	// 已存在则忽略
+	_, err = cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleView, metav1.GetOptions{})
+	if err == nil {
+		return nil
+	}
+
+	clusterRoleSystemView := "view"
+	viewClusterRole, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleSystemView, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("获取内置 ClusterRoles 失败 %v", err)
+	}
+
+	rules := viewClusterRole.Rules
+	// 追加依赖rule
+	rules = append(rules, []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{"metrics.pixiu.io"},
+			Resources: []string{"api/dashboard"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"nodes"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+	}...)
+
+	_, err = cs.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterRoleView,
+			Labels: map[string]string{
+				"maintainer": "pixiu",
+			},
+		},
+		Rules: rules,
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("创建你内置 ClusterRole 失败: %v", err)
+	}
 	return nil
 }
 
