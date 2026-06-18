@@ -31,7 +31,7 @@ type DatasourceInterface interface {
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*model.ClusterDatasource, error)
-	ListByCluster(ctx context.Context, clusterName string) ([]model.ClusterDatasource, error)
+	ListByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]model.ClusterDatasource, error)
 	GetDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) (*model.ClusterDatasource, error)
 	UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error
 }
@@ -90,9 +90,9 @@ func (l *datasource) Get(ctx context.Context, id int64) (*model.ClusterDatasourc
 	return &datasource, nil
 }
 
-func (l *datasource) ListByCluster(ctx context.Context, clusterName string) ([]model.ClusterDatasource, error) {
+func (l *datasource) ListByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]model.ClusterDatasource, error) {
 	var datasources []model.ClusterDatasource
-	if err := l.db.WithContext(ctx).Where("cluster_name = ?", clusterName).Order("id desc").Find(&datasources).Error; err != nil {
+	if err := l.db.WithContext(ctx).Where("cluster_name = ? and type = ?", clusterName, datasourceType).Order("id desc").Find(&datasources).Error; err != nil {
 		return nil, err
 	}
 	return datasources, nil

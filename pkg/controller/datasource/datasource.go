@@ -37,13 +37,13 @@ type Getter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, clusterName string, req *types.CreateClusterDatasourceRequest) error
-	Update(ctx context.Context, clusterName string, datasourceId int64, req *types.UpdateClusterDatasourceRequest) error
-	Delete(ctx context.Context, clusterName string, datasourceId int64) error
-	Get(ctx context.Context, clusterName string, datasourceId int64) (*types.ClusterDatasource, error)
-	List(ctx context.Context, clusterName string) ([]types.ClusterDatasource, error)
+	Create(ctx context.Context, clusterName string, datasourceType model.DatasourceType, req *types.CreateClusterDatasourceRequest) error
+	Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateClusterDatasourceRequest) error
+	Delete(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error
+	Get(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) (*types.ClusterDatasource, error)
+	List(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]types.ClusterDatasource, error)
 	GetDefault(ctx context.Context, clusterName string, datasourceType model.DatasourceType) (*types.ClusterDatasource, error)
-	SetDefault(ctx context.Context, clusterName string, datasourceId int64) error
+	SetDefault(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error
 }
 
 type controller struct {
@@ -55,10 +55,13 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{cc: cfg, factory: f}
 }
 
-func (c *controller) Create(ctx context.Context, clusterName string, req *types.CreateClusterDatasourceRequest) error {
+func (c *controller) Create(ctx context.Context, clusterName string, datasourceType model.DatasourceType, req *types.CreateClusterDatasourceRequest) error {
 	cluster, err := c.mustGetCluster(ctx, clusterName)
 	if err != nil {
 		return err
+	}
+	if req.Type != datasourceType {
+		return apierrors.NewError(fmt.Errorf("datasource type does not match request path"), http.StatusBadRequest)
 	}
 	if err := validateDatasourceType(req.Type, req.SubType); err != nil {
 		return apierrors.NewError(err, http.StatusBadRequest)
@@ -94,12 +97,12 @@ func (c *controller) Create(ctx context.Context, clusterName string, req *types.
 	return nil
 }
 
-func (c *controller) Update(ctx context.Context, clusterName string, datasourceId int64, req *types.UpdateClusterDatasourceRequest) error {
+func (c *controller) Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateClusterDatasourceRequest) error {
 	cluster, err := c.mustGetCluster(ctx, clusterName)
 	if err != nil {
 		return err
 	}
-	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceId)
+	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId)
 	if err != nil {
 		return err
 	}
@@ -107,6 +110,9 @@ func (c *controller) Update(ctx context.Context, clusterName string, datasourceI
 	nextType := object.Type
 	if req.Type != nil {
 		nextType = *req.Type
+	}
+	if nextType != datasourceType {
+		return apierrors.NewError(fmt.Errorf("datasource type does not match request path"), http.StatusBadRequest)
 	}
 	nextSubType := object.SubType
 	if req.SubType != nil {
@@ -165,12 +171,12 @@ func (c *controller) Update(ctx context.Context, clusterName string, datasourceI
 	return nil
 }
 
-func (c *controller) Delete(ctx context.Context, clusterName string, datasourceId int64) error {
+func (c *controller) Delete(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error {
 	cluster, err := c.mustGetCluster(ctx, clusterName)
 	if err != nil {
 		return err
 	}
-	if _, err := c.mustGetDatasource(ctx, cluster.Name, datasourceId); err != nil {
+	if _, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId); err != nil {
 		return err
 	}
 	if err := c.factory.Datasource().Delete(ctx, datasourceId); err != nil {
@@ -180,24 +186,24 @@ func (c *controller) Delete(ctx context.Context, clusterName string, datasourceI
 	return nil
 }
 
-func (c *controller) Get(ctx context.Context, clusterName string, datasourceId int64) (*types.ClusterDatasource, error) {
+func (c *controller) Get(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) (*types.ClusterDatasource, error) {
 	cluster, err := c.mustGetCluster(ctx, clusterName)
 	if err != nil {
 		return nil, err
 	}
-	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceId)
+	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId)
 	if err != nil {
 		return nil, err
 	}
 	return modelToType(object)
 }
 
-func (c *controller) List(ctx context.Context, clusterName string) ([]types.ClusterDatasource, error) {
+func (c *controller) List(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]types.ClusterDatasource, error) {
 	cluster, err := c.mustGetCluster(ctx, clusterName)
 	if err != nil {
 		return nil, err
 	}
-	objects, err := c.factory.Datasource().ListByCluster(ctx, cluster.Name)
+	objects, err := c.factory.Datasource().ListByCluster(ctx, cluster.Name, datasourceType)
 	if err != nil {
 		klog.Errorf("failed to list datasources for cluster %s: %v", clusterName, err)
 		return nil, apierrors.ErrServerInternal
@@ -230,12 +236,12 @@ func (c *controller) GetDefault(ctx context.Context, clusterName string, datasou
 	return modelToType(object)
 }
 
-func (c *controller) SetDefault(ctx context.Context, clusterName string, datasourceId int64) error {
+func (c *controller) SetDefault(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error {
 	cluster, err := c.mustGetCluster(ctx, clusterName)
 	if err != nil {
 		return err
 	}
-	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceId)
+	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId)
 	if err != nil {
 		return err
 	}
@@ -258,7 +264,7 @@ func (c *controller) mustGetCluster(ctx context.Context, clusterName string) (*m
 	return object, nil
 }
 
-func (c *controller) mustGetDatasource(ctx context.Context, clusterName string, datasourceId int64) (*model.ClusterDatasource, error) {
+func (c *controller) mustGetDatasource(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) (*model.ClusterDatasource, error) {
 	object, err := c.factory.Datasource().Get(ctx, datasourceId)
 	if err != nil {
 		klog.Errorf("failed to get datasource(%d): %v", datasourceId, err)
@@ -267,7 +273,7 @@ func (c *controller) mustGetDatasource(ctx context.Context, clusterName string, 
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 	}
-	if object.ClusterName != clusterName {
+	if object.ClusterName != clusterName || object.Type != datasourceType {
 		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 	}
 	return object, nil

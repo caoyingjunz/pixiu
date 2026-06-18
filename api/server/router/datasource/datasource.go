@@ -33,7 +33,7 @@ func NewRouter(o *options.Options) {
 }
 
 func (r *router) initRoutes(httpEngine *gin.Engine) {
-	group := httpEngine.Group("/pixiu/datasources/:clusterName")
+	group := httpEngine.Group("/pixiu/datasources/:clusterName/:type")
 	{
 		group.POST("", r.createDatasource)
 		group.GET("", r.listDatasources)
