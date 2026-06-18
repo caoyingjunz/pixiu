@@ -97,7 +97,7 @@ type Interface interface {
 	CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error
 	GetPermission(ctx context.Context, permissionId int64) (*types.Permission, error)
 	ListPermissions(ctx context.Context, listOption types.ListOptions) (interface{}, error)
-	UpdatePermission(ctx context.Context, permissionId int64, req *types.UpdatePermissionRequest) error
+	UpdatePermission(ctx context.Context, req *types.UpdatePermissionRequest) error
 	DeletePermission(ctx context.Context, permissionId int64) error
 
 	// Run 启动 cluster worker 处理协程
