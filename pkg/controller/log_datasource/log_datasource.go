@@ -37,14 +37,13 @@ type Getter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, clusterId int64, req *types.CreateClusterLogDatasourceRequest) error
-	Update(ctx context.Context, clusterId, datasourceId int64, req *types.UpdateClusterLogDatasourceRequest) error
-	Delete(ctx context.Context, clusterId, datasourceId int64) error
-	Get(ctx context.Context, clusterId, datasourceId int64) (*types.ClusterLogDatasource, error)
-	List(ctx context.Context, clusterId int64) ([]types.ClusterLogDatasource, error)
-	GetDefault(ctx context.Context, clusterId int64) (*types.ClusterLogDatasource, error)
-	GetDefaultProxyConfigByClusterName(ctx context.Context, clusterName string) (*types.LogDatasourceProxyConfig, error)
-	SetDefault(ctx context.Context, clusterId, datasourceId int64) error
+	Create(ctx context.Context, clusterName string, req *types.CreateClusterLogDatasourceRequest) error
+	Update(ctx context.Context, clusterName string, datasourceId int64, req *types.UpdateClusterLogDatasourceRequest) error
+	Delete(ctx context.Context, clusterName string, datasourceId int64) error
+	Get(ctx context.Context, clusterName string, datasourceId int64) (*types.ClusterLogDatasource, error)
+	List(ctx context.Context, clusterName string) ([]types.ClusterLogDatasource, error)
+	GetDefault(ctx context.Context, clusterName string) (*types.ClusterLogDatasource, error)
+	SetDefault(ctx context.Context, clusterName string, datasourceId int64) error
 }
 
 type controller struct {
@@ -56,8 +55,9 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{cc: cfg, factory: f}
 }
 
-func (c *controller) Create(ctx context.Context, clusterId int64, req *types.CreateClusterLogDatasourceRequest) error {
-	if _, err := c.mustGetCluster(ctx, clusterId); err != nil {
+func (c *controller) Create(ctx context.Context, clusterName string, req *types.CreateClusterLogDatasourceRequest) error {
+	cluster, err := c.mustGetCluster(ctx, clusterName)
+	if err != nil {
 		return err
 	}
 	headers, err := marshalHeaders(req.Headers)
@@ -66,7 +66,7 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 	}
 
 	object := &model.ClusterLogDatasource{
-		ClusterId:   clusterId,
+		ClusterName: cluster.Name,
 		Name:        req.Name,
 		Type:        req.Type,
 		URL:         req.URL,
@@ -82,7 +82,7 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 		return apierrors.ErrServerInternal
 	}
 	if created.IsDefault {
-		if err = c.factory.LogDatasource().UpdateDefaultByCluster(ctx, clusterId, created.Id); err != nil {
+		if err = c.factory.LogDatasource().UpdateDefaultByCluster(ctx, cluster.Name, created.Id); err != nil {
 			klog.Errorf("failed to set default log datasource %d: %v", created.Id, err)
 			return apierrors.ErrServerInternal
 		}
@@ -90,8 +90,12 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 	return nil
 }
 
-func (c *controller) Update(ctx context.Context, clusterId, datasourceId int64, req *types.UpdateClusterLogDatasourceRequest) error {
-	object, err := c.mustGetDatasource(ctx, clusterId, datasourceId)
+func (c *controller) Update(ctx context.Context, clusterName string, datasourceId int64, req *types.UpdateClusterLogDatasourceRequest) error {
+	cluster, err := c.mustGetCluster(ctx, clusterName)
+	if err != nil {
+		return err
+	}
+	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceId)
 	if err != nil {
 		return err
 	}
@@ -134,7 +138,7 @@ func (c *controller) Update(ctx context.Context, clusterId, datasourceId int64, 
 		return apierrors.ErrServerInternal
 	}
 	if req.IsDefault != nil && *req.IsDefault {
-		if err = c.factory.LogDatasource().UpdateDefaultByCluster(ctx, clusterId, object.Id); err != nil {
+		if err = c.factory.LogDatasource().UpdateDefaultByCluster(ctx, cluster.Name, object.Id); err != nil {
 			klog.Errorf("failed to set default log datasource %d: %v", object.Id, err)
 			return apierrors.ErrServerInternal
 		}
@@ -142,8 +146,12 @@ func (c *controller) Update(ctx context.Context, clusterId, datasourceId int64, 
 	return nil
 }
 
-func (c *controller) Delete(ctx context.Context, clusterId, datasourceId int64) error {
-	if _, err := c.mustGetDatasource(ctx, clusterId, datasourceId); err != nil {
+func (c *controller) Delete(ctx context.Context, clusterName string, datasourceId int64) error {
+	cluster, err := c.mustGetCluster(ctx, clusterName)
+	if err != nil {
+		return err
+	}
+	if _, err := c.mustGetDatasource(ctx, cluster.Name, datasourceId); err != nil {
 		return err
 	}
 	if err := c.factory.LogDatasource().Delete(ctx, datasourceId); err != nil {
@@ -153,21 +161,26 @@ func (c *controller) Delete(ctx context.Context, clusterId, datasourceId int64) 
 	return nil
 }
 
-func (c *controller) Get(ctx context.Context, clusterId, datasourceId int64) (*types.ClusterLogDatasource, error) {
-	object, err := c.mustGetDatasource(ctx, clusterId, datasourceId)
+func (c *controller) Get(ctx context.Context, clusterName string, datasourceId int64) (*types.ClusterLogDatasource, error) {
+	cluster, err := c.mustGetCluster(ctx, clusterName)
+	if err != nil {
+		return nil, err
+	}
+	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceId)
 	if err != nil {
 		return nil, err
 	}
 	return modelToType(object)
 }
 
-func (c *controller) List(ctx context.Context, clusterId int64) ([]types.ClusterLogDatasource, error) {
-	if _, err := c.mustGetCluster(ctx, clusterId); err != nil {
+func (c *controller) List(ctx context.Context, clusterName string) ([]types.ClusterLogDatasource, error) {
+	cluster, err := c.mustGetCluster(ctx, clusterName)
+	if err != nil {
 		return nil, err
 	}
-	objects, err := c.factory.LogDatasource().ListByCluster(ctx, clusterId)
+	objects, err := c.factory.LogDatasource().ListByCluster(ctx, cluster.Name)
 	if err != nil {
-		klog.Errorf("failed to list log datasources for cluster %d: %v", clusterId, err)
+		klog.Errorf("failed to list log datasources for cluster %s: %v", clusterName, err)
 		return nil, apierrors.ErrServerInternal
 	}
 
@@ -182,13 +195,14 @@ func (c *controller) List(ctx context.Context, clusterId int64) ([]types.Cluster
 	return result, nil
 }
 
-func (c *controller) GetDefault(ctx context.Context, clusterId int64) (*types.ClusterLogDatasource, error) {
-	if _, err := c.mustGetCluster(ctx, clusterId); err != nil {
+func (c *controller) GetDefault(ctx context.Context, clusterName string) (*types.ClusterLogDatasource, error) {
+	cluster, err := c.mustGetCluster(ctx, clusterName)
+	if err != nil {
 		return nil, err
 	}
-	object, err := c.factory.LogDatasource().GetDefaultByCluster(ctx, clusterId)
+	object, err := c.factory.LogDatasource().GetDefaultByCluster(ctx, cluster.Name)
 	if err != nil {
-		klog.Errorf("failed to get default log datasource for cluster %d: %v", clusterId, err)
+		klog.Errorf("failed to get default log datasource for cluster %s: %v", clusterName, err)
 		return nil, apierrors.ErrServerInternal
 	}
 	if object == nil {
@@ -197,54 +211,25 @@ func (c *controller) GetDefault(ctx context.Context, clusterId int64) (*types.Cl
 	return modelToType(object)
 }
 
-func (c *controller) SetDefault(ctx context.Context, clusterId, datasourceId int64) error {
-	if _, err := c.mustGetDatasource(ctx, clusterId, datasourceId); err != nil {
+func (c *controller) SetDefault(ctx context.Context, clusterName string, datasourceId int64) error {
+	cluster, err := c.mustGetCluster(ctx, clusterName)
+	if err != nil {
 		return err
 	}
-	if err := c.factory.LogDatasource().UpdateDefaultByCluster(ctx, clusterId, datasourceId); err != nil {
+	if _, err := c.mustGetDatasource(ctx, cluster.Name, datasourceId); err != nil {
+		return err
+	}
+	if err := c.factory.LogDatasource().UpdateDefaultByCluster(ctx, cluster.Name, datasourceId); err != nil {
 		klog.Errorf("failed to set default log datasource %d: %v", datasourceId, err)
 		return apierrors.ErrServerInternal
 	}
 	return nil
 }
 
-func (c *controller) GetDefaultProxyConfigByClusterName(ctx context.Context, clusterName string) (*types.LogDatasourceProxyConfig, error) {
-	cluster, err := c.factory.Cluster().GetClusterByName(ctx, clusterName)
+func (c *controller) mustGetCluster(ctx context.Context, clusterName string) (*model.Cluster, error) {
+	object, err := c.factory.Cluster().GetClusterByName(ctx, clusterName)
 	if err != nil {
 		klog.Errorf("failed to get cluster(%s): %v", clusterName, err)
-		return nil, apierrors.ErrServerInternal
-	}
-	if cluster == nil {
-		return nil, apierrors.ErrClusterNotFound
-	}
-
-	object, err := c.factory.LogDatasource().GetDefaultByCluster(ctx, cluster.Id)
-	if err != nil {
-		klog.Errorf("failed to get default log datasource for cluster %s: %v", clusterName, err)
-		return nil, apierrors.ErrServerInternal
-	}
-	if object == nil {
-		return nil, apierrors.NewError(fmt.Errorf("no default log datasource found, please add one first"), http.StatusNotFound)
-	}
-
-	headers, err := unmarshalHeaders(object.Headers)
-	if err != nil {
-		return nil, apierrors.ErrServerInternal
-	}
-	return &types.LogDatasourceProxyConfig{
-		ClusterId: cluster.Id,
-		Type:      object.Type,
-		URL:       object.URL,
-		Username:  object.Username,
-		Password:  object.Password,
-		Headers:   headers,
-	}, nil
-}
-
-func (c *controller) mustGetCluster(ctx context.Context, clusterId int64) (*model.Cluster, error) {
-	object, err := c.factory.Cluster().Get(ctx, clusterId)
-	if err != nil {
-		klog.Errorf("failed to get cluster(%d): %v", clusterId, err)
 		return nil, apierrors.ErrServerInternal
 	}
 	if object == nil {
@@ -253,16 +238,16 @@ func (c *controller) mustGetCluster(ctx context.Context, clusterId int64) (*mode
 	return object, nil
 }
 
-func (c *controller) mustGetDatasource(ctx context.Context, clusterId, datasourceId int64) (*model.ClusterLogDatasource, error) {
-	if _, err := c.mustGetCluster(ctx, clusterId); err != nil {
-		return nil, err
-	}
+func (c *controller) mustGetDatasource(ctx context.Context, clusterName string, datasourceId int64) (*model.ClusterLogDatasource, error) {
 	object, err := c.factory.LogDatasource().Get(ctx, datasourceId)
 	if err != nil {
 		klog.Errorf("failed to get log datasource(%d): %v", datasourceId, err)
 		return nil, apierrors.ErrServerInternal
 	}
-	if object == nil || object.ClusterId != clusterId {
+	if object == nil {
+		return nil, apierrors.NewError(fmt.Errorf("log datasource not found"), http.StatusNotFound)
+	}
+	if object.ClusterName != clusterName {
 		return nil, apierrors.NewError(fmt.Errorf("log datasource not found"), http.StatusNotFound)
 	}
 	return object, nil
@@ -304,7 +289,7 @@ func modelToType(object *model.ClusterLogDatasource) (*types.ClusterLogDatasourc
 			GmtCreate:   object.GmtCreate,
 			GmtModified: object.GmtModified,
 		},
-		ClusterId:   object.ClusterId,
+		ClusterName: object.ClusterName,
 		Name:        object.Name,
 		Type:        object.Type,
 		URL:         object.URL,

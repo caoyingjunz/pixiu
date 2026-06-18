@@ -24,8 +24,8 @@ import (
 )
 
 type meta struct {
-	ClusterId    int64 `uri:"clusterId" binding:"required"`
-	DatasourceId int64 `uri:"datasourceId"`
+	ClusterName  string `uri:"clusterName" binding:"required"`
+	DatasourceId int64  `uri:"datasourceId"`
 }
 
 func (r *router) createDatasource(c *gin.Context) {
@@ -44,7 +44,7 @@ func (r *router) createDatasource(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.LogDatasource().Create(c, m.ClusterId, &req); err != nil {
+	if err = r.c.LogDatasource().Create(c, m.ClusterName, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -62,7 +62,7 @@ func (r *router) listDatasources(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.LogDatasource().List(c, m.ClusterId); err != nil {
+	if resp.Result, err = r.c.LogDatasource().List(c, m.ClusterName); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -80,7 +80,7 @@ func (r *router) getDefaultDatasource(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.LogDatasource().GetDefault(c, m.ClusterId); err != nil {
+	if resp.Result, err = r.c.LogDatasource().GetDefault(c, m.ClusterName); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -98,7 +98,7 @@ func (r *router) setDefaultDatasource(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.LogDatasource().SetDefault(c, m.ClusterId, m.DatasourceId); err != nil {
+	if err = r.c.LogDatasource().SetDefault(c, m.ClusterName, m.DatasourceId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -116,7 +116,7 @@ func (r *router) getDatasource(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.LogDatasource().Get(c, m.ClusterId, m.DatasourceId); err != nil {
+	if resp.Result, err = r.c.LogDatasource().Get(c, m.ClusterName, m.DatasourceId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -139,7 +139,7 @@ func (r *router) updateDatasource(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.LogDatasource().Update(c, m.ClusterId, m.DatasourceId, &req); err != nil {
+	if err = r.c.LogDatasource().Update(c, m.ClusterName, m.DatasourceId, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -157,7 +157,7 @@ func (r *router) deleteDatasource(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.LogDatasource().Delete(c, m.ClusterId, m.DatasourceId); err != nil {
+	if err = r.c.LogDatasource().Delete(c, m.ClusterName, m.DatasourceId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

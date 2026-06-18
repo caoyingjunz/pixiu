@@ -31,9 +31,9 @@ type LogDatasourceInterface interface {
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*model.ClusterLogDatasource, error)
-	ListByCluster(ctx context.Context, clusterId int64) ([]model.ClusterLogDatasource, error)
-	GetDefaultByCluster(ctx context.Context, clusterId int64) (*model.ClusterLogDatasource, error)
-	UpdateDefaultByCluster(ctx context.Context, clusterId int64, datasourceId int64) error
+	ListByCluster(ctx context.Context, clusterName string) ([]model.ClusterLogDatasource, error)
+	GetDefaultByCluster(ctx context.Context, clusterName string) (*model.ClusterLogDatasource, error)
+	UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceId int64) error
 }
 
 type logDatasource struct {
@@ -90,17 +90,17 @@ func (l *logDatasource) Get(ctx context.Context, id int64) (*model.ClusterLogDat
 	return &datasource, nil
 }
 
-func (l *logDatasource) ListByCluster(ctx context.Context, clusterId int64) ([]model.ClusterLogDatasource, error) {
+func (l *logDatasource) ListByCluster(ctx context.Context, clusterName string) ([]model.ClusterLogDatasource, error) {
 	var datasources []model.ClusterLogDatasource
-	if err := l.db.WithContext(ctx).Where("cluster_id = ?", clusterId).Order("id desc").Find(&datasources).Error; err != nil {
+	if err := l.db.WithContext(ctx).Where("cluster_name = ?", clusterName).Order("id desc").Find(&datasources).Error; err != nil {
 		return nil, err
 	}
 	return datasources, nil
 }
 
-func (l *logDatasource) GetDefaultByCluster(ctx context.Context, clusterId int64) (*model.ClusterLogDatasource, error) {
+func (l *logDatasource) GetDefaultByCluster(ctx context.Context, clusterName string) (*model.ClusterLogDatasource, error) {
 	var datasource model.ClusterLogDatasource
-	if err := l.db.WithContext(ctx).Where("cluster_id = ? and is_default = ?", clusterId, true).First(&datasource).Error; err != nil {
+	if err := l.db.WithContext(ctx).Where("cluster_name = ? and is_default = ?", clusterName, true).First(&datasource).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
@@ -109,16 +109,16 @@ func (l *logDatasource) GetDefaultByCluster(ctx context.Context, clusterId int64
 	return &datasource, nil
 }
 
-func (l *logDatasource) UpdateDefaultByCluster(ctx context.Context, clusterId int64, datasourceId int64) error {
+func (l *logDatasource) UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceId int64) error {
 	return l.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.ClusterLogDatasource{}).
-			Where("cluster_id = ?", clusterId).
+			Where("cluster_name = ?", clusterName).
 			Updates(map[string]interface{}{"is_default": false, "gmt_modified": time.Now()}).Error; err != nil {
 			return err
 		}
 
 		f := tx.Model(&model.ClusterLogDatasource{}).
-			Where("cluster_id = ? and id = ?", clusterId, datasourceId).
+			Where("cluster_name = ? and id = ?", clusterName, datasourceId).
 			Updates(map[string]interface{}{
 				"is_default":       true,
 				"gmt_modified":     time.Now(),

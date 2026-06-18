@@ -31,7 +31,7 @@ const (
 type ClusterLogDatasource struct {
 	pixiu.Model
 
-	ClusterId   int64             `gorm:"column:cluster_id;index;not null" json:"cluster_id"`
+	ClusterName string            `gorm:"column:cluster_name;type:varchar(128);index;not null" json:"cluster_name"`
 	Name        string            `gorm:"column:name;type:varchar(128);not null" json:"name"`
 	Type        LogDatasourceType `gorm:"column:type;type:varchar(32);not null" json:"type"`
 	URL         string            `gorm:"column:url;type:varchar(1024);not null" json:"url"`
