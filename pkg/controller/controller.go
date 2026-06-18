@@ -23,6 +23,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
+	logdatasource "github.com/caoyingjunz/pixiu/pkg/controller/log_datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/role"
@@ -42,6 +43,7 @@ type PixiuInterface interface {
 	audit.AuditGetter
 	helm.HelmGetter
 	agent.AgentGetter
+	logdatasource.Getter
 }
 
 type pixiu struct {
@@ -55,12 +57,13 @@ func (p *pixiu) Role() role.Interface       { return role.NewRole(p.cc, p.factor
 func (p *pixiu) APIResource() apiresource.Interface {
 	return apiresource.NewAPIResource(p.cc, p.factory)
 }
-func (p *pixiu) User() user.Interface   { return user.NewUser(p.cc, p.factory) }
-func (p *pixiu) Plan() plan.Interface   { return plan.NewPlan(p.cc, p.factory) }
-func (p *pixiu) Node() node.Interface   { return node.NewNode(p.cc, p.factory) }
-func (p *pixiu) Audit() audit.Interface { return audit.NewAudit(p.cc, p.factory) }
-func (p *pixiu) Helm() helm.Interface   { return helm.NewHelm(p.factory) }
-func (p *pixiu) Agent() agent.Interface { return agent.NewAgent(p.cc, p.factory) }
+func (p *pixiu) User() user.Interface                   { return user.NewUser(p.cc, p.factory) }
+func (p *pixiu) Plan() plan.Interface                   { return plan.NewPlan(p.cc, p.factory) }
+func (p *pixiu) Node() node.Interface                   { return node.NewNode(p.cc, p.factory) }
+func (p *pixiu) Audit() audit.Interface                 { return audit.NewAudit(p.cc, p.factory) }
+func (p *pixiu) Helm() helm.Interface                   { return helm.NewHelm(p.factory) }
+func (p *pixiu) Agent() agent.Interface                 { return agent.NewAgent(p.cc, p.factory) }
+func (p *pixiu) LogDatasource() logdatasource.Interface { return logdatasource.New(p.cc, p.factory) }
 
 func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{
