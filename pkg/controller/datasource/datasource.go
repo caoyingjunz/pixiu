@@ -60,10 +60,7 @@ func (c *controller) Create(ctx context.Context, clusterName string, datasourceT
 	if err != nil {
 		return err
 	}
-	if req.Type != datasourceType {
-		return apierrors.NewError(fmt.Errorf("datasource type does not match request path"), http.StatusBadRequest)
-	}
-	if err := validateDatasourceType(req.Type, req.SubType); err != nil {
+	if err := validateDatasourceType(datasourceType, req.SubType); err != nil {
 		return apierrors.NewError(err, http.StatusBadRequest)
 	}
 	headers, err := marshalHeaders(req.Headers)
@@ -74,7 +71,7 @@ func (c *controller) Create(ctx context.Context, clusterName string, datasourceT
 	object := &model.ClusterDatasource{
 		ClusterName: cluster.Name,
 		Name:        req.Name,
-		Type:        req.Type,
+		Type:        datasourceType,
 		SubType:     req.SubType,
 		URL:         req.URL,
 		Username:    req.Username,
@@ -107,27 +104,17 @@ func (c *controller) Update(ctx context.Context, clusterName string, datasourceT
 		return err
 	}
 
-	nextType := object.Type
-	if req.Type != nil {
-		nextType = *req.Type
-	}
-	if nextType != datasourceType {
-		return apierrors.NewError(fmt.Errorf("datasource type does not match request path"), http.StatusBadRequest)
-	}
 	nextSubType := object.SubType
 	if req.SubType != nil {
 		nextSubType = *req.SubType
 	}
-	if err = validateDatasourceType(nextType, nextSubType); err != nil {
+	if err = validateDatasourceType(datasourceType, nextSubType); err != nil {
 		return apierrors.NewError(err, http.StatusBadRequest)
 	}
 
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		updates["name"] = *req.Name
-	}
-	if req.Type != nil {
-		updates["type"] = *req.Type
 	}
 	if req.SubType != nil {
 		updates["sub_type"] = *req.SubType
@@ -163,7 +150,7 @@ func (c *controller) Update(ctx context.Context, clusterName string, datasourceT
 		return apierrors.ErrServerInternal
 	}
 	if req.IsDefault != nil && *req.IsDefault {
-		if err = c.factory.Datasource().UpdateDefaultByCluster(ctx, cluster.Name, nextType, object.Id); err != nil {
+		if err = c.factory.Datasource().UpdateDefaultByCluster(ctx, cluster.Name, datasourceType, object.Id); err != nil {
 			klog.Errorf("failed to set default datasource %d: %v", object.Id, err)
 			return apierrors.ErrServerInternal
 		}

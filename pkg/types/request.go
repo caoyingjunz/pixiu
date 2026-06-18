@@ -82,7 +82,6 @@ type (
 
 	CreateClusterDatasourceRequest struct {
 		Name        string                  `json:"name" binding:"required"`
-		Type        model.DatasourceType    `json:"type" binding:"required,oneof=0 1"`
 		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
 		URL         string                  `json:"url" binding:"required"`
 		Username    string                  `json:"username" binding:"omitempty"`
@@ -94,7 +93,6 @@ type (
 
 	UpdateClusterDatasourceRequest struct {
 		Name            *string                  `json:"name" binding:"omitempty"`
-		Type            *model.DatasourceType    `json:"type" binding:"omitempty,oneof=0 1"`
 		SubType         *model.DatasourceSubType `json:"sub_type" binding:"omitempty"`
 		URL             *string                  `json:"url" binding:"omitempty"`
 		Username        *string                  `json:"username" binding:"omitempty"`
