@@ -439,6 +439,19 @@ type CreatePermissionRequest struct {
 	TargetNamespaces []string `json:"target_namespaces"`
 }
 
+// UpdatePermissionRequest 更新权限
+type UpdatePermissionRequest struct {
+	PixiuMeta `json:",inline"`
+
+	Name              string              `json:"name"`
+	ExpirationSeconds int64               `json:"expiration_seconds"` // 默认 1 年
+	Description       string              `json:"description"`
+	PType             int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
+	Rules             []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
+	TargetNamespaces  []string            `json:"target_namespaces"`
+	Force             bool                `json:"force"` // 强制下发
+}
+
 func (o *CreatePermissionRequest) SetDefaultOptions() {
 	if o.ExpirationSeconds <= 0 {
 		o.ExpirationSeconds = defaultExpirationSeconds
@@ -465,17 +478,6 @@ func (o *CreatePermissionRequest) SetDefaultOptions() {
 	if len(o.RoleBindingName) == 0 {
 		o.RoleBindingName = fmt.Sprintf("pixiu-rb-%d", o.UserId)
 	}
-}
-
-// UpdatePermissionRequest 更新权限
-type UpdatePermissionRequest struct {
-	ResourceVersion   *int64              `json:"resource_version" binding:"required"`
-	Name              *string             `json:"name"`
-	ExpirationSeconds *int64              `json:"expiration_seconds"`
-	Description       *string             `json:"description"`
-	PType             *int                `json:"p_type"`
-	Rules             []rbacv1.PolicyRule `json:"rules"`
-	TargetNamespaces  []string            `json:"target_namespaces"`
 }
 
 // Permission 集群 scoped kubeconfig 授权
