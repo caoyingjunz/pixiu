@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logdatasource
+package datasource
 
 import (
 	"github.com/gin-gonic/gin"
@@ -33,7 +33,7 @@ func NewRouter(o *options.Options) {
 }
 
 func (r *router) initRoutes(httpEngine *gin.Engine) {
-	group := httpEngine.Group("/pixiu/log-datasources/:clusterName")
+	group := httpEngine.Group("/pixiu/datasources/:clusterName")
 	{
 		group.POST("", r.createDatasource)
 		group.GET("", r.listDatasources)

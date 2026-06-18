@@ -26,25 +26,25 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-type LogDatasourceInterface interface {
-	Create(ctx context.Context, object *model.ClusterLogDatasource) (*model.ClusterLogDatasource, error)
+type DatasourceInterface interface {
+	Create(ctx context.Context, object *model.ClusterDatasource) (*model.ClusterDatasource, error)
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) error
-	Get(ctx context.Context, id int64) (*model.ClusterLogDatasource, error)
-	ListByCluster(ctx context.Context, clusterName string) ([]model.ClusterLogDatasource, error)
-	GetDefaultByCluster(ctx context.Context, clusterName string) (*model.ClusterLogDatasource, error)
-	UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceId int64) error
+	Get(ctx context.Context, id int64) (*model.ClusterDatasource, error)
+	ListByCluster(ctx context.Context, clusterName string) ([]model.ClusterDatasource, error)
+	GetDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) (*model.ClusterDatasource, error)
+	UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error
 }
 
-type logDatasource struct {
+type datasource struct {
 	db *gorm.DB
 }
 
-func newLogDatasource(db *gorm.DB) LogDatasourceInterface {
-	return &logDatasource{db}
+func newDatasource(db *gorm.DB) DatasourceInterface {
+	return &datasource{db}
 }
 
-func (l *logDatasource) Create(ctx context.Context, object *model.ClusterLogDatasource) (*model.ClusterLogDatasource, error) {
+func (l *datasource) Create(ctx context.Context, object *model.ClusterDatasource) (*model.ClusterDatasource, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -54,11 +54,11 @@ func (l *logDatasource) Create(ctx context.Context, object *model.ClusterLogData
 	return object, nil
 }
 
-func (l *logDatasource) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
+func (l *datasource) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
 
-	f := l.db.WithContext(ctx).Model(&model.ClusterLogDatasource{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
+	f := l.db.WithContext(ctx).Model(&model.ClusterDatasource{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
@@ -68,8 +68,8 @@ func (l *logDatasource) Update(ctx context.Context, id int64, resourceVersion in
 	return nil
 }
 
-func (l *logDatasource) Delete(ctx context.Context, id int64) error {
-	f := l.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ClusterLogDatasource{})
+func (l *datasource) Delete(ctx context.Context, id int64) error {
+	f := l.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ClusterDatasource{})
 	if f.Error != nil {
 		return f.Error
 	}
@@ -79,8 +79,8 @@ func (l *logDatasource) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (l *logDatasource) Get(ctx context.Context, id int64) (*model.ClusterLogDatasource, error) {
-	var datasource model.ClusterLogDatasource
+func (l *datasource) Get(ctx context.Context, id int64) (*model.ClusterDatasource, error) {
+	var datasource model.ClusterDatasource
 	if err := l.db.WithContext(ctx).Where("id = ?", id).First(&datasource).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
@@ -90,17 +90,17 @@ func (l *logDatasource) Get(ctx context.Context, id int64) (*model.ClusterLogDat
 	return &datasource, nil
 }
 
-func (l *logDatasource) ListByCluster(ctx context.Context, clusterName string) ([]model.ClusterLogDatasource, error) {
-	var datasources []model.ClusterLogDatasource
+func (l *datasource) ListByCluster(ctx context.Context, clusterName string) ([]model.ClusterDatasource, error) {
+	var datasources []model.ClusterDatasource
 	if err := l.db.WithContext(ctx).Where("cluster_name = ?", clusterName).Order("id desc").Find(&datasources).Error; err != nil {
 		return nil, err
 	}
 	return datasources, nil
 }
 
-func (l *logDatasource) GetDefaultByCluster(ctx context.Context, clusterName string) (*model.ClusterLogDatasource, error) {
-	var datasource model.ClusterLogDatasource
-	if err := l.db.WithContext(ctx).Where("cluster_name = ? and is_default = ?", clusterName, true).First(&datasource).Error; err != nil {
+func (l *datasource) GetDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) (*model.ClusterDatasource, error) {
+	var datasource model.ClusterDatasource
+	if err := l.db.WithContext(ctx).Where("cluster_name = ? and type = ? and is_default = ?", clusterName, datasourceType, true).First(&datasource).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
@@ -109,16 +109,16 @@ func (l *logDatasource) GetDefaultByCluster(ctx context.Context, clusterName str
 	return &datasource, nil
 }
 
-func (l *logDatasource) UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceId int64) error {
+func (l *datasource) UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error {
 	return l.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.ClusterLogDatasource{}).
-			Where("cluster_name = ?", clusterName).
+		if err := tx.Model(&model.ClusterDatasource{}).
+			Where("cluster_name = ? and type = ?", clusterName, datasourceType).
 			Updates(map[string]interface{}{"is_default": false, "gmt_modified": time.Now()}).Error; err != nil {
 			return err
 		}
 
-		f := tx.Model(&model.ClusterLogDatasource{}).
-			Where("cluster_name = ? and id = ?", clusterName, datasourceId).
+		f := tx.Model(&model.ClusterDatasource{}).
+			Where("cluster_name = ? and type = ? and id = ?", clusterName, datasourceType, datasourceId).
 			Updates(map[string]interface{}{
 				"is_default":       true,
 				"gmt_modified":     time.Now(),

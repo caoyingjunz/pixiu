@@ -95,13 +95,14 @@ type Cluster struct {
 	TimeMeta       `json:",inline"`
 }
 
-type ClusterLogDatasource struct {
+type ClusterDatasource struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
 	ClusterName string                  `json:"cluster_name"`
 	Name        string                  `json:"name"`
-	Type        model.LogDatasourceType `json:"type"`
+	Type        model.DatasourceType    `json:"type"`
+	SubType     model.DatasourceSubType `json:"sub_type"`
 	URL         string                  `json:"url"`
 	Username    string                  `json:"username"`
 	Headers     []HTTPHeader            `json:"headers"`

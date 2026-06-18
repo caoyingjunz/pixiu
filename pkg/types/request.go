@@ -80,9 +80,10 @@ type (
 		Protected       bool   `json:"protected" binding:"omitempty"`       // optional
 	}
 
-	CreateClusterLogDatasourceRequest struct {
+	CreateClusterDatasourceRequest struct {
 		Name        string                  `json:"name" binding:"required"`
-		Type        model.LogDatasourceType `json:"type" binding:"required,oneof=loki"`
+		Type        model.DatasourceType    `json:"type" binding:"required,oneof=0 1"`
+		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
 		URL         string                  `json:"url" binding:"required"`
 		Username    string                  `json:"username" binding:"omitempty"`
 		Password    string                  `json:"password" binding:"omitempty"`
@@ -91,9 +92,10 @@ type (
 		Description string                  `json:"description" binding:"omitempty"`
 	}
 
-	UpdateClusterLogDatasourceRequest struct {
+	UpdateClusterDatasourceRequest struct {
 		Name            *string                  `json:"name" binding:"omitempty"`
-		Type            *model.LogDatasourceType `json:"type" binding:"omitempty,oneof=loki"`
+		Type            *model.DatasourceType    `json:"type" binding:"omitempty,oneof=0 1"`
+		SubType         *model.DatasourceSubType `json:"sub_type" binding:"omitempty"`
 		URL             *string                  `json:"url" binding:"omitempty"`
 		Username        *string                  `json:"username" binding:"omitempty"`
 		Password        *string                  `json:"password" binding:"omitempty"`
