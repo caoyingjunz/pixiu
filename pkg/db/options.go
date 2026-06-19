@@ -184,6 +184,12 @@ func WithStatus(status model.AgentStatus) Options {
 	}
 }
 
+func WithRunnerStatus(status model.RunnerStatus) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
+
 func WithUser(userId int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if userId == 0 {

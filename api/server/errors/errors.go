@@ -115,6 +115,10 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.ErrAgentNotFound,
 	}
+	ErrRunnerNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrRunnerNotFound,
+	}
 	ErrNodeNotFound = Error{
 		Code: http.StatusNotFound,
 		Err:  errors.ErrNodeNotFound,
