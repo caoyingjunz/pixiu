@@ -259,9 +259,9 @@ type Distribution struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Family      string `json:"family"`
-	Version     string `json:"version"`
-	EngineImage string `json:"engine_image"`
+	Family string `json:"family"`
+	Name   string `json:"name"`
+	Runner string `json:"runner"`
 }
 
 // DistributionsMeta 按操作系统家族聚合的发行版列表（兼容部署页下拉）

@@ -150,6 +150,10 @@ func (o *Options) Complete() error {
 		return err
 	}
 
+	if err := o.bootstrapDistributions(); err != nil {
+		return err
+	}
+
 	o.JobManager = jobmanager.NewManager(
 		&o.ComponentConfig.Default.LogOptions,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
@@ -231,4 +235,8 @@ func (o *Options) bootstrapRootUser() error {
 		Password: adminPassword,
 		Role:     pixiuModel.RoleRoot,
 	})
+}
+
+func (o *Options) bootstrapDistributions() error {
+	return o.Controller.Distribution().Bootstrap(context.Background())
 }

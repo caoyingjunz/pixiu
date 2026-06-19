@@ -202,8 +202,8 @@ func (p *plan) WorkDir() string {
 }
 
 func (p *plan) GetRunner(ctx context.Context, osImage string) (string, error) {
-	if dist, err := p.factory.Distribution().GetDistributionByVersion(ctx, osImage); err == nil && dist != nil && dist.EngineImage != "" {
-		return dist.EngineImage, nil
+	if dist, err := p.factory.Distribution().GetDistributionByName(ctx, osImage); err == nil && dist != nil && dist.Runner != "" {
+		return dist.Runner, nil
 	}
 
 	engines := p.cc.Worker.Engines

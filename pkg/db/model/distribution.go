@@ -28,9 +28,9 @@ func init() {
 type Distribution struct {
 	pixiu.Model
 
-	Family      string `gorm:"type:varchar(32);not null;uniqueIndex:uk_family_version" json:"family"`
-	Version     string `gorm:"type:varchar(64);not null;uniqueIndex:uk_family_version" json:"version"`
-	EngineImage string `gorm:"type:varchar(255);not null" json:"engine_image"`
+	Family  string `gorm:"type:varchar(32);not null;uniqueIndex:uk_family_name" json:"family"`
+	Name    string `gorm:"type:varchar(64);not null;uniqueIndex:uk_family_name" json:"name"`
+	Runner  string `gorm:"type:varchar(255);not null" json:"runner"`
 }
 
 func (distribution *Distribution) TableName() string {

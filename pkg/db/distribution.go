@@ -31,8 +31,8 @@ type DistributionInterface interface {
 	UpdateDistribution(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteDistribution(ctx context.Context, id int64) (*model.Distribution, error)
 	GetDistribution(ctx context.Context, id int64) (*model.Distribution, error)
-	GetDistributionByVersion(ctx context.Context, version string) (*model.Distribution, error)
-	GetDistributionByFamilyVersion(ctx context.Context, family, version string) (*model.Distribution, error)
+	GetDistributionByName(ctx context.Context, name string) (*model.Distribution, error)
+	GetDistributionByFamilyName(ctx context.Context, family, name string) (*model.Distribution, error)
 	ListDistributions(ctx context.Context, opts ...Options) ([]model.Distribution, error)
 	CountDistributions(ctx context.Context, opts ...Options) (int64, error)
 }
@@ -97,9 +97,9 @@ func (d *distribution) GetDistribution(ctx context.Context, id int64) (*model.Di
 	return &object, nil
 }
 
-func (d *distribution) GetDistributionByVersion(ctx context.Context, version string) (*model.Distribution, error) {
+func (d *distribution) GetDistributionByName(ctx context.Context, name string) (*model.Distribution, error) {
 	var object model.Distribution
-	if err := d.db.WithContext(ctx).Where("version = ?", version).First(&object).Error; err != nil {
+	if err := d.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
@@ -108,9 +108,9 @@ func (d *distribution) GetDistributionByVersion(ctx context.Context, version str
 	return &object, nil
 }
 
-func (d *distribution) GetDistributionByFamilyVersion(ctx context.Context, family, version string) (*model.Distribution, error) {
+func (d *distribution) GetDistributionByFamilyName(ctx context.Context, family, name string) (*model.Distribution, error) {
 	var object model.Distribution
-	if err := d.db.WithContext(ctx).Where("family = ? and version = ?", family, version).First(&object).Error; err != nil {
+	if err := d.db.WithContext(ctx).Where("family = ? and name = ?", family, name).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
@@ -125,7 +125,7 @@ func (d *distribution) ListDistributions(ctx context.Context, opts ...Options) (
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
-	if err := tx.Order("family asc, version asc").Find(&objects).Error; err != nil {
+	if err := tx.Order("family asc, name asc").Find(&objects).Error; err != nil {
 		return nil, err
 	}
 	return objects, nil
@@ -152,11 +152,11 @@ func WithDistributionFamily(family string) Options {
 	}
 }
 
-func WithDistributionVersionLike(version string) Options {
+func WithDistributionNameLike(name string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
-		if version == "" {
+		if name == "" {
 			return tx
 		}
-		return tx.Where("version like ?", "%"+version+"%")
+		return tx.Where("name like ?", "%"+name+"%")
 	}
 }
