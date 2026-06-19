@@ -25,8 +25,8 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	pixiuerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	pixiuerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type DistributionGetter interface {
