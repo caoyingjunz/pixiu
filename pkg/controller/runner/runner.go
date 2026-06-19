@@ -90,7 +90,7 @@ func (r *runnerController) Update(ctx context.Context, runnerId int64, req *type
 }
 
 func (r *runnerController) Delete(ctx context.Context, runnerId int64) error {
-	if err := r.factory.Runner().Delete(ctx, runnerId); err != nil {
+	if _, err := r.factory.Runner().Delete(ctx, runnerId); err != nil {
 		klog.Errorf("failed to delete runner %d: %v", runnerId, err)
 		return errors.ErrServerInternal
 	}
@@ -156,7 +156,7 @@ func buildFilterOpts(opt types.RunnerListOptions) []db.Options {
 		opts = append(opts, db.WithNameLike(opt.NameSelector))
 	}
 	if opt.Status != nil {
-		opts = append(opts, db.WithStatus(*opt.Status))
+		opts = append(opts, db.WithRunnerStatus(*opt.Status))
 	}
 	return opts
 }

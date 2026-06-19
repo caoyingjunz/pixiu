@@ -49,19 +49,31 @@ func (r *runnerRouter) createRunner(c *gin.Context) {
 func (r *runnerRouter) updateRunner(c *gin.Context) {
 	res := httputils.NewResponse()
 
+	// 先读取原始请求体，用于调试
+	bodyBytes, _ := c.GetRawData()
+	log.Printf("updateRunner 收到原始请求: %s", string(bodyBytes))
+	// 重新填充请求体，供 ShouldBindJSON 使用
+	c.Request.Body = c.Request.Body // 这里可能需要重新设置，但 Gin 可能已经处理了
+
 	var (
 		opt RunnerMeta
 		req types.UpdateRunnerRequest
 		err error
 	)
 	if err = c.ShouldBindUri(&opt); err != nil {
+		log.Printf("updateRunner ShouldBindUri 失败: %v", err)
 		httputils.SetFailed(c, res, err)
 		return
 	}
+	// 重新绑定，因为我们之前读取了 raw data
 	if err = c.ShouldBindJSON(&req); err != nil {
+		log.Printf("updateRunner ShouldBindJSON 失败: %v", err)
 		httputils.SetFailed(c, res, err)
 		return
 	}
+	// 打印解析后的 req
+	reqJson, _ := json.Marshal(req)
+	log.Printf("updateRunner 解析后的 req: %s", string(reqJson))
 	if err = r.c.Runner().Update(c, opt.RunnerId, &req); err != nil {
 		httputils.SetFailed(c, res, err)
 		return
