@@ -62,7 +62,6 @@ func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "/:planId/tasks/:taskId", Handler: t.runTasks, Description: "执行"},
 			{Method: "GET", RelativePath: "/:planId/tasks", Handler: t.listTasks, Description: "查询任务"},
 			{Method: "GET", RelativePath: "/:planId/tasks/:taskId/logs", Handler: t.watchTaskLog, Description: "部署日志"},
-			{Method: "GET", RelativePath: "/distributions", Handler: t.getDistributions, Description: "获取操作系统"},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/plans"), t.c.APIResource())

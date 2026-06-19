@@ -123,6 +123,14 @@ var (
 		Code: http.StatusConflict,
 		Err:  errors.ErrNodeNameExists,
 	}
+	ErrDistributionExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.DistributionExistError,
+	}
+	ErrDistributionNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrDistributionNotFound,
+	}
 	ErrRootAlreadyExists = Error{
 		Code: http.StatusConflict,
 		Err:  errors.ErrRootAlreadyExists,

@@ -42,6 +42,8 @@ var (
 	ErrAgentNotFound      = errors.New("Agent 不存在")
 	ErrNodeNotFound       = errors.New("节点不存在")
 	ErrNodeNameExists     = errors.New("该部署计划下已存在同名主机")
+	DistributionExistError = errors.New("操作系统发行版已存在")
+	ErrDistributionNotFound = errors.New("操作系统发行版不存在")
 
 	ErrContainerNotFound = errors.New("容器不存在")
 

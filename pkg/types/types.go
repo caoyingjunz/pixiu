@@ -254,6 +254,25 @@ type PlanConfig struct {
 
 }
 
+// Distribution 部署支持的操作系统发行版
+type Distribution struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Family      string `json:"family"`
+	Version     string `json:"version"`
+	EngineImage string `json:"engine_image"`
+}
+
+// DistributionsMeta 按操作系统家族聚合的发行版列表（兼容部署页下拉）
+type DistributionsMeta struct {
+	Centos    []string `json:"centos,omitempty"`
+	Ubuntu    []string `json:"ubuntu,omitempty"`
+	Debian    []string `json:"debian,omitempty"`
+	OpenEuler []string `json:"openEuler,omitempty"`
+	Rocky     []string `json:"rocky,omitempty"`
+}
+
 // TimeSpec 通用时间规格
 type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`

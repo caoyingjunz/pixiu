@@ -134,7 +134,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		klog.Errorf("failed to get task data: %v", err)
 		return
 	}
-	runner, err := p.GetRunner(taskData.Config.OSImage)
+	runner, err := p.GetRunner(ctx, taskData.Config.OSImage)
 	if err != nil {
 		klog.Errorf("failed to get image(%s) for worker: %v", taskData.Config.OSImage, err)
 		return
@@ -201,7 +201,11 @@ func (p *plan) WorkDir() string {
 	return p.cc.Worker.WorkDir
 }
 
-func (p *plan) GetRunner(osImage string) (string, error) {
+func (p *plan) GetRunner(ctx context.Context, osImage string) (string, error) {
+	if dist, err := p.factory.Distribution().GetDistributionByVersion(ctx, osImage); err == nil && dist != nil && dist.EngineImage != "" {
+		return dist.EngineImage, nil
+	}
+
 	engines := p.cc.Worker.Engines
 	for _, engine := range engines {
 		for _, os := range engine.OSSupported {
