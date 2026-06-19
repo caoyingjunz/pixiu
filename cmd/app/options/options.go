@@ -150,6 +150,10 @@ func (o *Options) Complete() error {
 		return err
 	}
 
+	if err := o.bootstrapRunners(); err != nil {
+		return err
+	}
+
 	o.JobManager = jobmanager.NewManager(
 		&o.ComponentConfig.Default.LogOptions,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
@@ -231,4 +235,44 @@ func (o *Options) bootstrapRootUser() error {
 		Password: adminPassword,
 		Role:     pixiuModel.RoleRoot,
 	})
+}
+
+// bootstrapRunners 启动时自动初始化默认 Runner
+func (o *Options) bootstrapRunners() error {
+	ctx := context.Background()
+	runners, err := o.Factory.Runner().List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check runners: %v", err)
+	}
+	if len(runners) > 0 {
+		klog.Info("runners already exist, skipping")
+		return nil
+	}
+
+	defaultRunners := []struct {
+		name        string
+		engineImage string
+	}{
+		{
+			name:        "runner1",
+			engineImage: "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2",
+		},
+		{
+			name:        "runner2",
+			engineImage: "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2",
+		},
+	}
+
+	for _, dr := range defaultRunners {
+		klog.Infof("initializing runner: %s with image: %s", dr.name, dr.engineImage)
+		if err := o.Controller.Runner().Create(ctx, &types.CreateRunnerRequest{
+			Name:        dr.name,
+			EngineImage: dr.engineImage,
+			Status:      pixiuModel.RunnerStatusUnknown,
+		}); err != nil {
+			return fmt.Errorf("failed to create runner %s: %v", dr.name, err)
+		}
+	}
+
+	return nil
 }
