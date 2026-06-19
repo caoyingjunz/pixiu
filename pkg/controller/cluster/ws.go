@@ -62,6 +62,10 @@ func (c *cluster) WsPodHandler(ctx context.Context, opt *types.WebShellOptions, 
 	if len(cmd) == 0 {
 		cmd = "/bin/bash"
 	}
+	execCommand := []string{cmd}
+	if len(opt.CommandArgs) > 0 {
+		execCommand = opt.CommandArgs
+	}
 
 	// 组装 POST 请求
 	req := cs.Client.CoreV1().RESTClient().Post().
@@ -71,7 +75,7 @@ func (c *cluster) WsPodHandler(ctx context.Context, opt *types.WebShellOptions, 
 		SubResource("exec").
 		VersionedParams(&v1.PodExecOptions{
 			Container: opt.Container,
-			Command:   []string{cmd},
+			Command:   execCommand,
 			Stderr:    true,
 			Stdin:     true,
 			Stdout:    true,
@@ -198,12 +202,23 @@ func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequ
 	}
 
 	return c.WsPodHandler(ctx, &types.WebShellOptions{
-		Cluster:   ownerClusterName,
-		Namespace: namespace,
-		Pod:       podName,
-		Container: "pixiu-ws-toolbox",
-		Command:   "/bin/bash",
+		Cluster:     ownerClusterName,
+		Namespace:   namespace,
+		Pod:         podName,
+		Container:   "pixiu-ws-toolbox",
+		CommandArgs: cloudShellBashCommand(),
 	}, w, r)
+}
+
+// cloudShellBashCommand 启动带彩色提示符的交互 bash，风格参考云厂商 CloudShell。
+func cloudShellBashCommand() []string {
+	// [user@host path]# — 浅色背景下使用偏深的 ANSI 色，避免过亮刺眼
+	const ps1 = `[\[\033[00;32m\]\u\[\033[00m\]@\[\033[00;36m\]\h\[\033[00m\] \[\033[00;33m\]\w\[\033[00m\]]\[\033[00;35m\]# \[\033[00m\]`
+	return []string{
+		"/bin/bash",
+		"-c",
+		"export PS1='" + ps1 + "'; cd ~ 2>/dev/null || cd /root; exec /bin/bash -i",
+	}
 }
 
 func (c *cluster) CreateAndWaitForPodRunning(ctx context.Context, clientSet client.ClusterSet, req types.ClusterWebRequest) error {

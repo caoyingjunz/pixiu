@@ -269,11 +269,12 @@ type KubeObject struct {
 
 // WebShellOptions ws API 参数定义
 type WebShellOptions struct {
-	Cluster   string `form:"cluster"`
-	Namespace string `form:"namespace"`
-	Pod       string `form:"pod"`
-	Container string `form:"container"`
-	Command   string `form:"command"`
+	Cluster     string   `form:"cluster"`
+	Namespace   string   `form:"namespace"`
+	Pod         string   `form:"pod"`
+	Container   string   `form:"container"`
+	Command     string   `form:"command"`
+	CommandArgs []string `form:"-"`
 }
 
 // TerminalMessage 定义了终端和容器 shell 交互内容的格式 Operation 是操作类型
