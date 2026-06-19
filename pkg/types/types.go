@@ -57,6 +57,9 @@ type HTTPHeader struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
+
+type DatasourceConfig map[string]interface{}
+
 type KubeNode struct {
 	Ready    []string `json:"ready"`
 	NotReady []string `json:"not_ready"`
@@ -104,9 +107,7 @@ type ClusterDatasource struct {
 	Type        model.DatasourceType    `json:"type"`
 	SubType     model.DatasourceSubType `json:"sub_type"`
 	URL         string                  `json:"url"`
-	Username    string                  `json:"username"`
-	Headers     []HTTPHeader            `json:"headers"`
-	HasPassword bool                    `json:"has_password"`
+	Config      DatasourceConfig        `json:"config"`
 	IsDefault   bool                    `json:"is_default"`
 	Description string                  `json:"description"`
 }

@@ -44,9 +44,7 @@ type ClusterDatasource struct {
 	Type        DatasourceType    `gorm:"column:type;not null" json:"type"`
 	SubType     DatasourceSubType `gorm:"column:sub_type;type:varchar(32);not null" json:"sub_type"`
 	URL         string            `gorm:"column:url;type:varchar(1024);not null" json:"url"`
-	Username    string            `gorm:"column:username;type:varchar(255)" json:"username"`
-	Password    string            `gorm:"column:password;type:text" json:"password"`
-	Headers     string            `gorm:"column:headers;type:text" json:"headers"`
+	Config      string            `gorm:"column:config;type:text" json:"config"`
 	IsDefault   bool              `gorm:"column:is_default;default:false;not null" json:"is_default"`
 	Description string            `gorm:"column:description;type:text" json:"description"`
 }

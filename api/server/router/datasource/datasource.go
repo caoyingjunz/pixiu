@@ -37,8 +37,6 @@ func (r *router) initRoutes(httpEngine *gin.Engine) {
 	{
 		group.POST("", r.createDatasource)
 		group.GET("", r.listDatasources)
-		group.GET("/default", r.getDefaultDatasource)
-		group.POST("/:datasourceId/default", r.setDefaultDatasource)
 		group.GET("/:datasourceId", r.getDatasource)
 		group.PUT("/:datasourceId", r.updateDatasource)
 		group.DELETE("/:datasourceId", r.deleteDatasource)

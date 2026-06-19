@@ -84,9 +84,7 @@ type (
 		Name        string                  `json:"name" binding:"required"`
 		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
 		URL         string                  `json:"url" binding:"required"`
-		Username    string                  `json:"username" binding:"omitempty"`
-		Password    string                  `json:"password" binding:"omitempty"`
-		Headers     []HTTPHeader            `json:"headers" binding:"omitempty"`
+		Config      DatasourceConfig        `json:"config" binding:"omitempty"`
 		IsDefault   bool                    `json:"is_default"`
 		Description string                  `json:"description" binding:"omitempty"`
 	}
@@ -95,9 +93,7 @@ type (
 		Name            *string                  `json:"name" binding:"omitempty"`
 		SubType         *model.DatasourceSubType `json:"sub_type" binding:"omitempty"`
 		URL             *string                  `json:"url" binding:"omitempty"`
-		Username        *string                  `json:"username" binding:"omitempty"`
-		Password        *string                  `json:"password" binding:"omitempty"`
-		Headers         *[]HTTPHeader            `json:"headers" binding:"omitempty"`
+		Config          *DatasourceConfig        `json:"config" binding:"omitempty"`
 		IsDefault       *bool                    `json:"is_default" binding:"omitempty"`
 		Description     *string                  `json:"description" binding:"omitempty"`
 		ResourceVersion *int64                   `json:"resource_version" binding:"required"`

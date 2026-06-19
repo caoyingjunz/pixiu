@@ -30,6 +30,10 @@ type meta struct {
 	DatasourceId int64                 `uri:"datasourceId"`
 }
 
+type listQuery struct {
+	Default bool `form:"default"`
+}
+
 func (r *router) createDatasource(c *gin.Context) {
 	resp := httputils.NewResponse()
 
@@ -57,50 +61,27 @@ func (r *router) listDatasources(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
-		m   meta
-		err error
+		m     meta
+		query listQuery
+		err   error
 	)
 	if err = c.ShouldBindUri(&m); err != nil {
 		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = c.ShouldBindQuery(&query); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if query.Default {
+		if resp.Result, err = r.c.Datasource().GetDefault(c, m.ClusterName, *m.Type); err != nil {
+			httputils.SetFailed(c, resp, err)
+			return
+		}
+		httputils.SetSuccess(c, resp)
 		return
 	}
 	if resp.Result, err = r.c.Datasource().List(c, m.ClusterName, *m.Type); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	httputils.SetSuccess(c, resp)
-}
-
-func (r *router) getDefaultDatasource(c *gin.Context) {
-	resp := httputils.NewResponse()
-
-	var (
-		m   meta
-		err error
-	)
-	if err = c.ShouldBindUri(&m); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	if resp.Result, err = r.c.Datasource().GetDefault(c, m.ClusterName, *m.Type); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	httputils.SetSuccess(c, resp)
-}
-
-func (r *router) setDefaultDatasource(c *gin.Context) {
-	resp := httputils.NewResponse()
-
-	var (
-		m   meta
-		err error
-	)
-	if err = c.ShouldBindUri(&m); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	if err = r.c.Datasource().SetDefault(c, m.ClusterName, *m.Type, m.DatasourceId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
