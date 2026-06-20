@@ -17,9 +17,6 @@ limitations under the License.
 package runner
 
 import (
-	"encoding/json"
-	"log"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -31,113 +28,97 @@ type RunnerMeta struct {
 }
 
 func (r *runnerRouter) createRunner(c *gin.Context) {
-	res := httputils.NewResponse()
+	result := httputils.NewResponse()
 
 	var (
 		req types.CreateRunnerRequest
 		err error
 	)
 	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, res, err)
+		httputils.SetFailed(c, result, err)
 		return
 	}
 	if err = r.c.Runner().Create(c, &req); err != nil {
-		httputils.SetFailed(c, res, err)
+		httputils.SetFailed(c, result, err)
 		return
 	}
 
-	httputils.SetSuccess(c, res)
+	httputils.SetSuccess(c, result)
 }
 
 func (r *runnerRouter) updateRunner(c *gin.Context) {
-	res := httputils.NewResponse()
-
-	// 先读取原始请求体，用于调试
-	bodyBytes, _ := c.GetRawData()
-	log.Printf("updateRunner 收到原始请求: %s", string(bodyBytes))
-	// 重新填充请求体，供 ShouldBindJSON 使用
-	c.Request.Body = c.Request.Body // 这里可能需要重新设置，但 Gin 可能已经处理了
-
+	result := httputils.NewResponse()
 	var (
-		opt RunnerMeta
-		req types.UpdateRunnerRequest
-		err error
+		idMeta RunnerMeta
+		req    types.UpdateRunnerRequest
+		err    error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		log.Printf("updateRunner ShouldBindUri 失败: %v", err)
-		httputils.SetFailed(c, res, err)
+	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
+		httputils.SetFailed(c, result, err)
 		return
 	}
-	// 重新绑定，因为我们之前读取了 raw data
-	if err = c.ShouldBindJSON(&req); err != nil {
-		log.Printf("updateRunner ShouldBindJSON 失败: %v", err)
-		httputils.SetFailed(c, res, err)
-		return
-	}
-	// 打印解析后的 req
-	reqJson, _ := json.Marshal(req)
-	log.Printf("updateRunner 解析后的 req: %s", string(reqJson))
-	if err = r.c.Runner().Update(c, opt.RunnerId, &req); err != nil {
-		httputils.SetFailed(c, res, err)
+	req.Id = idMeta.RunnerId
+	if err = r.c.Runner().Update(c, &req); err != nil {
+		httputils.SetFailed(c, result, err)
 		return
 	}
 
-	httputils.SetSuccess(c, res)
+	httputils.SetSuccess(c, result)
 }
 
 func (r *runnerRouter) deleteRunner(c *gin.Context) {
-	res := httputils.NewResponse()
+	result := httputils.NewResponse()
 
 	var (
-		opt RunnerMeta
-		err error
+		idMeta RunnerMeta
+		err    error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, res, err)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, result, err)
 		return
 	}
-	if err = r.c.Runner().Delete(c, opt.RunnerId); err != nil {
-		httputils.SetFailed(c, res, err)
+	if err = r.c.Runner().Delete(c, idMeta.RunnerId); err != nil {
+		httputils.SetFailed(c, result, err)
 		return
 	}
 
-	httputils.SetSuccess(c, res)
+	httputils.SetSuccess(c, result)
 }
 
 func (r *runnerRouter) getRunner(c *gin.Context) {
-	res := httputils.NewResponse()
+	result := httputils.NewResponse()
 
 	var (
-		opt RunnerMeta
-		err error
+		idMeta RunnerMeta
+		err    error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, res, err)
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, result, err)
 		return
 	}
-	if res.Result, err = r.c.Runner().Get(c, opt.RunnerId); err != nil {
-		httputils.SetFailed(c, res, err)
+	if result.Result, err = r.c.Runner().Get(c, idMeta.RunnerId); err != nil {
+		httputils.SetFailed(c, result, err)
 		return
 	}
 
-	httputils.SetSuccess(c, res)
+	httputils.SetSuccess(c, result)
 }
 
 func (r *runnerRouter) listRunners(c *gin.Context) {
-	res := httputils.NewResponse()
+	result := httputils.NewResponse()
 
 	var (
-		listOption types.RunnerListOptions
+		listOption types.ListOptions
 		err        error
 	)
 	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
-		httputils.SetFailed(c, res, err)
+		httputils.SetFailed(c, result, err)
 		return
 	}
-	if res.Result, err = r.c.Runner().List(c, listOption); err != nil {
-		httputils.SetFailed(c, res, err)
+	if result.Result, err = r.c.Runner().List(c, listOption); err != nil {
+		httputils.SetFailed(c, result, err)
 		return
 	}
 
-	httputils.SetSuccess(c, res)
+	httputils.SetSuccess(c, result)
 }

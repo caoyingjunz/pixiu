@@ -38,15 +38,11 @@ type CreateRunnerRequest struct {
 }
 
 type UpdateRunnerRequest struct {
-	Name            *string             `json:"name" binding:"omitempty"`
-	EngineImage     *string             `json:"engine_image" binding:"omitempty"`
-	Status          *model.RunnerStatus `json:"status" binding:"omitempty"`
-	Description     *string             `json:"description" binding:"omitempty"`
-	ResourceVersion int64               `json:"resource_version" binding:"required"`
-}
+	Id              int64 `json:"id"`
+	ResourceVersion int64 `json:"resource_version" binding:"required"`
 
-type RunnerListOptions struct {
-	PageRequest  `form:",inline"`
-	NameSelector string              `form:"nameSelector" json:"nameSelector"`
-	Status       *model.RunnerStatus `form:"status" json:"status"`
+	Name        *string             `json:"name" binding:"omitempty"`
+	EngineImage *string             `json:"engine_image" binding:"omitempty"`
+	Status      *model.RunnerStatus `json:"status" binding:"omitempty"`
+	Description *string             `json:"description" binding:"omitempty"`
 }

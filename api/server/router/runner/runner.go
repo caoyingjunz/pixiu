@@ -24,6 +24,8 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
+const runnerURL = "/pixiu/runners"
+
 type runnerRouter struct {
 	c controller.PixiuInterface
 }
@@ -36,17 +38,16 @@ func NewRouter(o *options.Options) {
 }
 
 func (r *runnerRouter) initRoutes(ginEngine *gin.Engine) {
-	persist := false
 	group := &apiregistry.Group{
 		Name:    "Runner",
-		BaseURL: "/pixiu/runners",
+		BaseURL: runnerURL,
 		Entries: []apiregistry.RouteEntry{
-			{Method: "POST", RelativePath: "", Handler: r.createRunner, Description: "创建 Runner", Persist: &persist},
-			{Method: "PUT", RelativePath: "/:runnerId", Handler: r.updateRunner, Description: "更新 Runner", Persist: &persist},
-			{Method: "DELETE", RelativePath: "/:runnerId", Handler: r.deleteRunner, Description: "删除 Runner", Persist: &persist},
-			{Method: "GET", RelativePath: "/:runnerId", Handler: r.getRunner, Description: "Runner 详情", Persist: &persist},
-			{Method: "GET", RelativePath: "", Handler: r.listRunners, Description: "Runner 列表", Persist: &persist},
+			{Method: "POST", RelativePath: "", Handler: r.createRunner, Description: "创建 Runner"},
+			{Method: "PUT", RelativePath: "/:runnerId", Handler: r.updateRunner, Description: "更新 Runner"},
+			{Method: "DELETE", RelativePath: "/:runnerId", Handler: r.deleteRunner, Description: "删除 Runner"},
+			{Method: "GET", RelativePath: "/:runnerId", Handler: r.getRunner, Description: "Runner 详情"},
+			{Method: "GET", RelativePath: "", Handler: r.listRunners, Description: "Runner 列表"},
 		},
 	}
-	group.Register(ginEngine.Group("/pixiu/runners"), r.c.APIResource())
+	group.Register(ginEngine.Group(runnerURL), r.c.APIResource())
 }

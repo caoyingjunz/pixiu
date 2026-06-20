@@ -34,10 +34,10 @@ type RunnerGetter interface {
 
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateRunnerRequest) error
-	Update(ctx context.Context, runnerId int64, req *types.UpdateRunnerRequest) error
+	Update(ctx context.Context, req *types.UpdateRunnerRequest) error
 	Delete(ctx context.Context, runnerId int64) error
 	Get(ctx context.Context, runnerId int64) (*types.Runner, error)
-	List(ctx context.Context, listOption types.RunnerListOptions) (interface{}, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
 type runnerController struct {
@@ -67,7 +67,9 @@ func (r *runnerController) Create(ctx context.Context, req *types.CreateRunnerRe
 	return nil
 }
 
-func (r *runnerController) Update(ctx context.Context, runnerId int64, req *types.UpdateRunnerRequest) error {
+func (r *runnerController) Update(ctx context.Context, req *types.UpdateRunnerRequest) error {
+	runnerId := req.Id
+
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		updates["name"] = *req.Name
@@ -109,33 +111,39 @@ func (r *runnerController) Get(ctx context.Context, runnerId int64) (*types.Runn
 	return model2Type(object), nil
 }
 
-func (r *runnerController) List(ctx context.Context, listOption types.RunnerListOptions) (interface{}, error) {
-	filterOpts := buildFilterOpts(listOption)
+func (r *runnerController) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
 
-	total, err := r.factory.Runner().Count(ctx, filterOpts...)
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
+	}
+
+	opts := []db.Options{
+		db.WithNameLike(listOption.NameSelector),
+	}
+
+	var err error
+	pageResult.Total, err = r.factory.Runner().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get runners count: %v", err)
+		pageResult.Message = err.Error()
 		return nil, err
 	}
 
-	page := listOption.Page
-	if page <= 0 {
-		page = 1
-	}
-	limit := listOption.Limit
-	if limit <= 0 {
-		limit = 20
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
 
-	paginationOpts := append(filterOpts,
-		db.WithOffset((page-1)*limit),
-		db.WithLimit(limit),
-		db.WithOrderByDesc(),
-	)
-
-	objects, err := r.factory.Runner().List(ctx, paginationOpts...)
+	objects, err := r.factory.Runner().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list runners: %v", err)
+		pageResult.Message = err.Error()
 		return nil, errors.ErrServerInternal
 	}
 
@@ -143,22 +151,8 @@ func (r *runnerController) List(ctx context.Context, listOption types.RunnerList
 	for _, object := range objects {
 		ts = append(ts, *model2Type(&object))
 	}
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       int(total),
-		Items:       ts,
-	}, nil
-}
-
-func buildFilterOpts(opt types.RunnerListOptions) []db.Options {
-	var opts []db.Options
-	if opt.NameSelector != "" {
-		opts = append(opts, db.WithNameLike(opt.NameSelector))
-	}
-	if opt.Status != nil {
-		opts = append(opts, db.WithRunnerStatus(*opt.Status))
-	}
-	return opts
+	pageResult.Items = ts
+	return pageResult, nil
 }
 
 func model2Type(o *model.Runner) *types.Runner {
