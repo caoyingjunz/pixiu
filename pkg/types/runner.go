@@ -38,8 +38,8 @@ type CreateRunnerRequest struct {
 }
 
 type UpdateRunnerRequest struct {
-	Id              int64 `json:"id"`
-	ResourceVersion int64 `json:"resource_version" binding:"required"`
+	Id              int64  `json:"id"`
+	ResourceVersion *int64 `json:"resource_version" binding:"required"`
 
 	Name        *string             `json:"name" binding:"omitempty"`
 	EngineImage *string             `json:"engine_image" binding:"omitempty"`

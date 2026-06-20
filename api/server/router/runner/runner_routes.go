@@ -53,6 +53,7 @@ func (r *runnerRouter) updateRunner(c *gin.Context) {
 		req    types.UpdateRunnerRequest
 		err    error
 	)
+
 	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, result, err)
 		return

@@ -84,7 +84,7 @@ func (r *runnerController) Update(ctx context.Context, req *types.UpdateRunnerRe
 		updates["description"] = *req.Description
 	}
 
-	if err := r.factory.Runner().Update(ctx, runnerId, req.ResourceVersion, updates); err != nil {
+	if err := r.factory.Runner().Update(ctx, runnerId, *req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update runner %d: %v", runnerId, err)
 		return errors.ErrServerInternal
 	}

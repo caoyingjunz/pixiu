@@ -247,39 +247,52 @@ func (o *Options) bootstrapDistributions() error {
 // bootstrapRunners 启动时自动初始化默认 Runner
 func (o *Options) bootstrapRunners() error {
 	ctx := context.Background()
-	runners, err := o.Factory.Runner().List(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check runners: %v", err)
-	}
-	if len(runners) > 0 {
-		klog.Info("runners already exist, skipping")
-		return nil
-	}
 
 	defaultRunners := []struct {
 		name        string
 		engineImage string
+		desc        string
 	}{
 		{
-			name:        "runner1",
+			name:        "runner-agent-v2", // TODO： 抽象成常量
 			engineImage: "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2",
+			desc:        "操作系统默认 python2",
 		},
 		{
-			name:        "runner2",
+			name:        "runner-agent-v3",
 			engineImage: "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2",
+			desc:        "操作系统默认 python3",
 		},
 	}
 
+	// 先获取所有已存在的 runners
+	existingRunners, err := o.Factory.Runner().List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list runners: %v", err)
+	}
+
+	// 构建已存在 runner 的 map，用于快速查找
+	existingRunnerMap := make(map[string]bool)
+	for _, r := range existingRunners {
+		existingRunnerMap[r.Name] = true
+	}
+
 	for _, dr := range defaultRunners {
-		klog.Infof("initializing runner: %s with image: %s", dr.name, dr.engineImage)
+		if existingRunnerMap[dr.name] {
+			klog.Infof("runner %s already exists, skipping", dr.name)
+			continue
+		}
+
 		if err := o.Controller.Runner().Create(ctx, &types.CreateRunnerRequest{
 			Name:        dr.name,
 			EngineImage: dr.engineImage,
 			Status:      pixiuModel.RunnerStatusUnknown,
+			Description: dr.desc,
 		}); err != nil {
 			return fmt.Errorf("failed to create runner %s: %v", dr.name, err)
 		}
 	}
 
+	klog.Infof("完成 runner agent 的初始化")
 	return nil
 }

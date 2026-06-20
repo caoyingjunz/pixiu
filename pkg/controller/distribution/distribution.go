@@ -125,18 +125,20 @@ func defaultDistributionSeeds(cfg config.Config) []model.Distribution {
 }
 
 func (d *distribution) Bootstrap(ctx context.Context) error {
-	count, err := d.factory.Distribution().CountDistributions(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to count distributions: %w", err)
-	}
-	if count > 0 {
-		klog.Info("distributions already exist, skipping bootstrap")
-		return nil
-	}
-
 	seeds := defaultDistributionSeeds(d.cc)
 	klog.Infof("bootstrapping %d default distributions", len(seeds))
+
 	for _, seed := range seeds {
+		// 检查是否已存在
+		existing, err := d.factory.Distribution().GetDistributionByFamilyName(ctx, seed.Family, seed.Name)
+		if err != nil {
+			return fmt.Errorf("failed to check distribution %s/%s: %w", seed.Family, seed.Name, err)
+		}
+		if existing != nil {
+			klog.V(1).Infof("distribution %s/%s already exists, skipping", seed.Family, seed.Name)
+			continue
+		}
+
 		object := seed
 		if _, err = d.factory.Distribution().CreateDistribution(ctx, &object); err != nil {
 			if pixiuerrors.IsUniqueConstraintError(err) {
