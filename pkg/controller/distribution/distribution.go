@@ -36,11 +36,10 @@ type DistributionGetter interface {
 
 type Interface interface {
 	CreateDistribution(ctx context.Context, req *types.CreateDistributionRequest) error
-	UpdateDistribution(ctx context.Context, id int64, req *types.UpdateDistributionRequest) error
+	UpdateDistribution(ctx context.Context, req *types.UpdateDistributionRequest) error
 	DeleteDistribution(ctx context.Context, id int64) error
 	GetDistribution(ctx context.Context, id int64) (*types.Distribution, error)
-	ListDistributions(ctx context.Context, req *types.ListDistributionRequest) (*types.PageResponse, error)
-	GetDistributionsMeta(ctx context.Context) (*types.DistributionsMeta, error)
+	ListDistributions(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	// Bootstrap 服务启动时写入默认操作系统记录
 	Bootstrap(ctx context.Context) error
@@ -174,7 +173,8 @@ func (d *distribution) CreateDistribution(ctx context.Context, req *types.Create
 	return nil
 }
 
-func (d *distribution) UpdateDistribution(ctx context.Context, id int64, req *types.UpdateDistributionRequest) error {
+func (d *distribution) UpdateDistribution(ctx context.Context, req *types.UpdateDistributionRequest) error {
+	id := req.Id
 	object, err := d.factory.Distribution().GetDistribution(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get distribution %d: %v", id, err)
@@ -250,34 +250,38 @@ func (d *distribution) GetDistribution(ctx context.Context, id int64) (*types.Di
 	return distributionModel2Type(object), nil
 }
 
-func (d *distribution) ListDistributions(ctx context.Context, req *types.ListDistributionRequest) (*types.PageResponse, error) {
-	opts := []db.Options{}
-	if req != nil {
-		if req.Family != "" {
-			opts = append(opts, db.WithDistributionFamily(req.Family))
-		}
-		if req.NameSelector != "" {
-			opts = append(opts, db.WithDistributionNameLike(req.NameSelector))
-		}
+func (d *distribution) ListDistributions(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := d.factory.Distribution().CountDistributions(ctx, opts...)
+	opts := []db.Options{
+		db.WithDistributionNameLike(listOption.NameSelector),
+	}
+
+	var err error
+	pageResult.Total, err = d.factory.Distribution().CountDistributions(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count distributions: %v", err)
-		return nil, errors.ErrServerInternal
+		pageResult.Message = err.Error()
+		return nil, err
 	}
 
-	pageReq := types.PageRequest{}
-	if req != nil {
-		pageReq = req.PageRequest
-		if req.Page > 0 && req.Limit > 0 {
-			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
-		}
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, []db.Options{
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
 
 	objects, err := d.factory.Distribution().ListDistributions(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list distributions: %v", err)
+		pageResult.Message = err.Error()
 		return nil, errors.ErrServerInternal
 	}
 
@@ -285,39 +289,8 @@ func (d *distribution) ListDistributions(ctx context.Context, req *types.ListDis
 	for i := range objects {
 		items[i] = *distributionModel2Type(&objects[i])
 	}
-
-	return &types.PageResponse{
-		PageRequest: pageReq,
-		Total:       int(total),
-		Items:       items,
-	}, nil
-}
-
-func (d *distribution) GetDistributionsMeta(ctx context.Context) (*types.DistributionsMeta, error) {
-	objects, err := d.factory.Distribution().ListDistributions(ctx)
-	if err != nil {
-		klog.Errorf("failed to list distributions: %v", err)
-		return nil, errors.ErrServerInternal
-	}
-
-	meta := &types.DistributionsMeta{}
-	for _, object := range objects {
-		switch object.Family {
-		case distributionFamilyCentos:
-			meta.Centos = append(meta.Centos, object.Name)
-		case distributionFamilyUbuntu:
-			meta.Ubuntu = append(meta.Ubuntu, object.Name)
-		case distributionFamilyDebian:
-			meta.Debian = append(meta.Debian, object.Name)
-		case distributionFamilyOpenEuler:
-			meta.OpenEuler = append(meta.OpenEuler, object.Name)
-		case distributionFamilyRocky:
-			meta.Rocky = append(meta.Rocky, object.Name)
-		default:
-			klog.Warningf("unknown distribution family %s for name %s", object.Family, object.Name)
-		}
-	}
-	return meta, nil
+	pageResult.Items = items
+	return pageResult, nil
 }
 
 func distributionModel2Type(o *model.Distribution) *types.Distribution {

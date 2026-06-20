@@ -202,6 +202,7 @@ type (
 	}
 
 	UpdateDistributionRequest struct {
+		Id              int64   `json:"id"`
 		Family          *string `json:"family" binding:"omitempty"`
 		Name            *string `json:"name" binding:"omitempty"`
 		Runner          *string `json:"runner" binding:"omitempty"`
