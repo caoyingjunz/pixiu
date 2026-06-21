@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"k8s.io/klog/v2"
@@ -28,13 +27,64 @@ const (
 
 var defaultDistributionCatalog = []struct {
 	family string
-	names  []string
+	name   string
+	runner string
 }{
-	{distributionFamilyCentos, []string{"centos7"}},
-	{distributionFamilyUbuntu, []string{"ubuntu18.04", "ubuntu20.04", "ubuntu22.04"}},
-	{distributionFamilyDebian, []string{"debian10", "debian11"}},
-	{distributionFamilyOpenEuler, []string{"openEuler22.03", "openEuler24.03"}},
-	{distributionFamilyRocky, []string{"rocky8.5", "rocky9.2", "rocky9.3"}},
+	{
+		family: distributionFamilyCentos,
+		name:   "centos7",
+		runner: RunnerAgentV2,
+	},
+	{
+		family: distributionFamilyUbuntu,
+		name:   "ubuntu18.04",
+		runner: RunnerAgentV2,
+	},
+	{
+		family: distributionFamilyUbuntu,
+		name:   "ubuntu20.04",
+		runner: RunnerAgentV3,
+	},
+	{
+		family: distributionFamilyUbuntu,
+		name:   "ubuntu22.04",
+		runner: RunnerAgentV3,
+	},
+	{
+		family: distributionFamilyDebian,
+		name:   "debian10",
+		runner: RunnerAgentV2,
+	},
+	{
+		family: distributionFamilyDebian,
+		name:   "debian11",
+		runner: RunnerAgentV3,
+	},
+	{
+		family: distributionFamilyOpenEuler,
+		name:   "openEuler22.03",
+		runner: RunnerAgentV3,
+	},
+	{
+		family: distributionFamilyOpenEuler,
+		name:   "openEuler24.03",
+		runner: RunnerAgentV3,
+	},
+	{
+		family: distributionFamilyRocky,
+		name:   "rocky8.5",
+		runner: RunnerAgentV3,
+	},
+	{
+		family: distributionFamilyRocky,
+		name:   "rocky9.2",
+		runner: RunnerAgentV3,
+	},
+	{
+		family: distributionFamilyRocky,
+		name:   "rocky9.3",
+		runner: RunnerAgentV3,
+	},
 }
 
 var defaultRunners = []struct {
@@ -97,53 +147,35 @@ func (o *Options) bootstrapRootUser(ctx context.Context) error {
 	})
 }
 
-func runnerByName(cfg config.Config) map[string]string {
-	engines := cfg.Worker.Engines
-	if len(engines) == 0 {
-		engines = config.DefaultEngines()
-	}
-
-	runnerByOSName := make(map[string]string, len(engines)*4)
-	for _, engine := range engines {
-		for _, name := range engine.OSSupported {
-			runnerByOSName[name] = engine.Name
-		}
-	}
-	return runnerByOSName
-}
-
 func (o *Options) bootstrapDistributions(ctx context.Context) error {
-	runnerMap := runnerByName(o.ComponentConfig)
-	klog.Infof("bootstrapping distributions")
+	existsDistros, err := o.Factory.Distribution().ListDistributions(ctx)
+	if err != nil {
+		klog.Errorf("failed to list runners: %v", err)
+		return err
+	}
 
-	for _, item := range defaultDistributionCatalog {
-		for _, name := range item.names {
-			runner := runnerMap[name]
-			if runner == "" {
-				klog.Warningf("no runner configured for distribution name %s", name)
-				continue
-			}
+	// 构建已存在 Distro 的 map，用于快速查找
+	existingDistroMap := make(map[string]bool)
+	for _, d := range existsDistros {
+		existingDistroMap[d.Name] = true
+	}
 
-			// 检查是否已存在
-			existing, err := o.Factory.Distribution().GetDistributionByFamilyName(ctx, item.family, name)
-			if err != nil {
-				return fmt.Errorf("failed to check distribution %s/%s: %w", item.family, name, err)
-			}
-			if existing != nil {
-				klog.V(1).Infof("distribution %s/%s already exists, skipping", item.family, name)
-				continue
-			}
+	for _, distro := range defaultDistributionCatalog {
+		if existingDistroMap[distro.name] {
+			continue
+		}
 
-			object := &pixiuModel.Distribution{
-				Family: item.family,
-				Name:   name,
-				Runner: runner,
-			}
-			if _, err = o.Factory.Distribution().CreateDistribution(ctx, object); err != nil {
-				continue
-			}
+		object := &pixiuModel.Distribution{
+			Family: distro.family,
+			Name:   distro.name,
+			Runner: distro.runner,
+		}
+		if _, err = o.Factory.Distribution().CreateDistribution(ctx, object); err != nil {
+			continue
 		}
 	}
+
+	klog.Infof("完成支持系统的初始化")
 	return nil
 }
 
@@ -167,7 +199,7 @@ func (o *Options) bootstrapRunners(ctx context.Context) error {
 			continue
 		}
 
-		if err := o.Controller.Runner().Create(ctx, &types.CreateRunnerRequest{
+		if err = o.Controller.Runner().Create(ctx, &types.CreateRunnerRequest{
 			Name:        dr.name,
 			EngineImage: dr.engineImage,
 			Status:      pixiuModel.RunnerStatusUnknown,
