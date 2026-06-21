@@ -21,17 +21,18 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/cobra"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
-	"github.com/gin-gonic/gin"
-	"github.com/spf13/cobra"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 const (
@@ -111,9 +112,6 @@ func (o *Options) Complete() error {
 	}
 	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
-	}
-	if len(o.ComponentConfig.Worker.Engines) == 0 {
-		o.ComponentConfig.Worker.Engines = config.DefaultEngines()
 	}
 	if len(o.ComponentConfig.Default.StaticFiles) == 0 {
 		o.ComponentConfig.Default.StaticFiles = defaultStaticDir
