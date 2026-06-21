@@ -90,21 +90,6 @@ type Engine struct {
 	OSSupported []string `yaml:"os_supported"`
 }
 
-func DefaultEngines() []Engine {
-	return []Engine{
-		{
-			Name:        "runner-agent-v2",
-			Image:       "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2",
-			OSSupported: []string{"centos7", "debian10", "ubuntu18.04"},
-		},
-		{
-			Name:        "runner-agent-v3",
-			Image:       "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2",
-			OSSupported: []string{"debian11", "ubuntu20.04", "ubuntu22.04", "rocky8.5", "rocky9.2", "rocky9.3", "openEuler22.03", "openEuler24.03"},
-		},
-	}
-}
-
 func (w WorkerOptions) Valid() error {
 	// TODO
 	return nil
