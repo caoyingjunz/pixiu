@@ -85,6 +85,7 @@ type WorkerOptions struct {
 }
 
 type Engine struct {
+	Name        string   `yaml:"name"`
 	Image       string   `yaml:"image"`
 	OSSupported []string `yaml:"os_supported"`
 }

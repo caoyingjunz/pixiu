@@ -134,7 +134,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		klog.Errorf("failed to get task data: %v", err)
 		return
 	}
-	runner, err := p.GetRunner(taskData.Config.OSImage)
+	runner, err := p.GetRunner(ctx, taskData.Config.OSImage)
 	if err != nil {
 		klog.Errorf("failed to get image(%s) for worker: %v", taskData.Config.OSImage, err)
 		return
@@ -201,16 +201,16 @@ func (p *plan) WorkDir() string {
 	return p.cc.Worker.WorkDir
 }
 
-func (p *plan) GetRunner(osImage string) (string, error) {
-	engines := p.cc.Worker.Engines
-	for _, engine := range engines {
-		for _, os := range engine.OSSupported {
-			if os == osImage {
-				return engine.Image, nil
-			}
-		}
+func (p *plan) GetRunner(ctx context.Context, osImage string) (string, error) {
+	dist, err := p.factory.Distribution().GetDistributionByName(ctx, osImage)
+	if err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("osImage(%s) runner not found", osImage)
+	if dist == nil || dist.Runner == "" {
+		return "", fmt.Errorf("osImage(%s) runner not found", osImage)
+	}
+
+	return dist.Runner, nil
 }
 
 // 同步任务状态

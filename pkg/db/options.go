@@ -169,15 +169,6 @@ func WithAuditCluster(cluster string) Options {
 	}
 }
 
-func WithPlanNameLike(name string) Options {
-	return func(tx *gorm.DB) *gorm.DB {
-		if name == "" {
-			return tx
-		}
-		return tx.Where("name like ?", "%"+name+"%")
-	}
-}
-
 func WithPlan(pid int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if pid == 0 {
@@ -188,12 +179,6 @@ func WithPlan(pid int64) Options {
 }
 
 func WithStatus(status model.AgentStatus) Options {
-	return func(tx *gorm.DB) *gorm.DB {
-		return tx.Where("status = ?", status)
-	}
-}
-
-func WithRunnerStatus(status model.RunnerStatus) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)
 	}

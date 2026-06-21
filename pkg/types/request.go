@@ -195,6 +195,26 @@ type (
 		// TODO:
 	}
 
+	CreateDistributionRequest struct {
+		Family string `json:"family" binding:"required"`
+		Name   string `json:"name" binding:"required"`
+		Runner string `json:"runner" binding:"required"`
+	}
+
+	UpdateDistributionRequest struct {
+		Id              int64   `json:"id"`
+		Family          *string `json:"family" binding:"omitempty"`
+		Name            *string `json:"name" binding:"omitempty"`
+		Runner          *string `json:"runner" binding:"omitempty"`
+		ResourceVersion *int64  `json:"resource_version" binding:"required"`
+	}
+
+	ListDistributionRequest struct {
+		PageRequest  `form:",inline"`
+		Family       string `form:"family" json:"family"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"`
+	}
+
 	// PageRequest 分页配置
 	PageRequest struct {
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页

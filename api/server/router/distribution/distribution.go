@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package runner
+package distribution
 
 import (
 	"github.com/gin-gonic/gin"
@@ -24,30 +24,30 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
-const runnerURL = "/pixiu/runners"
+const distributionURL = "/pixiu/distributions"
 
-type runnerRouter struct {
+type distributionRouter struct {
 	c controller.PixiuInterface
 }
 
 func NewRouter(o *options.Options) {
-	router := &runnerRouter{
+	router := &distributionRouter{
 		c: o.Controller,
 	}
 	router.initRoutes(o.HttpEngine)
 }
 
-func (r *runnerRouter) initRoutes(ginEngine *gin.Engine) {
+func (r *distributionRouter) initRoutes(ginEngine *gin.Engine) {
 	group := &apiregistry.Group{
-		Name:    "Runner",
-		BaseURL: runnerURL,
+		Name:    "操作系统",
+		BaseURL: distributionURL,
 		Entries: []apiregistry.RouteEntry{
-			{Method: "POST", RelativePath: "", Handler: r.createRunner, Description: "创建 Runner"},
-			{Method: "PUT", RelativePath: "/:runnerId", Handler: r.updateRunner, Description: "更新 Runner"},
-			{Method: "DELETE", RelativePath: "/:runnerId", Handler: r.deleteRunner, Description: "删除 Runner"},
-			{Method: "GET", RelativePath: "/:runnerId", Handler: r.getRunner, Description: "Runner 详情"},
-			{Method: "GET", RelativePath: "", Handler: r.listRunners, Description: "Runner 列表"},
+			{Method: "POST", RelativePath: "", Handler: r.createDistribution, Description: "创建操作系统"},
+			{Method: "PUT", RelativePath: "/:distributionId", Handler: r.updateDistribution, Description: "更新操作系统"},
+			{Method: "DELETE", RelativePath: "/:distributionId", Handler: r.deleteDistribution, Description: "删除操作系统"},
+			{Method: "GET", RelativePath: "", Handler: r.listDistributions, Description: "操作系统列表"},
+			{Method: "GET", RelativePath: "/:distributionId", Handler: r.getDistribution, Description: "操作系统详情"},
 		},
 	}
-	group.Register(ginEngine.Group(runnerURL), r.c.APIResource())
+	group.Register(ginEngine.Group(distributionURL), r.c.APIResource())
 }

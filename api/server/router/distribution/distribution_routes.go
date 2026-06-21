@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package runner
+package distribution
 
 import (
 	"github.com/gin-gonic/gin"
@@ -23,22 +23,19 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-type RunnerMeta struct {
-	RunnerId int64 `uri:"runnerId" binding:"required"`
+type DistributionMeta struct {
+	DistributionId int64 `uri:"distributionId" binding:"required"`
 }
 
-func (r *runnerRouter) createRunner(c *gin.Context) {
+func (r *distributionRouter) createDistribution(c *gin.Context) {
 	result := httputils.NewResponse()
 
-	var (
-		req types.CreateRunnerRequest
-		err error
-	)
-	if err = c.ShouldBindJSON(&req); err != nil {
+	var req types.CreateDistributionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
-	if err = r.c.Runner().Create(c, &req); err != nil {
+	if err := r.c.Distribution().CreateDistribution(c, &req); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
@@ -46,20 +43,19 @@ func (r *runnerRouter) createRunner(c *gin.Context) {
 	httputils.SetSuccess(c, result)
 }
 
-func (r *runnerRouter) updateRunner(c *gin.Context) {
+func (r *distributionRouter) updateDistribution(c *gin.Context) {
 	result := httputils.NewResponse()
 	var (
-		idMeta RunnerMeta
-		req    types.UpdateRunnerRequest
+		idMeta DistributionMeta
+		req    types.UpdateDistributionRequest
 		err    error
 	)
-
 	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
-	req.Id = idMeta.RunnerId
-	if err = r.c.Runner().Update(c, &req); err != nil {
+	req.Id = idMeta.DistributionId
+	if err = r.c.Distribution().UpdateDistribution(c, &req); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
@@ -67,18 +63,18 @@ func (r *runnerRouter) updateRunner(c *gin.Context) {
 	httputils.SetSuccess(c, result)
 }
 
-func (r *runnerRouter) deleteRunner(c *gin.Context) {
+func (r *distributionRouter) deleteDistribution(c *gin.Context) {
 	result := httputils.NewResponse()
 
 	var (
-		idMeta RunnerMeta
+		idMeta DistributionMeta
 		err    error
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
-	if err = r.c.Runner().Delete(c, idMeta.RunnerId); err != nil {
+	if err = r.c.Distribution().DeleteDistribution(c, idMeta.DistributionId); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
@@ -86,18 +82,18 @@ func (r *runnerRouter) deleteRunner(c *gin.Context) {
 	httputils.SetSuccess(c, result)
 }
 
-func (r *runnerRouter) getRunner(c *gin.Context) {
+func (r *distributionRouter) getDistribution(c *gin.Context) {
 	result := httputils.NewResponse()
 
 	var (
-		idMeta RunnerMeta
+		idMeta DistributionMeta
 		err    error
 	)
 	if err = c.ShouldBindUri(&idMeta); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
-	if result.Result, err = r.c.Runner().Get(c, idMeta.RunnerId); err != nil {
+	if result.Result, err = r.c.Distribution().GetDistribution(c, idMeta.DistributionId); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
@@ -105,7 +101,7 @@ func (r *runnerRouter) getRunner(c *gin.Context) {
 	httputils.SetSuccess(c, result)
 }
 
-func (r *runnerRouter) listRunners(c *gin.Context) {
+func (r *distributionRouter) listDistributions(c *gin.Context) {
 	result := httputils.NewResponse()
 
 	var (
@@ -116,7 +112,7 @@ func (r *runnerRouter) listRunners(c *gin.Context) {
 		httputils.SetFailed(c, result, err)
 		return
 	}
-	if result.Result, err = r.c.Runner().List(c, listOption); err != nil {
+	if result.Result, err = r.c.Distribution().ListDistributions(c, listOption); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}

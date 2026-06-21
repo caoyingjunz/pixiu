@@ -254,6 +254,16 @@ type PlanConfig struct {
 
 }
 
+// Distribution 部署支持的操作系统发行版
+type Distribution struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Family string `json:"family"`
+	Name   string `json:"name"`
+	Runner string `json:"runner"`
+}
+
 // TimeSpec 通用时间规格
 type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`
