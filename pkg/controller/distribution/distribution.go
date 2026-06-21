@@ -18,7 +18,6 @@ package distribution
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/klog/v2"
 
@@ -40,9 +39,6 @@ type Interface interface {
 	DeleteDistribution(ctx context.Context, id int64) error
 	GetDistribution(ctx context.Context, id int64) (*types.Distribution, error)
 	ListDistributions(ctx context.Context, listOption types.ListOptions) (interface{}, error)
-
-	// Bootstrap 服务启动时写入默认操作系统记录
-	Bootstrap(ctx context.Context) error
 }
 
 type distribution struct {
@@ -55,99 +51,6 @@ func NewDistribution(cc config.Config, factory db.ShareDaoFactory) Interface {
 		cc:      cc,
 		factory: factory,
 	}
-}
-
-const (
-	distributionFamilyCentos    = "centos"
-	distributionFamilyUbuntu    = "ubuntu"
-	distributionFamilyDebian    = "debian"
-	distributionFamilyOpenEuler = "openEuler"
-	distributionFamilyRocky     = "rocky"
-)
-
-var defaultDistributionCatalog = []struct {
-	family string
-	names  []string
-}{
-	{distributionFamilyCentos, []string{"centos7"}},
-	{distributionFamilyUbuntu, []string{"ubuntu18.04", "ubuntu20.04", "ubuntu22.04"}},
-	{distributionFamilyDebian, []string{"debian10", "debian11"}},
-	{distributionFamilyOpenEuler, []string{"openEuler22.03", "openEuler24.03"}},
-	{distributionFamilyRocky, []string{"rocky8.5", "rocky9.2", "rocky9.3"}},
-}
-
-func defaultEngines() []config.Engine {
-	return []config.Engine{
-		{
-			Image:       "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2",
-			OSSupported: []string{"centos7", "debian10", "ubuntu18.04"},
-		},
-		{
-			Image:       "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2",
-			OSSupported: []string{"debian11", "ubuntu20.04", "ubuntu22.04", "rocky8.5", "rocky9.2", "rocky9.3", "openEuler22.03", "openEuler24.03"},
-		},
-	}
-}
-
-func runnerByName(cfg config.Config) map[string]string {
-	engines := cfg.Worker.Engines
-	if len(engines) == 0 {
-		engines = defaultEngines()
-	}
-
-	runnerByOSName := make(map[string]string, len(engines)*4)
-	for _, engine := range engines {
-		for _, name := range engine.OSSupported {
-			runnerByOSName[name] = engine.Image
-		}
-	}
-	return runnerByOSName
-}
-
-func defaultDistributionSeeds(cfg config.Config) []model.Distribution {
-	runnerMap := runnerByName(cfg)
-	seeds := make([]model.Distribution, 0)
-	for _, item := range defaultDistributionCatalog {
-		for _, name := range item.names {
-			runner := runnerMap[name]
-			if runner == "" {
-				klog.Warningf("no runner configured for distribution name %s", name)
-				continue
-			}
-			seeds = append(seeds, model.Distribution{
-				Family: item.family,
-				Name:   name,
-				Runner: runner,
-			})
-		}
-	}
-	return seeds
-}
-
-func (d *distribution) Bootstrap(ctx context.Context) error {
-	seeds := defaultDistributionSeeds(d.cc)
-	klog.Infof("bootstrapping %d default distributions", len(seeds))
-
-	for _, seed := range seeds {
-		// 检查是否已存在
-		existing, err := d.factory.Distribution().GetDistributionByFamilyName(ctx, seed.Family, seed.Name)
-		if err != nil {
-			return fmt.Errorf("failed to check distribution %s/%s: %w", seed.Family, seed.Name, err)
-		}
-		if existing != nil {
-			klog.V(1).Infof("distribution %s/%s already exists, skipping", seed.Family, seed.Name)
-			continue
-		}
-
-		object := seed
-		if _, err = d.factory.Distribution().CreateDistribution(ctx, &object); err != nil {
-			if pixiuerrors.IsUniqueConstraintError(err) {
-				continue
-			}
-			return fmt.Errorf("failed to seed distribution %s/%s: %w", seed.Family, seed.Name, err)
-		}
-	}
-	return nil
 }
 
 func (d *distribution) CreateDistribution(ctx context.Context, req *types.CreateDistributionRequest) error {

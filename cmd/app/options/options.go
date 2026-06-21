@@ -17,26 +17,21 @@ limitations under the License.
 package options
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller"
+	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
+	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"k8s.io/klog/v2"
-
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/controller"
-	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
-	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
-	"github.com/caoyingjunz/pixiu/pkg/types"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
-	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
 const (
@@ -117,6 +112,9 @@ func (o *Options) Complete() error {
 	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
 	}
+	if len(o.ComponentConfig.Worker.Engines) == 0 {
+		o.ComponentConfig.Worker.Engines = config.DefaultEngines()
+	}
 	if len(o.ComponentConfig.Default.StaticFiles) == 0 {
 		o.ComponentConfig.Default.StaticFiles = defaultStaticDir
 	}
@@ -146,14 +144,7 @@ func (o *Options) Complete() error {
 
 	o.Controller = controller.New(o.ComponentConfig, o.Factory)
 
-	if err := o.bootstrapRootUser(); err != nil {
-		return err
-	}
-
-	if err := o.bootstrapDistributions(); err != nil {
-		return err
-	}
-	if err := o.bootstrapRunners(); err != nil {
+	if err := o.bootstrapDatabase(); err != nil {
 		return err
 	}
 
@@ -212,87 +203,5 @@ func (o *Options) registerDatabase() error {
 // Validate validates all the required options.
 func (o *Options) Validate() error {
 	// TODO
-	return nil
-}
-
-// bootstrapRootUser 启动时自动初始化超级管理员账户
-// 若超管已存在则跳过，若不存在则使用配置文件中的用户名和密码创建
-// 密码经由 Controller.User().Create() 内部调用 util.EncryptUserPassword() 加密后入库
-func (o *Options) bootstrapRootUser() error {
-	ctx := context.Background()
-	root, err := o.Factory.User().GetRoot(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check root user: %v", err)
-	}
-	if root != nil {
-		klog.Info("root user already exists, skipping")
-		return nil
-	}
-
-	adminUser := o.ComponentConfig.Default.AdminUser
-	adminPassword := o.ComponentConfig.Default.AdminPassword
-	klog.Infof("initializing root user: %s", adminUser)
-
-	return o.Controller.User().Create(ctx, &types.CreateUserRequest{
-		Name:     adminUser,
-		Password: adminPassword,
-		Role:     pixiuModel.RoleRoot,
-	})
-}
-
-func (o *Options) bootstrapDistributions() error {
-	return o.Controller.Distribution().Bootstrap(context.Background())
-}
-
-// bootstrapRunners 启动时自动初始化默认 Runner
-func (o *Options) bootstrapRunners() error {
-	ctx := context.Background()
-
-	defaultRunners := []struct {
-		name        string
-		engineImage string
-		desc        string
-	}{
-		{
-			name:        "runner-agent-v2", // TODO： 抽象成常量
-			engineImage: "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2",
-			desc:        "操作系统默认 python2",
-		},
-		{
-			name:        "runner-agent-v3",
-			engineImage: "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2",
-			desc:        "操作系统默认 python3",
-		},
-	}
-
-	// 先获取所有已存在的 runners
-	existingRunners, err := o.Factory.Runner().List(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list runners: %v", err)
-	}
-
-	// 构建已存在 runner 的 map，用于快速查找
-	existingRunnerMap := make(map[string]bool)
-	for _, r := range existingRunners {
-		existingRunnerMap[r.Name] = true
-	}
-
-	for _, dr := range defaultRunners {
-		if existingRunnerMap[dr.name] {
-			klog.Infof("runner %s already exists, skipping", dr.name)
-			continue
-		}
-
-		if err := o.Controller.Runner().Create(ctx, &types.CreateRunnerRequest{
-			Name:        dr.name,
-			EngineImage: dr.engineImage,
-			Status:      pixiuModel.RunnerStatusUnknown,
-			Description: dr.desc,
-		}); err != nil {
-			return fmt.Errorf("failed to create runner %s: %v", dr.name, err)
-		}
-	}
-
-	klog.Infof("完成 runner agent 的初始化")
 	return nil
 }

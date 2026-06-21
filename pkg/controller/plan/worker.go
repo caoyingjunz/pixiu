@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
@@ -202,11 +203,22 @@ func (p *plan) WorkDir() string {
 }
 
 func (p *plan) GetRunner(ctx context.Context, osImage string) (string, error) {
-	if dist, err := p.factory.Distribution().GetDistributionByName(ctx, osImage); err == nil && dist != nil && dist.Runner != "" {
-		return dist.Runner, nil
+	engines := p.cc.Worker.Engines
+	if len(engines) == 0 {
+		engines = config.DefaultEngines()
 	}
 
-	engines := p.cc.Worker.Engines
+	// 先尝试从 distribution 表获取
+	if dist, err := p.factory.Distribution().GetDistributionByName(ctx, osImage); err == nil && dist != nil && dist.Runner != "" {
+		// 通过 Runner 名称查找对应的镜像
+		for _, engine := range engines {
+			if engine.Name == dist.Runner {
+				return engine.Image, nil
+			}
+		}
+	}
+
+	// 如果没找到，回退到原始逻辑：通过系统名称直接找对应的 engine
 	for _, engine := range engines {
 		for _, os := range engine.OSSupported {
 			if os == osImage {
