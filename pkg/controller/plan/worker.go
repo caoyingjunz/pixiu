@@ -210,7 +210,12 @@ func (p *plan) GetRunner(ctx context.Context, osImage string) (string, error) {
 		return "", fmt.Errorf("osImage(%s) runner not found", osImage)
 	}
 
-	return dist.Runner, nil
+	obj, err := p.factory.Runner().GetBy(ctx, dist.Runner)
+	if err != nil {
+		return "", err
+	}
+
+	return obj.EngineImage, nil
 }
 
 // 同步任务状态
