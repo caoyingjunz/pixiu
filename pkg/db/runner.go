@@ -33,6 +33,8 @@ type RunnerInterface interface {
 	Get(ctx context.Context, rid int64) (*model.Runner, error)
 	List(ctx context.Context, opts ...Options) ([]model.Runner, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
+
+	GetBy(ctx context.Context, name string) (*model.Runner, error)
 }
 
 type runner struct {
@@ -78,6 +80,14 @@ func (r *runner) Delete(ctx context.Context, rid int64) (*model.Runner, error) {
 func (r *runner) Get(ctx context.Context, rid int64) (*model.Runner, error) {
 	var object model.Runner
 	if err := r.db.WithContext(ctx).Where("id = ?", rid).First(&object).Error; err != nil {
+		return nil, err
+	}
+	return &object, nil
+}
+
+func (r *runner) GetBy(ctx context.Context, name string) (*model.Runner, error) {
+	var object model.Runner
+	if err := r.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
 		return nil, err
 	}
 	return &object, nil
