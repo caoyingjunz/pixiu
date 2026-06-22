@@ -20,18 +20,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type meta struct {
-	ClusterName  string                `uri:"clusterName" binding:"required"`
-	Type         *model.DatasourceType `uri:"type" binding:"required,oneof=0 1"`
-	DatasourceId int64                 `uri:"datasourceId"`
-}
-
-type listQuery struct {
-	Default bool `form:"default"`
+	DatasourceId int64 `uri:"datasourceId"`
 }
 
 func (dr *datasourceRouter) createDatasource(c *gin.Context) {
@@ -45,7 +38,7 @@ func (dr *datasourceRouter) createDatasource(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = dr.c.Datasource().Create(c, m.ClusterName, *m.Type, &req); err != nil {
+	if err = dr.c.Datasource().Create(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -56,23 +49,14 @@ func (dr *datasourceRouter) listDatasources(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		m     meta
-		query listQuery
-		err   error
+		listOption types.ListOptions
+		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &m, &query); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if query.Default {
-		if r.Result, err = dr.c.Datasource().GetDefault(c, m.ClusterName, *m.Type); err != nil {
-			httputils.SetFailed(c, r, err)
-			return
-		}
-		httputils.SetSuccess(c, r)
-		return
-	}
-	if r.Result, err = dr.c.Datasource().List(c, m.ClusterName, *m.Type); err != nil {
+	if r.Result, err = dr.c.Datasource().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -90,7 +74,7 @@ func (dr *datasourceRouter) getDatasource(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = dr.c.Datasource().Get(c, m.ClusterName, *m.Type, m.DatasourceId); err != nil {
+	if r.Result, err = dr.c.Datasource().Get(c, m.DatasourceId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -109,7 +93,7 @@ func (dr *datasourceRouter) updateDatasource(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = dr.c.Datasource().Update(c, m.ClusterName, *m.Type, m.DatasourceId, &req); err != nil {
+	if err = dr.c.Datasource().Update(c, "", 0, m.DatasourceId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -127,7 +111,7 @@ func (dr *datasourceRouter) deleteDatasource(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = dr.c.Datasource().Delete(c, m.ClusterName, *m.Type, m.DatasourceId); err != nil {
+	if err = dr.c.Datasource().Delete(c, m.DatasourceId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

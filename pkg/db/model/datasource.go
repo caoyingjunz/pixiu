@@ -19,7 +19,7 @@ package model
 import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
 func init() {
-	register(&ClusterDatasource{})
+	register(&Datasource{})
 }
 
 type DatasourceType int
@@ -36,7 +36,7 @@ const (
 	DatasourceSubTypePrometheus DatasourceSubType = "prometheus"
 )
 
-type ClusterDatasource struct {
+type Datasource struct {
 	pixiu.Model
 
 	ClusterName string            `gorm:"column:cluster_name;type:varchar(128);index;not null" json:"cluster_name"`
@@ -49,6 +49,6 @@ type ClusterDatasource struct {
 	Description string            `gorm:"column:description;type:text" json:"description"`
 }
 
-func (*ClusterDatasource) TableName() string {
-	return "cluster_datasources"
+func (*Datasource) TableName() string {
+	return "datasources"
 }

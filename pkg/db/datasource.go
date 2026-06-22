@@ -27,13 +27,12 @@ import (
 )
 
 type DatasourceInterface interface {
-	Create(ctx context.Context, object *model.ClusterDatasource) (*model.ClusterDatasource, error)
+	Create(ctx context.Context, object *model.Datasource) (*model.Datasource, error)
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) error
-	Get(ctx context.Context, id int64) (*model.ClusterDatasource, error)
-	ListByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]model.ClusterDatasource, error)
-	GetDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) (*model.ClusterDatasource, error)
-	UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error
+	Get(ctx context.Context, id int64) (*model.Datasource, error)
+	List(ctx context.Context, opts ...Options) ([]model.Datasource, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
 }
 
 type datasource struct {
@@ -44,7 +43,7 @@ func newDatasource(db *gorm.DB) DatasourceInterface {
 	return &datasource{db}
 }
 
-func (l *datasource) Create(ctx context.Context, object *model.ClusterDatasource) (*model.ClusterDatasource, error) {
+func (l *datasource) Create(ctx context.Context, object *model.Datasource) (*model.Datasource, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -58,7 +57,7 @@ func (l *datasource) Update(ctx context.Context, id int64, resourceVersion int64
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
 
-	f := l.db.WithContext(ctx).Model(&model.ClusterDatasource{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
+	f := l.db.WithContext(ctx).Model(&model.Datasource{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
@@ -69,7 +68,7 @@ func (l *datasource) Update(ctx context.Context, id int64, resourceVersion int64
 }
 
 func (l *datasource) Delete(ctx context.Context, id int64) error {
-	f := l.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ClusterDatasource{})
+	f := l.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Datasource{})
 	if f.Error != nil {
 		return f.Error
 	}
@@ -79,8 +78,8 @@ func (l *datasource) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (l *datasource) Get(ctx context.Context, id int64) (*model.ClusterDatasource, error) {
-	var datasource model.ClusterDatasource
+func (l *datasource) Get(ctx context.Context, id int64) (*model.Datasource, error) {
+	var datasource model.Datasource
 	if err := l.db.WithContext(ctx).Where("id = ?", id).First(&datasource).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
@@ -90,46 +89,26 @@ func (l *datasource) Get(ctx context.Context, id int64) (*model.ClusterDatasourc
 	return &datasource, nil
 }
 
-func (l *datasource) ListByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]model.ClusterDatasource, error) {
-	var datasources []model.ClusterDatasource
-	if err := l.db.WithContext(ctx).Where("cluster_name = ? and type = ?", clusterName, datasourceType).Order("id desc").Find(&datasources).Error; err != nil {
+func (l *datasource) List(ctx context.Context, opts ...Options) ([]model.Datasource, error) {
+	var datasources []model.Datasource
+	tx := l.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&datasources).Error; err != nil {
 		return nil, err
 	}
 	return datasources, nil
 }
 
-func (l *datasource) GetDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType) (*model.ClusterDatasource, error) {
-	var datasource model.ClusterDatasource
-	if err := l.db.WithContext(ctx).Where("cluster_name = ? and type = ? and is_default = ?", clusterName, datasourceType, true).First(&datasource).Error; err != nil {
-		if errors.IsRecordNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
+func (l *datasource) Count(ctx context.Context, opts ...Options) (int64, error) {
+	var total int64
+	tx := l.db.WithContext(ctx).Model(&model.Datasource{})
+	for _, opt := range opts {
+		tx = opt(tx)
 	}
-	return &datasource, nil
-}
-
-func (l *datasource) UpdateDefaultByCluster(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error {
-	return l.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.ClusterDatasource{}).
-			Where("cluster_name = ? and type = ?", clusterName, datasourceType).
-			Updates(map[string]interface{}{"is_default": false, "gmt_modified": time.Now()}).Error; err != nil {
-			return err
-		}
-
-		f := tx.Model(&model.ClusterDatasource{}).
-			Where("cluster_name = ? and type = ? and id = ?", clusterName, datasourceType, datasourceId).
-			Updates(map[string]interface{}{
-				"is_default":       true,
-				"gmt_modified":     time.Now(),
-				"resource_version": gorm.Expr("resource_version + 1"),
-			})
-		if f.Error != nil {
-			return f.Error
-		}
-		if f.RowsAffected == 0 {
-			return errors.ErrRecordNotFound
-		}
-		return nil
-	})
+	if err := tx.Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
 }

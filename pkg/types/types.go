@@ -58,7 +58,15 @@ type HTTPHeader struct {
 	Value string `json:"value"`
 }
 
-type DatasourceConfig map[string]interface{}
+type DatasourceConfig struct {
+	Log *LogSourceConfig `json:"log,omitempty"`
+}
+
+type LogSourceConfig struct {
+	URL      string `json:"url,omitempty"`
+	UserName string `json:"user_name,omitempty"`
+	Password string `json:"password,omitempty"`
+}
 
 type KubeNode struct {
 	Ready    []string `json:"ready"`
@@ -98,7 +106,7 @@ type Cluster struct {
 	TimeMeta       `json:",inline"`
 }
 
-type ClusterDatasource struct {
+type Datasource struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 

@@ -45,10 +45,10 @@ func (dr *datasourceRouter) initRoutes(ginEngine *gin.Engine) {
 		BaseURL: datasourceBaseURL,
 		Entries: []apiregistry.RouteEntry{
 			{Method: "POST", RelativePath: "", Handler: dr.createDatasource, Description: "创建数据源"},
-			{Method: "GET", RelativePath: "", Handler: dr.listDatasources, Description: "获取列表"},
-			{Method: "GET", RelativePath: "/:datasourceId", Handler: dr.getDatasource, Description: "查看详情"},
 			{Method: "PUT", RelativePath: "/:datasourceId", Handler: dr.updateDatasource, Description: "更新数据源"},
 			{Method: "DELETE", RelativePath: "/:datasourceId", Handler: dr.deleteDatasource, Description: "删除数据源"},
+			{Method: "GET", RelativePath: "", Handler: dr.listDatasources, Description: "获取列表"},
+			{Method: "GET", RelativePath: "/:datasourceId", Handler: dr.getDatasource, Description: "查看详情"},
 		},
 	}
 	group.Register(ginEngine.Group(datasourceBaseURL), dr.c.APIResource())

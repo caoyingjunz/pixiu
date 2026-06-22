@@ -18,10 +18,8 @@ package datasource
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -39,10 +37,9 @@ type Getter interface {
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateDatasourceRequest) error
 	Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateDatasourceRequest) error
-	Delete(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error
-	Get(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) (*types.ClusterDatasource, error)
-	List(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]types.ClusterDatasource, error)
-	GetDefault(ctx context.Context, clusterName string, datasourceType model.DatasourceType) (*types.ClusterDatasource, error)
+	Delete(ctx context.Context, datasourceId int64) error
+	Get(ctx context.Context, datasourceId int64) (*types.Datasource, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
 type controller struct {
@@ -54,102 +51,91 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{cc: cfg, factory: f}
 }
 
-func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) error {
+func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceRequest) error {
+	return nil
+}
 
-	datasourceConfig, err := marshalDatasourceConfig(req.Config)
+func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) error {
+	if err := c.preCreate(ctx, req); err != nil {
+		return err
+	}
+
+	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
 	}
-
-	object := &model.ClusterDatasource{
+	_, err = c.factory.Datasource().Create(ctx, &model.Datasource{
 		ClusterName: req.ClusterName,
 		Name:        req.Name,
+		Type:        req.Type,
 		SubType:     req.SubType,
 		URL:         req.URL,
-		Config:      datasourceConfig,
+		Config:      cfg,
 		IsDefault:   req.IsDefault,
 		Description: req.Description,
-	}
-	created, err := c.factory.Datasource().Create(ctx, object)
+	})
 	if err != nil {
 		klog.Errorf("failed to create datasource %s: %v", req.Name, err)
 		return apierrors.ErrServerInternal
 	}
-	if created.IsDefault {
-		if err = c.factory.Datasource().UpdateDefaultByCluster(ctx, cluster.Name, created.Type, created.Id); err != nil {
-			klog.Errorf("failed to set default datasource %d: %v", created.Id, err)
-			return apierrors.ErrServerInternal
-		}
-	}
+
 	return nil
 }
 
 func (c *controller) Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateDatasourceRequest) error {
-	cluster, err := c.mustGetCluster(ctx, clusterName)
-	if err != nil {
-		return err
-	}
-	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId)
-	if err != nil {
-		return err
-	}
+	//cluster, err := c.mustGetCluster(ctx, clusterName)
+	//if err != nil {
+	//	return err
+	//}
+	//object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//nextSubType := object.SubType
+	//if req.SubType != nil {
+	//	nextSubType = *req.SubType
+	//}
+	//if err = validateDatasourceType(datasourceType, nextSubType); err != nil {
+	//	return apierrors.NewError(err, http.StatusBadRequest)
+	//}
+	//
+	//updates := make(map[string]interface{})
+	//if req.Name != nil {
+	//	updates["name"] = *req.Name
+	//}
+	//if req.SubType != nil {
+	//	updates["sub_type"] = *req.SubType
+	//}
+	//if req.URL != nil {
+	//	updates["url"] = *req.URL
+	//}
+	//if req.Config != nil {
+	//	datasourceConfig, marshalErr := req.Config.Marshal()
+	//	if marshalErr != nil {
+	//		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", marshalErr), http.StatusBadRequest)
+	//	}
+	//	updates["config"] = datasourceConfig
+	//}
+	//if req.Description != nil {
+	//	updates["description"] = *req.Description
+	//}
+	//if req.IsDefault != nil {
+	//	updates["is_default"] = *req.IsDefault
+	//}
+	//if len(updates) == 0 {
+	//	return apierrors.ErrInvalidRequest
+	//}
+	//
+	//if err = c.factory.Datasource().Update(ctx, datasourceId, *req.ResourceVersion, updates); err != nil {
+	//	klog.Errorf("failed to update datasource %d: %v", datasourceId, err)
+	//	return apierrors.ErrServerInternal
+	//}
 
-	nextSubType := object.SubType
-	if req.SubType != nil {
-		nextSubType = *req.SubType
-	}
-	if err = validateDatasourceType(datasourceType, nextSubType); err != nil {
-		return apierrors.NewError(err, http.StatusBadRequest)
-	}
-
-	updates := make(map[string]interface{})
-	if req.Name != nil {
-		updates["name"] = *req.Name
-	}
-	if req.SubType != nil {
-		updates["sub_type"] = *req.SubType
-	}
-	if req.URL != nil {
-		updates["url"] = *req.URL
-	}
-	if req.Config != nil {
-		datasourceConfig, marshalErr := marshalDatasourceConfig(*req.Config)
-		if marshalErr != nil {
-			return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", marshalErr), http.StatusBadRequest)
-		}
-		updates["config"] = datasourceConfig
-	}
-	if req.Description != nil {
-		updates["description"] = *req.Description
-	}
-	if req.IsDefault != nil {
-		updates["is_default"] = *req.IsDefault
-	}
-	if len(updates) == 0 {
-		return apierrors.ErrInvalidRequest
-	}
-
-	if err = c.factory.Datasource().Update(ctx, datasourceId, *req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update datasource %d: %v", datasourceId, err)
-		return apierrors.ErrServerInternal
-	}
-	if req.IsDefault != nil && *req.IsDefault {
-		if err = c.factory.Datasource().UpdateDefaultByCluster(ctx, cluster.Name, datasourceType, object.Id); err != nil {
-			klog.Errorf("failed to set default datasource %d: %v", object.Id, err)
-			return apierrors.ErrServerInternal
-		}
-	}
 	return nil
 }
 
-func (c *controller) Delete(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error {
-	cluster, err := c.mustGetCluster(ctx, clusterName)
-	if err != nil {
-		return err
-	}
-	if _, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId); err != nil {
-		return err
-	}
+func (c *controller) Delete(ctx context.Context, datasourceId int64) error {
 	if err := c.factory.Datasource().Delete(ctx, datasourceId); err != nil {
 		klog.Errorf("failed to delete datasource %d: %v", datasourceId, err)
 		return apierrors.ErrServerInternal
@@ -157,69 +143,7 @@ func (c *controller) Delete(ctx context.Context, clusterName string, datasourceT
 	return nil
 }
 
-func (c *controller) Get(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) (*types.ClusterDatasource, error) {
-	cluster, err := c.mustGetCluster(ctx, clusterName)
-	if err != nil {
-		return nil, err
-	}
-	object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId)
-	if err != nil {
-		return nil, err
-	}
-	return modelToType(object)
-}
-
-func (c *controller) List(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]types.ClusterDatasource, error) {
-	cluster, err := c.mustGetCluster(ctx, clusterName)
-	if err != nil {
-		return nil, err
-	}
-	objects, err := c.factory.Datasource().ListByCluster(ctx, cluster.Name, datasourceType)
-	if err != nil {
-		klog.Errorf("failed to list datasources for cluster %s: %v", clusterName, err)
-		return nil, apierrors.ErrServerInternal
-	}
-
-	result := make([]types.ClusterDatasource, 0, len(objects))
-	for i := range objects {
-		t, convErr := modelToType(&objects[i])
-		if convErr != nil {
-			return nil, apierrors.ErrServerInternal
-		}
-		result = append(result, *t)
-	}
-	return result, nil
-}
-
-func (c *controller) GetDefault(ctx context.Context, clusterName string, datasourceType model.DatasourceType) (*types.ClusterDatasource, error) {
-	cluster, err := c.mustGetCluster(ctx, clusterName)
-	if err != nil {
-		return nil, err
-	}
-	object, err := c.factory.Datasource().GetDefaultByCluster(ctx, cluster.Name, datasourceType)
-	if err != nil {
-		klog.Errorf("failed to get default datasource for cluster %s: %v", clusterName, err)
-		return nil, apierrors.ErrServerInternal
-	}
-	if object == nil {
-		return nil, apierrors.NewError(fmt.Errorf("no default datasource found, please add one first"), http.StatusNotFound)
-	}
-	return modelToType(object)
-}
-
-func (c *controller) mustGetCluster(ctx context.Context, clusterName string) (*model.Cluster, error) {
-	object, err := c.factory.Cluster().GetClusterByName(ctx, clusterName)
-	if err != nil {
-		klog.Errorf("failed to get cluster(%s): %v", clusterName, err)
-		return nil, apierrors.ErrServerInternal
-	}
-	if object == nil {
-		return nil, apierrors.ErrClusterNotFound
-	}
-	return object, nil
-}
-
-func (c *controller) mustGetDatasource(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) (*model.ClusterDatasource, error) {
+func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Datasource, error) {
 	object, err := c.factory.Datasource().Get(ctx, datasourceId)
 	if err != nil {
 		klog.Errorf("failed to get datasource(%d): %v", datasourceId, err)
@@ -228,32 +152,65 @@ func (c *controller) mustGetDatasource(ctx context.Context, clusterName string, 
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 	}
-	if object.ClusterName != clusterName || object.Type != datasourceType {
-		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
-	}
-	return object, nil
+	return modelToType(object)
 }
 
-func unmarshalDatasourceConfig(raw string) (types.DatasourceConfig, error) {
-	if strings.TrimSpace(raw) == "" {
-		return types.DatasourceConfig{}, nil
-	}
-	var config types.DatasourceConfig
-	if err := json.Unmarshal([]byte(raw), &config); err != nil {
-		return nil, err
-	}
-	if config == nil {
-		return types.DatasourceConfig{}, nil
-	}
-	return config, nil
-}
+func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
 
-func modelToType(object *model.ClusterDatasource) (*types.ClusterDatasource, error) {
-	datasourceConfig, err := unmarshalDatasourceConfig(object.Config)
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
+	}
+
+	opts := buildDatasourceFilterOpts(listOption)
+
+	total, err := c.factory.Datasource().Count(ctx, opts...)
 	if err != nil {
+		klog.Errorf("failed to count datasources: %v", err)
+		pageResult.Message = err.Error()
+		return nil, apierrors.ErrServerInternal
+	}
+	pageResult.Total = total
+
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, db.WithOrderByDesc(), db.WithOffset(offset), db.WithLimit(listOption.Limit))
+
+	objects, err := c.factory.Datasource().List(ctx, opts...)
+	if err != nil {
+		klog.Errorf("failed to list datasources: %v", err)
+		pageResult.Message = err.Error()
+		return nil, apierrors.ErrServerInternal
+	}
+
+	result := make([]types.Datasource, 0, len(objects))
+	for i := range objects {
+		t, convErr := modelToType(&objects[i])
+		if convErr != nil {
+			return nil, apierrors.ErrServerInternal
+		}
+		result = append(result, *t)
+	}
+	pageResult.Items = result
+	return pageResult, nil
+}
+
+func buildDatasourceFilterOpts(opt types.ListOptions) []db.Options {
+	opts := make([]db.Options, 0, 4)
+	if opt.NameSelector != "" {
+		opts = append(opts, db.WithNameLike(opt.NameSelector))
+	}
+	return opts
+}
+
+func modelToType(object *model.Datasource) (*types.Datasource, error) {
+	var cfg types.DatasourceConfig
+	if err := cfg.Unmarshal(object.Config); err != nil {
 		return nil, err
 	}
-	return &types.ClusterDatasource{
+	return &types.Datasource{
 		PixiuMeta: types.PixiuMeta{
 			Id:              object.Id,
 			ResourceVersion: object.ResourceVersion,
@@ -267,7 +224,7 @@ func modelToType(object *model.ClusterDatasource) (*types.ClusterDatasource, err
 		Type:        object.Type,
 		SubType:     object.SubType,
 		URL:         object.URL,
-		Config:      datasourceConfig,
+		Config:      cfg,
 		IsDefault:   object.IsDefault,
 		Description: object.Description,
 	}, nil

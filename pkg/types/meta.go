@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -425,6 +426,28 @@ func (node *KubeNode) Marshal() (string, error) {
 
 func (node *KubeNode) Unmarshal(s string) error {
 	if err := json.Unmarshal([]byte(s), node); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c DatasourceConfig) Marshal() (string, error) {
+	if c.Log == nil {
+		return "", nil
+	}
+	data, err := json.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (c *DatasourceConfig) Unmarshal(s string) error {
+	if strings.TrimSpace(s) == "" {
+		*c = DatasourceConfig{}
+		return nil
+	}
+	if err := json.Unmarshal([]byte(s), c); err != nil {
 		return err
 	}
 	return nil
