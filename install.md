@@ -39,24 +39,6 @@ mysql:
   password: Pixiu868686
   port: 3306
   name: pixiu
-
-worker:
-  engines:
-    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
-      os_supported:
-        - centos7
-        - debian10
-        - ubuntu18.04
-    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2
-      os_supported:
-        - debian11
-        - ubuntu20.04
-        - ubuntu22.04
-        - rocky8.5
-        - rocky9.2
-        - rocky9.3
-        - openEuler22.03
-        - openEuler24.03
 ```
 
 ## 启动 pixiu
