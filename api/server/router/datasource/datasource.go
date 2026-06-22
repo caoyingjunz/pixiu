@@ -19,26 +19,37 @@ package datasource
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
-type router struct {
+const datasourceBaseURL = "/pixiu/datasources"
+
+// datasourceRouter is a router to talk with the datasource controller
+type datasourceRouter struct {
 	c controller.PixiuInterface
 }
 
+// NewRouter initializes a new datasource router
 func NewRouter(o *options.Options) {
-	r := &router{c: o.Controller}
-	r.initRoutes(o.HttpEngine)
+	s := &datasourceRouter{
+		c: o.Controller,
+	}
+	s.initRoutes(o.HttpEngine)
 }
 
-func (r *router) initRoutes(httpEngine *gin.Engine) {
-	group := httpEngine.Group("/pixiu/datasources/:clusterName/:type")
-	{
-		group.POST("", r.createDatasource)
-		group.GET("", r.listDatasources)
-		group.GET("/:datasourceId", r.getDatasource)
-		group.PUT("/:datasourceId", r.updateDatasource)
-		group.DELETE("/:datasourceId", r.deleteDatasource)
+func (dr *datasourceRouter) initRoutes(ginEngine *gin.Engine) {
+	group := &apiregistry.Group{
+		Name:    "数据源",
+		BaseURL: datasourceBaseURL,
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: dr.createDatasource, Description: "创建数据源"},
+			{Method: "GET", RelativePath: "", Handler: dr.listDatasources, Description: "获取列表"},
+			{Method: "GET", RelativePath: "/:datasourceId", Handler: dr.getDatasource, Description: "查看详情"},
+			{Method: "PUT", RelativePath: "/:datasourceId", Handler: dr.updateDatasource, Description: "更新数据源"},
+			{Method: "DELETE", RelativePath: "/:datasourceId", Handler: dr.deleteDatasource, Description: "删除数据源"},
+		},
 	}
+	group.Register(ginEngine.Group(datasourceBaseURL), dr.c.APIResource())
 }

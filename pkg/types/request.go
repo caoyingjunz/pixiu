@@ -80,16 +80,18 @@ type (
 		Protected       bool   `json:"protected" binding:"omitempty"`       // optional
 	}
 
-	CreateClusterDatasourceRequest struct {
+	CreateDatasourceRequest struct {
 		Name        string                  `json:"name" binding:"required"`
 		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
 		URL         string                  `json:"url" binding:"required"`
 		Config      DatasourceConfig        `json:"config" binding:"omitempty"`
 		IsDefault   bool                    `json:"is_default"`
 		Description string                  `json:"description" binding:"omitempty"`
+
+		ClusterName string `json:"cluster_name"`
 	}
 
-	UpdateClusterDatasourceRequest struct {
+	UpdateDatasourceRequest struct {
 		Name            *string                  `json:"name" binding:"omitempty"`
 		SubType         *model.DatasourceSubType `json:"sub_type" binding:"omitempty"`
 		URL             *string                  `json:"url" binding:"omitempty"`

@@ -34,115 +34,102 @@ type listQuery struct {
 	Default bool `form:"default"`
 }
 
-func (r *router) createDatasource(c *gin.Context) {
-	resp := httputils.NewResponse()
+func (dr *datasourceRouter) createDatasource(c *gin.Context) {
+	r := httputils.NewResponse()
 
 	var (
-		m   meta
-		req types.CreateClusterDatasourceRequest
+		req types.CreateDatasourceRequest
 		err error
 	)
-	if err = c.ShouldBindUri(&m); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if err = dr.c.Datasource().Create(c, m.ClusterName, *m.Type, &req); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = r.c.Datasource().Create(c, m.ClusterName, *m.Type, &req); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	httputils.SetSuccess(c, resp)
+	httputils.SetSuccess(c, r)
 }
 
-func (r *router) listDatasources(c *gin.Context) {
-	resp := httputils.NewResponse()
+func (dr *datasourceRouter) listDatasources(c *gin.Context) {
+	r := httputils.NewResponse()
 
 	var (
 		m     meta
 		query listQuery
 		err   error
 	)
-	if err = c.ShouldBindUri(&m); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	if err = c.ShouldBindQuery(&query); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if err = httputils.ShouldBindAny(c, nil, &m, &query); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
 	if query.Default {
-		if resp.Result, err = r.c.Datasource().GetDefault(c, m.ClusterName, *m.Type); err != nil {
-			httputils.SetFailed(c, resp, err)
+		if r.Result, err = dr.c.Datasource().GetDefault(c, m.ClusterName, *m.Type); err != nil {
+			httputils.SetFailed(c, r, err)
 			return
 		}
-		httputils.SetSuccess(c, resp)
+		httputils.SetSuccess(c, r)
 		return
 	}
-	if resp.Result, err = r.c.Datasource().List(c, m.ClusterName, *m.Type); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if r.Result, err = dr.c.Datasource().List(c, m.ClusterName, *m.Type); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	httputils.SetSuccess(c, resp)
+	httputils.SetSuccess(c, r)
 }
 
-func (r *router) getDatasource(c *gin.Context) {
-	resp := httputils.NewResponse()
+func (dr *datasourceRouter) getDatasource(c *gin.Context) {
+	r := httputils.NewResponse()
 
 	var (
 		m   meta
 		err error
 	)
-	if err = c.ShouldBindUri(&m); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	if resp.Result, err = r.c.Datasource().Get(c, m.ClusterName, *m.Type, m.DatasourceId); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if r.Result, err = dr.c.Datasource().Get(c, m.ClusterName, *m.Type, m.DatasourceId); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	httputils.SetSuccess(c, resp)
+	httputils.SetSuccess(c, r)
 }
 
-func (r *router) updateDatasource(c *gin.Context) {
-	resp := httputils.NewResponse()
+func (dr *datasourceRouter) updateDatasource(c *gin.Context) {
+	r := httputils.NewResponse()
 
 	var (
 		m   meta
-		req types.UpdateClusterDatasourceRequest
+		req types.UpdateDatasourceRequest
 		err error
 	)
-	if err = c.ShouldBindUri(&m); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if err = dr.c.Datasource().Update(c, m.ClusterName, *m.Type, m.DatasourceId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = r.c.Datasource().Update(c, m.ClusterName, *m.Type, m.DatasourceId, &req); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	httputils.SetSuccess(c, resp)
+	httputils.SetSuccess(c, r)
 }
 
-func (r *router) deleteDatasource(c *gin.Context) {
-	resp := httputils.NewResponse()
+func (dr *datasourceRouter) deleteDatasource(c *gin.Context) {
+	r := httputils.NewResponse()
 
 	var (
 		m   meta
 		err error
 	)
-	if err = c.ShouldBindUri(&m); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = r.c.Datasource().Delete(c, m.ClusterName, *m.Type, m.DatasourceId); err != nil {
-		httputils.SetFailed(c, resp, err)
+	if err = dr.c.Datasource().Delete(c, m.ClusterName, *m.Type, m.DatasourceId); err != nil {
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	httputils.SetSuccess(c, resp)
+	httputils.SetSuccess(c, r)
 }

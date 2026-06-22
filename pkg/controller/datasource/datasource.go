@@ -37,8 +37,8 @@ type Getter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, clusterName string, datasourceType model.DatasourceType, req *types.CreateClusterDatasourceRequest) error
-	Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateClusterDatasourceRequest) error
+	Create(ctx context.Context, req *types.CreateDatasourceRequest) error
+	Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateDatasourceRequest) error
 	Delete(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) error
 	Get(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64) (*types.ClusterDatasource, error)
 	List(ctx context.Context, clusterName string, datasourceType model.DatasourceType) ([]types.ClusterDatasource, error)
@@ -54,23 +54,16 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{cc: cfg, factory: f}
 }
 
-func (c *controller) Create(ctx context.Context, clusterName string, datasourceType model.DatasourceType, req *types.CreateClusterDatasourceRequest) error {
-	cluster, err := c.mustGetCluster(ctx, clusterName)
-	if err != nil {
-		return err
-	}
-	if err := validateDatasourceType(datasourceType, req.SubType); err != nil {
-		return apierrors.NewError(err, http.StatusBadRequest)
-	}
+func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) error {
+
 	datasourceConfig, err := marshalDatasourceConfig(req.Config)
 	if err != nil {
 		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
 	}
 
 	object := &model.ClusterDatasource{
-		ClusterName: cluster.Name,
+		ClusterName: req.ClusterName,
 		Name:        req.Name,
-		Type:        datasourceType,
 		SubType:     req.SubType,
 		URL:         req.URL,
 		Config:      datasourceConfig,
@@ -91,7 +84,7 @@ func (c *controller) Create(ctx context.Context, clusterName string, datasourceT
 	return nil
 }
 
-func (c *controller) Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateClusterDatasourceRequest) error {
+func (c *controller) Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateDatasourceRequest) error {
 	cluster, err := c.mustGetCluster(ctx, clusterName)
 	if err != nil {
 		return err
@@ -239,17 +232,6 @@ func (c *controller) mustGetDatasource(ctx context.Context, clusterName string, 
 		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 	}
 	return object, nil
-}
-
-func marshalDatasourceConfig(config types.DatasourceConfig) (string, error) {
-	if len(config) == 0 {
-		return "{}", nil
-	}
-	data, err := json.Marshal(config)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 func unmarshalDatasourceConfig(raw string) (types.DatasourceConfig, error) {

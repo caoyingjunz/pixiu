@@ -22,7 +22,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/apiresource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
-  "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
+	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/distribution"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
