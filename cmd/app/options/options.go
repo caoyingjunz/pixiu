@@ -17,7 +17,6 @@ limitations under the License.
 package options
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
@@ -27,14 +26,11 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
-	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
@@ -45,6 +41,7 @@ const (
 
 	defaultListen     = 8091
 	defaultTokenKey   = "pixiu"
+	defaultToolbox    = "ccr.ccs.tencentyun.com/pixiucloud/pixiu-toolbox:v2.0.1"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
 	defaultLogFormat  = logutil.LogFormatJson
 	defaultWorkDir    = "/etc/pixiu"
@@ -107,6 +104,9 @@ func (o *Options) Complete() error {
 	if len(o.ComponentConfig.Default.JWTKey) == 0 {
 		o.ComponentConfig.Default.JWTKey = defaultTokenKey
 	}
+	if len(o.ComponentConfig.Default.Toolbox) == 0 {
+		o.ComponentConfig.Default.Toolbox = defaultToolbox
+	}
 	if o.ComponentConfig.Default.LogFormat == "" {
 		o.ComponentConfig.Default.LogFormat = defaultLogFormat
 	}
@@ -142,7 +142,7 @@ func (o *Options) Complete() error {
 
 	o.Controller = controller.New(o.ComponentConfig, o.Factory)
 
-	if err := o.bootstrapRootUser(); err != nil {
+	if err := o.bootstrapDatabase(); err != nil {
 		return err
 	}
 
@@ -202,29 +202,4 @@ func (o *Options) registerDatabase() error {
 func (o *Options) Validate() error {
 	// TODO
 	return nil
-}
-
-// bootstrapRootUser 启动时自动初始化超级管理员账户
-// 若超管已存在则跳过，若不存在则使用配置文件中的用户名和密码创建
-// 密码经由 Controller.User().Create() 内部调用 util.EncryptUserPassword() 加密后入库
-func (o *Options) bootstrapRootUser() error {
-	ctx := context.Background()
-	root, err := o.Factory.User().GetRoot(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check root user: %v", err)
-	}
-	if root != nil {
-		klog.Info("root user already exists, skipping")
-		return nil
-	}
-
-	adminUser := o.ComponentConfig.Default.AdminUser
-	adminPassword := o.ComponentConfig.Default.AdminPassword
-	klog.Infof("initializing root user: %s", adminUser)
-
-	return o.Controller.User().Create(ctx, &types.CreateUserRequest{
-		Name:     adminUser,
-		Password: adminPassword,
-		Role:     pixiuModel.RoleRoot,
-	})
 }

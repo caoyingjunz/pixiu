@@ -22,11 +22,13 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/apiresource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
-	datasource "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
+  "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
+	"github.com/caoyingjunz/pixiu/pkg/controller/distribution"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/role"
+	"github.com/caoyingjunz/pixiu/pkg/controller/runner"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/user"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -39,11 +41,13 @@ type PixiuInterface interface {
 	apiresource.APIResourceGetter
 	user.UserGetter
 	plan.PlanGetter
+	distribution.DistributionGetter
 	node.NodeGetter
 	audit.AuditGetter
 	helm.HelmGetter
 	agent.AgentGetter
 	datasource.Getter
+	runner.RunnerGetter
 }
 
 type pixiu struct {
@@ -64,6 +68,10 @@ func (p *pixiu) Audit() audit.Interface           { return audit.NewAudit(p.cc, 
 func (p *pixiu) Helm() helm.Interface             { return helm.NewHelm(p.factory) }
 func (p *pixiu) Agent() agent.Interface           { return agent.NewAgent(p.cc, p.factory) }
 func (p *pixiu) Datasource() datasource.Interface { return datasource.New(p.cc, p.factory) }
+func (p *pixiu) Distribution() distribution.Interface {
+	return distribution.NewDistribution(p.cc, p.factory)
+}
+func (p *pixiu) Runner() runner.Interface { return runner.NewRunner(p.cc, p.factory) }
 
 func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{

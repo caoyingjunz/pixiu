@@ -34,11 +34,13 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/apiresource"
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
+	"github.com/caoyingjunz/pixiu/api/server/router/distribution"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/api/server/router/role"
+	"github.com/caoyingjunz/pixiu/api/server/router/runner"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -60,11 +62,13 @@ func InstallRouters(o *options.Options) {
 		role.NewRouter,
 		apiresource.NewRouter,
 		user.NewRouter,
+		distribution.NewRouter,
 		plan.NewRouter,
 		node.NewRouter,
 		audit.NewRouter,
 		agent.NewRouter,
 		datasource.NewRouter,
+		runner.NewRouter,
 	}
 
 	install(o, fs...)

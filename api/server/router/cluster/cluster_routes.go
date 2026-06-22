@@ -414,8 +414,8 @@ func (cr *clusterRouter) updatePermission(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	if err = cr.c.Cluster().UpdatePermission(c, meta.PermissionId, &req); err != nil {
+	req.Id = meta.PermissionId
+	if err = cr.c.Cluster().UpdatePermission(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

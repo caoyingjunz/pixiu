@@ -214,6 +214,26 @@ type (
 		// TODO:
 	}
 
+	CreateDistributionRequest struct {
+		Family string `json:"family" binding:"required"`
+		Name   string `json:"name" binding:"required"`
+		Runner string `json:"runner" binding:"required"`
+	}
+
+	UpdateDistributionRequest struct {
+		Id              int64   `json:"id"`
+		Family          *string `json:"family" binding:"omitempty"`
+		Name            *string `json:"name" binding:"omitempty"`
+		Runner          *string `json:"runner" binding:"omitempty"`
+		ResourceVersion *int64  `json:"resource_version" binding:"required"`
+	}
+
+	ListDistributionRequest struct {
+		PageRequest  `form:",inline"`
+		Family       string `form:"family" json:"family"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"`
+	}
+
 	// PageRequest 分页配置
 	PageRequest struct {
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页
@@ -241,6 +261,12 @@ type (
 		User       string `form:"user" json:"user"`
 		Password   string `form:"password" json:"password"`
 		PrivateKey string
+	}
+
+	ClusterWebRequest struct {
+		ClusterName string `form:"cluster_name" json:"cluster_name"`
+		ClusterId   int64  `form:"cluster_id" json:"cluster_id"`
+		UserId      int64  `form:"user_id" json:"user_id"`
 	}
 )
 

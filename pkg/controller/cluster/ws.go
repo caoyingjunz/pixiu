@@ -19,12 +19,20 @@ package cluster
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/gorilla/websocket"
+	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
@@ -33,7 +41,7 @@ import (
 	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 )
 
-func (c *cluster) WsHandler(ctx context.Context, opt *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error {
+func (c *cluster) WsPodHandler(ctx context.Context, opt *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error {
 	cs, err := c.GetClusterSetByName(ctx, opt.Cluster)
 	if err != nil {
 		klog.Errorf("failed to get cluster(%s) client set: %v", opt.Cluster, err)
@@ -54,6 +62,10 @@ func (c *cluster) WsHandler(ctx context.Context, opt *types.WebShellOptions, w h
 	if len(cmd) == 0 {
 		cmd = "/bin/bash"
 	}
+	execCommand := []string{cmd}
+	if len(opt.CommandArgs) > 0 {
+		execCommand = opt.CommandArgs
+	}
 
 	// 组装 POST 请求
 	req := cs.Client.CoreV1().RESTClient().Post().
@@ -63,7 +75,7 @@ func (c *cluster) WsHandler(ctx context.Context, opt *types.WebShellOptions, w h
 		SubResource("exec").
 		VersionedParams(&v1.PodExecOptions{
 			Container: opt.Container,
-			Command:   []string{cmd},
+			Command:   execCommand,
 			Stderr:    true,
 			Stdin:     true,
 			Stdout:    true,
@@ -153,4 +165,196 @@ func handler(turn *types.Turn) {
 	go turn.StartSessionWait(wg)
 
 	wg.Wait()
+}
+
+// WsClusterHandler 连接 k8s 集群的
+// 1. 启动运行 pod，并挂载 kubeconfig，工作空间是 pixiu-system，必须确保 pixiu-system 存在
+// 2. 等待 pod running
+// 3. ws pod
+func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequest, w http.ResponseWriter, r *http.Request) error {
+	ownerClusterName, err := c.getOwnerClusterName(ctx, req.ClusterId)
+	if err != nil {
+		klog.Errorf("failed to get owner reference cluster name: %v", err)
+		return err
+	}
+	clientSet, err := c.GetClusterSetByName(ctx, ownerClusterName)
+	if err != nil {
+		klog.Errorf("failed to get cluster(%s) client set: %v", req.ClusterName, err)
+		return err
+	}
+
+	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, req.UserId)
+	namespace := "pixiu-system" // 导入集群或者部署集群的时候已确保存在
+	podName := stsName + "-0"
+
+	_, err = clientSet.Client.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+	if err == nil {
+		klog.Infof("pod(%s) already exists, reuse it", podName)
+	} else {
+		if errors.IsNotFound(err) {
+			if err = c.CreateAndWaitForPodRunning(ctx, clientSet, req); err != nil {
+				return err
+			}
+		} else {
+			klog.Errorf("failed to get pod(%s): %v", podName, err)
+			return err
+		}
+	}
+
+	return c.WsPodHandler(ctx, &types.WebShellOptions{
+		Cluster:     ownerClusterName,
+		Namespace:   namespace,
+		Pod:         podName,
+		Container:   "pixiu-ws-toolbox",
+		CommandArgs: cloudShellBashCommand(),
+	}, w, r)
+}
+
+// cloudShellBashCommand 启动带彩色提示符的交互 bash，风格参考云厂商 CloudShell。
+func cloudShellBashCommand() []string {
+	// [user@host path]# — 浅色背景下使用偏深的 ANSI 色，避免过亮刺眼
+	const ps1 = `[\[\033[00;32m\]\u\[\033[00m\]@\[\033[00;36m\]\h\[\033[00m\] \[\033[00;33m\]\w\[\033[00m\]]\[\033[00;35m\]# \[\033[00m\]`
+	return []string{
+		"/bin/bash",
+		"-c",
+		"export PS1='" + ps1 + "'; cd ~ 2>/dev/null || cd /root; exec /bin/bash -i",
+	}
+}
+
+func (c *cluster) CreateAndWaitForPodRunning(ctx context.Context, clientSet client.ClusterSet, req types.ClusterWebRequest) error {
+	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, req.UserId)
+	podName := stsName + "-0"
+	namespace := "pixiu-system" // 导入集群或者部署集群的时候已确保存在
+	cmName := fmt.Sprintf("ws-%d-%d", req.ClusterId, req.UserId)
+	labels := map[string]string{"maintainer": "pixiu", "cluster": req.ClusterName, "app": stsName}
+
+	// 创建 cm，创建 sts，等待pod启动
+	// 获取 kubeconfig 配置
+	obj, err := c.factory.Cluster().Get(ctx, req.ClusterId)
+	if err != nil {
+		return err
+	}
+	kubeConfigBytes, err := client.ParseKubeConfigBytes(obj.KubeConfig)
+	if err != nil {
+		return err
+	}
+	_, err = clientSet.Client.CoreV1().ConfigMaps(namespace).Create(ctx, &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   cmName,
+			Labels: labels,
+		},
+		Data: map[string]string{"kubeconfig": string(kubeConfigBytes)},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return err
+		}
+		klog.Infof("ws-cluster %s/%s already exists, reuse it", namespace, cmName)
+	}
+
+	// 创建 sts
+	kubeConfigVolumeName := "kubeconfig"
+	kubeConfigMountPath := "/root/.kube/config"
+	defaultMode := int32(0600)
+	_, err = clientSet.Client.AppsV1().StatefulSets(namespace).Create(ctx, &appv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   stsName,
+			Labels: labels,
+		},
+		Spec: appv1.StatefulSetSpec{
+			ServiceName: stsName,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:            "pixiu-ws-toolbox",
+							Image:           c.cc.Default.Toolbox,
+							ImagePullPolicy: "IfNotPresent",
+							WorkingDir:      "/root",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      kubeConfigVolumeName,
+									MountPath: kubeConfigMountPath,
+									SubPath:   "kubeconfig",
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: kubeConfigVolumeName,
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{Name: cmName},
+									DefaultMode:          &defaultMode,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			klog.Errorf("failed to create ws-cluster: %v", err)
+			return err
+		}
+		klog.Infof("ws-cluster %s/%s already exists, reuse it", namespace, stsName)
+	}
+
+	if err = waitForPodRunning(ctx, clientSet.Client, namespace, podName, 10*time.Minute); err != nil {
+		return fmt.Errorf("wait pod %s/%s running: %w", namespace, podName, err)
+	}
+
+	return nil
+}
+
+// waitForPodRunning 轮询等待 Pod 进入 Running 阶段（STS 默认 Pod 名为 <stsName>-0）
+func waitForPodRunning(ctx context.Context, client kubernetes.Interface, namespace, podName string, timeout time.Duration) error {
+	return wait.PollImmediateWithContext(ctx, 2*time.Second, timeout, func(ctx context.Context) (bool, error) {
+		pod, err := client.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+
+		switch pod.Status.Phase {
+		case v1.PodRunning:
+			return true, nil
+		case v1.PodFailed, v1.PodSucceeded:
+			return false, fmt.Errorf("pod entered terminal phase %s", pod.Status.Phase)
+		default:
+			return false, nil
+		}
+	})
+}
+
+func (c *cluster) getOwnerClusterName(ctx context.Context, clusterId int64) (string, error) {
+	obj, err := c.factory.Cluster().Get(ctx, clusterId)
+	if err != nil {
+		return "", err
+	}
+	if obj == nil {
+		return "", fmt.Errorf("cluster %d not found", clusterId)
+	}
+
+	// 如果本身就是master集群，直接返回
+	if obj.PermissionId == 0 {
+		return obj.Name, nil
+	}
+
+	masterObj, err := c.factory.Cluster().Get(ctx, obj.OwnerReference)
+	if err != nil || masterObj == nil {
+		return "", fmt.Errorf("cluster %d not found or get failed", clusterId)
+	}
+	return masterObj.Name, nil
 }

@@ -449,7 +449,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	}
 
 	// 3. 校验runner
-	runner, err := p.GetRunner(cfg.OSImage)
+	runner, err := p.GetRunner(ctx, cfg.OSImage)
 	if err != nil {
 		return err
 	}

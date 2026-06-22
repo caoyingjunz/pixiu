@@ -82,8 +82,9 @@ func (p *plan) process(ctx context.Context) bool {
 
 type TaskData struct {
 	PlanId int64
-	Config *model.Config
-	Nodes  []model.Node
+	Plan   *model.Plan   // 部署属性
+	Config *model.Config // 部署配置
+	Nodes  []model.Node  // 部署节点
 }
 
 func (t TaskData) validate() error {
@@ -91,6 +92,10 @@ func (t TaskData) validate() error {
 }
 
 func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) {
+	pp, err := p.factory.Plan().Get(ctx, planId)
+	if err != nil {
+		return TaskData{}, err
+	}
 	nodes, err := p.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
 		return TaskData{}, err
@@ -102,6 +107,7 @@ func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) 
 
 	return TaskData{
 		PlanId: planId,
+		Plan:   pp,
 		Config: cfg,
 		Nodes:  nodes,
 	}, nil
@@ -128,7 +134,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 		klog.Errorf("failed to get task data: %v", err)
 		return
 	}
-	runner, err := p.GetRunner(taskData.Config.OSImage)
+	runner, err := p.GetRunner(ctx, taskData.Config.OSImage)
 	if err != nil {
 		klog.Errorf("failed to get image(%s) for worker: %v", taskData.Config.OSImage, err)
 		return
@@ -154,7 +160,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	}
 
 	if err = p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": status}); err != nil {
-		klog.Errorf("尝试更新集群状态(%s)失败 %v", status, err)
+		klog.Errorf("尝试更新集群状态(%d)失败 %v", status, err)
 	}
 }
 
@@ -195,16 +201,21 @@ func (p *plan) WorkDir() string {
 	return p.cc.Worker.WorkDir
 }
 
-func (p *plan) GetRunner(osImage string) (string, error) {
-	engines := p.cc.Worker.Engines
-	for _, engine := range engines {
-		for _, os := range engine.OSSupported {
-			if os == osImage {
-				return engine.Image, nil
-			}
-		}
+func (p *plan) GetRunner(ctx context.Context, osImage string) (string, error) {
+	dist, err := p.factory.Distribution().GetDistributionByName(ctx, osImage)
+	if err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("osImage(%s) runner not found", osImage)
+	if dist == nil || dist.Runner == "" {
+		return "", fmt.Errorf("osImage(%s) runner not found", osImage)
+	}
+
+	obj, err := p.factory.Runner().GetBy(ctx, dist.Runner)
+	if err != nil {
+		return "", err
+	}
+
+	return obj.EngineImage, nil
 }
 
 // 同步任务状态

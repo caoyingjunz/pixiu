@@ -76,10 +76,12 @@ type Interface interface {
 
 	// AggregateEvents 聚合指定资源的 events
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
-	// WsHandler pod 的 webShell
-	WsHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
+
+	// WsPodHandler pod 的 webShell
+	WsPodHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
 	// WsNodeHandler node 的 webShell
 	WsNodeHandler(ctx context.Context, req types.WebSSHRequest, w http.ResponseWriter, r *http.Request) error
+	WsClusterHandler(ctx context.Context, req types.ClusterWebRequest, w http.ResponseWriter, r *http.Request) error
 
 	// WatchPodLog 实时获取 pod 的日志
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
@@ -95,7 +97,7 @@ type Interface interface {
 	CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error
 	GetPermission(ctx context.Context, permissionId int64) (*types.Permission, error)
 	ListPermissions(ctx context.Context, listOption types.ListOptions) (interface{}, error)
-	UpdatePermission(ctx context.Context, permissionId int64, req *types.UpdatePermissionRequest) error
+	UpdatePermission(ctx context.Context, req *types.UpdatePermissionRequest) error
 	DeletePermission(ctx context.Context, permissionId int64) error
 
 	// Run 启动 cluster worker 处理协程

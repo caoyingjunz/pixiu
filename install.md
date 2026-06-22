@@ -39,30 +39,12 @@ mysql:
   password: Pixiu868686
   port: 3306
   name: pixiu
-
-worker:
-  engines:
-    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
-      os_supported:
-        - centos7
-        - debian10
-        - ubuntu18.04
-    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2
-      os_supported:
-        - debian11
-        - ubuntu20.04
-        - ubuntu22.04
-        - rocky8.5
-        - rocky9.2
-        - rocky9.3
-        - openEuler22.03
-        - openEuler24.03
 ```
 
 ## 启动 pixiu
 ```bash
 # 根据实际需要修改宿主机端口，默认使用宿主机端口，可替换 --net host 为期望端口映射 -p <hostPort>:80
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.2
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.3
 ```
 
 ## 登陆 pixiu

@@ -193,69 +193,96 @@ func (c *cluster) ListPermissions(ctx context.Context, listOption types.ListOpti
 	return pageResult, nil
 }
 
-func (c *cluster) UpdatePermission(ctx context.Context, permissionId int64, req *types.UpdatePermissionRequest) error {
-	//object, err := c.factory.Permission().Get(ctx, permissionId)
-	//if err != nil {
-	//	klog.Errorf("failed to get permission(%d): %v", permissionId, err)
-	//	return errors.ErrInternal
-	//}
-	//if object == nil {
-	//	return errors.ErrPermissionNotFound
-	//}
-	//
-	//updates := make(map[string]interface{})
-	//if req.Name != nil {
-	//	updates["name"] = *req.Name
-	//}
-	//if req.Description != nil {
-	//	updates["description"] = *req.Description
-	//}
-	//if req.ExpirationSeconds != nil {
-	//	updates["expiration_seconds"] = *req.ExpirationSeconds
-	//}
-	//if req.PType != nil {
-	//	updates["p_type"] = model.PermissionPType(*req.PType)
-	//}
-	//if req.Rules != nil {
-	//	rulesJSON, err := encodeRules(req.Rules)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	updates["rules"] = rulesJSON
-	//}
-	//if req.TargetNamespaces != nil {
-	//	nsJSON, err := encodeStringSlice(req.TargetNamespaces)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	updates["target_namespaces"] = nsJSON
-	//}
-	//if len(updates) == 0 {
-	//	return errors.ErrReqParams
-	//}
-	//
-	//needReprovision := req.ExpirationSeconds != nil || req.PType != nil || req.Rules != nil || req.TargetNamespaces != nil
-	//if needReprovision {
-	//	merged := c.mergePermissionRequest(object, req)
-	//	kubeConfig, saNs, saName, err := c.provisionPermission(ctx, merged)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	updates["kube_config"] = kubeConfig
-	//	updates["sa_name"] = saName
-	//	updates["sa_namespace"] = saNs
-	//}
-	//
-	//if err = c.factory.Permission().Update(ctx, permissionId, *req.ResourceVersion, updates); err != nil {
-	//	if errors.IsNotUpdated(err) {
-	//		return errors.ErrRecordNotUpdate
-	//	}
-	//	if errors.IsUniqueConstraintError(err) {
-	//		return fmt.Errorf("同一用户在该集群下已存在同名授权")
-	//	}
-	//	klog.Errorf("failed to update permission(%d): %v", permissionId, err)
-	//	return errors.ErrInternal
-	//}
+// UpdatePermission
+// 1. 调整权限访问和内容
+// 2. 移除缓存客户端，使其立即生效
+func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermissionRequest) error {
+	oldP, err := c.factory.Permission().Get(ctx, req.Id)
+	if err != nil {
+		klog.Errorf("failed to get permission(%d): %v", req.Id, err)
+		return errors.ErrInternal
+	}
+	if oldP == nil {
+		klog.Errorf("权限 (%d) 不存在", req.Id)
+		return errors.ErrPermissionNotFound
+	}
+
+	// 计算命名空间是否有变化，新增或者减少，或者不变
+	// 如果新增，直接下发最新的规则
+	// 如果减少，移除下发的规则
+	updates := make(map[string]interface{})
+	newNamespaces, err := encodeStringSlice(req.TargetNamespaces)
+	if err != nil {
+		return err
+	}
+	if newNamespaces != oldP.TargetNamespaces {
+		updates["target_namespaces"] = newNamespaces
+	}
+
+	newRules, err := encodeRules(req.Rules)
+	if err != nil {
+		klog.Errorf("encodeRules failed")
+		return err
+	}
+	if oldP.Rules != newRules {
+		updates["rules"] = newRules
+	}
+	if oldP.ExpirationSeconds != req.ExpirationSeconds {
+		updates["expiration_seconds"] = req.ExpirationSeconds
+	}
+
+	// 目前只支持规则和scope（ns）和有效期的的修改
+	if len(updates) == 0 && !req.Force {
+		klog.Infof("权限无必要改动，直接返回")
+		return nil
+	}
+
+	clusterSet, err := c.GetClusterSetByName(ctx, oldP.OwnerClusterName)
+	if err != nil {
+		return fmt.Errorf("获取集群 %s 配置失败: %w", oldP.OwnerClusterName, err)
+	}
+
+	// 移除k8s规则
+	if err = c.deleteKubernetesRule(ctx, oldP); err != nil {
+		// 存在报错忽略
+		klog.Errorf("清理k8s规则失败 %v", err)
+	}
+
+	addRuleReq := &types.CreatePermissionRequest{
+		SANamespace:       oldP.SANamespace,
+		SAName:            oldP.SAName,
+		ClusterRoleName:   oldP.ClusterRoleName,
+		RoleBindingName:   oldP.RoleBindingName,
+		Rules:             req.Rules,
+		TargetNamespaces:  req.TargetNamespaces,
+		ExpirationSeconds: req.ExpirationSeconds,
+		PType:             int(oldP.PType),
+	}
+	// 重新下发新规则，请获取新的 kubeconfig
+	kubeConfig, err := c.addKubernetesRule(ctx, addRuleReq, clusterSet)
+	if err != nil {
+		return err
+	}
+
+	// 更新 cluster 的kubeconfig 和清理client 缓存
+	if err = c.factory.Cluster().InternalUpdate(ctx, oldP.ClusterId, map[string]interface{}{"kube_config": kubeConfig}); err != nil {
+		klog.Errorf("更新集群 kubeconfig 失败 %v", err)
+		return err
+	}
+	ClusterIndexer.Delete(oldP.ClusterName)
+
+	// 更新 权限
+	if err = c.factory.Permission().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+		if errors.IsNotUpdated(err) {
+			return errors.ErrRecordNotUpdate
+		}
+		if errors.IsUniqueConstraintError(err) {
+			return fmt.Errorf("同一用户在该集群下已存在同名授权")
+		}
+		klog.Errorf("failed to update permission(%d): %v", req.Id, err)
+		return errors.ErrInternal
+	}
+
 	return nil
 }
 
@@ -281,45 +308,14 @@ func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) erro
 	return c.Delete(ctx, object.ClusterId, true)
 }
 
-func (c *cluster) mergePermissionRequest(object *model.Permission, req *types.UpdatePermissionRequest) *types.CreatePermissionRequest {
-	merged := &types.CreatePermissionRequest{
-		UserId:            object.UserId,
-		Name:              object.Name,
-		ExpirationSeconds: object.ExpirationSeconds,
-		Description:       object.Description,
-		PType:             int(object.PType),
-		TargetNamespaces:  decodeStringSlice(object.TargetNamespaces),
-		Rules:             decodeRules(object.Rules),
-		SAName:            object.SAName,
-		SANamespace:       object.SANamespace,
-	}
-	if req.Name != nil {
-		merged.Name = *req.Name
-	}
-	if req.ExpirationSeconds != nil {
-		merged.ExpirationSeconds = *req.ExpirationSeconds
-	}
-	if req.Description != nil {
-		merged.Description = *req.Description
-	}
-	if req.PType != nil {
-		merged.PType = *req.PType
-	}
-	if req.Rules != nil {
-		merged.Rules = req.Rules
-	}
-	if req.TargetNamespaces != nil {
-		merged.TargetNamespaces = req.TargetNamespaces
-	}
-	return merged
-}
-
 func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermissionRequest, clusterSet client.ClusterSet) (string, error) {
 	kubeClient := clusterSet.Client
+	klog.V(0).Infof("creating ServiceAccount")
 	if err := ensureServiceAccount(ctx, req, kubeClient); err != nil {
 		return "", fmt.Errorf("创建 SA 失败: %w", err)
 	}
 
+	klog.Infof("creating ClusterRole")
 	if err := createClusterRole(ctx, req, kubeClient); err != nil {
 		return "", err
 	}
@@ -331,6 +327,7 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 		}
 	} else {
 		for _, ns := range req.TargetNamespaces {
+			klog.Infof("creating namespace(%s) RoleBinding", ns)
 			if err := createRoleBinding(ctx, req, kubeClient, ns); err != nil {
 				klog.Errorf("%v", err)
 				return "", err
@@ -414,8 +411,9 @@ func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
 		Rules:             decodeRules(o.Rules),
 		SAName:            o.SAName,
 		SANamespace:       o.SANamespace,
-		ClusterId:         o.ClusterId,   // 对应生成的k8s集群ID
-		ClusterName:       o.ClusterName, // 集群名称
+		ClusterId:         o.ClusterId,        // 对应生成的k8s集群ID
+		ClusterName:       o.OwnerClusterName, // 集群名称
+		ClusterAliasName:  o.OwnerClusterAliasName,
 		TargetNamespaces:  decodeStringSlice(o.TargetNamespaces),
 		Description:       o.Description,
 	}

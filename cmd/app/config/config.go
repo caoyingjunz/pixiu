@@ -43,6 +43,8 @@ type DefaultOptions struct {
 	Mode   Mode   `yaml:"mode"`
 	Listen int    `yaml:"listen"`
 	JWTKey string `yaml:"jwt_key"`
+	// CloudShell/工具容器镜像
+	Toolbox string `yaml:"toolbox"`
 
 	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
@@ -83,6 +85,7 @@ type WorkerOptions struct {
 }
 
 type Engine struct {
+	Name        string   `yaml:"name"`
 	Image       string   `yaml:"image"`
 	OSSupported []string `yaml:"os_supported"`
 }
