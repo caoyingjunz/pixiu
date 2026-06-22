@@ -244,3 +244,24 @@ func WithOwnerReference(clusterId int64) Options {
 		return tx.Where("owner_reference = ?", clusterId)
 	}
 }
+
+func WithClusterName(clusterName string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if clusterName == "" {
+			return tx
+		}
+		return tx.Where("cluster_name = ?", clusterName)
+	}
+}
+
+func WithDatasourceType(datasourceType model.DatasourceType) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("type = ?", datasourceType)
+	}
+}
+
+func WithDatasourceIsDefault(isDefault bool) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("is_default = ?", isDefault)
+	}
+}

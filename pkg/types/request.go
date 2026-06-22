@@ -80,6 +80,28 @@ type (
 		Protected       bool   `json:"protected" binding:"omitempty"`       // optional
 	}
 
+	CreateDatasourceRequest struct {
+		Name        string                  `json:"name" binding:"required"`
+		Type        model.DatasourceType    `json:"type" binding:"required,oneof=0 1"`
+		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
+		URL         string                  `json:"url" binding:"required"`
+		Config      DatasourceConfig        `json:"config" binding:"omitempty"`
+		IsDefault   bool                    `json:"is_default"`
+		Description string                  `json:"description" binding:"omitempty"`
+
+		ClusterName string `json:"cluster_name"`
+	}
+
+	UpdateDatasourceRequest struct {
+		Name            *string                  `json:"name" binding:"omitempty"`
+		SubType         *model.DatasourceSubType `json:"sub_type" binding:"omitempty"`
+		URL             *string                  `json:"url" binding:"omitempty"`
+		Config          *DatasourceConfig        `json:"config" binding:"omitempty"`
+		IsDefault       *bool                    `json:"is_default" binding:"omitempty"`
+		Description     *string                  `json:"description" binding:"omitempty"`
+		ResourceVersion *int64                   `json:"resource_version" binding:"required"`
+	}
+
 	CreateTenantRequest struct {
 		Name        string  `json:"name" binding:"required"`         // required
 		Description *string `json:"description" binding:"omitempty"` // optional

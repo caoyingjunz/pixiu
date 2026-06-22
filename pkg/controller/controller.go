@@ -22,6 +22,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/apiresource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
+	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/distribution"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
@@ -45,6 +46,7 @@ type PixiuInterface interface {
 	audit.AuditGetter
 	helm.HelmGetter
 	agent.AgentGetter
+	datasource.Getter
 	runner.RunnerGetter
 }
 
@@ -59,12 +61,13 @@ func (p *pixiu) Role() role.Interface       { return role.NewRole(p.cc, p.factor
 func (p *pixiu) APIResource() apiresource.Interface {
 	return apiresource.NewAPIResource(p.cc, p.factory)
 }
-func (p *pixiu) User() user.Interface   { return user.NewUser(p.cc, p.factory) }
-func (p *pixiu) Plan() plan.Interface   { return plan.NewPlan(p.cc, p.factory) }
-func (p *pixiu) Node() node.Interface   { return node.NewNode(p.cc, p.factory) }
-func (p *pixiu) Audit() audit.Interface { return audit.NewAudit(p.cc, p.factory) }
-func (p *pixiu) Helm() helm.Interface   { return helm.NewHelm(p.factory) }
-func (p *pixiu) Agent() agent.Interface { return agent.NewAgent(p.cc, p.factory) }
+func (p *pixiu) User() user.Interface             { return user.NewUser(p.cc, p.factory) }
+func (p *pixiu) Plan() plan.Interface             { return plan.NewPlan(p.cc, p.factory) }
+func (p *pixiu) Node() node.Interface             { return node.NewNode(p.cc, p.factory) }
+func (p *pixiu) Audit() audit.Interface           { return audit.NewAudit(p.cc, p.factory) }
+func (p *pixiu) Helm() helm.Interface             { return helm.NewHelm(p.factory) }
+func (p *pixiu) Agent() agent.Interface           { return agent.NewAgent(p.cc, p.factory) }
+func (p *pixiu) Datasource() datasource.Interface { return datasource.New(p.cc, p.factory) }
 func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)
 }

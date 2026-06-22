@@ -20,6 +20,7 @@ import (
 	"embed"
 	"net/http"
 
+	datasource "github.com/caoyingjunz/pixiu/api/server/router/datasource"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -66,6 +67,7 @@ func InstallRouters(o *options.Options) {
 		node.NewRouter,
 		audit.NewRouter,
 		agent.NewRouter,
+		datasource.NewRouter,
 		runner.NewRouter,
 	}
 
