@@ -59,7 +59,8 @@ type HTTPHeader struct {
 }
 
 type DatasourceConfig struct {
-	Log *LogSourceConfig `json:"log,omitempty"`
+	Log     *LogSourceConfig `json:"log,omitempty"`
+	Headers []HTTPHeader     `json:"headers"`
 }
 
 type LogSourceConfig struct {
@@ -114,7 +115,6 @@ type Datasource struct {
 	Name        string                  `json:"name"`
 	Type        model.DatasourceType    `json:"type"`
 	SubType     model.DatasourceSubType `json:"sub_type"`
-	URL         string                  `json:"url"`
 	Config      DatasourceConfig        `json:"config"`
 	IsDefault   bool                    `json:"is_default"`
 	Description string                  `json:"description"`

@@ -91,6 +91,15 @@ func WithNameLike(name string) Options {
 	}
 }
 
+func WithName(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name = ?", name)
+	}
+}
+
 func WithClusterStatus(status int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)
@@ -257,6 +266,15 @@ func WithClusterName(clusterName string) Options {
 func WithDatasourceType(datasourceType model.DatasourceType) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("type = ?", datasourceType)
+	}
+}
+
+func WithDatasourceSubType(subType model.DatasourceSubType) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if subType == "" {
+			return tx
+		}
+		return tx.Where("sub_type = ?", subType)
 	}
 }
 

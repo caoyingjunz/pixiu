@@ -82,9 +82,8 @@ type (
 
 	CreateDatasourceRequest struct {
 		Name        string                  `json:"name" binding:"required"`
-		Type        model.DatasourceType    `json:"type" binding:"required,oneof=0 1"`
+		Type        model.DatasourceType    `json:"type" binding:"omitempty,required"`
 		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
-		URL         string                  `json:"url" binding:"required"`
 		Config      DatasourceConfig        `json:"config" binding:"omitempty"`
 		IsDefault   bool                    `json:"is_default"`
 		Description string                  `json:"description" binding:"omitempty"`

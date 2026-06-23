@@ -52,6 +52,31 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceRequest) error {
+	count, err := c.factory.Datasource().Count(
+		ctx,
+		db.WithClusterName(req.ClusterName),
+		db.WithDatasourceType(req.Type),
+		db.WithDatasourceSubType(req.SubType),
+		db.WithName(req.Name),
+	)
+	if err != nil {
+		klog.Errorf(
+			"failed to check duplicate datasource cluster=%s type=%d sub_type=%s name=%s: %v",
+			req.ClusterName,
+			req.Type,
+			req.SubType,
+			req.Name,
+			err,
+		)
+		return apierrors.ErrServerInternal
+	}
+	if count > 0 {
+		return apierrors.NewError(
+			fmt.Errorf("datasource already exists: cluster=%s type=%d sub_type=%s name=%s",
+				req.ClusterName, req.Type, req.SubType, req.Name),
+			http.StatusConflict,
+		)
+	}
 	return nil
 }
 
@@ -69,7 +94,6 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 		Name:        req.Name,
 		Type:        req.Type,
 		SubType:     req.SubType,
-		URL:         req.URL,
 		Config:      cfg,
 		IsDefault:   req.IsDefault,
 		Description: req.Description,
@@ -223,7 +247,6 @@ func modelToType(object *model.Datasource) (*types.Datasource, error) {
 		Name:        object.Name,
 		Type:        object.Type,
 		SubType:     object.SubType,
-		URL:         object.URL,
 		Config:      cfg,
 		IsDefault:   object.IsDefault,
 		Description: object.Description,
