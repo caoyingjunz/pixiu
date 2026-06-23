@@ -36,7 +36,7 @@ type Runner struct {
 	factory db.ShareDaoFactory
 }
 
-func (r Runner) Name() string      { return "准备 Runner" }
+func (r Runner) Name() string      { return "前置准备" }
 func (r Runner) GetAction() string { return "runner" }
 
 func (r Runner) Run() error {
