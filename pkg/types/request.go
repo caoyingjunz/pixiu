@@ -82,14 +82,12 @@ type (
 
 	CreateDatasourceRequest struct {
 		Name        string                  `json:"name" binding:"required"`
-		Type        model.DatasourceType    `json:"type" binding:"required,oneof=0 1"`
+		ClusterName string                  `json:"cluster_name"`
+		Type        model.DatasourceType    `json:"type"`
 		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
-		URL         string                  `json:"url" binding:"required"`
-		Config      DatasourceConfig        `json:"config" binding:"omitempty"`
+		Config      *DatasourceConfig       `json:"config"`
 		IsDefault   bool                    `json:"is_default"`
 		Description string                  `json:"description" binding:"omitempty"`
-
-		ClusterName string `json:"cluster_name"`
 	}
 
 	UpdateDatasourceRequest struct {

@@ -64,12 +64,12 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	if err != nil {
 		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
 	}
+
 	_, err = c.factory.Datasource().Create(ctx, &model.Datasource{
 		ClusterName: req.ClusterName,
 		Name:        req.Name,
 		Type:        req.Type,
 		SubType:     req.SubType,
-		URL:         req.URL,
 		Config:      cfg,
 		IsDefault:   req.IsDefault,
 		Description: req.Description,
