@@ -91,6 +91,15 @@ func WithNameLike(name string) Options {
 	}
 }
 
+func WithName(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name = ?", name)
+	}
+}
+
 func WithClusterStatus(status int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)
@@ -191,6 +200,15 @@ func WithUser(userId int64) Options {
 		}
 
 		return tx.Where("user_id = ?", userId)
+	}
+}
+
+func WithEngineImage(image string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(image) == 0 {
+			return tx
+		}
+		return tx.Where("engine_image = ?", image)
 	}
 }
 

@@ -123,3 +123,41 @@ func (r *runnerRouter) listRunners(c *gin.Context) {
 
 	httputils.SetSuccess(c, result)
 }
+
+func (r *runnerRouter) installRunner(c *gin.Context) {
+	result := httputils.NewResponse()
+
+	var (
+		req types.InstallRunnerRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+		httputils.SetFailed(c, result, err)
+		return
+	}
+	if err = r.c.Runner().Install(c, req); err != nil {
+		httputils.SetFailed(c, result, err)
+		return
+	}
+
+	httputils.SetSuccess(c, result)
+}
+
+func (r *runnerRouter) unInstallRunner(c *gin.Context) {
+	result := httputils.NewResponse()
+
+	var (
+		req types.UninstallRunnerRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+		httputils.SetFailed(c, result, err)
+		return
+	}
+	if err = r.c.Runner().UnInstall(c, req); err != nil {
+		httputils.SetFailed(c, result, err)
+		return
+	}
+
+	httputils.SetSuccess(c, result)
+}
