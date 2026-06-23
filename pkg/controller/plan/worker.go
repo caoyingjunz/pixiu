@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
@@ -144,8 +145,9 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 
 	task := newHandlerTask(taskData)
 	handlers := []Handler{
-		Check{handlerTask: task},
+		Runner{handlerTask: task, image: runner, factory: p.factory},
 		Render{handlerTask: task, dir: dir},
+		Check{handlerTask: task},
 		BootStrap{handlerTask: task, dir: dir, runner: runner},
 		DeployMaster{handlerTask: task, dir: dir, runner: runner},
 		DeployNode{handlerTask: task, dir: dir, runner: runner},
@@ -210,7 +212,7 @@ func (p *plan) GetRunner(ctx context.Context, osImage string) (string, error) {
 		return "", fmt.Errorf("osImage(%s) runner not found", osImage)
 	}
 
-	obj, err := p.factory.Runner().GetBy(ctx, dist.Runner)
+	obj, err := p.factory.Runner().GetBy(ctx, db.WithName(dist.Runner))
 	if err != nil {
 		return "", err
 	}

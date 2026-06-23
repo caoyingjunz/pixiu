@@ -34,7 +34,9 @@ type RunnerInterface interface {
 	List(ctx context.Context, opts ...Options) ([]model.Runner, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
 
-	GetBy(ctx context.Context, name string) (*model.Runner, error)
+	GetBy(ctx context.Context, opts ...Options) (*model.Runner, error)
+	// InternalUpdate 内部更新，不校验、不递增 resource_version
+	InternalUpdate(ctx context.Context, rid int64, updates map[string]interface{}) error
 }
 
 type runner struct {
@@ -85,14 +87,6 @@ func (r *runner) Get(ctx context.Context, rid int64) (*model.Runner, error) {
 	return &object, nil
 }
 
-func (r *runner) GetBy(ctx context.Context, name string) (*model.Runner, error) {
-	var object model.Runner
-	if err := r.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
-		return nil, err
-	}
-	return &object, nil
-}
-
 func (r *runner) List(ctx context.Context, opts ...Options) ([]model.Runner, error) {
 	var objects []model.Runner
 	tx := r.db.WithContext(ctx)
@@ -119,4 +113,30 @@ func (r *runner) Count(ctx context.Context, opts ...Options) (int64, error) {
 
 func newRunner(db *gorm.DB) *runner {
 	return &runner{db}
+}
+
+func (r *runner) GetBy(ctx context.Context, opts ...Options) (*model.Runner, error) {
+	var object model.Runner
+	tx := r.db.WithContext(ctx).Model(&model.Runner{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object).Error; err != nil {
+		return nil, err
+	}
+	return &object, nil
+}
+
+// InternalUpdate 程序内部更新，不校验 resource_version
+func (r *runner) InternalUpdate(ctx context.Context, rid int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+
+	f := r.db.WithContext(ctx).Model(&model.Runner{}).Where("id = ?", rid).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
 }

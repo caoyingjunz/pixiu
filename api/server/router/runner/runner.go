@@ -47,6 +47,9 @@ func (r *runnerRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/:runnerId", Handler: r.deleteRunner, Description: "删除 Runner"},
 			{Method: "GET", RelativePath: "/:runnerId", Handler: r.getRunner, Description: "Runner 详情"},
 			{Method: "GET", RelativePath: "", Handler: r.listRunners, Description: "Runner 列表"},
+
+			{Method: "POST", RelativePath: "/install", Handler: r.installRunner, Description: "安装"},
+			{Method: "POST", RelativePath: "/uninstall", Handler: r.unInstallRunner, Description: "卸载"},
 		},
 	}
 	group.Register(ginEngine.Group(runnerURL), r.c.APIResource())
