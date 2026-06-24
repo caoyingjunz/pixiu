@@ -52,43 +52,14 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceRequest) error {
-	if req.IsDefault {
-		defaultCount, err := c.factory.Datasource().Count(
-			ctx,
-			db.WithClusterName(req.ClusterName),
-			db.WithDatasourceType(req.Type),
-			db.WithDatasourceIsDefault(true),
-		)
-		if err != nil {
-			klog.Errorf(
-				"failed to check default datasource cluster=%s type=%d sub_type=%s name=%s: %v",
-				req.ClusterName,
-				req.Type,
-				req.SubType,
-				req.Name,
-				err,
-			)
-			return apierrors.ErrServerInternal
-		}
-		if defaultCount > 0 {
-			return apierrors.NewError(
-				fmt.Errorf("default datasource already exists for cluster=%s type=%d, please unset the current default first",
-					req.ClusterName, req.Type),
-				http.StatusConflict,
-			)
-		}
-	}
-
-	count, err := c.factory.Datasource().Count(
+	datasources, err := c.factory.Datasource().List(
 		ctx,
 		db.WithClusterName(req.ClusterName),
 		db.WithDatasourceType(req.Type),
-		db.WithDatasourceSubType(req.SubType),
-		db.WithName(req.Name),
 	)
 	if err != nil {
 		klog.Errorf(
-			"failed to check datasource duplicate cluster=%s type=%d sub_type=%s name=%s: %v",
+			"failed to list datasources for validation cluster=%s type=%d sub_type=%s name=%s: %v",
 			req.ClusterName,
 			req.Type,
 			req.SubType,
@@ -97,13 +68,25 @@ func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceR
 		)
 		return apierrors.ErrServerInternal
 	}
-	if count > 0 {
-		return apierrors.NewError(
-			fmt.Errorf("datasource already exists: cluster=%s type=%d sub_type=%s name=%s",
-				req.ClusterName, req.Type, req.SubType, req.Name),
-			http.StatusConflict,
-		)
+
+	for _, datasource := range datasources {
+		if req.IsDefault && datasource.IsDefault {
+			return apierrors.NewError(
+				fmt.Errorf("default datasource already exists for cluster=%s type=%d, please unset the current default first",
+					req.ClusterName, req.Type),
+				http.StatusConflict,
+			)
+		}
+
+		if datasource.Name == req.Name {
+			return apierrors.NewError(
+				fmt.Errorf("datasource already exists: cluster=%s type=%d name=%s",
+					req.ClusterName, req.Type, req.Name),
+				http.StatusConflict,
+			)
+		}
 	}
+
 	return nil
 }
 
