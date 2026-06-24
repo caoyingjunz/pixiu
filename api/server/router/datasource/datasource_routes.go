@@ -45,18 +45,38 @@ func (dr *datasourceRouter) createDatasource(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (dr *datasourceRouter) listDatasources(c *gin.Context) {
+func (dr *datasourceRouter) updateDatasource(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		listOption types.ListOptions
-		err        error
+		idMeta meta
+		req    types.UpdateDatasourceRequest
+		err    error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = dr.c.Datasource().List(c, listOption); err != nil {
+	req.Id = idMeta.DatasourceId
+	if err = dr.c.Datasource().Update(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (dr *datasourceRouter) deleteDatasource(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = dr.c.Datasource().Delete(c, m.DatasourceId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -81,37 +101,18 @@ func (dr *datasourceRouter) getDatasource(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (dr *datasourceRouter) updateDatasource(c *gin.Context) {
+func (dr *datasourceRouter) listDatasources(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		m   meta
-		req types.UpdateDatasourceRequest
-		err error
+		listOption types.ListOptions
+		err        error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = dr.c.Datasource().Update(c, "", 0, m.DatasourceId, &req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetSuccess(c, r)
-}
-
-func (dr *datasourceRouter) deleteDatasource(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		m   meta
-		err error
-	)
-	if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = dr.c.Datasource().Delete(c, m.DatasourceId); err != nil {
+	if r.Result, err = dr.c.Datasource().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

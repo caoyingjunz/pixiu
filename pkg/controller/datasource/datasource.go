@@ -28,6 +28,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type Getter interface {
@@ -36,7 +37,7 @@ type Getter interface {
 
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateDatasourceRequest) error
-	Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateDatasourceRequest) error
+	Update(ctx context.Context, req *types.UpdateDatasourceRequest) error
 	Delete(ctx context.Context, datasourceId int64) error
 	Get(ctx context.Context, datasourceId int64) (*types.Datasource, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
@@ -117,55 +118,58 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	return nil
 }
 
-func (c *controller) Update(ctx context.Context, clusterName string, datasourceType model.DatasourceType, datasourceId int64, req *types.UpdateDatasourceRequest) error {
-	//cluster, err := c.mustGetCluster(ctx, clusterName)
-	//if err != nil {
-	//	return err
-	//}
-	//object, err := c.mustGetDatasource(ctx, cluster.Name, datasourceType, datasourceId)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//nextSubType := object.SubType
-	//if req.SubType != nil {
-	//	nextSubType = *req.SubType
-	//}
-	//if err = validateDatasourceType(datasourceType, nextSubType); err != nil {
-	//	return apierrors.NewError(err, http.StatusBadRequest)
-	//}
-	//
-	//updates := make(map[string]interface{})
-	//if req.Name != nil {
-	//	updates["name"] = *req.Name
-	//}
-	//if req.SubType != nil {
-	//	updates["sub_type"] = *req.SubType
-	//}
-	//if req.URL != nil {
-	//	updates["url"] = *req.URL
-	//}
-	//if req.Config != nil {
-	//	datasourceConfig, marshalErr := req.Config.Marshal()
-	//	if marshalErr != nil {
-	//		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", marshalErr), http.StatusBadRequest)
-	//	}
-	//	updates["config"] = datasourceConfig
-	//}
-	//if req.Description != nil {
-	//	updates["description"] = *req.Description
-	//}
-	//if req.IsDefault != nil {
-	//	updates["is_default"] = *req.IsDefault
-	//}
-	//if len(updates) == 0 {
-	//	return apierrors.ErrInvalidRequest
-	//}
-	//
-	//if err = c.factory.Datasource().Update(ctx, datasourceId, *req.ResourceVersion, updates); err != nil {
-	//	klog.Errorf("failed to update datasource %d: %v", datasourceId, err)
-	//	return apierrors.ErrServerInternal
-	//}
+func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequest) error {
+	old, err := c.factory.Datasource().Get(ctx, req.Id)
+	if err != nil {
+		klog.Errorf("failed to get datasource %d: %v", req.Id, err)
+		return apierrors.ErrServerInternal
+	}
+	if old == nil {
+		return apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
+	}
+
+	updates := make(map[string]interface{})
+
+	cfg, err := req.Config.Marshal()
+	if err != nil {
+		return err
+	}
+	if cfg != old.Config {
+		updates["config"] = cfg
+	}
+
+	if req.Name != old.Name {
+		updates["name"] = req.Name
+	}
+	if req.ClusterName != old.ClusterName {
+		updates["cluster_name"] = req.ClusterName
+	}
+	if req.Type != old.Type {
+		updates["type"] = req.Type
+	}
+	if req.SubType != old.SubType {
+		updates["sub_type"] = req.SubType
+	}
+	if req.IsDefault != old.IsDefault {
+		updates["is_default"] = req.IsDefault
+	}
+	if req.Description != old.Description {
+		updates["description"] = req.Description
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+	if err = c.factory.Datasource().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return apierrors.NewError(
+				fmt.Errorf("datasource not found or resource version conflict"),
+				http.StatusConflict,
+			)
+		}
+		klog.Errorf("failed to update datasource %d: %v", req.Id, err)
+		return apierrors.ErrServerInternal
+	}
 
 	return nil
 }
@@ -200,18 +204,23 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		},
 	}
 
-	opts := buildDatasourceFilterOpts(listOption)
-
-	total, err := c.factory.Datasource().Count(ctx, opts...)
-	if err != nil {
-		klog.Errorf("failed to count datasources: %v", err)
-		pageResult.Message = err.Error()
-		return nil, apierrors.ErrServerInternal
+	opts := []db.Options{
+		db.WithNameLike(listOption.NameSelector),
 	}
-	pageResult.Total = total
+
+	var err error
+	pageResult.Total, err = c.factory.Datasource().Count(ctx, opts...)
+	if err != nil {
+		klog.Errorf("failed to count dataSources: %v", err)
+		pageResult.Message = err.Error()
+	}
 
 	offset := (listOption.Page - 1) * listOption.Limit
-	opts = append(opts, db.WithOrderByDesc(), db.WithOffset(offset), db.WithLimit(listOption.Limit))
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
 
 	objects, err := c.factory.Datasource().List(ctx, opts...)
 	if err != nil {
@@ -220,24 +229,17 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		return nil, apierrors.ErrServerInternal
 	}
 
-	result := make([]types.Datasource, 0, len(objects))
+	items := make([]types.Datasource, 0, len(objects))
 	for i := range objects {
 		t, convErr := modelToType(&objects[i])
 		if convErr != nil {
 			return nil, apierrors.ErrServerInternal
 		}
-		result = append(result, *t)
+		items = append(items, *t)
 	}
-	pageResult.Items = result
-	return pageResult, nil
-}
+	pageResult.Items = items
 
-func buildDatasourceFilterOpts(opt types.ListOptions) []db.Options {
-	opts := make([]db.Options, 0, 4)
-	if opt.NameSelector != "" {
-		opts = append(opts, db.WithNameLike(opt.NameSelector))
-	}
-	return opts
+	return pageResult, nil
 }
 
 func modelToType(object *model.Datasource) (*types.Datasource, error) {
@@ -262,20 +264,4 @@ func modelToType(object *model.Datasource) (*types.Datasource, error) {
 		IsDefault:   object.IsDefault,
 		Description: object.Description,
 	}, nil
-}
-
-func validateDatasourceType(datasourceType model.DatasourceType, subType model.DatasourceSubType) error {
-	switch datasourceType {
-	case model.DatasourceTypeLog:
-		if subType != model.DatasourceSubTypeLoki && subType != model.DatasourceSubTypeES {
-			return fmt.Errorf("invalid datasource sub_type %q for type %d", subType, datasourceType)
-		}
-	case model.DatasourceTypeAlert:
-		if subType != model.DatasourceSubTypePrometheus {
-			return fmt.Errorf("invalid datasource sub_type %q for type %d", subType, datasourceType)
-		}
-	default:
-		return fmt.Errorf("invalid datasource type %d", datasourceType)
-	}
-	return nil
 }
