@@ -86,6 +86,10 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	c.Request.Header.Del("Authorization")
 	c.Request.Header.Del("Cookie")
 
+	// 获取新生成的 Authorization 透传给 K8s
+	if proxyAuth := c.GetHeader("X-Proxy-Authorization"); proxyAuth != "" {
+		c.Request.Header.Set("Authorization", proxyAuth)
+	}
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
 	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
 	httpProxy.ServeHTTP(c.Writer, c.Request)

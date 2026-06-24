@@ -47,27 +47,7 @@ func (l *datasource) Create(ctx context.Context, object *model.Datasource) (*mod
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
-	if !object.IsDefault {
-		if err := l.db.WithContext(ctx).Create(object).Error; err != nil {
-			return nil, err
-		}
-		return object, nil
-	}
-
-	err := l.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(object).Error; err != nil {
-			return err
-		}
-
-		return tx.Model(&model.Datasource{}).
-			Where("cluster_name = ? AND type = ? AND is_default = ? AND id <> ?", object.ClusterName, object.Type, true, object.Id).
-			Updates(map[string]interface{}{
-				"is_default":       false,
-				"gmt_modified":     now,
-				"resource_version": gorm.Expr("resource_version + ?", 1),
-			}).Error
-	})
-	if err != nil {
+	if err := l.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
 	return object, nil
