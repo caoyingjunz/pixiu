@@ -46,3 +46,9 @@ type UpdateRunnerRequest struct {
 	Status      *model.RunnerStatus `json:"status" binding:"omitempty"`
 	Description *string             `json:"description" binding:"omitempty"`
 }
+
+type InstallRunnerRequest struct {
+	Id int64 `json:"id"`
+}
+
+type UninstallRunnerRequest = InstallRunnerRequest

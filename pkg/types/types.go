@@ -59,14 +59,19 @@ type HTTPHeader struct {
 }
 
 type DatasourceConfig struct {
-	Log     *LogSourceConfig `json:"log,omitempty"`
-	Headers []HTTPHeader     `json:"headers"`
+	Headers []HTTPHeader       `json:"headers"`
+	Log     *LogSourceConfig   `json:"log,omitempty"`
+	Alert   *AlertSourceConfig `json:"alert,omitempty"`
 }
 
 type LogSourceConfig struct {
 	URL      string `json:"url,omitempty"`
 	UserName string `json:"user_name,omitempty"`
 	Password string `json:"password,omitempty"`
+}
+
+type AlertSourceConfig struct {
+	URL string `json:"url,omitempty"`
 }
 
 type KubeNode struct {

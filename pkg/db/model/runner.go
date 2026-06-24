@@ -27,8 +27,11 @@ func init() {
 type RunnerStatus uint8
 
 const (
-	RunnerStatusUnknown RunnerStatus = 0
-	RunnerStatusOnline  RunnerStatus = 1
+	RunnerStatusUnstart      RunnerStatus = 0 // 未安装
+	RunnerStatusInstalling   RunnerStatus = 1 // 安装中
+	RunnerStatusUnInstalling RunnerStatus = 2 // 卸载中
+	RunnerStatusInstalled    RunnerStatus = 3 // 已安装
+	RunnerStatusUnknown      RunnerStatus = 4 // 异常
 )
 
 type Runner struct {

@@ -206,7 +206,7 @@ func (o *Options) bootstrapRunners(ctx context.Context) error {
 		if err = o.Controller.Runner().Create(ctx, &types.CreateRunnerRequest{
 			Name:        dr.name,
 			EngineImage: dr.engineImage,
-			Status:      pixiuModel.RunnerStatusUnknown,
+			Status:      pixiuModel.RunnerStatusUnstart,
 			Description: dr.desc,
 		}); err != nil {
 			return fmt.Errorf("failed to bootstrap runner %s: %v", dr.name, err)

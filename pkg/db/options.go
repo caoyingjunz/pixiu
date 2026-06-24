@@ -203,6 +203,15 @@ func WithUser(userId int64) Options {
 	}
 }
 
+func WithEngineImage(image string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(image) == 0 {
+			return tx
+		}
+		return tx.Where("engine_image = ?", image)
+	}
+}
+
 func WithTenantId(tenantId int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("tenant_id = ?", tenantId)

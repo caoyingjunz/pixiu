@@ -18,7 +18,11 @@ package runner
 
 import (
 	"context"
+	"fmt"
+	"io"
 
+	dockertypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
@@ -38,6 +42,9 @@ type Interface interface {
 	Delete(ctx context.Context, runnerId int64) error
 	Get(ctx context.Context, runnerId int64) (*types.Runner, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+
+	Install(ctx context.Context, req types.InstallRunnerRequest) error
+	UnInstall(ctx context.Context, req types.UninstallRunnerRequest) error
 }
 
 type runnerController struct {
@@ -153,6 +160,117 @@ func (r *runnerController) List(ctx context.Context, listOption types.ListOption
 	}
 	pageResult.Items = ts
 	return pageResult, nil
+}
+
+func (r *runnerController) Install(ctx context.Context, req types.InstallRunnerRequest) error {
+	// 1. 查询现有 runner
+	obj, err := r.factory.Runner().Get(ctx, req.Id)
+	if err != nil || obj == nil {
+		klog.Errorf("failed to get runner %d: %v", req.Id, err)
+		return errors.ErrServerInternal
+	}
+
+	// 2. 更新 runner 状态为正在安装
+	if err = r.updateStatus(ctx, req.Id, model.RunnerStatusInstalling); err != nil {
+		return err
+	}
+
+	// 启动异步任务，使用独立的 context
+	go func(runnerId int64, image string) {
+		// 创建独立的 context，不随主请求结束而结束
+		pullCtx := context.Background()
+		status := model.RunnerStatusInstalled
+
+		// 3. 调用 docker pull 拉取镜像
+		if pullErr := r.pullImage(pullCtx, image); pullErr != nil {
+			status = model.RunnerStatusUnknown
+			klog.Errorf("failed to pull image %s for runner %d: %v", image, runnerId, pullErr)
+		}
+		// 更新最终状态
+		if updateErr := r.updateStatus(pullCtx, runnerId, status); updateErr != nil {
+			klog.Errorf("failed to update runner %d status to %d: %v", runnerId, status, updateErr)
+		}
+	}(req.Id, obj.EngineImage)
+
+	return nil
+}
+
+func (r *runnerController) UnInstall(ctx context.Context, req types.UninstallRunnerRequest) error {
+	// 1. 查询现有 runner
+	obj, err := r.factory.Runner().Get(ctx, req.Id)
+	if err != nil || obj == nil {
+		klog.Errorf("failed to get runner %d: %v", req.Id, err)
+		return errors.ErrServerInternal
+	}
+
+	// 2. 更新 runner 状态为卸载中
+	if err = r.updateStatus(ctx, req.Id, model.RunnerStatusUnInstalling); err != nil {
+		return err
+	}
+
+	// 启动异步任务，使用独立的 context
+	go func(runnerId int64, image string) {
+		removeCtx := context.Background()
+		status := model.RunnerStatusUnstart
+
+		// 3. 调用 docker remove 移除镜像，忽略报错
+		if pullErr := r.removeImage(removeCtx, image); pullErr != nil {
+			klog.Errorf("failed to remove image %s for runner %d: %v", image, runnerId, pullErr)
+		}
+		if updateErr := r.updateStatus(removeCtx, runnerId, status); updateErr != nil {
+			klog.Errorf("failed to update runner %d status to %d: %v", runnerId, status, updateErr)
+		}
+	}(req.Id, obj.EngineImage)
+
+	return nil
+}
+
+// 更新 runner 状态
+func (r *runnerController) updateStatus(ctx context.Context, runnerId int64, status model.RunnerStatus) error {
+	return r.factory.Runner().InternalUpdate(ctx, runnerId, map[string]interface{}{"status": status})
+}
+
+// 拉取 docker 镜像
+func (r *runnerController) pullImage(ctx context.Context, imageName string) error {
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		klog.Errorf("failed to create docker client for pull %s: %v", imageName, err)
+		return fmt.Errorf("%s: %w", imageName, err)
+	}
+	defer cli.Close()
+
+	reader, err := cli.ImagePull(ctx, imageName, dockertypes.ImagePullOptions{})
+	if err != nil {
+		klog.Errorf("failed to pull image %s: %v", imageName, err)
+		return fmt.Errorf("%s: %w", imageName, err)
+	}
+	defer reader.Close()
+
+	if _, err = io.Copy(io.Discard, reader); err != nil {
+		klog.Errorf("failed to read pull output for image %s: %v", imageName, err)
+		return fmt.Errorf("%s: %w", imageName, err)
+	}
+
+	klog.Infof("successfully pulled image %s", imageName)
+	return nil
+}
+
+// 移除 docker 镜像
+func (r *runnerController) removeImage(ctx context.Context, imageName string) error {
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		klog.Errorf("failed to create docker client for remove %s: %v", imageName, err)
+		return fmt.Errorf("%s: %w", imageName, err)
+	}
+	defer cli.Close()
+
+	if _, err = cli.ImageRemove(ctx, imageName, dockertypes.ImageRemoveOptions{Force: true}); err != nil {
+		klog.Errorf("failed to remove image %s: %v", imageName, err)
+		return fmt.Errorf("%s: %w", imageName, err)
+	}
+
+	klog.Infof("successfully removed image %s", imageName)
+	return nil
 }
 
 func model2Type(o *model.Runner) *types.Runner {
