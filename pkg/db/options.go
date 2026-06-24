@@ -278,6 +278,15 @@ func WithDatasourceType(datasourceType model.DatasourceType) Options {
 	}
 }
 
+func WithDatasourceSubType(subType model.DatasourceSubType) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if subType == "" {
+			return tx
+		}
+		return tx.Where("sub_type = ?", subType)
+	}
+}
+
 func WithDatasourceIsDefault(isDefault bool) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("is_default = ?", isDefault)
