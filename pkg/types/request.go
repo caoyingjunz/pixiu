@@ -91,13 +91,10 @@ type (
 	}
 
 	UpdateDatasourceRequest struct {
-		Name            *string                  `json:"name" binding:"omitempty"`
-		SubType         *model.DatasourceSubType `json:"sub_type" binding:"omitempty"`
-		URL             *string                  `json:"url" binding:"omitempty"`
-		Config          *DatasourceConfig        `json:"config" binding:"omitempty"`
-		IsDefault       *bool                    `json:"is_default" binding:"omitempty"`
-		Description     *string                  `json:"description" binding:"omitempty"`
-		ResourceVersion *int64                   `json:"resource_version" binding:"required"`
+		Id              int64 `json:"id"`
+		ResourceVersion int64 `json:"resource_version"`
+
+		CreateDatasourceRequest `form:",inline"`
 	}
 
 	CreateTenantRequest struct {
