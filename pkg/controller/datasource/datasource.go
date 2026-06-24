@@ -96,6 +96,8 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 		return err
 	}
 
+	// 对配置进行简化，移除不必要的配置
+	req.Config.Clean(req.Type)
 	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
@@ -130,6 +132,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 
 	updates := make(map[string]interface{})
 
+	req.Config.Clean(req.Type)
 	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return err
