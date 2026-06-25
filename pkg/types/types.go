@@ -72,6 +72,9 @@ type LogSourceConfig struct {
 
 type AlertSourceConfig struct {
 	URL string `json:"url,omitempty"`
+
+	UserName string `json:"user_name,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 type KubeNode struct {
