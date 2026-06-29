@@ -41,8 +41,9 @@ func (plan *Plan) TableName() string {
 type KubeRole string
 
 const (
-	MasterRole string = "master" // kubernetes master role
-	NodeRole   string = "node"   // kubernetes node role
+	MasterRole  string = "master" // kubernetes master role
+	NodeRole    string = "node"   // kubernetes node role
+	StorageRole string = "storage"
 )
 
 type CRI string

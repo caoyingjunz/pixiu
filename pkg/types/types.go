@@ -423,11 +423,19 @@ type ComponentSpec struct {
 	Haproxy      *Haproxy      `json:"haproxy,omitempty"`
 	MetricServer *MetricServer `json:"metric_server,omitempty"`
 	IngressNginx *IngressNginx `json:"ingress_nginx,omitempty"`
+	NFS          *NFS          `json:"nfs,omitempty"`
 }
 
 type Helm struct {
 	Enable      bool   `json:"enable"`
 	HelmRelease string `json:"helm_release"`
+}
+
+type NFS struct {
+	Enable bool `json:"enable"`
+
+	StorageClassName string `json:"storage_class_name"` // 指定 nfs 存储名称
+	StorageDataDir   string `json:"storage_data_dir"`   // 指定 nfs server 存储地址
 }
 
 type MetricServer struct {
