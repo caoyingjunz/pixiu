@@ -180,7 +180,7 @@ type (
 		Name   string       `json:"name" binding:"omitempty"` // required
 		UserId int64        `json:"user_id"`
 		PlanId int64        `json:"plan_id"`
-		Role   []string     `json:"role"` // k8s 节点的角色，master 和 node
+		Role   []string     `json:"role"` // k8s 节点的角色，master 和 node, storage
 		CRI    model.CRI    `json:"cri"`
 		Ip     string       `json:"ip"`
 		Auth   PlanNodeAuth `json:"auth"`

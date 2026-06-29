@@ -91,6 +91,7 @@ type Multinode struct {
 	DockerNode       []types.PlanNode
 	ContainerdMaster []types.PlanNode
 	ContainerdNode   []types.PlanNode
+	StorageNode      []types.PlanNode
 }
 
 func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
@@ -99,6 +100,7 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 		DockerNode:       make([]types.PlanNode, 0),
 		ContainerdMaster: make([]types.PlanNode, 0),
 		ContainerdNode:   make([]types.PlanNode, 0),
+		StorageNode:      make([]types.PlanNode, 0),
 	}
 
 	runtime := types.RuntimeSpec{}
@@ -148,6 +150,14 @@ func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
 				if role == model.NodeRole {
 					multinode.ContainerdNode = append(multinode.ContainerdNode, planNode)
 				}
+			}
+		}
+
+		// 获取存储节点，目前仅支持 nfs
+		for _, role := range roles {
+			if role == model.StorageRole {
+				multinode.StorageNode = append(multinode.StorageNode, planNode)
+				continue
 			}
 		}
 	}
