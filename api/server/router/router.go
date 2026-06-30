@@ -24,11 +24,7 @@ import (
 	aiaccount "github.com/caoyingjunz/pixiu/api/server/router/aiaccount"
 	datasource "github.com/caoyingjunz/pixiu/api/server/router/datasource"
 	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 
-	// 导入 docs.json 文件
-	_ "github.com/caoyingjunz/pixiu/api/docs"
 	_ "github.com/caoyingjunz/pixiu/api/server/validator"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
@@ -82,8 +78,6 @@ func InstallRouters(o *options.Options) {
 
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
-	// 启动 APIs 服务
-	o.HttpEngine.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }
 
 func install(o *options.Options, fs ...RegisterFunc) {
