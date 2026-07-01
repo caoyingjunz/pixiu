@@ -279,9 +279,10 @@ type (
 	}
 
 	AIRespondRequest struct {
-		Provider string `json:"provider"`
-		Model    string `json:"model"`
-		Input    string `json:"input" binding:"required"`
+		ConversationId int64  `json:"conversation_id"`
+		Provider       string `json:"provider"`
+		Model          string `json:"model"`
+		Input          string `json:"input" binding:"required"`
 	}
 
 	// WebSSHRequest 主机 ssh 跳转请求

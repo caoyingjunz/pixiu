@@ -142,9 +142,11 @@ type AIAccount struct {
 }
 
 type AIRespondResponse struct {
-	Text  string      `json:"text"`
-	Model string      `json:"model"`
-	Raw   interface{} `json:"raw,omitempty"`
+	ConversationId int64       `json:"conversation_id"`
+	ResponseId     string      `json:"response_id"`
+	Text           string      `json:"text"`
+	Model          string      `json:"model"`
+	Raw            interface{} `json:"raw,omitempty"`
 }
 
 // KubernetesMeta 记录 kubernetes 集群的数据
