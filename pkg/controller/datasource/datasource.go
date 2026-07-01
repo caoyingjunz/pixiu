@@ -209,6 +209,10 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 
 	opts := []db.Options{
 		db.WithNameLike(listOption.NameSelector),
+		db.WithClusterName(listOption.ClusterName),
+	}
+	if listOption.DatasourceType != nil {
+		opts = append(opts, db.WithDatasourceType(*listOption.DatasourceType))
 	}
 
 	var err error
