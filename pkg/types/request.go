@@ -97,6 +97,26 @@ type (
 		CreateDatasourceRequest `form:",inline"`
 	}
 
+	CreateAIAccountRequest struct {
+		Provider    string `json:"provider" binding:"required"`
+		APIKey      string `json:"api_key" binding:"required"`
+		BaseURL     string `json:"base_url" binding:"omitempty,url"`
+		Model       string `json:"model" binding:"omitempty"`
+		Description string `json:"description" binding:"omitempty"`
+		Enabled     *bool  `json:"enabled" binding:"omitempty"`
+	}
+
+	UpdateAIAccountRequest struct {
+		Id              int64  `json:"id"`
+		Provider        string `json:"provider" binding:"required"`
+		APIKey          string `json:"api_key" binding:"required"`
+		BaseURL         string `json:"base_url" binding:"omitempty,url"`
+		Model           string `json:"model" binding:"omitempty"`
+		Description     string `json:"description" binding:"omitempty"`
+		Enabled         *bool  `json:"enabled" binding:"omitempty"`
+		ResourceVersion int64  `json:"resource_version" binding:"required"`
+	}
+
 	CreateTenantRequest struct {
 		Name        string  `json:"name" binding:"required"`         // required
 		Description *string `json:"description" binding:"omitempty"` // optional
@@ -250,6 +270,18 @@ type (
 		UserPhone   string `form:"userPhone" json:"userPhone"`
 		UserEmail   string `form:"userEmail" json:"userEmail"`
 		Status      *int   `form:"status" json:"status"`
+	}
+
+	ListAIAccountRequest struct {
+		PageRequest `form:",inline"`
+		Provider    string `form:"provider" json:"provider"`
+		Enabled     *bool  `form:"enabled" json:"enabled"`
+	}
+
+	AIRespondRequest struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+		Input    string `json:"input" binding:"required"`
 	}
 
 	// WebSSHRequest 主机 ssh 跳转请求

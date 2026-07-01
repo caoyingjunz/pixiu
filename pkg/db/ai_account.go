@@ -1,0 +1,114 @@
+/*
+Copyright 2026 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package db
+
+import (
+	"context"
+	"time"
+
+	"gorm.io/gorm"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/util/errors"
+)
+
+type AIAccountInterface interface {
+	Create(ctx context.Context, object *model.AIAccount) (*model.AIAccount, error)
+	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
+	Delete(ctx context.Context, id int64) error
+	Get(ctx context.Context, id int64) (*model.AIAccount, error)
+	List(ctx context.Context, opts ...Options) ([]model.AIAccount, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
+}
+
+type aiAccount struct {
+	db *gorm.DB
+}
+
+func newAIAccount(db *gorm.DB) AIAccountInterface {
+	return &aiAccount{db}
+}
+
+func (a *aiAccount) Create(ctx context.Context, object *model.AIAccount) (*model.AIAccount, error) {
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
+		return nil, err
+	}
+	return object, nil
+}
+
+func (a *aiAccount) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := a.db.WithContext(ctx).Model(&model.AIAccount{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (a *aiAccount) Delete(ctx context.Context, id int64) error {
+	f := a.db.WithContext(ctx).Where("id = ?", id).Delete(&model.AIAccount{})
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (a *aiAccount) Get(ctx context.Context, id int64) (*model.AIAccount, error) {
+	var object model.AIAccount
+	if err := a.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &object, nil
+}
+
+func (a *aiAccount) List(ctx context.Context, opts ...Options) ([]model.AIAccount, error) {
+	var objects []model.AIAccount
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
+		return nil, err
+	}
+	return objects, nil
+}
+
+func (a *aiAccount) Count(ctx context.Context, opts ...Options) (int64, error) {
+	var total int64
+	tx := a.db.WithContext(ctx).Model(&model.AIAccount{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
+}
