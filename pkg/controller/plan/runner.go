@@ -23,9 +23,9 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/util/docker"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/caoyingjunz/pixiu/pkg/util/docker"
 	"k8s.io/klog/v2"
 )
 
