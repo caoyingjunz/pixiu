@@ -21,13 +21,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/client"
+	clustercontroller "github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 )
 
@@ -39,61 +44,31 @@ type toolDefinition struct {
 }
 
 func (c *controller) buildTools() []toolDefinition {
-	tools := []toolDefinition{
+	return []toolDefinition{
 		{
-			Name:        "exec_shell",
-			Description: "Run a restricted read-only shell command for diagnostics such as checking IP, hostname, directory listing, or reading a workspace file.",
+			Name:        "k8s",
+			Description: "Operate on Kubernetes resources in a Pixiu cluster via preinstalled kubectl and in-memory cluster config.",
 			Parameters: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"command": map[string]interface{}{
+					"cluster": map[string]interface{}{
 						"type":        "string",
-						"description": "Allowed commands: ipconfig, hostname, whoami, nslookup, ping, tracert, netstat, route, arp, systeminfo, Get-ChildItem, Get-Content.",
+						"description": "Pixiu cluster name.",
 					},
 					"args": map[string]interface{}{
 						"type":        "array",
-						"description": "Command arguments. For Get-Content and Get-ChildItem, pass a workspace-relative path as the first argument.",
+						"description": "kubectl arguments excluding kubeconfig, for example ['get','pods','-A','-o','json'] or ['logs','pod-name','-n','default'].",
 						"items": map[string]interface{}{
 							"type": "string",
 						},
 					},
 				},
-				"required":             []string{"command"},
+				"required":             []string{"cluster", "args"},
 				"additionalProperties": false,
 			},
-			Handler: c.handleExecShell,
+			Handler: c.handleK8s,
 		},
 	}
-
-	if c.cc.Default.EnableDangerousAITools {
-		tools = append(tools, toolDefinition{
-			Name:        "exec_shell_dangerous",
-			Description: "Run any shell command on the server. This is highly privileged and only available to administrators when dangerous AI tools are enabled.",
-			Parameters: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"shell": map[string]interface{}{
-						"type":        "string",
-						"description": "Shell to use. Allowed values: powershell, cmd.",
-						"enum":        []string{"powershell", "cmd"},
-					},
-					"command": map[string]interface{}{
-						"type":        "string",
-						"description": "The raw shell command to execute.",
-					},
-					"workdir": map[string]interface{}{
-						"type":        "string",
-						"description": "Optional working directory. Defaults to the current server process directory.",
-					},
-				},
-				"required":             []string{"command"},
-				"additionalProperties": false,
-			},
-			Handler: c.handleExecShellDangerous,
-		})
-	}
-
-	return tools
 }
 
 func toResponsesTools(tools []toolDefinition) []map[string]interface{} {
@@ -134,120 +109,183 @@ func (c *controller) executeTool(ctx context.Context, callID, toolName, rawArgs 
 	return "", err
 }
 
-func (c *controller) handleExecShell(ctx context.Context, args map[string]interface{}) (string, error) {
-	command, _ := args["command"].(string)
-	command = strings.TrimSpace(command)
-	if command == "" {
-		return "", fmt.Errorf("command is required")
+func (c *controller) handleK8s(ctx context.Context, args map[string]interface{}) (string, error) {
+	clusterName, _ := args["cluster"].(string)
+	clusterName = strings.TrimSpace(clusterName)
+	if clusterName == "" {
+		return "", fmt.Errorf("cluster is required")
 	}
 
-	commandArgs, err := parseStringArgs(args["args"])
+	kubectlArgs, err := parseStringArgs(args["args"])
 	if err != nil {
 		return "", err
 	}
+	if len(kubectlArgs) == 0 {
+		return "", fmt.Errorf("args is required")
+	}
 
-	execName, execArgs, workdir, err := buildRestrictedCommand(command, commandArgs)
+	body, err := c.runKubectlWithCluster(ctx, clusterName, kubectlArgs)
 	if err != nil {
 		return "", err
 	}
-
-	cmdCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(cmdCtx, execName, execArgs...)
-	if workdir != "" {
-		cmd.Dir = workdir
-	}
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	runErr := cmd.Run()
-	result := map[string]interface{}{
-		"command": execName,
-		"args":    execArgs,
-		"stdout":  truncateToolOutput(stdout.String()),
-		"stderr":  truncateToolOutput(stderr.String()),
-		"success": runErr == nil,
-	}
-	if workdir != "" {
-		result["workdir"] = workdir
-	}
-	if runErr != nil {
-		result["error"] = runErr.Error()
-	}
-
-	data, err := json.Marshal(result)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	return wrapK8SResult(clusterName, kubectlArgs, string(body))
 }
 
-func (c *controller) handleExecShellDangerous(ctx context.Context, args map[string]interface{}) (string, error) {
-	user, err := httputils.GetUserFromRequest(ctx)
+func (c *controller) runKubectlWithCluster(ctx context.Context, clusterName string, args []string) ([]byte, error) {
+	clusterSet, err := c.getClusterSetForAI(ctx, clusterName)
 	if err != nil {
-		return "", err
-	}
-	if user.Role != model.RoleRoot && user.Role != model.RoleAdmin {
-		return "", fmt.Errorf("exec_shell_dangerous requires admin role")
-	}
-	if !c.cc.Default.EnableDangerousAITools {
-		return "", fmt.Errorf("dangerous ai tools are disabled")
+		return nil, err
 	}
 
-	command, _ := args["command"].(string)
-	command = strings.TrimSpace(command)
-	if command == "" {
-		return "", fmt.Errorf("command is required")
-	}
-
-	shellName, _ := args["shell"].(string)
-	shellName = strings.TrimSpace(strings.ToLower(shellName))
-	if shellName == "" {
-		shellName = "powershell"
-	}
-
-	workdir, err := resolveDangerousWorkdir(args["workdir"])
+	kubeconfigBytes, err := buildKubeconfigFromRESTConfig(clusterName, clusterSet.Config)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	execName, execArgs, err := buildDangerousCommand(shellName, command)
+	tempFile, err := os.CreateTemp("", "pixiu-kubeconfig-*.yaml")
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath)
+
+	if _, err = tempFile.Write(kubeconfigBytes); err != nil {
+		_ = tempFile.Close()
+		return nil, err
+	}
+	if err = tempFile.Close(); err != nil {
+		return nil, err
 	}
 
+	cmdArgs := append([]string{"--kubeconfig", tempPath}, args...)
 	cmdCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(cmdCtx, execName, execArgs...)
-	if workdir != "" {
-		cmd.Dir = workdir
+	kubectlPath, err := findKubectlBinary()
+	if err != nil {
+		return nil, err
 	}
 
+	cmd := exec.CommandContext(cmdCtx, kubectlPath, cmdArgs...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	runErr := cmd.Run()
-	result := map[string]interface{}{
-		"shell":   shellName,
-		"command": command,
-		"stdout":  truncateToolOutput(stdout.String()),
-		"stderr":  truncateToolOutput(stderr.String()),
-		"success": runErr == nil,
+	if err = cmd.Run(); err != nil {
+		errText := strings.TrimSpace(stderr.String())
+		if errText == "" {
+			errText = err.Error()
+		}
+		return nil, fmt.Errorf("kubectl failed: %s", truncateToolOutput(errText))
 	}
-	if workdir != "" {
-		result["workdir"] = workdir
-	}
-	if runErr != nil {
-		result["error"] = runErr.Error()
+	return stdout.Bytes(), nil
+}
+
+func (c *controller) getClusterSetForAI(ctx context.Context, clusterName string) (client.ClusterSet, error) {
+	clusterSet, ok := clustercontroller.ClusterIndexer.Get(clusterName)
+	if ok {
+		if clusterSet.Config == nil {
+			return client.ClusterSet{}, fmt.Errorf("cluster %q has empty in-memory config", clusterName)
+		}
+		return clusterSet, nil
 	}
 
+	object, err := c.factory.Cluster().GetClusterByName(ctx, clusterName)
+	if err != nil {
+		return client.ClusterSet{}, err
+	}
+	if object == nil {
+		return client.ClusterSet{}, fmt.Errorf("cluster %q not found", clusterName)
+	}
+	if strings.TrimSpace(object.KubeConfig) == "" {
+		return client.ClusterSet{}, fmt.Errorf("cluster %q kubeconfig is empty", clusterName)
+	}
+
+	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
+	if err != nil {
+		return client.ClusterSet{}, fmt.Errorf("build cluster config for %q failed: %v", clusterName, err)
+	}
+
+	clustercontroller.ClusterIndexer.Set(clusterName, *newClusterSet)
+	return *newClusterSet, nil
+}
+
+func findKubectlBinary() (string, error) {
+	if path, err := exec.LookPath("kubectl"); err == nil {
+		return path, nil
+	}
+
+	localAppData := strings.TrimSpace(os.Getenv("LOCALAPPDATA"))
+	candidates := []string{
+		filepath.Join(localAppData, "Microsoft", "WinGet", "Packages", "Kubernetes.kubectl_Microsoft.Winget.Source_8wekyb3d8bbwe", "kubectl.exe"),
+		`C:\Program Files\Kubernetes\kubectl.exe`,
+		`C:\kubectl\kubectl.exe`,
+	}
+
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("kubectl not found in PATH or known install locations")
+}
+
+func buildKubeconfigFromRESTConfig(clusterName string, cfg *restclient.Config) ([]byte, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("rest config is nil")
+	}
+
+	clusterConfig := &clientcmdapi.Cluster{
+		Server:                   cfg.Host,
+		CertificateAuthorityData: cfg.TLSClientConfig.CAData,
+		InsecureSkipTLSVerify:    cfg.TLSClientConfig.Insecure,
+		TLSServerName:            cfg.TLSClientConfig.ServerName,
+	}
+	authInfo := &clientcmdapi.AuthInfo{
+		Token:                 cfg.BearerToken,
+		Username:              cfg.Username,
+		Password:              cfg.Password,
+		ClientCertificateData: cfg.TLSClientConfig.CertData,
+		ClientKeyData:         cfg.TLSClientConfig.KeyData,
+	}
+
+	kubeconfig := clientcmdapi.Config{
+		Kind:           "Config",
+		APIVersion:     "v1",
+		CurrentContext: clusterName,
+		Clusters: map[string]*clientcmdapi.Cluster{
+			clusterName: clusterConfig,
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			clusterName: authInfo,
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			clusterName: {
+				Cluster:  clusterName,
+				AuthInfo: clusterName,
+			},
+		},
+	}
+
+	data, err := clientcmd.Write(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func wrapK8SResult(clusterName string, kubectlArgs []string, body string) (string, error) {
+	result := map[string]interface{}{
+		"cluster": clusterName,
+		"args":    kubectlArgs,
+		"success": true,
+		"body":    truncateToolOutput(body),
+	}
 	data, err := json.Marshal(result)
 	if err != nil {
 		return "", err
@@ -274,83 +312,6 @@ func parseStringArgs(value interface{}) ([]string, error) {
 		items = append(items, text)
 	}
 	return items, nil
-}
-
-func buildRestrictedCommand(command string, args []string) (string, []string, string, error) {
-	switch strings.ToLower(command) {
-	case "ipconfig", "hostname", "whoami", "netstat", "route", "arp", "systeminfo", "ping", "tracert", "nslookup":
-		return command, args, "", nil
-	case "get-content":
-		path, workdir, err := resolveWorkspacePath(args)
-		if err != nil {
-			return "", nil, "", err
-		}
-		return "powershell", []string{"-NoProfile", "-Command", "Get-Content -LiteralPath $args[0]", path}, workdir, nil
-	case "get-childitem":
-		path, workdir, err := resolveWorkspacePath(args)
-		if err != nil {
-			return "", nil, "", err
-		}
-		return "powershell", []string{"-NoProfile", "-Command", "Get-ChildItem -LiteralPath $args[0]", path}, workdir, nil
-	default:
-		return "", nil, "", fmt.Errorf("command %q is not allowed", command)
-	}
-}
-
-func buildDangerousCommand(shellName, command string) (string, []string, error) {
-	switch shellName {
-	case "powershell":
-		return "powershell", []string{"-NoProfile", "-Command", command}, nil
-	case "cmd":
-		return "cmd", []string{"/c", command}, nil
-	default:
-		return "", nil, fmt.Errorf("unsupported shell %q", shellName)
-	}
-}
-
-func resolveWorkspacePath(args []string) (string, string, error) {
-	if len(args) == 0 || strings.TrimSpace(args[0]) == "" {
-		return "", "", fmt.Errorf("path argument is required")
-	}
-
-	baseDir, err := filepath.Abs(".")
-	if err != nil {
-		return "", "", err
-	}
-
-	targetPath := args[0]
-	if !filepath.IsAbs(targetPath) {
-		targetPath = filepath.Join(baseDir, targetPath)
-	}
-	targetPath, err = filepath.Abs(targetPath)
-	if err != nil {
-		return "", "", err
-	}
-
-	rel, err := filepath.Rel(baseDir, targetPath)
-	if err != nil {
-		return "", "", err
-	}
-	if rel == ".." || strings.HasPrefix(rel, "..\\") || strings.HasPrefix(rel, "../") {
-		return "", "", fmt.Errorf("path %q is outside the workspace", args[0])
-	}
-
-	return targetPath, baseDir, nil
-}
-
-func resolveDangerousWorkdir(value interface{}) (string, error) {
-	if value == nil {
-		return "", nil
-	}
-	workdir, ok := value.(string)
-	if !ok {
-		return "", fmt.Errorf("workdir must be a string")
-	}
-	workdir = strings.TrimSpace(workdir)
-	if workdir == "" {
-		return "", nil
-	}
-	return filepath.Abs(workdir)
 }
 
 func truncateToolOutput(text string) string {

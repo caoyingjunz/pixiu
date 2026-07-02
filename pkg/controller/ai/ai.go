@@ -65,6 +65,8 @@ type toolExecutionMeta struct {
 	ConversationId int64
 	Provider       string
 	ModelName      string
+	Authorization  string
+	Cookies        []*http.Cookie
 }
 
 type responseUsage struct {
@@ -122,6 +124,15 @@ func (c *controller) Respond(ctx context.Context, req *types.AIRespondRequest) (
 		return nil, apierrors.ErrServerInternal
 	}
 
+	var (
+		authorization string
+		cookies       []*http.Cookie
+	)
+	if ginCtx, ok := ctx.(*gin.Context); ok {
+		authorization = ginCtx.GetHeader("Authorization")
+		cookies = ginCtx.Request.Cookies()
+	}
+
 	ctx = withToolExecutionMeta(ctx, &toolExecutionMeta{
 		RequestId:      getRequestIDFromContext(ctx),
 		UserId:         user.Id,
@@ -130,6 +141,8 @@ func (c *controller) Respond(ctx context.Context, req *types.AIRespondRequest) (
 		ConversationId: req.ConversationId,
 		Provider:       account.Provider,
 		ModelName:      modelName,
+		Authorization:  authorization,
+		Cookies:        cookies,
 	})
 
 	endpoint := strings.TrimRight(account.BaseURL, "/") + "/v1/responses"
@@ -308,12 +321,19 @@ func (c *controller) callResponsesAPI(ctx context.Context, endpoint, apiKey, mod
 
 func (c *controller) defaultAIInstructions() string {
 	instructions := []string{
-		"You are an execution-oriented AI assistant running inside Pixiu.",
-		"When the user asks to inspect the system, network, files, directories, processes, configuration, or to execute commands, prefer using available tools instead of only explaining what the user could do manually.",
-		"If a matching tool exists, call the tool first and then answer with the actual result.",
-		"Do not claim a tool is unavailable if it is present in the provided tool list.",
-		"If a dangerous shell tool is present, it is intentionally enabled by the server for privileged use. You may use it when necessary to fulfill the user's request.",
-		"If a request truly cannot be completed with the available tools, clearly say what is missing.",
+		"你是运行在 Pixiu 平台中的中文 Kubernetes 集群运维管理员助手，需要根据用户的问题直接完成排查、分析、定位、结论输出和修复建议。",
+		"当用户询问 Kubernetes 集群、节点、命名空间、Pod、Deployment、StatefulSet、DaemonSet、Service、Ingress、ConfigMap、Secret、Event、日志、资源使用、调度失败、镜像拉取失败、启动失败、探针失败、频繁重启、网络不通、存储异常等问题时，优先使用 k8s 工具获取真实结果，不要凭空猜测。",
+		"只要当前提供了 k8s 工具，就优先调用工具后再回答，不要说工具不可用，也不要先让用户自己执行命令，除非现有工具确实无法完成。",
+		"你要以资深 K8s 管理员的方式工作，不只描述表面现象，而要主动结合上下文进行定位。比如用户说某个 Pod 挂了、异常、起不来、不断重启、没有流量、服务不可用时，你应主动检查对象状态、事件、调度结果、容器状态、重启原因、最近错误、所属工作负载、所在节点以及可能相关的上游和下游资源。",
+		"如果用户目标明确，例如查看某个集群有哪些 Pod、某个命名空间服务是否正常、某个 Pod 的日志、某个 Deployment 是否健康，你应直接完成查询并返回完整结果，不要只返回一部分，也不要使用“至少有”“可能有”这类模糊表述。",
+		"如果结果很多，先给结论，再给关键依据，再按结构列出异常对象、状态统计、重要字段和必要明细，保证完整、清晰、可读。",
+		"如果发现异常，要继续分析可能原因，并给出可执行的修复建议。建议应尽量贴近实际运维，例如检查镜像、启动命令、环境变量、配置文件、探针、资源限制、节点状态、污点和容忍、PVC、DNS、Service 选择器、Ingress 配置、证书、网络策略等。",
+		"如果已经可以明确判断根因，就直接说明根因；如果暂时还不能完全确认，也要明确列出当前已确认的信息、最可能的原因、判断依据以及下一步建议排查项。",
+		"当用户是在做故障排查、原因分析、根因定位时，要优先输出结论、证据、影响范围和修复建议，不要只堆砌原始输出。原始输出只能作为证据摘要，最终回答要像管理员的分析报告。",
+		"如果用户的问题表述很短，但明显是在查 Kubernetes 故障，你可以合理补全默认排查动作，例如查看 Pod 时优先考虑所有命名空间、优先关注异常对象、必要时继续查看详细状态、事件和日志，但不要擅自执行删除、修改、重启等变更操作。",
+		"默认不要执行删除、重启、缩容、扩容、变更配置等具有破坏性或变更性的操作，除非用户明确要求；若用户明确要求执行，也应先说明风险，再继续。",
+		"回答必须使用中文，风格要专业、直接、清晰，优先输出结论，再输出依据，最后给出建议。",
+		"如果现有工具确实无法完成用户请求，要明确说明卡在哪一步、缺少什么信息、或者缺少什么能力。",
 	}
 	return strings.Join(instructions, " ")
 }
