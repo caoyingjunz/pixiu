@@ -56,6 +56,11 @@ type DefaultOptions struct {
 	// 超级管理员初始化配置，留空则使用默认值
 	AdminUser     string `yaml:"admin_user"`
 	AdminPassword string `yaml:"admin_password"`
+
+	// 启用单人登录限制
+	// true: 同账号仅允许单人在线；false: 允许多人同时在线
+	// 默认值为 true
+	SingleLogin *bool `yaml:"single_login"`
 }
 
 func (o DefaultOptions) Valid() error {
