@@ -169,7 +169,7 @@ func (c *Container) WaitContainer(ctx context.Context, containerId string, times
 					return nil
 				}
 				// 异常退出返回错误信息
-				return fmt.Errorf(state.Error)
+				return fmt.Errorf("%s", state.Error)
 			}
 
 			// 其他状态，继续等待
