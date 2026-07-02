@@ -35,6 +35,10 @@ type ShareDaoFactory interface {
 	Permission() PermissionInterface
 	Datasource() DatasourceInterface
 	Runner() RunnerInterface
+	AIAccount() AIAccountInterface
+	AIConversation() AIConversationInterface
+	AIToolExecution() AIToolExecutionInterface
+	AIResponseExecution() AIResponseExecutionInterface
 }
 
 type shareDaoFactory struct {
@@ -57,6 +61,16 @@ func (f *shareDaoFactory) Agent() AgentInterface           { return newAgent(f.d
 func (f *shareDaoFactory) Permission() PermissionInterface { return newPermission(f.db) }
 func (f *shareDaoFactory) Datasource() DatasourceInterface { return newDatasource(f.db) }
 func (f *shareDaoFactory) Runner() RunnerInterface         { return newRunner(f.db) }
+func (f *shareDaoFactory) AIAccount() AIAccountInterface   { return newAIAccount(f.db) }
+func (f *shareDaoFactory) AIConversation() AIConversationInterface {
+	return newAIConversation(f.db)
+}
+func (f *shareDaoFactory) AIToolExecution() AIToolExecutionInterface {
+	return newAIToolExecution(f.db)
+}
+func (f *shareDaoFactory) AIResponseExecution() AIResponseExecutionInterface {
+	return newAIResponseExecution(f.db)
+}
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
 	if migrate {

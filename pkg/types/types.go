@@ -128,6 +128,27 @@ type Datasource struct {
 	Description string                  `json:"description"`
 }
 
+type AIAccount struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	UserId      int64  `json:"user_id"`
+	Provider    string `json:"provider"`
+	APIKey      string `json:"api_key"`
+	BaseURL     string `json:"base_url"`
+	Model       string `json:"model"`
+	Description string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+}
+
+type AIRespondResponse struct {
+	ConversationId int64       `json:"conversation_id"`
+	ResponseId     string      `json:"response_id"`
+	Text           string      `json:"text"`
+	Model          string      `json:"model"`
+	Raw            interface{} `json:"raw,omitempty"`
+}
+
 // KubernetesMeta 记录 kubernetes 集群的数据
 type KubernetesMeta struct {
 	// 集群的版本
