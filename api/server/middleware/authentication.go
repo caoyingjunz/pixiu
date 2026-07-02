@@ -64,7 +64,7 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 
 func parseRoleAndValidClaim(c *gin.Context, o *options.Options, keyBytes []byte) (*int64, error) {
 	isWs := strings.EqualFold(c.GetHeader("Upgrade"), "websocket")
-	token, err := extractToken(c, isWs)
+	token, err := tokenutil.ExtractToken(c, isWs)
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +73,11 @@ func parseRoleAndValidClaim(c *gin.Context, o *options.Options, keyBytes []byte)
 		return nil, err
 	}
 
-	existToken, err := o.Controller.User().GetLoginToken(c, claim.Id)
+	ok, err := o.Controller.User().ValidateLoginToken(c, claim.Id, token)
 	if err != nil {
 		return nil, fmt.Errorf("未登陆或者密码被修改，请重新登陆")
 	}
-	if token != existToken {
+	if !ok {
 		return nil, fmt.Errorf("已被他人登陆")
 	}
 	user, err := o.Factory.User().Get(c, claim.Id)
@@ -88,30 +88,4 @@ func parseRoleAndValidClaim(c *gin.Context, o *options.Options, keyBytes []byte)
 
 	roleId := int64(user.Role)
 	return &roleId, nil
-}
-
-// 从请求头中获取 token
-func extractToken(c *gin.Context, ws bool) (string, error) {
-	emptyFunc := func(t string) bool { return len(t) == 0 }
-	if ws {
-		wsToken := c.GetHeader("Sec-WebSocket-Protocol")
-		if emptyFunc(wsToken) {
-			return "", fmt.Errorf("authorization header is not provided")
-		}
-		return wsToken, nil
-	}
-
-	token := c.GetHeader("Authorization")
-	if emptyFunc(token) {
-		return "", fmt.Errorf("authorization header is not provided")
-	}
-	fields := strings.Fields(token)
-	if len(fields) != 2 {
-		return "", fmt.Errorf("invalid authorization header format")
-	}
-	if fields[0] != "Bearer" {
-		return "", fmt.Errorf("unsupported authorization type")
-	}
-
-	return fields[1], nil
 }
