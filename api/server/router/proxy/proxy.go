@@ -19,6 +19,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
@@ -32,6 +33,10 @@ import (
 
 const (
 	proxyBaseURL = "/pixiu/proxy"
+
+	// upstreamAuthorizationHeader 由前端携带上游服务（如 ES）的 Basic 认证信息。
+	// Pixiu 自身 JWT 仍使用 Authorization: Bearer，代理转发前会剥离该头。
+	upstreamAuthorizationHeader = "X-Pixiu-Upstream-Authorization"
 )
 
 type proxyRouter struct {
@@ -86,6 +91,8 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	c.Request.Header.Del("Authorization")
 	c.Request.Header.Del("Cookie")
 
+	applyUpstreamAuthorization(c.Request)
+
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
 	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
 	httpProxy.ServeHTTP(c.Writer, c.Request)
@@ -103,4 +110,13 @@ func (p *proxyRouter) parseTarget(target url.URL, host string, name string) (*ur
 	target.Host = kubeURL.Host
 	target.Scheme = kubeURL.Scheme
 	return &target, nil
+}
+
+func applyUpstreamAuthorization(req *http.Request) {
+	upstreamAuth := req.Header.Get(upstreamAuthorizationHeader)
+	if upstreamAuth == "" {
+		return
+	}
+	req.Header.Set("Authorization", upstreamAuth)
+	req.Header.Del(upstreamAuthorizationHeader)
 }
