@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,7 +45,7 @@ type Getter interface {
 }
 
 type Interface interface {
-	Respond(ctx context.Context, req *types.AIRespondRequest) (*types.AIRespondResponse, error)
+	RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error)
 }
 
 type controller struct {
@@ -87,7 +88,7 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	}
 }
 
-func (c *controller) Respond(ctx context.Context, req *types.AIRespondRequest) (*types.AIRespondResponse, error) {
+func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error) {
 	startTime := time.Now()
 	user, err := httputils.GetUserFromRequest(ctx)
 	if err != nil {
@@ -145,28 +146,54 @@ func (c *controller) Respond(ctx context.Context, req *types.AIRespondRequest) (
 		Cookies:        cookies,
 	})
 
+	_ = emit(&types.AIStreamEvent{
+		Type:    "status",
+		Stage:   "started",
+		Message: "宸插彂璧?AI 鍒嗘瀽璇锋眰",
+		Model:   modelName,
+	})
+
 	endpoint := strings.TrimRight(account.BaseURL, "/") + "/v1/responses"
-	raw, text, responseID, err := c.runResponsesLoop(ctx, endpoint, account.APIKey, modelName, inputItems)
+	raw, text, responseID, err := c.runResponsesLoopStream(ctx, endpoint, account.APIKey, modelName, inputItems, emit)
 	if err != nil {
 		c.recordResponseExecution(ctx, account, req.ConversationId, modelName, req.Input, "", "", nil, err, time.Since(startTime))
 		return nil, err
 	}
 
-	conversationID, err := c.persistConversation(ctx, userId, account, conversation, modelName, req.Input, text, responseID)
-	if err != nil {
-		c.recordResponseExecution(ctx, account, req.ConversationId, modelName, req.Input, text, responseID, raw, err, time.Since(startTime))
-		return nil, err
+	conversationID := req.ConversationId
+	if conversationID == 0 && conversation != nil {
+		conversationID = conversation.Id
+	}
+	if persistedConversationID, persistErr := c.persistConversation(ctx, userId, account, conversation, modelName, req.Input, text, responseID); persistErr != nil {
+		klog.Errorf("failed to persist ai conversation after streaming response: %v", persistErr)
+		_ = emit(&types.AIStreamEvent{
+			Type:    "status",
+			Stage:   "warning",
+			Message: "回复已生成，但本轮会话未成功保存",
+		})
+	} else {
+		conversationID = persistedConversationID
 	}
 
 	c.recordResponseExecution(ctx, account, conversationID, modelName, req.Input, text, responseID, raw, nil, time.Since(startTime))
 
-	return &types.AIRespondResponse{
+	resp := &types.AIRespondResponse{
 		ConversationId: conversationID,
 		ResponseId:     responseID,
 		Text:           text,
 		Model:          modelName,
 		Raw:            raw,
-	}, nil
+	}
+	_ = emit(&types.AIStreamEvent{
+		Type:           "complete",
+		Stage:          "completed",
+		Message:        "AI 鍒嗘瀽瀹屾垚",
+		Text:           text,
+		Model:          modelName,
+		ConversationId: conversationID,
+		ResponseId:     responseID,
+	})
+	return resp, nil
 }
 
 func withToolExecutionMeta(ctx context.Context, meta *toolExecutionMeta) context.Context {
@@ -236,12 +263,24 @@ func (c *controller) recordResponseExecution(
 	}
 }
 
-func (c *controller) runResponsesLoop(ctx context.Context, endpoint, apiKey, modelName string, inputItems []map[string]interface{}) (map[string]interface{}, string, string, error) {
+func (c *controller) runResponsesLoopStream(
+	ctx context.Context,
+	endpoint, apiKey, modelName string,
+	inputItems []map[string]interface{},
+	emit func(*types.AIStreamEvent) error,
+) (map[string]interface{}, string, string, error) {
 	tools := toResponsesTools(c.buildTools())
 	maxIterations := 8
 
 	for i := 0; i < maxIterations; i++ {
-		raw, text, err := c.callResponsesAPI(ctx, endpoint, apiKey, modelName, inputItems, tools)
+		_ = emit(&types.AIStreamEvent{
+			Type:    "status",
+			Stage:   "model",
+			Message: "AI 姝ｅ湪鐢熸垚鍒嗘瀽鍐呭",
+			Model:   modelName,
+		})
+
+		raw, text, err := c.callResponsesAPIStream(ctx, endpoint, apiKey, modelName, inputItems, tools, emit)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -257,10 +296,39 @@ func (c *controller) runResponsesLoop(ctx context.Context, endpoint, apiKey, mod
 		}
 
 		for _, call := range toolCalls {
+			_ = emit(&types.AIStreamEvent{
+				Type:       "tool_start",
+				Stage:      "tool",
+				Message:    describeToolCall(call),
+				ToolCallId: call.CallID,
+				ToolName:   call.Name,
+				ToolArgs:   truncateToolOutput(call.Arguments),
+			})
+
 			toolOutput, toolErr := c.executeTool(ctx, call.CallID, call.Name, call.Arguments)
 			if toolErr != nil {
+				_ = emit(&types.AIStreamEvent{
+					Type:       "tool_result",
+					Stage:      "tool",
+					Message:    fmt.Sprintf("宸ュ叿 %s 鎵ц澶辫触", call.Name),
+					ToolCallId: call.CallID,
+					ToolName:   call.Name,
+					ToolArgs:   truncateToolOutput(call.Arguments),
+					ToolOutput: truncateToolOutput(toolErr.Error()),
+				})
 				toolOutput = fmt.Sprintf(`{"error":%q}`, toolErr.Error())
+			} else {
+				_ = emit(&types.AIStreamEvent{
+					Type:       "tool_result",
+					Stage:      "tool",
+					Message:    fmt.Sprintf("宸ュ叿 %s 鎵ц瀹屾垚", call.Name),
+					ToolCallId: call.CallID,
+					ToolName:   call.Name,
+					ToolArgs:   truncateToolOutput(call.Arguments),
+					ToolOutput: truncateToolOutput(toolOutput),
+				})
 			}
+
 			inputItems = append(inputItems, map[string]interface{}{
 				"type":    "function_call_output",
 				"call_id": call.CallID,
@@ -272,7 +340,13 @@ func (c *controller) runResponsesLoop(ctx context.Context, endpoint, apiKey, mod
 	return nil, "", "", apierrors.NewError(fmt.Errorf("tool loop exceeded max iterations"), http.StatusBadGateway)
 }
 
-func (c *controller) callResponsesAPI(ctx context.Context, endpoint, apiKey, modelName string, inputItems []map[string]interface{}, tools []map[string]interface{}) (map[string]interface{}, string, error) {
+func (c *controller) callResponsesAPIStream(
+	ctx context.Context,
+	endpoint, apiKey, modelName string,
+	inputItems []map[string]interface{},
+	tools []map[string]interface{},
+	emit func(*types.AIStreamEvent) error,
+) (map[string]interface{}, string, error) {
 	payload := map[string]interface{}{
 		"model":        modelName,
 		"input":        inputItems,
@@ -302,18 +376,15 @@ func (c *controller) callResponsesAPI(ctx context.Context, endpoint, apiKey, mod
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, "", apierrors.ErrServerInternal
-	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
 		klog.Errorf("ai endpoint returned status=%d body=%s", resp.StatusCode, string(respBody))
 		return nil, "", apierrors.NewError(fmt.Errorf("ai endpoint returned status %d: %s", resp.StatusCode, string(respBody)), http.StatusBadGateway)
 	}
 
-	raw, text, err := parseResponseBody(respBody)
+	raw, text, err := parseSSEResponseStream(resp.Body, emit)
 	if err != nil {
-		klog.Errorf("failed to parse ai response: %v", err)
+		klog.Errorf("failed to parse ai response stream: %v", err)
 		return nil, "", apierrors.NewError(fmt.Errorf("invalid ai response"), http.StatusBadGateway)
 	}
 	return raw, text, nil
@@ -321,23 +392,21 @@ func (c *controller) callResponsesAPI(ctx context.Context, endpoint, apiKey, mod
 
 func (c *controller) defaultAIInstructions() string {
 	instructions := []string{
-		"你是运行在 Pixiu 平台中的中文 Kubernetes 集群运维管理员助手，需要根据用户的问题直接完成排查、分析、定位、结论输出和修复建议。",
-		"当用户询问 Kubernetes 集群、节点、命名空间、Pod、Deployment、StatefulSet、DaemonSet、Service、Ingress、ConfigMap、Secret、Event、日志、资源使用、调度失败、镜像拉取失败、启动失败、探针失败、频繁重启、网络不通、存储异常等问题时，优先使用 k8s 工具获取真实结果，不要凭空猜测。",
-		"只要当前提供了 k8s 工具，就优先调用工具后再回答，不要说工具不可用，也不要先让用户自己执行命令，除非现有工具确实无法完成。",
-		"你要以资深 K8s 管理员的方式工作，不只描述表面现象，而要主动结合上下文进行定位。比如用户说某个 Pod 挂了、异常、起不来、不断重启、没有流量、服务不可用时，你应主动检查对象状态、事件、调度结果、容器状态、重启原因、最近错误、所属工作负载、所在节点以及可能相关的上游和下游资源。",
-		"如果用户目标明确，例如查看某个集群有哪些 Pod、某个命名空间服务是否正常、某个 Pod 的日志、某个 Deployment 是否健康，你应直接完成查询并返回完整结果，不要只返回一部分，也不要使用“至少有”“可能有”这类模糊表述。",
-		"如果结果很多，先给结论，再给关键依据，再按结构列出异常对象、状态统计、重要字段和必要明细，保证完整、清晰、可读。",
-		"如果发现异常，要继续分析可能原因，并给出可执行的修复建议。建议应尽量贴近实际运维，例如检查镜像、启动命令、环境变量、配置文件、探针、资源限制、节点状态、污点和容忍、PVC、DNS、Service 选择器、Ingress 配置、证书、网络策略等。",
-		"如果已经可以明确判断根因，就直接说明根因；如果暂时还不能完全确认，也要明确列出当前已确认的信息、最可能的原因、判断依据以及下一步建议排查项。",
-		"当用户是在做故障排查、原因分析、根因定位时，要优先输出结论、证据、影响范围和修复建议，不要只堆砌原始输出。原始输出只能作为证据摘要，最终回答要像管理员的分析报告。",
-		"如果用户的问题表述很短，但明显是在查 Kubernetes 故障，你可以合理补全默认排查动作，例如查看 Pod 时优先考虑所有命名空间、优先关注异常对象、必要时继续查看详细状态、事件和日志，但不要擅自执行删除、修改、重启等变更操作。",
-		"默认不要执行删除、重启、缩容、扩容、变更配置等具有破坏性或变更性的操作，除非用户明确要求；若用户明确要求执行，也应先说明风险，再继续。",
-		"回答必须使用中文，风格要专业、直接、清晰，优先输出结论，再输出依据，最后给出建议。",
-		"如果现有工具确实无法完成用户请求，要明确说明卡在哪一步、缺少什么信息、或者缺少什么能力。",
+		"你是 Pixiu 平台里的中文 Kubernetes 运维助手，负责直接排查、定位和给出修复建议。",
+		"优先使用 k8s 工具获取真实结果，不要凭空猜测；只要工具可用，就先查再答。",
+		"默认只做查询和分析，不要主动执行删除、重启、扩缩容、修改配置等变更操作，除非用户明确要求。",
+		"回答必须简洁，优先输出结论，不要写成长篇报告，不要大段复述原始日志、事件或 YAML。",
+		"故障分析默认按这个结构输出：1) 结论 2) 直接原因 3) 关键证据 4) 修复建议。",
+		"每个部分尽量控制在 1 到 3 条短句或短 bullet，优先保留最关键的信息。",
+		"如果根因已经明确，直接给出根因和修复动作；如果还不能完全确认，只给最可能原因、当前证据和下一步排查建议。",
+		"如果结果很多，只摘录最关键的对象名、状态、报错原因和必要字段，不要把全部原始输出搬回来。",
+		"修复建议要可执行，优先给最短路径，例如检查镜像地址、镜像仓库权限、启动命令、探针、环境变量、PVC、DNS、Service 选择器、Ingress、节点状态等。",
+		"如果用户是在连续追问同一个问题，要结合上下文直接回答，不要每次都重复完整背景。",
+		"回答必须使用中文，语气专业、直接、短句化；除非用户明确要求详细解释，否则默认输出精简版。",
+		"如果工具无法完成请求，直接说明缺少什么信息或卡在哪一步。",
 	}
 	return strings.Join(instructions, " ")
 }
-
 func (c *controller) getEnabledAccount(ctx context.Context, userId int64, provider string) (*model.AIAccount, error) {
 	opts := []db.Options{
 		db.WithUser(userId),
@@ -481,19 +550,6 @@ func appendConversationHistory(conversation *model.AIConversation, input, output
 	return string(data), nil
 }
 
-func parseResponseBody(respBody []byte) (map[string]interface{}, string, error) {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(respBody, &raw); err == nil {
-		return raw, extractResponseText(raw), nil
-	}
-
-	raw, text, err := parseSSEResponse(respBody)
-	if err != nil {
-		return nil, "", err
-	}
-	return raw, text, nil
-}
-
 type responseToolCall struct {
 	CallID    string
 	Name      string
@@ -634,8 +690,38 @@ func extractToolCalls(raw map[string]interface{}) []responseToolCall {
 	return calls
 }
 
-func parseSSEResponse(respBody []byte) (map[string]interface{}, string, error) {
-	scanner := bufio.NewScanner(bytes.NewReader(respBody))
+func describeToolCall(call responseToolCall) string {
+	if call.Name == "" {
+		return "AI 姝ｅ湪鎵ц鎺掓煡宸ュ叿"
+	}
+	if call.Name != "k8s" {
+		return fmt.Sprintf("AI 姝ｅ湪鎵ц宸ュ叿 %s", call.Name)
+	}
+
+	var args map[string]interface{}
+	if err := json.Unmarshal([]byte(call.Arguments), &args); err != nil {
+		return "AI 姝ｅ湪鎵ц Kubernetes 鎺掓煡"
+	}
+
+	cluster, _ := args["cluster"].(string)
+	rawArgs, err := parseStringArgs(args["args"])
+	if err != nil || len(rawArgs) == 0 {
+		if cluster != "" {
+			return fmt.Sprintf("AI 姝ｅ湪闆嗙兢 %s 涓墽琛?Kubernetes 鎺掓煡", cluster)
+		}
+		return "AI 姝ｅ湪鎵ц Kubernetes 鎺掓煡"
+	}
+
+	summary := strings.Join(rawArgs, " ")
+	if cluster != "" {
+		return fmt.Sprintf("AI 姝ｅ湪闆嗙兢 %s 涓墽琛?kubectl %s", cluster, summary)
+	}
+	return fmt.Sprintf("AI 姝ｅ湪鎵ц kubectl %s", summary)
+}
+
+func parseSSEResponseStream(reader io.Reader, emit func(*types.AIStreamEvent) error) (map[string]interface{}, string, error) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	var (
 		lastEvent    map[string]interface{}
 		baseResponse map[string]interface{}
@@ -664,9 +750,20 @@ func parseSSEResponse(respBody []byte) (map[string]interface{}, string, error) {
 		}
 
 		switch itemType, _ := event["type"].(string); itemType {
+		case "response.created":
+			_ = emit(&types.AIStreamEvent{
+				Type:    "status",
+				Stage:   "accepted",
+				Message: "AI 已开始处理请求",
+			})
 		case "response.output_text.delta":
 			if delta, _ := event["delta"].(string); delta != "" {
 				texts = append(texts, delta)
+				_ = emit(&types.AIStreamEvent{
+					Type:  "delta",
+					Stage: "message",
+					Delta: delta,
+				})
 			}
 		case "response.output_item.done", "response.output_item.added":
 			if item, ok := event["item"].(map[string]interface{}); ok {
@@ -676,6 +773,12 @@ func parseSSEResponse(respBody []byte) (map[string]interface{}, string, error) {
 			if response, ok := event["response"].(map[string]interface{}); ok {
 				baseResponse = response
 			}
+		case "response.failed", "error":
+			message := "AI 璇锋眰澶辫触"
+			if msg, _ := event["message"].(string); msg != "" {
+				message = msg
+			}
+			return nil, "", errors.New(message)
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -693,7 +796,6 @@ func parseSSEResponse(respBody []byte) (map[string]interface{}, string, error) {
 	if baseResponse == nil {
 		baseResponse = lastEvent
 	}
-
 	if len(outputItems) > 0 {
 		baseResponse["output"] = outputItems
 	}

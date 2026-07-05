@@ -149,6 +149,22 @@ type AIRespondResponse struct {
 	Raw            interface{} `json:"raw,omitempty"`
 }
 
+type AIStreamEvent struct {
+	Type           string      `json:"type"`
+	Stage          string      `json:"stage,omitempty"`
+	Message        string      `json:"message,omitempty"`
+	Delta          string      `json:"delta,omitempty"`
+	Text           string      `json:"text,omitempty"`
+	Model          string      `json:"model,omitempty"`
+	ToolName       string      `json:"tool_name,omitempty"`
+	ToolCallId     string      `json:"tool_call_id,omitempty"`
+	ToolArgs       string      `json:"tool_args,omitempty"`
+	ToolOutput     string      `json:"tool_output,omitempty"`
+	ConversationId int64       `json:"conversation_id,omitempty"`
+	ResponseId     string      `json:"response_id,omitempty"`
+	Raw            interface{} `json:"raw,omitempty"`
+}
+
 // KubernetesMeta 记录 kubernetes 集群的数据
 type KubernetesMeta struct {
 	// 集群的版本

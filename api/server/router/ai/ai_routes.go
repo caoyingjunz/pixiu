@@ -42,7 +42,7 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 		Name:    "AI",
 		BaseURL: aiBaseURL,
 		Entries: []apiregistry.RouteEntry{
-			{Method: "POST", RelativePath: "/respond", Handler: r.respond, Description: "Create ai response with configured ai account"},
+			{Method: "POST", RelativePath: "/respond/stream", Handler: r.respondStream, Description: "Stream ai response with configured ai account"},
 		},
 	}
 	group.Register(ginEngine.Group(aiBaseURL), r.c.APIResource())
