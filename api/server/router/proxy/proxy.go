@@ -93,7 +93,7 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	pixiuDatasourceId := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
 	if len(pixiuDatasourceId) != 0 {
 		klog.Infof("proxying with datasource %s", pixiuDatasourceId)
-		if upstreamAuth := p.resolveUpstreamAuth(c); upstreamAuth != "" {
+		if upstreamAuth := p.resolveUpstreamAuth(c, pixiuDatasourceId); upstreamAuth != "" {
 			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, config, name, upstreamAuth)
 			if handled {
 				if proxyErr != nil {
