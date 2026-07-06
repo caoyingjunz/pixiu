@@ -72,14 +72,9 @@ func parseServiceProxyPath(k8sPath string) (*serviceProxyTarget, bool) {
 	}, true
 }
 
-// tryAuthenticatedServiceProxy 在携带上游 Basic 认证时，绕过 K8s service proxy 转发。
+// tryProxyAuthenticatedService 在携带上游 Basic 认证时，绕过 K8s service proxy 转发。
 // apiserver 的 service proxy 会剥离 Authorization，导致 ES 等上游服务返回 401。
-func (p *proxyRouter) tryAuthenticatedServiceProxy(
-	c *gin.Context,
-	config *rest.Config,
-	clusterName string,
-	upstreamAuth string,
-) (handled bool, err error) {
+func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kubernetes.Interface, config *rest.Config, clusterName string, upstreamAuth string) (handled bool, err error) {
 	k8sPath := c.Request.URL.Path[len(proxyBaseURL+"/"+clusterName):]
 	target, ok := parseServiceProxyPath(k8sPath)
 	if !ok {
@@ -87,12 +82,7 @@ func (p *proxyRouter) tryAuthenticatedServiceProxy(
 		return false, nil
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return true, fmt.Errorf("failed to create kubernetes client: %w", err)
-	}
-
-	resp, err := forwardAuthenticatedRequest(c.Request.Context(), config, clientset, target, c.Request, upstreamAuth)
+	resp, err := directServiceRequest(c.Request.Context(), clientSet, target, c.Request, upstreamAuth)
 	if err != nil {
 		return true, err
 	}
@@ -108,13 +98,7 @@ func (p *proxyRouter) tryAuthenticatedServiceProxy(
 	return true, err
 }
 
-func forwardAuthenticatedRequest(
-	ctx context.Context,
-	config *rest.Config,
-	clientset kubernetes.Interface,
-	target *serviceProxyTarget,
-	req *http.Request,
-	upstreamAuth string,
+func doProxy(ctx context.Context, config *rest.Config, clientset kubernetes.Interface, target *serviceProxyTarget, req *http.Request, upstreamAuth string,
 ) (*http.Response, error) {
 	if resp, err := directServiceRequest(ctx, clientset, target, req, upstreamAuth); err == nil {
 		return resp, nil
@@ -124,14 +108,9 @@ func forwardAuthenticatedRequest(
 	return portForwardServiceRequest(ctx, config, clientset, target, req, upstreamAuth)
 }
 
-func directServiceRequest(
-	ctx context.Context,
-	clientset kubernetes.Interface,
-	target *serviceProxyTarget,
-	req *http.Request,
-	upstreamAuth string,
+func directServiceRequest(ctx context.Context, clientSet kubernetes.Interface, target *serviceProxyTarget, req *http.Request, upstreamAuth string,
 ) (*http.Response, error) {
-	host, port, err := resolveServiceDialAddress(ctx, clientset, target)
+	host, port, err := resolveServiceDialAddress(ctx, clientSet, target)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +301,7 @@ func cloneUpstreamRequest(ctx context.Context, orig *http.Request, url string, u
 
 	for key, values := range orig.Header {
 		lowerKey := strings.ToLower(key)
-		if lowerKey == "authorization" || lowerKey == strings.ToLower(upstreamAuthorizationHeader) {
+		if lowerKey == "authorization" || lowerKey == strings.ToLower(upstreamDatasourceIDHeader) {
 			continue
 		}
 		if lowerKey == "host" || lowerKey == "cookie" {

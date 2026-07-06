@@ -20,33 +20,44 @@ import (
 	"context"
 	"encoding/base64"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
 const upstreamDatasourceIDHeader = "X-Pixiu-Datasource-Id"
 
-func (p *proxyRouter) resolveUpstreamAuthFromDatasource(c *gin.Context) string {
-	rawID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
-	c.Request.Header.Del(upstreamDatasourceIDHeader)
-	if rawID == "" {
+func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string {
+	if dsIDStr == "" {
 		return ""
 	}
+	c.Request.Header.Del(upstreamDatasourceIDHeader)
 
-	datasourceID, err := strconv.ParseInt(rawID, 10, 64)
+	datasourceID, err := strconv.ParseInt(dsIDStr, 10, 64)
 	if err != nil || datasourceID <= 0 {
 		return ""
 	}
-
 	datasource, err := p.c.Datasource().Get(context.TODO(), datasourceID)
-	if err != nil || datasource == nil || datasource.Config.Log == nil {
+	if err != nil || datasource == nil {
 		return ""
 	}
 
-	username := datasource.Config.Log.UserName
-	password := datasource.Config.Log.Password
-	if username == "" && password == "" {
+	var username, password string
+	switch datasource.Type {
+	case model.DatasourceTypeLog:
+		if datasource.Config.Log == nil {
+			return ""
+		}
+		username = datasource.Config.Log.UserName
+		password = datasource.Config.Log.Password
+	case model.DatasourceTypeAlert:
+		if datasource.Config.Alert == nil {
+			return ""
+		}
+		username = datasource.Config.Alert.UserName
+		password = datasource.Config.Alert.Password
+	default:
 		return ""
 	}
 
