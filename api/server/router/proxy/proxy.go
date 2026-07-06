@@ -97,14 +97,14 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, config, name, upstreamAuth)
 			if handled {
 				if proxyErr != nil {
-					httputils.SetFailed(c, resp, err)
+					httputils.SetFailed(c, resp, proxyErr)
 				}
 				return
 			}
 		}
 	}
 
-	klog.Infof("proxying serve")
+	klog.Infof("proxying serve directly")
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
 	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
 	httpProxy.ServeHTTP(c.Writer, c.Request)

@@ -51,6 +51,13 @@ type serviceProxyTarget struct {
 	path      string
 }
 
+type podProxyTarget struct {
+	namespace  string
+	podName    string
+	remotePort int32
+	path       string
+}
+
 func parseServiceProxyPath(k8sPath string) (*serviceProxyTarget, bool) {
 	m := serviceProxyPathRe.FindStringSubmatch(k8sPath)
 	if m == nil {
@@ -74,6 +81,7 @@ func parseServiceProxyPath(k8sPath string) (*serviceProxyTarget, bool) {
 
 // tryProxyAuthenticatedService 在携带上游 Basic 认证时，绕过 K8s service proxy 转发。
 // apiserver 的 service proxy 会剥离 Authorization，导致 ES 等上游服务返回 401。
+// 实现方式：选取 Service 后端的一个 Pod，通过 apiserver port-forward 隧道转发请求。
 func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kubernetes.Interface, config *rest.Config, clusterName string, upstreamAuth string) (handled bool, err error) {
 	k8sPath := c.Request.URL.Path[len(proxyBaseURL+"/"+clusterName):]
 	target, ok := parseServiceProxyPath(k8sPath)
@@ -82,7 +90,13 @@ func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kub
 		return false, nil
 	}
 
-	resp, err := directServiceRequest(c.Request.Context(), clientSet, target, c.Request, upstreamAuth)
+	// TODO: 改成指定的 agent Pod
+	podTarget, err := pickOnePodForProxy(c.Request.Context(), clientSet, target)
+	if err != nil {
+		return true, err
+	}
+
+	resp, err := proxyViaPodPortForward(c.Request.Context(), config, clientSet, podTarget, c.Request, upstreamAuth)
 	if err != nil {
 		return true, err
 	}
@@ -98,50 +112,56 @@ func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kub
 	return true, err
 }
 
-func doProxy(ctx context.Context, config *rest.Config, clientset kubernetes.Interface, target *serviceProxyTarget, req *http.Request, upstreamAuth string,
-) (*http.Response, error) {
-	if resp, err := directServiceRequest(ctx, clientset, target, req, upstreamAuth); err == nil {
-		return resp, nil
-	} else {
-		klog.V(4).Infof("direct upstream request failed, fallback to port-forward: %v", err)
+func pickOnePodForProxy(ctx context.Context, clientSet kubernetes.Interface, target *serviceProxyTarget, ) (*podProxyTarget, error) {
+	svc, err := clientSet.CoreV1().Services(target.namespace).Get(ctx, target.service, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service %s/%s: %w", target.namespace, target.service, err)
 	}
-	return portForwardServiceRequest(ctx, config, clientset, target, req, upstreamAuth)
-}
 
-func directServiceRequest(ctx context.Context, clientSet kubernetes.Interface, target *serviceProxyTarget, req *http.Request, upstreamAuth string,
-) (*http.Response, error) {
-	host, port, err := resolveServiceDialAddress(ctx, clientSet, target)
+	_, targetPort, err := resolveServicePorts(svc, target.port)
 	if err != nil {
 		return nil, err
 	}
 
-	url := fmt.Sprintf("http://%s:%d%s", host, port, target.path)
-	if req.URL.RawQuery != "" {
-		url += "?" + req.URL.RawQuery
-	}
-
-	proxyReq, err := cloneUpstreamRequest(ctx, req, url, upstreamAuth)
+	eps, err := clientSet.CoreV1().Endpoints(target.namespace).Get(ctx, target.service, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get endpoints %s/%s: %w", target.namespace, target.service, err)
 	}
 
-	client := &http.Client{Timeout: 120 * time.Second}
-	return client.Do(proxyReq)
+	for _, subset := range eps.Subsets {
+		for _, addr := range subset.Addresses {
+			if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" || addr.TargetRef.Name == "" {
+				continue
+			}
+			for _, port := range subset.Ports {
+				if !portMatchesTarget(port, targetPort) {
+					continue
+				}
+				klog.V(0).Infof(
+					"selected pod %s/%s:%d for service %s/%s",
+					target.namespace, addr.TargetRef.Name, port.Port, target.namespace, target.service,
+				)
+				return &podProxyTarget{
+					namespace:  target.namespace,
+					podName:    addr.TargetRef.Name,
+					remotePort: port.Port,
+					path:       target.path,
+				}, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no ready pod found for service %s/%s", target.namespace, target.service)
 }
 
-func portForwardServiceRequest(
+func proxyViaPodPortForward(
 	ctx context.Context,
 	config *rest.Config,
-	clientset kubernetes.Interface,
-	target *serviceProxyTarget,
+	clientSet kubernetes.Interface,
+	target *podProxyTarget,
 	req *http.Request,
 	upstreamAuth string,
 ) (*http.Response, error) {
-	podName, remotePort, err := pickPodPort(ctx, clientset, target)
-	if err != nil {
-		return nil, err
-	}
-
 	localPort, err := reserveLocalPort()
 	if err != nil {
 		return nil, err
@@ -156,15 +176,16 @@ func portForwardServiceRequest(
 		return nil, fmt.Errorf("failed to create spdy round tripper: %w", err)
 	}
 
-	pfURL := clientset.CoreV1().RESTClient().Post().
+	pfURL := clientSet.CoreV1().RESTClient().
+		Post().
 		Namespace(target.namespace).
 		Resource("pods").
-		Name(podName).
+		Name(target.podName).
 		SubResource("portforward").
 		URL()
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, pfURL)
-	ports := []string{fmt.Sprintf("%d:%d", localPort, remotePort)}
+	ports := []string{fmt.Sprintf("%d:%d", localPort, target.remotePort)}
 	forwarder, err := portforward.New(dialer, ports, stopCh, readyCh, io.Discard, io.Discard)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create port forwarder: %w", err)
@@ -178,7 +199,7 @@ func portForwardServiceRequest(
 	select {
 	case <-readyCh:
 	case err := <-errCh:
-		return nil, fmt.Errorf("port-forward failed: %w", err)
+		return nil, fmt.Errorf("port-forward to pod %s/%s failed: %w", target.namespace, target.podName, err)
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -196,85 +217,12 @@ func portForwardServiceRequest(
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(proxyReq)
 	if err != nil {
-		return nil, fmt.Errorf("upstream request through port-forward failed: %w", err)
+		return nil, fmt.Errorf(
+			"upstream request through pod %s/%s port-forward failed: %w",
+			target.namespace, target.podName, err,
+		)
 	}
 	return resp, nil
-}
-
-func resolveServiceDialAddress(
-	ctx context.Context,
-	clientset kubernetes.Interface,
-	target *serviceProxyTarget,
-) (string, int32, error) {
-	svc, err := clientset.CoreV1().Services(target.namespace).Get(ctx, target.service, metav1.GetOptions{})
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to get service %s/%s: %w", target.namespace, target.service, err)
-	}
-
-	servicePort, targetPort, err := resolveServicePorts(svc, target.port)
-	if err != nil {
-		return "", 0, err
-	}
-
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
-		return svc.Spec.ClusterIP, servicePort, nil
-	}
-
-	eps, err := clientset.CoreV1().Endpoints(target.namespace).Get(ctx, target.service, metav1.GetOptions{})
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to get endpoints %s/%s: %w", target.namespace, target.service, err)
-	}
-
-	for _, subset := range eps.Subsets {
-		for _, addr := range subset.Addresses {
-			if addr.IP == "" {
-				continue
-			}
-			for _, port := range subset.Ports {
-				if portMatchesTarget(port, targetPort) {
-					return addr.IP, port.Port, nil
-				}
-			}
-		}
-	}
-
-	return "", 0, fmt.Errorf("no ready endpoint found for service %s/%s", target.namespace, target.service)
-}
-
-func pickPodPort(
-	ctx context.Context,
-	clientset kubernetes.Interface,
-	target *serviceProxyTarget,
-) (string, int32, error) {
-	svc, err := clientset.CoreV1().Services(target.namespace).Get(ctx, target.service, metav1.GetOptions{})
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to get service %s/%s: %w", target.namespace, target.service, err)
-	}
-
-	_, targetPort, err := resolveServicePorts(svc, target.port)
-	if err != nil {
-		return "", 0, err
-	}
-
-	eps, err := clientset.CoreV1().Endpoints(target.namespace).Get(ctx, target.service, metav1.GetOptions{})
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to get endpoints %s/%s: %w", target.namespace, target.service, err)
-	}
-
-	for _, subset := range eps.Subsets {
-		for _, addr := range subset.Addresses {
-			if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" || addr.TargetRef.Name == "" {
-				continue
-			}
-			for _, port := range subset.Ports {
-				if portMatchesTarget(port, targetPort) {
-					return addr.TargetRef.Name, port.Port, nil
-				}
-			}
-		}
-	}
-
-	return "", 0, fmt.Errorf("no ready pod found for service %s/%s", target.namespace, target.service)
 }
 
 func resolveServicePorts(svc *corev1.Service, requestedPort int) (servicePort int32, targetPort intstr.IntOrString, err error) {
