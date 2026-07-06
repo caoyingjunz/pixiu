@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "master"
+      - "d2"
     paths-ignore:
       - 'docs/**'
 
