@@ -96,6 +96,13 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 		return err
 	}
 
+	if !req.External && req.ClusterName == "" {
+		return apierrors.NewError(
+			fmt.Errorf("cluster_name is required when datasource is not external"),
+			http.StatusBadRequest,
+		)
+	}
+
 	// 对配置进行简化，移除不必要的配置
 	req.Config.Clean(req.Type)
 	cfg, err := req.Config.Marshal()
@@ -110,6 +117,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 		SubType:     req.SubType,
 		Config:      cfg,
 		IsDefault:   req.IsDefault,
+		External:    req.External,
 		Description: req.Description,
 	})
 	if err != nil {
@@ -155,6 +163,9 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 	}
 	if req.IsDefault != old.IsDefault {
 		updates["is_default"] = req.IsDefault
+	}
+	if req.External != old.External {
+		updates["external"] = req.External
 	}
 	if req.Description != old.Description {
 		updates["description"] = req.Description
@@ -269,6 +280,7 @@ func modelToType(object *model.Datasource) (*types.Datasource, error) {
 		SubType:     object.SubType,
 		Config:      cfg,
 		IsDefault:   object.IsDefault,
+		External:    object.External,
 		Description: object.Description,
 	}, nil
 }
