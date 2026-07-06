@@ -112,7 +112,7 @@ func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kub
 	return true, err
 }
 
-func pickOnePodForProxy(ctx context.Context, clientSet kubernetes.Interface, target *serviceProxyTarget, ) (*podProxyTarget, error) {
+func pickOnePodForProxy(ctx context.Context, clientSet kubernetes.Interface, target *serviceProxyTarget) (*podProxyTarget, error) {
 	svc, err := clientSet.CoreV1().Services(target.namespace).Get(ctx, target.service, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service %s/%s: %w", target.namespace, target.service, err)
