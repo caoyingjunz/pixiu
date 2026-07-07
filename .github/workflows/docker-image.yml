@@ -5,6 +5,7 @@ on:
     branches:
       - "master"
       - "caoyingjunz-patch-1"
+      - "caoyingjunz-patch-2"
     paths-ignore:
       - 'docs/**'
 
