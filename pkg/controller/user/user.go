@@ -410,8 +410,8 @@ func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
 	method := ctx.Request.Method
 	path := ctx.FullPath() // 如 /api/v1/users/:id
 
-	// 如果是 k8s 的 proxy，直接放通，鉴权由后端的 kubernetes 集群自身实现
-	if path == "/pixiu/proxy/:clusterName/*act" {
+	// 如果是 proxy 路由，直接放通，鉴权由后端代理目标或中间件自身实现
+	if path == "/pixiu/proxy/:clusterName/*act" || path == "/pixiu/external/*act" {
 		return u.ValidProxy(ctx, roleId)
 	}
 

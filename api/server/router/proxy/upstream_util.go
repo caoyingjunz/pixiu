@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Pixiu Authors.
+Copyright 2021 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@ limitations under the License.
 
 package proxy
 
-import (
-	"strings"
+import "strings"
 
-	"github.com/gin-gonic/gin"
-)
-
-const externalProxyBaseURL = "/pixiu/external"
-
-// IsProxyPath returns true when the request path is a proxy one.
-func IsProxyPath(c *gin.Context) bool {
-	path := c.Request.URL.Path
-	return strings.HasPrefix(path, proxyBaseURL) || strings.HasPrefix(path, externalProxyBaseURL)
+func joinUpstreamProxyPath(basePath string, act string) string {
+	trimmedBase := strings.TrimRight(basePath, "/")
+	trimmedAct := "/" + strings.TrimLeft(act, "/")
+	if trimmedBase == "" {
+		return trimmedAct
+	}
+	if trimmedAct == "/" {
+		return trimmedBase
+	}
+	return trimmedBase + trimmedAct
 }

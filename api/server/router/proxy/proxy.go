@@ -19,8 +19,6 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 
@@ -32,8 +30,6 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
@@ -54,8 +50,10 @@ func NewRouter(o *options.Options) {
 func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
 	proxyRoute := ginEngine.Group("/pixiu/")
 	{
-		proxyRoute.Any("/proxy/datasources/:datasourceId/*act", p.datasourceProxyHandler)
+		// 指定代理到 kubernetes 集群
 		proxyRoute.Any("/proxy/:clusterName/*act", p.proxyHandler)
+		// 通用的外部请求代理
+		proxyRoute.Any("/external/*act", p.externalProxyHandler)
 	}
 }
 
@@ -127,116 +125,4 @@ func (p *proxyRouter) parseTarget(target url.URL, host string, name string) (*ur
 	target.Host = kubeURL.Host
 	target.Scheme = kubeURL.Scheme
 	return &target, nil
-}
-
-func (p *proxyRouter) datasourceProxyHandler(c *gin.Context) {
-	resp := httputils.NewResponse()
-
-	var req struct {
-		DatasourceID int64  `uri:"datasourceId" binding:"required"`
-		Act          string `uri:"act"`
-	}
-	if err := c.ShouldBindUri(&req); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-
-	datasource, err := p.c.Datasource().Get(context.TODO(), req.DatasourceID)
-	if err != nil {
-		httputils.SetFailed(c, resp, fmt.Errorf("failed to get datasource %d: %v", req.DatasourceID, err))
-		return
-	}
-	if datasource == nil {
-		httputils.SetFailed(c, resp, fmt.Errorf("datasource %d not found", req.DatasourceID))
-		return
-	}
-	if !datasource.External {
-		httputils.SetFailed(c, resp, fmt.Errorf("datasource %d is not external", req.DatasourceID))
-		return
-	}
-
-	targetURL, username, password, err := resolveDatasourceUpstream(datasource)
-	if err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-
-	reverseProxy := httputil.NewSingleHostReverseProxy(targetURL)
-	reverseProxy.Director = func(r *http.Request) {
-		r.URL.Scheme = targetURL.Scheme
-		r.URL.Host = targetURL.Host
-		r.URL.Path = joinProxyPath(targetURL.Path, req.Act)
-		r.URL.RawPath = r.URL.Path
-		r.Host = targetURL.Host
-
-		r.Header.Del("Authorization")
-		r.Header.Del("Cookie")
-		r.Header.Del(upstreamDatasourceIDHeader)
-
-		if username != "" || password != "" {
-			r.SetBasicAuth(username, password)
-		}
-		for _, header := range datasource.Config.Headers {
-			key := strings.TrimSpace(header.Key)
-			if key == "" {
-				continue
-			}
-			r.Header.Set(key, header.Value)
-		}
-	}
-	reverseProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, proxyErr error) {
-		httputils.SetFailed(c, resp, proxyErr)
-	}
-	reverseProxy.ServeHTTP(c.Writer, c.Request)
-}
-
-func resolveDatasourceUpstream(datasource *types.Datasource) (*url.URL, string, string, error) {
-	var rawURL string
-	var username string
-	var password string
-
-	switch datasource.Type {
-	case model.DatasourceTypeLog:
-		if datasource.Config.Log == nil {
-			return nil, "", "", fmt.Errorf("datasource %d missing log config", datasource.Id)
-		}
-		rawURL = strings.TrimSpace(datasource.Config.Log.URL)
-		username = datasource.Config.Log.UserName
-		password = datasource.Config.Log.Password
-	case model.DatasourceTypeAlert:
-		if datasource.Config.Alert == nil {
-			return nil, "", "", fmt.Errorf("datasource %d missing alert config", datasource.Id)
-		}
-		rawURL = strings.TrimSpace(datasource.Config.Alert.URL)
-		username = datasource.Config.Alert.UserName
-		password = datasource.Config.Alert.Password
-	default:
-		return nil, "", "", fmt.Errorf("datasource %d has unsupported type %d", datasource.Id, datasource.Type)
-	}
-
-	if rawURL == "" {
-		return nil, "", "", fmt.Errorf("datasource %d has empty upstream url", datasource.Id)
-	}
-
-	targetURL, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, "", "", fmt.Errorf("invalid datasource url %q: %v", rawURL, err)
-	}
-	if targetURL.Scheme == "" || targetURL.Host == "" {
-		return nil, "", "", fmt.Errorf("invalid datasource url %q", rawURL)
-	}
-
-	return targetURL, username, password, nil
-}
-
-func joinProxyPath(basePath string, act string) string {
-	trimmedBase := strings.TrimRight(basePath, "/")
-	trimmedAct := "/" + strings.TrimLeft(act, "/")
-	if trimmedBase == "" {
-		return trimmedAct
-	}
-	if trimmedAct == "/" {
-		return trimmedBase
-	}
-	return trimmedBase + trimmedAct
 }
