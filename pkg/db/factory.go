@@ -28,27 +28,35 @@ type ShareDaoFactory interface {
 	API() APIInterface
 	User() UserInterface
 	Plan() PlanInterface
+	Distribution() DistributionInterface
 	Audit() AuditInterface
 	Repository() RepositoryInterface
 	Agent() AgentInterface
 	Permission() PermissionInterface
+	Datasource() DatasourceInterface
+	Runner() RunnerInterface
 }
 
 type shareDaoFactory struct {
 	db *gorm.DB
 }
 
-func (f *shareDaoFactory) Cluster() ClusterInterface       { return newCluster(f.db) }
-func (f *shareDaoFactory) Tenant() TenantInterface         { return newTenant(f.db) }
-func (f *shareDaoFactory) Role() RoleInterface             { return newRole(f.db) }
-func (f *shareDaoFactory) RoleAPI() RoleAPIInterface       { return newRoleAPI(f.db) }
-func (f *shareDaoFactory) API() APIInterface               { return newAPIs(f.db) }
-func (f *shareDaoFactory) User() UserInterface             { return newUser(f.db) }
-func (f *shareDaoFactory) Plan() PlanInterface             { return newPlan(f.db) }
+func (f *shareDaoFactory) Cluster() ClusterInterface { return newCluster(f.db) }
+func (f *shareDaoFactory) Tenant() TenantInterface   { return newTenant(f.db) }
+func (f *shareDaoFactory) Role() RoleInterface       { return newRole(f.db) }
+func (f *shareDaoFactory) RoleAPI() RoleAPIInterface { return newRoleAPI(f.db) }
+func (f *shareDaoFactory) API() APIInterface         { return newAPIs(f.db) }
+func (f *shareDaoFactory) User() UserInterface       { return newUser(f.db) }
+func (f *shareDaoFactory) Plan() PlanInterface       { return newPlan(f.db) }
+func (f *shareDaoFactory) Distribution() DistributionInterface {
+	return newDistribution(f.db)
+}
 func (f *shareDaoFactory) Audit() AuditInterface           { return newAudit(f.db) }
 func (f *shareDaoFactory) Repository() RepositoryInterface { return newRepository(f.db) }
 func (f *shareDaoFactory) Agent() AgentInterface           { return newAgent(f.db) }
 func (f *shareDaoFactory) Permission() PermissionInterface { return newPermission(f.db) }
+func (f *shareDaoFactory) Datasource() DatasourceInterface { return newDatasource(f.db) }
+func (f *shareDaoFactory) Runner() RunnerInterface         { return newRunner(f.db) }
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
 	if migrate {

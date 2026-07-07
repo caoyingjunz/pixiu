@@ -115,6 +115,10 @@ var (
 		Code: http.StatusNotFound,
 		Err:  errors.ErrAgentNotFound,
 	}
+	ErrRunnerNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrRunnerNotFound,
+	}
 	ErrNodeNotFound = Error{
 		Code: http.StatusNotFound,
 		Err:  errors.ErrNodeNotFound,
@@ -122,6 +126,14 @@ var (
 	ErrNodeNameExists = Error{
 		Code: http.StatusConflict,
 		Err:  errors.ErrNodeNameExists,
+	}
+	ErrDistributionExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.DistributionExistError,
+	}
+	ErrDistributionNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrDistributionNotFound,
 	}
 	ErrRootAlreadyExists = Error{
 		Code: http.StatusConflict,

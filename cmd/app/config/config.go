@@ -43,6 +43,8 @@ type DefaultOptions struct {
 	Mode   Mode   `yaml:"mode"`
 	Listen int    `yaml:"listen"`
 	JWTKey string `yaml:"jwt_key"`
+	// CloudShell/工具容器镜像
+	Toolbox string `yaml:"toolbox"`
 
 	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
@@ -54,6 +56,11 @@ type DefaultOptions struct {
 	// 超级管理员初始化配置，留空则使用默认值
 	AdminUser     string `yaml:"admin_user"`
 	AdminPassword string `yaml:"admin_password"`
+
+	// 启用单人登录限制
+	// true: 同账号仅允许单人在线；false: 允许多人同时在线
+	// 默认值为 true
+	SingleLogin *bool `yaml:"single_login"`
 }
 
 func (o DefaultOptions) Valid() error {
@@ -83,6 +90,7 @@ type WorkerOptions struct {
 }
 
 type Engine struct {
+	Name        string   `yaml:"name"`
 	Image       string   `yaml:"image"`
 	OSSupported []string `yaml:"os_supported"`
 }

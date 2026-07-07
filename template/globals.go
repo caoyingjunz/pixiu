@@ -81,8 +81,21 @@ set_hostname: "no"
 change_selinux: "no"
 {{- end }}
 
-# 组件默认开关
+{{- if and .Component.NFS .Component.NFS.Enable }}
+enable_nfs: "yes"
+
+{{- if ne .Component.NFS.StorageClassName "" }}
+nfs_storage_class: "{{ .Component.NFS.StorageClassName }}"
+{{- end }}
+{{- if ne .Component.NFS.StorageDataDir "" }}
+nfs_share: "{{ .Component.NFS.StorageDataDir }}"
+{{- end }}
+
+{{- else }}
 enable_nfs: "no"
+{{- end }}
+
+# 组件默认开关
 enable_prometheus: "no"
 enable_prometheus_adapter: "no"
 enable_pixiu_autoscaler: "no"

@@ -20,12 +20,9 @@ import (
 	"embed"
 	"net/http"
 
+	datasource "github.com/caoyingjunz/pixiu/api/server/router/datasource"
 	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 
-	// 导入 docs.json 文件
-	_ "github.com/caoyingjunz/pixiu/api/docs"
 	_ "github.com/caoyingjunz/pixiu/api/server/validator"
 
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
@@ -33,11 +30,13 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/apiresource"
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
+	"github.com/caoyingjunz/pixiu/api/server/router/distribution"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/api/server/router/role"
+	"github.com/caoyingjunz/pixiu/api/server/router/runner"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -59,10 +58,13 @@ func InstallRouters(o *options.Options) {
 		role.NewRouter,
 		apiresource.NewRouter,
 		user.NewRouter,
+		distribution.NewRouter,
 		plan.NewRouter,
 		node.NewRouter,
 		audit.NewRouter,
 		agent.NewRouter,
+		datasource.NewRouter,
+		runner.NewRouter,
 	}
 
 	install(o, fs...)
@@ -72,8 +74,6 @@ func InstallRouters(o *options.Options) {
 
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
-	// 启动 APIs 服务
-	o.HttpEngine.GET("/api-ref/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }
 
 func install(o *options.Options, fs ...RegisterFunc) {

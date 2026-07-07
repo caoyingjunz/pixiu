@@ -91,6 +91,15 @@ func WithNameLike(name string) Options {
 	}
 }
 
+func WithName(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name = ?", name)
+	}
+}
+
 func WithClusterStatus(status int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)
@@ -169,15 +178,6 @@ func WithAuditCluster(cluster string) Options {
 	}
 }
 
-func WithPlanNameLike(name string) Options {
-	return func(tx *gorm.DB) *gorm.DB {
-		if name == "" {
-			return tx
-		}
-		return tx.Where("name like ?", "%"+name+"%")
-	}
-}
-
 func WithPlan(pid int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if pid == 0 {
@@ -200,6 +200,15 @@ func WithUser(userId int64) Options {
 		}
 
 		return tx.Where("user_id = ?", userId)
+	}
+}
+
+func WithEngineImage(image string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(image) == 0 {
+			return tx
+		}
+		return tx.Where("engine_image = ?", image)
 	}
 }
 
@@ -251,5 +260,35 @@ func WithOwnerReference(clusterId int64) Options {
 			return tx
 		}
 		return tx.Where("owner_reference = ?", clusterId)
+	}
+}
+
+func WithClusterName(clusterName string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if clusterName == "" {
+			return tx
+		}
+		return tx.Where("cluster_name = ?", clusterName)
+	}
+}
+
+func WithDatasourceType(datasourceType model.DatasourceType) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("type = ?", datasourceType)
+	}
+}
+
+func WithDatasourceSubType(subType model.DatasourceSubType) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if subType == "" {
+			return tx
+		}
+		return tx.Where("sub_type = ?", subType)
+	}
+}
+
+func WithDatasourceIsDefault(isDefault bool) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("is_default = ?", isDefault)
 	}
 }

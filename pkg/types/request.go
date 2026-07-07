@@ -80,6 +80,24 @@ type (
 		Protected       bool   `json:"protected" binding:"omitempty"`       // optional
 	}
 
+	CreateDatasourceRequest struct {
+		Name        string                  `json:"name" binding:"required"`
+		ClusterName string                  `json:"cluster_name"`
+		Type        model.DatasourceType    `json:"type"`
+		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
+		Config      *DatasourceConfig       `json:"config"`
+		IsDefault   bool                    `json:"is_default"`
+		External    bool                    `json:"external"`
+		Description string                  `json:"description" binding:"omitempty"`
+	}
+
+	UpdateDatasourceRequest struct {
+		Id              int64 `json:"id"`
+		ResourceVersion int64 `json:"resource_version"`
+
+		CreateDatasourceRequest `form:",inline"`
+	}
+
 	CreateTenantRequest struct {
 		Name        string  `json:"name" binding:"required"`         // required
 		Description *string `json:"description" binding:"omitempty"` // optional
@@ -163,7 +181,7 @@ type (
 		Name   string       `json:"name" binding:"omitempty"` // required
 		UserId int64        `json:"user_id"`
 		PlanId int64        `json:"plan_id"`
-		Role   []string     `json:"role"` // k8s 节点的角色，master 和 node
+		Role   []string     `json:"role"` // k8s 节点的角色，master 和 node, storage
 		CRI    model.CRI    `json:"cri"`
 		Ip     string       `json:"ip"`
 		Auth   PlanNodeAuth `json:"auth"`
@@ -195,6 +213,26 @@ type (
 		// TODO:
 	}
 
+	CreateDistributionRequest struct {
+		Family string `json:"family" binding:"required"`
+		Name   string `json:"name" binding:"required"`
+		Runner string `json:"runner" binding:"required"`
+	}
+
+	UpdateDistributionRequest struct {
+		Id              int64   `json:"id"`
+		Family          *string `json:"family" binding:"omitempty"`
+		Name            *string `json:"name" binding:"omitempty"`
+		Runner          *string `json:"runner" binding:"omitempty"`
+		ResourceVersion *int64  `json:"resource_version" binding:"required"`
+	}
+
+	ListDistributionRequest struct {
+		PageRequest  `form:",inline"`
+		Family       string `form:"family" json:"family"`
+		NameSelector string `form:"nameSelector" json:"nameSelector"`
+	}
+
 	// PageRequest 分页配置
 	PageRequest struct {
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页
@@ -222,6 +260,12 @@ type (
 		User       string `form:"user" json:"user"`
 		Password   string `form:"password" json:"password"`
 		PrivateKey string
+	}
+
+	ClusterWebRequest struct {
+		ClusterName string `form:"cluster_name" json:"cluster_name"`
+		ClusterId   int64  `form:"cluster_id" json:"cluster_id"`
+		UserId      int64  `form:"user_id" json:"user_id"`
 	}
 )
 

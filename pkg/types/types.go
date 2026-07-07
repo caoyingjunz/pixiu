@@ -53,6 +53,30 @@ type TimeMeta struct {
 	GmtModified time.Time `json:"gmt_modified"`
 }
 
+type HTTPHeader struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type DatasourceConfig struct {
+	Headers []HTTPHeader       `json:"headers"`
+	Log     *LogSourceConfig   `json:"log,omitempty"`
+	Alert   *AlertSourceConfig `json:"alert,omitempty"`
+}
+
+type LogSourceConfig struct {
+	URL      string `json:"url,omitempty"`
+	UserName string `json:"user_name,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+type AlertSourceConfig struct {
+	URL string `json:"url,omitempty"`
+
+	UserName string `json:"user_name,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
 type KubeNode struct {
 	Ready    []string `json:"ready"`
 	NotReady []string `json:"not_ready"`
@@ -89,6 +113,20 @@ type Cluster struct {
 
 	KubernetesMeta `json:",inline"`
 	TimeMeta       `json:",inline"`
+}
+
+type Datasource struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	ClusterName string                  `json:"cluster_name"`
+	Name        string                  `json:"name"`
+	Type        model.DatasourceType    `json:"type"`
+	SubType     model.DatasourceSubType `json:"sub_type"`
+	Config      DatasourceConfig        `json:"config"`
+	IsDefault   bool                    `json:"is_default"`
+	External    bool                    `json:"external"`
+	Description string                  `json:"description"`
 }
 
 // KubernetesMeta 记录 kubernetes 集群的数据
@@ -254,6 +292,16 @@ type PlanConfig struct {
 
 }
 
+// Distribution 部署支持的操作系统发行版
+type Distribution struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Family string `json:"family"`
+	Name   string `json:"name"`
+	Runner string `json:"runner"`
+}
+
 // TimeSpec 通用时间规格
 type TimeSpec struct {
 	GmtCreate   interface{} `json:"gmt_create,omitempty"`
@@ -269,11 +317,12 @@ type KubeObject struct {
 
 // WebShellOptions ws API 参数定义
 type WebShellOptions struct {
-	Cluster   string `form:"cluster"`
-	Namespace string `form:"namespace"`
-	Pod       string `form:"pod"`
-	Container string `form:"container"`
-	Command   string `form:"command"`
+	Cluster     string   `form:"cluster"`
+	Namespace   string   `form:"namespace"`
+	Pod         string   `form:"pod"`
+	Container   string   `form:"container"`
+	Command     string   `form:"command"`
+	CommandArgs []string `form:"-"`
 }
 
 // TerminalMessage 定义了终端和容器 shell 交互内容的格式 Operation 是操作类型
@@ -313,6 +362,9 @@ type ListOptions struct {
 type CustomMeta struct {
 	Status *int
 	Step   string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
+
+	ClusterName    string                `form:"cluster_name" json:"cluster_name"`
+	DatasourceType *model.DatasourceType `form:"datasource_type" json:"datasource_type"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {
@@ -375,11 +427,19 @@ type ComponentSpec struct {
 	Haproxy      *Haproxy      `json:"haproxy,omitempty"`
 	MetricServer *MetricServer `json:"metric_server,omitempty"`
 	IngressNginx *IngressNginx `json:"ingress_nginx,omitempty"`
+	NFS          *NFS          `json:"nfs,omitempty"`
 }
 
 type Helm struct {
 	Enable      bool   `json:"enable"`
 	HelmRelease string `json:"helm_release"`
+}
+
+type NFS struct {
+	Enable bool `json:"enable"`
+
+	StorageClassName string `json:"storage_class_name"` // 指定 nfs 存储名称
+	StorageDataDir   string `json:"storage_data_dir"`   // 指定 nfs server 存储地址
 }
 
 type MetricServer struct {
@@ -439,6 +499,19 @@ type CreatePermissionRequest struct {
 	TargetNamespaces []string `json:"target_namespaces"`
 }
 
+// UpdatePermissionRequest 更新权限
+type UpdatePermissionRequest struct {
+	PixiuMeta `json:",inline"`
+
+	Name              string              `json:"name"`
+	ExpirationSeconds int64               `json:"expiration_seconds"` // 默认 1 年
+	Description       string              `json:"description"`
+	PType             int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
+	Rules             []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
+	TargetNamespaces  []string            `json:"target_namespaces"`
+	Force             bool                `json:"force"` // 强制下发
+}
+
 func (o *CreatePermissionRequest) SetDefaultOptions() {
 	if o.ExpirationSeconds <= 0 {
 		o.ExpirationSeconds = defaultExpirationSeconds
@@ -465,17 +538,6 @@ func (o *CreatePermissionRequest) SetDefaultOptions() {
 	if len(o.RoleBindingName) == 0 {
 		o.RoleBindingName = fmt.Sprintf("pixiu-rb-%d", o.UserId)
 	}
-}
-
-// UpdatePermissionRequest 更新权限
-type UpdatePermissionRequest struct {
-	ResourceVersion   *int64              `json:"resource_version" binding:"required"`
-	Name              *string             `json:"name"`
-	ExpirationSeconds *int64              `json:"expiration_seconds"`
-	Description       *string             `json:"description"`
-	PType             *int                `json:"p_type"`
-	Rules             []rbacv1.PolicyRule `json:"rules"`
-	TargetNamespaces  []string            `json:"target_namespaces"`
 }
 
 // Permission 集群 scoped kubeconfig 授权

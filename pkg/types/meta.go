@@ -429,3 +429,33 @@ func (node *KubeNode) Unmarshal(s string) error {
 	}
 	return nil
 }
+
+func (c *DatasourceConfig) Marshal() (string, error) {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (c *DatasourceConfig) Unmarshal(s string) error {
+	if err := json.Unmarshal([]byte(s), c); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Clean 移除不必要的配置，防止持久化的时候存储多余配置
+func (c *DatasourceConfig) Clean(t model.DatasourceType) {
+	// 如果是告警，则清空日志相关配置
+	if t == model.DatasourceTypeAlert {
+		if c.Log != nil {
+			c.Log = nil
+		}
+	}
+	if t == model.DatasourceTypeLog {
+		if c.Alert != nil {
+			c.Alert = nil
+		}
+	}
+}
