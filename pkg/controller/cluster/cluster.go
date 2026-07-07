@@ -89,6 +89,7 @@ type Interface interface {
 	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
+	GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)

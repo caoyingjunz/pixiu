@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Pixiu Authors.
+Copyright 2026 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,18 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package proxy
+package docker
 
-import (
-	"strings"
+import "github.com/docker/docker/client"
 
-	"github.com/gin-gonic/gin"
-)
-
-const externalProxyBaseURL = "/pixiu/external"
-
-// IsProxyPath returns true when the request path is a proxy one.
-func IsProxyPath(c *gin.Context) bool {
-	path := c.Request.URL.Path
-	return strings.HasPrefix(path, proxyBaseURL) || strings.HasPrefix(path, externalProxyBaseURL)
+func NewClient() (*client.Client, error) {
+	return client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 }

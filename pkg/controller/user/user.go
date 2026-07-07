@@ -64,10 +64,11 @@ type Interface interface {
 	GetStatus(ctx context.Context, uid int64) (int, error)
 
 	Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error)
-	Logout(ctx context.Context, userId int64) error
+	Logout(ctx *gin.Context, userId int64) error
 
 	GetLoginToken(ctx context.Context, userId int64) (string, error)
 	ValidAccess(ctx *gin.Context, roleId int64) error
+	ValidateLoginToken(ctx context.Context, userId int64, token string) (bool, error)
 }
 
 type user struct {
@@ -341,7 +342,11 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 		return nil, fmt.Errorf("生成用户 token 失败: %v", err)
 	}
 
-	tokenIndexer.Set(object.Id, token)
+	if *u.cc.Default.SingleLogin {
+		tokenIndexer.Set(object.Id, token)
+	} else {
+		tokenIndexer.Add(object.Id, token)
+	}
 	return &types.LoginResponse{
 		UserId:   object.Id,
 		UserName: object.Name,
@@ -352,9 +357,33 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 
 // Logout
 // 允许用户登出登陆状态
-func (u *user) Logout(ctx context.Context, userId int64) error {
-	tokenIndexer.Delete(userId)
+func (u *user) Logout(ctx *gin.Context, userId int64) error {
+	if *u.cc.Default.SingleLogin {
+		tokenIndexer.Delete(userId)
+		return nil
+	}
+
+	token, err := tokenutil.ExtractToken(ctx, false)
+	if err != nil {
+		return err
+	}
+	tokenIndexer.DeleteToken(userId, token)
 	return nil
+}
+
+func (u *user) ValidateLoginToken(ctx context.Context, userId int64, token string) (bool, error) {
+	if *u.cc.Default.SingleLogin {
+		existToken, err := u.GetLoginToken(ctx, userId)
+		if err != nil {
+			return false, err
+		}
+		return token == existToken, nil
+	}
+
+	if !tokenIndexer.Exists(userId, token) {
+		return false, fmt.Errorf("invalid empty token")
+	}
+	return true, nil
 }
 
 func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) {
@@ -381,8 +410,8 @@ func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
 	method := ctx.Request.Method
 	path := ctx.FullPath() // 如 /api/v1/users/:id
 
-	// 如果是 k8s 的 proxy，直接放通，鉴权由后端的 kubernetes 集群自身实现
-	if path == "/pixiu/proxy/:clusterName/*act" {
+	// 如果是 proxy 路由，直接放通，鉴权由后端代理目标或中间件自身实现
+	if path == "/pixiu/proxy/:clusterName/*act" || path == "/pixiu/external/*act" {
 		return u.ValidProxy(ctx, roleId)
 	}
 
