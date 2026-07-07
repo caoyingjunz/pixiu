@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	externalProxyTargetQueryKey          = "url"
+	externalProxyTargetQueryKey         = "url"
 	externalProxyAuthorizationHeaderKey = "X-Pixiu-Proxy-Authorization"
 )
 
@@ -223,4 +223,16 @@ func (m *maxBytesReadCloser) Read(p []byte) (int, error) {
 
 func (m *maxBytesReadCloser) Close() error {
 	return m.rc.Close()
+}
+
+func joinUpstreamProxyPath(basePath string, act string) string {
+	trimmedBase := strings.TrimRight(basePath, "/")
+	trimmedAct := "/" + strings.TrimLeft(act, "/")
+	if trimmedBase == "" {
+		return trimmedAct
+	}
+	if trimmedAct == "/" {
+		return trimmedBase
+	}
+	return trimmedBase + trimmedAct
 }
