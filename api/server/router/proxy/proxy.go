@@ -50,7 +50,10 @@ func NewRouter(o *options.Options) {
 func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
 	proxyRoute := ginEngine.Group("/pixiu/")
 	{
+		// 指定代理到 kubernetes 集群
 		proxyRoute.Any("/proxy/:clusterName/*act", p.proxyHandler)
+		// 通用的外部请求代理
+		proxyRoute.Any("/external/*act", p.externalProxyHandler)
 	}
 }
 

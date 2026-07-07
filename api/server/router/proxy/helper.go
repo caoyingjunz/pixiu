@@ -22,7 +22,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const externalProxyBaseURL = "/pixiu/external"
+
 // IsProxyPath returns true when the request path is a proxy one.
 func IsProxyPath(c *gin.Context) bool {
-	return strings.HasPrefix(c.Request.URL.Path, proxyBaseURL)
+	path := c.Request.URL.Path
+	return strings.HasPrefix(path, proxyBaseURL) || strings.HasPrefix(path, externalProxyBaseURL)
 }

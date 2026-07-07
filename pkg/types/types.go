@@ -125,6 +125,7 @@ type Datasource struct {
 	SubType     model.DatasourceSubType `json:"sub_type"`
 	Config      DatasourceConfig        `json:"config"`
 	IsDefault   bool                    `json:"is_default"`
+	External    bool                    `json:"external"`
 	Description string                  `json:"description"`
 }
 
