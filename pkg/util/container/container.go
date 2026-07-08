@@ -70,7 +70,8 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context, image string) 
 		Env:   []string{fmt.Sprintf("COMMAND=%s", c.action)},
 	}
 	hostConfig := &container.HostConfig{
-		Binds: []string{fmt.Sprintf("%s/%d:/configs", c.dir, c.planId)},
+		Binds:       []string{fmt.Sprintf("%s/%d:/configs", c.dir, c.planId)},
+		NetworkMode: network.NetworkHost, // TODO: 抽象成配置，运行用户调整
 	}
 	netConfig := &network.NetworkingConfig{}
 	resp, err := c.client.ContainerCreate(ctx, config, hostConfig, netConfig, nil, c.name)
