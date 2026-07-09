@@ -14,7 +14,7 @@ const (
 	RunnerAgentV3 = "runner-agent-v3"
 
 	RunnerAgentV2Image = "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2"
-	RunnerAgentV3Image = "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2"
+	RunnerAgentV3Image = "ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.3"
 )
 
 const (

@@ -13,7 +13,7 @@ docker run -d --net host --restart=always --privileged=true --name mariadb -e MY
 # 获取部署驱动镜像（可选，如果没有部署k8s需求，或者可联网可跳过，pixiu 部署时会自行同步 runner）
 ```shell
 docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
-docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.2
+docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.3
 ```
 
 # 启动 pixiu 服务端
