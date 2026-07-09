@@ -451,7 +451,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	// 3. 校验runner
 	runner, err := p.GetRunner(ctx, cfg.OSImage)
 	if err != nil {
-		return err
+		return fmt.Errorf("获取 runner(%s) 失败 %v", cfg.OSImage, err)
 	}
 	klog.Infof("plan(%d) runner is %s", pid, runner)
 	return nil
@@ -479,6 +479,7 @@ func (p *plan) TaskIsRunning(ctx context.Context, planId int64) (bool, error) {
 func (p *plan) Start(ctx context.Context, pid int64) error {
 	// 启动前校验
 	if err := p.preStart(ctx, pid); err != nil {
+		klog.Errorf("启动前检查失败 %v", err)
 		return err
 	}
 
