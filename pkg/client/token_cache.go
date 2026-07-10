@@ -18,16 +18,16 @@ package client
 
 import "sync"
 
-// TokenCache 实现登录状态缓存
+// TokenCache
+// TODO: 临时实现，后续优化
 type TokenCache struct {
 	sync.RWMutex
-
-	items map[int64]map[string]struct{}
+	items map[int64]string
 }
 
 func NewTokenCache() *TokenCache {
 	return &TokenCache{
-		items: map[int64]map[string]struct{}{},
+		items: map[int64]string{},
 	}
 }
 
@@ -35,77 +35,30 @@ func (s *TokenCache) Get(uid int64) (string, bool) {
 	s.RLock()
 	defer s.RUnlock()
 
-	tokens, ok := s.items[uid]
-	if !ok || len(tokens) == 0 {
-		return "", false
-	}
-	for token := range tokens {
-		return token, true
-	}
-	return "", false
+	t, ok := s.items[uid]
+	return t, ok
 }
 
-// Set 置空，只保留一个
 func (s *TokenCache) Set(uid int64, token string) {
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	if s.items == nil {
-		s.items = map[int64]map[string]struct{}{}
+		s.items = map[int64]string{}
 	}
-	s.items[uid] = map[string]struct{}{token: {}}
-}
-
-// Add 可以存多个
-func (s *TokenCache) Add(uid int64, token string) {
-	s.Lock()
-	defer s.Unlock()
-
-	if s.items == nil {
-		s.items = map[int64]map[string]struct{}{}
-	}
-	if s.items[uid] == nil {
-		s.items[uid] = map[string]struct{}{}
-	}
-	s.items[uid][token] = struct{}{}
+	s.items[uid] = token
 }
 
 func (s *TokenCache) Delete(uid int64) {
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	delete(s.items, uid)
 }
 
 func (s *TokenCache) Clear() {
-	s.Lock()
-	defer s.Unlock()
-
-	s.items = map[int64]map[string]struct{}{}
-}
-
-func (s *TokenCache) Exists(uid int64, token string) bool {
 	s.RLock()
 	defer s.RUnlock()
 
-	tokens, ok := s.items[uid]
-	if !ok {
-		return false
-	}
-	_, exists := tokens[token]
-	return exists
-}
-
-func (s *TokenCache) DeleteToken(uid int64, token string) {
-	s.Lock()
-	defer s.Unlock()
-
-	tokens, ok := s.items[uid]
-	if !ok {
-		return
-	}
-	delete(tokens, token)
-	if len(tokens) == 0 {
-		delete(s.items, uid)
-	}
+	s.items = map[int64]string{}
 }

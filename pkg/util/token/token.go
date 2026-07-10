@@ -18,10 +18,8 @@ package token
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -73,30 +71,4 @@ func ParseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
 	}
 
 	return nil, fmt.Errorf("failed to parse token")
-}
-
-// ExtractToken 从请求头中获取 token
-func ExtractToken(c *gin.Context, ws bool) (string, error) {
-	emptyFunc := func(t string) bool { return len(t) == 0 }
-	if ws {
-		wsToken := c.GetHeader("Sec-WebSocket-Protocol")
-		if emptyFunc(wsToken) {
-			return "", fmt.Errorf("authorization header is not provided")
-		}
-		return wsToken, nil
-	}
-
-	token := c.GetHeader("Authorization")
-	if emptyFunc(token) {
-		return "", fmt.Errorf("authorization header is not provided")
-	}
-	fields := strings.Fields(token)
-	if len(fields) != 2 {
-		return "", fmt.Errorf("invalid authorization header format")
-	}
-	if fields[0] != "Bearer" {
-		return "", fmt.Errorf("unsupported authorization type")
-	}
-
-	return fields[1], nil
 }
