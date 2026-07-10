@@ -21,7 +21,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/docker/docker/api/types/image"
+	dockertypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
@@ -29,7 +30,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util/docker"
 )
 
 type RunnerGetter interface {
@@ -232,14 +232,14 @@ func (r *runnerController) updateStatus(ctx context.Context, runnerId int64, sta
 
 // 拉取 docker 镜像
 func (r *runnerController) pullImage(ctx context.Context, imageName string) error {
-	cli, err := docker.NewClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		klog.Errorf("failed to create docker client for pull %s: %v", imageName, err)
 		return fmt.Errorf("%s: %w", imageName, err)
 	}
 	defer cli.Close()
 
-	reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
+	reader, err := cli.ImagePull(ctx, imageName, dockertypes.ImagePullOptions{})
 	if err != nil {
 		klog.Errorf("failed to pull image %s: %v", imageName, err)
 		return fmt.Errorf("%s: %w", imageName, err)
@@ -257,14 +257,14 @@ func (r *runnerController) pullImage(ctx context.Context, imageName string) erro
 
 // 移除 docker 镜像
 func (r *runnerController) removeImage(ctx context.Context, imageName string) error {
-	cli, err := docker.NewClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		klog.Errorf("failed to create docker client for remove %s: %v", imageName, err)
 		return fmt.Errorf("%s: %w", imageName, err)
 	}
 	defer cli.Close()
 
-	if _, err = cli.ImageRemove(ctx, imageName, image.RemoveOptions{Force: true}); err != nil {
+	if _, err = cli.ImageRemove(ctx, imageName, dockertypes.ImageRemoveOptions{Force: true}); err != nil {
 		klog.Errorf("failed to remove image %s: %v", imageName, err)
 		return fmt.Errorf("%s: %w", imageName, err)
 	}

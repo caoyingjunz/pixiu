@@ -28,7 +28,6 @@ import (
 	"github.com/docker/docker/client"
 	"k8s.io/klog/v2"
 
-	"github.com/caoyingjunz/pixiu/pkg/util/docker"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
@@ -41,13 +40,13 @@ type Container struct {
 }
 
 func NewContainer(action string, planId int64, dir string) (*Container, error) {
-	cli, err := docker.NewClient()
+	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Container{
-		client: cli,
+		client: client,
 		action: action,
 		name:   fmt.Sprintf("%s-%d", action, planId),
 		planId: planId,
@@ -79,7 +78,7 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context, image string) 
 	}
 
 	// 启动容器
-	if err = c.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	if err = c.client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return err
 	}
 	// 等待容器运行完成退出
@@ -102,16 +101,16 @@ func (c *Container) ClearContainer(ctx context.Context) error {
 	}
 
 	containerId := old.ID
-	timeoutSec := 5
-	if err = c.client.ContainerStop(ctx, containerId, container.StopOptions{Timeout: &timeoutSec}); err != nil {
+	timeout := 5 * time.Second
+	if err = c.client.ContainerStop(ctx, containerId, &timeout); err != nil {
 		return err
 	}
 
-	return c.client.ContainerRemove(ctx, containerId, container.RemoveOptions{Force: true})
+	return c.client.ContainerRemove(ctx, containerId, types.ContainerRemoveOptions{Force: true})
 }
 
 func (c *Container) ListContainers(ctx context.Context) ([]types.Container, error) {
-	cs, err := c.client.ContainerList(ctx, container.ListOptions{All: true})
+	cs, err := c.client.ContainerList(ctx, types.ContainerListOptions{All: true})
 	if err != nil {
 		return nil, err
 	}
@@ -125,10 +124,10 @@ func (c *Container) GetContainer(ctx context.Context, containerName string) (*ty
 		return nil, err
 	}
 
-	for _, item := range containers {
-		for _, name := range item.Names {
+	for _, container := range containers {
+		for _, name := range container.Names {
 			if name == "/"+containerName {
-				return &item, nil
+				return &container, nil
 			}
 		}
 	}
@@ -140,6 +139,13 @@ func (c *Container) GetContainer(ctx context.Context, containerName string) (*ty
 // 官方的客户端实现有问题，先通过探针的方式规避，后续优化
 // 循环检查容器状态，直到出现异常或符合预期
 func (c *Container) WaitContainer(ctx context.Context, containerId string, times int) error {
+	//_, errCh := c.client.ContainerWait(ctx, resp.ID, container.WaitConditionNextExit)
+	//if err = <-errCh; err != nil {
+	//	fmt.Println("结束", err)
+	//
+	//	return err
+	//}
+
 	klog.Infof("等待任务(%s)执行完成(最长等待时间 %d 秒)", containerId, times*5)
 	for i := 0; i < times; i++ {
 		// 先等待 5s 再执行，开始等待符合业务场景，且后续的逻辑处理不受影响
@@ -167,9 +173,10 @@ func (c *Container) WaitContainer(ctx context.Context, containerId string, times
 				if state.ExitCode == 0 {
 					// 正常退出
 					return nil
+				} else {
+					// 异常退出返回错误信息
+					return fmt.Errorf(state.Error)
 				}
-				// 异常退出返回错误信息
-				return fmt.Errorf("%s", state.Error)
 			}
 
 			// 其他状态，继续等待
@@ -180,7 +187,7 @@ func (c *Container) WaitContainer(ctx context.Context, containerId string, times
 }
 
 func (c *Container) WatchContainerLog(ctx context.Context, containerId, since string) (io.ReadCloser, error) {
-	return c.client.ContainerLogs(ctx, containerId, container.LogsOptions{
+	return c.client.ContainerLogs(ctx, containerId, types.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,

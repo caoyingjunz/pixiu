@@ -23,8 +23,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/util/docker"
-	"github.com/docker/docker/api/types/image"
+	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"k8s.io/klog/v2"
 )
@@ -59,7 +58,7 @@ func (r Runner) Run() error {
 		klog.Warningf("get runner by %s: %v", imageName, runnerErr)
 	}
 
-	cli, err := docker.NewClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return fmt.Errorf("create docker client: %w", err)
 	}
@@ -73,7 +72,7 @@ func (r Runner) Run() error {
 	}
 
 	klog.Infof("runner image %s not found locally, pulling", imageName)
-	reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
+	reader, err := cli.ImagePull(ctx, imageName, dockertypes.ImagePullOptions{})
 	if err != nil {
 		return fmt.Errorf("pull image %s: %w", imageName, err)
 	}
