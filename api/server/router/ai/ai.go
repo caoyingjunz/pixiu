@@ -17,49 +17,31 @@ limitations under the License.
 package ai
 
 import (
-	"encoding/json"
-
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
+	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
-func (r *router) respondStream(c *gin.Context) {
-	var req types.AIRespondRequest
-	if err := httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
-		c.JSON(400, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
-		return
-	}
+const aiBaseURL = "/pixiu/ai"
 
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+type aiRouter struct {
+	c controller.PixiuInterface
+}
 
-	emit := func(event *types.AIStreamEvent) error {
-		if event == nil {
-			return nil
-		}
-		payload, err := json.Marshal(event)
-		if err != nil {
-			return err
-		}
-		if _, err = c.Writer.WriteString("data: " + string(payload) + "\n\n"); err != nil {
-			return err
-		}
-		c.Writer.Flush()
-		return nil
-	}
+func NewRouter(o *options.Options) {
+	r := &aiRouter{c: o.Controller}
+	r.initRoutes(o.HttpEngine)
+}
 
-	if _, err := r.c.AI().RespondStream(c, &req, emit); err != nil {
-		_ = emit(&types.AIStreamEvent{
-			Type:    "error",
-			Stage:   "failed",
-			Message: err.Error(),
-		})
+func (r *aiRouter) initRoutes(ginEngine *gin.Engine) {
+	group := &apiregistry.Group{
+		Name:    "AI",
+		BaseURL: aiBaseURL,
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "/respond/stream", Handler: r.respondStream, Description: "Stream ai response with configured ai account"},
+		},
 	}
+	group.Register(ginEngine.Group(aiBaseURL), r.c.APIResource())
 }

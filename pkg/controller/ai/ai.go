@@ -149,7 +149,7 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 	_ = emit(&types.AIStreamEvent{
 		Type:    "status",
 		Stage:   "started",
-		Message: "宸插彂璧?AI 鍒嗘瀽璇锋眰",
+		Message: "已发起 AI 分析请求",
 		Model:   modelName,
 	})
 
@@ -187,7 +187,7 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 	_ = emit(&types.AIStreamEvent{
 		Type:           "complete",
 		Stage:          "completed",
-		Message:        "AI 鍒嗘瀽瀹屾垚",
+		Message:        "AI 分析完成",
 		Text:           text,
 		Model:          modelName,
 		ConversationId: conversationID,
@@ -276,7 +276,7 @@ func (c *controller) runResponsesLoopStream(
 		_ = emit(&types.AIStreamEvent{
 			Type:    "status",
 			Stage:   "model",
-			Message: "AI 姝ｅ湪鐢熸垚鍒嗘瀽鍐呭",
+			Message: "AI 正在生成分析内容",
 			Model:   modelName,
 		})
 
@@ -310,7 +310,7 @@ func (c *controller) runResponsesLoopStream(
 				_ = emit(&types.AIStreamEvent{
 					Type:       "tool_result",
 					Stage:      "tool",
-					Message:    fmt.Sprintf("宸ュ叿 %s 鎵ц澶辫触", call.Name),
+					Message:    fmt.Sprintf("工具 %s 执行失败", call.Name),
 					ToolCallId: call.CallID,
 					ToolName:   call.Name,
 					ToolArgs:   truncateToolOutput(call.Arguments),
@@ -321,7 +321,7 @@ func (c *controller) runResponsesLoopStream(
 				_ = emit(&types.AIStreamEvent{
 					Type:       "tool_result",
 					Stage:      "tool",
-					Message:    fmt.Sprintf("宸ュ叿 %s 鎵ц瀹屾垚", call.Name),
+					Message:    fmt.Sprintf("工具 %s 执行完成", call.Name),
 					ToolCallId: call.CallID,
 					ToolName:   call.Name,
 					ToolArgs:   truncateToolOutput(call.Arguments),
@@ -692,31 +692,31 @@ func extractToolCalls(raw map[string]interface{}) []responseToolCall {
 
 func describeToolCall(call responseToolCall) string {
 	if call.Name == "" {
-		return "AI 姝ｅ湪鎵ц鎺掓煡宸ュ叿"
+		return "AI 正在执行排查工具"
 	}
 	if call.Name != "k8s" {
-		return fmt.Sprintf("AI 姝ｅ湪鎵ц宸ュ叿 %s", call.Name)
+		return fmt.Sprintf("AI 正在执行工具 %s", call.Name)
 	}
 
 	var args map[string]interface{}
 	if err := json.Unmarshal([]byte(call.Arguments), &args); err != nil {
-		return "AI 姝ｅ湪鎵ц Kubernetes 鎺掓煡"
+		return "AI 正在执行 Kubernetes 排查"
 	}
 
 	cluster, _ := args["cluster"].(string)
 	rawArgs, err := parseStringArgs(args["args"])
 	if err != nil || len(rawArgs) == 0 {
 		if cluster != "" {
-			return fmt.Sprintf("AI 姝ｅ湪闆嗙兢 %s 涓墽琛?Kubernetes 鎺掓煡", cluster)
+			return fmt.Sprintf("AI 在集群 %s 中执行 Kubernetes 排查", cluster)
 		}
-		return "AI 姝ｅ湪鎵ц Kubernetes 鎺掓煡"
+		return "AI 正在执行 Kubernetes 排查"
 	}
 
 	summary := strings.Join(rawArgs, " ")
 	if cluster != "" {
-		return fmt.Sprintf("AI 姝ｅ湪闆嗙兢 %s 涓墽琛?kubectl %s", cluster, summary)
+		return fmt.Sprintf("AI 在集群 %s 中执行 kubectl %s", cluster, summary)
 	}
-	return fmt.Sprintf("AI 姝ｅ湪鎵ц kubectl %s", summary)
+	return fmt.Sprintf("AI 正在执行 kubectl %s", summary)
 }
 
 func parseSSEResponseStream(reader io.Reader, emit func(*types.AIStreamEvent) error) (map[string]interface{}, string, error) {
@@ -774,7 +774,7 @@ func parseSSEResponseStream(reader io.Reader, emit func(*types.AIStreamEvent) er
 				baseResponse = response
 			}
 		case "response.failed", "error":
-			message := "AI 璇锋眰澶辫触"
+			message := "AI 请求失败"
 			if msg, _ := event["message"].(string); msg != "" {
 				message = msg
 			}
@@ -866,4 +866,20 @@ func truncateAuditText(text string) string {
 		return text
 	}
 	return text[:8000]
+}
+
+func emitStage(emit func(*types.AIStreamEvent) error, typ, stage, message string) {
+	_ = emit(&types.AIStreamEvent{Type: typ, Stage: stage, Message: message})
+}
+
+func emitToolEvent(emit func(*types.AIStreamEvent) error, typ, stage, message, callID, toolName, args, output string) {
+	_ = emit(&types.AIStreamEvent{
+		Type:       typ,
+		Stage:      stage,
+		Message:    message,
+		ToolCallId: callID,
+		ToolName:   toolName,
+		ToolArgs:   truncateToolOutput(args),
+		ToolOutput: truncateToolOutput(output),
+	})
 }
