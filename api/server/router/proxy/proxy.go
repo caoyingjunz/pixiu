@@ -19,13 +19,12 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/proxy"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -34,6 +33,10 @@ import (
 
 const (
 	proxyBaseURL = "/pixiu/proxy"
+
+	// upstreamAuthorizationHeader 由前端携带上游服务（如 ES）的 Basic 认证信息。
+	// Pixiu 自身 JWT 仍使用 Authorization: Bearer，代理转发前会剥离该头。
+	upstreamAuthorizationHeader = "X-Pixiu-Upstream-Authorization"
 )
 
 type proxyRouter struct {
@@ -66,12 +69,11 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	}
 
 	name := cluster.Name
-	clusterSet, err := p.c.Cluster().GetClusterSetByName(context.TODO(), name)
+	config, err := p.c.Cluster().GetKubeConfigByName(context.TODO(), name)
 	if err != nil {
-		httputils.SetFailed(c, resp, fmt.Errorf("failed to get cluster %q clusterSet %v", name, err))
+		httputils.SetFailed(c, resp, fmt.Errorf("failed to get cluster %q kubeconfig", name))
 		return
 	}
-	config := clusterSet.Config
 
 	transport, err := rest.TransportFor(config)
 	if err != nil {
@@ -89,22 +91,8 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	c.Request.Header.Del("Authorization")
 	c.Request.Header.Del("Cookie")
 
-	// 根据 X-Pixiu-Datasource-Id 从数据源配置解析上游服务（如 ES、Loki）认证信息
-	pixiuDatasourceId := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
-	if len(pixiuDatasourceId) != 0 {
-		klog.Infof("proxying with datasource %s", pixiuDatasourceId)
-		if upstreamAuth := p.resolveUpstreamAuth(c, pixiuDatasourceId); upstreamAuth != "" {
-			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, config, name, upstreamAuth)
-			if handled {
-				if proxyErr != nil {
-					httputils.SetFailed(c, resp, proxyErr)
-				}
-				return
-			}
-		}
-	}
+	applyUpstreamAuthorization(c.Request)
 
-	klog.Infof("proxying serve directly")
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
 	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
 	httpProxy.ServeHTTP(c.Writer, c.Request)
@@ -122,4 +110,13 @@ func (p *proxyRouter) parseTarget(target url.URL, host string, name string) (*ur
 	target.Host = kubeURL.Host
 	target.Scheme = kubeURL.Scheme
 	return &target, nil
+}
+
+func applyUpstreamAuthorization(req *http.Request) {
+	upstreamAuth := req.Header.Get(upstreamAuthorizationHeader)
+	if upstreamAuth == "" {
+		return
+	}
+	req.Header.Set("Authorization", upstreamAuth)
+	req.Header.Del(upstreamAuthorizationHeader)
 }
