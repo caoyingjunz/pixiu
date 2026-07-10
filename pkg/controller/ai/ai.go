@@ -258,7 +258,7 @@ func (c *controller) recordResponseExecution(
 		record.ErrorMessage = truncateAuditText(runErr.Error())
 	}
 
-	if _, err := c.factory.AIResponseExecution().Create(recordCtx, record); err != nil {
+	if _, err := c.factory.AI().ResponseExecution().Create(recordCtx, record); err != nil {
 		klog.Errorf("failed to create ai response execution record for response(%s): %v", responseID, err)
 	}
 }
@@ -418,7 +418,7 @@ func (c *controller) getEnabledAccount(ctx context.Context, userId int64, provid
 		opts = append(opts, db.WithProvider(provider))
 	}
 
-	accounts, err := c.factory.AIAccount().List(ctx, opts...)
+	accounts, err := c.factory.AI().Account().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list ai accounts for user(%d): %v", userId, err)
 		return nil, apierrors.ErrServerInternal
@@ -453,7 +453,7 @@ func (c *controller) getConversation(ctx context.Context, userId, conversationId
 		return nil, nil
 	}
 
-	object, err := c.factory.AIConversation().Get(ctx, conversationId)
+	object, err := c.factory.AI().Conversation().Get(ctx, conversationId)
 	if err != nil {
 		klog.Errorf("failed to get ai conversation(%d): %v", conversationId, err)
 		return nil, apierrors.ErrServerInternal
@@ -484,7 +484,7 @@ func (c *controller) persistConversation(
 		if len(title) > 120 {
 			title = title[:120]
 		}
-		object, err := c.factory.AIConversation().Create(ctx, &model.AIConversation{
+		object, err := c.factory.AI().Conversation().Create(ctx, &model.AIConversation{
 			UserId:             userId,
 			AIAccountId:        account.Id,
 			Provider:           account.Provider,
@@ -507,7 +507,7 @@ func (c *controller) persistConversation(
 		"previous_response_id": responseID,
 		"history":              history,
 	}
-	if err := c.factory.AIConversation().Update(ctx, conversation.Id, conversation.ResourceVersion, updates); err != nil {
+	if err := c.factory.AI().Conversation().Update(ctx, conversation.Id, conversation.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update ai conversation(%d): %v", conversation.Id, err)
 		return 0, apierrors.ErrServerInternal
 	}

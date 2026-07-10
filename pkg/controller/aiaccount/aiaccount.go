@@ -64,7 +64,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAIAccountReque
 		enabled = *req.Enabled
 	}
 
-	_, err = c.factory.AIAccount().Create(ctx, &model.AIAccount{
+	_, err = c.factory.AI().Account().Create(ctx, &model.AIAccount{
 		UserId:      userId,
 		Provider:    req.Provider,
 		APIKey:      req.APIKey,
@@ -87,7 +87,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateAIAccountReque
 		return apierrors.ErrUnauthorized
 	}
 
-	old, err := c.factory.AIAccount().Get(ctx, req.Id)
+	old, err := c.factory.AI().Account().Get(ctx, req.Id)
 	if err != nil {
 		klog.Errorf("failed to get ai account(%d): %v", req.Id, err)
 		return apierrors.ErrServerInternal
@@ -110,7 +110,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateAIAccountReque
 		"enabled":     enabled,
 	}
 
-	if err = c.factory.AIAccount().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+	if err = c.factory.AI().Account().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("ai account not found or resource version conflict"), http.StatusConflict)
 		}
@@ -127,7 +127,7 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 		return apierrors.ErrUnauthorized
 	}
 
-	old, err := c.factory.AIAccount().Get(ctx, id)
+	old, err := c.factory.AI().Account().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get ai account(%d): %v", id, err)
 		return apierrors.ErrServerInternal
@@ -136,7 +136,7 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 		return apierrors.NewError(fmt.Errorf("ai account not found"), http.StatusNotFound)
 	}
 
-	if err = c.factory.AIAccount().Delete(ctx, id); err != nil {
+	if err = c.factory.AI().Account().Delete(ctx, id); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("ai account not found"), http.StatusNotFound)
 		}
@@ -152,7 +152,7 @@ func (c *controller) Get(ctx context.Context, id int64) (*types.AIAccount, error
 		return nil, apierrors.ErrUnauthorized
 	}
 
-	object, err := c.factory.AIAccount().Get(ctx, id)
+	object, err := c.factory.AI().Account().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get ai account(%d): %v", id, err)
 		return nil, apierrors.ErrServerInternal
@@ -194,7 +194,7 @@ func (c *controller) List(ctx context.Context, req *types.ListAIAccountRequest) 
 		opts = append(opts, db.WithEnabled(*req.Enabled))
 	}
 
-	pageResult.Total, err = c.factory.AIAccount().Count(ctx, opts...)
+	pageResult.Total, err = c.factory.AI().Account().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count ai accounts: %v", err)
 		return nil, apierrors.ErrServerInternal
@@ -207,7 +207,7 @@ func (c *controller) List(ctx context.Context, req *types.ListAIAccountRequest) 
 		db.WithLimit(req.Limit),
 	)
 
-	objects, err := c.factory.AIAccount().List(ctx, opts...)
+	objects, err := c.factory.AI().Account().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list ai accounts: %v", err)
 		return nil, apierrors.ErrServerInternal

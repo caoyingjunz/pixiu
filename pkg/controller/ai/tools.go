@@ -350,7 +350,7 @@ func (c *controller) recordToolExecution(ctx context.Context, callID, toolName, 
 		record.ErrorMessage = truncateToolOutput(runErr.Error())
 	}
 
-	if _, err := c.factory.AIToolExecution().Create(recordCtx, record); err != nil {
+	if _, err := c.factory.AI().ToolExecution().Create(recordCtx, record); err != nil {
 		klog.Errorf("failed to create ai tool execution record for tool(%s): %v", toolName, err)
 	}
 }
