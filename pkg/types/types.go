@@ -133,7 +133,6 @@ type AIProvider struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	UserId      int64  `json:"user_id"`
 	Provider    string `json:"provider"`
 	APIKey      string `json:"api_key"`
 	BaseURL     string `json:"base_url"`
@@ -403,6 +402,8 @@ type CustomMeta struct {
 
 	ClusterName    string                `form:"cluster_name" json:"cluster_name"`
 	DatasourceType *model.DatasourceType `form:"datasource_type" json:"datasource_type"`
+	Provider       string                `form:"provider" json:"provider"`
+	Enabled        *bool                 `form:"enabled" json:"enabled"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {

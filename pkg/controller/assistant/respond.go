@@ -33,7 +33,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -45,8 +44,6 @@ const toolExecutionMetaKey toolExecutionContextKey = "ai_tool_execution_meta"
 
 type toolExecutionMeta struct {
 	RequestId      string
-	UserId         int64
-	UserName       string
 	ProviderId     int64
 	ConversationId int64
 	Provider       string
@@ -65,18 +62,12 @@ type responseUsage struct {
 
 func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error) {
 	startTime := time.Now()
-	user, err := httputils.GetUserFromRequest(ctx)
-	if err != nil {
-		return nil, apierrors.ErrUnauthorized
-	}
-	userId := user.Id
-
-	provider, err := c.getEnabledProvider(ctx, userId, req.Provider)
+	provider, err := c.getEnabledProvider(ctx, req.Provider)
 	if err != nil {
 		return nil, err
 	}
 
-	conversation, err := c.getConversation(ctx, userId, req.ConversationId)
+	conversation, err := c.getConversation(ctx, req.ConversationId)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +90,6 @@ func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, em
 
 	ctx = withToolExecutionMeta(ctx, &toolExecutionMeta{
 		RequestId:      getRequestIDFromContext(ctx),
-		UserId:         user.Id,
-		UserName:       user.Name,
 		ProviderId:     provider.Id,
 		ConversationId: req.ConversationId,
 		Provider:       provider.Provider,
@@ -127,7 +116,7 @@ func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, em
 	if conversationID == 0 && conversation != nil {
 		conversationID = conversation.Id
 	}
-	if persistedConversationID, persistErr := c.persistConversation(ctx, userId, provider, conversation, modelName, req.Input, text, responseID); persistErr != nil {
+	if persistedConversationID, persistErr := c.persistConversation(ctx, provider, conversation, modelName, req.Input, text, responseID); persistErr != nil {
 		klog.Errorf("failed to persist ai conversation after streaming response: %v", persistErr)
 		_ = emit(&types.AIStreamEvent{
 			Type:    "status",
@@ -200,8 +189,6 @@ func (c *controller) recordResponseExecution(
 
 	record := &model.Message{
 		RequestId:       meta.RequestId,
-		UserId:          meta.UserId,
-		UserName:        meta.UserName,
 		ProviderId:      provider.Id,
 		ConversationId:  conversationID,
 		Provider:        provider.Provider,
@@ -381,9 +368,8 @@ func resolveProviderMaxTokens(provider *model.AIProvider) int {
 	return provider.MaxTokens
 }
 
-func (c *controller) getEnabledProvider(ctx context.Context, userId int64, providerName string) (*model.AIProvider, error) {
+func (c *controller) getEnabledProvider(ctx context.Context, providerName string) (*model.AIProvider, error) {
 	opts := []db.Options{
-		db.WithUser(userId),
 		db.WithEnabled(true),
 		db.WithModifyOrderByDesc(),
 		db.WithLimit(1),
@@ -394,7 +380,7 @@ func (c *controller) getEnabledProvider(ctx context.Context, userId int64, provi
 
 	providers, err := c.factory.Assistant().Provider().List(ctx, opts...)
 	if err != nil {
-		klog.Errorf("failed to list ai providers for user(%d): %v", userId, err)
+		klog.Errorf("failed to list ai providers: %v", err)
 		return nil, apierrors.ErrServerInternal
 	}
 	if len(providers) == 0 {
@@ -422,7 +408,7 @@ func buildConversationInput(conversation *model.Conversation, input string) ([]m
 	return items, nil
 }
 
-func (c *controller) getConversation(ctx context.Context, userId, conversationId int64) (*model.Conversation, error) {
+func (c *controller) getConversation(ctx context.Context, conversationId int64) (*model.Conversation, error) {
 	if conversationId == 0 {
 		return nil, nil
 	}
@@ -432,7 +418,7 @@ func (c *controller) getConversation(ctx context.Context, userId, conversationId
 		klog.Errorf("failed to get ai conversation(%d): %v", conversationId, err)
 		return nil, apierrors.ErrServerInternal
 	}
-	if object == nil || object.UserId != userId {
+	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("ai conversation not found"), http.StatusNotFound)
 	}
 	return object, nil
@@ -440,7 +426,6 @@ func (c *controller) getConversation(ctx context.Context, userId, conversationId
 
 func (c *controller) persistConversation(
 	ctx context.Context,
-	userId int64,
 	provider *model.AIProvider,
 	conversation *model.Conversation,
 	modelName string,
@@ -459,7 +444,6 @@ func (c *controller) persistConversation(
 			title = title[:120]
 		}
 		object, err := c.factory.Assistant().Conversation().Create(ctx, &model.Conversation{
-			UserId:             userId,
 			ProviderId:         provider.Id,
 			Provider:           provider.Provider,
 			ModelName:          modelName,
@@ -468,7 +452,7 @@ func (c *controller) persistConversation(
 			History:            history,
 		})
 		if err != nil {
-			klog.Errorf("failed to create ai conversation for user(%d): %v", userId, err)
+			klog.Errorf("failed to create ai conversation: %v", err)
 			return 0, apierrors.ErrServerInternal
 		}
 		return object.Id, nil

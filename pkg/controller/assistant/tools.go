@@ -333,8 +333,6 @@ func (c *controller) recordToolExecution(ctx context.Context, callID, toolName, 
 
 	record := &model.Execution{
 		RequestId:      meta.RequestId,
-		UserId:         meta.UserId,
-		UserName:       meta.UserName,
 		ProviderId:     meta.ProviderId,
 		ConversationId: meta.ConversationId,
 		Provider:       meta.Provider,

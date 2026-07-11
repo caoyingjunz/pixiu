@@ -105,14 +105,14 @@ func (r *router) listProviders(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
-		req types.ListProviderRequest
-		err error
+		listOption types.ListOptions
+		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &req); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Assistant().Provider().List(c, &req); err != nil {
+	if resp.Result, err = r.c.Assistant().Provider().List(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

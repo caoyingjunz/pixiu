@@ -58,7 +58,6 @@ func (r *router) stream(c *gin.Context) {
 	}
 
 	if _, err = r.c.Assistant().Stream(c, &req, emit); err != nil {
-		_ = emit(&types.AIStreamEvent{Type: "error", Stage: "failed", Message: err.Error(),
-		})
+		_ = emit(&types.AIStreamEvent{Type: "error", Stage: "failed", Message: err.Error()})
 	}
 }
