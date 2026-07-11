@@ -20,10 +20,10 @@ import "gorm.io/gorm"
 
 // AIInterface groups all AI-related database accessors.
 type AIInterface interface {
-	Account() AIAccountInterface
-	Conversation() AIConversationInterface
-	ToolExecution() AIToolExecutionInterface
-	ResponseExecution() AIResponseExecutionInterface
+	Provider() AIProviderInterface
+	Conversation() ConversationInterface
+	Execution() ExecutionInterface
+	Message() MessageInterface
 }
 
 type ai struct {
@@ -34,18 +34,18 @@ func newAI(db *gorm.DB) AIInterface {
 	return &ai{db: db}
 }
 
-func (a *ai) Account() AIAccountInterface {
-	return newAIAccount(a.db)
+func (a *ai) Provider() AIProviderInterface {
+	return newAIProvider(a.db)
 }
 
-func (a *ai) Conversation() AIConversationInterface {
-	return newAIConversation(a.db)
+func (a *ai) Conversation() ConversationInterface {
+	return newConversation(a.db)
 }
 
-func (a *ai) ToolExecution() AIToolExecutionInterface {
-	return newAIToolExecution(a.db)
+func (a *ai) Execution() ExecutionInterface {
+	return newExecution(a.db)
 }
 
-func (a *ai) ResponseExecution() AIResponseExecutionInterface {
-	return newAIResponseExecution(a.db)
+func (a *ai) Message() MessageInterface {
+	return newMessage(a.db)
 }

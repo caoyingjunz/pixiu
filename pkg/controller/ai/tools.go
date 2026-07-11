@@ -331,11 +331,11 @@ func (c *controller) recordToolExecution(ctx context.Context, callID, toolName, 
 	recordCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	record := &model.AIToolExecution{
+	record := &model.Execution{
 		RequestId:      meta.RequestId,
 		UserId:         meta.UserId,
 		UserName:       meta.UserName,
-		AIAccountId:    meta.AIAccountId,
+		ProviderId:     meta.ProviderId,
 		ConversationId: meta.ConversationId,
 		Provider:       meta.Provider,
 		ModelName:      meta.ModelName,
@@ -350,7 +350,7 @@ func (c *controller) recordToolExecution(ctx context.Context, callID, toolName, 
 		record.ErrorMessage = truncateToolOutput(runErr.Error())
 	}
 
-	if _, err := c.factory.AI().ToolExecution().Create(recordCtx, record); err != nil {
-		klog.Errorf("failed to create ai tool execution record for tool(%s): %v", toolName, err)
+	if _, err := c.factory.AI().Execution().Create(recordCtx, record); err != nil {
+		klog.Errorf("failed to create ai execution record for tool(%s): %v", toolName, err)
 	}
 }

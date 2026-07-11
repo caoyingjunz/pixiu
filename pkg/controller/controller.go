@@ -19,8 +19,7 @@ package controller
 import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/agent"
-	"github.com/caoyingjunz/pixiu/pkg/controller/ai"
-	"github.com/caoyingjunz/pixiu/pkg/controller/aiaccount"
+	"github.com/caoyingjunz/pixiu/pkg/controller/assistant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/apiresource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
@@ -50,8 +49,7 @@ type PixiuInterface interface {
 	agent.AgentGetter
 	datasource.Getter
 	runner.RunnerGetter
-	aiaccount.Getter
-	ai.Getter
+	assistant.Getter
 }
 
 type pixiu struct {
@@ -72,8 +70,7 @@ func (p *pixiu) Audit() audit.Interface           { return audit.NewAudit(p.cc, 
 func (p *pixiu) Helm() helm.Interface             { return helm.NewHelm(p.factory) }
 func (p *pixiu) Agent() agent.Interface           { return agent.NewAgent(p.cc, p.factory) }
 func (p *pixiu) Datasource() datasource.Interface { return datasource.New(p.cc, p.factory) }
-func (p *pixiu) AIAccount() aiaccount.Interface   { return aiaccount.New(p.cc, p.factory) }
-func (p *pixiu) AI() ai.Interface                 { return ai.New(p.cc, p.factory) }
+func (p *pixiu) Assistant() assistant.Interface { return assistant.New(p.cc, p.factory) }
 func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)
 }

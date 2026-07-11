@@ -128,7 +128,7 @@ type Datasource struct {
 	Description string                  `json:"description"`
 }
 
-type AIAccount struct {
+type AIProvider struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
@@ -139,6 +139,7 @@ type AIAccount struct {
 	Model       string `json:"model"`
 	Description string `json:"description"`
 	Enabled     bool   `json:"enabled"`
+	MaxTokens   int    `json:"max_tokens"`
 }
 
 type AIRespondResponse struct {

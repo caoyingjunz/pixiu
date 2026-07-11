@@ -97,16 +97,17 @@ type (
 		CreateDatasourceRequest `form:",inline"`
 	}
 
-	CreateAIAccountRequest struct {
+	CreateProviderRequest struct {
 		Provider    string `json:"provider" binding:"required"`
 		APIKey      string `json:"api_key" binding:"required"`
 		BaseURL     string `json:"base_url" binding:"omitempty,url"`
 		Model       string `json:"model" binding:"omitempty"`
 		Description string `json:"description" binding:"omitempty"`
 		Enabled     *bool  `json:"enabled" binding:"omitempty"`
+		MaxTokens   int    `json:"max_tokens" binding:"omitempty"`
 	}
 
-	UpdateAIAccountRequest struct {
+	UpdateProviderRequest struct {
 		Id              int64  `json:"id"`
 		Provider        string `json:"provider" binding:"required"`
 		APIKey          string `json:"api_key" binding:"required"`
@@ -114,6 +115,7 @@ type (
 		Model           string `json:"model" binding:"omitempty"`
 		Description     string `json:"description" binding:"omitempty"`
 		Enabled         *bool  `json:"enabled" binding:"omitempty"`
+		MaxTokens       int    `json:"max_tokens" binding:"omitempty"`
 		ResourceVersion int64  `json:"resource_version" binding:"required"`
 	}
 
@@ -272,7 +274,7 @@ type (
 		Status      *int   `form:"status" json:"status"`
 	}
 
-	ListAIAccountRequest struct {
+	ListProviderRequest struct {
 		PageRequest `form:",inline"`
 		Provider    string `form:"provider" json:"provider"`
 		Enabled     *bool  `form:"enabled" json:"enabled"`

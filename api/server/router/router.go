@@ -20,8 +20,7 @@ import (
 	"embed"
 	"net/http"
 
-	ai "github.com/caoyingjunz/pixiu/api/server/router/ai"
-	aiaccount "github.com/caoyingjunz/pixiu/api/server/router/aiaccount"
+	assistant "github.com/caoyingjunz/pixiu/api/server/router/assistant"
 	datasource "github.com/caoyingjunz/pixiu/api/server/router/datasource"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -71,8 +70,7 @@ func InstallRouters(o *options.Options) {
 		agent.NewRouter,
 		datasource.NewRouter,
 		runner.NewRouter,
-		aiaccount.NewRouter,
-		ai.NewRouter,
+		assistant.NewRouter,
 	}
 
 	install(o, fs...)

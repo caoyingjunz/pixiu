@@ -40,10 +40,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-type Getter interface {
-	AI() Interface
-}
-
 type Interface interface {
 	RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error)
 }
@@ -62,7 +58,7 @@ type toolExecutionMeta struct {
 	RequestId      string
 	UserId         int64
 	UserName       string
-	AIAccountId    int64
+	ProviderId     int64
 	ConversationId int64
 	Provider       string
 	ModelName      string
@@ -138,7 +134,7 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 		RequestId:      getRequestIDFromContext(ctx),
 		UserId:         user.Id,
 		UserName:       user.Name,
-		AIAccountId:    account.Id,
+		ProviderId:     account.Id,
 		ConversationId: req.ConversationId,
 		Provider:       account.Provider,
 		ModelName:      modelName,
@@ -154,7 +150,7 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 	})
 
 	endpoint := strings.TrimRight(account.BaseURL, "/") + "/v1/responses"
-	raw, text, responseID, err := c.runResponsesLoopStream(ctx, endpoint, account.APIKey, modelName, inputItems, emit)
+	raw, text, responseID, err := c.runResponsesLoopStream(ctx, endpoint, account.APIKey, modelName, resolveProviderMaxTokens(account), inputItems, emit)
 	if err != nil {
 		c.recordResponseExecution(ctx, account, req.ConversationId, modelName, req.Input, "", "", nil, err, time.Since(startTime))
 		return nil, err
@@ -215,7 +211,7 @@ func getRequestIDFromContext(ctx context.Context) string {
 
 func (c *controller) recordResponseExecution(
 	ctx context.Context,
-	account *model.AIAccount,
+	account *model.AIProvider,
 	conversationID int64,
 	modelName string,
 	inputText string,
@@ -235,11 +231,11 @@ func (c *controller) recordResponseExecution(
 	recordCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	record := &model.AIResponseExecution{
+	record := &model.Message{
 		RequestId:       meta.RequestId,
 		UserId:          meta.UserId,
 		UserName:        meta.UserName,
-		AIAccountId:     account.Id,
+		ProviderId:      account.Id,
 		ConversationId:  conversationID,
 		Provider:        account.Provider,
 		ModelName:       modelName,
@@ -258,14 +254,15 @@ func (c *controller) recordResponseExecution(
 		record.ErrorMessage = truncateAuditText(runErr.Error())
 	}
 
-	if _, err := c.factory.AI().ResponseExecution().Create(recordCtx, record); err != nil {
-		klog.Errorf("failed to create ai response execution record for response(%s): %v", responseID, err)
+	if _, err := c.factory.AI().Message().Create(recordCtx, record); err != nil {
+		klog.Errorf("failed to create ai message record for response(%s): %v", responseID, err)
 	}
 }
 
 func (c *controller) runResponsesLoopStream(
 	ctx context.Context,
 	endpoint, apiKey, modelName string,
+	maxTokens int,
 	inputItems []map[string]interface{},
 	emit func(*types.AIStreamEvent) error,
 ) (map[string]interface{}, string, string, error) {
@@ -280,7 +277,7 @@ func (c *controller) runResponsesLoopStream(
 			Model:   modelName,
 		})
 
-		raw, text, err := c.callResponsesAPIStream(ctx, endpoint, apiKey, modelName, inputItems, tools, emit)
+		raw, text, err := c.callResponsesAPIStream(ctx, endpoint, apiKey, modelName, maxTokens, inputItems, tools, emit)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -343,6 +340,7 @@ func (c *controller) runResponsesLoopStream(
 func (c *controller) callResponsesAPIStream(
 	ctx context.Context,
 	endpoint, apiKey, modelName string,
+	maxTokens int,
 	inputItems []map[string]interface{},
 	tools []map[string]interface{},
 	emit func(*types.AIStreamEvent) error,
@@ -352,6 +350,7 @@ func (c *controller) callResponsesAPIStream(
 		"input":        inputItems,
 		"stream":       true,
 		"instructions": c.defaultAIInstructions(),
+		"max_output_tokens": maxTokens,
 	}
 	if len(tools) > 0 {
 		payload["tools"] = tools
@@ -407,7 +406,15 @@ func (c *controller) defaultAIInstructions() string {
 	}
 	return strings.Join(instructions, " ")
 }
-func (c *controller) getEnabledAccount(ctx context.Context, userId int64, provider string) (*model.AIAccount, error) {
+
+func resolveProviderMaxTokens(account *model.AIProvider) int {
+	if account == nil || account.MaxTokens <= 0 {
+		return 4096
+	}
+	return account.MaxTokens
+}
+
+func (c *controller) getEnabledAccount(ctx context.Context, userId int64, provider string) (*model.AIProvider, error) {
 	opts := []db.Options{
 		db.WithUser(userId),
 		db.WithEnabled(true),
@@ -418,7 +425,7 @@ func (c *controller) getEnabledAccount(ctx context.Context, userId int64, provid
 		opts = append(opts, db.WithProvider(provider))
 	}
 
-	accounts, err := c.factory.AI().Account().List(ctx, opts...)
+	accounts, err := c.factory.AI().Provider().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list ai accounts for user(%d): %v", userId, err)
 		return nil, apierrors.ErrServerInternal
@@ -429,7 +436,7 @@ func (c *controller) getEnabledAccount(ctx context.Context, userId int64, provid
 	return &accounts[0], nil
 }
 
-func buildConversationInput(conversation *model.AIConversation, input string) ([]map[string]interface{}, error) {
+func buildConversationInput(conversation *model.Conversation, input string) ([]map[string]interface{}, error) {
 	items := make([]map[string]interface{}, 0)
 	if conversation != nil && strings.TrimSpace(conversation.History) != "" {
 		if err := json.Unmarshal([]byte(conversation.History), &items); err != nil {
@@ -448,7 +455,7 @@ func buildConversationInput(conversation *model.AIConversation, input string) ([
 	return items, nil
 }
 
-func (c *controller) getConversation(ctx context.Context, userId, conversationId int64) (*model.AIConversation, error) {
+func (c *controller) getConversation(ctx context.Context, userId, conversationId int64) (*model.Conversation, error) {
 	if conversationId == 0 {
 		return nil, nil
 	}
@@ -467,8 +474,8 @@ func (c *controller) getConversation(ctx context.Context, userId, conversationId
 func (c *controller) persistConversation(
 	ctx context.Context,
 	userId int64,
-	account *model.AIAccount,
-	conversation *model.AIConversation,
+	account *model.AIProvider,
+	conversation *model.Conversation,
 	modelName string,
 	input string,
 	outputText string,
@@ -484,9 +491,9 @@ func (c *controller) persistConversation(
 		if len(title) > 120 {
 			title = title[:120]
 		}
-		object, err := c.factory.AI().Conversation().Create(ctx, &model.AIConversation{
+		object, err := c.factory.AI().Conversation().Create(ctx, &model.Conversation{
 			UserId:             userId,
-			AIAccountId:        account.Id,
+			ProviderId:         account.Id,
 			Provider:           account.Provider,
 			ModelName:          modelName,
 			Title:              title,
@@ -501,7 +508,7 @@ func (c *controller) persistConversation(
 	}
 
 	updates := map[string]interface{}{
-		"ai_account_id":        account.Id,
+		"provider_id":          account.Id,
 		"provider":             account.Provider,
 		"model":                modelName,
 		"previous_response_id": responseID,
@@ -514,7 +521,7 @@ func (c *controller) persistConversation(
 	return conversation.Id, nil
 }
 
-func appendConversationHistory(conversation *model.AIConversation, input, outputText string) (string, error) {
+func appendConversationHistory(conversation *model.Conversation, input, outputText string) (string, error) {
 	items := make([]map[string]interface{}, 0)
 	if conversation != nil && strings.TrimSpace(conversation.History) != "" {
 		if err := json.Unmarshal([]byte(conversation.History), &items); err != nil {
