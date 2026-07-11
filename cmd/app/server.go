@@ -126,6 +126,9 @@ func Run(opt *options.Options) error {
 
 	klog.Info("shutting job manager down ...")
 	opt.JobManager.Stop()
+	if opt.AlertEvaluator != nil {
+		opt.AlertEvaluator.Stop()
+	}
 
 	return nil
 }

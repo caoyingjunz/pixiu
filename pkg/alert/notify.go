@@ -56,14 +56,14 @@ func (n *NotifyManager) EnqueueForEvent(ctx context.Context, rule *model.AlertRu
 		}
 
 		if _, err = n.factory.Alert().Notification().Create(ctx, &model.AlertNotification{
-			EventId:    event.Id,
-			RuleId:     rule.Id,
-			Channel:    channel,
-			Receiver:   receiver,
-			Title:      title,
-			Content:    content,
-			Status:     model.AlertNotificationStatusPending,
-			Extension:  extension,
+			EventId:   event.Id,
+			RuleId:    rule.Id,
+			Channel:   channel,
+			Receiver:  receiver,
+			Title:     title,
+			Content:   content,
+			Status:    model.AlertNotificationStatusPending,
+			Extension: extension,
 		}); err != nil {
 			return err
 		}

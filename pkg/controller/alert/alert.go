@@ -26,6 +26,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/alert"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -79,6 +80,7 @@ func (c *controller) CreateRule(ctx context.Context, req *types.CreateAlertRuleR
 		MetricName:     req.MetricName,
 		ConditionExpr:  req.ConditionExpr,
 		Duration:       req.Duration,
+		EvalInterval:   alert.NormalizeEvalInterval(req.EvalInterval),
 		Severity:       req.Severity,
 		ScopeType:      req.ScopeType,
 		ScopeValue:     req.ScopeValue,
@@ -114,6 +116,9 @@ func (c *controller) UpdateRule(ctx context.Context, ruleId int64, req *types.Up
 	}
 	if req.Duration != nil {
 		updates["duration"] = *req.Duration
+	}
+	if req.EvalInterval != nil {
+		updates["eval_interval"] = alert.NormalizeEvalInterval(*req.EvalInterval)
 	}
 	if req.Severity != nil {
 		updates["severity"] = *req.Severity
@@ -418,9 +423,10 @@ func ruleModelToType(object *model.AlertRule) *types.AlertRule {
 	return &types.AlertRule{
 		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
-		Name: object.Name, Description: object.Description, RuleType: object.RuleType,
+		Name:      object.Name, Description: object.Description, RuleType: object.RuleType,
 		MetricName: object.MetricName, ConditionExpr: object.ConditionExpr, Duration: object.Duration,
-		Severity: object.Severity, ScopeType: object.ScopeType, ScopeValue: object.ScopeValue,
+		EvalInterval: alert.NormalizeEvalInterval(object.EvalInterval),
+		Severity:     object.Severity, ScopeType: object.ScopeType, ScopeValue: object.ScopeValue,
 		NotifyChannels: object.NotifyChannels, NotifyTemplate: object.NotifyTemplate,
 		Enabled: object.Enabled, CreatedBy: object.CreatedBy, Extension: object.Extension,
 	}
@@ -430,7 +436,7 @@ func eventModelToType(object *model.AlertEvent) *types.AlertEvent {
 	return &types.AlertEvent{
 		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
-		RuleId: object.RuleId, RuleName: object.RuleName, Status: object.Status, Severity: object.Severity,
+		RuleId:    object.RuleId, RuleName: object.RuleName, Status: object.Status, Severity: object.Severity,
 		TriggerValue: object.TriggerValue, TriggerExpr: object.TriggerExpr,
 		ResourceType: object.ResourceType, ResourceName: object.ResourceName,
 		ResourceNamespace: object.ResourceNamespace, ClusterId: object.ClusterId, TenantId: object.TenantId,
@@ -443,7 +449,7 @@ func notificationModelToType(object *model.AlertNotification) *types.AlertNotifi
 	return &types.AlertNotification{
 		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
-		EventId: object.EventId, RuleId: object.RuleId, Channel: object.Channel, Receiver: object.Receiver,
+		EventId:   object.EventId, RuleId: object.RuleId, Channel: object.Channel, Receiver: object.Receiver,
 		Title: object.Title, Content: object.Content, Status: object.Status,
 		RetryCount: object.RetryCount, ErrorMsg: object.ErrorMsg, Extension: object.Extension,
 	}
@@ -453,7 +459,7 @@ func silenceModelToType(object *model.AlertSilence) *types.AlertSilence {
 	return &types.AlertSilence{
 		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
-		Name: object.Name, MatchLabels: object.MatchLabels, MatchExpressions: object.MatchExpressions,
+		Name:      object.Name, MatchLabels: object.MatchLabels, MatchExpressions: object.MatchExpressions,
 		StartsAt: object.StartsAt, EndsAt: object.EndsAt, Enabled: object.Enabled,
 		CreatedBy: object.CreatedBy, Comment: object.Comment, Extension: object.Extension,
 	}

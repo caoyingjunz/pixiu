@@ -24,18 +24,16 @@ import (
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
-const DefaultAlertEvaluateInterval = "@every 1m"
+const DefaultAlertNotifyDispatchInterval = "@every 15s"
 
 type AlertEvaluator struct {
-	factory db.ShareDaoFactory
-	manager *alert.Manager
+	scheduler *alert.Scheduler
 }
 
 func NewAlertEvaluator(f db.ShareDaoFactory) *AlertEvaluator {
-	return &AlertEvaluator{
-		factory: f,
-		manager: alert.NewManager(f, &alert.StaticMetricProvider{}),
-	}
+	scheduler := alert.NewScheduler(f, &alert.StaticMetricProvider{})
+	scheduler.Start(context.Background())
+	return &AlertEvaluator{scheduler: scheduler}
 }
 
 func (a *AlertEvaluator) Name() string {
@@ -43,7 +41,7 @@ func (a *AlertEvaluator) Name() string {
 }
 
 func (a *AlertEvaluator) CronSpec() string {
-	return DefaultAlertEvaluateInterval
+	return DefaultAlertNotifyDispatchInterval
 }
 
 func (a *AlertEvaluator) LogLevel() logutil.LogLevel {
@@ -51,5 +49,11 @@ func (a *AlertEvaluator) LogLevel() logutil.LogLevel {
 }
 
 func (a *AlertEvaluator) Do(ctx *JobContext) error {
-	return a.manager.Run(context.Background())
+	return a.scheduler.Manager().DispatchPending(context.Background())
+}
+
+func (a *AlertEvaluator) Stop() {
+	if a.scheduler != nil {
+		a.scheduler.Stop()
+	}
 }

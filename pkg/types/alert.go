@@ -26,20 +26,21 @@ type AlertRule struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name           string                `json:"name"`
-	Description    string                `json:"description"`
-	RuleType       model.AlertRuleType   `json:"rule_type"`
-	MetricName     string                `json:"metric_name"`
-	ConditionExpr  string                `json:"condition_expr"`
-	Duration       int                   `json:"duration"`
-	Severity       model.AlertSeverity   `json:"severity"`
-	ScopeType      model.AlertScopeType  `json:"scope_type"`
-	ScopeValue     string                `json:"scope_value"`
-	NotifyChannels string                `json:"notify_channels"`
-	NotifyTemplate string                `json:"notify_template"`
-	Enabled        bool                  `json:"enabled"`
-	CreatedBy      string                `json:"created_by"`
-	Extension      string                `json:"extension"`
+	Name           string               `json:"name"`
+	Description    string               `json:"description"`
+	RuleType       model.AlertRuleType  `json:"rule_type"`
+	MetricName     string               `json:"metric_name"`
+	ConditionExpr  string               `json:"condition_expr"`
+	Duration       int                  `json:"duration"`
+	EvalInterval   int                  `json:"eval_interval"`
+	Severity       model.AlertSeverity  `json:"severity"`
+	ScopeType      model.AlertScopeType `json:"scope_type"`
+	ScopeValue     string               `json:"scope_value"`
+	NotifyChannels string               `json:"notify_channels"`
+	NotifyTemplate string               `json:"notify_template"`
+	Enabled        bool                 `json:"enabled"`
+	CreatedBy      string               `json:"created_by"`
+	Extension      string               `json:"extension"`
 }
 
 type AlertEvent struct {
@@ -68,16 +69,16 @@ type AlertNotification struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	EventId    int64                        `json:"event_id"`
-	RuleId     int64                        `json:"rule_id"`
-	Channel    model.AlertNotifyChannel     `json:"channel"`
-	Receiver   string                       `json:"receiver"`
-	Title      string                       `json:"title"`
-	Content    string                       `json:"content"`
+	EventId    int64                         `json:"event_id"`
+	RuleId     int64                         `json:"rule_id"`
+	Channel    model.AlertNotifyChannel      `json:"channel"`
+	Receiver   string                        `json:"receiver"`
+	Title      string                        `json:"title"`
+	Content    string                        `json:"content"`
 	Status     model.AlertNotificationStatus `json:"status"`
-	RetryCount int                          `json:"retry_count"`
-	ErrorMsg   string                       `json:"error_msg"`
-	Extension  string                       `json:"extension"`
+	RetryCount int                           `json:"retry_count"`
+	ErrorMsg   string                        `json:"error_msg"`
+	Extension  string                        `json:"extension"`
 }
 
 type AlertSilence struct {
@@ -102,6 +103,7 @@ type CreateAlertRuleRequest struct {
 	MetricName     string               `json:"metric_name"`
 	ConditionExpr  string               `json:"condition_expr" binding:"required"`
 	Duration       int                  `json:"duration"`
+	EvalInterval   int                  `json:"eval_interval"`
 	Severity       model.AlertSeverity  `json:"severity" binding:"required"`
 	ScopeType      model.AlertScopeType `json:"scope_type" binding:"required"`
 	ScopeValue     string               `json:"scope_value"`
@@ -109,24 +111,25 @@ type CreateAlertRuleRequest struct {
 	NotifyTemplate string               `json:"notify_template"`
 	Enabled        *bool                `json:"enabled"`
 	// Extension 可配置通知渠道，示例见 alert 包 RuleNotifyConfig
-	Extension      string               `json:"extension"`
+	Extension string `json:"extension"`
 }
 
 type UpdateAlertRuleRequest struct {
-	ResourceVersion int64                `json:"resource_version" binding:"required"`
-	Name            *string              `json:"name"`
-	Description     *string              `json:"description"`
-	RuleType        *model.AlertRuleType `json:"rule_type"`
-	MetricName      *string              `json:"metric_name"`
-	ConditionExpr   *string              `json:"condition_expr"`
-	Duration        *int                 `json:"duration"`
-	Severity        *model.AlertSeverity `json:"severity"`
+	ResourceVersion int64                 `json:"resource_version" binding:"required"`
+	Name            *string               `json:"name"`
+	Description     *string               `json:"description"`
+	RuleType        *model.AlertRuleType  `json:"rule_type"`
+	MetricName      *string               `json:"metric_name"`
+	ConditionExpr   *string               `json:"condition_expr"`
+	Duration        *int                  `json:"duration"`
+	EvalInterval    *int                  `json:"eval_interval"`
+	Severity        *model.AlertSeverity  `json:"severity"`
 	ScopeType       *model.AlertScopeType `json:"scope_type"`
-	ScopeValue      *string              `json:"scope_value"`
-	NotifyChannels  *string              `json:"notify_channels"`
-	NotifyTemplate  *string              `json:"notify_template"`
-	Enabled         *bool                `json:"enabled"`
-	Extension       *string              `json:"extension"`
+	ScopeValue      *string               `json:"scope_value"`
+	NotifyChannels  *string               `json:"notify_channels"`
+	NotifyTemplate  *string               `json:"notify_template"`
+	Enabled         *bool                 `json:"enabled"`
+	Extension       *string               `json:"extension"`
 }
 
 type CreateAlertSilenceRequest struct {

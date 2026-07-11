@@ -32,14 +32,14 @@ import (
 
 // MetricSample is a normalized metric value for rule evaluation.
 type MetricSample struct {
-	Value         string
-	ResourceType  string
-	ResourceName  string
-	Namespace     string
-	ClusterId     int64
-	TenantId      int64
-	Labels        map[string]string
-	Annotations   map[string]string
+	Value        string
+	ResourceType string
+	ResourceName string
+	Namespace    string
+	ClusterId    int64
+	TenantId     int64
+	Labels       map[string]string
+	Annotations  map[string]string
 }
 
 // MetricProvider fetches metric samples for a rule.
@@ -75,20 +75,30 @@ func (m *Manager) Run(ctx context.Context) error {
 		return err
 	}
 
-	silences, err := m.silence.LoadActive(ctx, time.Now())
-	if err != nil {
-		klog.Errorf("failed to load active alert silences: %v", err)
-	}
-
 	for i := range rules {
 		rule := rules[i]
-		if err = m.evaluateRule(ctx, &rule, silences); err != nil {
+		if err = m.EvaluateRule(ctx, &rule); err != nil {
 			klog.Errorf("failed to evaluate alert rule(%d:%s): %v", rule.Id, rule.Name, err)
 		}
 	}
 
-	if err = m.notify.DispatchPending(ctx); err != nil {
+	return m.DispatchPending(ctx)
+}
+
+// EvaluateRule evaluates a single alert rule.
+func (m *Manager) EvaluateRule(ctx context.Context, rule *model.AlertRule) error {
+	silences, err := m.silence.LoadActive(ctx, time.Now())
+	if err != nil {
+		klog.Errorf("failed to load active alert silences: %v", err)
+	}
+	return m.evaluateRule(ctx, rule, silences)
+}
+
+// DispatchPending sends pending alert notifications.
+func (m *Manager) DispatchPending(ctx context.Context) error {
+	if err := m.notify.DispatchPending(ctx); err != nil {
 		klog.Errorf("failed to dispatch pending alert notifications: %v", err)
+		return err
 	}
 	return nil
 }

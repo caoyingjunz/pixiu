@@ -20,8 +20,8 @@ import (
 	"embed"
 	"net/http"
 
-	assistant "github.com/caoyingjunz/pixiu/api/server/router/assistant"
 	alertrouter "github.com/caoyingjunz/pixiu/api/server/router/alert"
+	assistant "github.com/caoyingjunz/pixiu/api/server/router/assistant"
 	datasource "github.com/caoyingjunz/pixiu/api/server/router/datasource"
 	"github.com/gin-gonic/gin"
 
