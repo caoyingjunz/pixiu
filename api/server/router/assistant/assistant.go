@@ -58,7 +58,7 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 		Name:    "智能助手",
 		BaseURL: assistantBaseURL,
 		Entries: []apiregistry.RouteEntry{
-			{Method: "POST", RelativePath: "/respond/stream", Handler: r.respondStream, Description: "Stream assistant response"},
+			{Method: "POST", RelativePath: "/respond/stream", Handler: r.stream, Description: "Stream assistant response"},
 		},
 	}
 	respondGroup.Register(ginEngine.Group(assistantBaseURL), r.c.APIResource())

@@ -32,8 +32,9 @@ type Getter interface {
 }
 
 type Interface interface {
+	Stream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error)
+
 	Provider() provider.Interface
-	RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error)
 }
 
 type controller struct {
@@ -45,11 +46,9 @@ type controller struct {
 
 func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{
-		cc:      cfg,
-		factory: f,
-		client: &http.Client{
-			Timeout: 60 * time.Second,
-		},
+		cc:       cfg,
+		factory:  f,
+		client:   &http.Client{Timeout: 60 * time.Second},
 		provider: provider.New(cfg, f),
 	}
 }

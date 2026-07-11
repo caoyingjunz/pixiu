@@ -63,7 +63,7 @@ type responseUsage struct {
 	ReasoningTokens int64
 }
 
-func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error) {
+func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error) {
 	startTime := time.Now()
 	user, err := httputils.GetUserFromRequest(ctx)
 	if err != nil {
@@ -71,7 +71,7 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 	}
 	userId := user.Id
 
-	account, err := c.getEnabledAccount(ctx, userId, req.Provider)
+	provider, err := c.getEnabledProvider(ctx, userId, req.Provider)
 	if err != nil {
 		return nil, err
 	}
@@ -81,19 +81,7 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 		return nil, err
 	}
 
-	modelName := req.Model
-	if modelName == "" {
-		modelName = account.ModelName
-	}
-	if modelName == "" {
-		return nil, apierrors.NewError(fmt.Errorf("model is required"), http.StatusBadRequest)
-	}
-	if strings.TrimSpace(account.BaseURL) == "" {
-		return nil, apierrors.NewError(fmt.Errorf("base_url is empty"), http.StatusBadRequest)
-	}
-	if strings.TrimSpace(account.APIKey) == "" {
-		return nil, apierrors.NewError(fmt.Errorf("api_key is empty"), http.StatusBadRequest)
-	}
+	modelName := provider.ModelName
 
 	inputItems, err := buildConversationInput(conversation, req.Input)
 	if err != nil {
@@ -113,9 +101,9 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 		RequestId:      getRequestIDFromContext(ctx),
 		UserId:         user.Id,
 		UserName:       user.Name,
-		ProviderId:     account.Id,
+		ProviderId:     provider.Id,
 		ConversationId: req.ConversationId,
-		Provider:       account.Provider,
+		Provider:       provider.Provider,
 		ModelName:      modelName,
 		Authorization:  authorization,
 		Cookies:        cookies,
@@ -128,10 +116,10 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 		Model:   modelName,
 	})
 
-	endpoint := strings.TrimRight(account.BaseURL, "/") + "/v1/responses"
-	raw, text, responseID, err := c.runResponsesLoopStream(ctx, endpoint, account.APIKey, modelName, resolveProviderMaxTokens(account), inputItems, emit)
+	endpoint := strings.TrimRight(provider.BaseURL, "/") + "/v1/responses"
+	raw, text, responseID, err := c.runResponsesLoopStream(ctx, endpoint, provider.APIKey, modelName, resolveProviderMaxTokens(provider), inputItems, emit)
 	if err != nil {
-		c.recordResponseExecution(ctx, account, req.ConversationId, modelName, req.Input, "", "", nil, err, time.Since(startTime))
+		c.recordResponseExecution(ctx, provider, req.ConversationId, modelName, req.Input, "", "", nil, err, time.Since(startTime))
 		return nil, err
 	}
 
@@ -139,7 +127,7 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 	if conversationID == 0 && conversation != nil {
 		conversationID = conversation.Id
 	}
-	if persistedConversationID, persistErr := c.persistConversation(ctx, userId, account, conversation, modelName, req.Input, text, responseID); persistErr != nil {
+	if persistedConversationID, persistErr := c.persistConversation(ctx, userId, provider, conversation, modelName, req.Input, text, responseID); persistErr != nil {
 		klog.Errorf("failed to persist ai conversation after streaming response: %v", persistErr)
 		_ = emit(&types.AIStreamEvent{
 			Type:    "status",
@@ -150,7 +138,7 @@ func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequ
 		conversationID = persistedConversationID
 	}
 
-	c.recordResponseExecution(ctx, account, conversationID, modelName, req.Input, text, responseID, raw, nil, time.Since(startTime))
+	c.recordResponseExecution(ctx, provider, conversationID, modelName, req.Input, text, responseID, raw, nil, time.Since(startTime))
 
 	resp := &types.AIRespondResponse{
 		ConversationId: conversationID,
@@ -190,7 +178,7 @@ func getRequestIDFromContext(ctx context.Context) string {
 
 func (c *controller) recordResponseExecution(
 	ctx context.Context,
-	account *model.AIProvider,
+	provider *model.AIProvider,
 	conversationID int64,
 	modelName string,
 	inputText string,
@@ -201,7 +189,7 @@ func (c *controller) recordResponseExecution(
 	duration time.Duration,
 ) {
 	meta := getToolExecutionMeta(ctx)
-	if meta == nil || account == nil {
+	if meta == nil || provider == nil {
 		return
 	}
 
@@ -214,9 +202,9 @@ func (c *controller) recordResponseExecution(
 		RequestId:       meta.RequestId,
 		UserId:          meta.UserId,
 		UserName:        meta.UserName,
-		ProviderId:      account.Id,
+		ProviderId:      provider.Id,
 		ConversationId:  conversationID,
-		Provider:        account.Provider,
+		Provider:        provider.Provider,
 		ModelName:       modelName,
 		ResponseId:      responseID,
 		InputText:       truncateAuditText(inputText),
@@ -386,33 +374,33 @@ func (c *controller) defaultAIInstructions() string {
 	return strings.Join(instructions, " ")
 }
 
-func resolveProviderMaxTokens(account *model.AIProvider) int {
-	if account == nil || account.MaxTokens <= 0 {
+func resolveProviderMaxTokens(provider *model.AIProvider) int {
+	if provider == nil || provider.MaxTokens <= 0 {
 		return 4096
 	}
-	return account.MaxTokens
+	return provider.MaxTokens
 }
 
-func (c *controller) getEnabledAccount(ctx context.Context, userId int64, provider string) (*model.AIProvider, error) {
+func (c *controller) getEnabledProvider(ctx context.Context, userId int64, providerName string) (*model.AIProvider, error) {
 	opts := []db.Options{
 		db.WithUser(userId),
 		db.WithEnabled(true),
 		db.WithModifyOrderByDesc(),
 		db.WithLimit(1),
 	}
-	if provider != "" {
-		opts = append(opts, db.WithProvider(provider))
+	if providerName != "" {
+		opts = append(opts, db.WithProvider(providerName))
 	}
 
-	accounts, err := c.factory.Assistant().Provider().List(ctx, opts...)
+	providers, err := c.factory.Assistant().Provider().List(ctx, opts...)
 	if err != nil {
-		klog.Errorf("failed to list ai accounts for user(%d): %v", userId, err)
+		klog.Errorf("failed to list ai providers for user(%d): %v", userId, err)
 		return nil, apierrors.ErrServerInternal
 	}
-	if len(accounts) == 0 {
-		return nil, apierrors.NewError(fmt.Errorf("no enabled ai account found"), http.StatusNotFound)
+	if len(providers) == 0 {
+		return nil, apierrors.NewError(fmt.Errorf("no enabled ai provider found"), http.StatusNotFound)
 	}
-	return &accounts[0], nil
+	return &providers[0], nil
 }
 
 func buildConversationInput(conversation *model.Conversation, input string) ([]map[string]interface{}, error) {
@@ -453,7 +441,7 @@ func (c *controller) getConversation(ctx context.Context, userId, conversationId
 func (c *controller) persistConversation(
 	ctx context.Context,
 	userId int64,
-	account *model.AIProvider,
+	provider *model.AIProvider,
 	conversation *model.Conversation,
 	modelName string,
 	input string,
@@ -472,8 +460,8 @@ func (c *controller) persistConversation(
 		}
 		object, err := c.factory.Assistant().Conversation().Create(ctx, &model.Conversation{
 			UserId:             userId,
-			ProviderId:         account.Id,
-			Provider:           account.Provider,
+			ProviderId:         provider.Id,
+			Provider:           provider.Provider,
 			ModelName:          modelName,
 			Title:              title,
 			PreviousResponseId: responseID,
@@ -487,8 +475,8 @@ func (c *controller) persistConversation(
 	}
 
 	updates := map[string]interface{}{
-		"provider_id":          account.Id,
-		"provider":             account.Provider,
+		"provider_id":          provider.Id,
+		"provider":             provider.Provider,
 		"model":                modelName,
 		"previous_response_id": responseID,
 		"history":              history,

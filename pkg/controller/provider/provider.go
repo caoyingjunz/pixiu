@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -54,6 +55,9 @@ func (c *controller) Create(ctx context.Context, req *types.CreateProviderReques
 	if err != nil {
 		return apierrors.ErrUnauthorized
 	}
+	if err = validateProviderFields(req.Provider, req.APIKey, req.BaseURL, req.Model); err != nil {
+		return err
+	}
 
 	enabled := true
 	if req.Enabled != nil {
@@ -82,6 +86,9 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 	userId, err := httputils.GetUserIdFromContext(ctx)
 	if err != nil {
 		return apierrors.ErrUnauthorized
+	}
+	if err = validateProviderFields(req.Provider, req.APIKey, req.BaseURL, req.Model); err != nil {
+		return err
 	}
 
 	old, err := c.factory.Assistant().Provider().Get(ctx, req.Id)
@@ -251,4 +258,20 @@ func resolveMaxTokens(value, fallback int) int {
 		return fallback
 	}
 	return 4096
+}
+
+func validateProviderFields(provider, apiKey, baseURL, model string) error {
+	if strings.TrimSpace(provider) == "" {
+		return apierrors.NewError(fmt.Errorf("provider is required"), http.StatusBadRequest)
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		return apierrors.NewError(fmt.Errorf("api_key is required"), http.StatusBadRequest)
+	}
+	if strings.TrimSpace(baseURL) == "" {
+		return apierrors.NewError(fmt.Errorf("base_url is required"), http.StatusBadRequest)
+	}
+	if strings.TrimSpace(model) == "" {
+		return apierrors.NewError(fmt.Errorf("model is required"), http.StatusBadRequest)
+	}
+	return nil
 }

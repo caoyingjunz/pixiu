@@ -101,8 +101,8 @@ type (
 	CreateProviderRequest struct {
 		Provider    string `json:"provider" binding:"required"`
 		APIKey      string `json:"api_key" binding:"required"`
-		BaseURL     string `json:"base_url" binding:"omitempty,url"`
-		Model       string `json:"model" binding:"omitempty"`
+		BaseURL     string `json:"base_url" binding:"required,url"`
+		Model       string `json:"model" binding:"required"`
 		Description string `json:"description" binding:"omitempty"`
 		Enabled     *bool  `json:"enabled" binding:"omitempty"`
 		MaxTokens   int    `json:"max_tokens" binding:"omitempty"`
@@ -112,8 +112,8 @@ type (
 		Id              int64  `json:"id"`
 		Provider        string `json:"provider" binding:"required"`
 		APIKey          string `json:"api_key" binding:"required"`
-		BaseURL         string `json:"base_url" binding:"omitempty,url"`
-		Model           string `json:"model" binding:"omitempty"`
+		BaseURL         string `json:"base_url" binding:"required,url"`
+		Model           string `json:"model" binding:"required"`
 		Description     string `json:"description" binding:"omitempty"`
 		Enabled         *bool  `json:"enabled" binding:"omitempty"`
 		MaxTokens       int    `json:"max_tokens" binding:"omitempty"`
@@ -284,7 +284,6 @@ type (
 	AIRespondRequest struct {
 		ConversationId int64  `json:"conversation_id"`
 		Provider       string `json:"provider"`
-		Model          string `json:"model"`
 		Input          string `json:"input" binding:"required"`
 	}
 
