@@ -63,7 +63,6 @@ type responseUsage struct {
 	ReasoningTokens int64
 }
 
-
 func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error) {
 	startTime := time.Now()
 	user, err := httputils.GetUserFromRequest(ctx)
@@ -326,10 +325,10 @@ func (c *controller) callResponsesAPIStream(
 	emit func(*types.AIStreamEvent) error,
 ) (map[string]interface{}, string, error) {
 	payload := map[string]interface{}{
-		"model":        modelName,
-		"input":        inputItems,
-		"stream":       true,
-		"instructions": c.defaultAIInstructions(),
+		"model":             modelName,
+		"input":             inputItems,
+		"stream":            true,
+		"instructions":      c.defaultAIInstructions(),
 		"max_output_tokens": maxTokens,
 	}
 	if len(tools) > 0 {
