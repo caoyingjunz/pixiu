@@ -29,7 +29,10 @@ import (
 type ConversationInterface interface {
 	Create(ctx context.Context, object *model.Conversation) (*model.Conversation, error)
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
+	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*model.Conversation, error)
+	List(ctx context.Context, opts ...Options) ([]model.Conversation, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
 }
 
 type conversation struct {
@@ -64,6 +67,17 @@ func (a *conversation) Update(ctx context.Context, id int64, resourceVersion int
 	return nil
 }
 
+func (a *conversation) Delete(ctx context.Context, id int64) error {
+	f := a.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Conversation{})
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (a *conversation) Get(ctx context.Context, id int64) (*model.Conversation, error) {
 	var object model.Conversation
 	if err := a.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
@@ -73,4 +87,28 @@ func (a *conversation) Get(ctx context.Context, id int64) (*model.Conversation, 
 		return nil, err
 	}
 	return &object, nil
+}
+
+func (a *conversation) List(ctx context.Context, opts ...Options) ([]model.Conversation, error) {
+	var objects []model.Conversation
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
+		return nil, err
+	}
+	return objects, nil
+}
+
+func (a *conversation) Count(ctx context.Context, opts ...Options) (int64, error) {
+	var total int64
+	tx := a.db.WithContext(ctx).Model(&model.Conversation{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
 }

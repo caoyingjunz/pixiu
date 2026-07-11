@@ -133,7 +133,6 @@ type AIProvider struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	UserId      int64  `json:"user_id"`
 	Provider    string `json:"provider"`
 	APIKey      string `json:"api_key"`
 	BaseURL     string `json:"base_url"`
@@ -141,6 +140,40 @@ type AIProvider struct {
 	Description string `json:"description"`
 	Enabled     bool   `json:"enabled"`
 	MaxTokens   int    `json:"max_tokens"`
+}
+
+type Conversation struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	ProviderId         int64  `json:"provider_id"`
+	Provider           string `json:"provider"`
+	Model              string `json:"model"`
+	Title              string `json:"title"`
+	PreviousResponseId string `json:"previous_response_id"`
+	History            string `json:"history"`
+}
+
+type Message struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	RequestId       string `json:"request_id"`
+	ProviderId      int64  `json:"provider_id"`
+	ConversationId  int64  `json:"conversation_id"`
+	Provider        string `json:"provider"`
+	Model           string `json:"model"`
+	ResponseId      string `json:"response_id"`
+	InputText       string `json:"input_text"`
+	OutputText      string `json:"output_text"`
+	Success         bool   `json:"success"`
+	ErrorMessage    string `json:"error_message"`
+	Duration        int64  `json:"duration"`
+	InputTokens     int64  `json:"input_tokens"`
+	OutputTokens    int64  `json:"output_tokens"`
+	TotalTokens     int64  `json:"total_tokens"`
+	CachedTokens    int64  `json:"cached_tokens"`
+	ReasoningTokens int64  `json:"reasoning_tokens"`
 }
 
 type AIRespondResponse struct {
@@ -403,6 +436,9 @@ type CustomMeta struct {
 
 	ClusterName    string                `form:"cluster_name" json:"cluster_name"`
 	DatasourceType *model.DatasourceType `form:"datasource_type" json:"datasource_type"`
+	Provider       string                `form:"provider" json:"provider"`
+	Enabled        *bool                 `form:"enabled" json:"enabled"`
+	ConversationId int64                 `form:"conversation_id" json:"conversation_id"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {

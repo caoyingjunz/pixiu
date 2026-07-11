@@ -23,85 +23,47 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-type providerMeta struct {
-	ProviderId int64 `uri:"providerId"`
+type messageMeta struct {
+	MessageId int64 `uri:"messageId"`
 }
 
-func (r *router) createProvider(c *gin.Context) {
+func (r *router) deleteMessage(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
-		req types.CreateProviderRequest
-		err error
-	)
-	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	if err = r.c.Assistant().Provider().Create(c, &req); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	httputils.SetSuccess(c, resp)
-}
-
-func (r *router) updateProvider(c *gin.Context) {
-	resp := httputils.NewResponse()
-
-	var (
-		idMeta providerMeta
-		req    types.UpdateProviderRequest
-		err    error
-	)
-	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	req.Id = idMeta.ProviderId
-	if err = r.c.Assistant().Provider().Update(c, &req); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	httputils.SetSuccess(c, resp)
-}
-
-func (r *router) deleteProvider(c *gin.Context) {
-	resp := httputils.NewResponse()
-
-	var (
-		idMeta providerMeta
+		idMeta messageMeta
 		err    error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.Assistant().Provider().Delete(c, idMeta.ProviderId); err != nil {
+	if err = r.c.Assistant().Message().Delete(c, idMeta.MessageId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *router) getProvider(c *gin.Context) {
+func (r *router) getMessage(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
-		idMeta providerMeta
+		idMeta messageMeta
 		err    error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Assistant().Provider().Get(c, idMeta.ProviderId); err != nil {
+	if resp.Result, err = r.c.Assistant().Message().Get(c, idMeta.MessageId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *router) listProviders(c *gin.Context) {
+func (r *router) listMessages(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
@@ -112,7 +74,7 @@ func (r *router) listProviders(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Assistant().Provider().List(c, listOption); err != nil {
+	if resp.Result, err = r.c.Assistant().Message().List(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

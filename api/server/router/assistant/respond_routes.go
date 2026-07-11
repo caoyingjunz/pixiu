@@ -25,13 +25,15 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-func (r *router) respondStream(c *gin.Context) {
-	var req types.AIRespondRequest
-	if err := httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
-		c.JSON(400, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+func (r *router) stream(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		req types.AIRespondRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
 		return
 	}
 
@@ -55,11 +57,7 @@ func (r *router) respondStream(c *gin.Context) {
 		return nil
 	}
 
-	if _, err := r.c.Assistant().RespondStream(c, &req, emit); err != nil {
-		_ = emit(&types.AIStreamEvent{
-			Type:    "error",
-			Stage:   "failed",
-			Message: err.Error(),
-		})
+	if _, err = r.c.Assistant().Stream(c, &req, emit); err != nil {
+		_ = emit(&types.AIStreamEvent{Type: "error", Stage: "failed", Message: err.Error()})
 	}
 }

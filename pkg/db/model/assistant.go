@@ -34,8 +34,7 @@ type AIProvider struct {
 	MaxTokens   int    `gorm:"default:4096" json:"max_tokens"`
 
 	ModelName string `gorm:"column:model;type:varchar(128)" json:"model"`
-	UserId    int64  `gorm:"not null;index:idx_ai_providers_user_id;uniqueIndex:uk_ai_providers_user_provider" json:"user_id"`
-	Provider  string `gorm:"type:varchar(64);not null;uniqueIndex:uk_ai_providers_user_provider" json:"provider"`
+	Provider  string `gorm:"type:varchar(64);not null" json:"provider"`
 }
 
 func (AIProvider) TableName() string {
@@ -46,7 +45,6 @@ func (AIProvider) TableName() string {
 type Conversation struct {
 	pixiu.Model
 
-	UserId             int64  `gorm:"not null;index:idx_conversations_user_id" json:"user_id"`
 	ProviderId         int64  `gorm:"column:provider_id;not null;index:idx_conversations_provider_id" json:"provider_id"`
 	Provider           string `gorm:"type:varchar(64);not null" json:"provider"`
 	ModelName          string `gorm:"column:model;type:varchar(128)" json:"model"`
@@ -63,8 +61,6 @@ type Message struct {
 	pixiu.Model
 
 	RequestId       string `gorm:"column:request_id;type:varchar(32);index" json:"request_id"`
-	UserId          int64  `gorm:"column:user_id;not null;index:idx_messages_user_id" json:"user_id"`
-	UserName        string `gorm:"column:user_name;type:varchar(100);index:idx_messages_user_name" json:"user_name"`
 	ProviderId      int64  `gorm:"column:provider_id;not null;index:idx_messages_provider_id" json:"provider_id"`
 	ConversationId  int64  `gorm:"column:conversation_id;index:idx_messages_conversation_id" json:"conversation_id"`
 	Provider        string `gorm:"column:provider;type:varchar(64);index:idx_messages_provider" json:"provider"`
@@ -90,8 +86,6 @@ type Execution struct {
 	pixiu.Model
 
 	RequestId      string `gorm:"column:request_id;type:varchar(32);index" json:"request_id"`
-	UserId         int64  `gorm:"column:user_id;not null;index:idx_executions_user_id" json:"user_id"`
-	UserName       string `gorm:"column:user_name;type:varchar(100);index:idx_executions_user_name" json:"user_name"`
 	ProviderId     int64  `gorm:"column:provider_id;not null;index:idx_executions_provider_id" json:"provider_id"`
 	ConversationId int64  `gorm:"column:conversation_id;index:idx_executions_conversation_id" json:"conversation_id"`
 	Provider       string `gorm:"column:provider;type:varchar(64);index:idx_executions_provider" json:"provider"`

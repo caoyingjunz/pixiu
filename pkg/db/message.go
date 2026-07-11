@@ -23,10 +23,15 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type MessageInterface interface {
 	Create(ctx context.Context, object *model.Message) (*model.Message, error)
+	Delete(ctx context.Context, id int64) error
+	Get(ctx context.Context, id int64) (*model.Message, error)
+	List(ctx context.Context, opts ...Options) ([]model.Message, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
 }
 
 type message struct {
@@ -45,4 +50,50 @@ func (a *message) Create(ctx context.Context, object *model.Message) (*model.Mes
 		return nil, err
 	}
 	return object, nil
+}
+
+func (a *message) Delete(ctx context.Context, id int64) error {
+	f := a.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Message{})
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (a *message) Get(ctx context.Context, id int64) (*model.Message, error) {
+	var object model.Message
+	if err := a.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &object, nil
+}
+
+func (a *message) List(ctx context.Context, opts ...Options) ([]model.Message, error) {
+	var objects []model.Message
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
+		return nil, err
+	}
+	return objects, nil
+}
+
+func (a *message) Count(ctx context.Context, opts ...Options) (int64, error) {
+	var total int64
+	tx := a.db.WithContext(ctx).Model(&model.Message{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
 }

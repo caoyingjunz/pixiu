@@ -20,11 +20,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -37,7 +37,7 @@ type Interface interface {
 	Update(ctx context.Context, req *types.UpdateProviderRequest) error
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*types.AIProvider, error)
-	List(ctx context.Context, req *types.ListProviderRequest) (interface{}, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
 type controller struct {
@@ -50,9 +50,8 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateProviderRequest) error {
-	userId, err := httputils.GetUserIdFromContext(ctx)
-	if err != nil {
-		return apierrors.ErrUnauthorized
+	if err := validateProviderFields(req.Provider, req.APIKey, req.BaseURL, req.Model); err != nil {
+		return err
 	}
 
 	enabled := true
@@ -60,18 +59,17 @@ func (c *controller) Create(ctx context.Context, req *types.CreateProviderReques
 		enabled = *req.Enabled
 	}
 
-	_, err = c.factory.Assistant().Provider().Create(ctx, &model.AIProvider{
+	_, err := c.factory.Assistant().Provider().Create(ctx, &model.AIProvider{
 		APIKey:      req.APIKey,
 		BaseURL:     req.BaseURL,
 		Enabled:     enabled,
 		Description: req.Description,
 		MaxTokens:   resolveMaxTokens(req.MaxTokens, 0),
 		ModelName:   req.Model,
-		UserId:      userId,
 		Provider:    req.Provider,
 	})
 	if err != nil {
-		klog.Errorf("failed to create assistant provider for user(%d): %v", userId, err)
+		klog.Errorf("failed to create assistant provider: %v", err)
 		return apierrors.ErrServerInternal
 	}
 
@@ -79,9 +77,8 @@ func (c *controller) Create(ctx context.Context, req *types.CreateProviderReques
 }
 
 func (c *controller) Update(ctx context.Context, req *types.UpdateProviderRequest) error {
-	userId, err := httputils.GetUserIdFromContext(ctx)
-	if err != nil {
-		return apierrors.ErrUnauthorized
+	if err := validateProviderFields(req.Provider, req.APIKey, req.BaseURL, req.Model); err != nil {
+		return err
 	}
 
 	old, err := c.factory.Assistant().Provider().Get(ctx, req.Id)
@@ -89,7 +86,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 		klog.Errorf("failed to get assistant provider(%d): %v", req.Id, err)
 		return apierrors.ErrServerInternal
 	}
-	if old == nil || old.UserId != userId {
+	if old == nil {
 		return apierrors.NewError(fmt.Errorf("assistant provider not found"), http.StatusNotFound)
 	}
 
@@ -122,17 +119,12 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 }
 
 func (c *controller) Delete(ctx context.Context, id int64) error {
-	userId, err := httputils.GetUserIdFromContext(ctx)
-	if err != nil {
-		return apierrors.ErrUnauthorized
-	}
-
 	old, err := c.factory.Assistant().Provider().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get assistant provider(%d): %v", id, err)
 		return apierrors.ErrServerInternal
 	}
-	if old == nil || old.UserId != userId {
+	if old == nil {
 		return apierrors.NewError(fmt.Errorf("assistant provider not found"), http.StatusNotFound)
 	}
 
@@ -147,64 +139,46 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 }
 
 func (c *controller) Get(ctx context.Context, id int64) (*types.AIProvider, error) {
-	userId, err := httputils.GetUserIdFromContext(ctx)
-	if err != nil {
-		return nil, apierrors.ErrUnauthorized
-	}
-
 	object, err := c.factory.Assistant().Provider().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get assistant provider(%d): %v", id, err)
 		return nil, apierrors.ErrServerInternal
 	}
-	if object == nil || object.UserId != userId {
+	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("assistant provider not found"), http.StatusNotFound)
 	}
 	return modelToType(object), nil
 }
 
-func (c *controller) List(ctx context.Context, req *types.ListProviderRequest) (interface{}, error) {
-	userId, err := httputils.GetUserIdFromContext(ctx)
-	if err != nil {
-		return nil, apierrors.ErrUnauthorized
-	}
-
-	if req.Page <= 0 {
-		req.Page = 1
-	}
-	if req.Limit <= 0 {
-		req.Limit = 10
-	}
-	if req.Limit > 100 {
-		req.Limit = 100
-	}
+func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{
 		PageRequest: types.PageRequest{
-			Page:  req.Page,
-			Limit: req.Limit,
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
 		},
 	}
 
 	opts := []db.Options{
-		db.WithUser(userId),
-		db.WithProvider(req.Provider),
+		db.WithProvider(listOption.Provider),
 	}
-	if req.Enabled != nil {
-		opts = append(opts, db.WithEnabled(*req.Enabled))
+	if listOption.Enabled != nil {
+		opts = append(opts, db.WithEnabled(*listOption.Enabled))
 	}
 
+	var err error
 	pageResult.Total, err = c.factory.Assistant().Provider().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count assistant providers: %v", err)
 		return nil, apierrors.ErrServerInternal
 	}
 
-	offset := (req.Page - 1) * req.Limit
+	offset := (listOption.Page - 1) * listOption.Limit
 	opts = append(opts,
 		db.WithModifyOrderByDesc(),
 		db.WithOffset(offset),
-		db.WithLimit(req.Limit),
+		db.WithLimit(listOption.Limit),
 	)
 
 	objects, err := c.factory.Assistant().Provider().List(ctx, opts...)
@@ -232,7 +206,6 @@ func modelToType(object *model.AIProvider) *types.AIProvider {
 			GmtCreate:   object.GmtCreate,
 			GmtModified: object.GmtModified,
 		},
-		UserId:      object.UserId,
 		Provider:    object.Provider,
 		APIKey:      object.APIKey,
 		BaseURL:     object.BaseURL,
@@ -251,4 +224,20 @@ func resolveMaxTokens(value, fallback int) int {
 		return fallback
 	}
 	return 4096
+}
+
+func validateProviderFields(provider, apiKey, baseURL, model string) error {
+	if strings.TrimSpace(provider) == "" {
+		return apierrors.NewError(fmt.Errorf("provider is required"), http.StatusBadRequest)
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		return apierrors.NewError(fmt.Errorf("api_key is required"), http.StatusBadRequest)
+	}
+	if strings.TrimSpace(baseURL) == "" {
+		return apierrors.NewError(fmt.Errorf("base_url is required"), http.StatusBadRequest)
+	}
+	if strings.TrimSpace(model) == "" {
+		return apierrors.NewError(fmt.Errorf("model is required"), http.StatusBadRequest)
+	}
+	return nil
 }
