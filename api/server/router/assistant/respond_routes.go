@@ -55,7 +55,7 @@ func (r *router) respondStream(c *gin.Context) {
 		return nil
 	}
 
-	if _, err := r.c.Assistant().AI().RespondStream(c, &req, emit); err != nil {
+	if _, err := r.c.Assistant().RespondStream(c, &req, emit); err != nil {
 		_ = emit(&types.AIStreamEvent{
 			Type:    "error",
 			Stage:   "failed",

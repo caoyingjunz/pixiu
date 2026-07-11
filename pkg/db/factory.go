@@ -35,7 +35,7 @@ type ShareDaoFactory interface {
 	Permission() PermissionInterface
 	Datasource() DatasourceInterface
 	Runner() RunnerInterface
-	AI() AIInterface
+	Assistant() AssistantInterface
 }
 
 type shareDaoFactory struct {
@@ -57,8 +57,8 @@ func (f *shareDaoFactory) Repository() RepositoryInterface { return newRepositor
 func (f *shareDaoFactory) Agent() AgentInterface           { return newAgent(f.db) }
 func (f *shareDaoFactory) Permission() PermissionInterface { return newPermission(f.db) }
 func (f *shareDaoFactory) Datasource() DatasourceInterface { return newDatasource(f.db) }
-func (f *shareDaoFactory) Runner() RunnerInterface { return newRunner(f.db) }
-func (f *shareDaoFactory) AI() AIInterface         { return newAI(f.db) }
+func (f *shareDaoFactory) Runner() RunnerInterface         { return newRunner(f.db) }
+func (f *shareDaoFactory) Assistant() AssistantInterface { return newAssistant(f.db) }
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
 	if migrate {

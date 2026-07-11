@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ai
+package assistant
 
 import (
 	"bytes"
@@ -350,7 +350,7 @@ func (c *controller) recordToolExecution(ctx context.Context, callID, toolName, 
 		record.ErrorMessage = truncateToolOutput(runErr.Error())
 	}
 
-	if _, err := c.factory.AI().Execution().Create(recordCtx, record); err != nil {
+	if _, err := c.factory.Assistant().Execution().Create(recordCtx, record); err != nil {
 		klog.Errorf("failed to create ai execution record for tool(%s): %v", toolName, err)
 	}
 }

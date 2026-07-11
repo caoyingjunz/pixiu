@@ -17,10 +17,14 @@ limitations under the License.
 package assistant
 
 import (
+	"context"
+	"net/http"
+	"time"
+
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/controller/ai"
 	"github.com/caoyingjunz/pixiu/pkg/controller/provider"
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 type Getter interface {
@@ -29,25 +33,27 @@ type Getter interface {
 
 type Interface interface {
 	Provider() provider.Interface
-	AI() ai.Interface
+	RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error)
 }
 
 type controller struct {
+	cc       config.Config
+	factory  db.ShareDaoFactory
+	client   *http.Client
 	provider provider.Interface
-	ai       ai.Interface
 }
 
 func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{
+		cc:      cfg,
+		factory: f,
+		client: &http.Client{
+			Timeout: 60 * time.Second,
+		},
 		provider: provider.New(cfg, f),
-		ai:       ai.New(cfg, f),
 	}
 }
 
 func (c *controller) Provider() provider.Interface {
 	return c.provider
-}
-
-func (c *controller) AI() ai.Interface {
-	return c.ai
 }

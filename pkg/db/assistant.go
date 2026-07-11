@@ -18,34 +18,34 @@ package db
 
 import "gorm.io/gorm"
 
-// AIInterface groups all AI-related database accessors.
-type AIInterface interface {
+// AssistantInterface groups all assistant-related database accessors.
+type AssistantInterface interface {
 	Provider() AIProviderInterface
 	Conversation() ConversationInterface
 	Execution() ExecutionInterface
 	Message() MessageInterface
 }
 
-type ai struct {
+type assistant struct {
 	db *gorm.DB
 }
 
-func newAI(db *gorm.DB) AIInterface {
-	return &ai{db: db}
+func newAssistant(db *gorm.DB) AssistantInterface {
+	return &assistant{db: db}
 }
 
-func (a *ai) Provider() AIProviderInterface {
+func (a *assistant) Provider() AIProviderInterface {
 	return newAIProvider(a.db)
 }
 
-func (a *ai) Conversation() ConversationInterface {
+func (a *assistant) Conversation() ConversationInterface {
 	return newConversation(a.db)
 }
 
-func (a *ai) Execution() ExecutionInterface {
+func (a *assistant) Execution() ExecutionInterface {
 	return newExecution(a.db)
 }
 
-func (a *ai) Message() MessageInterface {
+func (a *assistant) Message() MessageInterface {
 	return newMessage(a.db)
 }

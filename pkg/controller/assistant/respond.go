@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ai
+package assistant
 
 import (
 	"bufio"
@@ -34,21 +34,10 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
-
-type Interface interface {
-	RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error)
-}
-
-type controller struct {
-	cc      config.Config
-	factory db.ShareDaoFactory
-	client  *http.Client
-}
 
 type toolExecutionContextKey string
 
@@ -74,15 +63,6 @@ type responseUsage struct {
 	ReasoningTokens int64
 }
 
-func New(cfg config.Config, f db.ShareDaoFactory) Interface {
-	return &controller{
-		cc:      cfg,
-		factory: f,
-		client: &http.Client{
-			Timeout: 60 * time.Second,
-		},
-	}
-}
 
 func (c *controller) RespondStream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error) {
 	startTime := time.Now()
@@ -254,7 +234,7 @@ func (c *controller) recordResponseExecution(
 		record.ErrorMessage = truncateAuditText(runErr.Error())
 	}
 
-	if _, err := c.factory.AI().Message().Create(recordCtx, record); err != nil {
+	if _, err := c.factory.Assistant().Message().Create(recordCtx, record); err != nil {
 		klog.Errorf("failed to create ai message record for response(%s): %v", responseID, err)
 	}
 }
@@ -425,7 +405,7 @@ func (c *controller) getEnabledAccount(ctx context.Context, userId int64, provid
 		opts = append(opts, db.WithProvider(provider))
 	}
 
-	accounts, err := c.factory.AI().Provider().List(ctx, opts...)
+	accounts, err := c.factory.Assistant().Provider().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list ai accounts for user(%d): %v", userId, err)
 		return nil, apierrors.ErrServerInternal
@@ -460,7 +440,7 @@ func (c *controller) getConversation(ctx context.Context, userId, conversationId
 		return nil, nil
 	}
 
-	object, err := c.factory.AI().Conversation().Get(ctx, conversationId)
+	object, err := c.factory.Assistant().Conversation().Get(ctx, conversationId)
 	if err != nil {
 		klog.Errorf("failed to get ai conversation(%d): %v", conversationId, err)
 		return nil, apierrors.ErrServerInternal
@@ -491,7 +471,7 @@ func (c *controller) persistConversation(
 		if len(title) > 120 {
 			title = title[:120]
 		}
-		object, err := c.factory.AI().Conversation().Create(ctx, &model.Conversation{
+		object, err := c.factory.Assistant().Conversation().Create(ctx, &model.Conversation{
 			UserId:             userId,
 			ProviderId:         account.Id,
 			Provider:           account.Provider,
@@ -514,7 +494,7 @@ func (c *controller) persistConversation(
 		"previous_response_id": responseID,
 		"history":              history,
 	}
-	if err := c.factory.AI().Conversation().Update(ctx, conversation.Id, conversation.ResourceVersion, updates); err != nil {
+	if err := c.factory.Assistant().Conversation().Update(ctx, conversation.Id, conversation.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update ai conversation(%d): %v", conversation.Id, err)
 		return 0, apierrors.ErrServerInternal
 	}

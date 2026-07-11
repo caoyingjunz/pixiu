@@ -60,7 +60,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateProviderReques
 		enabled = *req.Enabled
 	}
 
-	_, err = c.factory.AI().Provider().Create(ctx, &model.AIProvider{
+	_, err = c.factory.Assistant().Provider().Create(ctx, &model.AIProvider{
 		APIKey:      req.APIKey,
 		BaseURL:     req.BaseURL,
 		Enabled:     enabled,
@@ -84,7 +84,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 		return apierrors.ErrUnauthorized
 	}
 
-	old, err := c.factory.AI().Provider().Get(ctx, req.Id)
+	old, err := c.factory.Assistant().Provider().Get(ctx, req.Id)
 	if err != nil {
 		klog.Errorf("failed to get assistant provider(%d): %v", req.Id, err)
 		return apierrors.ErrServerInternal
@@ -110,7 +110,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 		updates["max_tokens"] = req.MaxTokens
 	}
 
-	if err = c.factory.AI().Provider().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+	if err = c.factory.Assistant().Provider().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("assistant provider not found or resource version conflict"), http.StatusConflict)
 		}
@@ -127,7 +127,7 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 		return apierrors.ErrUnauthorized
 	}
 
-	old, err := c.factory.AI().Provider().Get(ctx, id)
+	old, err := c.factory.Assistant().Provider().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get assistant provider(%d): %v", id, err)
 		return apierrors.ErrServerInternal
@@ -136,7 +136,7 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 		return apierrors.NewError(fmt.Errorf("assistant provider not found"), http.StatusNotFound)
 	}
 
-	if err = c.factory.AI().Provider().Delete(ctx, id); err != nil {
+	if err = c.factory.Assistant().Provider().Delete(ctx, id); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("assistant provider not found"), http.StatusNotFound)
 		}
@@ -152,7 +152,7 @@ func (c *controller) Get(ctx context.Context, id int64) (*types.AIProvider, erro
 		return nil, apierrors.ErrUnauthorized
 	}
 
-	object, err := c.factory.AI().Provider().Get(ctx, id)
+	object, err := c.factory.Assistant().Provider().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get assistant provider(%d): %v", id, err)
 		return nil, apierrors.ErrServerInternal
@@ -194,7 +194,7 @@ func (c *controller) List(ctx context.Context, req *types.ListProviderRequest) (
 		opts = append(opts, db.WithEnabled(*req.Enabled))
 	}
 
-	pageResult.Total, err = c.factory.AI().Provider().Count(ctx, opts...)
+	pageResult.Total, err = c.factory.Assistant().Provider().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count assistant providers: %v", err)
 		return nil, apierrors.ErrServerInternal
@@ -207,7 +207,7 @@ func (c *controller) List(ctx context.Context, req *types.ListProviderRequest) (
 		db.WithLimit(req.Limit),
 	)
 
-	objects, err := c.factory.AI().Provider().List(ctx, opts...)
+	objects, err := c.factory.Assistant().Provider().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list assistant providers: %v", err)
 		return nil, apierrors.ErrServerInternal
