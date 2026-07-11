@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	assistantBaseURL = "/api/v1/assistant"
+	assistantBaseURL = "/pixiu/assistant"
 	providerBaseURL  = assistantBaseURL + "/providers"
 )
 
