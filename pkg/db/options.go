@@ -307,3 +307,12 @@ func WithEnabled(enabled bool) Options {
 		return tx.Where("enabled = ?", enabled)
 	}
 }
+
+func WithConversationId(conversationId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if conversationId == 0 {
+			return tx
+		}
+		return tx.Where("conversation_id = ?", conversationId)
+	}
+}

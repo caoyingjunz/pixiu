@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	assistantBaseURL = "/pixiu/assistant"
-	providerBaseURL  = assistantBaseURL + "/providers"
+	assistantBaseURL    = "/pixiu/assistant"
+	providerBaseURL     = assistantBaseURL + "/providers"
+	conversationBaseURL = assistantBaseURL + "/conversations"
+	messageBaseURL      = assistantBaseURL + "/messages"
 )
 
 type router struct {
@@ -53,6 +55,28 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 		},
 	}
 	providerGroup.Register(ginEngine.Group(providerBaseURL), r.c.APIResource())
+
+	conversationGroup := &apiregistry.Group{
+		Name:    "智能助手",
+		BaseURL: conversationBaseURL,
+		Entries: []apiregistry.RouteEntry{
+			{Method: "DELETE", RelativePath: "/:conversationId", Handler: r.deleteConversation, Description: "Delete conversation"},
+			{Method: "GET", RelativePath: "", Handler: r.listConversations, Description: "List conversations"},
+			{Method: "GET", RelativePath: "/:conversationId", Handler: r.getConversation, Description: "Get conversation"},
+		},
+	}
+	conversationGroup.Register(ginEngine.Group(conversationBaseURL), r.c.APIResource())
+
+	messageGroup := &apiregistry.Group{
+		Name:    "智能助手",
+		BaseURL: messageBaseURL,
+		Entries: []apiregistry.RouteEntry{
+			{Method: "DELETE", RelativePath: "/:messageId", Handler: r.deleteMessage, Description: "Delete message"},
+			{Method: "GET", RelativePath: "", Handler: r.listMessages, Description: "List messages"},
+			{Method: "GET", RelativePath: "/:messageId", Handler: r.getMessage, Description: "Get message"},
+		},
+	}
+	messageGroup.Register(ginEngine.Group(messageBaseURL), r.c.APIResource())
 
 	respondGroup := &apiregistry.Group{
 		Name:    "智能助手",
