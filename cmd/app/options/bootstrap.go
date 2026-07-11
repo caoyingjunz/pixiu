@@ -213,6 +213,6 @@ func (o *Options) bootstrapRunners(ctx context.Context) error {
 		}
 	}
 
-	klog.Infof("完成 runner agent 的初始化")
+	klog.Infof("完成 runner 的初始化")
 	return nil
 }

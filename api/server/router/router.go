@@ -20,6 +20,7 @@ import (
 	"embed"
 	"net/http"
 
+	assistant "github.com/caoyingjunz/pixiu/api/server/router/assistant"
 	datasource "github.com/caoyingjunz/pixiu/api/server/router/datasource"
 	"github.com/gin-gonic/gin"
 
@@ -65,6 +66,7 @@ func InstallRouters(o *options.Options) {
 		agent.NewRouter,
 		datasource.NewRouter,
 		runner.NewRouter,
+		assistant.NewRouter,
 	}
 
 	install(o, fs...)

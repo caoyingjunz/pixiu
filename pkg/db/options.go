@@ -292,3 +292,18 @@ func WithDatasourceIsDefault(isDefault bool) Options {
 		return tx.Where("is_default = ?", isDefault)
 	}
 }
+
+func WithProvider(provider string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if provider == "" {
+			return tx
+		}
+		return tx.Where("provider = ?", provider)
+	}
+}
+
+func WithEnabled(enabled bool) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("enabled = ?", enabled)
+	}
+}
