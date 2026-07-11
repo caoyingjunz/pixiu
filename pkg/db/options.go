@@ -316,3 +316,57 @@ func WithConversationId(conversationId int64) Options {
 		return tx.Where("conversation_id = ?", conversationId)
 	}
 }
+
+func WithAlertRuleId(ruleId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if ruleId == 0 {
+			return tx
+		}
+		return tx.Where("rule_id = ?", ruleId)
+	}
+}
+
+func WithAlertEventId(eventId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if eventId == 0 {
+			return tx
+		}
+		return tx.Where("event_id = ?", eventId)
+	}
+}
+
+func WithAlertEventStatus(status model.AlertEventStatus) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if status == 0 {
+			return tx
+		}
+		return tx.Where("status = ?", status)
+	}
+}
+
+func WithAlertSeverity(severity model.AlertSeverity) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if severity == 0 {
+			return tx
+		}
+		return tx.Where("severity = ?", severity)
+	}
+}
+
+func WithAlertClusterId(clusterId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if clusterId == 0 {
+			return tx
+		}
+		return tx.Where("cluster_id = ?", clusterId)
+	}
+}
+
+func WithAlertRuleNameLike(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("name like ?", "%"+name+"%")
+	}
+}

@@ -155,6 +155,7 @@ func (o *Options) Complete() error {
 		&o.ComponentConfig.Default.LogOptions,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory),
+		jobmanager.NewAlertEvaluator(o.Factory),
 	)
 	return nil
 }

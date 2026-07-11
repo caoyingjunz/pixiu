@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	assistant "github.com/caoyingjunz/pixiu/api/server/router/assistant"
+	alertrouter "github.com/caoyingjunz/pixiu/api/server/router/alert"
 	datasource "github.com/caoyingjunz/pixiu/api/server/router/datasource"
 	"github.com/gin-gonic/gin"
 
@@ -67,6 +68,7 @@ func InstallRouters(o *options.Options) {
 		datasource.NewRouter,
 		runner.NewRouter,
 		assistant.NewRouter,
+		alertrouter.NewRouter,
 	}
 
 	install(o, fs...)
