@@ -54,7 +54,7 @@ type Interface interface {
 	Update(ctx context.Context, userId int64, req *types.UpdateUserRequest) error
 	Delete(ctx context.Context, userId int64) error
 	Get(ctx context.Context, userId int64) (*types.User, error)
-	List(ctx context.Context, req *types.ListUserRequest) (*types.PageResponse, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	// UpdatePassword 用户修改密码或者管理员重置密码
 	UpdatePassword(ctx context.Context, userId int64, req *types.UpdateUserPasswordRequest) error
@@ -242,32 +242,35 @@ func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
 	return model2Type(object), nil
 }
 
-func (u *user) List(ctx context.Context, req *types.ListUserRequest) (*types.PageResponse, error) {
-	opts := []db.Options{db.WithOrderByDesc()}
-	if req != nil {
-		opts = append(opts,
-			db.WithNameLike(req.UserName),
-			db.WithPhoneLike(req.UserPhone),
-			db.WithEmailLike(req.UserEmail),
-		)
-		if req.Status != nil {
-			opts = append(opts, db.WithUserStatus(*req.Status))
-		}
+func (u *user) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := u.factory.User().Count(ctx, opts...)
+	opts := []db.Options{
+		db.WithOrderByDesc(),
+		db.WithNameLike(listOption.NameSelector),
+		db.WithPhoneLike(listOption.UserPhone),
+		db.WithEmailLike(listOption.UserEmail),
+	}
+	if listOption.Status != nil {
+		opts = append(opts, db.WithUserStatus(*listOption.Status))
+	}
+
+	var err error
+	pageResult.Total, err = u.factory.User().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get user counts: %v", err)
 		return nil, errors.ErrServerInternal
 	}
 
-	pageReq := types.PageRequest{}
-	if req != nil {
-		pageReq = req.PageRequest
-		if req.Page > 0 && req.Limit > 0 {
-			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
-		}
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, db.WithOffset(offset), db.WithLimit(listOption.Limit))
 
 	objects, err := u.factory.User().List(ctx, opts...)
 	if err != nil {
@@ -275,16 +278,13 @@ func (u *user) List(ctx context.Context, req *types.ListUserRequest) (*types.Pag
 		return nil, errors.ErrServerInternal
 	}
 
-	var users []types.User
+	users := make([]types.User, 0, len(objects))
 	for _, object := range objects {
 		users = append(users, *model2Type(&object))
 	}
+	pageResult.Items = users
 
-	return &types.PageResponse{
-		PageRequest: pageReq,
-		Total:       int(total),
-		Items:       users,
-	}, nil
+	return pageResult, nil
 }
 
 func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, error) {

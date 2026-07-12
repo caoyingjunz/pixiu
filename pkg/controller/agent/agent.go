@@ -37,7 +37,7 @@ type Interface interface {
 	Update(ctx context.Context, agentId int64, req *types.UpdateAgentRequest) error
 	Delete(ctx context.Context, agentId int64) error
 	Get(ctx context.Context, agentId int64) (*types.Agent, error)
-	List(ctx context.Context, listOption types.AgentListOptions) (interface{}, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
 type agentController struct {
@@ -109,27 +109,29 @@ func (a *agentController) Get(ctx context.Context, agentId int64) (*types.Agent,
 	return model2Type(object), nil
 }
 
-func (a *agentController) List(ctx context.Context, listOption types.AgentListOptions) (interface{}, error) {
+func (a *agentController) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
+	}
+
 	filterOpts := buildFilterOpts(listOption)
 
-	total, err := a.factory.Agent().Count(ctx, filterOpts...)
+	var err error
+	pageResult.Total, err = a.factory.Agent().Count(ctx, filterOpts...)
 	if err != nil {
 		klog.Errorf("failed to get agents count: %v", err)
 		return nil, err
 	}
 
-	page := listOption.Page
-	if page <= 0 {
-		page = 1
-	}
-	limit := listOption.Limit
-	if limit <= 0 {
-		limit = 20
-	}
-
+	offset := (listOption.Page - 1) * listOption.Limit
 	paginationOpts := append(filterOpts,
-		db.WithOffset((page-1)*limit),
-		db.WithLimit(limit),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
 		db.WithOrderByDesc(),
 	)
 
@@ -139,18 +141,16 @@ func (a *agentController) List(ctx context.Context, listOption types.AgentListOp
 		return nil, errors.ErrServerInternal
 	}
 
-	var ts []types.Agent
+	ts := make([]types.Agent, 0, len(objects))
 	for _, object := range objects {
 		ts = append(ts, *model2Type(&object))
 	}
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       int(total),
-		Items:       ts,
-	}, nil
+	pageResult.Items = ts
+
+	return pageResult, nil
 }
 
-func buildFilterOpts(opt types.AgentListOptions) []db.Options {
+func buildFilterOpts(opt types.ListOptions) []db.Options {
 	var opts []db.Options
 	if opt.NameSelector != "" {
 		opts = append(opts, db.WithNameLike(opt.NameSelector))
@@ -158,8 +158,8 @@ func buildFilterOpts(opt types.AgentListOptions) []db.Options {
 	if opt.UserId != 0 {
 		opts = append(opts, db.WithUser(opt.UserId))
 	}
-	if opt.Status != nil {
-		opts = append(opts, db.WithStatus(*opt.Status))
+	if opt.AgentStatus != nil {
+		opts = append(opts, db.WithStatus(*opt.AgentStatus))
 	}
 	return opts
 }

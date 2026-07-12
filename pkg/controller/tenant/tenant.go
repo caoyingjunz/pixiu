@@ -37,7 +37,7 @@ type Interface interface {
 	Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error
 	Delete(ctx context.Context, tid int64) error
 	Get(ctx context.Context, tid int64) (*types.Tenant, error)
-	List(ctx context.Context, req *types.ListTenantRequest) (*types.PageResponse, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
 type tenant struct {
@@ -121,25 +121,30 @@ func (t *tenant) Get(ctx context.Context, tid int64) (*types.Tenant, error) {
 	return t.model2Type(object), nil
 }
 
-func (t *tenant) List(ctx context.Context, req *types.ListTenantRequest) (*types.PageResponse, error) {
-	opts := []db.Options{db.WithOrderByDesc()}
-	if req != nil && req.NameSelector != "" {
-		opts = append(opts, db.WithNameLike(req.NameSelector))
+func (t *tenant) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := t.factory.Tenant().Count(ctx, opts...)
+	opts := []db.Options{
+		db.WithOrderByDesc(),
+		db.WithNameLike(listOption.NameSelector),
+	}
+
+	var err error
+	pageResult.Total, err = t.factory.Tenant().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get tenant counts: %v", err)
 		return nil, errors.ErrServerInternal
 	}
 
-	pageReq := types.PageRequest{}
-	if req != nil {
-		pageReq = req.PageRequest
-		if req.Page > 0 && req.Limit > 0 {
-			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
-		}
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, db.WithOffset(offset), db.WithLimit(listOption.Limit))
 
 	objects, err := t.factory.Tenant().List(ctx, opts...)
 	if err != nil {
@@ -151,12 +156,9 @@ func (t *tenant) List(ctx context.Context, req *types.ListTenantRequest) (*types
 	for i, object := range objects {
 		ts[i] = *t.model2Type(&object)
 	}
+	pageResult.Items = ts
 
-	return &types.PageResponse{
-		PageRequest: pageReq,
-		Total:       int(total),
-		Items:       ts,
-	}, nil
+	return pageResult, nil
 }
 
 func (t *tenant) model2Type(o *model.Tenant) *types.Tenant {

@@ -38,7 +38,7 @@ type Interface interface {
 	Update(ctx context.Context, aid int64, req *types.UpdateAPIRequest) error
 	Delete(ctx context.Context, aid int64) error
 	Get(ctx context.Context, aid int64) (*types.APIResource, error)
-	List(ctx context.Context, req *types.ListAPIRequest) (*types.PageResponse, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	Register(ctx context.Context, req *types.CreateAPIRequest) error
 }
@@ -191,25 +191,32 @@ func (a *apiResource) Get(ctx context.Context, aid int64) (*types.APIResource, e
 	return a.model2Type(object), nil
 }
 
-func (a *apiResource) List(ctx context.Context, req *types.ListAPIRequest) (*types.PageResponse, error) {
-	opts := []db.Options{db.WithOrderByDesc()}
-	if req != nil {
-		opts = append(opts, db.WithMethod(req.Method), db.WithPathLike(req.PathSelector), db.WithAPIGroup(req.Group))
+func (a *apiResource) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := a.factory.API().Count(ctx, opts...)
+	opts := []db.Options{
+		db.WithOrderByDesc(),
+		db.WithMethod(listOption.Method),
+		db.WithPathLike(listOption.PathSelector),
+		db.WithAPIGroup(listOption.Group),
+	}
+
+	var err error
+	pageResult.Total, err = a.factory.API().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get api counts: %v", err)
 		return nil, errors.ErrServerInternal
 	}
 
-	pageReq := types.PageRequest{}
-	if req != nil {
-		pageReq = req.PageRequest
-		if req.Page > 0 && req.Limit > 0 {
-			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
-		}
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, db.WithOffset(offset), db.WithLimit(listOption.Limit))
 
 	objects, err := a.factory.API().List(ctx, opts...)
 	if err != nil {
@@ -221,12 +228,9 @@ func (a *apiResource) List(ctx context.Context, req *types.ListAPIRequest) (*typ
 	for i, object := range objects {
 		apis[i] = *a.model2Type(&object)
 	}
+	pageResult.Items = apis
 
-	return &types.PageResponse{
-		PageRequest: pageReq,
-		Total:       int(total),
-		Items:       apis,
-	}, nil
+	return pageResult, nil
 }
 
 func (a *apiResource) model2Type(o *model.API) *types.APIResource {

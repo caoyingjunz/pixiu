@@ -167,6 +167,7 @@ func (d *distribution) ListDistributions(ctx context.Context, listOption types.L
 
 	opts := []db.Options{
 		db.WithDistributionNameLike(listOption.NameSelector),
+		db.WithDistributionFamily(listOption.Family),
 	}
 
 	var err error

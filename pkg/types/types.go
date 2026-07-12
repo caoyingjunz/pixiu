@@ -431,7 +431,7 @@ type ListOptions struct {
 }
 
 type CustomMeta struct {
-	Status *int
+	Status *int   `form:"status" json:"status"`
 	Step   string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
 
 	ClusterName    string                `form:"cluster_name" json:"cluster_name"`
@@ -439,6 +439,31 @@ type CustomMeta struct {
 	Provider       string                `form:"provider" json:"provider"`
 	Enabled        *bool                 `form:"enabled" json:"enabled"`
 	ConversationId int64                 `form:"conversation_id" json:"conversation_id"`
+
+	// user
+	UserPhone string `form:"userPhone" json:"userPhone"`
+	UserEmail string `form:"userEmail" json:"userEmail"`
+
+	// role
+	TenantId *int64 `form:"tenant_id" json:"tenant_id"`
+
+	// api resource
+	Method       string `form:"method" json:"method"`
+	PathSelector string `form:"pathSelector" json:"pathSelector"`
+	Group        string `form:"group" json:"group"`
+
+	// distribution
+	Family string `form:"family" json:"family"`
+
+	// audit
+	Operator   string `form:"operator" json:"operator"`
+	Action     string `form:"action" json:"action"`
+	ObjectType string `form:"object_type" json:"object_type"`
+	StartTime  string `form:"start_time" json:"start_time"`
+	EndTime    string `form:"end_time" json:"end_time"`
+
+	// agent
+	AgentStatus *model.AgentStatus `form:"agent_status" json:"agent_status"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {
@@ -540,18 +565,6 @@ type Grafana struct {
 type Haproxy struct {
 	Enable                    bool   `json:"enable"`                       // Enable haproxy and keepalived,
 	KeepalivedVirtualRouterId string `json:"keepalived_virtual_router_id"` // Arbitrary unique number from 0..255
-}
-
-// AuditListOptions 审计列表查询选项，支持过滤
-type AuditListOptions struct {
-	ListOptions `json:",inline"`
-	Operator    string `form:"operator"`    // 模糊匹配操作人
-	Action      string `form:"action"`      // 精确匹配 HTTP 方法（POST/PUT/DELETE/PATCH）
-	ObjectType  string `form:"object_type"` // 资源类型
-	Cluster     string `form:"cluster"`     // 集群名称
-	Status      *uint8 `form:"status"`      // 操作状态（0:失败 1:成功 2:未知）
-	StartTime   string `form:"start_time"`  // 时间范围起（RFC3339，留空忽略）
-	EndTime     string `form:"end_time"`    // 时间范围止（RFC3339，留空忽略）
 }
 
 // CreatePermissionRequest 创建 scoped kubeconfig 的请求参数

@@ -108,14 +108,15 @@ func (t *tenantRouter) getTenant(c *gin.Context) {
 func (t *tenantRouter) listTenants(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var req types.ListTenantRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-
-	var err error
-	if r.Result, err = t.c.Tenant().List(c, &req); err != nil {
+	if r.Result, err = t.c.Tenant().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
