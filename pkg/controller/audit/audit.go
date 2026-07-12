@@ -87,7 +87,7 @@ func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interfa
 		return nil, errors.ErrServerInternal
 	}
 
-	ts := make([]types.Audit, 0, len(objects))
+	ts := make([]types.Audit, 0)
 	for _, object := range objects {
 		ts = append(ts, *a.model2Type(&object))
 	}

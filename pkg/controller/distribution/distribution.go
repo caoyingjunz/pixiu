@@ -191,9 +191,9 @@ func (d *distribution) ListDistributions(ctx context.Context, listOption types.L
 		return nil, errors.ErrServerInternal
 	}
 
-	items := make([]types.Distribution, len(objects))
+	items := make([]types.Distribution, 0)
 	for i := range objects {
-		items[i] = *distributionModel2Type(&objects[i])
+		items = append(items, *distributionModel2Type(&objects[i]))
 	}
 	pageResult.Items = items
 	return pageResult, nil

@@ -113,7 +113,7 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		return nil, apierrors.ErrServerInternal
 	}
 
-	items := make([]types.Message, 0, len(objects))
+	items := make([]types.Message, 0)
 	for i := range objects {
 		items = append(items, *modelToType(&objects[i]))
 	}

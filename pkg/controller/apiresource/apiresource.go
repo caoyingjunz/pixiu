@@ -224,9 +224,9 @@ func (a *apiResource) List(ctx context.Context, listOption types.ListOptions) (i
 		return nil, errors.ErrServerInternal
 	}
 
-	apis := make([]types.APIResource, len(objects))
-	for i, object := range objects {
-		apis[i] = *a.model2Type(&object)
+	apis := make([]types.APIResource, 0)
+	for _, object := range objects {
+		apis = append(apis, *a.model2Type(&object))
 	}
 	pageResult.Items = apis
 

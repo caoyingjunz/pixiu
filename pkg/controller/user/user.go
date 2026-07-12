@@ -278,7 +278,7 @@ func (u *user) List(ctx context.Context, listOption types.ListOptions) (interfac
 		return nil, errors.ErrServerInternal
 	}
 
-	users := make([]types.User, 0, len(objects))
+	users := make([]types.User, 0)
 	for _, object := range objects {
 		users = append(users, *model2Type(&object))
 	}

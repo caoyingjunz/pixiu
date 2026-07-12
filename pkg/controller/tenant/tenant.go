@@ -152,9 +152,9 @@ func (t *tenant) List(ctx context.Context, listOption types.ListOptions) (interf
 		return nil, errors.ErrServerInternal
 	}
 
-	ts := make([]types.Tenant, len(objects))
-	for i, object := range objects {
-		ts[i] = *t.model2Type(&object)
+	ts := make([]types.Tenant, 0)
+	for _, object := range objects {
+		ts = append(ts, *t.model2Type(&object))
 	}
 	pageResult.Items = ts
 

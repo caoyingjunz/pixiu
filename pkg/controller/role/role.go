@@ -195,9 +195,9 @@ func (r *role) List(ctx context.Context, listOption types.ListOptions) (interfac
 		return nil, errors.ErrServerInternal
 	}
 
-	rs := make([]types.Role, len(objects))
-	for i, object := range objects {
-		rs[i] = *r.model2Type(&object)
+	rs := make([]types.Role, 0)
+	for _, object := range objects {
+		rs = append(rs, *r.model2Type(&object))
 	}
 	pageResult.Items = rs
 

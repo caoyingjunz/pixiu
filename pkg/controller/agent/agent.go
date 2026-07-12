@@ -141,7 +141,7 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 		return nil, errors.ErrServerInternal
 	}
 
-	ts := make([]types.Agent, 0, len(objects))
+	ts := make([]types.Agent, 0)
 	for _, object := range objects {
 		ts = append(ts, *model2Type(&object))
 	}
