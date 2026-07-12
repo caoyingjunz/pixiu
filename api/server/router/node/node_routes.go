@@ -102,14 +102,14 @@ func (n *nodeRouter) listNodes(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		opt types.ListOptions
-		err error
+		listOption types.ListOptions
+		err        error
 	)
-	if err = c.ShouldBindQuery(&opt); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = n.c.Node().List(c, opt); err != nil {
+	if r.Result, err = n.c.Node().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

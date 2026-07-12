@@ -60,7 +60,7 @@ type Interface interface {
 	Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error
 	Delete(ctx context.Context, cid int64, skipCheck bool) error
 	Get(ctx context.Context, cid int64) (*types.Cluster, error)
-	List(ctx context.Context, req types.ListOptions) (interface{}, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	// GetKubeConfig 获取集群的 kubeconfig
 	GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error)

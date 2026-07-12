@@ -38,7 +38,7 @@ type Interface interface {
 	Update(ctx context.Context, rid int64, req *types.UpdateRoleRequest) error
 	Delete(ctx context.Context, rid int64) error
 	Get(ctx context.Context, rid int64) (*types.Role, error)
-	List(ctx context.Context, req *types.ListRoleRequest) (*types.PageResponse, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse, error)
 	UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleAPIsRequest) error
@@ -161,30 +161,33 @@ func (r *role) Get(ctx context.Context, rid int64) (*types.Role, error) {
 	return r.model2Type(object), nil
 }
 
-func (r *role) List(ctx context.Context, req *types.ListRoleRequest) (*types.PageResponse, error) {
-	opts := []db.Options{db.WithOrderByDesc()}
-	if req != nil {
-		if req.NameSelector != "" {
-			opts = append(opts, db.WithNameLike(req.NameSelector))
-		}
-		if req.TenantId != nil {
-			opts = append(opts, db.WithTenantId(*req.TenantId))
-		}
+func (r *role) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := r.factory.Role().Count(ctx, opts...)
+	opts := []db.Options{
+		db.WithOrderByDesc(),
+		db.WithNameLike(listOption.NameSelector),
+	}
+	if listOption.TenantId != nil {
+		opts = append(opts, db.WithTenantId(*listOption.TenantId))
+	}
+
+	var err error
+	pageResult.Total, err = r.factory.Role().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get role counts: %v", err)
 		return nil, errors.ErrServerInternal
 	}
 
-	pageReq := types.PageRequest{}
-	if req != nil {
-		pageReq = req.PageRequest
-		if req.Page > 0 && req.Limit > 0 {
-			opts = append(opts, db.WithOffset((req.Page-1)*req.Limit), db.WithLimit(req.Limit))
-		}
-	}
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, db.WithOffset(offset), db.WithLimit(listOption.Limit))
 
 	objects, err := r.factory.Role().List(ctx, opts...)
 	if err != nil {
@@ -192,16 +195,13 @@ func (r *role) List(ctx context.Context, req *types.ListRoleRequest) (*types.Pag
 		return nil, errors.ErrServerInternal
 	}
 
-	rs := make([]types.Role, len(objects))
-	for i, object := range objects {
-		rs[i] = *r.model2Type(&object)
+	rs := make([]types.Role, 0)
+	for _, object := range objects {
+		rs = append(rs, *r.model2Type(&object))
 	}
+	pageResult.Items = rs
 
-	return &types.PageResponse{
-		PageRequest: pageReq,
-		Total:       int(total),
-		Items:       rs,
-	}, nil
+	return pageResult, nil
 }
 
 func (r *role) model2Type(o *model.Role) *types.Role {
