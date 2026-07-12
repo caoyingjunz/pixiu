@@ -108,14 +108,15 @@ func (a *apiResourceRouter) getAPI(c *gin.Context) {
 func (a *apiResourceRouter) listAPIs(c *gin.Context) {
 	resp := httputils.NewResponse()
 
-	var req types.ListAPIRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-
-	var err error
-	if resp.Result, err = a.c.APIResource().List(c, &req); err != nil {
+	if resp.Result, err = a.c.APIResource().List(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

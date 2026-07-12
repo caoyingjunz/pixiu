@@ -131,11 +131,6 @@ type (
 		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
 	}
 
-	ListTenantRequest struct {
-		PageRequest  `form:",inline"`
-		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
-	}
-
 	CreateRoleRequest struct {
 		Name        string  `json:"name" binding:"required"`         // required
 		TenantId    *int64  `json:"tenant_id"`                       // optional, nil 或 0 表示系统全局角色
@@ -146,12 +141,6 @@ type (
 		Name            *string `json:"name" binding:"omitempty"`            // optional
 		Description     *string `json:"description" binding:"omitempty"`     // optional
 		ResourceVersion *int64  `json:"resource_version" binding:"required"` // required
-	}
-
-	ListRoleRequest struct {
-		PageRequest  `form:",inline"`
-		NameSelector string `form:"nameSelector" json:"nameSelector"` // 名称模糊搜索
-		TenantId     *int64 `form:"tenant_id" json:"tenant_id"`       // 租户 ID 过滤
 	}
 
 	UpdateRoleAPIsRequest struct {
@@ -171,13 +160,6 @@ type (
 		Group           *string `json:"group" binding:"omitempty"`
 		Description     *string `json:"description" binding:"omitempty"`
 		ResourceVersion *int64  `json:"resource_version" binding:"required"`
-	}
-
-	ListAPIRequest struct {
-		PageRequest  `form:",inline"`
-		Method       string `form:"method" json:"method"`
-		PathSelector string `form:"pathSelector" json:"pathSelector"`
-		Group        string `form:"group" json:"group"`
 	}
 
 	CreatePlanRequest struct {
@@ -249,12 +231,6 @@ type (
 		ResourceVersion *int64  `json:"resource_version" binding:"required"`
 	}
 
-	ListDistributionRequest struct {
-		PageRequest  `form:",inline"`
-		Family       string `form:"family" json:"family"`
-		NameSelector string `form:"nameSelector" json:"nameSelector"`
-	}
-
 	// PageRequest 分页配置
 	PageRequest struct {
 		Page  int `form:"page" json:"page"`   // 页数，表示第几页
@@ -264,21 +240,6 @@ type (
 	QueryOption struct {
 		LabelSelector string `form:"labelSelector" json:"labelSelector"` // 标签搜索
 		NameSelector  string `form:"nameSelector" json:"nameSelector"`   // 名称搜索
-	}
-
-	// ListUserRequest 用户列表查询参数
-	ListUserRequest struct {
-		PageRequest `form:",inline"`
-		UserName    string `form:"userName" json:"userName"`
-		UserPhone   string `form:"userPhone" json:"userPhone"`
-		UserEmail   string `form:"userEmail" json:"userEmail"`
-		Status      *int   `form:"status" json:"status"`
-	}
-
-	ListProviderRequest struct {
-		PageRequest `form:",inline"`
-		Provider    string `form:"provider" json:"provider"`
-		Enabled     *bool  `form:"enabled" json:"enabled"`
 	}
 
 	AIRespondRequest struct {

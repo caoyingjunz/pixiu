@@ -38,7 +38,7 @@ type Interface interface {
 	Update(ctx context.Context, nodeId int64, req *types.UpdateNodeRequest) error
 	Delete(ctx context.Context, nodeId int64) error
 	Get(ctx context.Context, nodeId int64) (*types.NodeResult, error)
-	List(ctx context.Context, opt types.ListOptions) (interface{}, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
 type nodeController struct {

@@ -34,7 +34,7 @@ type AuditGetter interface {
 }
 
 type Interface interface {
-	List(ctx context.Context, listOption types.AuditListOptions) (interface{}, error)
+	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 	Get(ctx context.Context, aid int64) (*types.Audit, error)
 }
 
@@ -55,29 +55,29 @@ func (a *audit) Get(ctx context.Context, aid int64) (*types.Audit, error) {
 	return a.model2Type(object), nil
 }
 
-func (a *audit) List(ctx context.Context, listOption types.AuditListOptions) (interface{}, error) {
-	// 构建公共过滤 opts
+func (a *audit) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
+	}
+
 	filterOpts := buildAuditFilterOpts(listOption)
 
-	// 使用相同过滤条件获取总数
-	total, err := a.factory.Audit().Count(ctx, filterOpts...)
+	var err error
+	pageResult.Total, err = a.factory.Audit().Count(ctx, filterOpts...)
 	if err != nil {
 		klog.Errorf("failed to get audits count: %v", err)
 		return nil, err
 	}
 
-	page := listOption.Page
-	if page <= 0 {
-		page = 1
-	}
-	limit := int(listOption.Limit)
-	if limit <= 0 {
-		limit = 20
-	}
-
+	offset := (listOption.Page - 1) * listOption.Limit
 	paginationOpts := append(filterOpts,
-		db.WithOffset((page-1)*limit),
-		db.WithLimit(limit),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
 		db.WithOrderByDesc(),
 	)
 
@@ -87,18 +87,16 @@ func (a *audit) List(ctx context.Context, listOption types.AuditListOptions) (in
 		return nil, errors.ErrServerInternal
 	}
 
-	var ts []types.Audit
+	ts := make([]types.Audit, 0)
 	for _, object := range objects {
 		ts = append(ts, *a.model2Type(&object))
 	}
-	return types.PageResponse{
-		PageRequest: listOption.PageRequest,
-		Total:       int(total),
-		Items:       ts,
-	}, nil
+	pageResult.Items = ts
+
+	return pageResult, nil
 }
 
-func buildAuditFilterOpts(opt types.AuditListOptions) []db.Options {
+func buildAuditFilterOpts(opt types.ListOptions) []db.Options {
 	var opts []db.Options
 	if opt.Operator != "" {
 		opts = append(opts, db.WithAuditOperatorLike(opt.Operator))
@@ -109,11 +107,11 @@ func buildAuditFilterOpts(opt types.AuditListOptions) []db.Options {
 	if opt.ObjectType != "" {
 		opts = append(opts, db.WithAuditObjectType(opt.ObjectType))
 	}
-	if opt.Cluster != "" {
-		opts = append(opts, db.WithAuditCluster(opt.Cluster))
+	if opt.ClusterName != "" {
+		opts = append(opts, db.WithAuditCluster(opt.ClusterName))
 	}
 	if opt.Status != nil {
-		opts = append(opts, db.WithAuditStatus(*opt.Status))
+		opts = append(opts, db.WithAuditStatus(uint8(*opt.Status)))
 	}
 	if opt.StartTime != "" {
 		if t, err := time.Parse(time.RFC3339, opt.StartTime); err == nil {

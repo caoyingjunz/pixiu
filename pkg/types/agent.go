@@ -47,10 +47,3 @@ type UpdateAgentRequest struct {
 	Description     *string            `json:"description" binding:"omitempty"`
 	ResourceVersion int64              `json:"resource_version" binding:"required"`
 }
-
-type AgentListOptions struct {
-	PageRequest  `form:",inline"`
-	NameSelector string             `form:"nameSelector" json:"nameSelector"`
-	UserId       int64              `form:"userId" json:"userId"`
-	Status       *model.AgentStatus `form:"status" json:"status"`
-}

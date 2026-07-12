@@ -50,7 +50,7 @@ func (a *auditRouter) listAudits(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		listOption types.AuditListOptions
+		listOption types.ListOptions
 		err        error
 	)
 	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
