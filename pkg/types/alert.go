@@ -36,7 +36,7 @@ type AlertRule struct {
 	Severity       model.AlertSeverity  `json:"severity"`
 	ScopeType      model.AlertScopeType `json:"scope_type"`
 	ScopeValue     string               `json:"scope_value"`
-	NotifyChannels string               `json:"notify_channels"`
+	NotifyChannels string               `json:"notify_channels"` // 关联 alert_channels 表 ID，逗号分隔，如 "1,2"
 	NotifyTemplate string               `json:"notify_template"`
 	Enabled        bool                 `json:"enabled"`
 	CreatedBy      string               `json:"created_by"`
@@ -81,6 +81,19 @@ type AlertNotification struct {
 	Extension  string                        `json:"extension"`
 }
 
+type AlertChannel struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Name        string                   `json:"name"`
+	Description string                   `json:"description"`
+	ChannelType model.AlertNotifyChannel `json:"channel_type"`
+	Config      string                   `json:"config"`
+	Enabled     bool                     `json:"enabled"`
+	CreatedBy   string                   `json:"created_by"`
+	Extension   string                   `json:"extension"`
+}
+
 type AlertSilence struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
@@ -107,11 +120,10 @@ type CreateAlertRuleRequest struct {
 	Severity       model.AlertSeverity  `json:"severity" binding:"required"`
 	ScopeType      model.AlertScopeType `json:"scope_type" binding:"required"`
 	ScopeValue     string               `json:"scope_value"`
-	NotifyChannels string               `json:"notify_channels"`
+	NotifyChannels string               `json:"notify_channels"` // 关联 alert_channels 表 ID，逗号分隔，如 "1,2"
 	NotifyTemplate string               `json:"notify_template"`
 	Enabled        *bool                `json:"enabled"`
-	// Extension 可配置通知渠道，示例见 alert 包 RuleNotifyConfig
-	Extension string `json:"extension"`
+	Extension      string               `json:"extension"`
 }
 
 type UpdateAlertRuleRequest struct {
@@ -158,4 +170,23 @@ type UpdateAlertSilenceRequest struct {
 type UpdateAlertEventStatusRequest struct {
 	ResourceVersion int64                  `json:"resource_version" binding:"required"`
 	Status          model.AlertEventStatus `json:"status" binding:"required"`
+}
+
+type CreateAlertChannelRequest struct {
+	Name        string                   `json:"name" binding:"required"`
+	Description string                   `json:"description"`
+	ChannelType model.AlertNotifyChannel `json:"channel_type" binding:"required"`
+	Config      string                   `json:"config"`
+	Enabled     *bool                    `json:"enabled"`
+	Extension   string                   `json:"extension"`
+}
+
+type UpdateAlertChannelRequest struct {
+	ResourceVersion int64                     `json:"resource_version" binding:"required"`
+	Name            *string                   `json:"name"`
+	Description     *string                   `json:"description"`
+	ChannelType     *model.AlertNotifyChannel `json:"channel_type"`
+	Config          *string                   `json:"config"`
+	Enabled         *bool                     `json:"enabled"`
+	Extension       *string                   `json:"extension"`
 }

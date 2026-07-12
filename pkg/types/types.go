@@ -444,6 +444,7 @@ type CustomMeta struct {
 	EventId   int64               `form:"event_id" json:"event_id"`
 	ClusterId int64               `form:"cluster_id" json:"cluster_id"`
 	Severity  model.AlertSeverity `form:"severity" json:"severity"`
+	ChannelType model.AlertNotifyChannel `form:"channel_type" json:"channel_type"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {

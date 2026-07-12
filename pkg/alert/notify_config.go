@@ -18,38 +18,24 @@ package alert
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 )
 
-// Rule extension example:
-// {
-//   "notify": {
-//     "dingtalk": {
-//       "webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=xxx",
-//       "secret": "SEC..."
-//     },
-//     "webhook": {
-//       "url": "https://example.com/hooks/alert",
-//       "headers": {"Authorization": "Bearer token"}
-//     }
-//   }
-// }
+// AlertChannel config examples stored in alert_channels.config:
+//
+// DingTalk (channel_type=2):
+// {"webhook_url":"https://oapi.dingtalk.com/robot/send?access_token=xxx","secret":"SEC..."}
+//
+// Webhook (channel_type=4):
+// {"url":"https://example.com/hooks/alert","headers":{"Authorization":"Bearer token"}}
 
-type RuleNotifyConfig struct {
-	Notify NotifyChannelConfig `json:"notify"`
-}
-
-type NotifyChannelConfig struct {
-	DingTalk DingTalkNotifyConfig `json:"dingtalk"`
-	Webhook  WebhookNotifyConfig  `json:"webhook"`
-}
-
-type DingTalkNotifyConfig struct {
+type DingTalkChannelConfig struct {
 	WebhookURL string `json:"webhook_url"`
 	Secret     string `json:"secret"`
 }
 
-type WebhookNotifyConfig struct {
+type WebhookChannelConfig struct {
 	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers"`
 }
@@ -62,8 +48,35 @@ type WebhookNotificationExtension struct {
 	Headers map[string]string `json:"headers"`
 }
 
-func parseRuleNotifyConfig(raw string) RuleNotifyConfig {
-	cfg := RuleNotifyConfig{}
+func parseNotifyChannelIDs(raw string) []int64 {
+	parts := strings.Split(raw, ",")
+	ids := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(part, 10, 64)
+		if err != nil || id <= 0 {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func parseDingTalkChannelConfig(raw string) DingTalkChannelConfig {
+	cfg := DingTalkChannelConfig{}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return cfg
+	}
+	_ = json.Unmarshal([]byte(raw), &cfg)
+	return cfg
+}
+
+func parseWebhookChannelConfig(raw string) WebhookChannelConfig {
+	cfg := WebhookChannelConfig{}
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return cfg

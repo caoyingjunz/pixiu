@@ -28,6 +28,7 @@ const (
 	alertBaseURL        = "/pixiu/alerts"
 	alertRuleBaseURL    = alertBaseURL + "/rules"
 	alertEventBaseURL   = alertBaseURL + "/events"
+	alertChannelBaseURL = alertBaseURL + "/channels"
 	alertNotifyBaseURL  = alertBaseURL + "/notifications"
 	alertSilenceBaseURL = alertBaseURL + "/silences"
 )
@@ -66,11 +67,24 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 	}
 	eventGroup.Register(ginEngine.Group(alertEventBaseURL), r.c.APIResource())
 
+	channelGroup := &apiregistry.Group{
+		Name:    "告警",
+		BaseURL: alertChannelBaseURL,
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: r.createChannel, Description: "Create alert channel"},
+			{Method: "PUT", RelativePath: "/:channelId", Handler: r.updateChannel, Description: "Update alert channel"},
+			{Method: "DELETE", RelativePath: "/:channelId", Handler: r.deleteChannel, Description: "Delete alert channel"},
+			{Method: "GET", RelativePath: "", Handler: r.listChannels, Description: "List alert channels"},
+			{Method: "GET", RelativePath: "/:channelId", Handler: r.getChannel, Description: "Get alert channel"},
+		},
+	}
+	channelGroup.Register(ginEngine.Group(alertChannelBaseURL), r.c.APIResource())
+
 	notifyGroup := &apiregistry.Group{
 		Name:    "告警",
 		BaseURL: alertNotifyBaseURL,
 		Entries: []apiregistry.RouteEntry{
-			{Method: "GET", RelativePath: "", Handler: r.listNotifications, Description: "List alert notifications"},
+			{Method: "GET", RelativePath: "", Handler: r.listNotifications, Description: "List alert notification records"},
 		},
 	}
 	notifyGroup.Register(ginEngine.Group(alertNotifyBaseURL), r.c.APIResource())

@@ -27,6 +27,7 @@ func init() {
 		&AlertRule{},
 		&AlertEvent{},
 		&AlertNotification{},
+		&AlertChannel{},
 		&AlertSilence{},
 	)
 }
@@ -97,7 +98,7 @@ type AlertRule struct {
 	Severity       AlertSeverity  `gorm:"column:severity;not null;index:idx_alert_rules_severity" json:"severity"`
 	ScopeType      AlertScopeType `gorm:"column:scope_type;not null" json:"scope_type"`
 	ScopeValue     string         `gorm:"column:scope_value;type:text" json:"scope_value"`
-	NotifyChannels string         `gorm:"column:notify_channels;type:varchar(256)" json:"notify_channels"`
+	NotifyChannels string         `gorm:"column:notify_channels;type:varchar(256)" json:"notify_channels"` // alert_channels ID list, comma separated
 	NotifyTemplate string         `gorm:"column:notify_template;type:text" json:"notify_template"`
 	Enabled        bool           `gorm:"column:enabled;default:true;not null;index:idx_alert_rules_enabled" json:"enabled"`
 	CreatedBy      string         `gorm:"column:created_by;type:varchar(128)" json:"created_by"`
@@ -152,6 +153,23 @@ type AlertNotification struct {
 
 func (AlertNotification) TableName() string {
 	return "alert_notifications"
+}
+
+// AlertChannel stores reusable notification channel configurations.
+type AlertChannel struct {
+	pixiu.Model
+
+	Name        string             `gorm:"column:name;type:varchar(128);not null;index:idx_alert_channels_name" json:"name"`
+	Description string             `gorm:"column:description;type:text" json:"description"`
+	ChannelType AlertNotifyChannel `gorm:"column:channel_type;not null;index:idx_alert_channels_type" json:"channel_type"`
+	Config      string             `gorm:"column:config;type:text" json:"config"`
+	Enabled     bool               `gorm:"column:enabled;default:true;not null;index:idx_alert_channels_enabled" json:"enabled"`
+	CreatedBy   string             `gorm:"column:created_by;type:varchar(128)" json:"created_by"`
+	Extension   string             `gorm:"column:extension;type:text" json:"extension"`
+}
+
+func (AlertChannel) TableName() string {
+	return "alert_channels"
 }
 
 // AlertSilence stores silence windows for maintenance.

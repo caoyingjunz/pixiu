@@ -35,6 +35,10 @@ type silenceMeta struct {
 	SilenceId int64 `uri:"silenceId"`
 }
 
+type channelMeta struct {
+	ChannelId int64 `uri:"channelId"`
+}
+
 func (r *router) createRule(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var req types.CreateAlertRuleRequest
@@ -163,6 +167,97 @@ func (r *router) updateEventStatus(c *gin.Context) {
 		return
 	}
 	if err := r.c.Alert().UpdateEventStatus(c, meta.EventId, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) createChannel(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		req types.CreateAlertChannelRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Alert().CreateChannel(c, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) updateChannel(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		meta channelMeta
+		req  types.UpdateAlertChannelRequest
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &meta, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Alert().UpdateChannel(c, meta.ChannelId, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) deleteChannel(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		meta channelMeta
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Alert().DeleteChannel(c, meta.ChannelId); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) getChannel(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		meta channelMeta
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if resp.Result, err = r.c.Alert().GetChannel(c, meta.ChannelId); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) listChannels(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if resp.Result, err = r.c.Alert().ListChannels(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

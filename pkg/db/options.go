@@ -361,3 +361,12 @@ func WithAlertClusterId(clusterId int64) Options {
 		return tx.Where("cluster_id = ?", clusterId)
 	}
 }
+
+func WithAlertChannelType(channelType model.AlertNotifyChannel) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if channelType == 0 {
+			return tx
+		}
+		return tx.Where("channel_type = ?", channelType)
+	}
+}

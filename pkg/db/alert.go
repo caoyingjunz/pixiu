@@ -30,6 +30,7 @@ type AlertInterface interface {
 	Rule() AlertRuleInterface
 	Event() AlertEventInterface
 	Notification() AlertNotificationInterface
+	Channel() AlertChannelInterface
 	Silence() AlertSilenceInterface
 }
 
@@ -46,6 +47,7 @@ func (a *alert) Event() AlertEventInterface { return &alertEvent{db: a.db} }
 func (a *alert) Notification() AlertNotificationInterface {
 	return &alertNotification{db: a.db}
 }
+func (a *alert) Channel() AlertChannelInterface { return &alertChannel{db: a.db} }
 func (a *alert) Silence() AlertSilenceInterface { return &alertSilence{db: a.db} }
 
 type AlertRuleInterface interface {
@@ -296,6 +298,86 @@ func (a *alertNotification) ListPending(ctx context.Context, limit int) ([]model
 		return nil, err
 	}
 	return objects, nil
+}
+
+type AlertChannelInterface interface {
+	Create(ctx context.Context, object *model.AlertChannel) (*model.AlertChannel, error)
+	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
+	Delete(ctx context.Context, id int64) error
+	Get(ctx context.Context, id int64) (*model.AlertChannel, error)
+	List(ctx context.Context, opts ...Options) ([]model.AlertChannel, error)
+	Count(ctx context.Context, opts ...Options) (int64, error)
+}
+
+type alertChannel struct{ db *gorm.DB }
+
+func (a *alertChannel) Create(ctx context.Context, object *model.AlertChannel) (*model.AlertChannel, error) {
+	now := time.Now()
+	object.GmtCreate = now
+	object.GmtModified = now
+	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
+		return nil, err
+	}
+	return object, nil
+}
+
+func (a *alertChannel) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+	f := a.db.WithContext(ctx).Model(&model.AlertChannel{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (a *alertChannel) Delete(ctx context.Context, id int64) error {
+	f := a.db.WithContext(ctx).Where("id = ?", id).Delete(&model.AlertChannel{})
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (a *alertChannel) Get(ctx context.Context, id int64) (*model.AlertChannel, error) {
+	var object model.AlertChannel
+	if err := a.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &object, nil
+}
+
+func (a *alertChannel) List(ctx context.Context, opts ...Options) ([]model.AlertChannel, error) {
+	var objects []model.AlertChannel
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
+		return nil, err
+	}
+	return objects, nil
+}
+
+func (a *alertChannel) Count(ctx context.Context, opts ...Options) (int64, error) {
+	var total int64
+	tx := a.db.WithContext(ctx).Model(&model.AlertChannel{})
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
 }
 
 type AlertSilenceInterface interface {

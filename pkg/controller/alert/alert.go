@@ -50,6 +50,12 @@ type Interface interface {
 
 	ListNotifications(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
+	CreateChannel(ctx context.Context, req *types.CreateAlertChannelRequest) error
+	UpdateChannel(ctx context.Context, channelId int64, req *types.UpdateAlertChannelRequest) error
+	DeleteChannel(ctx context.Context, channelId int64) error
+	GetChannel(ctx context.Context, channelId int64) (*types.AlertChannel, error)
+	ListChannels(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+
 	CreateSilence(ctx context.Context, req *types.CreateAlertSilenceRequest) error
 	UpdateSilence(ctx context.Context, silenceId int64, req *types.UpdateAlertSilenceRequest) error
 	DeleteSilence(ctx context.Context, silenceId int64) error
@@ -328,6 +334,125 @@ func (c *controller) ListNotifications(ctx context.Context, listOption types.Lis
 	return pageResult, nil
 }
 
+func (c *controller) CreateChannel(ctx context.Context, req *types.CreateAlertChannelRequest) error {
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+	_, err := c.factory.Alert().Channel().Create(ctx, &model.AlertChannel{
+		Name:        req.Name,
+		Description: req.Description,
+		ChannelType: req.ChannelType,
+		Config:      req.Config,
+		Enabled:     enabled,
+		CreatedBy:   currentUserName(ctx),
+		Extension:   req.Extension,
+	})
+	if err != nil {
+		klog.Errorf("failed to create alert channel: %v", err)
+		return apierrors.ErrServerInternal
+	}
+	return nil
+}
+
+func (c *controller) UpdateChannel(ctx context.Context, channelId int64, req *types.UpdateAlertChannelRequest) error {
+	updates := map[string]interface{}{}
+	if req.Name != nil {
+		updates["name"] = *req.Name
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.ChannelType != nil {
+		updates["channel_type"] = *req.ChannelType
+	}
+	if req.Config != nil {
+		updates["config"] = *req.Config
+	}
+	if req.Enabled != nil {
+		updates["enabled"] = *req.Enabled
+	}
+	if req.Extension != nil {
+		updates["extension"] = *req.Extension
+	}
+	if len(updates) == 0 {
+		return apierrors.NewError(fmt.Errorf("no fields to update"), http.StatusBadRequest)
+	}
+	if err := c.factory.Alert().Channel().Update(ctx, channelId, req.ResourceVersion, updates); err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return apierrors.NewError(fmt.Errorf("alert channel not found"), http.StatusNotFound)
+		}
+		klog.Errorf("failed to update alert channel(%d): %v", channelId, err)
+		return apierrors.ErrServerInternal
+	}
+	return nil
+}
+
+func (c *controller) DeleteChannel(ctx context.Context, channelId int64) error {
+	if err := c.factory.Alert().Channel().Delete(ctx, channelId); err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return apierrors.NewError(fmt.Errorf("alert channel not found"), http.StatusNotFound)
+		}
+		klog.Errorf("failed to delete alert channel(%d): %v", channelId, err)
+		return apierrors.ErrServerInternal
+	}
+	return nil
+}
+
+func (c *controller) GetChannel(ctx context.Context, channelId int64) (*types.AlertChannel, error) {
+	object, err := c.factory.Alert().Channel().Get(ctx, channelId)
+	if err != nil {
+		klog.Errorf("failed to get alert channel(%d): %v", channelId, err)
+		return nil, apierrors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, apierrors.NewError(fmt.Errorf("alert channel not found"), http.StatusNotFound)
+	}
+	return channelModelToType(object), nil
+}
+
+func (c *controller) ListChannels(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	listOption.SetDefaultPageOption()
+
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
+	}
+
+	opts := buildChannelListOpts(listOption)
+
+	var err error
+	pageResult.Total, err = c.factory.Alert().Channel().Count(ctx, opts...)
+	if err != nil {
+		klog.Errorf("failed to count alert channels: %v", err)
+		pageResult.Message = err.Error()
+	}
+
+	offset := (listOption.Page - 1) * listOption.Limit
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
+
+	objects, err := c.factory.Alert().Channel().List(ctx, opts...)
+	if err != nil {
+		klog.Errorf("failed to list alert channels: %v", err)
+		pageResult.Message = err.Error()
+		return nil, apierrors.ErrServerInternal
+	}
+
+	items := make([]types.AlertChannel, 0, len(objects))
+	for i := range objects {
+		items = append(items, *channelModelToType(&objects[i]))
+	}
+	pageResult.Items = items
+
+	return pageResult, nil
+}
+
 func (c *controller) CreateSilence(ctx context.Context, req *types.CreateAlertSilenceRequest) error {
 	enabled := true
 	if req.Enabled != nil {
@@ -481,6 +606,17 @@ func buildNotificationListOpts(opt types.ListOptions) []db.Options {
 	}
 }
 
+func buildChannelListOpts(opt types.ListOptions) []db.Options {
+	opts := []db.Options{
+		db.WithNameLike(opt.NameSelector),
+		db.WithAlertChannelType(opt.ChannelType),
+	}
+	if opt.Enabled != nil {
+		opts = append(opts, db.WithEnabled(*opt.Enabled))
+	}
+	return opts
+}
+
 func buildSilenceListOpts(opt types.ListOptions) []db.Options {
 	opts := []db.Options{}
 	if opt.Enabled != nil {
@@ -533,6 +669,15 @@ func notificationModelToType(object *model.AlertNotification) *types.AlertNotifi
 		EventId:   object.EventId, RuleId: object.RuleId, Channel: object.Channel, Receiver: object.Receiver,
 		Title: object.Title, Content: object.Content, Status: object.Status,
 		RetryCount: object.RetryCount, ErrorMsg: object.ErrorMsg, Extension: object.Extension,
+	}
+}
+
+func channelModelToType(object *model.AlertChannel) *types.AlertChannel {
+	return &types.AlertChannel{
+		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
+		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
+		Name:      object.Name, Description: object.Description, ChannelType: object.ChannelType,
+		Config: object.Config, Enabled: object.Enabled, CreatedBy: object.CreatedBy, Extension: object.Extension,
 	}
 }
 

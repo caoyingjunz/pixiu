@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -156,23 +155,6 @@ func encodeJSONMap(values map[string]string) string {
 		return ""
 	}
 	return string(raw)
-}
-
-func parseNotifyChannels(raw string) []model.AlertNotifyChannel {
-	parts := strings.Split(raw, ",")
-	channels := make([]model.AlertNotifyChannel, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		n, err := strconv.Atoi(part)
-		if err != nil {
-			continue
-		}
-		channels = append(channels, model.AlertNotifyChannel(n))
-	}
-	return channels
 }
 
 func buildNotificationTitle(rule *model.AlertRule, event *model.AlertEvent, recovered bool) string {

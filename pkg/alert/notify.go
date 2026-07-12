@@ -39,26 +39,41 @@ func NewNotifyManager(factory db.ShareDaoFactory) *NotifyManager {
 }
 
 func (n *NotifyManager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, event *model.AlertEvent, recovered bool) error {
-	channels := parseNotifyChannels(rule.NotifyChannels)
-	if len(channels) == 0 {
-		channels = []model.AlertNotifyChannel{model.AlertNotifyChannelWebhook}
+	channelIDs := parseNotifyChannelIDs(rule.NotifyChannels)
+	if len(channelIDs) == 0 {
+		return nil
 	}
 
-	notifyCfg := parseRuleNotifyConfig(rule.Extension)
+	channels, err := n.factory.Alert().Channel().List(ctx, db.WithIDIn(channelIDs...), db.WithEnabled(true))
+	if err != nil {
+		return err
+	}
+
+	channelByID := make(map[int64]model.AlertChannel, len(channels))
+	for i := range channels {
+		channelByID[channels[i].Id] = channels[i]
+	}
+
 	title := buildNotificationTitle(rule, event, recovered)
 	content := buildNotificationContent(rule, event, recovered)
 
-	for _, channel := range channels {
-		receiver, extension, err := resolveNotificationTarget(channel, notifyCfg)
+	for _, channelID := range channelIDs {
+		channel, ok := channelByID[channelID]
+		if !ok {
+			klog.Errorf("skip alert notification for rule(%d): channel(%d) not found or disabled", rule.Id, channelID)
+			continue
+		}
+
+		receiver, extension, err := resolveNotificationTargetFromChannel(&channel)
 		if err != nil {
-			klog.Errorf("skip alert notification for rule(%d) channel(%d): %v", rule.Id, channel, err)
+			klog.Errorf("skip alert notification for rule(%d) channel(%d): %v", rule.Id, channelID, err)
 			continue
 		}
 
 		if _, err = n.factory.Alert().Notification().Create(ctx, &model.AlertNotification{
 			EventId:   event.Id,
 			RuleId:    rule.Id,
-			Channel:   channel,
+			Channel:   channel.ChannelType,
 			Receiver:  receiver,
 			Title:     title,
 			Content:   content,
@@ -71,28 +86,37 @@ func (n *NotifyManager) EnqueueForEvent(ctx context.Context, rule *model.AlertRu
 	return nil
 }
 
-func resolveNotificationTarget(channel model.AlertNotifyChannel, cfg RuleNotifyConfig) (receiver, extension string, err error) {
-	switch channel {
+func resolveNotificationTargetFromChannel(channel *model.AlertChannel) (receiver, extension string, err error) {
+	if channel == nil {
+		return "", "", fmt.Errorf("alert channel is nil")
+	}
+	if !channel.Enabled {
+		return "", "", fmt.Errorf("alert channel(%d) is disabled", channel.Id)
+	}
+
+	switch channel.ChannelType {
 	case model.AlertNotifyChannelDingTalk:
-		receiver = strings.TrimSpace(cfg.Notify.DingTalk.WebhookURL)
+		cfg := parseDingTalkChannelConfig(channel.Config)
+		receiver = strings.TrimSpace(cfg.WebhookURL)
 		if receiver == "" {
-			return "", "", fmt.Errorf("dingtalk webhook_url is not configured")
+			return "", "", fmt.Errorf("dingtalk webhook_url is not configured in channel(%d)", channel.Id)
 		}
 		extension = marshalNotificationExtension(DingTalkNotificationExtension{
-			Secret: cfg.Notify.DingTalk.Secret,
+			Secret: cfg.Secret,
 		})
 		return receiver, extension, nil
 	case model.AlertNotifyChannelWebhook:
-		receiver = strings.TrimSpace(cfg.Notify.Webhook.URL)
+		cfg := parseWebhookChannelConfig(channel.Config)
+		receiver = strings.TrimSpace(cfg.URL)
 		if receiver == "" {
-			return "", "", fmt.Errorf("webhook url is not configured")
+			return "", "", fmt.Errorf("webhook url is not configured in channel(%d)", channel.Id)
 		}
 		extension = marshalNotificationExtension(WebhookNotificationExtension{
-			Headers: cfg.Notify.Webhook.Headers,
+			Headers: cfg.Headers,
 		})
 		return receiver, extension, nil
 	default:
-		return "", "", fmt.Errorf("channel %d does not require receiver config here", channel)
+		return "", "", fmt.Errorf("channel type %d is not supported in channel(%d)", channel.ChannelType, channel.Id)
 	}
 }
 
