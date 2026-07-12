@@ -82,65 +82,73 @@ func (r *router) deleteRule(c *gin.Context) {
 
 func (r *router) getRule(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var meta ruleMeta
-	if err := httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
+
+	var (
+		meta ruleMeta
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	result, err := r.c.Alert().GetRule(c, meta.RuleId)
-	if err != nil {
+	if resp.Result, err = r.c.Alert().GetRule(c, meta.RuleId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	resp.Result = result
 	httputils.SetSuccess(c, resp)
 }
 
 func (r *router) listRules(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var listOption types.ListOptions
-	if err := httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	result, err := r.c.Alert().ListRules(c, listOption)
-	if err != nil {
+	if resp.Result, err = r.c.Alert().ListRules(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	resp.Result = result
 	httputils.SetSuccess(c, resp)
 }
 
 func (r *router) getEvent(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var meta eventMeta
-	if err := httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
+
+	var (
+		meta eventMeta
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	result, err := r.c.Alert().GetEvent(c, meta.EventId)
-	if err != nil {
+	if resp.Result, err = r.c.Alert().GetEvent(c, meta.EventId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	resp.Result = result
 	httputils.SetSuccess(c, resp)
 }
 
 func (r *router) listEvents(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var listOption types.ListOptions
-	if err := httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	result, err := r.c.Alert().ListEvents(c, listOption)
-	if err != nil {
+	if resp.Result, err = r.c.Alert().ListEvents(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	resp.Result = result
 	httputils.SetSuccess(c, resp)
 }
 
@@ -163,17 +171,19 @@ func (r *router) updateEventStatus(c *gin.Context) {
 
 func (r *router) listNotifications(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var listOption types.ListOptions
-	if err := httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	result, err := r.c.Alert().ListNotifications(c, listOption)
-	if err != nil {
+	if resp.Result, err = r.c.Alert().ListNotifications(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	resp.Result = result
 	httputils.SetSuccess(c, resp)
 }
 
@@ -224,32 +234,36 @@ func (r *router) deleteSilence(c *gin.Context) {
 
 func (r *router) getSilence(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var meta silenceMeta
-	if err := httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
+
+	var (
+		meta silenceMeta
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	result, err := r.c.Alert().GetSilence(c, meta.SilenceId)
-	if err != nil {
+	if resp.Result, err = r.c.Alert().GetSilence(c, meta.SilenceId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	resp.Result = result
 	httputils.SetSuccess(c, resp)
 }
 
 func (r *router) listSilences(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var listOption types.ListOptions
-	if err := httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	result, err := r.c.Alert().ListSilences(c, listOption)
-	if err != nil {
+	if resp.Result, err = r.c.Alert().ListSilences(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	resp.Result = result
 	httputils.SetSuccess(c, resp)
 }
