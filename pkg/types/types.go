@@ -441,11 +441,11 @@ type CustomMeta struct {
 	ConversationId int64                 `form:"conversation_id" json:"conversation_id"`
 
 	// alert
-	RuleId      int64                      `form:"rule_id" json:"rule_id"`
-	EventId     int64                      `form:"event_id" json:"event_id"`
-	ClusterId   int64                      `form:"cluster_id" json:"cluster_id"`
-	Severity    model.AlertSeverity        `form:"severity" json:"severity"`
-	ChannelType model.AlertNotifyChannel   `form:"channel_type" json:"channel_type"`
+	RuleId      int64                    `form:"rule_id" json:"rule_id"`
+	EventId     int64                    `form:"event_id" json:"event_id"`
+	ClusterId   int64                    `form:"cluster_id" json:"cluster_id"`
+	Severity    model.AlertSeverity      `form:"severity" json:"severity"`
+	ChannelType model.AlertNotifyChannel `form:"channel_type" json:"channel_type"`
 
 	// user
 	UserPhone string `form:"userPhone" json:"userPhone"`
