@@ -30,3 +30,11 @@ func MakeDbOptions(ctx context.Context) (opts []db.Options) {
 	}
 	return
 }
+
+func CurrentUserName(ctx context.Context) string {
+	user, err := httputils.GetUserFromRequest(ctx)
+	if err != nil || user == nil {
+		return ""
+	}
+	return user.Name
+}

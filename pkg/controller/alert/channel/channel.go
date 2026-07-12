@@ -25,7 +25,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	"github.com/caoyingjunz/pixiu/pkg/controller/alert/common"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -60,7 +60,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertChannelRe
 		ChannelType: req.ChannelType,
 		Config:      req.Config,
 		Enabled:     enabled,
-		CreatedBy:   common.CurrentUserName(ctx),
+		CreatedBy:   ctrlutil.CurrentUserName(ctx),
 		Extension:   req.Extension,
 	})
 	if err != nil {
