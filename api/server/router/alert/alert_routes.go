@@ -46,7 +46,7 @@ func (r *router) createRule(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err := r.c.Alert().CreateRule(c, &req); err != nil {
+	if err := r.c.Alert().Rule().Create(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -63,7 +63,7 @@ func (r *router) updateRule(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err := r.c.Alert().UpdateRule(c, meta.RuleId, &req); err != nil {
+	if err := r.c.Alert().Rule().Update(c, meta.RuleId, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -77,7 +77,7 @@ func (r *router) deleteRule(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err := r.c.Alert().DeleteRule(c, meta.RuleId); err != nil {
+	if err := r.c.Alert().Rule().Delete(c, meta.RuleId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -95,7 +95,7 @@ func (r *router) getRule(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().GetRule(c, meta.RuleId); err != nil {
+	if resp.Result, err = r.c.Alert().Rule().Get(c, meta.RuleId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -113,7 +113,7 @@ func (r *router) listRules(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().ListRules(c, listOption); err != nil {
+	if resp.Result, err = r.c.Alert().Rule().List(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -131,7 +131,7 @@ func (r *router) getEvent(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().GetEvent(c, meta.EventId); err != nil {
+	if resp.Result, err = r.c.Alert().Event().Get(c, meta.EventId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -149,7 +149,7 @@ func (r *router) listEvents(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().ListEvents(c, listOption); err != nil {
+	if resp.Result, err = r.c.Alert().Event().List(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -166,7 +166,7 @@ func (r *router) updateEventStatus(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err := r.c.Alert().UpdateEventStatus(c, meta.EventId, &req); err != nil {
+	if err := r.c.Alert().Event().UpdateStatus(c, meta.EventId, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -184,7 +184,7 @@ func (r *router) createChannel(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.Alert().CreateChannel(c, &req); err != nil {
+	if err = r.c.Alert().Channel().Create(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -203,7 +203,7 @@ func (r *router) updateChannel(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.Alert().UpdateChannel(c, meta.ChannelId, &req); err != nil {
+	if err = r.c.Alert().Channel().Update(c, meta.ChannelId, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -221,7 +221,7 @@ func (r *router) deleteChannel(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.Alert().DeleteChannel(c, meta.ChannelId); err != nil {
+	if err = r.c.Alert().Channel().Delete(c, meta.ChannelId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -239,7 +239,7 @@ func (r *router) getChannel(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().GetChannel(c, meta.ChannelId); err != nil {
+	if resp.Result, err = r.c.Alert().Channel().Get(c, meta.ChannelId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -257,7 +257,7 @@ func (r *router) listChannels(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().ListChannels(c, listOption); err != nil {
+	if resp.Result, err = r.c.Alert().Channel().List(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -275,7 +275,7 @@ func (r *router) listNotifications(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().ListNotifications(c, listOption); err != nil {
+	if resp.Result, err = r.c.Alert().Notification().List(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -289,7 +289,7 @@ func (r *router) createSilence(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err := r.c.Alert().CreateSilence(c, &req); err != nil {
+	if err := r.c.Alert().Silence().Create(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -306,7 +306,7 @@ func (r *router) updateSilence(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err := r.c.Alert().UpdateSilence(c, meta.SilenceId, &req); err != nil {
+	if err := r.c.Alert().Silence().Update(c, meta.SilenceId, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -320,7 +320,7 @@ func (r *router) deleteSilence(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err := r.c.Alert().DeleteSilence(c, meta.SilenceId); err != nil {
+	if err := r.c.Alert().Silence().Delete(c, meta.SilenceId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -338,7 +338,7 @@ func (r *router) getSilence(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().GetSilence(c, meta.SilenceId); err != nil {
+	if resp.Result, err = r.c.Alert().Silence().Get(c, meta.SilenceId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -356,7 +356,7 @@ func (r *router) listSilences(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Alert().ListSilences(c, listOption); err != nil {
+	if resp.Result, err = r.c.Alert().Silence().List(c, listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
