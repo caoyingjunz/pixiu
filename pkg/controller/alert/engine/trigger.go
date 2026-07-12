@@ -14,24 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package alert
+package engine
 
 import (
 	"context"
 	"time"
 
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/notify"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// Trigger handles firing and recovering alert events with debounce support.
 type Trigger struct {
 	factory db.ShareDaoFactory
-	notify  *NotifyManager
+	notify  *notify.Manager
 }
 
-func NewTrigger(factory db.ShareDaoFactory, notify *NotifyManager) *Trigger {
-	return &Trigger{factory: factory, notify: notify}
+func NewTrigger(factory db.ShareDaoFactory, notifyManager *notify.Manager) *Trigger {
+	return &Trigger{factory: factory, notify: notifyManager}
 }
 
 func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample MetricSample) error {
@@ -109,6 +109,5 @@ func (t *Trigger) Recover(ctx context.Context, rule *model.AlertRule, sample Met
 }
 
 func (t *Trigger) durationSatisfied(_ *model.AlertEvent, _ int) bool {
-	// Duration debounce can be enhanced by tracking pending states in memory/redis.
 	return true
 }

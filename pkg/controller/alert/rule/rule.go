@@ -25,7 +25,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	alertengine "github.com/caoyingjunz/pixiu/pkg/alert"
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/engine"
 	"github.com/caoyingjunz/pixiu/pkg/controller/alert/common"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -63,7 +63,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		MetricName:     req.MetricName,
 		ConditionExpr:  req.ConditionExpr,
 		Duration:       req.Duration,
-		EvalInterval:   alertengine.NormalizeEvalInterval(req.EvalInterval),
+		EvalInterval:   engine.NormalizeEvalInterval(req.EvalInterval),
 		Severity:       req.Severity,
 		ScopeType:      req.ScopeType,
 		ScopeValue:     req.ScopeValue,
@@ -101,7 +101,7 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 		updates["duration"] = *req.Duration
 	}
 	if req.EvalInterval != nil {
-		updates["eval_interval"] = alertengine.NormalizeEvalInterval(*req.EvalInterval)
+		updates["eval_interval"] = engine.NormalizeEvalInterval(*req.EvalInterval)
 	}
 	if req.Severity != nil {
 		updates["severity"] = *req.Severity
@@ -212,7 +212,7 @@ func modelToType(object *model.AlertRule) *types.AlertRule {
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
 		Name:      object.Name, Description: object.Description, RuleType: object.RuleType,
 		MetricName: object.MetricName, ConditionExpr: object.ConditionExpr, Duration: object.Duration,
-		EvalInterval: alertengine.NormalizeEvalInterval(object.EvalInterval),
+		EvalInterval: engine.NormalizeEvalInterval(object.EvalInterval),
 		Severity:     object.Severity, ScopeType: object.ScopeType, ScopeValue: object.ScopeValue,
 		NotifyChannels: object.NotifyChannels, NotifyTemplate: object.NotifyTemplate,
 		Enabled: object.Enabled, CreatedBy: object.CreatedBy, Extension: object.Extension,

@@ -14,16 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package alert
+package engine
 
 import "fmt"
 
-const (
-	// DefaultEvalInterval is the default per-rule evaluation interval in seconds.
-	DefaultEvalInterval = 15
-)
+const DefaultEvalInterval = 15
 
-// NormalizeEvalInterval returns a valid evaluation interval in seconds.
 func NormalizeEvalInterval(interval int) int {
 	if interval <= 0 {
 		return DefaultEvalInterval
@@ -31,7 +27,6 @@ func NormalizeEvalInterval(interval int) int {
 	return interval
 }
 
-// EvalCronSpec builds a cron expression for the given evaluation interval.
 func EvalCronSpec(interval int) string {
 	return fmt.Sprintf("@every %ds", NormalizeEvalInterval(interval))
 }

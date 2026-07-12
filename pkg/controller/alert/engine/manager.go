@@ -14,57 +14,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package alert
+package engine
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/notify"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// MetricSample is a normalized metric value for rule evaluation.
-type MetricSample struct {
-	Value        string
-	ResourceType string
-	ResourceName string
-	Namespace    string
-	ClusterId    int64
-	TenantId     int64
-	Labels       map[string]string
-	Annotations  map[string]string
-}
-
-// MetricProvider fetches metric samples for a rule.
-type MetricProvider interface {
-	Query(ctx context.Context, rule *model.AlertRule) ([]MetricSample, error)
-}
-
-// Manager coordinates rule evaluation and notification dispatch.
 type Manager struct {
 	factory  db.ShareDaoFactory
 	provider MetricProvider
 	eval     *Evaluator
 	trigger  *Trigger
 	silence  *SilenceManager
-	notify   *NotifyManager
+	notify   *notify.Manager
 }
 
 func NewManager(factory db.ShareDaoFactory, provider MetricProvider) *Manager {
-	notify := NewNotifyManager(factory)
+	notifyManager := notify.NewManager(factory)
 	return &Manager{
 		factory:  factory,
 		provider: provider,
 		eval:     NewEvaluator(),
-		trigger:  NewTrigger(factory, notify),
+		trigger:  NewTrigger(factory, notifyManager),
 		silence:  NewSilenceManager(factory),
-		notify:   notify,
+		notify:   notifyManager,
 	}
 }
 
@@ -84,7 +64,6 @@ func (m *Manager) Run(ctx context.Context) error {
 	return m.DispatchPending(ctx)
 }
 
-// EvaluateRule evaluates a single alert rule.
 func (m *Manager) EvaluateRule(ctx context.Context, rule *model.AlertRule) error {
 	silences, err := m.silence.LoadActive(ctx, time.Now())
 	if err != nil {
@@ -93,7 +72,6 @@ func (m *Manager) EvaluateRule(ctx context.Context, rule *model.AlertRule) error
 	return m.evaluateRule(ctx, rule, silences)
 }
 
-// DispatchPending sends pending alert notifications.
 func (m *Manager) DispatchPending(ctx context.Context) error {
 	if err := m.notify.DispatchPending(ctx); err != nil {
 		klog.Errorf("failed to dispatch pending alert notifications: %v", err)
@@ -137,39 +115,4 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 		}
 	}
 	return nil
-}
-
-// StaticMetricProvider is a placeholder provider for bootstrapping.
-type StaticMetricProvider struct{}
-
-func (p *StaticMetricProvider) Query(_ context.Context, _ *model.AlertRule) ([]MetricSample, error) {
-	return nil, nil
-}
-
-func encodeJSONMap(values map[string]string) string {
-	if len(values) == 0 {
-		return ""
-	}
-	raw, err := json.Marshal(values)
-	if err != nil {
-		return ""
-	}
-	return string(raw)
-}
-
-func buildNotificationTitle(rule *model.AlertRule, event *model.AlertEvent, recovered bool) string {
-	if recovered {
-		return fmt.Sprintf("[恢复] %s", rule.Name)
-	}
-	return fmt.Sprintf("[告警] %s", rule.Name)
-}
-
-func buildNotificationContent(rule *model.AlertRule, event *model.AlertEvent, recovered bool) string {
-	if strings.TrimSpace(rule.NotifyTemplate) != "" {
-		return rule.NotifyTemplate
-	}
-	if recovered {
-		return fmt.Sprintf("规则 %s 已恢复，当前值: %s", rule.Name, event.RecoverValue)
-	}
-	return fmt.Sprintf("规则 %s 触发，当前值: %s，条件: %s", rule.Name, event.TriggerValue, event.TriggerExpr)
 }

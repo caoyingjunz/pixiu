@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package alert
+package notify
 
 import (
 	"context"
@@ -29,16 +29,15 @@ import (
 
 const maxNotifyRetry = 3
 
-// NotifyManager persists and dispatches alert notifications.
-type NotifyManager struct {
+type Manager struct {
 	factory db.ShareDaoFactory
 }
 
-func NewNotifyManager(factory db.ShareDaoFactory) *NotifyManager {
-	return &NotifyManager{factory: factory}
+func NewManager(factory db.ShareDaoFactory) *Manager {
+	return &Manager{factory: factory}
 }
 
-func (n *NotifyManager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, event *model.AlertEvent, recovered bool) error {
+func (n *Manager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, event *model.AlertEvent, recovered bool) error {
 	channelIDs := parseNotifyChannelIDs(rule.NotifyChannels)
 	if len(channelIDs) == 0 {
 		return nil
@@ -120,7 +119,7 @@ func resolveNotificationTargetFromChannel(channel *model.AlertChannel) (receiver
 	}
 }
 
-func (n *NotifyManager) DispatchPending(ctx context.Context) error {
+func (n *Manager) DispatchPending(ctx context.Context) error {
 	items, err := n.factory.Alert().Notification().ListPending(ctx, 100)
 	if err != nil {
 		return err
@@ -134,7 +133,7 @@ func (n *NotifyManager) DispatchPending(ctx context.Context) error {
 	return nil
 }
 
-func (n *NotifyManager) dispatchOne(ctx context.Context, item *model.AlertNotification) error {
+func (n *Manager) dispatchOne(ctx context.Context, item *model.AlertNotification) error {
 	sendErr := sendByChannel(item)
 	updates := map[string]interface{}{}
 	if sendErr == nil {

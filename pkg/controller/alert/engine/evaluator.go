@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package alert
+package engine
 
 import (
 	"fmt"
@@ -24,7 +24,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// Evaluator compares metric values against rule expressions.
 type Evaluator struct{}
 
 func NewEvaluator() *Evaluator {

@@ -19,7 +19,7 @@ package jobmanager
 import (
 	"context"
 
-	"github.com/caoyingjunz/pixiu/pkg/alert"
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/engine"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
@@ -27,11 +27,11 @@ import (
 const DefaultAlertNotifyDispatchInterval = "@every 15s"
 
 type AlertEvaluator struct {
-	scheduler *alert.Scheduler
+	scheduler *engine.Scheduler
 }
 
 func NewAlertEvaluator(f db.ShareDaoFactory) *AlertEvaluator {
-	scheduler := alert.NewScheduler(f, &alert.StaticMetricProvider{})
+	scheduler := engine.NewScheduler(f, &engine.StaticMetricProvider{})
 	scheduler.Start(context.Background())
 	return &AlertEvaluator{scheduler: scheduler}
 }

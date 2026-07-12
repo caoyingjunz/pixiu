@@ -14,21 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package alert
+package notify
 
 import (
 	"encoding/json"
 	"strconv"
 	"strings"
 )
-
-// AlertChannel config examples stored in alert_channels.config:
-//
-// DingTalk (channel_type=2):
-// {"webhook_url":"https://oapi.dingtalk.com/robot/send?access_token=xxx","secret":"SEC..."}
-//
-// Webhook (channel_type=4):
-// {"url":"https://example.com/hooks/alert","headers":{"Authorization":"Bearer token"}}
 
 type DingTalkChannelConfig struct {
 	WebhookURL string `json:"webhook_url"`
