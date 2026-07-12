@@ -425,9 +425,9 @@ type Turn struct {
 type ListOptions struct {
 	UserId int64 `form:"user_id" json:"user_id"` // 用户 id
 
-	CustomMeta  `json:",inline"`
-	PageRequest `json:",inline"` // 分页请求属性
-	QueryOption `json:",inline"` // 搜索内容
+	CustomMeta  `form:",inline" json:",inline"`
+	PageRequest `form:",inline" json:",inline"` // 分页请求属性
+	QueryOption `form:",inline" json:",inline"` // 搜索内容
 }
 
 type CustomMeta struct {
@@ -439,6 +439,11 @@ type CustomMeta struct {
 	Provider       string                `form:"provider" json:"provider"`
 	Enabled        *bool                 `form:"enabled" json:"enabled"`
 	ConversationId int64                 `form:"conversation_id" json:"conversation_id"`
+
+	RuleId    int64               `form:"rule_id" json:"rule_id"`
+	EventId   int64               `form:"event_id" json:"event_id"`
+	ClusterId int64               `form:"cluster_id" json:"cluster_id"`
+	Severity  model.AlertSeverity `form:"severity" json:"severity"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {

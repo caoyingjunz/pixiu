@@ -98,7 +98,7 @@ func (r *router) getRule(c *gin.Context) {
 
 func (r *router) listRules(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var listOption types.AlertListOptions
+	var listOption types.ListOptions
 	if err := httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
@@ -130,7 +130,7 @@ func (r *router) getEvent(c *gin.Context) {
 
 func (r *router) listEvents(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var listOption types.AlertListOptions
+	var listOption types.ListOptions
 	if err := httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
@@ -163,7 +163,7 @@ func (r *router) updateEventStatus(c *gin.Context) {
 
 func (r *router) listNotifications(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var listOption types.AlertListOptions
+	var listOption types.ListOptions
 	if err := httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
@@ -240,7 +240,7 @@ func (r *router) getSilence(c *gin.Context) {
 
 func (r *router) listSilences(c *gin.Context) {
 	resp := httputils.NewResponse()
-	var listOption types.AlertListOptions
+	var listOption types.ListOptions
 	if err := httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return

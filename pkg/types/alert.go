@@ -159,18 +159,3 @@ type UpdateAlertEventStatusRequest struct {
 	ResourceVersion int64                  `json:"resource_version" binding:"required"`
 	Status          model.AlertEventStatus `json:"status" binding:"required"`
 }
-
-type AlertListOptions struct {
-	ListOptions `json:",inline"`
-
-	RuleId    int64                  `form:"rule_id" json:"rule_id"`
-	EventId   int64                  `form:"event_id" json:"event_id"`
-	ClusterId int64                  `form:"cluster_id" json:"cluster_id"`
-	Severity  model.AlertSeverity    `form:"severity" json:"severity"`
-	Status    model.AlertEventStatus `form:"status" json:"status"`
-	Name      string                 `form:"name" json:"name"`
-}
-
-func (o *AlertListOptions) SetDefaultPageOption() {
-	o.ListOptions.SetDefaultPageOption()
-}

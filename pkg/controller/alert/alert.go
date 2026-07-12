@@ -42,19 +42,19 @@ type Interface interface {
 	UpdateRule(ctx context.Context, ruleId int64, req *types.UpdateAlertRuleRequest) error
 	DeleteRule(ctx context.Context, ruleId int64) error
 	GetRule(ctx context.Context, ruleId int64) (*types.AlertRule, error)
-	ListRules(ctx context.Context, listOption types.AlertListOptions) (interface{}, error)
+	ListRules(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	GetEvent(ctx context.Context, eventId int64) (*types.AlertEvent, error)
-	ListEvents(ctx context.Context, listOption types.AlertListOptions) (interface{}, error)
+	ListEvents(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 	UpdateEventStatus(ctx context.Context, eventId int64, req *types.UpdateAlertEventStatusRequest) error
 
-	ListNotifications(ctx context.Context, listOption types.AlertListOptions) (interface{}, error)
+	ListNotifications(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	CreateSilence(ctx context.Context, req *types.CreateAlertSilenceRequest) error
 	UpdateSilence(ctx context.Context, silenceId int64, req *types.UpdateAlertSilenceRequest) error
 	DeleteSilence(ctx context.Context, silenceId int64) error
 	GetSilence(ctx context.Context, silenceId int64) (*types.AlertSilence, error)
-	ListSilences(ctx context.Context, listOption types.AlertListOptions) (interface{}, error)
+	ListSilences(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
 type controller struct {
@@ -178,27 +178,36 @@ func (c *controller) GetRule(ctx context.Context, ruleId int64) (*types.AlertRul
 	return ruleModelToType(object), nil
 }
 
-func (c *controller) ListRules(ctx context.Context, listOption types.AlertListOptions) (interface{}, error) {
+func (c *controller) ListRules(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
 	listOption.SetDefaultPageOption()
-	pageResult := types.PageResult{PageRequest: types.PageRequest{Page: listOption.Page, Limit: listOption.Limit}}
 
-	opts := []db.Options{
-		db.WithAlertRuleNameLike(listOption.Name),
-		db.WithAlertSeverity(listOption.Severity),
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
 
-	total, err := c.factory.Alert().Rule().Count(ctx, opts...)
+	opts := buildRuleListOpts(listOption)
+
+	var err error
+	pageResult.Total, err = c.factory.Alert().Rule().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count alert rules: %v", err)
-		return nil, apierrors.ErrServerInternal
+		pageResult.Message = err.Error()
 	}
-	pageResult.Total = total
 
 	offset := (listOption.Page - 1) * listOption.Limit
-	opts = append(opts, db.WithModifyOrderByDesc(), db.WithOffset(offset), db.WithLimit(listOption.Limit))
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
+
 	objects, err := c.factory.Alert().Rule().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list alert rules: %v", err)
+		pageResult.Message = err.Error()
 		return nil, apierrors.ErrServerInternal
 	}
 
@@ -207,6 +216,7 @@ func (c *controller) ListRules(ctx context.Context, listOption types.AlertListOp
 		items = append(items, *ruleModelToType(&objects[i]))
 	}
 	pageResult.Items = items
+
 	return pageResult, nil
 }
 
@@ -222,28 +232,36 @@ func (c *controller) GetEvent(ctx context.Context, eventId int64) (*types.AlertE
 	return eventModelToType(object), nil
 }
 
-func (c *controller) ListEvents(ctx context.Context, listOption types.AlertListOptions) (interface{}, error) {
+func (c *controller) ListEvents(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
 	listOption.SetDefaultPageOption()
-	pageResult := types.PageResult{PageRequest: types.PageRequest{Page: listOption.Page, Limit: listOption.Limit}}
 
-	opts := []db.Options{
-		db.WithAlertRuleId(listOption.RuleId),
-		db.WithAlertEventStatus(listOption.Status),
-		db.WithAlertSeverity(listOption.Severity),
-		db.WithAlertClusterId(listOption.ClusterId),
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
-	total, err := c.factory.Alert().Event().Count(ctx, opts...)
+
+	opts := buildEventListOpts(listOption)
+
+	var err error
+	pageResult.Total, err = c.factory.Alert().Event().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count alert events: %v", err)
-		return nil, apierrors.ErrServerInternal
+		pageResult.Message = err.Error()
 	}
-	pageResult.Total = total
 
 	offset := (listOption.Page - 1) * listOption.Limit
-	opts = append(opts, db.WithModifyOrderByDesc(), db.WithOffset(offset), db.WithLimit(listOption.Limit))
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
+
 	objects, err := c.factory.Alert().Event().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list alert events: %v", err)
+		pageResult.Message = err.Error()
 		return nil, apierrors.ErrServerInternal
 	}
 
@@ -252,6 +270,7 @@ func (c *controller) ListEvents(ctx context.Context, listOption types.AlertListO
 		items = append(items, *eventModelToType(&objects[i]))
 	}
 	pageResult.Items = items
+
 	return pageResult, nil
 }
 
@@ -267,26 +286,36 @@ func (c *controller) UpdateEventStatus(ctx context.Context, eventId int64, req *
 	return nil
 }
 
-func (c *controller) ListNotifications(ctx context.Context, listOption types.AlertListOptions) (interface{}, error) {
+func (c *controller) ListNotifications(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
 	listOption.SetDefaultPageOption()
-	pageResult := types.PageResult{PageRequest: types.PageRequest{Page: listOption.Page, Limit: listOption.Limit}}
 
-	opts := []db.Options{
-		db.WithAlertRuleId(listOption.RuleId),
-		db.WithAlertEventId(listOption.EventId),
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
 	}
-	total, err := c.factory.Alert().Notification().Count(ctx, opts...)
+
+	opts := buildNotificationListOpts(listOption)
+
+	var err error
+	pageResult.Total, err = c.factory.Alert().Notification().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count alert notifications: %v", err)
-		return nil, apierrors.ErrServerInternal
+		pageResult.Message = err.Error()
 	}
-	pageResult.Total = total
 
 	offset := (listOption.Page - 1) * listOption.Limit
-	opts = append(opts, db.WithModifyOrderByDesc(), db.WithOffset(offset), db.WithLimit(listOption.Limit))
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
+
 	objects, err := c.factory.Alert().Notification().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list alert notifications: %v", err)
+		pageResult.Message = err.Error()
 		return nil, apierrors.ErrServerInternal
 	}
 
@@ -295,6 +324,7 @@ func (c *controller) ListNotifications(ctx context.Context, listOption types.Ale
 		items = append(items, *notificationModelToType(&objects[i]))
 	}
 	pageResult.Items = items
+
 	return pageResult, nil
 }
 
@@ -383,23 +413,36 @@ func (c *controller) GetSilence(ctx context.Context, silenceId int64) (*types.Al
 	return silenceModelToType(object), nil
 }
 
-func (c *controller) ListSilences(ctx context.Context, listOption types.AlertListOptions) (interface{}, error) {
+func (c *controller) ListSilences(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
 	listOption.SetDefaultPageOption()
-	pageResult := types.PageResult{PageRequest: types.PageRequest{Page: listOption.Page, Limit: listOption.Limit}}
 
-	opts := []db.Options{}
-	total, err := c.factory.Alert().Silence().Count(ctx, opts...)
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
+	}
+
+	opts := buildSilenceListOpts(listOption)
+
+	var err error
+	pageResult.Total, err = c.factory.Alert().Silence().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count alert silences: %v", err)
-		return nil, apierrors.ErrServerInternal
+		pageResult.Message = err.Error()
 	}
-	pageResult.Total = total
 
 	offset := (listOption.Page - 1) * listOption.Limit
-	opts = append(opts, db.WithModifyOrderByDesc(), db.WithOffset(offset), db.WithLimit(listOption.Limit))
+	opts = append(opts, []db.Options{
+		db.WithModifyOrderByDesc(),
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+	}...)
+
 	objects, err := c.factory.Alert().Silence().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to list alert silences: %v", err)
+		pageResult.Message = err.Error()
 		return nil, apierrors.ErrServerInternal
 	}
 
@@ -408,7 +451,45 @@ func (c *controller) ListSilences(ctx context.Context, listOption types.AlertLis
 		items = append(items, *silenceModelToType(&objects[i]))
 	}
 	pageResult.Items = items
+
 	return pageResult, nil
+}
+
+func buildRuleListOpts(opt types.ListOptions) []db.Options {
+	return []db.Options{
+		db.WithNameLike(opt.NameSelector),
+		db.WithAlertSeverity(opt.Severity),
+	}
+}
+
+func buildEventListOpts(opt types.ListOptions) []db.Options {
+	opts := []db.Options{
+		db.WithAlertRuleId(opt.RuleId),
+		db.WithAlertSeverity(opt.Severity),
+		db.WithAlertClusterId(opt.ClusterId),
+	}
+	if opt.Status != nil && *opt.Status != 0 {
+		opts = append(opts, db.WithAlertEventStatus(model.AlertEventStatus(*opt.Status)))
+	}
+	return opts
+}
+
+func buildNotificationListOpts(opt types.ListOptions) []db.Options {
+	return []db.Options{
+		db.WithAlertRuleId(opt.RuleId),
+		db.WithAlertEventId(opt.EventId),
+	}
+}
+
+func buildSilenceListOpts(opt types.ListOptions) []db.Options {
+	opts := []db.Options{}
+	if opt.Enabled != nil {
+		opts = append(opts, db.WithEnabled(*opt.Enabled))
+	}
+	if opt.NameSelector != "" {
+		opts = append(opts, db.WithNameLike(opt.NameSelector))
+	}
+	return opts
 }
 
 func currentUserName(ctx context.Context) string {

@@ -361,12 +361,3 @@ func WithAlertClusterId(clusterId int64) Options {
 		return tx.Where("cluster_id = ?", clusterId)
 	}
 }
-
-func WithAlertRuleNameLike(name string) Options {
-	return func(tx *gorm.DB) *gorm.DB {
-		if name == "" {
-			return tx
-		}
-		return tx.Where("name like ?", "%"+name+"%")
-	}
-}

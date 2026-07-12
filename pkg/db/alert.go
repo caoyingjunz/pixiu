@@ -179,7 +179,7 @@ func (a *alertEvent) List(ctx context.Context, opts ...Options) ([]model.AlertEv
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
-	if err := tx.Order("id desc").Find(&objects).Error; err != nil {
+	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
 	return objects, nil
@@ -264,7 +264,7 @@ func (a *alertNotification) List(ctx context.Context, opts ...Options) ([]model.
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
-	if err := tx.Order("id desc").Find(&objects).Error; err != nil {
+	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
 	return objects, nil
