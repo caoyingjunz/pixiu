@@ -44,7 +44,7 @@ type Manager struct {
 func NewManager(lc *logutil.LogOptions, jobs ...Job) *Manager {
 	c := cron.New()
 	for _, job := range jobs {
-		c.AddFunc(job.CronSpec(), func() {
+		_, _ = c.AddFunc(job.CronSpec(), func() {
 			ctx := NewJobContext(job.Name(), lc)
 			ctx.Log(job.LogLevel(), job.Do(ctx))
 		})

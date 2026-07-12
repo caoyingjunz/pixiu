@@ -70,6 +70,8 @@ type Options struct {
 	ConfigFile string
 
 	JobManager *jobmanager.Manager
+
+	AlertEvaluator *jobmanager.AlertEvaluator
 }
 
 func NewOptions() (*Options, error) {
@@ -151,10 +153,12 @@ func (o *Options) Complete() error {
 		return err
 	}
 
+	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
 	o.JobManager = jobmanager.NewManager(
 		&o.ComponentConfig.Default.LogOptions,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory),
+		o.AlertEvaluator,
 	)
 	return nil
 }

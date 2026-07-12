@@ -1,0 +1,118 @@
+/*
+Copyright 2026 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package engine
+
+import (
+	"context"
+	"time"
+
+	"k8s.io/klog/v2"
+
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/notify"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+)
+
+type Manager struct {
+	factory  db.ShareDaoFactory
+	provider MetricProvider
+	eval     *Evaluator
+	trigger  *Trigger
+	silence  *SilenceManager
+	notify   *notify.Manager
+}
+
+func NewManager(factory db.ShareDaoFactory, provider MetricProvider) *Manager {
+	notifyManager := notify.NewManager(factory)
+	return &Manager{
+		factory:  factory,
+		provider: provider,
+		eval:     NewEvaluator(),
+		trigger:  NewTrigger(factory, notifyManager),
+		silence:  NewSilenceManager(factory),
+		notify:   notifyManager,
+	}
+}
+
+func (m *Manager) Run(ctx context.Context) error {
+	rules, err := m.factory.Alert().Rule().List(ctx, db.WithEnabled(true))
+	if err != nil {
+		return err
+	}
+
+	for i := range rules {
+		rule := rules[i]
+		if err = m.EvaluateRule(ctx, &rule); err != nil {
+			klog.Errorf("failed to evaluate alert rule(%d:%s): %v", rule.Id, rule.Name, err)
+		}
+	}
+
+	return m.DispatchPending(ctx)
+}
+
+func (m *Manager) EvaluateRule(ctx context.Context, rule *model.AlertRule) error {
+	silences, err := m.silence.LoadActive(ctx, time.Now())
+	if err != nil {
+		klog.Errorf("failed to load active alert silences: %v", err)
+	}
+	return m.evaluateRule(ctx, rule, silences)
+}
+
+func (m *Manager) DispatchPending(ctx context.Context) error {
+	if err := m.notify.DispatchPending(ctx); err != nil {
+		klog.Errorf("failed to dispatch pending alert notifications: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silences []model.AlertSilence) error {
+	samples, err := m.provider.Query(ctx, rule)
+	if err != nil {
+		return err
+	}
+	if len(samples) == 0 {
+		return nil
+	}
+
+	for _, sample := range samples {
+		matched := m.eval.Match(rule, sample.Value)
+		resourceType := sample.ResourceType
+		if resourceType == "" {
+			resourceType = "metric"
+		}
+		resourceName := sample.ResourceName
+		if resourceName == "" {
+			resourceName = rule.MetricName
+		}
+
+		if matched {
+			if m.silence.IsSilenced(silences, rule, sample) {
+				continue
+			}
+			if err = m.trigger.Fire(ctx, rule, sample); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err = m.trigger.Recover(ctx, rule, sample); err != nil {
+			return err
+		}
+	}
+	return nil
+}

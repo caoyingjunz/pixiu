@@ -19,6 +19,7 @@ package controller
 import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/agent"
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert"
 	"github.com/caoyingjunz/pixiu/pkg/controller/apiresource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/assistant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
@@ -50,6 +51,7 @@ type PixiuInterface interface {
 	datasource.Getter
 	runner.RunnerGetter
 	assistant.Getter
+	alert.Getter
 }
 
 type pixiu struct {
@@ -71,6 +73,7 @@ func (p *pixiu) Helm() helm.Interface             { return helm.NewHelm(p.factor
 func (p *pixiu) Agent() agent.Interface           { return agent.NewAgent(p.cc, p.factory) }
 func (p *pixiu) Datasource() datasource.Interface { return datasource.New(p.cc, p.factory) }
 func (p *pixiu) Assistant() assistant.Interface   { return assistant.New(p.cc, p.factory) }
+func (p *pixiu) Alert() alert.Interface           { return alert.New(p.cc, p.factory) }
 func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)
 }

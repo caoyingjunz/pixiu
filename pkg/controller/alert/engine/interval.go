@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Pixiu Authors.
+Copyright 2026 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,27 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package engine
 
-import (
-	"context"
+import "fmt"
 
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/db"
-)
+const DefaultEvalInterval = 15
 
-func MakeDbOptions(ctx context.Context) (opts []db.Options) {
-	exists, ids := httputils.GetIdRangeFromListReq(ctx)
-	if exists {
-		opts = append(opts, db.WithIDIn(ids...))
+func NormalizeEvalInterval(interval int) int {
+	if interval <= 0 {
+		return DefaultEvalInterval
 	}
-	return
+	return interval
 }
 
-func CurrentUserName(ctx context.Context) string {
-	user, err := httputils.GetUserFromRequest(ctx)
-	if err != nil || user == nil {
-		return ""
-	}
-	return user.Name
+func EvalCronSpec(interval int) string {
+	return fmt.Sprintf("@every %ds", NormalizeEvalInterval(interval))
 }
