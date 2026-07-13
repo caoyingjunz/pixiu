@@ -193,3 +193,8 @@ type UpdateAlertChannelRequest struct {
 	Enabled     *bool                     `json:"enabled"`
 	Extension   *string                   `json:"extension"`
 }
+
+type PingAlertChannelRequest struct {
+	ChannelType model.AlertNotifyChannel `json:"channel_type" binding:"required"`
+	Config      string                   `json:"config"`
+}
