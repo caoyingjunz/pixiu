@@ -109,15 +109,15 @@ type (
 	}
 
 	UpdateProviderRequest struct {
-		Id              int64  `json:"id"`
-		Provider        string `json:"provider" binding:"required"`
-		APIKey          string `json:"api_key" binding:"required"`
-		BaseURL         string `json:"base_url" binding:"required,url"`
-		Model           string `json:"model" binding:"required"`
-		Description     string `json:"description" binding:"omitempty"`
-		Enabled         *bool  `json:"enabled" binding:"omitempty"`
-		MaxTokens       int    `json:"max_tokens" binding:"omitempty"`
-		ResourceVersion int64  `json:"resource_version" binding:"required"`
+		PixiuMeta `json:",inline"`
+
+		Provider    string `json:"provider" binding:"required"`
+		APIKey      string `json:"api_key" binding:"required"`
+		BaseURL     string `json:"base_url" binding:"required,url"`
+		Model       string `json:"model" binding:"required"`
+		Description string `json:"description" binding:"omitempty"`
+		Enabled     *bool  `json:"enabled" binding:"omitempty"`
+		MaxTokens   int    `json:"max_tokens" binding:"omitempty"`
 	}
 
 	CreateTenantRequest struct {
