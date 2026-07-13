@@ -17,13 +17,22 @@ limitations under the License.
 package notify
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
+
+type feishuResponse struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}
 
 func PingChannel(channelType model.AlertNotifyChannel, config string) error {
 	switch channelType {
@@ -34,7 +43,9 @@ func PingChannel(channelType model.AlertNotifyChannel, config string) error {
 	case model.AlertNotifyChannelEmail:
 		return fmt.Errorf("邮件渠道暂不支持连通性测试")
 	case model.AlertNotifyChannelWeCom:
-		return fmt.Errorf("企业微信渠道暂不支持连通性测试")
+		return pingWeComChannel(config)
+	case model.AlertNotifyChannelFeishu:
+		return pingFeishuChannel(config)
 	default:
 		return fmt.Errorf("不支持的渠道类型: %d", channelType)
 	}
@@ -64,7 +75,7 @@ func pingDingTalkChannel(config string) error {
 		return fmt.Errorf("请求失败: %w", err)
 	}
 
-	var resp dingTalkResponse
+	var resp botResponse
 	if err = json.Unmarshal(body, &resp); err != nil {
 		return fmt.Errorf("解析钉钉响应失败: %w", err)
 	}
@@ -91,6 +102,77 @@ func pingWebhookChannel(config string) error {
 	_, _, err := postJSON(targetURL, cfg.Headers, payload)
 	if err != nil {
 		return fmt.Errorf("请求失败: %w", err)
+	}
+	return nil
+}
+
+func pingWeComChannel(config string) error {
+	cfg := parseWeComChannelConfig(config)
+	webhookURL := strings.TrimSpace(cfg.WebhookURL)
+	if webhookURL == "" {
+		return fmt.Errorf("企业微信 Webhook URL 未配置")
+	}
+
+	payload := map[string]interface{}{
+		"msgtype": "text",
+		"text": map[string]string{
+			"content": fmt.Sprintf("Pixiu 连通性测试 - %s", time.Now().Format("2006-01-02 15:04:05")),
+		},
+	}
+
+	body, _, err := postJSON(webhookURL, nil, payload)
+	if err != nil {
+		return fmt.Errorf("请求失败: %w", err)
+	}
+
+	var resp botResponse
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("解析企业微信响应失败: %w", err)
+	}
+	if resp.ErrCode != 0 {
+		return fmt.Errorf("企业微信返回错误: code=%d msg=%s", resp.ErrCode, resp.ErrMsg)
+	}
+	return nil
+}
+
+func pingFeishuChannel(config string) error {
+	cfg := parseFeishuChannelConfig(config)
+	webhookURL := strings.TrimSpace(cfg.WebhookURL)
+	if webhookURL == "" {
+		return fmt.Errorf("飞书 Webhook URL 未配置")
+	}
+
+	payload := map[string]interface{}{
+		"msg_type": "text",
+		"content": map[string]string{
+			"text": fmt.Sprintf("Pixiu 连通性测试 - %s", time.Now().Format("2006-01-02 15:04:05")),
+		},
+	}
+
+	secret := strings.TrimSpace(cfg.Secret)
+	if secret != "" {
+		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+		stringToSign := timestamp + "\n" + secret
+		mac := hmac.New(sha256.New, []byte(secret))
+		if _, err := mac.Write([]byte(stringToSign)); err != nil {
+			return fmt.Errorf("飞书签名失败: %w", err)
+		}
+		sign := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+		payload["timestamp"] = timestamp
+		payload["sign"] = sign
+	}
+
+	body, _, err := postJSON(webhookURL, nil, payload)
+	if err != nil {
+		return fmt.Errorf("请求失败: %w", err)
+	}
+
+	var resp feishuResponse
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("解析飞书响应失败: %w", err)
+	}
+	if resp.Code != 0 {
+		return fmt.Errorf("飞书返回错误: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 	return nil
 }

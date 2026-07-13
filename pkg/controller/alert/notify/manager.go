@@ -114,6 +114,16 @@ func resolveNotificationTargetFromChannel(channel *model.AlertChannel) (receiver
 			Headers: cfg.Headers,
 		})
 		return receiver, extension, nil
+	case model.AlertNotifyChannelFeishu:
+		cfg := parseFeishuChannelConfig(channel.Config)
+		receiver = strings.TrimSpace(cfg.WebhookURL)
+		if receiver == "" {
+			return "", "", fmt.Errorf("feishu webhook_url is not configured in channel(%d)", channel.Id)
+		}
+		extension = marshalNotificationExtension(FeishuNotificationExtension{
+			Secret: cfg.Secret,
+		})
+		return receiver, extension, nil
 	default:
 		return "", "", fmt.Errorf("channel type %d is not supported in channel(%d)", channel.ChannelType, channel.Id)
 	}
@@ -159,6 +169,8 @@ func sendByChannel(item *model.AlertNotification) error {
 		return sendWeCom(item)
 	case model.AlertNotifyChannelWebhook:
 		return sendWebhook(item)
+	case model.AlertNotifyChannelFeishu:
+		return sendFeishu(item)
 	default:
 		return fmt.Errorf("unsupported notify channel: %d", item.Channel)
 	}
@@ -172,4 +184,9 @@ func sendEmail(item *model.AlertNotification) error {
 func sendWeCom(item *model.AlertNotification) error {
 	_ = item
 	return fmt.Errorf("wecom notification is not implemented")
+}
+
+func sendFeishu(item *model.AlertNotification) error {
+	_ = item
+	return fmt.Errorf("feishu notification is not implemented")
 }

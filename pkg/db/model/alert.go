@@ -74,6 +74,7 @@ const (
 	AlertNotifyChannelDingTalk AlertNotifyChannel = 2
 	AlertNotifyChannelWeCom    AlertNotifyChannel = 3
 	AlertNotifyChannelWebhook  AlertNotifyChannel = 4
+	AlertNotifyChannelFeishu   AlertNotifyChannel = 5
 )
 
 type AlertNotificationStatus int

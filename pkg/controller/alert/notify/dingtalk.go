@@ -30,7 +30,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-type dingTalkResponse struct {
+type botResponse struct {
 	ErrCode int    `json:"errcode"`
 	ErrMsg  string `json:"errmsg"`
 }
@@ -60,7 +60,7 @@ func sendDingTalk(item *model.AlertNotification) error {
 		return err
 	}
 
-	var resp dingTalkResponse
+	var resp botResponse
 	if err = json.Unmarshal(body, &resp); err != nil {
 		return fmt.Errorf("invalid dingtalk response: %w", err)
 	}
