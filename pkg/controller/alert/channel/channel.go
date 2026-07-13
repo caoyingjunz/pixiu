@@ -25,6 +25,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/notify"
 	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -38,6 +39,7 @@ type Interface interface {
 	Delete(ctx context.Context, channelId int64) error
 	Get(ctx context.Context, channelId int64) (*types.AlertChannel, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+	Ping(ctx context.Context, req *types.PingAlertChannelRequest) error
 }
 
 type controller struct {
@@ -166,6 +168,14 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	pageResult.Items = items
 
 	return pageResult, nil
+}
+
+func (c *controller) Ping(ctx context.Context, req *types.PingAlertChannelRequest) error {
+	if err := notify.PingChannel(req.ChannelType, req.Config); err != nil {
+		klog.Errorf("ping channel connectivity failed (type=%d): %v", req.ChannelType, err)
+		return apierrors.NewError(err, http.StatusBadRequest)
+	}
+	return nil
 }
 
 func buildListOpts(opt types.ListOptions) []db.Options {

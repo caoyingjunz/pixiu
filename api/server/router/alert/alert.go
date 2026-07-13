@@ -76,6 +76,7 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/:channelId", Handler: r.deleteChannel, Description: "Delete alert channel"},
 			{Method: "GET", RelativePath: "", Handler: r.listChannels, Description: "List alert channels"},
 			{Method: "GET", RelativePath: "/:channelId", Handler: r.getChannel, Description: "Get alert channel"},
+			{Method: "POST", RelativePath: "/ping", Handler: r.pingChannel, Description: "Ping alert channel connectivity"},
 		},
 	}
 	channelGroup.Register(ginEngine.Group(alertChannelBaseURL), r.c.APIResource())

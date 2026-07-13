@@ -264,6 +264,21 @@ func (r *router) listChannels(c *gin.Context) {
 	httputils.SetSuccess(c, resp)
 }
 
+func (r *router) pingChannel(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var req types.PingAlertChannelRequest
+	if err := httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err := r.c.Alert().Channel().Ping(c, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
 func (r *router) listNotifications(c *gin.Context) {
 	resp := httputils.NewResponse()
 
