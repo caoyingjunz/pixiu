@@ -127,21 +127,22 @@ type CreateAlertRuleRequest struct {
 }
 
 type UpdateAlertRuleRequest struct {
-	ResourceVersion int64                 `json:"resource_version" binding:"required"`
-	Name            *string               `json:"name"`
-	Description     *string               `json:"description"`
-	RuleType        *model.AlertRuleType  `json:"rule_type"`
-	MetricName      *string               `json:"metric_name"`
-	ConditionExpr   *string               `json:"condition_expr"`
-	Duration        *int                  `json:"duration"`
-	EvalInterval    *int                  `json:"eval_interval"`
-	Severity        *model.AlertSeverity  `json:"severity"`
-	ScopeType       *model.AlertScopeType `json:"scope_type"`
-	ScopeValue      *string               `json:"scope_value"`
-	NotifyChannels  *string               `json:"notify_channels"`
-	NotifyTemplate  *string               `json:"notify_template"`
-	Enabled         *bool                 `json:"enabled"`
-	Extension       *string               `json:"extension"`
+	PixiuMeta `json:",inline"`
+
+	Name           *string               `json:"name"`
+	Description    *string               `json:"description"`
+	RuleType       *model.AlertRuleType  `json:"rule_type"`
+	MetricName     *string               `json:"metric_name"`
+	ConditionExpr  *string               `json:"condition_expr"`
+	Duration       *int                  `json:"duration"`
+	EvalInterval   *int                  `json:"eval_interval"`
+	Severity       *model.AlertSeverity  `json:"severity"`
+	ScopeType      *model.AlertScopeType `json:"scope_type"`
+	ScopeValue     *string               `json:"scope_value"`
+	NotifyChannels *string               `json:"notify_channels"`
+	NotifyTemplate *string               `json:"notify_template"`
+	Enabled        *bool                 `json:"enabled"`
+	Extension      *string               `json:"extension"`
 }
 
 type CreateAlertSilenceRequest struct {
@@ -156,7 +157,8 @@ type CreateAlertSilenceRequest struct {
 }
 
 type UpdateAlertSilenceRequest struct {
-	ResourceVersion  int64      `json:"resource_version" binding:"required"`
+	PixiuMeta `json:",inline"`
+
 	Name             *string    `json:"name"`
 	MatchLabels      *string    `json:"match_labels"`
 	MatchExpressions *string    `json:"match_expressions"`
@@ -182,11 +184,12 @@ type CreateAlertChannelRequest struct {
 }
 
 type UpdateAlertChannelRequest struct {
-	ResourceVersion int64                     `json:"resource_version" binding:"required"`
-	Name            *string                   `json:"name"`
-	Description     *string                   `json:"description"`
-	ChannelType     *model.AlertNotifyChannel `json:"channel_type"`
-	Config          *string                   `json:"config"`
-	Enabled         *bool                     `json:"enabled"`
-	Extension       *string                   `json:"extension"`
+	PixiuMeta `json:",inline"`
+
+	Name        *string                   `json:"name"`
+	Description *string                   `json:"description"`
+	ChannelType *model.AlertNotifyChannel `json:"channel_type"`
+	Config      *string                   `json:"config"`
+	Enabled     *bool                     `json:"enabled"`
+	Extension   *string                   `json:"extension"`
 }
