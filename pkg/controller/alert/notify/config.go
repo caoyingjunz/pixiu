@@ -32,12 +32,25 @@ type WebhookChannelConfig struct {
 	Headers map[string]string `json:"headers"`
 }
 
+type WeComChannelConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+type FeishuChannelConfig struct {
+	WebhookURL string `json:"webhook_url"`
+	Secret     string `json:"secret"`
+}
+
 type DingTalkNotificationExtension struct {
 	Secret string `json:"secret"`
 }
 
 type WebhookNotificationExtension struct {
 	Headers map[string]string `json:"headers"`
+}
+
+type FeishuNotificationExtension struct {
+	Secret string `json:"secret"`
 }
 
 func parseNotifyChannelIDs(raw string) []int64 {
@@ -69,6 +82,26 @@ func parseDingTalkChannelConfig(raw string) DingTalkChannelConfig {
 
 func parseWebhookChannelConfig(raw string) WebhookChannelConfig {
 	cfg := WebhookChannelConfig{}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return cfg
+	}
+	_ = json.Unmarshal([]byte(raw), &cfg)
+	return cfg
+}
+
+func parseWeComChannelConfig(raw string) WeComChannelConfig {
+	cfg := WeComChannelConfig{}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return cfg
+	}
+	_ = json.Unmarshal([]byte(raw), &cfg)
+	return cfg
+}
+
+func parseFeishuChannelConfig(raw string) FeishuChannelConfig {
+	cfg := FeishuChannelConfig{}
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return cfg
