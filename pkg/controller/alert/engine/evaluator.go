@@ -17,7 +17,6 @@ limitations under the License.
 package engine
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -30,16 +29,16 @@ func NewEvaluator() *Evaluator {
 	return &Evaluator{}
 }
 
-func (e *Evaluator) Match(rule *model.AlertRule, value string) bool {
-	expr := strings.TrimSpace(rule.ConditionExpr)
+func (e *Evaluator) MatchExpr(ruleType model.AlertRuleType, expr string, value string) bool {
+	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return false
 	}
 
-	switch rule.RuleType {
-	case model.AlertRuleTypeThreshold:
+	switch ruleType {
+	case model.AlertRuleTypeMetric:
 		return matchThreshold(value, expr)
-	case model.AlertRuleTypeStatus, model.AlertRuleTypeEvent:
+	case model.AlertRuleTypeLog, model.AlertRuleTypeEvent:
 		return matchTextCondition(value, expr)
 	default:
 		return false
@@ -113,9 +112,19 @@ func matchTextCondition(value, expr string) bool {
 	}
 }
 
-func formatTriggerExpr(rule *model.AlertRule) string {
-	if strings.TrimSpace(rule.ConditionExpr) == "" {
-		return ""
+func formatTriggerExpr(trigger EvaluableTrigger) string {
+	promQl := strings.TrimSpace(trigger.PromQl)
+	condition := strings.TrimSpace(trigger.Condition)
+	switch {
+	case promQl != "" && condition != "":
+		return promQl + " " + condition
+	case condition != "":
+		return condition
+	default:
+		return promQl
 	}
-	return fmt.Sprintf("%s %s", rule.MetricName, strings.TrimSpace(rule.ConditionExpr))
+}
+
+func formatTriggerKey(trigger EvaluableTrigger) string {
+	return formatTriggerExpr(trigger)
 }

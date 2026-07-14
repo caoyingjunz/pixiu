@@ -26,21 +26,24 @@ type AlertRule struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name           string               `json:"name"`
-	Description    string               `json:"description"`
-	RuleType       model.AlertRuleType  `json:"rule_type"`
-	MetricName     string               `json:"metric_name"`
-	ConditionExpr  string               `json:"condition_expr"`
-	Duration       int                  `json:"duration"`
-	EvalInterval   int                  `json:"eval_interval"`
-	Severity       model.AlertSeverity  `json:"severity"`
-	ScopeType      model.AlertScopeType `json:"scope_type"`
-	ScopeValue     string               `json:"scope_value"`
-	NotifyChannels string               `json:"notify_channels"` // 关联 alert_channels 表 ID，逗号分隔，如 "1,2"
-	NotifyTemplate string               `json:"notify_template"`
-	Enabled        bool                 `json:"enabled"`
-	CreatedBy      string               `json:"created_by"`
-	Extension      string               `json:"extension"`
+	Name             string               `json:"name"`
+	Description      string               `json:"description"`
+	RuleType         model.AlertRuleType  `json:"rule_type"`
+	Duration         int                  `json:"duration"`
+	EvalInterval     int                  `json:"eval_interval"`
+	Severity         model.AlertSeverity  `json:"severity"`
+	ScopeType        model.AlertScopeType `json:"scope_type"`
+	ScopeValue       string               `json:"scope_value"`
+	NotifyChannels   string               `json:"notify_channels"` // 关联 alert_channels 表 ID，逗号分隔，如 "1,2"
+	NotifyTemplate   string               `json:"notify_template"`
+	RuleConfig       string               `json:"rule_config"`         // JSON，多条告警条件
+	EnableDaysOfWeek string               `json:"enable_days_of_week"` // 空格分隔，如 "1 2 3 4 5"；空表示全天
+	EnableStime      string               `json:"enable_stime"`        // HH:mm，默认 00:00
+	EnableEtime      string               `json:"enable_etime"`        // HH:mm，默认 00:00（与开始相同时表示整天）
+	DatasourceId     int64                `json:"datasource_id"`
+	Enabled          bool                 `json:"enabled"`
+	CreatedBy        string               `json:"created_by"`
+	Extension        string               `json:"extension"`
 }
 
 type AlertEvent struct {
@@ -110,39 +113,45 @@ type AlertSilence struct {
 }
 
 type CreateAlertRuleRequest struct {
-	Name           string               `json:"name" binding:"required"`
-	Description    string               `json:"description"`
-	RuleType       model.AlertRuleType  `json:"rule_type" binding:"required"`
-	MetricName     string               `json:"metric_name"`
-	ConditionExpr  string               `json:"condition_expr" binding:"required"`
-	Duration       int                  `json:"duration"`
-	EvalInterval   int                  `json:"eval_interval"`
-	Severity       model.AlertSeverity  `json:"severity" binding:"required"`
-	ScopeType      model.AlertScopeType `json:"scope_type" binding:"required"`
-	ScopeValue     string               `json:"scope_value"`
-	NotifyChannels string               `json:"notify_channels"` // 关联 alert_channels 表 ID，逗号分隔，如 "1,2"
-	NotifyTemplate string               `json:"notify_template"`
-	Enabled        *bool                `json:"enabled"`
-	Extension      string               `json:"extension"`
+	Name             string               `json:"name" binding:"required"`
+	Description      string               `json:"description"`
+	RuleType         model.AlertRuleType  `json:"rule_type" binding:"required"`
+	Duration         int                  `json:"duration"`
+	EvalInterval     int                  `json:"eval_interval"`
+	Severity         model.AlertSeverity  `json:"severity"`
+	ScopeType        model.AlertScopeType `json:"scope_type" binding:"required"`
+	ScopeValue       string               `json:"scope_value"`
+	NotifyChannels   string               `json:"notify_channels"` // 关联 alert_channels 表 ID，逗号分隔，如 "1,2"
+	NotifyTemplate   string               `json:"notify_template"`
+	RuleConfig       string               `json:"rule_config" binding:"required"`
+	EnableDaysOfWeek string               `json:"enable_days_of_week"`
+	EnableStime      string               `json:"enable_stime"`
+	EnableEtime      string               `json:"enable_etime"`
+	DatasourceId     int64                `json:"datasource_id"`
+	Enabled          *bool                `json:"enabled"`
+	Extension        string               `json:"extension"`
 }
 
 type UpdateAlertRuleRequest struct {
 	PixiuMeta `json:",inline"`
 
-	Name           *string               `json:"name"`
-	Description    *string               `json:"description"`
-	RuleType       *model.AlertRuleType  `json:"rule_type"`
-	MetricName     *string               `json:"metric_name"`
-	ConditionExpr  *string               `json:"condition_expr"`
-	Duration       *int                  `json:"duration"`
-	EvalInterval   *int                  `json:"eval_interval"`
-	Severity       *model.AlertSeverity  `json:"severity"`
-	ScopeType      *model.AlertScopeType `json:"scope_type"`
-	ScopeValue     *string               `json:"scope_value"`
-	NotifyChannels *string               `json:"notify_channels"`
-	NotifyTemplate *string               `json:"notify_template"`
-	Enabled        *bool                 `json:"enabled"`
-	Extension      *string               `json:"extension"`
+	Name             *string               `json:"name"`
+	Description      *string               `json:"description"`
+	RuleType         *model.AlertRuleType  `json:"rule_type"`
+	Duration         *int                  `json:"duration"`
+	EvalInterval     *int                  `json:"eval_interval"`
+	Severity         *model.AlertSeverity  `json:"severity"`
+	ScopeType        *model.AlertScopeType `json:"scope_type"`
+	ScopeValue       *string               `json:"scope_value"`
+	NotifyChannels   *string               `json:"notify_channels"`
+	NotifyTemplate   *string               `json:"notify_template"`
+	RuleConfig       *string               `json:"rule_config"`
+	EnableDaysOfWeek *string               `json:"enable_days_of_week"`
+	EnableStime      *string               `json:"enable_stime"`
+	EnableEtime      *string               `json:"enable_etime"`
+	DatasourceId     *int64                `json:"datasource_id"`
+	Enabled          *bool                 `json:"enabled"`
+	Extension        *string               `json:"extension"`
 }
 
 type CreateAlertSilenceRequest struct {

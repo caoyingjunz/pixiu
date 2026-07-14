@@ -34,14 +34,14 @@ func NewTrigger(factory db.ShareDaoFactory, notifyManager *notify.Manager) *Trig
 	return &Trigger{factory: factory, notify: notifyManager}
 }
 
-func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample MetricSample) error {
+func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample MetricSample, trigger EvaluableTrigger) error {
 	resourceType := sample.ResourceType
 	if resourceType == "" {
 		resourceType = "metric"
 	}
 	resourceName := sample.ResourceName
 	if resourceName == "" {
-		resourceName = rule.MetricName
+		resourceName = formatTriggerKey(trigger)
 	}
 
 	active, err := t.factory.Alert().Event().GetActive(ctx, rule.Id, resourceType, resourceName)
@@ -52,7 +52,7 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 		return nil
 	}
 
-	if rule.Duration > 0 && !t.durationSatisfied(active, rule.Duration) {
+	if trigger.Duration > 0 && !t.durationSatisfied(active, trigger.Duration) {
 		return nil
 	}
 
@@ -60,9 +60,9 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 		RuleId:            rule.Id,
 		RuleName:          rule.Name,
 		Status:            model.AlertEventStatusFiring,
-		Severity:          rule.Severity,
+		Severity:          trigger.Severity,
 		TriggerValue:      sample.Value,
-		TriggerExpr:       formatTriggerExpr(rule),
+		TriggerExpr:       formatTriggerExpr(trigger),
 		ResourceType:      resourceType,
 		ResourceName:      resourceName,
 		ResourceNamespace: sample.Namespace,
@@ -77,14 +77,14 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 	return t.notify.EnqueueForEvent(ctx, rule, event, false)
 }
 
-func (t *Trigger) Recover(ctx context.Context, rule *model.AlertRule, sample MetricSample) error {
+func (t *Trigger) Recover(ctx context.Context, rule *model.AlertRule, sample MetricSample, trigger EvaluableTrigger) error {
 	resourceType := sample.ResourceType
 	if resourceType == "" {
 		resourceType = "metric"
 	}
 	resourceName := sample.ResourceName
 	if resourceName == "" {
-		resourceName = rule.MetricName
+		resourceName = formatTriggerKey(trigger)
 	}
 
 	active, err := t.factory.Alert().Event().GetActive(ctx, rule.Id, resourceType, resourceName)
