@@ -56,22 +56,30 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		enabled = *req.Enabled
 	}
 
+	normalizedConfig, normalizedSeverity, normalizedDuration, ok := engine.NormalizeRuleConfig(req.RuleConfig, req.Severity)
+	if !ok {
+		return apierrors.NewError(fmt.Errorf("rule_config must contain prom_ql and at least one trigger"), http.StatusBadRequest)
+	}
+
 	_, err := c.factory.Alert().Rule().Create(ctx, &model.AlertRule{
-		Name:           req.Name,
-		Description:    req.Description,
-		RuleType:       req.RuleType,
-		MetricName:     req.MetricName,
-		ConditionExpr:  req.ConditionExpr,
-		Duration:       req.Duration,
-		EvalInterval:   engine.NormalizeEvalInterval(req.EvalInterval),
-		Severity:       req.Severity,
-		ScopeType:      req.ScopeType,
-		ScopeValue:     req.ScopeValue,
-		NotifyChannels: req.NotifyChannels,
-		NotifyTemplate: req.NotifyTemplate,
-		Enabled:        enabled,
-		CreatedBy:      ctrlutil.CurrentUserName(ctx),
-		Extension:      req.Extension,
+		Name:             req.Name,
+		Description:      req.Description,
+		RuleType:         req.RuleType,
+		Duration:         normalizedDuration,
+		EvalInterval:     engine.NormalizeEvalInterval(req.EvalInterval),
+		Severity:         normalizedSeverity,
+		ScopeType:        req.ScopeType,
+		ScopeValue:       req.ScopeValue,
+		NotifyChannels:   req.NotifyChannels,
+		NotifyTemplate:   req.NotifyTemplate,
+		RuleConfig:       normalizedConfig,
+		EnableDaysOfWeek: engine.NormalizeEnableDaysOfWeek(req.EnableDaysOfWeek),
+		EnableStime:      engine.NormalizeEnableTime(req.EnableStime),
+		EnableEtime:      engine.NormalizeEnableTime(req.EnableEtime),
+		DatasourceId:     req.DatasourceId,
+		Enabled:          enabled,
+		CreatedBy:        ctrlutil.CurrentUserName(ctx),
+		Extension:        req.Extension,
 	})
 	if err != nil {
 		klog.Errorf("failed to create alert rule: %v", err)
@@ -91,20 +99,11 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 	if req.RuleType != nil {
 		updates["rule_type"] = *req.RuleType
 	}
-	if req.MetricName != nil {
-		updates["metric_name"] = *req.MetricName
-	}
-	if req.ConditionExpr != nil {
-		updates["condition_expr"] = *req.ConditionExpr
-	}
 	if req.Duration != nil {
 		updates["duration"] = *req.Duration
 	}
 	if req.EvalInterval != nil {
 		updates["eval_interval"] = engine.NormalizeEvalInterval(*req.EvalInterval)
-	}
-	if req.Severity != nil {
-		updates["severity"] = *req.Severity
 	}
 	if req.ScopeType != nil {
 		updates["scope_type"] = *req.ScopeType
@@ -118,12 +117,55 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 	if req.NotifyTemplate != nil {
 		updates["notify_template"] = *req.NotifyTemplate
 	}
+	if req.EnableDaysOfWeek != nil {
+		updates["enable_days_of_week"] = engine.NormalizeEnableDaysOfWeek(*req.EnableDaysOfWeek)
+	}
+	if req.EnableStime != nil {
+		updates["enable_stime"] = engine.NormalizeEnableTime(*req.EnableStime)
+	}
+	if req.EnableEtime != nil {
+		updates["enable_etime"] = engine.NormalizeEnableTime(*req.EnableEtime)
+	}
+	if req.DatasourceId != nil {
+		updates["datasource_id"] = *req.DatasourceId
+	}
 	if req.Enabled != nil {
 		updates["enabled"] = *req.Enabled
 	}
 	if req.Extension != nil {
 		updates["extension"] = *req.Extension
 	}
+
+	if req.RuleConfig != nil || req.Severity != nil {
+		current, err := c.factory.Alert().Rule().Get(ctx, ruleId)
+		if err != nil {
+			klog.Errorf("failed to get alert rule(%d) before update: %v", ruleId, err)
+			return apierrors.ErrServerInternal
+		}
+		if current == nil {
+			return apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
+		}
+
+		ruleConfig := current.RuleConfig
+		severity := current.Severity
+		if req.RuleConfig != nil {
+			ruleConfig = *req.RuleConfig
+		}
+		if req.Severity != nil {
+			severity = *req.Severity
+		}
+
+		normalizedConfig, normalizedSeverity, normalizedDuration, ok := engine.NormalizeRuleConfig(ruleConfig, severity)
+		if !ok {
+			return apierrors.NewError(fmt.Errorf("rule_config must contain prom_ql and at least one trigger"), http.StatusBadRequest)
+		}
+		updates["rule_config"] = normalizedConfig
+		updates["severity"] = normalizedSeverity
+		if req.Duration == nil {
+			updates["duration"] = normalizedDuration
+		}
+	}
+
 	if len(updates) == 0 {
 		return apierrors.NewError(fmt.Errorf("no fields to update"), http.StatusBadRequest)
 	}
@@ -211,10 +253,16 @@ func modelToType(object *model.AlertRule) *types.AlertRule {
 		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
 		Name:      object.Name, Description: object.Description, RuleType: object.RuleType,
-		MetricName: object.MetricName, ConditionExpr: object.ConditionExpr, Duration: object.Duration,
+		Duration:     object.Duration,
 		EvalInterval: engine.NormalizeEvalInterval(object.EvalInterval),
 		Severity:     object.Severity, ScopeType: object.ScopeType, ScopeValue: object.ScopeValue,
-		NotifyChannels: object.NotifyChannels, NotifyTemplate: object.NotifyTemplate,
-		Enabled: object.Enabled, CreatedBy: object.CreatedBy, Extension: object.Extension,
+		NotifyChannels:   object.NotifyChannels,
+		NotifyTemplate:   object.NotifyTemplate,
+		RuleConfig:       object.RuleConfig,
+		EnableDaysOfWeek: object.EnableDaysOfWeek,
+		EnableStime:      engine.NormalizeEnableTime(object.EnableStime),
+		EnableEtime:      engine.NormalizeEnableTime(object.EnableEtime),
+		DatasourceId:     object.DatasourceId,
+		Enabled:          object.Enabled, CreatedBy: object.CreatedBy, Extension: object.Extension,
 	}
 }

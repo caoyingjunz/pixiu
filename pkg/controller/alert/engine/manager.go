@@ -81,6 +81,11 @@ func (m *Manager) DispatchPending(ctx context.Context) error {
 }
 
 func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silences []model.AlertSilence) error {
+	triggers := ListAlertTriggers(rule)
+	if len(triggers) == 0 {
+		return nil
+	}
+
 	samples, err := m.provider.Query(ctx, rule)
 	if err != nil {
 		return err
@@ -89,29 +94,29 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 		return nil
 	}
 
-	for _, sample := range samples {
-		matched := m.eval.Match(rule, sample.Value)
-		resourceType := sample.ResourceType
-		if resourceType == "" {
-			resourceType = "metric"
-		}
-		resourceName := sample.ResourceName
-		if resourceName == "" {
-			resourceName = rule.MetricName
-		}
+	for _, trigger := range triggers {
+		ruleCopy := *rule
+		ruleCopy.Severity = trigger.Severity
+		ruleCopy.Duration = trigger.Duration
 
-		if matched {
-			if m.silence.IsSilenced(silences, rule, sample) {
+		for _, sample := range samples {
+			matched := m.eval.MatchExpr(ruleCopy.RuleType, trigger.Condition, sample.Value)
+			if matched {
+				if m.silence.IsSilenced(silences, &ruleCopy, sample) {
+					continue
+				}
+				if !IsWithinEffectiveTime(&ruleCopy, time.Now()) {
+					continue
+				}
+				if err = m.trigger.Fire(ctx, &ruleCopy, sample, trigger); err != nil {
+					return err
+				}
 				continue
 			}
-			if err = m.trigger.Fire(ctx, rule, sample); err != nil {
+
+			if err = m.trigger.Recover(ctx, &ruleCopy, sample, trigger); err != nil {
 				return err
 			}
-			continue
-		}
-
-		if err = m.trigger.Recover(ctx, rule, sample); err != nil {
-			return err
 		}
 	}
 	return nil

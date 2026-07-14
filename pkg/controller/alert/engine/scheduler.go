@@ -178,12 +178,14 @@ func ruleWorkerHash(rule *model.AlertRule) string {
 		strconv.FormatInt(rule.ResourceVersion, 10) + "_" +
 		strconv.Itoa(NormalizeEvalInterval(rule.EvalInterval)) + "_" +
 		strconv.FormatBool(rule.Enabled) + "_" +
-		rule.MetricName + "_" +
-		rule.ConditionExpr + "_" +
 		strconv.Itoa(int(rule.RuleType)) + "_" +
 		strconv.Itoa(rule.Duration) + "_" +
 		strconv.Itoa(int(rule.Severity)) + "_" +
 		strconv.Itoa(int(rule.ScopeType)) + "_" +
 		rule.ScopeValue + "_" +
-		rule.NotifyChannels
+		rule.NotifyChannels + "_" +
+		rule.RuleConfig + "_" +
+		rule.EnableDaysOfWeek + "_" +
+		NormalizeEnableTime(rule.EnableStime) + "_" +
+		NormalizeEnableTime(rule.EnableEtime)
 }
