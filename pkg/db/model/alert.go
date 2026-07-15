@@ -35,8 +35,12 @@ func init() {
 type AlertRuleType int
 
 const (
-	AlertRuleTypeThreshold AlertRuleType = 1
-	AlertRuleTypeStatus    AlertRuleType = 2
+	AlertRuleTypeMetric AlertRuleType = 1
+	AlertRuleTypeLog    AlertRuleType = 2
+
+	// Deprecated aliases kept for existing data compatibility.
+	AlertRuleTypeThreshold               = AlertRuleTypeMetric
+	AlertRuleTypeStatus                  = AlertRuleTypeLog
 	AlertRuleTypeEvent     AlertRuleType = 3
 )
 
@@ -89,21 +93,24 @@ const (
 type AlertRule struct {
 	pixiu.Model
 
-	Name           string         `gorm:"column:name;type:varchar(128);not null;index:idx_alert_rules_name" json:"name"`
-	Description    string         `gorm:"column:description;type:text" json:"description"`
-	RuleType       AlertRuleType  `gorm:"column:rule_type;not null" json:"rule_type"`
-	MetricName     string         `gorm:"column:metric_name;type:varchar(128)" json:"metric_name"`
-	ConditionExpr  string         `gorm:"column:condition_expr;type:varchar(512)" json:"condition_expr"`
-	Duration       int            `gorm:"column:duration;default:0" json:"duration"`
-	EvalInterval   int            `gorm:"column:eval_interval;default:15" json:"eval_interval"`
-	Severity       AlertSeverity  `gorm:"column:severity;not null;index:idx_alert_rules_severity" json:"severity"`
-	ScopeType      AlertScopeType `gorm:"column:scope_type;not null" json:"scope_type"`
-	ScopeValue     string         `gorm:"column:scope_value;type:text" json:"scope_value"`
-	NotifyChannels string         `gorm:"column:notify_channels;type:varchar(256)" json:"notify_channels"` // alert_channels ID list, comma separated
-	NotifyTemplate string         `gorm:"column:notify_template;type:text" json:"notify_template"`
-	Enabled        bool           `gorm:"column:enabled;default:true;not null;index:idx_alert_rules_enabled" json:"enabled"`
-	CreatedBy      string         `gorm:"column:created_by;type:varchar(128)" json:"created_by"`
-	Extension      string         `gorm:"column:extension;type:text" json:"extension"`
+	Name             string         `gorm:"column:name;type:varchar(128);not null;index:idx_alert_rules_name" json:"name"`
+	Description      string         `gorm:"column:description;type:text" json:"description"`
+	RuleType         AlertRuleType  `gorm:"column:rule_type;not null" json:"rule_type"`
+	Duration         int            `gorm:"column:duration;default:0" json:"duration"`
+	EvalInterval     int            `gorm:"column:eval_interval;default:15" json:"eval_interval"`
+	Severity         AlertSeverity  `gorm:"column:severity;not null;index:idx_alert_rules_severity" json:"severity"`
+	ScopeType        AlertScopeType `gorm:"column:scope_type;not null" json:"scope_type"`
+	ScopeValue       string         `gorm:"column:scope_value;type:text" json:"scope_value"`
+	NotifyChannels   string         `gorm:"column:notify_channels;type:varchar(256)" json:"notify_channels"` // alert_channels ID list, comma separated
+	NotifyTemplate   string         `gorm:"column:notify_template;type:text" json:"notify_template"`
+	RuleConfig       string         `gorm:"column:rule_config;type:text" json:"rule_config"`                                   // JSON: multiple alert conditions
+	EnableDaysOfWeek string         `gorm:"column:enable_days_of_week;type:varchar(64);default:''" json:"enable_days_of_week"` // space separated: 0 1 2 3 4 5 6, empty means all days
+	EnableStime      string         `gorm:"column:enable_stime;type:varchar(16);default:'00:00'" json:"enable_stime"`
+	EnableEtime      string         `gorm:"column:enable_etime;type:varchar(16);default:'00:00'" json:"enable_etime"`
+	DatasourceId     int64          `gorm:"column:datasource_id;default:0" json:"datasource_id"`
+	Enabled          bool           `gorm:"column:enabled;default:true;not null;index:idx_alert_rules_enabled" json:"enabled"`
+	CreatedBy        string         `gorm:"column:created_by;type:varchar(128)" json:"created_by"`
+	Extension        string         `gorm:"column:extension;type:text" json:"extension"`
 }
 
 func (AlertRule) TableName() string {

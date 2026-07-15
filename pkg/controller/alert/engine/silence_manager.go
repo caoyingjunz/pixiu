@@ -43,10 +43,12 @@ func (s *SilenceManager) IsSilenced(silences []model.AlertSilence, rule *model.A
 	labels := map[string]string{
 		"rule_id":       strconv.FormatInt(rule.Id, 10),
 		"rule_name":     rule.Name,
-		"metric_name":   rule.MetricName,
 		"resource_type": sample.ResourceType,
 		"resource_name": sample.ResourceName,
 		"namespace":     sample.Namespace,
+	}
+	if promQl := GetRulePromQl(rule); promQl != "" {
+		labels["prom_ql"] = promQl
 	}
 	for key, value := range sample.Labels {
 		labels[key] = value
