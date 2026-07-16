@@ -135,6 +135,9 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if len(items) == 0 {
+		klog.V(1).Infof("no pending notifications")
+	}
 	for i := range items {
 		item := items[i]
 		if err = n.dispatchOne(ctx, &item); err != nil {
