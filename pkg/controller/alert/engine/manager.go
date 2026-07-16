@@ -81,6 +81,7 @@ func (m *Manager) DispatchPending(ctx context.Context) error {
 }
 
 func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silences []model.AlertSilence) error {
+	// 查到之后按哪几档规则判、判出来算多严重
 	triggers := ListAlertTriggers(rule)
 	if len(triggers) == 0 {
 		return nil
@@ -101,13 +102,17 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 
 		for _, sample := range samples {
 			matched := m.eval.MatchExpr(ruleCopy.RuleType, trigger.Condition, sample.Value)
+			// 符合条件
 			if matched {
+				// 静默告警，则忽略
 				if m.silence.IsSilenced(silences, &ruleCopy, sample) {
 					continue
 				}
+				// 不在指定时间周期内则忽略
 				if !IsWithinEffectiveTime(&ruleCopy, time.Now()) {
 					continue
 				}
+				// 告警和推送入库
 				if err = m.trigger.Fire(ctx, &ruleCopy, sample, trigger); err != nil {
 					return err
 				}

@@ -18,6 +18,7 @@ package engine
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -102,6 +103,16 @@ func looksLikeThresholdCondition(expr string) bool {
 	return ok
 }
 
+// isValidThresholdCondition matches matchThreshold: operator + numeric value.
+func isValidThresholdCondition(expr string) bool {
+	op, expected, ok := splitThresholdExpr(strings.TrimSpace(expr))
+	if !ok || op == "" {
+		return false
+	}
+	_, err := strconv.ParseFloat(strings.TrimSpace(expected), 64)
+	return err == nil
+}
+
 func migrateLegacyQueries(cfg AlertRuleConfig, severity model.AlertSeverity) AlertRuleConfig {
 	if strings.TrimSpace(cfg.PromQl) != "" && len(cfg.Triggers) > 0 {
 		return cfg
@@ -150,6 +161,9 @@ func NormalizeRuleConfig(ruleConfig string, severity model.AlertSeverity) (norma
 		condition := strings.TrimSpace(t.Condition)
 		if condition == "" {
 			continue
+		}
+		if !isValidThresholdCondition(condition) {
+			return "", normalizeSeverity(severity, model.AlertSeverityWarning), 0, false
 		}
 		triggers = append(triggers, AlertTrigger{
 			Severity:  normalizeSeverity(t.Severity, severity),
