@@ -112,7 +112,7 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 				if !IsWithinEffectiveTime(&ruleCopy, time.Now()) {
 					continue
 				}
-				// 发送告警
+				// 告警和推送入库
 				if err = m.trigger.Fire(ctx, &ruleCopy, sample, trigger); err != nil {
 					return err
 				}
