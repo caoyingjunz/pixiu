@@ -31,7 +31,7 @@ type AlertEvaluator struct {
 }
 
 func NewAlertEvaluator(f db.ShareDaoFactory) *AlertEvaluator {
-	scheduler := engine.NewScheduler(f, &engine.StaticMetricProvider{})
+	scheduler := engine.NewScheduler(f, engine.NewDatasourceMetricProvider(f))
 	scheduler.Start(context.Background())
 	return &AlertEvaluator{scheduler: scheduler}
 }

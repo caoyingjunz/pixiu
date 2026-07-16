@@ -53,6 +53,7 @@ func (n *Manager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, ev
 		channelByID[channels[i].Id] = channels[i]
 	}
 
+	// 根据模板发送标题和内容
 	title := buildNotificationTitle(rule, event, recovered)
 	content := buildNotificationContent(rule, event, recovered)
 
