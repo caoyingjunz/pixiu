@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -165,6 +166,10 @@ func (o *Options) Complete() error {
 
 // BindFlags binds the pixiu Configuration struct fields
 func (o *Options) BindFlags(cmd *cobra.Command) {
+	// Expose klog flags (e.g. -v) to cobra. klog.InitFlags registers them on
+	// the standard flag.CommandLine in main; cobra will not accept them unless
+	// they are added to the command flag set.
+	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	cmd.Flags().StringVar(&o.ConfigFile, "configfile", defaultConfigFile, "The location of the pixiu configuration file")
 }
 
