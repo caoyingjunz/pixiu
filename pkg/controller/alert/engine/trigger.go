@@ -48,14 +48,17 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 	if err != nil {
 		return err
 	}
+
+	now := time.Now()
 	if active != nil {
+		return t.fireRepeat(ctx, rule, active, sample, now)
+	}
+
+	if trigger.Duration > 0 && !t.durationSatisfied(nil, trigger.Duration) {
 		return nil
 	}
 
-	if trigger.Duration > 0 && !t.durationSatisfied(active, trigger.Duration) {
-		return nil
-	}
-
+	lastSent := now
 	event, err := t.factory.Alert().Event().Create(ctx, &model.AlertEvent{
 		RuleId:            rule.Id,
 		RuleName:          rule.Name,
@@ -68,6 +71,8 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 		ResourceNamespace: sample.Namespace,
 		ClusterId:         sample.ClusterId,
 		TenantId:          sample.TenantId,
+		LastSentAt:        &lastSent,
+		NotifyCurNumber:   1,
 		Labels:            encodeJSONMap(sample.Labels),
 		Annotations:       encodeJSONMap(sample.Annotations),
 	})
@@ -75,6 +80,47 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 		return err
 	}
 	return t.notify.EnqueueForEvent(ctx, rule, event, false)
+}
+
+// fireRepeat keeps the active event and re-notifies by notify_repeat_step / notify_max_number.
+func (t *Trigger) fireRepeat(ctx context.Context, rule *model.AlertRule, active *model.AlertEvent, sample MetricSample, now time.Time) error {
+	updates := map[string]interface{}{
+		"trigger_value": sample.Value,
+	}
+
+	repeatStep := NormalizeNotifyRepeatStep(rule.NotifyRepeatStep)
+	if repeatStep == 0 {
+		return t.factory.Alert().Event().Update(ctx, active.Id, active.ResourceVersion, updates)
+	}
+
+	lastSent := active.LastSentAt
+	if lastSent == nil {
+		lastSent = &active.GmtCreate
+	}
+	if now.Before(lastSent.Add(time.Duration(repeatStep) * time.Minute)) {
+		return t.factory.Alert().Event().Update(ctx, active.Id, active.ResourceVersion, updates)
+	}
+
+	maxNumber := NormalizeNotifyMaxNumber(rule.NotifyMaxNumber)
+	if maxNumber > 0 && active.NotifyCurNumber >= maxNumber {
+		return t.factory.Alert().Event().Update(ctx, active.Id, active.ResourceVersion, updates)
+	}
+
+	nextCount := active.NotifyCurNumber + 1
+	if nextCount <= 0 {
+		nextCount = 1
+	}
+	updates["notify_cur_number"] = nextCount
+	updates["last_sent_at"] = now
+	if err := t.factory.Alert().Event().Update(ctx, active.Id, active.ResourceVersion, updates); err != nil {
+		return err
+	}
+
+	active.TriggerValue = sample.Value
+	active.NotifyCurNumber = nextCount
+	active.LastSentAt = &now
+	active.ResourceVersion++
+	return t.notify.EnqueueForEvent(ctx, rule, active, false)
 }
 
 func (t *Trigger) Recover(ctx context.Context, rule *model.AlertRule, sample MetricSample, trigger EvaluableTrigger) error {
