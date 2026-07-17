@@ -58,7 +58,10 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 
 	normalizedConfig, normalizedSeverity, normalizedDuration, ok := engine.NormalizeRuleConfig(req.RuleConfig, req.Severity)
 	if !ok {
-		return apierrors.NewError(fmt.Errorf("rule_config must contain prom_ql and at least one trigger"), http.StatusBadRequest)
+		return apierrors.NewError(
+			fmt.Errorf("rule_config must contain prom_ql and at least one valid trigger condition (operators: > >= < <= = == != <>, followed by a number)"),
+			http.StatusBadRequest,
+		)
 	}
 
 	_, err := c.factory.Alert().Rule().Create(ctx, &model.AlertRule{
@@ -157,7 +160,10 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 
 		normalizedConfig, normalizedSeverity, normalizedDuration, ok := engine.NormalizeRuleConfig(ruleConfig, severity)
 		if !ok {
-			return apierrors.NewError(fmt.Errorf("rule_config must contain prom_ql and at least one trigger"), http.StatusBadRequest)
+			return apierrors.NewError(
+				fmt.Errorf("rule_config must contain prom_ql and at least one valid trigger condition (operators: > >= < <= = == != <>, followed by a number)"),
+				http.StatusBadRequest,
+			)
 		}
 		updates["rule_config"] = normalizedConfig
 		updates["severity"] = normalizedSeverity

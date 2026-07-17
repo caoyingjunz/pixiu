@@ -39,6 +39,10 @@ func (e *Evaluator) MatchExpr(ruleType model.AlertRuleType, expr string, value s
 	case model.AlertRuleTypeMetric:
 		return matchThreshold(value, expr)
 	case model.AlertRuleTypeLog, model.AlertRuleTypeEvent:
+		// Log rules share the same condition UI (e.g. "> 0"); prefer threshold when applicable.
+		if looksLikeThresholdCondition(expr) {
+			return matchThreshold(value, expr)
+		}
 		return matchTextCondition(value, expr)
 	default:
 		return false
@@ -95,12 +99,13 @@ func matchTextCondition(value, expr string) bool {
 		return false
 	}
 
+	actual := strings.TrimSpace(value)
 	operator, expected, ok := splitThresholdExpr(trimmed)
 	if !ok {
-		return strings.EqualFold(strings.TrimSpace(value), strings.Trim(trimmed, `"'`))
+		needle := strings.Trim(trimmed, `"'`)
+		return strings.Contains(strings.ToLower(actual), strings.ToLower(needle))
 	}
 
-	actual := strings.TrimSpace(value)
 	expected = strings.Trim(expected, `"'`)
 	switch operator {
 	case "=", "==":

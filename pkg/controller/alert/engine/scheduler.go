@@ -113,7 +113,9 @@ func (s *Scheduler) syncRules(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// desired 最新的数据
 	for ruleID, worker := range desired {
+		// 新增或更新规则
 		current, exists := s.workers[ruleID]
 		if exists && current == worker {
 			continue
@@ -125,6 +127,7 @@ func (s *Scheduler) syncRules(ctx context.Context) {
 		s.workers[ruleID] = worker
 	}
 
+	// 移除删除的规则
 	for ruleID, worker := range s.workers {
 		if _, exists := desired[ruleID]; !exists {
 			worker.Stop()

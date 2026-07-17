@@ -53,6 +53,7 @@ func (n *Manager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, ev
 		channelByID[channels[i].Id] = channels[i]
 	}
 
+	// 根据模板发送标题和内容
 	title := buildNotificationTitle(rule, event, recovered)
 	content := buildNotificationContent(rule, event, recovered)
 
@@ -133,6 +134,9 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 	items, err := n.factory.Alert().Notification().ListPending(ctx, 100)
 	if err != nil {
 		return err
+	}
+	if len(items) == 0 {
+		klog.V(1).Infof("no pending notifications")
 	}
 	for i := range items {
 		item := items[i]
