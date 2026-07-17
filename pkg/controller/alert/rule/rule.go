@@ -70,6 +70,8 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		RuleType:         req.RuleType,
 		Duration:         normalizedDuration,
 		EvalInterval:     engine.NormalizeEvalInterval(req.EvalInterval),
+		NotifyRepeatStep: engine.ResolveNotifyRepeatStep(req.NotifyRepeatStep),
+		NotifyMaxNumber:  engine.ResolveNotifyMaxNumber(req.NotifyMaxNumber),
 		Severity:         normalizedSeverity,
 		ScopeType:        req.ScopeType,
 		ScopeValue:       req.ScopeValue,
@@ -107,6 +109,12 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 	}
 	if req.EvalInterval != nil {
 		updates["eval_interval"] = engine.NormalizeEvalInterval(*req.EvalInterval)
+	}
+	if req.NotifyRepeatStep != nil {
+		updates["notify_repeat_step"] = engine.NormalizeNotifyRepeatStep(*req.NotifyRepeatStep)
+	}
+	if req.NotifyMaxNumber != nil {
+		updates["notify_max_number"] = engine.NormalizeNotifyMaxNumber(*req.NotifyMaxNumber)
 	}
 	if req.ScopeType != nil {
 		updates["scope_type"] = *req.ScopeType
@@ -259,9 +267,11 @@ func modelToType(object *model.AlertRule) *types.AlertRule {
 		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
 		Name:      object.Name, Description: object.Description, RuleType: object.RuleType,
-		Duration:     object.Duration,
-		EvalInterval: engine.NormalizeEvalInterval(object.EvalInterval),
-		Severity:     object.Severity, ScopeType: object.ScopeType, ScopeValue: object.ScopeValue,
+		Duration:         object.Duration,
+		EvalInterval:     engine.NormalizeEvalInterval(object.EvalInterval),
+		NotifyRepeatStep: engine.NormalizeNotifyRepeatStep(object.NotifyRepeatStep),
+		NotifyMaxNumber:  engine.NormalizeNotifyMaxNumber(object.NotifyMaxNumber),
+		Severity:         object.Severity, ScopeType: object.ScopeType, ScopeValue: object.ScopeValue,
 		NotifyChannels:   object.NotifyChannels,
 		NotifyTemplate:   object.NotifyTemplate,
 		RuleConfig:       object.RuleConfig,

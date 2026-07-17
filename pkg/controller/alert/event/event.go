@@ -133,6 +133,7 @@ func modelToType(object *model.AlertEvent) *types.AlertEvent {
 		ResourceType: object.ResourceType, ResourceName: object.ResourceName,
 		ResourceNamespace: object.ResourceNamespace, ClusterId: object.ClusterId, TenantId: object.TenantId,
 		RecoverValue: object.RecoverValue, RecoverTime: object.RecoverTime,
+		LastSentAt: object.LastSentAt, NotifyCurNumber: object.NotifyCurNumber,
 		Labels: object.Labels, Annotations: object.Annotations, Extension: object.Extension,
 	}
 }

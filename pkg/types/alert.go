@@ -31,6 +31,8 @@ type AlertRule struct {
 	RuleType         model.AlertRuleType  `json:"rule_type"`
 	Duration         int                  `json:"duration"`
 	EvalInterval     int                  `json:"eval_interval"`
+	NotifyRepeatStep int                  `json:"notify_repeat_step"` // 警报间隔时间（分钟），0 表示不重复
+	NotifyMaxNumber  int                  `json:"notify_max_number"`  // 最大通知次数，0 表示不限制
 	Severity         model.AlertSeverity  `json:"severity"`
 	ScopeType        model.AlertScopeType `json:"scope_type"`
 	ScopeValue       string               `json:"scope_value"`
@@ -63,6 +65,8 @@ type AlertEvent struct {
 	TenantId          int64                  `json:"tenant_id"`
 	RecoverValue      string                 `json:"recover_value"`
 	RecoverTime       *time.Time             `json:"recover_time"`
+	LastSentAt        *time.Time             `json:"last_sent_at"`
+	NotifyCurNumber   int                    `json:"notify_cur_number"`
 	Labels            string                 `json:"labels"`
 	Annotations       string                 `json:"annotations"`
 	Extension         string                 `json:"extension"`
@@ -118,6 +122,8 @@ type CreateAlertRuleRequest struct {
 	RuleType         model.AlertRuleType  `json:"rule_type" binding:"required"`
 	Duration         int                  `json:"duration"`
 	EvalInterval     int                  `json:"eval_interval"`
+	NotifyRepeatStep *int                 `json:"notify_repeat_step"` // nil → 默认 5；显式 0 → 不重复
+	NotifyMaxNumber  *int                 `json:"notify_max_number"`  // nil/0 → 不限制
 	Severity         model.AlertSeverity  `json:"severity"`
 	ScopeType        model.AlertScopeType `json:"scope_type" binding:"required"`
 	ScopeValue       string               `json:"scope_value"`
@@ -140,6 +146,8 @@ type UpdateAlertRuleRequest struct {
 	RuleType         *model.AlertRuleType  `json:"rule_type"`
 	Duration         *int                  `json:"duration"`
 	EvalInterval     *int                  `json:"eval_interval"`
+	NotifyRepeatStep *int                  `json:"notify_repeat_step"`
+	NotifyMaxNumber  *int                  `json:"notify_max_number"`
 	Severity         *model.AlertSeverity  `json:"severity"`
 	ScopeType        *model.AlertScopeType `json:"scope_type"`
 	ScopeValue       *string               `json:"scope_value"`

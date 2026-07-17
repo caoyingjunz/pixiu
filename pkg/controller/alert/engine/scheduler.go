@@ -187,6 +187,8 @@ func ruleWorkerHash(rule *model.AlertRule) string {
 		strconv.Itoa(int(rule.ScopeType)) + "_" +
 		rule.ScopeValue + "_" +
 		rule.NotifyChannels + "_" +
+		strconv.Itoa(NormalizeNotifyRepeatStep(rule.NotifyRepeatStep)) + "_" +
+		strconv.Itoa(NormalizeNotifyMaxNumber(rule.NotifyMaxNumber)) + "_" +
 		rule.RuleConfig + "_" +
 		rule.EnableDaysOfWeek + "_" +
 		NormalizeEnableTime(rule.EnableStime) + "_" +

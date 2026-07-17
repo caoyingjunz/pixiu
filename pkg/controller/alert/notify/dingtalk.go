@@ -47,11 +47,12 @@ func sendDingTalk(item *model.AlertNotification) error {
 		return err
 	}
 
+	// Use text (not markdown): DingTalk markdown collapses single "\n" into spaces,
+	// which makes multi-line notify templates appear as one line.
 	payload := map[string]interface{}{
-		"msgtype": "markdown",
-		"markdown": map[string]string{
-			"title": item.Title,
-			"text":  buildDingTalkMarkdown(item),
+		"msgtype": "text",
+		"text": map[string]string{
+			"content": buildDingTalkText(item),
 		},
 	}
 
@@ -70,16 +71,22 @@ func sendDingTalk(item *model.AlertNotification) error {
 	return nil
 }
 
-func buildDingTalkMarkdown(item *model.AlertNotification) string {
+func buildDingTalkText(item *model.AlertNotification) string {
 	lines := []string{
-		fmt.Sprintf("### %s", item.Title),
+		item.Title,
 		"",
-		item.Content,
+		normalizeNotifyNewlines(item.Content),
 		"",
-		fmt.Sprintf("- 事件ID: %d", item.EventId),
-		fmt.Sprintf("- 规则ID: %d", item.RuleId),
 	}
 	return strings.Join(lines, "\n")
+}
+
+// normalizeNotifyNewlines normalizes CRLF and expands literal "\n" sequences from templates.
+func normalizeNotifyNewlines(content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\r", "\n")
+	content = strings.ReplaceAll(content, `\n`, "\n")
+	return content
 }
 
 func signDingTalkWebhookURL(webhookURL, secret string) (string, error) {

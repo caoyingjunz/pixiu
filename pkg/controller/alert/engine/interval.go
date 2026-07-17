@@ -18,13 +18,46 @@ package engine
 
 import "fmt"
 
-const DefaultEvalInterval = 15
+const (
+	DefaultEvalInterval     = 15
+	DefaultNotifyRepeatStep = 5 // minutes
+)
 
 func NormalizeEvalInterval(interval int) int {
 	if interval <= 0 {
 		return DefaultEvalInterval
 	}
 	return interval
+}
+
+// NormalizeNotifyRepeatStep keeps 0 as "disable repeat"; negative values fall back to default 5.
+func NormalizeNotifyRepeatStep(step int) int {
+	if step < 0 {
+		return DefaultNotifyRepeatStep
+	}
+	return step
+}
+
+// ResolveNotifyRepeatStep returns default 5 when step is nil (create omitted).
+func ResolveNotifyRepeatStep(step *int) int {
+	if step == nil {
+		return DefaultNotifyRepeatStep
+	}
+	return NormalizeNotifyRepeatStep(*step)
+}
+
+func NormalizeNotifyMaxNumber(n int) int {
+	if n < 0 {
+		return 0
+	}
+	return n
+}
+
+func ResolveNotifyMaxNumber(n *int) int {
+	if n == nil {
+		return 0
+	}
+	return NormalizeNotifyMaxNumber(*n)
 }
 
 func EvalCronSpec(interval int) string {

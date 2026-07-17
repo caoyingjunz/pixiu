@@ -98,6 +98,8 @@ type AlertRule struct {
 	RuleType         AlertRuleType  `gorm:"column:rule_type;not null" json:"rule_type"`
 	Duration         int            `gorm:"column:duration;default:0" json:"duration"`
 	EvalInterval     int            `gorm:"column:eval_interval;default:15" json:"eval_interval"`
+	NotifyRepeatStep int            `gorm:"column:notify_repeat_step;default:5" json:"notify_repeat_step"` // minutes; 0 means no repeat notify
+	NotifyMaxNumber  int            `gorm:"column:notify_max_number;default:0" json:"notify_max_number"`   // 0 means unlimited
 	Severity         AlertSeverity  `gorm:"column:severity;not null;index:idx_alert_rules_severity" json:"severity"`
 	ScopeType        AlertScopeType `gorm:"column:scope_type;not null" json:"scope_type"`
 	ScopeValue       string         `gorm:"column:scope_value;type:text" json:"scope_value"`
@@ -134,6 +136,8 @@ type AlertEvent struct {
 	TenantId          int64            `gorm:"column:tenant_id" json:"tenant_id"`
 	RecoverValue      string           `gorm:"column:recover_value;type:varchar(256)" json:"recover_value"`
 	RecoverTime       *time.Time       `gorm:"column:recover_time;type:datetime" json:"recover_time"`
+	LastSentAt        *time.Time       `gorm:"column:last_sent_at;type:datetime" json:"last_sent_at"`
+	NotifyCurNumber   int              `gorm:"column:notify_cur_number;default:0" json:"notify_cur_number"`
 	Labels            string           `gorm:"column:labels;type:text" json:"labels"`
 	Annotations       string           `gorm:"column:annotations;type:text" json:"annotations"`
 	Extension         string           `gorm:"column:extension;type:text" json:"extension"`
