@@ -37,21 +37,23 @@ var labelPlaceholderPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}
 
 // NotificationTemplateData is the context for rule.NotifyTemplate (text/template).
 type NotificationTemplateData struct {
-	RuleId       int64
+	RuleId       int64 // 关联的规则id
 	RuleName     string
-	Severity     int
-	IsRecovered  bool
-	TriggerValue string
-	TriggerExpr  string
-	RecoverValue string
+	Expr         string // 表达式
+	Value        string // 实际值
+	Severity     string // 告警级别，如 P0 / P1 / P2
+	FireTime     string // 告警首次触发时间（event.gmt_create）
+	TriggerTime  string // 本次通知发送时间
 	ResourceType string
 	ResourceName string
-	Namespace    string
-	ClusterId    int64
-	TenantId     int64
-	Labels       map[string]string
-	Annotations  string
-	FireTime     string // FireTime is when the alert first fired (event.gmt_create), formatted locally.
+
+	// 附加值
+	Labels      map[string]string
+	Annotations string
+
+	// 恢复相关配置
+	IsRecovered  bool
+	RecoverValue string
 	RecoverTime  string // RecoverTime is when the alert recovered, if any.
 }
 
@@ -122,7 +124,7 @@ func buildNotificationTemplateData(rule *model.AlertRule, event *model.AlertEven
 	if rule != nil {
 		data.RuleId = rule.Id
 		data.RuleName = rule.Name
-		data.Severity = int(rule.Severity)
+		data.Severity = formatNotificationSeverity(rule.Severity)
 	}
 	if event != nil {
 		if data.RuleId == 0 {
@@ -131,20 +133,18 @@ func buildNotificationTemplateData(rule *model.AlertRule, event *model.AlertEven
 		if data.RuleName == "" {
 			data.RuleName = event.RuleName
 		}
-		if data.Severity == 0 {
-			data.Severity = int(event.Severity)
+		if data.Severity == "" {
+			data.Severity = formatNotificationSeverity(event.Severity)
 		}
-		data.TriggerValue = event.TriggerValue
-		data.TriggerExpr = event.TriggerExpr
+		data.Value = event.TriggerValue
+		data.Expr = event.TriggerExpr
 		data.RecoverValue = event.RecoverValue
 		data.ResourceType = event.ResourceType
 		data.ResourceName = event.ResourceName
-		data.Namespace = event.ResourceNamespace
-		data.ClusterId = event.ClusterId
-		data.TenantId = event.TenantId
 		data.Labels = parseLabelMap(event.Labels)
 		data.Annotations = event.Annotations
 		data.FireTime = formatNotificationTime(event.GmtCreate)
+		data.TriggerTime = formatNotificationTime(time.Now())
 		if event.RecoverTime != nil {
 			data.RecoverTime = formatNotificationTime(*event.RecoverTime)
 		}
@@ -152,7 +152,18 @@ func buildNotificationTemplateData(rule *model.AlertRule, event *model.AlertEven
 	if data.FireTime == "" {
 		data.FireTime = formatNotificationTime(time.Now())
 	}
+	if data.TriggerTime == "" {
+		data.TriggerTime = formatNotificationTime(time.Now())
+	}
 	return data
+}
+
+// formatNotificationSeverity maps stored severity (1/2/3/…) to P0/P1/P2/…, consistent with UI.
+func formatNotificationSeverity(severity model.AlertSeverity) string {
+	if severity <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("P%d", int(severity)-1)
 }
 
 func formatNotificationTime(t time.Time) string {
