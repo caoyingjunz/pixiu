@@ -40,10 +40,10 @@ type NotificationTemplateData struct {
 	RuleId       int64 // 关联的规则id
 	RuleName     string
 	Expr         string // 表达式
-	Value        string // 实际值
+	Value        string // 当前值
 	Severity     string // 告警级别，如 P0 / P1 / P2
 	FireTime     string // 告警首次触发时间（event.gmt_create）
-	TriggerTime  string // 本次通知发送时间
+	TriggerTime  string // 本次告警通知发送时间
 	ResourceType string
 	ResourceName string
 
