@@ -72,13 +72,7 @@ func sendDingTalk(item *model.AlertNotification) error {
 }
 
 func buildDingTalkText(item *model.AlertNotification) string {
-	lines := []string{
-		item.Title,
-		"",
-		normalizeNotifyNewlines(item.Content),
-		"",
-	}
-	return strings.Join(lines, "\n")
+	return normalizeNotifyNewlines(item.Content)
 }
 
 // normalizeNotifyNewlines normalizes CRLF and expands literal "\n" sequences from templates.

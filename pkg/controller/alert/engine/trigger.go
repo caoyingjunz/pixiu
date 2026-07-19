@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/caoyingjunz/pixiu/pkg/controller/alert/notify"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -55,6 +57,7 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 	}
 
 	if trigger.Duration > 0 && !t.durationSatisfied(nil, trigger.Duration) {
+		klog.Infof("skip notifying alert rule(%d:%s) resource(%s/%s): duration(%ds) not satisfied", rule.Id, rule.Name, resourceType, resourceName, trigger.Duration)
 		return nil
 	}
 

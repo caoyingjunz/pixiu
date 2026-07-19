@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "master"
+      - "lert2"
     paths-ignore:
       - 'docs/**'
 

@@ -53,8 +53,7 @@ func (n *Manager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, ev
 		channelByID[channels[i].Id] = channels[i]
 	}
 
-	// 根据模板发送标题和内容
-	title := buildNotificationTitle(rule, event, recovered)
+	// 根据模板发送内容（暂不使用 title）
 	content := buildNotificationContent(rule, event, recovered)
 
 	for _, channelID := range channelIDs {
@@ -75,7 +74,7 @@ func (n *Manager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, ev
 			RuleId:    rule.Id,
 			Channel:   channel.ChannelType,
 			Receiver:  receiver,
-			Title:     title,
+			Title:     "",
 			Content:   content,
 			Status:    model.AlertNotificationStatusPending,
 			Extension: extension,
@@ -133,10 +132,12 @@ func resolveNotificationTargetFromChannel(channel *model.AlertChannel) (receiver
 func (n *Manager) DispatchPending(ctx context.Context) error {
 	items, err := n.factory.Alert().Notification().ListPending(ctx, 100)
 	if err != nil {
+		klog.Errorf("failed to list pending notifications: %v", err)
 		return err
 	}
 	if len(items) == 0 {
-		klog.V(1).Infof("no pending notifications")
+		klog.V(0).Infof("no pending alert notifications to dispatch")
+		return nil
 	}
 	for i := range items {
 		item := items[i]
@@ -149,6 +150,10 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 
 func (n *Manager) dispatchOne(ctx context.Context, item *model.AlertNotification) error {
 	sendErr := sendByChannel(item)
+	if sendErr != nil {
+		klog.Errorf("failed to send by channel %v", sendErr)
+	}
+
 	updates := map[string]interface{}{}
 	if sendErr == nil {
 		updates["status"] = model.AlertNotificationStatusSuccess

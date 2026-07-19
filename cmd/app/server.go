@@ -42,7 +42,7 @@ func NewServerCommand(version string) *cobra.Command {
 		Use:  "pixiu-server",
 		Long: "The pixiu server controller is a daemon that embeds the core control loops.",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err = opts.Complete(); err != nil {
+			if err = opts.Complete(cmd); err != nil {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 				os.Exit(1)
 			}
