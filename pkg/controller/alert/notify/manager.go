@@ -132,10 +132,12 @@ func resolveNotificationTargetFromChannel(channel *model.AlertChannel) (receiver
 func (n *Manager) DispatchPending(ctx context.Context) error {
 	items, err := n.factory.Alert().Notification().ListPending(ctx, 100)
 	if err != nil {
+		klog.Errorf("failed to list pending notifications: %v", err)
 		return err
 	}
 	if len(items) == 0 {
-		klog.V(1).Infof("no pending notifications")
+		klog.V(4).Infof("no pending alert notifications to dispatch")
+		return nil
 	}
 	for i := range items {
 		item := items[i]
