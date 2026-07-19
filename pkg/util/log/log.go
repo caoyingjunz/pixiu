@@ -19,7 +19,9 @@ package log
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -52,6 +54,10 @@ type LogOptions struct {
 	LogFormat `yaml:"log_format"`
 	LogSQL    bool `yaml:"log_sql"`
 	LogLevel  `yaml:"log_level"`
+	// Verbosity is the klog verbosity level, equivalent to the -v command-line flag.
+	// When both are set, the explicitly provided -v flag takes precedence.
+	// nil means the field is unset in the config file.
+	Verbosity *uint `yaml:"verbosity"`
 }
 
 // DefaultLogOptions returns the default configs.
@@ -72,9 +78,12 @@ func (o *LogOptions) Valid() error {
 	}
 }
 
-// Init sets the log format only once.
+// Init sets the logrus format and level only once.
 func (o *LogOptions) Init() {
 	once.Do(func() {
+		if o.LogLevel == 0 {
+			o.LogLevel = InfoLevel
+		}
 		klog.SetLevel(o.LogLevel)
 		switch o.LogFormat {
 		case LogFormatJson:
@@ -88,6 +97,19 @@ func (o *LogOptions) Init() {
 			})
 		}
 	})
+}
+
+// ApplyKlogVerbosity applies config verbosity to k8s.io/klog/v2.
+// Priority: explicitly set -v flag (cliVerbositySet=true) > config verbosity > klog default (0).
+func (o *LogOptions) ApplyKlogVerbosity(cliVerbositySet bool) {
+	if o == nil || o.Verbosity == nil || cliVerbositySet {
+		return
+	}
+	f := flag.CommandLine.Lookup("v")
+	if f == nil {
+		return
+	}
+	_ = f.Value.Set(strconv.FormatUint(uint64(*o.Verbosity), 10))
 }
 
 const (

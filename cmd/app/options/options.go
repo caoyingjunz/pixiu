@@ -27,6 +27,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
@@ -83,7 +84,7 @@ func NewOptions() (*Options, error) {
 }
 
 // Complete completes all the required options
-func (o *Options) Complete() error {
+func (o *Options) Complete(cmd *cobra.Command) error {
 	// 配置文件优先级: 默认配置，环境变量，命令行
 	if len(o.ConfigFile) == 0 {
 		// Try to read config file path from env.
@@ -142,6 +143,16 @@ func (o *Options) Complete() error {
 	}
 
 	o.ComponentConfig.Default.LogOptions.Init()
+	o.ComponentConfig.Default.LogOptions.ApplyKlogVerbosity(isCLIVerbositySet(cmd))
+
+	verbosity := "0"
+	if vFlag := flag.CommandLine.Lookup("v"); vFlag != nil {
+		verbosity = vFlag.Value.String()
+	}
+	klog.Infof("logging initialized: log_format=%s log_level=%s verbosity=%s",
+		o.ComponentConfig.Default.LogFormat,
+		o.ComponentConfig.Default.LogLevel.String(),
+		verbosity)
 
 	// 注册依赖组件
 	if err := o.register(); err != nil {
@@ -162,6 +173,15 @@ func (o *Options) Complete() error {
 		o.AlertEvaluator,
 	)
 	return nil
+}
+
+// isCLIVerbositySet reports whether -v was explicitly provided on the command line.
+func isCLIVerbositySet(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	f := cmd.Flags().Lookup("v")
+	return f != nil && f.Changed
 }
 
 // BindFlags binds the pixiu Configuration struct fields
