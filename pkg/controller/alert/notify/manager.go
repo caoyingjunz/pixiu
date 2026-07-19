@@ -136,7 +136,7 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 		return err
 	}
 	if len(items) == 0 {
-		klog.V(4).Infof("no pending alert notifications to dispatch")
+		klog.V(0).Infof("no pending alert notifications to dispatch")
 		return nil
 	}
 	for i := range items {
@@ -150,6 +150,10 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 
 func (n *Manager) dispatchOne(ctx context.Context, item *model.AlertNotification) error {
 	sendErr := sendByChannel(item)
+	if sendErr != nil {
+		klog.Errorf("failed to send by channel %v", sendErr)
+	}
+
 	updates := map[string]interface{}{}
 	if sendErr == nil {
 		updates["status"] = model.AlertNotificationStatusSuccess
