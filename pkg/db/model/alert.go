@@ -150,19 +150,19 @@ func (AlertEvent) TableName() string {
 type AlertNotification struct {
 	pixiu.Model
 
-	EventId    int64                   `gorm:"column:event_id;not null;index:idx_alert_notifications_event_id" json:"event_id"`
-	RuleId     int64                   `gorm:"column:rule_id;not null" json:"rule_id"`
-	Channel    AlertNotifyChannel      `gorm:"column:channel;not null" json:"channel"`
-	Receiver   string                  `gorm:"column:receiver;type:varchar(256)" json:"receiver"`
-	Title      string                  `gorm:"column:title;type:varchar(256)" json:"title"`
-	Content    string                  `gorm:"column:content;type:text" json:"content"`
-	Status     AlertNotificationStatus `gorm:"column:status;not null;index:idx_alert_notifications_status" json:"status"`
-	RetryCount int                     `gorm:"column:retry_count;default:0" json:"retry_count"`
-	ErrorMsg   string                  `gorm:"column:error_msg;type:text" json:"error_msg"`
-	Extension  string                  `gorm:"column:extension;type:text" json:"extension"`
-	Severity   AlertSeverity           `gorm:"column:severity;not null" json:"severity"`
-	Labels     string                  `gorm:"column:labels;type:text" json:"labels"`
-	ChannelName string                 `gorm:"column:channel_name;type:varchar(128)" json:"channel_name"`
+	EventId     int64                   `gorm:"column:event_id;not null;index:idx_alert_notifications_event_id" json:"event_id"`
+	RuleId      int64                   `gorm:"column:rule_id;not null" json:"rule_id"`
+	Channel     AlertNotifyChannel      `gorm:"column:channel;not null" json:"channel"`
+	Receiver    string                  `gorm:"column:receiver;type:varchar(256)" json:"receiver"`
+	Title       string                  `gorm:"column:title;type:varchar(256)" json:"title"`
+	Content     string                  `gorm:"column:content;type:text" json:"content"`
+	Status      AlertNotificationStatus `gorm:"column:status;not null;index:idx_alert_notifications_status" json:"status"`
+	RetryCount  int                     `gorm:"column:retry_count;default:0" json:"retry_count"`
+	ErrorMsg    string                  `gorm:"column:error_msg;type:text" json:"error_msg"`
+	Extension   string                  `gorm:"column:extension;type:text" json:"extension"`
+	Severity    AlertSeverity           `gorm:"column:severity;not null" json:"severity"`
+	Labels      string                  `gorm:"column:labels;type:text" json:"labels"`
+	ChannelName string                  `gorm:"column:channel_name;type:varchar(128)" json:"channel_name"`
 }
 
 func (AlertNotification) TableName() string {
