@@ -146,7 +146,7 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 		updates["extension"] = *req.Extension
 	}
 
-	if req.RuleConfig != nil  {
+	if req.RuleConfig != nil {
 		current, err := c.factory.Alert().Rule().Get(ctx, ruleId)
 		if err != nil {
 			klog.Errorf("failed to get alert rule(%d) before update: %v", ruleId, err)
@@ -266,7 +266,7 @@ func modelToType(object *model.AlertRule) *types.AlertRule {
 		EvalInterval:     engine.NormalizeEvalInterval(object.EvalInterval),
 		NotifyRepeatStep: engine.NormalizeNotifyRepeatStep(object.NotifyRepeatStep),
 		NotifyMaxNumber:  engine.NormalizeNotifyMaxNumber(object.NotifyMaxNumber),
-		ScopeType: object.ScopeType, ScopeValue: object.ScopeValue,
+		ScopeType:        object.ScopeType, ScopeValue: object.ScopeValue,
 		NotifyChannels:   object.NotifyChannels,
 		NotifyTemplate:   object.NotifyTemplate,
 		RuleConfig:       object.RuleConfig,

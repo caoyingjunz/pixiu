@@ -187,41 +187,42 @@ func (t *Trigger) sendFirstNotification(ctx context.Context, rule *model.AlertRu
 }
 
 func (t *Trigger) Recover(ctx context.Context, rule *model.AlertRule, sample MetricSample, trigger EvaluableTrigger) error {
-	resourceType := sample.ResourceType
-	if resourceType == "" {
-		resourceType = "metric"
-	}
-	resourceName := sample.ResourceName
-	if resourceName == "" {
-		resourceName = formatTriggerKey(trigger)
-	}
-
-	active, err := t.factory.Alert().Event().GetActive(ctx, rule.Id, resourceType, resourceName)
-	if err != nil {
-		klog.Errorf("failed to get active event for rule(%d:%s) resource(%s/%s): %v", rule.Id, rule.Name, resourceType, resourceName, err)
-		return err
-	}
-	if active == nil {
-		return nil
-	}
-
-	now := time.Now()
-	if active.NotifyCurNumber == 0 {
-		klog.V(1).Infof("alert rule(%d:%s) resource(%s/%s): recovered before duration satisfied, event(%d) closed silently",
-			rule.Id, rule.Name, resourceType, resourceName, active.Id)
-		return t.markRecovered(ctx, rule, active, sample.Value, now, false)
-	}
-
-	if !t.recoveryDurationSatisfied(active, trigger.Duration) {
-		klog.V(0).Infof("alert rule(%d:%s) resource(%s/%s): condition cleared, waiting for recovery duration %ds (last sent: %s)",
-			rule.Id, rule.Name, resourceType, resourceName, trigger.Duration,
-			active.LastSentAt.Format("2006-01-02 15:04:05"))
-		return nil
-	}
-
-	klog.Infof("alert rule(%d:%s) resource(%s/%s): recovery duration satisfied, sending recovery notification for event(%d)",
-		rule.Id, rule.Name, resourceType, resourceName, active.Id)
-	return t.markRecovered(ctx, rule, active, sample.Value, now, true)
+	return nil
+	//resourceType := sample.ResourceType
+	//if resourceType == "" {
+	//	resourceType = "metric"
+	//}
+	//resourceName := sample.ResourceName
+	//if resourceName == "" {
+	//	resourceName = formatTriggerKey(trigger)
+	//}
+	//
+	//active, err := t.factory.Alert().Event().GetActive(ctx, rule.Id, resourceType, resourceName)
+	//if err != nil {
+	//	klog.Errorf("failed to get active event for rule(%d:%s) resource(%s/%s): %v", rule.Id, rule.Name, resourceType, resourceName, err)
+	//	return err
+	//}
+	//if active == nil {
+	//	return nil
+	//}
+	//
+	//now := time.Now()
+	//if active.NotifyCurNumber == 0 {
+	//	klog.V(1).Infof("alert rule(%d:%s) resource(%s/%s): recovered before duration satisfied, event(%d) closed silently",
+	//		rule.Id, rule.Name, resourceType, resourceName, active.Id)
+	//	return t.markRecovered(ctx, rule, active, sample.Value, now, false)
+	//}
+	//
+	//if !t.recoveryDurationSatisfied(active, trigger.Duration) {
+	//	klog.V(0).Infof("alert rule(%d:%s) resource(%s/%s): condition cleared, waiting for recovery duration %ds (last sent: %s)",
+	//		rule.Id, rule.Name, resourceType, resourceName, trigger.Duration,
+	//		active.LastSentAt.Format("2006-01-02 15:04:05"))
+	//	return nil
+	//}
+	//
+	//klog.Infof("alert rule(%d:%s) resource(%s/%s): recovery duration satisfied, sending recovery notification for event(%d)",
+	//	rule.Id, rule.Name, resourceType, resourceName, active.Id)
+	//return t.markRecovered(ctx, rule, active, sample.Value, now, true)
 }
 
 func (t *Trigger) markRecovered(ctx context.Context, rule *model.AlertRule, active *model.AlertEvent, recoverValue string, now time.Time, notifyRecovery bool) error {

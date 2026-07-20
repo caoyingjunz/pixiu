@@ -75,19 +75,19 @@ type AlertNotification struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	EventId    int64                         `json:"event_id"`
-	RuleId     int64                         `json:"rule_id"`
-	Channel    model.AlertNotifyChannel      `json:"channel"`
-	Receiver   string                        `json:"receiver"`
-	Title      string                        `json:"title"`
-	Content    string                        `json:"content"`
-	Status     model.AlertNotificationStatus `json:"status"`
-	RetryCount int                           `json:"retry_count"`
-	ErrorMsg   string                        `json:"error_msg"`
-	Extension  string                        `json:"extension"`
-	Severity   model.AlertSeverity           `json:"severity"`
-	Labels     string                        `json:"labels"`
-	ChannelName string                       `json:"channel_name"`
+	EventId     int64                         `json:"event_id"`
+	RuleId      int64                         `json:"rule_id"`
+	Channel     model.AlertNotifyChannel      `json:"channel"`
+	Receiver    string                        `json:"receiver"`
+	Title       string                        `json:"title"`
+	Content     string                        `json:"content"`
+	Status      model.AlertNotificationStatus `json:"status"`
+	RetryCount  int                           `json:"retry_count"`
+	ErrorMsg    string                        `json:"error_msg"`
+	Extension   string                        `json:"extension"`
+	Severity    model.AlertSeverity           `json:"severity"`
+	Labels      string                        `json:"labels"`
+	ChannelName string                        `json:"channel_name"`
 }
 
 type AlertChannel struct {
