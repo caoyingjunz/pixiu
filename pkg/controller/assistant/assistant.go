@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/account"
 	"github.com/caoyingjunz/pixiu/pkg/controller/conversation"
 	"github.com/caoyingjunz/pixiu/pkg/controller/message"
 	"github.com/caoyingjunz/pixiu/pkg/controller/provider"
@@ -37,6 +38,7 @@ type Interface interface {
 	Stream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error)
 
 	Provider() provider.Interface
+	Account() account.Interface
 	Conversation() conversation.Interface
 	Message() message.Interface
 }
@@ -46,6 +48,7 @@ type controller struct {
 	factory      db.ShareDaoFactory
 	client       *http.Client
 	provider     provider.Interface
+	account      account.Interface
 	conversation conversation.Interface
 	message      message.Interface
 }
@@ -56,6 +59,7 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 		factory:      f,
 		client:       &http.Client{Timeout: 60 * time.Second},
 		provider:     provider.New(cfg, f),
+		account:      account.New(cfg, f),
 		conversation: conversation.New(cfg, f),
 		message:      message.New(cfg, f),
 	}
@@ -63,6 +67,10 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 
 func (c *controller) Provider() provider.Interface {
 	return c.provider
+}
+
+func (c *controller) Account() account.Interface {
+	return c.account
 }
 
 func (c *controller) Conversation() conversation.Interface {

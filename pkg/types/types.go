@@ -133,13 +133,24 @@ type AIProvider struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Provider    string `json:"provider"`
-	APIKey      string `json:"api_key"`
+	Name        string `json:"name"`
 	BaseURL     string `json:"base_url"`
-	Model       string `json:"model"`
+	Protocol    string `json:"protocol"`
 	Description string `json:"description"`
-	Enabled     bool   `json:"enabled"`
 	MaxTokens   int    `json:"max_tokens"`
+	Builtin     bool   `json:"builtin"`
+}
+
+type AIAccount struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Name       string      `json:"name"`
+	APIKey     string      `json:"api_key"`
+	Model      string      `json:"model"`
+	ProviderId int64       `json:"provider_id"`
+	UserId     int64       `json:"user_id"`
+	Provider   *AIProvider `json:"provider,omitempty"`
 }
 
 type Conversation struct {
@@ -437,6 +448,7 @@ type CustomMeta struct {
 	ClusterName    string                `form:"cluster_name" json:"cluster_name"`
 	DatasourceType *model.DatasourceType `form:"datasource_type" json:"datasource_type"`
 	Provider       string                `form:"provider" json:"provider"`
+	ProviderId     int64                 `form:"provider_id" json:"provider_id"`
 	Enabled        *bool                 `form:"enabled" json:"enabled"`
 	ConversationId int64                 `form:"conversation_id" json:"conversation_id"`
 

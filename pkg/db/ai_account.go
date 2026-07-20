@@ -21,31 +21,34 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-type AIProviderInterface interface {
-	Create(ctx context.Context, object *model.AIProvider) (*model.AIProvider, error)
-	EnsureBuiltin(ctx context.Context, object *model.AIProvider) error
+type AIAccountInterface interface {
+	Create(ctx context.Context, object *model.AIAccount) (*model.AIAccount, error)
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) error
-	Get(ctx context.Context, id int64) (*model.AIProvider, error)
-	List(ctx context.Context, opts ...Options) ([]model.AIProvider, error)
+	Get(ctx context.Context, id int64) (*model.AIAccount, error)
+	List(ctx context.Context, opts ...Options) ([]model.AIAccount, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
 }
 
-type aiProvider struct {
-	db *gorm.DB
+type aiAccount struct{ db *gorm.DB }
+
+func WithAIProviderId(providerId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if providerId == 0 {
+			return tx
+		}
+		return tx.Where("provider_id = ?", providerId)
+	}
 }
 
-func newAIProvider(db *gorm.DB) AIProviderInterface {
-	return &aiProvider{db}
-}
+func newAIAccount(db *gorm.DB) AIAccountInterface { return &aiAccount{db: db} }
 
-func (a *aiProvider) Create(ctx context.Context, object *model.AIProvider) (*model.AIProvider, error) {
+func (a *aiAccount) Create(ctx context.Context, object *model.AIAccount) (*model.AIAccount, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -55,21 +58,11 @@ func (a *aiProvider) Create(ctx context.Context, object *model.AIProvider) (*mod
 	return object, nil
 }
 
-func (a *aiProvider) EnsureBuiltin(ctx context.Context, object *model.AIProvider) error {
-	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
-	return a.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "name"}},
-		DoUpdates: clause.Assignments(map[string]interface{}{"builtin": true}),
-	}).Create(object).Error
-}
-
-func (a *aiProvider) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
+func (a *aiAccount) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
-
-	f := a.db.WithContext(ctx).Model(&model.AIProvider{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
+	f := a.db.WithContext(ctx).Model(&model.AIAccount{}).
+		Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
@@ -79,8 +72,8 @@ func (a *aiProvider) Update(ctx context.Context, id int64, resourceVersion int64
 	return nil
 }
 
-func (a *aiProvider) Delete(ctx context.Context, id int64) error {
-	f := a.db.WithContext(ctx).Where("id = ?", id).Delete(&model.AIProvider{})
+func (a *aiAccount) Delete(ctx context.Context, id int64) error {
+	f := a.db.WithContext(ctx).Where("id = ?", id).Delete(&model.AIAccount{})
 	if f.Error != nil {
 		return f.Error
 	}
@@ -90,9 +83,9 @@ func (a *aiProvider) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (a *aiProvider) Get(ctx context.Context, id int64) (*model.AIProvider, error) {
-	var object model.AIProvider
-	if err := a.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
+func (a *aiAccount) Get(ctx context.Context, id int64) (*model.AIAccount, error) {
+	var object model.AIAccount
+	if err := a.db.WithContext(ctx).Preload("Provider").Where("id = ?", id).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
@@ -101,8 +94,8 @@ func (a *aiProvider) Get(ctx context.Context, id int64) (*model.AIProvider, erro
 	return &object, nil
 }
 
-func (a *aiProvider) List(ctx context.Context, opts ...Options) ([]model.AIProvider, error) {
-	var objects []model.AIProvider
+func (a *aiAccount) List(ctx context.Context, opts ...Options) ([]model.AIAccount, error) {
+	var objects []model.AIAccount
 	tx := a.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
@@ -113,9 +106,9 @@ func (a *aiProvider) List(ctx context.Context, opts ...Options) ([]model.AIProvi
 	return objects, nil
 }
 
-func (a *aiProvider) Count(ctx context.Context, opts ...Options) (int64, error) {
+func (a *aiAccount) Count(ctx context.Context, opts ...Options) (int64, error) {
 	var total int64
-	tx := a.db.WithContext(ctx).Model(&model.AIProvider{})
+	tx := a.db.WithContext(ctx).Model(&model.AIAccount{})
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
