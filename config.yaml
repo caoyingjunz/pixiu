@@ -9,13 +9,11 @@ default:
   single_login: true
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
-  # 日志的格式，可选 text 和 json（作用于 HTTP/任务等 logrus 日志）
+  # 日志的格式，可选 text 和 json
   log_format: json
-  # 日志级别，可选 error / info / debug（作用于 HTTP/任务等 logrus 日志）
   log_level: info
-  # klog 详细级别，等价于命令行 -v；未配置时默认 0。
-  # 若同时传了 -v，以命令行为准。
-  # verbosity: 2
+  # klog 详细级别，等价于命令行 -v；命令行显式 -v 优先于本配置
+  # log_verbosity: 2
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: admin
@@ -41,20 +39,4 @@ mysql:
 
 worker:
   # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
-#  work_dir: /etc/pixiu
-  engines:
-    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
-      os_supported:
-        - centos7
-        - debian10
-        - ubuntu18.04
-    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.3
-      os_supported:
-        - debian11
-        - ubuntu20.04
-        - ubuntu22.04
-        - rocky8.5
-        - rocky9.2
-        - rocky9.3
-        - openEuler22.03
-        - openEuler24.03
+  #work_dir: /etc/pixiu

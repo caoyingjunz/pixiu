@@ -100,38 +100,53 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 	}
 
 	klog.V(4).Infof("evaluating alert rule(%d:%s): triggers=%d samples=%d", rule.Id, rule.Name, len(triggers), len(samples))
-	for _, trigger := range triggers {
-		ruleCopy := *rule
-		ruleCopy.Severity = trigger.Severity
-		ruleCopy.Duration = trigger.Duration
-
-		for _, sample := range samples {
-			matched := m.eval.MatchExpr(ruleCopy.RuleType, trigger.Condition, sample.Value)
-			// 符合条件
-			if matched {
-				// 静默告警，则忽略
-				if m.silence.IsSilenced(silences, &ruleCopy, sample) {
-					klog.Infof("skip firing alert rule(%d:%s) by silence", rule.Id, rule.Name)
-					continue
-				}
-				// 不在指定时间周期内则忽略
-				if !IsWithinEffectiveTime(&ruleCopy, time.Now()) {
-					klog.Infof("skip firing alert rule(%d:%s) value(%s): outside effective time window", rule.Id, rule.Name, sample.Value)
-					continue
-				}
-				klog.V(1).Infof("firing alert rule(%d:%s) value(%s) condition(%s) severity(%d)", rule.Id, rule.Name, sample.Value, formatTriggerExpr(trigger), trigger.Severity)
-				// 告警和推送入库
-				if err = m.trigger.Fire(ctx, &ruleCopy, sample, trigger); err != nil {
-					return err
-				}
-				continue
-			}
-
-			klog.V(4).Infof("alert rule(%d:%s)  value(%s) does not match condition(%s), try recover", rule.Id, rule.Name, sample.Value, formatTriggerExpr(trigger))
-			if err = m.trigger.Recover(ctx, &ruleCopy, sample, trigger); err != nil {
+	// Per sample: Fire the highest-priority matching trigger; Recover only when no trigger matches.
+	// Avoids multi-threshold thrashing (e.g. P0 hits then P1 misses and Recover clears the active event).
+	for _, sample := range samples {
+		best, matched := selectBestMatchingTrigger(rule.RuleType, triggers, sample.Value, m.eval)
+		if !matched {
+			klog.V(4).Infof("alert rule(%d:%s) value(%s) matches no trigger, try recover", rule.Id, rule.Name, sample.Value)
+			if err = m.trigger.Recover(ctx, rule, sample, triggers[0]); err != nil {
 				return err
 			}
+			continue
+		}
+
+		ruleCopy := *rule
+		ruleCopy.Severity = best.Severity
+		ruleCopy.Duration = best.Duration
+
+		if m.silence.IsSilenced(silences, &ruleCopy, sample) {
+			klog.Infof("skip firing alert rule(%d:%s) by silence", rule.Id, rule.Name)
+			continue
+		}
+		if !IsWithinEffectiveTime(&ruleCopy, time.Now()) {
+			klog.Infof("skip firing alert rule(%d:%s) value(%s): outside effective time window", rule.Id, rule.Name, sample.Value)
+			continue
+		}
+
+		klog.V(1).Infof("firing alert rule(%d:%s) value(%s) condition(%s) severity(%d)",
+			rule.Id, rule.Name, sample.Value, formatTriggerExpr(best), best.Severity)
+		if err = m.trigger.Fire(ctx, &ruleCopy, sample, best); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// selectBestMatchingTrigger returns the highest-priority trigger that matches value.
+// Lower AlertSeverity numeric value means higher priority (P0=1 < P1=2).
+func selectBestMatchingTrigger(ruleType model.AlertRuleType, triggers []EvaluableTrigger, value string, eval *Evaluator) (EvaluableTrigger, bool) {
+	var best EvaluableTrigger
+	found := false
+	for _, trigger := range triggers {
+		if !eval.MatchExpr(ruleType, trigger.Condition, value) {
+			continue
+		}
+		if !found || trigger.Severity < best.Severity {
+			best = trigger
+			found = true
+		}
+	}
+	return best, found
 }

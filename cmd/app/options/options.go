@@ -27,7 +27,6 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
@@ -142,17 +141,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		return err
 	}
 
-	o.ComponentConfig.Default.LogOptions.Init()
-	o.ComponentConfig.Default.LogOptions.ApplyKlogVerbosity(isCLIVerbositySet(cmd))
-
-	verbosity := "0"
-	if vFlag := flag.CommandLine.Lookup("v"); vFlag != nil {
-		verbosity = vFlag.Value.String()
-	}
-	klog.Infof("logging initialized: log_format=%s log_level=%s verbosity=%s",
-		o.ComponentConfig.Default.LogFormat,
-		o.ComponentConfig.Default.LogLevel.String(),
-		verbosity)
+	o.ComponentConfig.Default.LogOptions.Init(isCLIVerbositySet(cmd))
 
 	// 注册依赖组件
 	if err := o.register(); err != nil {

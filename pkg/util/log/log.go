@@ -26,6 +26,7 @@ import (
 	"time"
 
 	klog "github.com/sirupsen/logrus"
+	k8slog "k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
@@ -54,10 +55,10 @@ type LogOptions struct {
 	LogFormat `yaml:"log_format"`
 	LogSQL    bool `yaml:"log_sql"`
 	LogLevel  `yaml:"log_level"`
-	// Verbosity is the klog verbosity level, equivalent to the -v command-line flag.
-	// When both are set, the explicitly provided -v flag takes precedence.
+	// LogVerbosity is the k8s.io/klog/v2 verbosity level, equivalent to the -v flag.
+	// When both are set, an explicitly provided -v flag takes precedence.
 	// nil means the field is unset in the config file.
-	Verbosity *uint `yaml:"verbosity"`
+	LogVerbosity *uint `yaml:"log_verbosity"`
 }
 
 // DefaultLogOptions returns the default configs.
@@ -78,8 +79,12 @@ func (o *LogOptions) Valid() error {
 	}
 }
 
-// Init sets the logrus format and level only once.
-func (o *LogOptions) Init() {
+// Init initializes application logging (logrus) and k8s klog verbosity once.
+// Priority for -v: explicitly set CLI flag (cliVerbositySet=true) > config log_verbosity > default 0.
+func (o *LogOptions) Init(cliVerbositySet bool) {
+	if o == nil {
+		return
+	}
 	once.Do(func() {
 		if o.LogLevel == 0 {
 			o.LogLevel = InfoLevel
@@ -87,29 +92,32 @@ func (o *LogOptions) Init() {
 		klog.SetLevel(o.LogLevel)
 		switch o.LogFormat {
 		case LogFormatJson:
-			klog.SetFormatter(&klog.JSONFormatter{
-				TimestampFormat: time.RFC3339Nano,
-			})
+			klog.SetFormatter(&klog.JSONFormatter{TimestampFormat: time.RFC3339Nano})
 		default:
-			klog.SetFormatter(&klog.TextFormatter{
-				FullTimestamp:   true,
-				TimestampFormat: time.RFC3339Nano,
-			})
+			klog.SetFormatter(&klog.TextFormatter{FullTimestamp: true, TimestampFormat: time.RFC3339Nano})
 		}
+
+		o.applyKlogVerbosity(cliVerbositySet)
+
+		k8slog.Infof("logging initialized: log_format=%s log_level=%s log_verbosity=%s",
+			o.LogFormat,
+			o.LogLevel.String(),
+			currentKlogVerbosity())
 	})
 }
 
-// ApplyKlogVerbosity applies config verbosity to k8s.io/klog/v2.
-// Priority: explicitly set -v flag (cliVerbositySet=true) > config verbosity > klog default (0).
-func (o *LogOptions) ApplyKlogVerbosity(cliVerbositySet bool) {
-	if o == nil || o.Verbosity == nil || cliVerbositySet {
+func (o *LogOptions) applyKlogVerbosity(cliVerbositySet bool) {
+	if o.LogVerbosity == nil || cliVerbositySet {
 		return
 	}
-	f := flag.CommandLine.Lookup("v")
-	if f == nil {
-		return
+	_ = flag.Set("v", strconv.FormatUint(uint64(*o.LogVerbosity), 10))
+}
+
+func currentKlogVerbosity() string {
+	if f := flag.CommandLine.Lookup("v"); f != nil {
+		return f.Value.String()
 	}
-	_ = f.Value.Set(strconv.FormatUint(uint64(*o.Verbosity), 10))
+	return "0"
 }
 
 const (
