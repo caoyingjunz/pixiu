@@ -83,7 +83,7 @@ func NewOptions() (*Options, error) {
 }
 
 // Complete completes all the required options
-func (o *Options) Complete() error {
+func (o *Options) Complete(cmd *cobra.Command) error {
 	// 配置文件优先级: 默认配置，环境变量，命令行
 	if len(o.ConfigFile) == 0 {
 		// Try to read config file path from env.
@@ -141,7 +141,7 @@ func (o *Options) Complete() error {
 		return err
 	}
 
-	o.ComponentConfig.Default.LogOptions.Init()
+	o.ComponentConfig.Default.LogOptions.Init(isCLIVerbositySet(cmd))
 
 	// 注册依赖组件
 	if err := o.register(); err != nil {
@@ -162,6 +162,15 @@ func (o *Options) Complete() error {
 		o.AlertEvaluator,
 	)
 	return nil
+}
+
+// isCLIVerbositySet reports whether -v was explicitly provided on the command line.
+func isCLIVerbositySet(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	f := cmd.Flags().Lookup("v")
+	return f != nil && f.Changed
 }
 
 // BindFlags binds the pixiu Configuration struct fields

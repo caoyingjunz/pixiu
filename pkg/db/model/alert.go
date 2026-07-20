@@ -128,7 +128,7 @@ type AlertEvent struct {
 	Status            AlertEventStatus `gorm:"column:status;not null;index:idx_alert_events_status" json:"status"`
 	Severity          AlertSeverity    `gorm:"column:severity;not null" json:"severity"`
 	TriggerValue      string           `gorm:"column:trigger_value;type:varchar(256)" json:"trigger_value"`
-	TriggerExpr       string           `gorm:"column:trigger_expr;type:varchar(512)" json:"trigger_expr"`
+	TriggerExpr       string           `gorm:"column:trigger_expr;type:text" json:"trigger_expr"`
 	ResourceType      string           `gorm:"column:resource_type;type:varchar(64);index:idx_alert_events_resource,priority:1" json:"resource_type"`
 	ResourceName      string           `gorm:"column:resource_name;type:varchar(256);index:idx_alert_events_resource,priority:2" json:"resource_name"`
 	ResourceNamespace string           `gorm:"column:resource_namespace;type:varchar(128)" json:"resource_namespace"`

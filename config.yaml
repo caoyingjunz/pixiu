@@ -12,6 +12,8 @@ default:
   # 日志的格式，可选 text 和 json
   log_format: json
   log_level: info
+  # klog 详细级别，等价于命令行 -v；命令行显式 -v 优先于本配置
+  # log_verbosity: 2
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: admin
@@ -37,20 +39,4 @@ mysql:
 
 worker:
   # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
-#  work_dir: /etc/pixiu
-  engines:
-    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
-      os_supported:
-        - centos7
-        - debian10
-        - ubuntu18.04
-    - image: ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.3
-      os_supported:
-        - debian11
-        - ubuntu20.04
-        - ubuntu22.04
-        - rocky8.5
-        - rocky9.2
-        - rocky9.3
-        - openEuler22.03
-        - openEuler24.03
+  #work_dir: /etc/pixiu
