@@ -245,7 +245,7 @@ func (t *Trigger) markRecovered(ctx context.Context, rule *model.AlertRule, acti
 
 // minRecoveryDurationSeconds 是 Duration=0 时的最小恢复稳定窗口，
 // 防止立即触发规则在条件震荡时反复 Fire→Recover→Fire。
-const minRecoveryDurationSeconds = 90
+const minRecoveryDurationSeconds = 300
 
 // recoveryDurationSatisfied 使用 LastSentAt 作为最后一次通知的时间锚点。
 func (t *Trigger) recoveryDurationSatisfied(event *model.AlertEvent, durationSeconds int) bool {
