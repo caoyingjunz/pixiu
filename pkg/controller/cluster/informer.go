@@ -42,6 +42,7 @@ const (
 
 func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error) {
 	if len(namespace) == 0 || len(name) == 0 {
+		klog.V(2).Infof("namespace or name is empty")
 		return nil, fmt.Errorf("namespace or name is empty")
 	}
 	cs, err := c.GetClusterSetByName(ctx, cluster)
@@ -60,7 +61,7 @@ func (c *cluster) GetIndexerResource(ctx context.Context, cluster string, resour
 func (c *cluster) GetPod(ctx context.Context, podsLister v1.PodLister, namespace string, name string) (interface{}, error) {
 	pod, err := podsLister.Pods(namespace).Get(name)
 	if err != nil {
-		klog.Error("failed to get pod (%s/%s) from indexer: %v", namespace, name, err)
+		klog.Errorf("failed to get pod (%s/%s) from indexer: %v", namespace, name, err)
 		return nil, err
 	}
 
@@ -70,7 +71,7 @@ func (c *cluster) GetPod(ctx context.Context, podsLister v1.PodLister, namespace
 func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister listersv1.DeploymentLister, namespace string, name string) (interface{}, error) {
 	deploy, err := deploymentsLister.Deployments(namespace).Get(name)
 	if err != nil {
-		klog.Error("failed to get deployment (%s/%s) from indexer: %v", namespace, name, err)
+		klog.Errorf("failed to get deployment (%s/%s) from indexer: %v", namespace, name, err)
 		return nil, err
 	}
 
@@ -80,7 +81,7 @@ func (c *cluster) GetDeployment(ctx context.Context, deploymentsLister listersv1
 func (c *cluster) GetStatefulSet(ctx context.Context, statefulSetsLister listersv1.StatefulSetLister, namespace string, name string) (interface{}, error) {
 	statefulSet, err := statefulSetsLister.StatefulSets(namespace).Get(name)
 	if err != nil {
-		klog.Error("failed to get statefulSet (%s/%s) from indexer: %v", namespace, name, err)
+		klog.Errorf("failed to get statefulSet (%s/%s) from indexer: %v", namespace, name, err)
 		return nil, err
 	}
 
@@ -90,7 +91,7 @@ func (c *cluster) GetStatefulSet(ctx context.Context, statefulSetsLister listers
 func (c *cluster) GetDaemonSet(ctx context.Context, daemonSetsLister listersv1.DaemonSetLister, namespace string, name string) (interface{}, error) {
 	daemonSet, err := daemonSetsLister.DaemonSets(namespace).Get(name)
 	if err != nil {
-		klog.Error("failed to get daemonset (%s/%s) from indexer: %v", namespace, name, err)
+		klog.Errorf("failed to get daemonset (%s/%s) from indexer: %v", namespace, name, err)
 		return nil, err
 	}
 
@@ -100,7 +101,7 @@ func (c *cluster) GetDaemonSet(ctx context.Context, daemonSetsLister listersv1.D
 func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister listersbatchv1.CronJobLister, namespace string, name string) (interface{}, error) {
 	cronJob, err := cronJobsLister.CronJobs(namespace).Get(name)
 	if err != nil {
-		klog.Error("failed to get cronjob (%s/%s) from indexer: %v", namespace, name, err)
+		klog.Errorf("failed to get cronjob (%s/%s) from indexer: %v", namespace, name, err)
 		return nil, err
 	}
 
@@ -110,7 +111,7 @@ func (c *cluster) GetCronJob(ctx context.Context, cronJobsLister listersbatchv1.
 func (c *cluster) GetJob(ctx context.Context, cronJobsLister listersbatchv1.JobLister, namespace string, name string) (interface{}, error) {
 	job, err := cronJobsLister.Jobs(namespace).Get(name)
 	if err != nil {
-		klog.Error("failed to get job (%s/%s) from indexer: %v", namespace, name, err)
+		klog.Errorf("failed to get job (%s/%s) from indexer: %v", namespace, name, err)
 		return nil, err
 	}
 
@@ -120,7 +121,7 @@ func (c *cluster) GetJob(ctx context.Context, cronJobsLister listersbatchv1.JobL
 func (c *cluster) GetNode(ctx context.Context, nodesLister v1.NodeLister, namespace string, name string) (interface{}, error) {
 	node, err := nodesLister.Get(name)
 	if err != nil {
-		klog.Error("failed to get node (%s/%s) from indexer: %v", namespace, name, err)
+		klog.Errorf("failed to get node (%s/%s) from indexer: %v", namespace, name, err)
 		return nil, err
 	}
 

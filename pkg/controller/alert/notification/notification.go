@@ -54,6 +54,7 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	opts := []db.Options{
 		db.WithAlertRuleId(listOption.RuleId),
 		db.WithAlertEventId(listOption.EventId),
+		db.WithTitleLike(listOption.NameSelector),
 	}
 
 	var err error
@@ -90,8 +91,9 @@ func modelToType(object *model.AlertNotification) *types.AlertNotification {
 	return &types.AlertNotification{
 		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
-		EventId:   object.EventId, RuleId: object.RuleId, Channel: object.Channel, Receiver: object.Receiver,
+		EventId:   object.EventId, RuleId: object.RuleId, Channel: object.Channel,
 		Title: object.Title, Content: object.Content, Status: object.Status,
-		RetryCount: object.RetryCount, ErrorMsg: object.ErrorMsg, Extension: object.Extension,
+		RetryCount: object.RetryCount, ErrorMsg: object.ErrorMsg,
+		Severity: object.Severity, Labels: object.Labels, ChannelName: object.ChannelName,
 	}
 }

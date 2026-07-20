@@ -172,6 +172,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 	}
 
 	if len(updates) == 0 {
+		klog.V(2).Infof("datasource(%d): no fields to update", req.Id)
 		return nil
 	}
 	if err = c.factory.Datasource().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {

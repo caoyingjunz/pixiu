@@ -55,9 +55,9 @@ func (c Register) Run() error {
 	if err := ks.Unmarshal(c.data.Config.Kubernetes); err != nil {
 		return err
 	}
-	// 如果未启用自注册功能，则直接跳过
+	// Skip registration if not enabled
 	// if !ks.Register {
-	// 	klog.Infof("部署计划未启用自注册功能，skipping")
+	// 	klog.Infof("self-registration is disabled for this plan, skipping")
 	// 	return nil
 	// }
 
@@ -82,7 +82,7 @@ func (c Register) Run() error {
 		}
 	}
 	if len(kubeConfig) == 0 {
-		klog.Error("get the empty kubeconfig from master nodes")
+		klog.Infof("get the empty kubeconfig from master nodes")
 		return fmt.Errorf("get the empty kubeconfig from master nodes")
 	}
 	config64 := base64.StdEncoding.EncodeToString(kubeConfig)

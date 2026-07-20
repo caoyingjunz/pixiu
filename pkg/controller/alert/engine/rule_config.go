@@ -113,7 +113,7 @@ func isValidThresholdCondition(expr string) bool {
 	return err == nil
 }
 
-func migrateLegacyQueries(cfg AlertRuleConfig, severity model.AlertSeverity) AlertRuleConfig {
+func migrateLegacyQueries(cfg AlertRuleConfig) AlertRuleConfig {
 	if strings.TrimSpace(cfg.PromQl) != "" && len(cfg.Triggers) > 0 {
 		return cfg
 	}
@@ -130,7 +130,7 @@ func migrateLegacyQueries(cfg AlertRuleConfig, severity model.AlertSeverity) Ale
 		}
 		if looksLikeThresholdCondition(raw) {
 			triggers = append(triggers, AlertTrigger{
-				Severity:  normalizeSeverity(q.Severity, severity),
+				Severity:  normalizeSeverity(q.Severity, model.AlertSeverityWarning),
 				Condition: raw,
 				Duration:  0,
 			})
@@ -140,7 +140,7 @@ func migrateLegacyQueries(cfg AlertRuleConfig, severity model.AlertSeverity) Ale
 			promQl = raw
 		}
 		triggers = append(triggers, AlertTrigger{
-			Severity:  normalizeSeverity(q.Severity, severity),
+			Severity:  normalizeSeverity(q.Severity, model.AlertSeverityWarning),
 			Condition: "> 0",
 			Duration:  0,
 		})
@@ -149,11 +149,11 @@ func migrateLegacyQueries(cfg AlertRuleConfig, severity model.AlertSeverity) Ale
 }
 
 // NormalizeRuleConfig normalizes rule_config and returns severity / duration of the first trigger.
-func NormalizeRuleConfig(ruleConfig string, severity model.AlertSeverity) (normalizedConfig string, normalizedSeverity model.AlertSeverity, normalizedDuration int, ok bool) {
-	cfg := migrateLegacyQueries(ParseAlertRuleConfig(ruleConfig), severity)
+func NormalizeRuleConfig(ruleConfig string) (normalizedConfig string, normalizedSeverity model.AlertSeverity, normalizedDuration int, ok bool) {
+	cfg := migrateLegacyQueries(ParseAlertRuleConfig(ruleConfig))
 	promQl := strings.TrimSpace(cfg.PromQl)
 	if promQl == "" {
-		return "", normalizeSeverity(severity, model.AlertSeverityWarning), 0, false
+		return "", model.AlertSeverityWarning, 0, false
 	}
 
 	triggers := make([]AlertTrigger, 0, len(cfg.Triggers))
@@ -163,16 +163,16 @@ func NormalizeRuleConfig(ruleConfig string, severity model.AlertSeverity) (norma
 			continue
 		}
 		if !isValidThresholdCondition(condition) {
-			return "", normalizeSeverity(severity, model.AlertSeverityWarning), 0, false
+			return "", model.AlertSeverityWarning, 0, false
 		}
 		triggers = append(triggers, AlertTrigger{
-			Severity:  normalizeSeverity(t.Severity, severity),
+			Severity:  normalizeSeverity(t.Severity, model.AlertSeverityWarning),
 			Condition: condition,
 			Duration:  normalizeDuration(t.Duration),
 		})
 	}
 	if len(triggers) == 0 {
-		return "", normalizeSeverity(severity, model.AlertSeverityWarning), 0, false
+		return "", model.AlertSeverityWarning, 0, false
 	}
 
 	cfg = AlertRuleConfig{PromQl: promQl, Triggers: triggers}
@@ -183,7 +183,7 @@ func GetRulePromQl(rule *model.AlertRule) string {
 	if rule == nil {
 		return ""
 	}
-	cfg := migrateLegacyQueries(ParseAlertRuleConfig(rule.RuleConfig), rule.Severity)
+	cfg := migrateLegacyQueries(ParseAlertRuleConfig(rule.RuleConfig))
 	return strings.TrimSpace(cfg.PromQl)
 }
 
@@ -192,7 +192,7 @@ func ListAlertTriggers(rule *model.AlertRule) []EvaluableTrigger {
 	if rule == nil {
 		return nil
 	}
-	cfg := migrateLegacyQueries(ParseAlertRuleConfig(rule.RuleConfig), rule.Severity)
+	cfg := migrateLegacyQueries(ParseAlertRuleConfig(rule.RuleConfig))
 	promQl := strings.TrimSpace(cfg.PromQl)
 	if promQl == "" {
 		return nil
@@ -206,7 +206,7 @@ func ListAlertTriggers(rule *model.AlertRule) []EvaluableTrigger {
 		}
 		out = append(out, EvaluableTrigger{
 			PromQl:    promQl,
-			Severity:  normalizeSeverity(t.Severity, rule.Severity),
+			Severity:  normalizeSeverity(t.Severity, model.AlertSeverityWarning),
 			Condition: condition,
 			Duration:  normalizeDuration(t.Duration),
 		})

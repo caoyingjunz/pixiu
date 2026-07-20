@@ -84,13 +84,13 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 	// 查到之后按哪几档规则判、判出来算多严重
 	triggers := ListAlertTriggers(rule)
 	if len(triggers) == 0 {
-		klog.V(0).Infof("skip evaluating alert rule(%d:%s): no valid triggers in rule_config", rule.Id, rule.Name)
+		klog.V(2).Infof("skip evaluating alert rule(%d:%s): no valid triggers in rule_config", rule.Id, rule.Name)
 		return nil
 	}
 
 	samples, err := m.provider.Query(ctx, rule)
 	if err != nil {
-		klog.V(0).Infof("metric query failed %v", err)
+		klog.Errorf("failed to query metrics for rule(%d:%s): %v", rule.Id, rule.Name, err)
 		return err
 	}
 	if len(samples) == 0 {
@@ -102,7 +102,6 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 	klog.V(4).Infof("evaluating alert rule(%d:%s): triggers=%d samples=%d", rule.Id, rule.Name, len(triggers), len(samples))
 	for _, trigger := range triggers {
 		ruleCopy := *rule
-		ruleCopy.Severity = trigger.Severity
 		ruleCopy.Duration = trigger.Duration
 
 		for _, sample := range samples {
@@ -127,7 +126,7 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 				continue
 			}
 
-			klog.V(2).Infof("alert rule(%d:%s)  value(%s) does not match condition(%s), try recover", rule.Id, rule.Name, sample.Value, formatTriggerExpr(trigger))
+			klog.V(2).Infof("alert rule(%d:%s) value(%s) does not match condition(%s), attempting recovery", rule.Id, rule.Name, sample.Value, formatTriggerExpr(trigger))
 			if err = m.trigger.Recover(ctx, &ruleCopy, sample, trigger); err != nil {
 				return err
 			}
