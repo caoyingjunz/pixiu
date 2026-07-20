@@ -93,6 +93,7 @@ func (c *controller) Update(ctx context.Context, channelId int64, req *types.Upd
 		updates["extension"] = *req.Extension
 	}
 	if len(updates) == 0 {
+		klog.V(2).Infof("alert channel(%d): no fields to update", channelId)
 		return apierrors.NewError(fmt.Errorf("no fields to update"), http.StatusBadRequest)
 	}
 	if err := c.factory.Alert().Channel().Update(ctx, channelId, req.ResourceVersion, updates); err != nil {

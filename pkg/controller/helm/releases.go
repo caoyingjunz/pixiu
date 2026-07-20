@@ -123,7 +123,7 @@ func (r *Releases) History(ctx context.Context, name string) ([]*release.Release
 }
 
 func (r *Releases) Rollback(ctx context.Context, name string, toVersion int) error {
-	klog.Error("version: ", toVersion)
+	klog.Infof("rolling back release %s to version %d", name, toVersion)
 	_, err := r.Get(ctx, name)
 	if err != nil {
 		return err

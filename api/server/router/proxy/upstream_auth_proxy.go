@@ -137,7 +137,7 @@ func pickOnePodForProxy(ctx context.Context, clientSet kubernetes.Interface, tar
 				if !portMatchesTarget(port, targetPort) {
 					continue
 				}
-				klog.V(0).Infof(
+				klog.V(2).Infof(
 					"selected pod %s/%s:%d for service %s/%s",
 					target.namespace, addr.TargetRef.Name, port.Port, target.namespace, target.service,
 				)

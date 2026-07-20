@@ -251,6 +251,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 		updates["description"] = *req.Description
 	}
 	if len(updates) == 0 {
+		klog.V(2).Infof("cluster(%d): no fields to update", cid)
 		return errors.ErrInvalidRequest
 	}
 	if err = c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates); err != nil {
@@ -323,7 +324,7 @@ func (c *cluster) Delete(ctx context.Context, cid int64, skipCheck bool) error {
 	for _, slave := range slaves {
 		err = c.factory.Cluster().Delete(ctx, &slave)
 		if err != nil {
-			klog.Errorf("failed to delete 从 cluster(%d): %v", slave.Id, err)
+			klog.Errorf("failed to delete slave cluster(%d): %v", slave.Id, err)
 		}
 		ClusterIndexer.Delete(slave.Name)
 	}
@@ -342,7 +343,7 @@ func (c *cluster) deletePixiuClusterRole(ctx context.Context, cluster *model.Clu
 		return nil
 	}
 
-	klog.Infof("delete clusterRole(%s) 成功", clusterRoleView)
+	klog.Infof("clusterRole(%s) deleted successfully", clusterRoleView)
 	return nil
 }
 
@@ -390,7 +391,7 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 	// 先把所有的集群查询出来
 	allObjects, err := c.factory.Cluster().List(ctx, opts...)
 	if err != nil {
-		klog.Errorf("获取集群列表失败 %v", err)
+		klog.Errorf("failed to list clusters: %v", err)
 		pageResult.Message = err.Error()
 		return nil, err
 	}
@@ -411,7 +412,7 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 	for _, slaveObject := range slaveObjects {
 		// 主集群已经存在的时候，忽略从集群
 		if masterClusterMap[slaveObject.OwnerReference] {
-			klog.Infof("集群 %s(%s) 为 %d 的子集群，忽略", slaveObject.AliasName, slaveObject.Name, slaveObject.OwnerReference)
+			klog.Infof("cluster %s(%s) is a sub-cluster of %d, skipping", slaveObject.AliasName, slaveObject.Name, slaveObject.OwnerReference)
 			continue
 		}
 		objects = append(objects, slaveObject)
@@ -891,7 +892,7 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
 	cs, ok := ClusterIndexer.Get(name)
 	if ok {
-		klog.V(0).Infof("Get %s clusterSet from cache", name)
+		klog.V(2).Infof("Get %s clusterSet from cache", name)
 		return cs, nil
 	}
 
@@ -1077,10 +1078,10 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 
 	// 子集群，需要整合主集群字段
 	if o.PermissionId != 0 {
-		klog.Infof("cluster %s has permissionId %d, 补全 OwnerRef(%d)", o.Name, o.PermissionId, o.OwnerReference)
+		klog.Infof("cluster %s has permissionId %d, patching OwnerRef(%d)", o.Name, o.PermissionId, o.OwnerReference)
 		masterCluster, err := c.factory.Cluster().Get(context.TODO(), o.OwnerReference)
 		if err != nil || masterCluster == nil {
-			klog.Warningf("cluster %s 主集群不存在或获取 Owner(%d) 失败: %v", o.Name, o.OwnerReference, err)
+			klog.Warningf("cluster %s: master cluster not found or failed to get Owner(%d): %v", o.Name, o.OwnerReference, err)
 		} else {
 			masterNodes := types.KubeNode{}
 			if strings.TrimSpace(masterCluster.Nodes) != "" {

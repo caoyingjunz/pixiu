@@ -121,6 +121,7 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 		updates["description"] = *req.Description
 	}
 	if len(updates) == 0 {
+		klog.V(2).Infof("role(%d): no fields to update", rid)
 		return errors.ErrInvalidRequest
 	}
 

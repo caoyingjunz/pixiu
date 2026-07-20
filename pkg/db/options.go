@@ -91,6 +91,15 @@ func WithNameLike(name string) Options {
 	}
 }
 
+func WithTitleLike(title string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if title == "" {
+			return tx
+		}
+		return tx.Where("title like ?", "%"+title+"%")
+	}
+}
+
 func WithName(name string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if name == "" {

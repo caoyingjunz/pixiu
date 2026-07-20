@@ -80,7 +80,7 @@ func buildNotificationContent(rule *model.AlertRule, event *model.AlertEvent, re
 		}
 	}
 
-	klog.V(0).Infof("未发现指定模板，使用默认通知内容")
+	klog.V(4).Infof("no notify template configured for rule(%d), using default notification content", rule.Id)
 	return defaultNotificationContent(rule, event, recovered)
 }
 
@@ -124,7 +124,6 @@ func buildNotificationTemplateData(rule *model.AlertRule, event *model.AlertEven
 	if rule != nil {
 		data.RuleId = rule.Id
 		data.RuleName = rule.Name
-		data.Severity = formatNotificationSeverity(rule.Severity)
 	}
 	if event != nil {
 		if data.RuleId == 0 {

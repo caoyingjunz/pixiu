@@ -60,7 +60,7 @@ func (cs *ClusterSyncer) LogLevel() logutil.LogLevel {
 func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	clusters, err := cs.factory.Cluster().List(ctx)
 	if err != nil {
-		klog.Error("[ClusterSyncer] failed to get clusters: %v", err)
+		klog.Errorf("[ClusterSyncer] failed to get clusters: %v", err)
 		return err
 	}
 
@@ -81,7 +81,7 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	select {
 	case err = <-errCh:
 		if err != nil {
-			klog.Error("failed to sync cluster status: %v", err)
+			klog.Errorf("failed to sync cluster status: %v", err)
 		}
 	default:
 	}
@@ -91,7 +91,7 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	if cluster.PermissionId != 0 {
-		klog.V(1).Infof("授权集群%s(%d)无需检查", cluster.AliasName, cluster.Id)
+		klog.V(1).Infof("authorized cluster %s(%d) needs no checking", cluster.AliasName, cluster.Id)
 		return nil
 	}
 
@@ -113,18 +113,19 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	status := model.ClusterStatusRunning
 	nodeData, kubernetesVersion, err = getNewestKubeStatus(cluster)
 	if err != nil {
-		klog.Error("[getNewestKubeStatus] %s failed %v, 集群状态即将被设置成不可用", cluster.AliasName, err)
+		klog.Errorf("[getNewestKubeStatus] %s failed: %v, cluster status will be marked as unavailable", cluster.AliasName, err)
 		status = model.ClusterStatusError
 	}
 
 	updates := make(map[string]interface{})
 	parseStatus(updates, status, kubernetesVersion, nodeData, cluster)
 	if len(updates) == 0 {
+		klog.V(2).Infof("cluster(%d:%s): no status changes to update", cluster.Id, cluster.Name)
 		return nil
 	}
 
 	if err = f.Cluster().InternalUpdate(context.TODO(), cluster.Id, updates); err != nil {
-		klog.Error("failed to update cluster(%s) status: %v", cluster.Name, err)
+		klog.Errorf("failed to update cluster(%s) status: %v", cluster.Name, err)
 	}
 	return nil
 }

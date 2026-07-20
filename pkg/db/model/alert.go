@@ -100,7 +100,6 @@ type AlertRule struct {
 	EvalInterval     int            `gorm:"column:eval_interval;default:15" json:"eval_interval"`
 	NotifyRepeatStep int            `gorm:"column:notify_repeat_step;default:5" json:"notify_repeat_step"` // minutes; 0 means no repeat notify
 	NotifyMaxNumber  int            `gorm:"column:notify_max_number;default:0" json:"notify_max_number"`   // 0 means unlimited
-	Severity         AlertSeverity  `gorm:"column:severity;not null;index:idx_alert_rules_severity" json:"severity"`
 	ScopeType        AlertScopeType `gorm:"column:scope_type;not null" json:"scope_type"`
 	ScopeValue       string         `gorm:"column:scope_value;type:text" json:"scope_value"`
 	NotifyChannels   string         `gorm:"column:notify_channels;type:varchar(256)" json:"notify_channels"` // alert_channels ID list, comma separated
@@ -161,6 +160,9 @@ type AlertNotification struct {
 	RetryCount int                     `gorm:"column:retry_count;default:0" json:"retry_count"`
 	ErrorMsg   string                  `gorm:"column:error_msg;type:text" json:"error_msg"`
 	Extension  string                  `gorm:"column:extension;type:text" json:"extension"`
+	Severity   AlertSeverity           `gorm:"column:severity;not null" json:"severity"`
+	Labels     string                  `gorm:"column:labels;type:text" json:"labels"`
+	ChannelName string                 `gorm:"column:channel_name;type:varchar(128)" json:"channel_name"`
 }
 
 func (AlertNotification) TableName() string {

@@ -66,7 +66,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertSilenceRe
 		Extension:        req.Extension,
 	})
 	if err != nil {
-		klog.Errorf("failed to create alert silence: %v", err)
+		klog.Errorf("failed to create alert silence(%s): %v", req.Name, err)
 		return apierrors.ErrServerInternal
 	}
 	return nil
@@ -99,6 +99,7 @@ func (c *controller) Update(ctx context.Context, silenceId int64, req *types.Upd
 		updates["extension"] = *req.Extension
 	}
 	if len(updates) == 0 {
+		klog.V(2).Infof("alert silence(%d): no fields to update", silenceId)
 		return apierrors.NewError(fmt.Errorf("no fields to update"), http.StatusBadRequest)
 	}
 	if err := c.factory.Alert().Silence().Update(ctx, silenceId, req.ResourceVersion, updates); err != nil {

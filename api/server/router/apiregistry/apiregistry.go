@@ -53,7 +53,7 @@ func (g *Group) Register(ginGroup *gin.RouterGroup, apiSvc apiresource.Interface
 		registerGinRoute(ginGroup, entry)
 		if persistEntry(entry) {
 			if err := registerAPI(apiSvc, g.Name, g.BaseURL, entry); err != nil {
-				klog.Warning("register api %s failed %v", g.BaseURL, err)
+				klog.Warningf("register api %s failed %v", g.BaseURL, err)
 			}
 		}
 	}

@@ -88,6 +88,10 @@ func (s *Scheduler) syncRules(ctx context.Context) {
 		klog.Errorf("failed to list enabled alert rules: %v", err)
 		return
 	}
+	if len(rules) == 0 {
+		klog.V(2).Infoln("no enabled alert rules to sync")
+		return
+	}
 
 	desired := make(map[int64]*RuleWorker, len(rules))
 	for i := range rules {
@@ -108,6 +112,7 @@ func (s *Scheduler) syncRules(ctx context.Context) {
 			continue
 		}
 		desired[rule.Id] = worker
+		klog.V(2).Infof("alert rule(%d:%s) worker created/updated", rule.Id, rule.Name)
 	}
 
 	s.mu.Lock()
@@ -130,6 +135,7 @@ func (s *Scheduler) syncRules(ctx context.Context) {
 	// 移除删除的规则
 	for ruleID, worker := range s.workers {
 		if _, exists := desired[ruleID]; !exists {
+			klog.V(2).Infof("removed alert rule worker(%d)", ruleID)
 			worker.Stop()
 			delete(s.workers, ruleID)
 		}
@@ -183,7 +189,6 @@ func ruleWorkerHash(rule *model.AlertRule) string {
 		strconv.FormatBool(rule.Enabled) + "_" +
 		strconv.Itoa(int(rule.RuleType)) + "_" +
 		strconv.Itoa(rule.Duration) + "_" +
-		strconv.Itoa(int(rule.Severity)) + "_" +
 		strconv.Itoa(int(rule.ScopeType)) + "_" +
 		rule.ScopeValue + "_" +
 		rule.NotifyChannels + "_" +
