@@ -136,7 +136,7 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 		return err
 	}
 	if len(items) == 0 {
-		klog.V(0).Infof("no pending alert notifications to dispatch")
+		klog.V(1).Infof("no pending alert notifications to dispatch")
 		return nil
 	}
 	for i := range items {

@@ -179,7 +179,7 @@ func (o *Options) bootstrapDistributions(ctx context.Context) error {
 		}
 	}
 
-	klog.Infof("完成支持系统的初始化")
+	klog.Infof("完成 operating system 的初始化")
 	return nil
 }
 
