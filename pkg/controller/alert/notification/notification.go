@@ -28,7 +28,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type Interface interface {
@@ -92,12 +91,13 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 }
 
 func (c *controller) Delete(ctx context.Context, notificationId int64) error {
-	if err := c.factory.Alert().Notification().Delete(ctx, notificationId); err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return apierrors.NewError(fmt.Errorf("alert notification not found"), http.StatusNotFound)
-		}
+	rows, err := c.factory.Alert().Notification().Delete(ctx, db.WithIDIn(notificationId))
+	if err != nil {
 		klog.Errorf("failed to delete alert notification(%d): %v", notificationId, err)
 		return apierrors.ErrServerInternal
+	}
+	if rows == 0 {
+		return apierrors.NewError(fmt.Errorf("alert notification not found"), http.StatusNotFound)
 	}
 	return nil
 }

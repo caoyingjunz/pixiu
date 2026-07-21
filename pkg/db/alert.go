@@ -218,9 +218,10 @@ func (a *alertEvent) GetActive(ctx context.Context, ruleId int64, resourceType, 
 type AlertNotificationInterface interface {
 	Create(ctx context.Context, object *model.AlertNotification) (*model.AlertNotification, error)
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, id int64) error
+	Delete(ctx context.Context, opts ...Options) (int64, error)
 	Get(ctx context.Context, id int64) (*model.AlertNotification, error)
 	List(ctx context.Context, opts ...Options) ([]model.AlertNotification, error)
+
 	Count(ctx context.Context, opts ...Options) (int64, error)
 	ListPending(ctx context.Context, limit int) ([]model.AlertNotification, error)
 }
@@ -301,15 +302,16 @@ func (a *alertNotification) ListPending(ctx context.Context, limit int) ([]model
 	return objects, nil
 }
 
-func (a *alertNotification) Delete(ctx context.Context, id int64) error {
-	f := a.db.WithContext(ctx).Where("id = ?", id).Delete(&model.AlertNotification{})
+func (a *alertNotification) Delete(ctx context.Context, opts ...Options) (int64, error) {
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	f := tx.Delete(&model.AlertNotification{})
 	if f.Error != nil {
-		return f.Error
+		return 0, f.Error
 	}
-	if f.RowsAffected == 0 {
-		return errors.ErrRecordNotFound
-	}
-	return nil
+	return f.RowsAffected, nil
 }
 
 type AlertChannelInterface interface {

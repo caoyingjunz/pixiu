@@ -40,3 +40,10 @@ mysql:
 worker:
   # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
   #work_dir: /etc/pixiu
+
+# 告警历史清理（清理过期的告警通知记录）
+alert:
+  # cron 表达式，默认每天凌晨 2 点执行
+  schedule: "0 2 * * *"
+  # 保留天数，默认 3 天
+  days_reserved: 3

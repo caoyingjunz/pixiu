@@ -37,6 +37,8 @@ type Config struct {
 	Mysql   MysqlOptions            `yaml:"mysql"`
 	Worker  WorkerOptions           `yaml:"worker"`
 	Audit   jobmanager.AuditOptions `yaml:"audit"`
+
+	AlertHistory jobmanager.AlertHistoryOptions `yaml:"alert"`
 }
 
 type DefaultOptions struct {
