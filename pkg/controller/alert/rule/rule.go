@@ -18,6 +18,7 @@ package rule
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -39,6 +40,8 @@ type Interface interface {
 	Delete(ctx context.Context, ruleId int64) error
 	Get(ctx context.Context, ruleId int64) (*types.AlertRule, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+	Export(ctx context.Context, ids []int64) ([]byte, error)
+	Import(ctx context.Context, data []byte) (*types.ImportAlertRulesResult, error)
 }
 
 type controller struct {
@@ -255,6 +258,116 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	pageResult.Items = items
 
 	return pageResult, nil
+}
+
+const (
+	alertRuleExportAPIVersion = "pixiu.io/v1"
+	alertRuleExportKind       = "AlertRuleList"
+)
+
+func (c *controller) Export(ctx context.Context, ids []int64) ([]byte, error) {
+	if len(ids) == 0 {
+		return nil, apierrors.NewError(fmt.Errorf("ids is required"), http.StatusBadRequest)
+	}
+
+	objects, err := c.factory.Alert().Rule().List(ctx, db.WithIDIn(ids...))
+	if err != nil {
+		klog.Errorf("failed to list alert rules for export: %v", err)
+		return nil, apierrors.ErrServerInternal
+	}
+	if len(objects) == 0 {
+		return nil, apierrors.NewError(fmt.Errorf("no alert rules found for export"), http.StatusNotFound)
+	}
+
+	items := make([]types.CreateAlertRuleRequest, 0, len(objects))
+	for i := range objects {
+		items = append(items, modelToExportItem(&objects[i]))
+	}
+
+	payload := types.AlertRuleExportFile{
+		APIVersion: alertRuleExportAPIVersion,
+		Kind:       alertRuleExportKind,
+		Items:      items,
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		klog.Errorf("failed to marshal alert rules export file: %v", err)
+		return nil, apierrors.ErrServerInternal
+	}
+	klog.Infof("exported %d alert rule(s)", len(items))
+	return data, nil
+}
+
+func (c *controller) Import(ctx context.Context, data []byte) (*types.ImportAlertRulesResult, error) {
+	items, err := parseAlertRuleImportPayload(data)
+	if err != nil {
+		return nil, apierrors.NewError(err, http.StatusBadRequest)
+	}
+	if len(items) == 0 {
+		return nil, apierrors.NewError(fmt.Errorf("import file contains no alert rules"), http.StatusBadRequest)
+	}
+
+	result := &types.ImportAlertRulesResult{}
+	for i := range items {
+		item := items[i]
+		if err = c.Create(ctx, &item); err != nil {
+			result.Failed++
+			name := item.Name
+			if name == "" {
+				name = fmt.Sprintf("#%d", i+1)
+			}
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", name, err))
+			klog.Errorf("failed to import alert rule(%s): %v", name, err)
+			continue
+		}
+		result.Created++
+	}
+	klog.Infof("imported alert rules: created=%d failed=%d", result.Created, result.Failed)
+	return result, nil
+}
+
+func parseAlertRuleImportPayload(data []byte) ([]types.CreateAlertRuleRequest, error) {
+	var file types.AlertRuleExportFile
+	if err := json.Unmarshal(data, &file); err == nil {
+		if file.Kind == alertRuleExportKind || file.APIVersion != "" || file.Items != nil {
+			if file.Kind != "" && file.Kind != alertRuleExportKind {
+				return nil, fmt.Errorf("unsupported kind %q, want %s", file.Kind, alertRuleExportKind)
+			}
+			return file.Items, nil
+		}
+	}
+
+	var items []types.CreateAlertRuleRequest
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, fmt.Errorf("invalid alert rule import json: %w", err)
+	}
+	return items, nil
+}
+
+func modelToExportItem(object *model.AlertRule) types.CreateAlertRuleRequest {
+	enabled := object.Enabled
+	notifyRepeatStep := engine.NormalizeNotifyRepeatStep(object.NotifyRepeatStep)
+	notifyMaxNumber := engine.NormalizeNotifyMaxNumber(object.NotifyMaxNumber)
+	return types.CreateAlertRuleRequest{
+		Name:             object.Name,
+		Description:      object.Description,
+		RuleType:         object.RuleType,
+		Duration:         object.Duration,
+		EvalInterval:     engine.NormalizeEvalInterval(object.EvalInterval),
+		NotifyRepeatStep: &notifyRepeatStep,
+		NotifyMaxNumber:  &notifyMaxNumber,
+		ScopeType:        object.ScopeType,
+		ScopeValue:       object.ScopeValue,
+		NotifyChannels:   object.NotifyChannels,
+		NotifyTemplate:   object.NotifyTemplate,
+		RuleConfig:       object.RuleConfig,
+		EnableDaysOfWeek: object.EnableDaysOfWeek,
+		EnableStime:      engine.NormalizeEnableTime(object.EnableStime),
+		EnableEtime:      engine.NormalizeEnableTime(object.EnableEtime),
+		DatasourceId:     object.DatasourceId,
+		Enabled:          &enabled,
+		Extension:        object.Extension,
+	}
 }
 
 func modelToType(object *model.AlertRule) *types.AlertRule {

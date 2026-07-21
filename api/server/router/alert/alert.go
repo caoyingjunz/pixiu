@@ -52,6 +52,9 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/:ruleId", Handler: r.deleteRule, Description: "Delete alert rule"},
 			{Method: "GET", RelativePath: "", Handler: r.listRules, Description: "List alert rules"},
 			{Method: "GET", RelativePath: "/:ruleId", Handler: r.getRule, Description: "Get alert rule"},
+
+			{Method: "POST", RelativePath: "/export", Handler: r.exportRules, Description: "Export alert rules as JSON file"},
+			{Method: "POST", RelativePath: "/import", Handler: r.importRules, Description: "Import alert rules from JSON file"},
 		},
 	}
 	ruleGroup.Register(ginEngine.Group(alertRuleBaseURL), r.c.APIResource())

@@ -139,6 +139,23 @@ type CreateAlertRuleRequest struct {
 	Extension        string               `json:"extension"`
 }
 
+type ExportAlertRulesRequest struct {
+	IDs []int64 `json:"ids" binding:"required,min=1"`
+}
+
+// AlertRuleExportFile is the portable JSON format for alert rule download/upload.
+type AlertRuleExportFile struct {
+	APIVersion string                   `json:"apiVersion"`
+	Kind       string                   `json:"kind"`
+	Items      []CreateAlertRuleRequest `json:"items"`
+}
+
+type ImportAlertRulesResult struct {
+	Created int      `json:"created"`
+	Failed  int      `json:"failed"`
+	Errors  []string `json:"errors,omitempty"`
+}
+
 type UpdateAlertRuleRequest struct {
 	PixiuMeta `json:",inline"`
 
