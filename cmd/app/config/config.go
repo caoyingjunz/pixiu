@@ -34,10 +34,10 @@ func (m Mode) InDebug() bool {
 
 type Config struct {
 	Default DefaultOptions          `yaml:"default"`
-	Log     logutil.LogOptions      `yaml:"log"`
 	Mysql   MysqlOptions            `yaml:"mysql"`
 	Worker  WorkerOptions           `yaml:"worker"`
 	Audit   jobmanager.AuditOptions `yaml:"audit"`
+	Log     logutil.LogOptions      `yaml:"log"`
 
 	AlertHistory jobmanager.AlertHistoryOptions `yaml:"alert"`
 }
