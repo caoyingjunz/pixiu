@@ -9,11 +9,6 @@ default:
   single_login: true
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
-  # 日志的格式，可选 text 和 json
-  log_format: json
-  log_level: info
-  # klog 详细级别，等价于命令行 -v；命令行显式 -v 优先于本配置
-  # log_verbosity: 2
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: admin
@@ -21,13 +16,6 @@ default:
 
   # CloudShell/工具容器镜像
 #  toolbox: ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0
-
-# 配置 http 和 https， 默认 http，
-# 启用https的时候 cert_file 和 key_file 为必填
-#tls:
-#  enable: false
-#  cert_file: test.pem
-#  key_file: test.key
 
 # 数据库地址信息
 mysql:
@@ -41,9 +29,27 @@ worker:
   # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
   #work_dir: /etc/pixiu
 
+# 配置 http 和 https， 默认 http，
+# 启用https的时候 cert_file 和 key_file 为必填
+#tls:
+#  enable: false
+#  cert_file: test.pem
+#  key_file: test.key
+
 # 告警历史清理（清理过期的告警通知记录）
 alert:
   # cron 表达式，默认每天凌晨 2 点执行
   schedule: "0 2 * * *"
   # 保留天数，默认 3 天
   days_reserved: 3
+
+# 日志配置
+log:
+  # 格式，可选 text 和 json
+  format: json
+  # 级别，可选 error / info / debug
+  level: info
+  # klog 详细级别，等价于命令行 -v；默认 0，命令行显式 -v 优先于本配置
+  verbosity: 0
+  # 是否在请求日志中输出 SQL
+  sql: false

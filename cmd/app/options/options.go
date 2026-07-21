@@ -111,8 +111,8 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	if len(o.ComponentConfig.Default.Toolbox) == 0 {
 		o.ComponentConfig.Default.Toolbox = defaultToolbox
 	}
-	if o.ComponentConfig.Default.LogFormat == "" {
-		o.ComponentConfig.Default.LogFormat = defaultLogFormat
+	if o.ComponentConfig.Log.LogFormat == "" {
+		o.ComponentConfig.Log.LogFormat = defaultLogFormat
 	}
 	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
@@ -147,7 +147,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		return err
 	}
 
-	o.ComponentConfig.Default.LogOptions.Init(isCLIVerbositySet(cmd))
+	o.ComponentConfig.Log.Init(isCLIVerbositySet(cmd))
 
 	// 注册依赖组件
 	if err := o.register(); err != nil {
@@ -162,7 +162,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 
 	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
 	o.JobManager = jobmanager.NewManager(
-		&o.ComponentConfig.Default.LogOptions,
+		&o.ComponentConfig.Log,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory),
