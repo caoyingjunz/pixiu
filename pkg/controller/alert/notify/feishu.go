@@ -48,7 +48,7 @@ func sendFeishu(item *model.AlertNotification) error {
 	if secret != "" {
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 		stringToSign := timestamp + "\n" + secret
-		mac := hmac.New(sha256.New, []byte(stringrsync-all.shToSign))
+		mac := hmac.New(sha256.New, []byte(stringToSign))
 		sign := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 		payload["timestamp"] = timestamp
 		payload["sign"] = sign

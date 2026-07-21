@@ -18,6 +18,8 @@ package notification
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 
 	"k8s.io/klog/v2"
 
@@ -26,9 +28,11 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type Interface interface {
+	Delete(ctx context.Context, notificationId int64) error
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
@@ -85,6 +89,17 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	pageResult.Items = items
 
 	return pageResult, nil
+}
+
+func (c *controller) Delete(ctx context.Context, notificationId int64) error {
+	if err := c.factory.Alert().Notification().Delete(ctx, notificationId); err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return apierrors.NewError(fmt.Errorf("alert notification not found"), http.StatusNotFound)
+		}
+		klog.Errorf("failed to delete alert notification(%d): %v", notificationId, err)
+		return apierrors.ErrServerInternal
+	}
+	return nil
 }
 
 func modelToType(object *model.AlertNotification) *types.AlertNotification {

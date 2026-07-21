@@ -85,6 +85,7 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 		Name:    "告警",
 		BaseURL: alertNotifyBaseURL,
 		Entries: []apiregistry.RouteEntry{
+			{Method: "DELETE", RelativePath: "/:notificationId", Handler: r.deleteNotification, Description: "Delete alert notification record"},
 			{Method: "GET", RelativePath: "", Handler: r.listNotifications, Description: "List alert notification records"},
 		},
 	}

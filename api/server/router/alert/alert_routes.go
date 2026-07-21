@@ -39,6 +39,10 @@ type channelMeta struct {
 	ChannelId int64 `uri:"channelId"`
 }
 
+type notifyMeta struct {
+	NotificationId int64 `uri:"notificationId"`
+}
+
 func (r *router) createRule(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var req types.CreateAlertRuleRequest
@@ -291,6 +295,23 @@ func (r *router) listNotifications(c *gin.Context) {
 		return
 	}
 	if resp.Result, err = r.c.Alert().Notification().List(c, listOption); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) deleteNotification(c *gin.Context) {
+	resp := httputils.NewResponse()
+	var (
+		meta notifyMeta
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &meta, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Alert().Notification().Delete(c, meta.NotificationId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
