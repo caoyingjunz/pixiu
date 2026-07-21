@@ -34,6 +34,7 @@ func (m Mode) InDebug() bool {
 
 type Config struct {
 	Default DefaultOptions          `yaml:"default"`
+	Log     logutil.LogOptions      `yaml:"log"`
 	Mysql   MysqlOptions            `yaml:"mysql"`
 	Worker  WorkerOptions           `yaml:"worker"`
 	Audit   jobmanager.AuditOptions `yaml:"audit"`
@@ -51,7 +52,6 @@ type DefaultOptions struct {
 	// 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
 	AutoMigrate bool `yaml:"auto_migrate"`
 
-	logutil.LogOptions `yaml:",inline"`
 	// 静态文件路径
 	StaticFiles string `yaml:"static_files"`
 
@@ -66,9 +66,6 @@ type DefaultOptions struct {
 }
 
 func (o DefaultOptions) Valid() error {
-	if err := o.LogOptions.Valid(); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -104,6 +101,9 @@ func (w WorkerOptions) Valid() error {
 
 func (c *Config) Valid() (err error) {
 	if err = c.Default.Valid(); err != nil {
+		return
+	}
+	if err = c.Log.Valid(); err != nil {
 		return
 	}
 	if err = c.Mysql.Valid(); err != nil {

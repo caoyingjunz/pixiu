@@ -52,12 +52,12 @@ const (
 )
 
 type LogOptions struct {
-	LogFormat `yaml:"log_format"`
-	LogSQL    bool `yaml:"log_sql"`
-	LogLevel  `yaml:"log_level"`
+	LogFormat    LogFormat `yaml:"format"`
+	LogSQL       bool      `yaml:"sql"`
+	LogLevel     LogLevel  `yaml:"level"`
 	// LogVerbosity is the k8s.io/klog/v2 verbosity level, equivalent to the -v flag.
 	// Default is 0. When both are set, an explicitly provided -v flag takes precedence.
-	LogVerbosity uint `yaml:"log_verbosity"`
+	LogVerbosity uint `yaml:"verbosity"`
 }
 
 // DefaultLogOptions returns the default configs.
@@ -80,7 +80,7 @@ func (o *LogOptions) Valid() error {
 }
 
 // Init initializes application logging (logrus) and k8s klog verbosity once.
-// Priority for -v: explicitly set CLI flag (cliVerbositySet=true) > config log_verbosity > default 0.
+// Priority for -v: explicitly set CLI flag (cliVerbositySet=true) > config log.verbosity > default 0.
 func (o *LogOptions) Init(cliVerbositySet bool) {
 	if o == nil {
 		return
@@ -99,10 +99,11 @@ func (o *LogOptions) Init(cliVerbositySet bool) {
 
 		o.applyKlogVerbosity(cliVerbositySet)
 
-		k8slog.Infof("logging initialized: log_format=%s log_level=%s log_verbosity=%s",
+		k8slog.Infof("logging initialized: format=%s level=%s verbosity=%s sql=%t",
 			o.LogFormat,
 			o.LogLevel.String(),
-			currentKlogVerbosity())
+			currentKlogVerbosity(),
+			o.LogSQL)
 	})
 }
 

@@ -9,11 +9,6 @@ default:
   single_login: true
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
-  # 日志的格式，可选 text 和 json
-  log_format: json
-  log_level: info
-  # klog 详细级别，等价于命令行 -v；默认 0，命令行显式 -v 优先于本配置
-  log_verbosity: 0
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: admin
@@ -47,3 +42,14 @@ alert:
   schedule: "0 2 * * *"
   # 保留天数，默认 3 天
   days_reserved: 3
+
+# 日志配置
+log:
+  # 格式，可选 text 和 json
+  format: json
+  # 级别，可选 error / info / debug
+  level: info
+  # klog 详细级别，等价于命令行 -v；默认 0，命令行显式 -v 优先于本配置
+  verbosity: 0
+  # 是否在请求日志中输出 SQL
+  sql: false
