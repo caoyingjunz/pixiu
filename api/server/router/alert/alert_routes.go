@@ -17,6 +17,9 @@ limitations under the License.
 package alert
 
 import (
+	"io"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -118,6 +121,48 @@ func (r *router) listRules(c *gin.Context) {
 		return
 	}
 	if resp.Result, err = r.c.Alert().Rule().List(c, listOption); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) exportRules(c *gin.Context) {
+	resp := httputils.NewResponse()
+	var req types.ExportAlertRulesRequest
+	if err := httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	data, err := r.c.Alert().Rule().Export(c, req.IDs)
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	c.Header("Content-Disposition", `attachment; filename="alert-rules.json"`)
+	c.Data(http.StatusOK, "application/json; charset=utf-8", data)
+}
+
+func (r *router) importRules(c *gin.Context) {
+	resp := httputils.NewResponse()
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if resp.Result, err = r.c.Alert().Rule().Import(c, data); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
