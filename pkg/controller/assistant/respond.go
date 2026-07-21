@@ -33,7 +33,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -62,7 +62,7 @@ type responseUsage struct {
 
 func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, emit func(*types.AIStreamEvent) error) (*types.AIRespondResponse, error) {
 	startTime := time.Now()
-	provider, err := c.getEnabledProvider(ctx, req.Provider)
+	account, provider, err := c.getAccountProvider(ctx, req.AccountId)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, em
 		return nil, err
 	}
 
-	modelName := provider.ModelName
+	modelName := account.ModelName
 
 	inputItems, err := buildConversationInput(conversation, req.Input)
 	if err != nil {
@@ -92,7 +92,7 @@ func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, em
 		RequestId:      getRequestIDFromContext(ctx),
 		ProviderId:     provider.Id,
 		ConversationId: req.ConversationId,
-		Provider:       provider.Provider,
+		Provider:       provider.Name,
 		ModelName:      modelName,
 		Authorization:  authorization,
 		Cookies:        cookies,
@@ -105,8 +105,11 @@ func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, em
 		Model:   modelName,
 	})
 
-	endpoint := strings.TrimRight(provider.BaseURL, "/") + "/v1/responses"
-	raw, text, responseID, err := c.runResponsesLoopStream(ctx, endpoint, provider.APIKey, modelName, resolveProviderMaxTokens(provider), inputItems, emit)
+	endpoint, err := resolveAIEndpoint(provider)
+	if err != nil {
+		return nil, err
+	}
+	raw, text, responseID, err := c.runProviderStream(ctx, provider.Protocol, endpoint, account.APIKey, modelName, resolveProviderMaxTokens(provider), inputItems, emit)
 	if err != nil {
 		c.recordResponseExecution(ctx, provider, req.ConversationId, modelName, req.Input, "", "", nil, err, time.Since(startTime))
 		return nil, err
@@ -191,7 +194,7 @@ func (c *controller) recordResponseExecution(
 		RequestId:       meta.RequestId,
 		ProviderId:      provider.Id,
 		ConversationId:  conversationID,
-		Provider:        provider.Provider,
+		Provider:        provider.Name,
 		ModelName:       modelName,
 		ResponseId:      responseID,
 		InputText:       truncateAuditText(inputText),
@@ -368,25 +371,31 @@ func resolveProviderMaxTokens(provider *model.AIProvider) int {
 	return provider.MaxTokens
 }
 
-func (c *controller) getEnabledProvider(ctx context.Context, providerName string) (*model.AIProvider, error) {
-	opts := []db.Options{
-		db.WithEnabled(true),
-		db.WithModifyOrderByDesc(),
-		db.WithLimit(1),
-	}
-	if providerName != "" {
-		opts = append(opts, db.WithProvider(providerName))
-	}
-
-	providers, err := c.factory.Assistant().Provider().List(ctx, opts...)
+func (c *controller) getAccountProvider(ctx context.Context, accountId int64) (*model.AIAccount, *model.AIProvider, error) {
+	account, err := c.factory.Assistant().Account().Get(ctx, accountId)
 	if err != nil {
-		klog.Errorf("failed to list ai providers: %v", err)
-		return nil, apierrors.ErrServerInternal
+		klog.Errorf("failed to get ai account(%d): %v", accountId, err)
+		return nil, nil, apierrors.ErrServerInternal
 	}
-	if len(providers) == 0 {
-		return nil, apierrors.NewError(fmt.Errorf("no enabled ai provider found"), http.StatusNotFound)
+	if account == nil {
+		return nil, nil, apierrors.NewError(fmt.Errorf("ai account not found"), http.StatusNotFound)
 	}
-	return &providers[0], nil
+	userId, err := httputils.GetUserIdFromContext(ctx)
+	if err != nil {
+		return nil, nil, apierrors.NewError(fmt.Errorf("failed to get current user"), http.StatusUnauthorized)
+	}
+	if account.UserId != userId {
+		return nil, nil, apierrors.NewError(fmt.Errorf("ai account not found"), http.StatusNotFound)
+	}
+	provider, err := c.factory.Assistant().Provider().Get(ctx, account.ProviderId)
+	if err != nil {
+		klog.Errorf("failed to get ai provider(%d): %v", account.ProviderId, err)
+		return nil, nil, apierrors.ErrServerInternal
+	}
+	if provider == nil {
+		return nil, nil, apierrors.NewError(fmt.Errorf("ai provider not found"), http.StatusNotFound)
+	}
+	return account, provider, nil
 }
 
 func buildConversationInput(conversation *model.Conversation, input string) ([]map[string]interface{}, error) {
@@ -445,7 +454,7 @@ func (c *controller) persistConversation(
 		}
 		object, err := c.factory.Assistant().Conversation().Create(ctx, &model.Conversation{
 			ProviderId:         provider.Id,
-			Provider:           provider.Provider,
+			Provider:           provider.Name,
 			ModelName:          modelName,
 			Title:              title,
 			PreviousResponseId: responseID,
@@ -460,7 +469,7 @@ func (c *controller) persistConversation(
 
 	updates := map[string]interface{}{
 		"provider_id":          provider.Id,
-		"provider":             provider.Provider,
+		"provider":             provider.Name,
 		"model":                modelName,
 		"previous_response_id": responseID,
 		"history":              history,
@@ -543,6 +552,12 @@ func extractResponseUsage(raw map[string]interface{}) responseUsage {
 		InputTokens:  toInt64(usageObj["input_tokens"]),
 		OutputTokens: toInt64(usageObj["output_tokens"]),
 		TotalTokens:  toInt64(usageObj["total_tokens"]),
+	}
+	if usage.InputTokens == 0 {
+		usage.InputTokens = toInt64(usageObj["prompt_tokens"])
+	}
+	if usage.OutputTokens == 0 {
+		usage.OutputTokens = toInt64(usageObj["completion_tokens"])
 	}
 
 	if details, ok := usageObj["input_tokens_details"].(map[string]interface{}); ok {
