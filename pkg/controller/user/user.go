@@ -170,7 +170,7 @@ func (u *user) preChangePassword(ctx context.Context, userId int64, operatorId i
 
 	// 校验旧密码是否正确
 	if err = util.ValidateUserPassword(object.Password, req.Old); err != nil {
-		klog.Errorf("检验用户密码失败: %v", err)
+		klog.Errorf("failed to verify user password: %v", err)
 		return errors.ErrInvalidPassword
 	}
 	return nil
@@ -331,7 +331,7 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 		return nil, fmt.Errorf("用户已被禁用")
 	}
 	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
-		klog.Errorf("检验用户密码失败: %v", err)
+		klog.Errorf("failed to verify user password: %v", err)
 		return nil, errors.ErrInvalidPassword
 	}
 
@@ -402,7 +402,7 @@ func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
 func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
 	// 如果 roleId 为 0，则表示为超级管理员，直接不做任何限制
 	if roleId == 0 {
-		klog.V(1).Infof("超级管理员，权限无需验证")
+		klog.V(1).Infof("super admin, skipping permission check")
 		return nil
 	}
 

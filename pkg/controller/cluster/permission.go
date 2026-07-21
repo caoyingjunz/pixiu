@@ -53,7 +53,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	// 查询待授权 k8s 集群属性
 	old, err := c.factory.Cluster().Get(ctx, req.ClusterId)
 	if err != nil {
-		klog.Errorf("获取主集(%d)群属性失败 %v", req.ClusterId, err)
+		klog.Errorf("failed to get attributes of master cluster(%d): %v", req.ClusterId, err)
 		return err
 	}
 
@@ -106,7 +106,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	// 下发k8s正式规则
 	kubeConfig, err := c.addKubernetesRule(ctx, req, clusterSet)
 	if err != nil {
-		klog.Errorf("下发 kubernetes 规则失败 %v", err)
+		klog.Errorf("failed to apply kubernetes rules: %v", err)
 		_ = c.DeletePermission(ctx, p.Id)
 		return err
 	}
@@ -120,7 +120,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	})
 	if err != nil {
 		_ = c.DeletePermission(ctx, p.Id)
-		klog.Errorf("创建授权集群失败 %v", err)
+		klog.Errorf("failed to create authorized cluster: %v", err)
 		return err
 	}
 
@@ -130,7 +130,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 		"cluster_id": newObj.Id, "cluster_name": newObj.Name,
 	}); err != nil {
 		_ = c.DeletePermission(ctx, p.Id)
-		klog.Errorf("更新权限集群失败 %v", err)
+		klog.Errorf("failed to update permission cluster: %v", err)
 		return err
 	}
 
@@ -203,7 +203,7 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 		return errors.ErrInternal
 	}
 	if oldP == nil {
-		klog.Errorf("权限 (%d) 不存在", req.Id)
+		klog.Errorf("permission (%d) not found", req.Id)
 		return errors.ErrPermissionNotFound
 	}
 
@@ -233,7 +233,7 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 
 	// 目前只支持规则和scope（ns）和有效期的的修改
 	if len(updates) == 0 && !req.Force {
-		klog.Infof("权限无必要改动，直接返回")
+		klog.V(2).Infof("permission(%d): no changes, returning", req.Id)
 		return nil
 	}
 
@@ -245,7 +245,7 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	// 移除k8s规则
 	if err = c.deleteKubernetesRule(ctx, oldP); err != nil {
 		// 存在报错忽略
-		klog.Errorf("清理k8s规则失败 %v", err)
+		klog.Errorf("failed to clean up k8s rules: %v", err)
 	}
 
 	addRuleReq := &types.CreatePermissionRequest{
@@ -266,7 +266,7 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 
 	// 更新 cluster 的kubeconfig 和清理client 缓存
 	if err = c.factory.Cluster().InternalUpdate(ctx, oldP.ClusterId, map[string]interface{}{"kube_config": kubeConfig}); err != nil {
-		klog.Errorf("更新集群 kubeconfig 失败 %v", err)
+		klog.Errorf("failed to update cluster kubeconfig: %v", err)
 		return err
 	}
 	ClusterIndexer.Delete(oldP.ClusterName)
@@ -302,7 +302,7 @@ func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) erro
 
 	// 删除 k8s 资源规则
 	if err = c.deleteKubernetesRule(ctx, object); err != nil {
-		klog.Errorf("清理k8s规则失败 %v", err)
+		klog.Errorf("failed to clean up k8s rules: %v", err)
 	}
 
 	return c.Delete(ctx, object.ClusterId, true)
@@ -310,7 +310,7 @@ func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) erro
 
 func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermissionRequest, clusterSet client.ClusterSet) (string, error) {
 	kubeClient := clusterSet.Client
-	klog.V(0).Infof("creating ServiceAccount")
+	klog.V(2).Infof("creating ServiceAccount")
 	if err := ensureServiceAccount(ctx, req, kubeClient); err != nil {
 		return "", fmt.Errorf("创建 SA 失败: %w", err)
 	}
@@ -370,23 +370,23 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 	// 管理员和只读规则时，仅删除 RoleBindings
 	if object.PType == 1 {
 		// 2. 删除 ClusterRoleBinding 自定义的类型需要删除
-		klog.Infof("正在删除 cr(%s)", name)
+		klog.Infof("deleting ClusterRole(%s)", name)
 		if err = clientSet.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-			klog.Errorf("删除 ClusterRole(%s) 失败 %v", name, err)
+			klog.Errorf("failed to delete ClusterRole(%s): %v", name, err)
 		}
 
 		// 3. 删除各命名空间的 rRoleBinding
 		for _, targetNamespace := range decodeStringSlice(object.TargetNamespaces) {
-			klog.Infof("正在删除 RoleBindings %s(%s)", targetNamespace, bindingName)
+			klog.Infof("deleting RoleBindings %s(%s)", targetNamespace, bindingName)
 			if err = clientSet.RbacV1().RoleBindings(targetNamespace).Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
-				klog.Errorf("删除 namespace(%s) RoleBindings(%s) 失败 %v", targetNamespace, bindingName, err)
+				klog.Errorf("failed to delete RoleBindings(%s) in namespace(%s): %v", bindingName, targetNamespace, err)
 			}
 		}
 	} else {
 		// 仅删除 ClusterRoleBinding
-		klog.Errorf("正在删除 clusterRole(%s) 的 ClusterRoleBindings(%s)", object.ClusterRoleName, bindingName)
+		klog.Errorf("deleting ClusterRoleBindings(%s) for ClusterRole(%s)", bindingName, object.ClusterRoleName)
 		if err = clientSet.RbacV1().ClusterRoleBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
-			klog.Errorf("删除 clusterRole(%s) 的 ClusterRoleBindings(%s) 失败 %v", object.ClusterRoleName, bindingName, err)
+			klog.Errorf("failed to delete ClusterRoleBindings(%s) for ClusterRole(%s): %v", bindingName, object.ClusterRoleName, err)
 		}
 	}
 
@@ -479,7 +479,7 @@ func createClusterRoleBinding(ctx context.Context, req *types.CreatePermissionRe
 	}
 
 	// 关联不存在，进行关联
-	klog.Infof("clusterRole(%s)正在关联到 %s", clusterRoleName, bindingName)
+	klog.Infof("binding ClusterRole(%s) to %s", clusterRoleName, bindingName)
 	binding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: bindingName,

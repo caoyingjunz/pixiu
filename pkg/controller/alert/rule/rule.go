@@ -56,7 +56,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		enabled = *req.Enabled
 	}
 
-	normalizedConfig, normalizedSeverity, normalizedDuration, ok := engine.NormalizeRuleConfig(req.RuleConfig, req.Severity)
+	normalizedConfig, _, normalizedDuration, ok := engine.NormalizeRuleConfig(req.RuleConfig)
 	if !ok {
 		return apierrors.NewError(
 			fmt.Errorf("rule_config must contain prom_ql and at least one valid trigger condition (operators: > >= < <= = == != <>, followed by a number)"),
@@ -72,7 +72,6 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		EvalInterval:     engine.NormalizeEvalInterval(req.EvalInterval),
 		NotifyRepeatStep: engine.ResolveNotifyRepeatStep(req.NotifyRepeatStep),
 		NotifyMaxNumber:  engine.ResolveNotifyMaxNumber(req.NotifyMaxNumber),
-		Severity:         normalizedSeverity,
 		ScopeType:        req.ScopeType,
 		ScopeValue:       req.ScopeValue,
 		NotifyChannels:   req.NotifyChannels,
@@ -87,7 +86,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		Extension:        req.Extension,
 	})
 	if err != nil {
-		klog.Errorf("failed to create alert rule: %v", err)
+		klog.Errorf("failed to create alert rule(%s): %v", req.Name, err)
 		return apierrors.ErrServerInternal
 	}
 	return nil
@@ -147,7 +146,7 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 		updates["extension"] = *req.Extension
 	}
 
-	if req.RuleConfig != nil || req.Severity != nil {
+	if req.RuleConfig != nil {
 		current, err := c.factory.Alert().Rule().Get(ctx, ruleId)
 		if err != nil {
 			klog.Errorf("failed to get alert rule(%d) before update: %v", ruleId, err)
@@ -158,15 +157,11 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 		}
 
 		ruleConfig := current.RuleConfig
-		severity := current.Severity
 		if req.RuleConfig != nil {
 			ruleConfig = *req.RuleConfig
 		}
-		if req.Severity != nil {
-			severity = *req.Severity
-		}
 
-		normalizedConfig, normalizedSeverity, normalizedDuration, ok := engine.NormalizeRuleConfig(ruleConfig, severity)
+		normalizedConfig, _, normalizedDuration, ok := engine.NormalizeRuleConfig(ruleConfig)
 		if !ok {
 			return apierrors.NewError(
 				fmt.Errorf("rule_config must contain prom_ql and at least one valid trigger condition (operators: > >= < <= = == != <>, followed by a number)"),
@@ -174,13 +169,13 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 			)
 		}
 		updates["rule_config"] = normalizedConfig
-		updates["severity"] = normalizedSeverity
 		if req.Duration == nil {
 			updates["duration"] = normalizedDuration
 		}
 	}
 
 	if len(updates) == 0 {
+		klog.V(2).Infof("alert rule(%d): no fields to update", ruleId)
 		return apierrors.NewError(fmt.Errorf("no fields to update"), http.StatusBadRequest)
 	}
 
@@ -271,7 +266,7 @@ func modelToType(object *model.AlertRule) *types.AlertRule {
 		EvalInterval:     engine.NormalizeEvalInterval(object.EvalInterval),
 		NotifyRepeatStep: engine.NormalizeNotifyRepeatStep(object.NotifyRepeatStep),
 		NotifyMaxNumber:  engine.NormalizeNotifyMaxNumber(object.NotifyMaxNumber),
-		Severity:         object.Severity, ScopeType: object.ScopeType, ScopeValue: object.ScopeValue,
+		ScopeType:        object.ScopeType, ScopeValue: object.ScopeValue,
 		NotifyChannels:   object.NotifyChannels,
 		NotifyTemplate:   object.NotifyTemplate,
 		RuleConfig:       object.RuleConfig,

@@ -84,20 +84,24 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 	// 查到之后按哪几档规则判、判出来算多严重
 	triggers := ListAlertTriggers(rule)
 	if len(triggers) == 0 {
+		klog.V(2).Infof("skip evaluating alert rule(%d:%s): no valid triggers in rule_config", rule.Id, rule.Name)
 		return nil
 	}
 
 	samples, err := m.provider.Query(ctx, rule)
 	if err != nil {
+		klog.Errorf("failed to query metrics for rule(%d:%s): %v", rule.Id, rule.Name, err)
 		return err
 	}
 	if len(samples) == 0 {
+		klog.V(2).Infof("skip evaluating alert rule(%d:%s): query returned no samples (datasource=%d rule_type=%d)",
+			rule.Id, rule.Name, rule.DatasourceId, rule.RuleType)
 		return nil
 	}
 
+	klog.V(4).Infof("evaluating alert rule(%d:%s): triggers=%d samples=%d", rule.Id, rule.Name, len(triggers), len(samples))
 	for _, trigger := range triggers {
 		ruleCopy := *rule
-		ruleCopy.Severity = trigger.Severity
 		ruleCopy.Duration = trigger.Duration
 
 		for _, sample := range samples {
@@ -106,12 +110,15 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 			if matched {
 				// 静默告警，则忽略
 				if m.silence.IsSilenced(silences, &ruleCopy, sample) {
+					klog.Infof("skip firing alert rule(%d:%s) by silence", rule.Id, rule.Name)
 					continue
 				}
 				// 不在指定时间周期内则忽略
 				if !IsWithinEffectiveTime(&ruleCopy, time.Now()) {
+					klog.Infof("skip firing alert rule(%d:%s) value(%s): outside effective time window", rule.Id, rule.Name, sample.Value)
 					continue
 				}
+				klog.V(2).Infof("firing alert rule(%d:%s) value(%s) condition(%s) severity(%d)", rule.Id, rule.Name, sample.Value, formatTriggerExpr(trigger), trigger.Severity)
 				// 告警和推送入库
 				if err = m.trigger.Fire(ctx, &ruleCopy, sample, trigger); err != nil {
 					return err
@@ -119,6 +126,7 @@ func (m *Manager) evaluateRule(ctx context.Context, rule *model.AlertRule, silen
 				continue
 			}
 
+			klog.V(2).Infof("alert rule(%d:%s) value(%s) does not match condition(%s), attempting recovery", rule.Id, rule.Name, sample.Value, formatTriggerExpr(trigger))
 			if err = m.trigger.Recover(ctx, &ruleCopy, sample, trigger); err != nil {
 				return err
 			}

@@ -40,11 +40,13 @@ func NewManager(factory db.ShareDaoFactory) *Manager {
 func (n *Manager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, event *model.AlertEvent, recovered bool) error {
 	channelIDs := parseNotifyChannelIDs(rule.NotifyChannels)
 	if len(channelIDs) == 0 {
+		klog.V(2).Infof("alert rule(%d:%s): no notify channels configured, skip enqueue", rule.Id, rule.Name)
 		return nil
 	}
 
 	channels, err := n.factory.Alert().Channel().List(ctx, db.WithIDIn(channelIDs...), db.WithEnabled(true))
 	if err != nil {
+		klog.Errorf("failed to list channels for rule(%d:%s): %v", rule.Id, rule.Name, err)
 		return err
 	}
 
@@ -70,15 +72,20 @@ func (n *Manager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, ev
 		}
 
 		if _, err = n.factory.Alert().Notification().Create(ctx, &model.AlertNotification{
-			EventId:   event.Id,
-			RuleId:    rule.Id,
-			Channel:   channel.ChannelType,
-			Receiver:  receiver,
-			Title:     "",
-			Content:   content,
-			Status:    model.AlertNotificationStatusPending,
-			Extension: extension,
+			EventId:     event.Id,
+			RuleId:      rule.Id,
+			Channel:     channel.ChannelType,
+			Receiver:    receiver,
+			Title:       rule.Name,
+			Content:     content,
+			Status:      model.AlertNotificationStatusPending,
+			Extension:   extension,
+			Severity:    event.Severity,
+			Labels:      event.Labels,
+			ChannelName: channel.Name,
 		}); err != nil {
+			klog.Errorf("failed to create alert notification for rule(%d:%s) event(%d) channel(%d): %v",
+				rule.Id, rule.Name, event.Id, channel.Id, err)
 			return err
 		}
 	}
@@ -132,10 +139,12 @@ func resolveNotificationTargetFromChannel(channel *model.AlertChannel) (receiver
 func (n *Manager) DispatchPending(ctx context.Context) error {
 	items, err := n.factory.Alert().Notification().ListPending(ctx, 100)
 	if err != nil {
+		klog.Errorf("failed to list pending notifications: %v", err)
 		return err
 	}
 	if len(items) == 0 {
-		klog.V(1).Infof("no pending notifications")
+		klog.V(1).Infof("no pending alert notifications to dispatch")
+		return nil
 	}
 	for i := range items {
 		item := items[i]
@@ -148,6 +157,10 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 
 func (n *Manager) dispatchOne(ctx context.Context, item *model.AlertNotification) error {
 	sendErr := sendByChannel(item)
+	if sendErr != nil {
+		klog.Errorf("failed to send notification(%d) via channel type %d: %v", item.Id, item.Channel, sendErr)
+	}
+
 	updates := map[string]interface{}{}
 	if sendErr == nil {
 		updates["status"] = model.AlertNotificationStatusSuccess

@@ -335,7 +335,7 @@ func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interfac
 	var err error
 	pageResult.Total, err = p.factory.Plan().Count(ctx, opts...)
 	if err != nil {
-		klog.Errorf("获取部署总数失败 %v", err)
+		klog.Errorf("failed to count plans: %v", err)
 		pageResult.Message = err.Error()
 	}
 
@@ -479,7 +479,7 @@ func (p *plan) TaskIsRunning(ctx context.Context, planId int64) (bool, error) {
 func (p *plan) Start(ctx context.Context, pid int64) error {
 	// 启动前校验
 	if err := p.preStart(ctx, pid); err != nil {
-		klog.Errorf("启动前检查失败 %v", err)
+		klog.Errorf("pre-start check failed: %v", err)
 		return err
 	}
 

@@ -33,7 +33,6 @@ type AlertRule struct {
 	EvalInterval     int                  `json:"eval_interval"`
 	NotifyRepeatStep int                  `json:"notify_repeat_step"` // 警报间隔时间（分钟），0 表示不重复
 	NotifyMaxNumber  int                  `json:"notify_max_number"`  // 最大通知次数，0 表示不限制
-	Severity         model.AlertSeverity  `json:"severity"`
 	ScopeType        model.AlertScopeType `json:"scope_type"`
 	ScopeValue       string               `json:"scope_value"`
 	NotifyChannels   string               `json:"notify_channels"` // 关联 alert_channels 表 ID，逗号分隔，如 "1,2"
@@ -76,16 +75,19 @@ type AlertNotification struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	EventId    int64                         `json:"event_id"`
-	RuleId     int64                         `json:"rule_id"`
-	Channel    model.AlertNotifyChannel      `json:"channel"`
-	Receiver   string                        `json:"receiver"`
-	Title      string                        `json:"title"`
-	Content    string                        `json:"content"`
-	Status     model.AlertNotificationStatus `json:"status"`
-	RetryCount int                           `json:"retry_count"`
-	ErrorMsg   string                        `json:"error_msg"`
-	Extension  string                        `json:"extension"`
+	EventId     int64                         `json:"event_id"`
+	RuleId      int64                         `json:"rule_id"`
+	Channel     model.AlertNotifyChannel      `json:"channel"`
+	Receiver    string                        `json:"receiver"`
+	Title       string                        `json:"title"`
+	Content     string                        `json:"content"`
+	Status      model.AlertNotificationStatus `json:"status"`
+	RetryCount  int                           `json:"retry_count"`
+	ErrorMsg    string                        `json:"error_msg"`
+	Extension   string                        `json:"extension"`
+	Severity    model.AlertSeverity           `json:"severity"`
+	Labels      string                        `json:"labels"`
+	ChannelName string                        `json:"channel_name"`
 }
 
 type AlertChannel struct {
@@ -124,7 +126,6 @@ type CreateAlertRuleRequest struct {
 	EvalInterval     int                  `json:"eval_interval"`
 	NotifyRepeatStep *int                 `json:"notify_repeat_step"` // nil → 默认 5；显式 0 → 不重复
 	NotifyMaxNumber  *int                 `json:"notify_max_number"`  // nil/0 → 不限制
-	Severity         model.AlertSeverity  `json:"severity"`
 	ScopeType        model.AlertScopeType `json:"scope_type" binding:"required"`
 	ScopeValue       string               `json:"scope_value"`
 	NotifyChannels   string               `json:"notify_channels"` // 关联 alert_channels 表 ID，逗号分隔，如 "1,2"
@@ -148,7 +149,6 @@ type UpdateAlertRuleRequest struct {
 	EvalInterval     *int                  `json:"eval_interval"`
 	NotifyRepeatStep *int                  `json:"notify_repeat_step"`
 	NotifyMaxNumber  *int                  `json:"notify_max_number"`
-	Severity         *model.AlertSeverity  `json:"severity"`
 	ScopeType        *model.AlertScopeType `json:"scope_type"`
 	ScopeValue       *string               `json:"scope_value"`
 	NotifyChannels   *string               `json:"notify_channels"`

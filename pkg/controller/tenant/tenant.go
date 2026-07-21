@@ -87,6 +87,7 @@ func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantR
 		updates["description"] = *req.Description
 	}
 	if len(updates) == 0 {
+		klog.V(2).Infof("tenant(%d): no fields to update", tid)
 		return errors.ErrInvalidRequest
 	}
 	if err := t.factory.Tenant().Update(ctx, tid, *req.ResourceVersion, updates); err != nil {

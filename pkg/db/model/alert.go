@@ -100,7 +100,6 @@ type AlertRule struct {
 	EvalInterval     int            `gorm:"column:eval_interval;default:15" json:"eval_interval"`
 	NotifyRepeatStep int            `gorm:"column:notify_repeat_step;default:5" json:"notify_repeat_step"` // minutes; 0 means no repeat notify
 	NotifyMaxNumber  int            `gorm:"column:notify_max_number;default:0" json:"notify_max_number"`   // 0 means unlimited
-	Severity         AlertSeverity  `gorm:"column:severity;not null;index:idx_alert_rules_severity" json:"severity"`
 	ScopeType        AlertScopeType `gorm:"column:scope_type;not null" json:"scope_type"`
 	ScopeValue       string         `gorm:"column:scope_value;type:text" json:"scope_value"`
 	NotifyChannels   string         `gorm:"column:notify_channels;type:varchar(256)" json:"notify_channels"` // alert_channels ID list, comma separated
@@ -128,7 +127,7 @@ type AlertEvent struct {
 	Status            AlertEventStatus `gorm:"column:status;not null;index:idx_alert_events_status" json:"status"`
 	Severity          AlertSeverity    `gorm:"column:severity;not null" json:"severity"`
 	TriggerValue      string           `gorm:"column:trigger_value;type:varchar(256)" json:"trigger_value"`
-	TriggerExpr       string           `gorm:"column:trigger_expr;type:varchar(512)" json:"trigger_expr"`
+	TriggerExpr       string           `gorm:"column:trigger_expr;type:text" json:"trigger_expr"`
 	ResourceType      string           `gorm:"column:resource_type;type:varchar(64);index:idx_alert_events_resource,priority:1" json:"resource_type"`
 	ResourceName      string           `gorm:"column:resource_name;type:varchar(256);index:idx_alert_events_resource,priority:2" json:"resource_name"`
 	ResourceNamespace string           `gorm:"column:resource_namespace;type:varchar(128)" json:"resource_namespace"`
@@ -151,16 +150,19 @@ func (AlertEvent) TableName() string {
 type AlertNotification struct {
 	pixiu.Model
 
-	EventId    int64                   `gorm:"column:event_id;not null;index:idx_alert_notifications_event_id" json:"event_id"`
-	RuleId     int64                   `gorm:"column:rule_id;not null" json:"rule_id"`
-	Channel    AlertNotifyChannel      `gorm:"column:channel;not null" json:"channel"`
-	Receiver   string                  `gorm:"column:receiver;type:varchar(256)" json:"receiver"`
-	Title      string                  `gorm:"column:title;type:varchar(256)" json:"title"`
-	Content    string                  `gorm:"column:content;type:text" json:"content"`
-	Status     AlertNotificationStatus `gorm:"column:status;not null;index:idx_alert_notifications_status" json:"status"`
-	RetryCount int                     `gorm:"column:retry_count;default:0" json:"retry_count"`
-	ErrorMsg   string                  `gorm:"column:error_msg;type:text" json:"error_msg"`
-	Extension  string                  `gorm:"column:extension;type:text" json:"extension"`
+	EventId     int64                   `gorm:"column:event_id;not null;index:idx_alert_notifications_event_id" json:"event_id"`
+	RuleId      int64                   `gorm:"column:rule_id;not null" json:"rule_id"`
+	Channel     AlertNotifyChannel      `gorm:"column:channel;not null" json:"channel"`
+	Receiver    string                  `gorm:"column:receiver;type:varchar(256)" json:"receiver"`
+	Title       string                  `gorm:"column:title;type:varchar(256)" json:"title"`
+	Content     string                  `gorm:"column:content;type:text" json:"content"`
+	Status      AlertNotificationStatus `gorm:"column:status;not null;index:idx_alert_notifications_status" json:"status"`
+	RetryCount  int                     `gorm:"column:retry_count;default:0" json:"retry_count"`
+	ErrorMsg    string                  `gorm:"column:error_msg;type:text" json:"error_msg"`
+	Extension   string                  `gorm:"column:extension;type:text" json:"extension"`
+	Severity    AlertSeverity           `gorm:"column:severity;not null" json:"severity"`
+	Labels      string                  `gorm:"column:labels;type:text" json:"labels"`
+	ChannelName string                  `gorm:"column:channel_name;type:varchar(128)" json:"channel_name"`
 }
 
 func (AlertNotification) TableName() string {
