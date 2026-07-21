@@ -126,6 +126,12 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	if o.ComponentConfig.Audit.DaysReserved == 0 {
 		o.ComponentConfig.Audit.DaysReserved = jobmanager.DefaultDaysReserved
 	}
+	if o.ComponentConfig.AlertHistory.Schedule == "" {
+		o.ComponentConfig.AlertHistory.Schedule = jobmanager.DefaultAlertHistorySchedule
+	}
+	if o.ComponentConfig.AlertHistory.DaysReserved == 0 {
+		o.ComponentConfig.AlertHistory.DaysReserved = jobmanager.DefaultAlertHistoryDaysReserved
+	}
 	if len(o.ComponentConfig.Default.AdminUser) == 0 {
 		o.ComponentConfig.Default.AdminUser = defaultAdminUser
 	}
@@ -158,6 +164,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	o.JobManager = jobmanager.NewManager(
 		&o.ComponentConfig.Default.LogOptions,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
+		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory),
 		o.AlertEvaluator,
 	)
