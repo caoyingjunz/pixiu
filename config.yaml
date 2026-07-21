@@ -17,13 +17,6 @@ default:
   # CloudShell/工具容器镜像
 #  toolbox: ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0
 
-# 配置 http 和 https， 默认 http，
-# 启用https的时候 cert_file 和 key_file 为必填
-#tls:
-#  enable: false
-#  cert_file: test.pem
-#  key_file: test.key
-
 # 数据库地址信息
 mysql:
   host: peng
@@ -35,6 +28,13 @@ mysql:
 worker:
   # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
   #work_dir: /etc/pixiu
+
+# 配置 http 和 https， 默认 http，
+# 启用https的时候 cert_file 和 key_file 为必填
+#tls:
+#  enable: false
+#  cert_file: test.pem
+#  key_file: test.key
 
 # 告警历史清理（清理过期的告警通知记录）
 alert:
