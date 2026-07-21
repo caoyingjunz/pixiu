@@ -153,10 +153,7 @@ func pingFeishuChannel(config string) error {
 	if secret != "" {
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 		stringToSign := timestamp + "\n" + secret
-		mac := hmac.New(sha256.New, []byte(secret))
-		if _, err := mac.Write([]byte(stringToSign)); err != nil {
-			return fmt.Errorf("飞书签名失败: %w", err)
-		}
+		mac := hmac.New(sha256.New, []byte(stringToSign))
 		sign := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 		payload["timestamp"] = timestamp
 		payload["sign"] = sign

@@ -121,6 +121,13 @@ func resolveNotificationTargetFromChannel(channel *model.AlertChannel) (receiver
 			Headers: cfg.Headers,
 		})
 		return receiver, extension, nil
+	case model.AlertNotifyChannelWeCom:
+		cfg := parseWeComChannelConfig(channel.Config)
+		receiver = strings.TrimSpace(cfg.WebhookURL)
+		if receiver == "" {
+			return "", "", fmt.Errorf("wecom webhook_url is not configured in channel(%d)", channel.Id)
+		}
+		return receiver, "", nil
 	case model.AlertNotifyChannelFeishu:
 		cfg := parseFeishuChannelConfig(channel.Config)
 		receiver = strings.TrimSpace(cfg.WebhookURL)
@@ -156,6 +163,15 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 }
 
 func (n *Manager) dispatchOne(ctx context.Context, item *model.AlertNotification) error {
+	// Atomically claim this notification to prevent concurrent duplicate sends.
+	// The optimistic-lock update increments resource_version; if another
+	// dispatcher already claimed it, RowsAffected is 0 and we skip.
+	if err := n.factory.Alert().Notification().Update(ctx, item.Id, item.ResourceVersion, map[string]interface{}{
+		"retry_count": item.RetryCount + 1,
+	}); err != nil {
+		return nil
+	}
+
 	sendErr := sendByChannel(item)
 	if sendErr != nil {
 		klog.Errorf("failed to send notification(%d) via channel type %d: %v", item.Id, item.Channel, sendErr)
@@ -166,13 +182,13 @@ func (n *Manager) dispatchOne(ctx context.Context, item *model.AlertNotification
 		updates["status"] = model.AlertNotificationStatusSuccess
 		updates["error_msg"] = ""
 	} else {
-		updates["retry_count"] = item.RetryCount + 1
 		updates["error_msg"] = sendErr.Error()
 		if item.RetryCount+1 >= maxNotifyRetry {
 			updates["status"] = model.AlertNotificationStatusFailed
 		}
 	}
-	return n.factory.Alert().Notification().Update(ctx, item.Id, item.ResourceVersion, updates)
+	// Use item.ResourceVersion+1 because the claim update already incremented it (optimistic lock).
+	return n.factory.Alert().Notification().Update(ctx, item.Id, item.ResourceVersion+1, updates)
 }
 
 func sendByChannel(item *model.AlertNotification) error {
@@ -195,14 +211,4 @@ func sendByChannel(item *model.AlertNotification) error {
 func sendEmail(item *model.AlertNotification) error {
 	_ = item
 	return fmt.Errorf("email notification is not implemented")
-}
-
-func sendWeCom(item *model.AlertNotification) error {
-	_ = item
-	return fmt.Errorf("wecom notification is not implemented")
-}
-
-func sendFeishu(item *model.AlertNotification) error {
-	_ = item
-	return fmt.Errorf("feishu notification is not implemented")
 }
