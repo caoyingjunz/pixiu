@@ -130,6 +130,16 @@ func parseWebhookNotificationExtension(raw string) WebhookNotificationExtension 
 	return ext
 }
 
+func parseFeishuNotificationExtension(raw string) FeishuNotificationExtension {
+	ext := FeishuNotificationExtension{}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ext
+	}
+	_ = json.Unmarshal([]byte(raw), &ext)
+	return ext
+}
+
 func marshalNotificationExtension(v interface{}) string {
 	raw, err := json.Marshal(v)
 	if err != nil {

@@ -49,7 +49,9 @@ func (a *AlertEvaluator) LogLevel() logutil.LogLevel {
 }
 
 func (a *AlertEvaluator) Do(ctx *JobContext) error {
-	return a.scheduler.Manager().DispatchPending(context.Background())
+	// DispatchPending is already called by scheduler.loopSyncRules every 9s.
+	// This cron job is reserved for future alert evaluation tasks.
+	return nil
 }
 
 func (a *AlertEvaluator) Stop() {
