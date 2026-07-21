@@ -99,25 +99,37 @@ type (
 	}
 
 	CreateProviderRequest struct {
-		Provider    string `json:"provider" binding:"required"`
-		APIKey      string `json:"api_key" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 		BaseURL     string `json:"base_url" binding:"required,url"`
-		Model       string `json:"model" binding:"required"`
+		Protocol    string `json:"protocol" binding:"required"`
 		Description string `json:"description" binding:"omitempty"`
-		Enabled     *bool  `json:"enabled" binding:"omitempty"`
 		MaxTokens   int    `json:"max_tokens" binding:"omitempty"`
 	}
 
 	UpdateProviderRequest struct {
 		PixiuMeta `json:",inline"`
 
-		Provider    string `json:"provider" binding:"required"`
-		APIKey      string `json:"api_key" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 		BaseURL     string `json:"base_url" binding:"required,url"`
-		Model       string `json:"model" binding:"required"`
+		Protocol    string `json:"protocol" binding:"required"`
 		Description string `json:"description" binding:"omitempty"`
-		Enabled     *bool  `json:"enabled" binding:"omitempty"`
 		MaxTokens   int    `json:"max_tokens" binding:"omitempty"`
+	}
+
+	CreateAIAccountRequest struct {
+		Name       string `json:"name" binding:"required"`
+		APIKey     string `json:"api_key" binding:"required"`
+		Model      string `json:"model" binding:"required"`
+		ProviderId int64  `json:"provider_id" binding:"required"`
+	}
+
+	UpdateAIAccountRequest struct {
+		PixiuMeta `json:",inline"`
+
+		Name       string `json:"name" binding:"required"`
+		APIKey     string `json:"api_key" binding:"omitempty"`
+		Model      string `json:"model" binding:"required"`
+		ProviderId int64  `json:"provider_id" binding:"required"`
 	}
 
 	CreateTenantRequest struct {
@@ -244,7 +256,7 @@ type (
 
 	AIRespondRequest struct {
 		ConversationId int64  `json:"conversation_id"`
-		Provider       string `json:"provider"`
+		AccountId      int64  `json:"account_id" binding:"required"`
 		Input          string `json:"input" binding:"required"`
 	}
 
