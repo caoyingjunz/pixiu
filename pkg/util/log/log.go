@@ -52,9 +52,9 @@ const (
 )
 
 type LogOptions struct {
-	LogFormat    LogFormat `yaml:"format"`
-	LogSQL       bool      `yaml:"sql"`
-	LogLevel     LogLevel  `yaml:"level"`
+	LogFormat LogFormat `yaml:"format"`
+	LogSQL    bool      `yaml:"sql"`
+	LogLevel  LogLevel  `yaml:"level"`
 	// LogVerbosity is the k8s.io/klog/v2 verbosity level, equivalent to the -v flag.
 	// Default is 0. When both are set, an explicitly provided -v flag takes precedence.
 	LogVerbosity uint `yaml:"verbosity"`
