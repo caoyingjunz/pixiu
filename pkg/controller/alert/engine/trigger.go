@@ -164,7 +164,7 @@ func (t *Trigger) fireRepeat(ctx context.Context, rule *model.AlertRule, active 
 	active.NotifyCurNumber = nextCount
 	active.LastSentAt = &now
 	active.ResourceVersion++
-	klog.Infof("alert rule(%d:%s) resource(%s/%s): repeat notification for event(%d), count=%d",
+	klog.V(1).Infof("alert rule(%d:%s) resource(%s/%s): repeat notification for event(%d), count=%d",
 		rule.Id, rule.Name, active.ResourceType, active.ResourceName, active.Id, active.NotifyCurNumber)
 	return t.notify.EnqueueForEvent(ctx, rule, active, false)
 }

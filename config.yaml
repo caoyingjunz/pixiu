@@ -12,8 +12,8 @@ default:
   # 日志的格式，可选 text 和 json
   log_format: json
   log_level: info
-  # klog 详细级别，等价于命令行 -v；命令行显式 -v 优先于本配置
-  # log_verbosity: 2
+  # klog 详细级别，等价于命令行 -v；默认 0，命令行显式 -v 优先于本配置
+  log_verbosity: 0
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: admin

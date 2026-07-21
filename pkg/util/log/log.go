@@ -56,17 +56,17 @@ type LogOptions struct {
 	LogSQL    bool `yaml:"log_sql"`
 	LogLevel  `yaml:"log_level"`
 	// LogVerbosity is the k8s.io/klog/v2 verbosity level, equivalent to the -v flag.
-	// When both are set, an explicitly provided -v flag takes precedence.
-	// nil means the field is unset in the config file.
-	LogVerbosity *uint `yaml:"log_verbosity"`
+	// Default is 0. When both are set, an explicitly provided -v flag takes precedence.
+	LogVerbosity uint `yaml:"log_verbosity"`
 }
 
 // DefaultLogOptions returns the default configs.
 func DefaultLogOptions() *LogOptions {
 	return &LogOptions{
-		LogFormat: LogFormatJson,
-		LogSQL:    false,
-		LogLevel:  InfoLevel,
+		LogFormat:    LogFormatJson,
+		LogSQL:       false,
+		LogLevel:     InfoLevel,
+		LogVerbosity: 0,
 	}
 }
 
@@ -107,10 +107,10 @@ func (o *LogOptions) Init(cliVerbositySet bool) {
 }
 
 func (o *LogOptions) applyKlogVerbosity(cliVerbositySet bool) {
-	if o.LogVerbosity == nil || cliVerbositySet {
+	if cliVerbositySet {
 		return
 	}
-	_ = flag.Set("v", strconv.FormatUint(uint64(*o.LogVerbosity), 10))
+	_ = flag.Set("v", strconv.FormatUint(uint64(o.LogVerbosity), 10))
 }
 
 func currentKlogVerbosity() string {
