@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-    10|Unless required by applicable law or agreed to in writing, software
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -18,8 +18,8 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/labelmap"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
@@ -46,12 +46,15 @@ func (p *StaticMetricProvider) Query(_ context.Context, _ *model.AlertRule) ([]M
 }
 
 func encodeJSONMap(values map[string]string) string {
-	if len(values) == 0 {
-		return ""
-	}
-	raw, err := json.Marshal(values)
-	if err != nil {
-		return ""
-	}
-	return string(raw)
+	return labelmap.Encode(values)
+}
+
+// NormalizeLabelsJSON validates and canonicalizes rule labels JSON object.
+func NormalizeLabelsJSON(raw string) (string, error) {
+	return labelmap.NormalizeJSON(raw)
+}
+
+// BuildEventLabels merges rule labels with sample labels; sample/event wins on conflicts.
+func BuildEventLabels(rule *model.AlertRule, sampleLabels map[string]string) string {
+	return labelmap.BuildEvent(rule, sampleLabels)
 }

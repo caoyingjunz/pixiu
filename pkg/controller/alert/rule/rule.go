@@ -68,8 +68,12 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 			http.StatusBadRequest,
 		)
 	}
+	labels, err := engine.NormalizeLabelsJSON(req.Labels)
+	if err != nil {
+		return apierrors.NewError(err, http.StatusBadRequest)
+	}
 
-	_, err := c.factory.Alert().Rule().Create(ctx, &model.AlertRule{
+	_, err = c.factory.Alert().Rule().Create(ctx, &model.AlertRule{
 		Name:             req.Name,
 		Description:      req.Description,
 		RuleType:         req.RuleType,
@@ -89,6 +93,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		Enabled:          enabled,
 		CreatedBy:        ctrlutil.CurrentUserName(ctx),
 		Extension:        req.Extension,
+		Labels:           labels,
 	})
 	if err != nil {
 		klog.Errorf("failed to create alert rule(%s): %v", req.Name, err)
@@ -149,6 +154,13 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 	}
 	if req.Extension != nil {
 		updates["extension"] = *req.Extension
+	}
+	if req.Labels != nil {
+		labels, err := engine.NormalizeLabelsJSON(*req.Labels)
+		if err != nil {
+			return apierrors.NewError(err, http.StatusBadRequest)
+		}
+		updates["labels"] = labels
 	}
 
 	if req.RuleConfig != nil {
@@ -510,6 +522,7 @@ func (c *controller) modelToExportItem(object *model.AlertRule, dsNameByID map[i
 			DatasourceId:     object.DatasourceId,
 			Enabled:          &enabled,
 			Extension:        object.Extension,
+			Labels:           object.Labels,
 		},
 		DatasourceName:     datasourceName,
 		NotifyChannelNames: notifyChannelNames,
@@ -551,5 +564,6 @@ func modelToType(object *model.AlertRule) *types.AlertRule {
 		EnableEtime:      engine.NormalizeEnableTime(object.EnableEtime),
 		DatasourceId:     object.DatasourceId,
 		Enabled:          object.Enabled, CreatedBy: object.CreatedBy, Extension: object.Extension,
+		Labels: object.Labels,
 	}
 }
