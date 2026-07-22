@@ -436,6 +436,7 @@ type CustomMeta struct {
 
 	ClusterName    string                `form:"cluster_name" json:"cluster_name"`
 	DatasourceType *model.DatasourceType `form:"datasource_type" json:"datasource_type"`
+	SubType        model.DatasourceSubType `form:"sub_type" json:"sub_type"`
 	Provider       string                `form:"provider" json:"provider"`
 	Enabled        *bool                 `form:"enabled" json:"enabled"`
 	ConversationId int64                 `form:"conversation_id" json:"conversation_id"`
