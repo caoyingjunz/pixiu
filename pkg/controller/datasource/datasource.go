@@ -226,6 +226,9 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	if listOption.DatasourceType != nil {
 		opts = append(opts, db.WithDatasourceType(*listOption.DatasourceType))
 	}
+	if listOption.SubType != "" {
+		opts = append(opts, db.WithDatasourceSubType(listOption.SubType))
+	}
 
 	var err error
 	pageResult.Total, err = c.factory.Datasource().Count(ctx, opts...)
