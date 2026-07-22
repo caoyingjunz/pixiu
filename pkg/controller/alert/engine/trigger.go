@@ -85,7 +85,7 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 			TenantId:          sample.TenantId,
 			LastSentAt:        nil,
 			NotifyCurNumber:   0,
-			Labels:            encodeJSONMap(sample.Labels),
+			Labels:            BuildEventLabels(rule, sample.Labels),
 			Annotations:       encodeJSONMap(sample.Annotations),
 		})
 		if err != nil {
@@ -116,7 +116,7 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 		TenantId:          sample.TenantId,
 		LastSentAt:        &lastSent,
 		NotifyCurNumber:   1,
-		Labels:            encodeJSONMap(sample.Labels),
+		Labels:            BuildEventLabels(rule, sample.Labels),
 		Annotations:       encodeJSONMap(sample.Annotations),
 	})
 	if err != nil {

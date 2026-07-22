@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/labelmap"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
@@ -81,7 +82,7 @@ func (n *Manager) EnqueueForEvent(ctx context.Context, rule *model.AlertRule, ev
 			Status:      model.AlertNotificationStatusPending,
 			Extension:   extension,
 			Severity:    event.Severity,
-			Labels:      event.Labels,
+			Labels:      labelmap.BuildNotification(rule, event, nil),
 			ChannelName: channel.Name,
 		}); err != nil {
 			klog.Errorf("failed to create alert notification for rule(%d:%s) event(%d) channel(%d): %v",

@@ -45,6 +45,7 @@ type AlertRule struct {
 	Enabled          bool                 `json:"enabled"`
 	CreatedBy        string               `json:"created_by"`
 	Extension        string               `json:"extension"`
+	Labels           string               `json:"labels"` // JSON object; merged into event/notification with priority notify>event>rule
 }
 
 type AlertEvent struct {
@@ -137,6 +138,7 @@ type CreateAlertRuleRequest struct {
 	DatasourceId     int64                `json:"datasource_id"`
 	Enabled          *bool                `json:"enabled"`
 	Extension        string               `json:"extension"`
+	Labels           string               `json:"labels"`
 }
 
 type ExportAlertRulesRequest struct {
@@ -188,6 +190,7 @@ type UpdateAlertRuleRequest struct {
 	DatasourceId     *int64                `json:"datasource_id"`
 	Enabled          *bool                 `json:"enabled"`
 	Extension        *string               `json:"extension"`
+	Labels           *string               `json:"labels"`
 }
 
 type CreateAlertSilenceRequest struct {

@@ -112,6 +112,7 @@ type AlertRule struct {
 	Enabled          bool           `gorm:"column:enabled;default:true;not null;index:idx_alert_rules_enabled" json:"enabled"`
 	CreatedBy        string         `gorm:"column:created_by;type:varchar(128)" json:"created_by"`
 	Extension        string         `gorm:"column:extension;type:text" json:"extension"`
+	Labels           string         `gorm:"column:labels;type:text" json:"labels"` // 规则的自定义标签，会追加到事件和通知对象里，如果事件或者通知有相同的key，则优先级 通知>事件>规则
 }
 
 func (AlertRule) TableName() string {

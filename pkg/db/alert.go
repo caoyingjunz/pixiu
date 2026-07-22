@@ -42,13 +42,11 @@ func newAlert(db *gorm.DB) AlertInterface {
 	return &alert{db: db}
 }
 
-func (a *alert) Rule() AlertRuleInterface   { return &alertRule{db: a.db} }
-func (a *alert) Event() AlertEventInterface { return &alertEvent{db: a.db} }
-func (a *alert) Notification() AlertNotificationInterface {
-	return &alertNotification{db: a.db}
-}
-func (a *alert) Channel() AlertChannelInterface { return &alertChannel{db: a.db} }
-func (a *alert) Silence() AlertSilenceInterface { return &alertSilence{db: a.db} }
+func (a *alert) Rule() AlertRuleInterface                 { return &alertRule{db: a.db} }
+func (a *alert) Event() AlertEventInterface               { return &alertEvent{db: a.db} }
+func (a *alert) Notification() AlertNotificationInterface { return &alertNotification{db: a.db} }
+func (a *alert) Channel() AlertChannelInterface           { return &alertChannel{db: a.db} }
+func (a *alert) Silence() AlertSilenceInterface           { return &alertSilence{db: a.db} }
 
 type AlertRuleInterface interface {
 	Create(ctx context.Context, object *model.AlertRule) (*model.AlertRule, error)

@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/controller/alert/labelmap"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
@@ -140,7 +141,6 @@ func buildNotificationTemplateData(rule *model.AlertRule, event *model.AlertEven
 		data.RecoverValue = event.RecoverValue
 		data.ResourceType = event.ResourceType
 		data.ResourceName = event.ResourceName
-		data.Labels = parseLabelMap(event.Labels)
 		data.Annotations = event.Annotations
 		data.FireTime = formatNotificationTime(event.GmtCreate)
 		data.TriggerTime = formatNotificationTime(time.Now())
@@ -148,6 +148,16 @@ func buildNotificationTemplateData(rule *model.AlertRule, event *model.AlertEven
 			data.RecoverTime = formatNotificationTime(*event.RecoverTime)
 		}
 	}
+	ruleLabels := map[string]string{}
+	if rule != nil {
+		ruleLabels = parseLabelMap(rule.Labels)
+	}
+	eventLabels := map[string]string{}
+	if event != nil {
+		eventLabels = parseLabelMap(event.Labels)
+	}
+	// Priority: notification(none) > event > rule
+	data.Labels = labelmap.Merge(ruleLabels, eventLabels)
 	if data.FireTime == "" {
 		data.FireTime = formatNotificationTime(time.Now())
 	}
