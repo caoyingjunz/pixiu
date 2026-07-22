@@ -17,6 +17,7 @@ limitations under the License.
 package alert
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 
@@ -150,13 +151,20 @@ func (r *router) importRules(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
+
+	// 检查是否超过阈值，最大1M
+	const maxFileSize = 1 << 20 // 1MB
+	if fileHeader.Size > maxFileSize {
+		httputils.SetFailed(c, resp, fmt.Errorf("file size %d exceeds limit %d", fileHeader.Size, maxFileSize))
+		return
+	}
 	file, err := fileHeader.Open()
 	if err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
 	defer file.Close()
-
+	// 因为限制了最大值，读取时无需流式，直接读全部
 	data, err := io.ReadAll(file)
 	if err != nil {
 		httputils.SetFailed(c, resp, err)

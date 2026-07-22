@@ -143,17 +143,28 @@ type ExportAlertRulesRequest struct {
 	IDs []int64 `json:"ids" binding:"required,min=1"`
 }
 
+// AlertRuleExportItem is the exported item with both IDs and human-readable names.
+// Names are used during import to resolve IDs in the target system.
+type AlertRuleExportItem struct {
+	CreateAlertRuleRequest
+
+	DatasourceName     string `json:"datasource_name,omitempty"`
+	NotifyChannelNames string `json:"notify_channel_names,omitempty"` // 逗号分隔
+}
+
 // AlertRuleExportFile is the portable JSON format for alert rule download/upload.
 type AlertRuleExportFile struct {
-	APIVersion string                   `json:"apiVersion"`
-	Kind       string                   `json:"kind"`
-	Items      []CreateAlertRuleRequest `json:"items"`
+	APIVersion string                `json:"apiVersion"`
+	Kind       string                `json:"kind"`
+	Items      []AlertRuleExportItem `json:"items"`
 }
 
 type ImportAlertRulesResult struct {
-	Created int      `json:"created"`
-	Failed  int      `json:"failed"`
-	Errors  []string `json:"errors,omitempty"`
+	Created  int      `json:"created"`
+	Skipped  int      `json:"skipped"`
+	Failed   int      `json:"failed"`
+	Errors   []string `json:"errors,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type UpdateAlertRuleRequest struct {
