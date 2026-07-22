@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -279,9 +281,47 @@ func (c *controller) Export(ctx context.Context, ids []int64) ([]byte, error) {
 		return nil, apierrors.NewError(fmt.Errorf("no alert rules found for export"), http.StatusNotFound)
 	}
 
-	items := make([]types.CreateAlertRuleRequest, 0, len(objects))
+	// Batch collect datasource IDs and channel IDs across all rules.
+	var dsIDs, channelIDs []int64
 	for i := range objects {
-		items = append(items, modelToExportItem(&objects[i]))
+		if objects[i].DatasourceId > 0 {
+			dsIDs = append(dsIDs, objects[i].DatasourceId)
+		}
+		channelIDs = append(channelIDs, parseNotifyChannelIDs(objects[i].NotifyChannels)...)
+	}
+
+	// Batch lookup datasource names.
+	dsNameByID := make(map[int64]string, len(dsIDs))
+	if len(dsIDs) > 0 {
+		dss, err := c.factory.Datasource().List(ctx, db.WithIDIn(dsIDs...))
+		if err == nil {
+			for _, ds := range dss {
+				dsNameByID[ds.Id] = ds.Name
+			}
+		}
+	}
+
+	// Batch lookup channel names.
+	chNameByID := make(map[int64]string, len(channelIDs))
+	if len(channelIDs) > 0 {
+		channels, err := c.factory.Alert().Channel().List(ctx, db.WithIDIn(channelIDs...))
+		if err == nil {
+			for _, ch := range channels {
+				chNameByID[ch.Id] = ch.Name
+			}
+		}
+	}
+
+	items := make([]types.AlertRuleExportItem, 0, len(objects))
+	for i := range objects {
+		exportItem, err := c.modelToExportItem(&objects[i], dsNameByID, chNameByID)
+		if err != nil {
+			return nil, apierrors.NewError(
+				fmt.Errorf("failed to export rule(%d:%s): %w", objects[i].Id, objects[i].Name, err),
+				http.StatusInternalServerError,
+			)
+		}
+		items = append(items, exportItem)
 	}
 
 	payload := types.AlertRuleExportFile{
@@ -308,9 +348,50 @@ func (c *controller) Import(ctx context.Context, data []byte) (*types.ImportAler
 	}
 
 	result := &types.ImportAlertRulesResult{}
+
+	// Batch load existing rule names for idempotency check.
+	existingNames := make(map[string]struct{})
+	existingRules, err := c.factory.Alert().Rule().List(ctx)
+	if err == nil {
+		for _, r := range existingRules {
+			existingNames[r.Name] = struct{}{}
+		}
+	}
+
+	// Batch load datasource name→ID mapping once for all items.
+	datasourceNameToID := make(map[string]int64)
+	dss, err := c.factory.Datasource().List(ctx)
+	if err == nil {
+		for _, ds := range dss {
+			datasourceNameToID[ds.Name] = ds.Id
+		}
+	}
+
+	// Batch load channel name→ID mapping once for all items.
+	channelNameToID := make(map[string]int64)
+	channels, err := c.factory.Alert().Channel().List(ctx)
+	if err == nil {
+		for _, ch := range channels {
+			channelNameToID[ch.Name] = ch.Id
+		}
+	}
+
 	for i := range items {
 		item := items[i]
-		if err = c.Create(ctx, &item); err != nil {
+		// 跳过已存在的告警规则，以名称区分
+		if _, exists := existingNames[item.Name]; exists {
+			result.Skipped++
+			klog.V(2).Infof("import rule(%s): already exists, skipped", item.Name)
+			continue
+		}
+
+		if err = c.resolveImportIDs(&item, datasourceNameToID, channelNameToID); err != nil {
+			result.Failed++
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", item.Name, err))
+			klog.Errorf("failed to resolve import ids for rule(%s): %v", item.Name, err)
+			continue
+		}
+		if err = c.Create(ctx, &item.CreateAlertRuleRequest); err != nil {
 			result.Failed++
 			name := item.Name
 			if name == "" {
@@ -322,52 +403,134 @@ func (c *controller) Import(ctx context.Context, data []byte) (*types.ImportAler
 		}
 		result.Created++
 	}
-	klog.Infof("imported alert rules: created=%d failed=%d", result.Created, result.Failed)
+	klog.Infof("imported alert rules: created=%d skipped=%d failed=%d warnings=%d", result.Created, result.Skipped, result.Failed, len(result.Warnings))
 	return result, nil
 }
 
-func parseAlertRuleImportPayload(data []byte) ([]types.CreateAlertRuleRequest, error) {
-	var file types.AlertRuleExportFile
-	if err := json.Unmarshal(data, &file); err == nil {
-		if file.Kind == alertRuleExportKind || file.APIVersion != "" || file.Items != nil {
-			if file.Kind != "" && file.Kind != alertRuleExportKind {
-				return nil, fmt.Errorf("unsupported kind %q, want %s", file.Kind, alertRuleExportKind)
-			}
-			return file.Items, nil
+func (c *controller) resolveImportIDs(item *types.AlertRuleExportItem, datasourceNameToID map[string]int64, channelNameToID map[string]int64) error {
+	// 1. Resolve datasource_id by name
+	if item.DatasourceName != "" {
+		id, ok := datasourceNameToID[item.DatasourceName]
+		if !ok {
+			return fmt.Errorf("datasource %q not found in target system", item.DatasourceName)
 		}
+		klog.V(2).Infof("import rule(%s): remapped datasource_id %d -> %d (%s)",
+			item.Name, item.DatasourceId, id, item.DatasourceName)
+		item.DatasourceId = id
 	}
 
-	var items []types.CreateAlertRuleRequest
-	if err := json.Unmarshal(data, &items); err != nil {
-		return nil, fmt.Errorf("invalid alert rule import json: %w", err)
+	// 2. Resolve notify_channels by names
+	if item.NotifyChannelNames == "" {
+		return nil
 	}
-	return items, nil
+	names := splitAndTrim(item.NotifyChannelNames, ",")
+	ids := make([]string, 0, len(names))
+	for _, name := range names {
+		id, ok := channelNameToID[name]
+		if !ok {
+			return fmt.Errorf("channel %q not found in target system", name)
+		}
+		ids = append(ids, strconv.FormatInt(id, 10))
+	}
+	item.NotifyChannels = strings.Join(ids, ",")
+	return nil
 }
 
-func modelToExportItem(object *model.AlertRule) types.CreateAlertRuleRequest {
+func splitAndTrim(s, sep string) []string {
+	parts := strings.Split(s, sep)
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func parseAlertRuleImportPayload(data []byte) ([]types.AlertRuleExportItem, error) {
+	var file types.AlertRuleExportFile
+	if err := json.Unmarshal(data, &file); err != nil {
+		return nil, fmt.Errorf("invalid alert rule import json: %w", err)
+	}
+	if file.Kind != "" && file.Kind != alertRuleExportKind {
+		return nil, fmt.Errorf("unsupported kind %q, want %s", file.Kind, alertRuleExportKind)
+	}
+
+	return file.Items, nil
+}
+
+func (c *controller) modelToExportItem(object *model.AlertRule, dsNameByID map[int64]string, chNameByID map[int64]string) (types.AlertRuleExportItem, error) {
+	// Resolve datasource name from pre-built batch lookup map.
+	var datasourceName string
+	if object.DatasourceId > 0 {
+		name, ok := dsNameByID[object.DatasourceId]
+		if !ok {
+			return types.AlertRuleExportItem{}, fmt.Errorf("datasource %d not found", object.DatasourceId)
+		}
+		datasourceName = name
+	}
+
+	// Resolve channel names from pre-built batch lookup map.
+	var notifyChannelNames string
+	channelIDs := parseNotifyChannelIDs(object.NotifyChannels)
+	if len(channelIDs) > 0 {
+		names := make([]string, 0, len(channelIDs))
+		for _, cid := range channelIDs {
+			name, ok := chNameByID[cid]
+			if !ok {
+				return types.AlertRuleExportItem{}, fmt.Errorf("channel %d not found", cid)
+			}
+			names = append(names, name)
+		}
+		notifyChannelNames = strings.Join(names, ",")
+	}
+
 	enabled := object.Enabled
 	notifyRepeatStep := engine.NormalizeNotifyRepeatStep(object.NotifyRepeatStep)
 	notifyMaxNumber := engine.NormalizeNotifyMaxNumber(object.NotifyMaxNumber)
-	return types.CreateAlertRuleRequest{
-		Name:             object.Name,
-		Description:      object.Description,
-		RuleType:         object.RuleType,
-		Duration:         object.Duration,
-		EvalInterval:     engine.NormalizeEvalInterval(object.EvalInterval),
-		NotifyRepeatStep: &notifyRepeatStep,
-		NotifyMaxNumber:  &notifyMaxNumber,
-		ScopeType:        object.ScopeType,
-		ScopeValue:       object.ScopeValue,
-		NotifyChannels:   object.NotifyChannels,
-		NotifyTemplate:   object.NotifyTemplate,
-		RuleConfig:       object.RuleConfig,
-		EnableDaysOfWeek: object.EnableDaysOfWeek,
-		EnableStime:      engine.NormalizeEnableTime(object.EnableStime),
-		EnableEtime:      engine.NormalizeEnableTime(object.EnableEtime),
-		DatasourceId:     object.DatasourceId,
-		Enabled:          &enabled,
-		Extension:        object.Extension,
+
+	return types.AlertRuleExportItem{
+		CreateAlertRuleRequest: types.CreateAlertRuleRequest{
+			Name:             object.Name,
+			Description:      object.Description,
+			RuleType:         object.RuleType,
+			Duration:         object.Duration,
+			EvalInterval:     engine.NormalizeEvalInterval(object.EvalInterval),
+			NotifyRepeatStep: &notifyRepeatStep,
+			NotifyMaxNumber:  &notifyMaxNumber,
+			ScopeType:        object.ScopeType,
+			ScopeValue:       object.ScopeValue,
+			NotifyChannels:   object.NotifyChannels,
+			NotifyTemplate:   object.NotifyTemplate,
+			RuleConfig:       object.RuleConfig,
+			EnableDaysOfWeek: object.EnableDaysOfWeek,
+			EnableStime:      engine.NormalizeEnableTime(object.EnableStime),
+			EnableEtime:      engine.NormalizeEnableTime(object.EnableEtime),
+			DatasourceId:     object.DatasourceId,
+			Enabled:          &enabled,
+			Extension:        object.Extension,
+		},
+		DatasourceName:     datasourceName,
+		NotifyChannelNames: notifyChannelNames,
+	}, nil
+}
+
+func parseNotifyChannelIDs(raw string) []int64 {
+	parts := strings.Split(raw, ",")
+	ids := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(part, 10, 64)
+		if err != nil || id <= 0 {
+			continue
+		}
+		ids = append(ids, id)
 	}
+	return ids
 }
 
 func modelToType(object *model.AlertRule) *types.AlertRule {
