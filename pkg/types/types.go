@@ -434,12 +434,12 @@ type CustomMeta struct {
 	Status *int   `form:"status" json:"status"`
 	Step   string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
 
-	ClusterName    string                `form:"cluster_name" json:"cluster_name"`
-	DatasourceType *model.DatasourceType `form:"datasource_type" json:"datasource_type"`
+	ClusterName    string                  `form:"cluster_name" json:"cluster_name"`
+	DatasourceType *model.DatasourceType   `form:"datasource_type" json:"datasource_type"`
 	SubType        model.DatasourceSubType `form:"sub_type" json:"sub_type"`
-	Provider       string                `form:"provider" json:"provider"`
-	Enabled        *bool                 `form:"enabled" json:"enabled"`
-	ConversationId int64                 `form:"conversation_id" json:"conversation_id"`
+	Provider       string                  `form:"provider" json:"provider"`
+	Enabled        *bool                   `form:"enabled" json:"enabled"`
+	ConversationId int64                   `form:"conversation_id" json:"conversation_id"`
 
 	// alert
 	RuleId      int64                    `form:"rule_id" json:"rule_id"`
