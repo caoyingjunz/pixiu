@@ -196,6 +196,14 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 		return apierrors.NewError(fmt.Errorf("no fields to update"), http.StatusBadRequest)
 	}
 
+	// 如果规则被禁用，同步恢复所有活跃告警事件并取消待发送通知
+	if req.Enabled != nil && !*req.Enabled {
+		if err := c.cleanupOnDisable(ctx, ruleId); err != nil {
+			klog.Errorf("failed to cleanup alert rule(%d) on disable: %v", ruleId, err)
+			// 不阻塞规则更新本身，仅记录日志
+		}
+	}
+
 	if err := c.factory.Alert().Rule().Update(ctx, ruleId, req.ResourceVersion, updates); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
@@ -203,6 +211,55 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 		klog.Errorf("failed to update alert rule(%d): %v", ruleId, err)
 		return apierrors.ErrServerInternal
 	}
+	return nil
+}
+
+func (c *controller) cleanupOnDisable(ctx context.Context, ruleId int64) error {
+	// 1. 将所有 Firing 事件标记为 Recovered
+	events, err := c.factory.Alert().Event().List(ctx,
+		db.WithAlertRuleId(ruleId),
+		db.WithAlertEventStatus(model.AlertEventStatusFiring),
+	)
+	if err != nil {
+		return fmt.Errorf("list firing events: %w", err)
+	}
+	for i := range events {
+		updates := map[string]interface{}{
+			"status": model.AlertEventStatusRecovered,
+		}
+		if uErr := c.factory.Alert().Event().Update(ctx, events[i].Id, events[i].ResourceVersion, updates); uErr != nil {
+			klog.Errorf("failed to recover event(%d) for rule(%d): %v", events[i].Id, ruleId, uErr)
+		}
+	}
+	if len(events) > 0 {
+		klog.Infof("alert rule(%d) disabled: recovered %d firing events", ruleId, len(events))
+	}
+
+	// 2. 将所有 Pending 通知标记为 Failed，阻止继续发送
+	notifications, err := c.factory.Alert().Notification().List(ctx,
+		db.WithAlertRuleId(ruleId),
+	)
+	if err != nil {
+		return fmt.Errorf("list pending notifications: %w", err)
+	}
+	var cancelled int
+	for i := range notifications {
+		if notifications[i].Status != model.AlertNotificationStatusPending {
+			continue
+		}
+		updates := map[string]interface{}{
+			"status": model.AlertNotificationStatusFailed,
+		}
+		if uErr := c.factory.Alert().Notification().Update(ctx, notifications[i].Id, notifications[i].ResourceVersion, updates); uErr != nil {
+			klog.Errorf("failed to cancel notification(%d) for rule(%d): %v", notifications[i].Id, ruleId, uErr)
+			continue
+		}
+		cancelled++
+	}
+	if cancelled > 0 {
+		klog.Infof("alert rule(%d) disabled: cancelled %d pending notifications", ruleId, cancelled)
+	}
+
 	return nil
 }
 
