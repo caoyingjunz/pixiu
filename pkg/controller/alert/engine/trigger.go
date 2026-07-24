@@ -58,7 +58,10 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 			if !t.durationSatisfied(active, trigger.Duration) {
 				klog.V(1).Infof("alert rule(%d:%s) resource(%s/%s): waiting for duration %ds to be satisfied",
 					rule.Id, rule.Name, resourceType, resourceName, trigger.Duration)
-				return t.factory.Alert().Event().Update(ctx, active.Id, active.ResourceVersion, map[string]interface{}{"trigger_value": sample.Value})
+				if active.TriggerValue != sample.Value {
+					_ = t.factory.Alert().Event().UpdateSilent(ctx, active.Id, map[string]interface{}{"trigger_value": sample.Value})
+				}
+				return nil
 			}
 			klog.Infof("alert rule(%d:%s) resource(%s/%s): duration satisfied, sending first notification for event(%d)",
 				rule.Id, rule.Name, resourceType, resourceName, active.Id)
@@ -134,7 +137,10 @@ func (t *Trigger) fireRepeat(ctx context.Context, rule *model.AlertRule, active 
 
 	repeatStep := NormalizeNotifyRepeatStep(rule.NotifyRepeatStep)
 	if repeatStep == 0 {
-		return t.factory.Alert().Event().Update(ctx, active.Id, active.ResourceVersion, updates)
+		if active.TriggerValue != sample.Value {
+			_ = t.factory.Alert().Event().UpdateSilent(ctx, active.Id, updates)
+		}
+		return nil
 	}
 
 	lastSent := active.LastSentAt
@@ -142,12 +148,18 @@ func (t *Trigger) fireRepeat(ctx context.Context, rule *model.AlertRule, active 
 		lastSent = &active.GmtCreate
 	}
 	if now.Before(lastSent.Add(time.Duration(repeatStep) * time.Minute)) {
-		return t.factory.Alert().Event().Update(ctx, active.Id, active.ResourceVersion, updates)
+		if active.TriggerValue != sample.Value {
+			_ = t.factory.Alert().Event().UpdateSilent(ctx, active.Id, updates)
+		}
+		return nil
 	}
 
 	maxNumber := NormalizeNotifyMaxNumber(rule.NotifyMaxNumber)
 	if maxNumber > 0 && active.NotifyCurNumber >= maxNumber {
-		return t.factory.Alert().Event().Update(ctx, active.Id, active.ResourceVersion, updates)
+		if active.TriggerValue != sample.Value {
+			_ = t.factory.Alert().Event().UpdateSilent(ctx, active.Id, updates)
+		}
+		return nil
 	}
 
 	nextCount := active.NotifyCurNumber + 1

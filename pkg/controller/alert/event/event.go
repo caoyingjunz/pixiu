@@ -101,8 +101,7 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 }
 
 func (c *controller) UpdateStatus(ctx context.Context, eventId int64, req *types.UpdateAlertEventStatusRequest) error {
-	updates := map[string]interface{}{"status": req.Status}
-	if err := c.factory.Alert().Event().Update(ctx, eventId, req.ResourceVersion, updates); err != nil {
+	if err := c.factory.Alert().Event().Update(ctx, eventId, req.ResourceVersion, map[string]interface{}{"status": req.Status}); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("alert event not found"), http.StatusNotFound)
 		}
