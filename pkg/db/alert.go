@@ -134,7 +134,9 @@ type AlertEventInterface interface {
 	Get(ctx context.Context, id int64) (*model.AlertEvent, error)
 	List(ctx context.Context, opts ...Options) ([]model.AlertEvent, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
+
 	GetActive(ctx context.Context, ruleId int64, resourceType, resourceName string) (*model.AlertEvent, error)
+	UpdateSilent(ctx context.Context, id int64, updates map[string]interface{}) error
 }
 
 type alertEvent struct{ db *gorm.DB }
@@ -158,6 +160,16 @@ func (a *alertEvent) Update(ctx context.Context, id int64, resourceVersion int64
 	}
 	if f.RowsAffected == 0 {
 		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
+// UpdateSilent 内部更新事件字段，不修改 resource_version，避免影响外部请求的乐观锁
+func (a *alertEvent) UpdateSilent(ctx context.Context, id int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+	f := a.db.WithContext(ctx).Model(&model.AlertEvent{}).Where("id = ?", id).Updates(updates)
+	if f.Error != nil {
+		return f.Error
 	}
 	return nil
 }
