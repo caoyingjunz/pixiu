@@ -47,7 +47,7 @@ func main() {
 		klog.Fatalf("invalid PIXIU_SERVER: %v", err)
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.TODO(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	headers := http.Header{}
