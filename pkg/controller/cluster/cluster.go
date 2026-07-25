@@ -1106,7 +1106,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 
 	if o.ConnectMode == model.ConnectModeTunnel {
 		if tm := tunnel.Default(); tm != nil {
-			tc.AgentConnected = tm.HasSession(o.Name)
+			tc.AgentConnected = tm.AgentConnected(o.Name)
 		}
 	}
 
@@ -1197,6 +1197,8 @@ func (c *cluster) Run(ctx context.Context, workers int) error {
 	klog.Infof("starting cluster manager")
 	// 同步集群状态，节点数，版本
 	go wait.UntilWithContext(ctx, c.Sync, 5*time.Second)
+	// 控制面周期检测 Agent 反向隧道连通性（参考 Rancher clusterconnected）
+	go wait.UntilWithContext(ctx, c.syncTunnelConnectivity, tunnelCheckInterval)
 
 	return nil
 }
@@ -1235,7 +1237,7 @@ func (c *cluster) GetAgentInstall(ctx context.Context, cid int64) (*types.AgentI
 
 	connected := false
 	if tm := tunnel.Default(); tm != nil {
-		connected = tm.HasSession(obj.Name)
+		connected = tm.AgentConnected(obj.Name)
 	}
 
 	return &types.AgentInstallResponse{

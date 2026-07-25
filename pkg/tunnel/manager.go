@@ -50,6 +50,9 @@ type TokenLookup interface {
 type Manager struct {
 	server *remotedialer.Server
 	lookup TokenLookup
+
+	mu        sync.RWMutex
+	connected map[string]bool // last control-plane probe result by cluster name
 }
 
 // Init creates the process-wide tunnel manager. Safe to call multiple times;
