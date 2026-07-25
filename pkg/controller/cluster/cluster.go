@@ -18,6 +18,8 @@ package cluster
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -46,6 +48,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
@@ -90,6 +93,7 @@ type Interface interface {
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 	GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error)
+	GetAgentInstall(ctx context.Context, cid int64) (*types.AgentInstallResponse, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)
@@ -147,10 +151,25 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	if len(req.Name) == 0 {
 		req.Name = uuid.NewRandName(8)
 	}
+	if len(req.KubeConfig) == 0 {
+		return nil, errors.NewError(fmt.Errorf("kube_config is required"), http.StatusBadRequest)
+	}
+
+	agentToken := ""
+	if req.ConnectMode == model.ConnectModeTunnel {
+		token, err := generateAgentToken()
+		if err != nil {
+			return nil, errors.ErrServerInternal
+		}
+		agentToken = token
+	}
 
 	var cs *client.ClusterSet
 	var txFunc = func(cluster *model.Cluster) (err error) {
-		cs, err = client.NewClusterSet(req.KubeConfig)
+		cs, err = client.NewClusterSetWithOptions(req.KubeConfig, client.ClusterSetOptions{
+			ClusterName: cluster.Name,
+			ConnectMode: req.ConnectMode,
+		})
 		return
 	}
 
@@ -163,6 +182,8 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 		ClusterType:    req.Type,
 		Protected:      req.Protected,
 		KubeConfig:     req.KubeConfig,
+		ConnectMode:    req.ConnectMode,
+		AgentToken:     agentToken,
 		Description:    req.Description,
 		PermissionId:   req.PermissionId,
 		OwnerReference: req.OwnerReference,
@@ -173,10 +194,12 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 		return nil, errors.ErrServerInternal
 	}
 
-	// 新增内置必要规则
-	if err = c.addPixiuClusterRole(ctx, req, cs); err != nil {
-		klog.Errorf("failed to add pixiu cluster role %s: %v", req.Name, err)
-		_ = c.Delete(ctx, obj.Id, true)
+	// 隧道模式：Agent 未上线前不强制注入 ClusterRole
+	if req.ConnectMode != model.ConnectModeTunnel {
+		if err = c.addPixiuClusterRole(ctx, req, cs); err != nil {
+			klog.Errorf("failed to add pixiu cluster role %s: %v", req.Name, err)
+			_ = c.Delete(ctx, obj.Id, true)
+		}
 	}
 
 	// TODO: 暂时不做创建后动作
@@ -905,7 +928,10 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 	if object == nil {
 		return client.ClusterSet{}, errors.ErrClusterNotFound
 	}
-	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
+	newClusterSet, err := client.NewClusterSetWithOptions(object.KubeConfig, client.ClusterSetOptions{
+		ClusterName: object.Name,
+		ConnectMode: object.ConnectMode,
+	})
 	if err != nil {
 		return client.ClusterSet{}, err
 	}
@@ -1073,7 +1099,15 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		PlanId:            o.PlanId,
 		Status:            o.ClusterStatus, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
 		Protected:         o.Protected,
+		ConnectMode:       o.ConnectMode,
+		AgentToken:        o.AgentToken,
 		Description:       o.Description,
+	}
+
+	if o.ConnectMode == model.ConnectModeTunnel {
+		if tm := tunnel.Default(); tm != nil {
+			tc.AgentConnected = tm.HasSession(o.Name)
+		}
 	}
 
 	// 子集群，需要整合主集群字段
@@ -1169,6 +1203,53 @@ func (c *cluster) Run(ctx context.Context, workers int) error {
 
 func (c *cluster) Sync(ctx context.Context) {
 	// TODO: 后续添加同步任务
+}
+
+func generateAgentToken() (string, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+func (c *cluster) GetAgentInstall(ctx context.Context, cid int64) (*types.AgentInstallResponse, error) {
+	obj, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+	if obj == nil {
+		return nil, errors.ErrClusterNotFound
+	}
+	if obj.ConnectMode != model.ConnectModeTunnel {
+		return nil, errors.NewError(fmt.Errorf("cluster is not in tunnel mode"), http.StatusBadRequest)
+	}
+	if obj.AgentToken == "" {
+		return nil, errors.NewError(fmt.Errorf("agent token is empty"), http.StatusBadRequest)
+	}
+
+	serverURL := strings.TrimRight(c.cc.Default.PublicURL, "/")
+	if serverURL == "" {
+		serverURL = "https://<pixiu-server>"
+	}
+
+	connected := false
+	if tm := tunnel.Default(); tm != nil {
+		connected = tm.HasSession(obj.Name)
+	}
+
+	return &types.AgentInstallResponse{
+		ClusterName:    obj.Name,
+		ConnectMode:    obj.ConnectMode,
+		AgentToken:     obj.AgentToken,
+		ServerURL:      serverURL,
+		ConnectPath:    tunnel.ConnectPath,
+		AgentConnected: connected,
+		Command: fmt.Sprintf(
+			"PIXIU_SERVER=%s PIXIU_TOKEN=%s pixiu-cluster-agent",
+			serverURL, obj.AgentToken,
+		),
+	}, nil
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {

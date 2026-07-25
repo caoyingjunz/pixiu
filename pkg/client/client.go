@@ -51,15 +51,5 @@ func NewClientSetFromString(cfg string) (*kubernetes.Clientset, error) {
 }
 
 func NewClusterSet(cfg string) (*ClusterSet, error) {
-	kubeConfigBytes, err := ParseKubeConfigBytes(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	cs := &ClusterSet{}
-	if err = cs.Complete(kubeConfigBytes); err != nil {
-		return nil, err
-	}
-
-	return cs, nil
+	return NewClusterSetWithOptions(cfg, ClusterSetOptions{})
 }

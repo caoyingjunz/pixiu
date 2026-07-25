@@ -55,6 +55,9 @@ type DefaultOptions struct {
 	// 静态文件路径
 	StaticFiles string `yaml:"static_files"`
 
+	// 对外访问地址（Agent 反向隧道使用），例如 https://pixiu.example.com
+	PublicURL string `yaml:"public_url"`
+
 	// 超级管理员初始化配置，留空则使用默认值
 	AdminUser     string `yaml:"admin_user"`
 	AdminPassword string `yaml:"admin_password"`

@@ -27,7 +27,6 @@ import (
 	batchv1 "k8s.io/client-go/listers/batch/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	resourceclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 )
 
@@ -83,29 +82,6 @@ type ClusterSet struct {
 	Config   *restclient.Config
 	Metric   *resourceclient.MetricsV1beta1Client
 	Informer *PixiuInformer
-}
-
-func (cs *ClusterSet) Complete(cfg []byte) error {
-	var err error
-	if cs.Config, err = clientcmd.RESTConfigFromKubeConfig(cfg); err != nil {
-		return err
-	}
-	if cs.Client, err = kubernetes.NewForConfig(cs.Config); err != nil {
-		return err
-	}
-	if cs.Metric, err = resourceclient.NewForConfig(cs.Config); err != nil {
-		return err
-	}
-
-	//sharedInformer, cancel, err := NewSharedInformers(cs.Config)
-	//if err != nil {
-	//	return err
-	//}
-	//cs.Informer = &PixiuInformer{
-	//	Shared: sharedInformer,
-	//	Cancel: cancel,
-	//}
-	return nil
 }
 
 func NewSharedInformers(c *restclient.Config) (informers.SharedInformerFactory, context.CancelFunc, error) {

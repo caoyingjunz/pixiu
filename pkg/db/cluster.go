@@ -38,6 +38,7 @@ type ClusterInterface interface {
 	InternalUpdate(ctx context.Context, cid int64, updates map[string]interface{}) error
 
 	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
+	GetClusterByAgentToken(ctx context.Context, token string) (*model.Cluster, error)
 	UpdateByPlan(ctx context.Context, planId int64, updates map[string]interface{}) error
 }
 
@@ -167,6 +168,20 @@ func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Clu
 		return nil, err
 	}
 
+	return &object, nil
+}
+
+func (c *cluster) GetClusterByAgentToken(ctx context.Context, token string) (*model.Cluster, error) {
+	if token == "" {
+		return nil, nil
+	}
+	var object model.Cluster
+	if err := c.db.WithContext(ctx).Where("agent_token = ?", token).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
 	return &object, nil
 }
 
