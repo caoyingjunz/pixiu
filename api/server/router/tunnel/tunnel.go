@@ -17,19 +17,24 @@ limitations under the License.
 package tunnel
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	pixtunnel "github.com/caoyingjunz/pixiu/pkg/tunnel"
 )
 
 // NewRouter registers the agent reverse-tunnel websocket endpoint.
+// Registered without gin.WrapH response wrapping issues by using the raw writer/request.
 func NewRouter(o *options.Options) {
 	m := pixtunnel.Default()
 	if m == nil {
+		klog.Error("tunnel manager is not initialized; skip registering /pixiu/connect")
 		return
 	}
-	o.HttpEngine.GET(pixtunnel.ConnectPath, gin.WrapH(http.HandlerFunc(m.ServeHTTP)))
+	o.HttpEngine.GET(pixtunnel.ConnectPath, func(c *gin.Context) {
+		// Remotedialer needs the underlying Hijacker; pass through gin writer/request.
+		m.ServeHTTP(c.Writer, c.Request)
+	})
+	klog.Infof("tunnel connect endpoint registered: GET %s", pixtunnel.ConnectPath)
 }

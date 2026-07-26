@@ -42,16 +42,18 @@ func main() {
 		klog.Fatalf("PIXIU_SERVER and PIXIU_TOKEN are required")
 	}
 
-	wsURL, err := buildConnectURL(server)
+	wsURL, err := buildConnectURL(server, token)
 	if err != nil {
 		klog.Fatalf("invalid PIXIU_SERVER: %v", err)
 	}
 
-	ctx, cancel := signal.NotifyContext(context.TODO(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	headers := http.Header{}
+	// Prefer remotedialer / Rancher compatible header; keep legacy for older servers.
 	headers.Set(tunnel.TokenHeader, token)
+	headers.Set(tunnel.TokenHeaderLegacy, token)
 
 	insecure := strings.EqualFold(os.Getenv("PIXIU_INSECURE"), "true")
 	dialer := websocket.DefaultDialer
@@ -63,7 +65,7 @@ func main() {
 		}
 	}
 
-	klog.Infof("cluster-agent connecting to %s", wsURL)
+	klog.Infof("cluster-agent connecting to %s (token_len=%d)", redactTokenQuery(wsURL), len(token))
 	for {
 		if ctx.Err() != nil {
 			return
@@ -83,7 +85,7 @@ func main() {
 	}
 }
 
-func buildConnectURL(server string) (string, error) {
+func buildConnectURL(server, token string) (string, error) {
 	if !strings.Contains(server, "://") {
 		server = "https://" + server
 	}
@@ -102,7 +104,23 @@ func buildConnectURL(server string) (string, error) {
 		return "", fmt.Errorf("unsupported scheme %q", u.Scheme)
 	}
 	u.Path = tunnel.ConnectPath
-	u.RawQuery = ""
+	// Query token is a fallback when intermediaries strip custom headers.
+	q := u.Query()
+	q.Set("token", token)
+	u.RawQuery = q.Encode()
 	u.Fragment = ""
 	return u.String(), nil
+}
+
+func redactTokenQuery(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	q := u.Query()
+	if q.Has("token") {
+		q.Set("token", "***")
+		u.RawQuery = q.Encode()
+	}
+	return u.String()
 }

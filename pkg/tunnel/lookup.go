@@ -28,7 +28,10 @@ type FactoryLookup struct {
 }
 
 func (l FactoryLookup) LookupClusterNameByAgentToken(ctx context.Context, token string) (string, error) {
-	obj, err := l.Factory.Cluster().GetClusterByAgentToken(ctx, token)
+	if token == "" {
+		return "", nil
+	}
+	obj, err := l.Factory.Cluster().GetBy(ctx, db.WithAgentToken(token))
 	if err != nil {
 		return "", err
 	}

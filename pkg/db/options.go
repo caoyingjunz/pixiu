@@ -109,6 +109,15 @@ func WithName(name string) Options {
 	}
 }
 
+func WithAgentToken(token string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if token == "" {
+			return tx
+		}
+		return tx.Where("agent_token = ?", token)
+	}
+}
+
 func WithClusterStatus(status int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)

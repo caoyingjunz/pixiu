@@ -90,11 +90,12 @@ type Cluster struct {
 
 	// 连接模式：0 直连 1 Agent 反向隧道
 	ConnectMode ConnectMode `gorm:"type:tinyint;default:0" json:"connect_mode"`
-	// Agent 建连 token（仅隧道模式），全局唯一
-	AgentToken string `gorm:"type:varchar(128);index:idx_agent_token" json:"agent_token,omitempty"`
 
 	// 集群用途描述，可以为空
 	Description string `gorm:"type:text" json:"description"`
+
+	// Agent 建连 token（仅隧道模式），全局唯一
+	AgentToken string `gorm:"type:varchar(128);index:idx_agent_token" json:"agent_token,omitempty"`
 }
 
 func (*Cluster) TableName() string {

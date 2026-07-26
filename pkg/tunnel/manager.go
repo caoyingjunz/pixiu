@@ -21,6 +21,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/rancher/remotedialer"
@@ -28,8 +29,10 @@ import (
 )
 
 const (
-	// TokenHeader is sent by cluster-agent when establishing the reverse tunnel.
-	TokenHeader = "X-Pixiu-Tunnel-Token"
+	// TokenHeader is the primary agent tunnel token header (Rancher / remotedialer compatible).
+	TokenHeader = "X-API-Tunnel-Token"
+	// TokenHeaderLegacy is kept for backward compatibility with earlier Pixiu agents.
+	TokenHeaderLegacy = "X-Pixiu-Tunnel-Token"
 	// ConnectPath is the websocket endpoint agents connect to.
 	ConnectPath = "/pixiu/connect"
 )
@@ -76,8 +79,9 @@ func Default() *Manager {
 }
 
 func (m *Manager) authorize(req *http.Request) (string, bool, error) {
-	token := req.Header.Get(TokenHeader)
+	token := tokenFromRequest(req)
 	if token == "" {
+		klog.Warning("tunnel authorize denied: missing tunnel token header/query")
 		return "", false, nil
 	}
 	if m.lookup == nil {
@@ -89,9 +93,26 @@ func (m *Manager) authorize(req *http.Request) (string, bool, error) {
 		return "", false, err
 	}
 	if name == "" {
+		klog.Warningf("tunnel authorize denied: token not found (len=%d)", len(token))
 		return "", false, nil
 	}
+	klog.V(2).Infof("tunnel authorize ok: cluster=%s", name)
 	return name, true, nil
+}
+
+func tokenFromRequest(req *http.Request) string {
+	if req == nil {
+		return ""
+	}
+	for _, key := range []string{TokenHeader, TokenHeaderLegacy} {
+		if v := strings.TrimSpace(req.Header.Get(key)); v != "" {
+			return v
+		}
+	}
+	if v := strings.TrimSpace(req.URL.Query().Get("token")); v != "" {
+		return v
+	}
+	return ""
 }
 
 // ServeHTTP upgrades agent websocket connections.
