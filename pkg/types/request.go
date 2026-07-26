@@ -56,14 +56,14 @@ type (
 	}
 
 	CreateClusterRequest struct {
-		Name        string             `json:"name" binding:"omitempty"`       // optional
-		AliasName   string             `json:"alias_name" binding:"omitempty"` // optional
-		UserId      int64              `json:"user_id"`
-		Type        model.ClusterType  `json:"cluster_type" binding:"omitempty,oneof=0 1"` // optional
-		KubeConfig  string             `json:"kube_config" binding:"omitempty"`            // required for direct; required for tunnel too (auth)
-		ConnectMode model.ConnectMode  `json:"connect_mode" binding:"omitempty,oneof=0 1"` // 0 direct 1 tunnel
-		Description string             `json:"description" binding:"omitempty"`            // optional
-		Protected   bool               `json:"protected" binding:"omitempty"`              // optional
+		Name        string            `json:"name" binding:"omitempty"`       // optional
+		AliasName   string            `json:"alias_name" binding:"omitempty"` // optional
+		UserId      int64             `json:"user_id"`
+		Type        model.ClusterType `json:"cluster_type" binding:"omitempty,oneof=0 1"` // optional
+		KubeConfig  string            `json:"kube_config" binding:"omitempty"`            // required for direct; required for tunnel too (auth)
+		ConnectMode model.ConnectMode `json:"connect_mode" binding:"omitempty,oneof=0 1"` // 0 direct 1 tunnel
+		Description string            `json:"description" binding:"omitempty"`            // optional
+		Protected   bool              `json:"protected" binding:"omitempty"`              // optional
 
 		PermissionId   int64
 		OwnerReference int64
