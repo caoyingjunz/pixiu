@@ -63,7 +63,7 @@ func main() {
 		}
 	}
 
-	klog.Infof("pixiu-cluster-agent connecting to %s", wsURL)
+	klog.Infof("cluster-agent connecting to %s", wsURL)
 	for {
 		if ctx.Err() != nil {
 			return

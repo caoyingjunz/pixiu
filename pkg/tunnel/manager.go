@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	// TokenHeader is sent by pixiu-cluster-agent when establishing the reverse tunnel.
+	// TokenHeader is sent by cluster-agent when establishing the reverse tunnel.
 	TokenHeader = "X-Pixiu-Tunnel-Token"
 	// ConnectPath is the websocket endpoint agents connect to.
 	ConnectPath = "/pixiu/connect"

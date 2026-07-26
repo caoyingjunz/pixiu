@@ -1248,7 +1248,7 @@ func (c *cluster) GetAgentInstall(ctx context.Context, cid int64) (*types.AgentI
 		ConnectPath:    tunnel.ConnectPath,
 		AgentConnected: connected,
 		Command: fmt.Sprintf(
-			"PIXIU_SERVER=%s PIXIU_TOKEN=%s pixiu-cluster-agent",
+			"PIXIU_SERVER=%s PIXIU_TOKEN=%s cluster-agent",
 			serverURL, obj.AgentToken,
 		),
 	}, nil
