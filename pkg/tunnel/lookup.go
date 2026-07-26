@@ -27,7 +27,7 @@ type FactoryLookup struct {
 	Factory db.ShareDaoFactory
 }
 
-func (l FactoryLookup) LookupClusterNameByAgentToken(ctx context.Context, token string) (string, error) {
+func (l FactoryLookup) ClusterName(ctx context.Context, token string) (string, error) {
 	if token == "" {
 		return "", nil
 	}

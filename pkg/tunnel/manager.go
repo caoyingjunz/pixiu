@@ -46,7 +46,7 @@ var (
 
 // TokenLookup resolves an agent tunnel token to a cluster name (session clientKey).
 type TokenLookup interface {
-	LookupClusterNameByAgentToken(ctx context.Context, token string) (string, error)
+	ClusterName(ctx context.Context, token string) (string, error)
 }
 
 // Manager wraps remotedialer.Server for Pixiu reverse tunnels.
@@ -87,7 +87,7 @@ func (m *Manager) authorize(req *http.Request) (string, bool, error) {
 	if m.lookup == nil {
 		return "", false, errors.New("tunnel token lookup is not configured")
 	}
-	name, err := m.lookup.LookupClusterNameByAgentToken(req.Context(), token)
+	name, err := m.lookup.ClusterName(req.Context(), token)
 	if err != nil {
 		klog.Errorf("tunnel authorize failed: %v", err)
 		return "", false, err
