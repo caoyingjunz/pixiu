@@ -24,12 +24,22 @@ func init() {
 	register(&Cluster{})
 }
 
-// ClusterType Kubernetes 集群的类型
+// ClusterStatus Kubernetes 集群的类型
 type ClusterType uint8
 
 const (
 	ClusterTypeStandard ClusterType = iota // 标准集群
 	ClusterTypeCustom                      // 自建集群
+)
+
+// ConnectMode 控制面访问下游集群的方式
+type ConnectMode uint8
+
+const (
+	// ConnectModeDirect Pixiu 直连 kube-apiserver（默认）
+	ConnectModeDirect ConnectMode = iota
+	// ConnectModeTunnel 下游 Agent 出站建反向隧道，Pixiu 经隧道访问 apiserver
+	ConnectModeTunnel
 )
 
 type ClusterStatus uint8
@@ -75,11 +85,17 @@ type Cluster struct {
 	// 0: 关闭集群删除保护 1: 开启集群删除保护
 	Protected bool `json:"protected"`
 
-	// k8s kubeConfig base64 字段
+	// k8s kubeConfig base64 字段（隧道模式下 server 地址需对 Agent 可达，如 kubernetes.default.svc）
 	KubeConfig string `json:"kube_config"`
+
+	// 连接模式：0 直连 1 Agent 反向隧道
+	ConnectMode ConnectMode `gorm:"type:tinyint;default:0" json:"connect_mode"`
 
 	// 集群用途描述，可以为空
 	Description string `gorm:"type:text" json:"description"`
+
+	// Agent 建连 token（仅隧道模式），全局唯一
+	AgentToken string `gorm:"type:varchar(128);index:idx_agent_token" json:"agent_token,omitempty"`
 }
 
 func (*Cluster) TableName() string {

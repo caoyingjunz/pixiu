@@ -32,6 +32,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
+	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
@@ -155,6 +156,9 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 
 	o.Controller = controller.New(o.ComponentConfig, o.Factory)
+
+	// 初始化 Agent 反向隧道（必须在路由注册前）
+	tunnel.Init(tunnel.FactoryLookup{Factory: o.Factory})
 
 	if err := o.bootstrapDatabase(); err != nil {
 		return err

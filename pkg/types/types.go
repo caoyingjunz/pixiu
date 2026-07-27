@@ -105,6 +105,13 @@ type Cluster struct {
 	// 0: 关闭集群删除保护 1: 开启集群删除保护
 	Protected bool `json:"protected"`
 
+	// 连接模式：0 直连 1 Agent 反向隧道
+	ConnectMode model.ConnectMode `json:"connect_mode"`
+	// Agent 是否在线（隧道模式）
+	AgentConnected bool `json:"agent_connected,omitempty"`
+	// Agent 建连 token（仅创建/详情时返回，用于安装 Agent）
+	AgentToken string `json:"agent_token,omitempty"`
+
 	// k8s kubeConfig base64 字段
 	KubeConfig string `json:"kube_config,omitempty"`
 
@@ -655,6 +662,17 @@ type Permission struct {
 	KubeConfig        string              `json:"kube_config,omitempty"`
 	Content           string              `json:"content,omitempty"` // 与 kube_config 相同，便于前端展示
 	Description       string              `json:"description,omitempty"`
+}
+
+// AgentInstallResponse 隧道模式 Agent 安装信息
+type AgentInstallResponse struct {
+	ClusterName    string            `json:"cluster_name"`
+	ConnectMode    model.ConnectMode `json:"connect_mode"`
+	AgentToken     string            `json:"agent_token"`
+	ServerURL      string            `json:"server_url"`
+	ConnectPath    string            `json:"connect_path"`
+	AgentConnected bool              `json:"agent_connected"`
+	Command        string            `json:"command"`
 }
 
 // KubeConfigResponse 返回给前端的 kubeconfig 内容

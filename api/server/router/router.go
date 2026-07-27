@@ -40,6 +40,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/role"
 	"github.com/caoyingjunz/pixiu/api/server/router/runner"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
+	"github.com/caoyingjunz/pixiu/api/server/router/tunnel"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/static"
@@ -69,6 +70,7 @@ func InstallRouters(o *options.Options) {
 		runner.NewRouter,
 		assistant.NewRouter,
 		alertrouter.NewRouter,
+		tunnel.NewRouter,
 	}
 
 	install(o, fs...)

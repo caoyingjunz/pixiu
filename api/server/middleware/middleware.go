@@ -28,7 +28,7 @@ import (
 var alwaysAllowPath sets.String
 
 func init() {
-	alwaysAllowPath = sets.NewString("/pixiu/users/login")
+	alwaysAllowPath = sets.NewString("/pixiu/users/login", "/pixiu/connect")
 }
 
 // 允许特定请求不经过验证
