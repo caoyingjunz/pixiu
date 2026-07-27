@@ -39,7 +39,7 @@ jobs:
           username: ${{ secrets.DOCKER_NAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push the cluster-agent image
+      - name: Build and push the pixiu-cluster-agent image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -50,6 +50,6 @@ jobs:
             VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
           push: true
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/cluster-agent:latest
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/cluster-agent:v2.0.1-beta.4
-        # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/cluster-agent:${{ env.COMMIT_HASH }}
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-cluster-agent:latest
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-cluster-agent:v2.0.1-beta.4
+        # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-cluster-agent:${{ env.COMMIT_HASH }}
