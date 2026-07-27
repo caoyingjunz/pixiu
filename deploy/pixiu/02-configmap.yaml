@@ -1,0 +1,35 @@
+# 对应 install.md 中 /etc/pixiu/config.yaml
+# 使用内置 MySQL 时 host 保持 pixiu-mysql；若使用外部库请改 mysql 段。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pixiu-config
+  namespace: pixiu-system
+  labels:
+    app.kubernetes.io/name: pixiu
+    app.kubernetes.io/component: server
+data:
+  config.yaml: |
+    default:
+      # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
+      auto_migrate: true
+      # 超级管理初始化用户名和密码；不指定的情况下，默认为 admin/Pixiu123456!
+      admin_user: admin
+      admin_password: Pixiu123456!
+      # jwt 签名 key，生产环境请修改
+      jwt_key: pixiu
+      # Agent 反向隧道对外访问地址（按实际 Ingress/NodePort 修改）
+      # public_url: https://pixiu.example.com
+
+    # 数据库地址信息，根据实际情况配置
+    mysql:
+      host: pixiu-mysql
+      user: root
+      password: Pixiu868686
+      port: 3306
+      name: pixiu
+
+    log:
+      format: json
+      level: info
+      verbosity: 0
