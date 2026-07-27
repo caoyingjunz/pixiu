@@ -27,7 +27,6 @@ import (
 	batchv1 "k8s.io/client-go/listers/batch/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	restclient "k8s.io/client-go/rest"
-	resourceclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 )
 
 var (
@@ -80,7 +79,6 @@ func (p *PixiuInformer) JobsLister() batchv1.JobLister { return p.Shared.Batch()
 type ClusterSet struct {
 	Client   *kubernetes.Clientset
 	Config   *restclient.Config
-	Metric   *resourceclient.MetricsV1beta1Client
 	Informer *PixiuInformer
 }
 

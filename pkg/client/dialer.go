@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	resourceclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
@@ -74,9 +73,6 @@ func (cs *ClusterSet) CompleteWithOptions(cfg []byte, opts ClusterSetOptions) er
 	}
 
 	if cs.Client, err = kubernetes.NewForConfig(cs.Config); err != nil {
-		return err
-	}
-	if cs.Metric, err = resourceclient.NewForConfig(cs.Config); err != nil {
 		return err
 	}
 	return nil

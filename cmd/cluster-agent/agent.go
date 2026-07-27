@@ -51,9 +51,7 @@ func main() {
 	defer cancel()
 
 	headers := http.Header{}
-	// Prefer remotedialer / Rancher compatible header; keep legacy for older servers.
 	headers.Set(tunnel.TokenHeader, token)
-	headers.Set(tunnel.TokenHeaderLegacy, token)
 
 	insecure := strings.EqualFold(os.Getenv("PIXIU_INSECURE"), "true")
 	dialer := websocket.DefaultDialer
@@ -65,7 +63,7 @@ func main() {
 		}
 	}
 
-	klog.Infof("cluster-agent connecting to %s (token_len=%d)", redactTokenQuery(wsURL), len(token))
+	klog.Infof("pixiu-cluster-agent connecting to %s (token_len=%d)", redactTokenQuery(wsURL), len(token))
 	for {
 		if ctx.Err() != nil {
 			return

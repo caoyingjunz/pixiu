@@ -33,7 +33,7 @@ func NewRouter(o *options.Options) {
 		return
 	}
 	o.HttpEngine.GET(pixtunnel.ConnectPath, func(c *gin.Context) {
-		// Remotedialer needs the underlying Hijacker; pass through gin writer/request.
+		// RemoteDialer needs the underlying Hijacker; pass through gin writer/request.
 		m.ServeHTTP(c.Writer, c.Request)
 	})
 	klog.Infof("tunnel connect endpoint registered: GET %s", pixtunnel.ConnectPath)

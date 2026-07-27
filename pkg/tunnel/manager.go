@@ -29,10 +29,8 @@ import (
 )
 
 const (
-	// TokenHeader is the primary agent tunnel token header (Rancher / remotedialer compatible).
-	TokenHeader = "X-API-Tunnel-Token"
-	// TokenHeaderLegacy is kept for backward compatibility with earlier Pixiu agents.
-	TokenHeaderLegacy = "X-Pixiu-Tunnel-Token"
+	// TokenHeader is the agent tunnel token header.
+	TokenHeader = "X-Pixiu-Tunnel-Token"
 	// ConnectPath is the websocket endpoint agents connect to.
 	ConnectPath = "/pixiu/connect"
 )
@@ -79,14 +77,12 @@ func Default() *Manager {
 }
 
 func (m *Manager) authorize(req *http.Request) (string, bool, error) {
-	token := tokenFromRequest(req)
+	token := extractToken(req)
 	if token == "" {
 		klog.Warning("tunnel authorize denied: missing tunnel token header/query")
 		return "", false, nil
 	}
-	if m.lookup == nil {
-		return "", false, errors.New("tunnel token lookup is not configured")
-	}
+
 	name, err := m.lookup.ClusterName(req.Context(), token)
 	if err != nil {
 		klog.Errorf("tunnel authorize failed: %v", err)
@@ -100,17 +96,15 @@ func (m *Manager) authorize(req *http.Request) (string, bool, error) {
 	return name, true, nil
 }
 
-func tokenFromRequest(req *http.Request) string {
+func extractToken(req *http.Request) string {
 	if req == nil {
 		return ""
 	}
-	for _, key := range []string{TokenHeader, TokenHeaderLegacy} {
-		if v := strings.TrimSpace(req.Header.Get(key)); v != "" {
-			return v
-		}
+	if token := strings.TrimSpace(req.Header.Get(TokenHeader)); token != "" {
+		return token
 	}
-	if v := strings.TrimSpace(req.URL.Query().Get("token")); v != "" {
-		return v
+	if token := strings.TrimSpace(req.URL.Query().Get("token")); token != "" {
+		return token
 	}
 	return ""
 }
