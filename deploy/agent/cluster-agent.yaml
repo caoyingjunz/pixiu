@@ -40,7 +40,7 @@ spec:
       serviceAccountName: cluster-agent
       containers:
         - name: agent
-          image: pixiucloud/cluster-agent:latest
+          image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/cluster-agent:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: PIXIU_SERVER

@@ -1,0 +1,13 @@
+FROM golang:1.25-alpine AS builder
+WORKDIR /app
+ARG VERSION
+ENV GOPROXY=https://goproxy.cn
+COPY go.mod go.sum ./
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o cluster-agent ./cmd/cluster-agent
+
+FROM alpine:3.20
+LABEL MAINTAINER="PIXIU"
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /app/cluster-agent /usr/local/bin/cluster-agent
+ENTRYPOINT ["cluster-agent"]
