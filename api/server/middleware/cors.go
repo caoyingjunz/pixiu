@@ -27,7 +27,7 @@ func Cors() gin.HandlerFunc {
 	c := cors.Config{
 		AllowAllOrigins: true,
 		AllowMethods:    []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
-		AllowHeaders:    []string{"Content-Type", "Access-Token", "Authorization", "X-Pixiu-Proxy-Authorization", "X-Pixiu-Datasource-Id", "X-API-Tunnel-Token", "X-Pixiu-Tunnel-Token"},
+		AllowHeaders:    []string{"Content-Type", "Access-Token", "Authorization", "X-Pixiu-Proxy-Authorization", "X-Pixiu-Datasource-Id", "X-Pixiu-Tunnel-Token"},
 		MaxAge:          6 * time.Hour,
 	}
 
