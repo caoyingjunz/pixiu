@@ -107,7 +107,8 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 		// 自建环境，状态是部署未完成时，则直接不做同步，包含：部署中，等待部署，部署失败
 		if cluster.ClusterStatus == model.ClusterStatusUnStart ||
 			cluster.ClusterStatus == model.ClusterStatusDeploy ||
-			cluster.ClusterStatus == model.ClusterStatusFailed {
+			cluster.ClusterStatus == model.ClusterStatusFailed ||
+			cluster.ClusterStatus == model.ClusterStatusPending {
 			return nil
 		}
 	}

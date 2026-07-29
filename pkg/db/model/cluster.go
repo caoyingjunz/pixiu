@@ -50,6 +50,7 @@ const (
 	ClusterStatusUnStart                      // 未部署
 	ClusterStatusFailed                       // 部署失败
 	ClusterStatusError                        // 集群失联，API不可用
+	ClusterStatusPending                      // 等待 Agent 接入
 )
 
 // Cluster kubernetes 集群信息
