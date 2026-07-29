@@ -102,6 +102,19 @@ func (p *plan) preCreate(ctx context.Context, req *types.CreatePlanRequest) erro
 		}
 	}
 
+	if req.ExecMode == model.PlanExecModeAgent {
+		if req.DeployAgentId == 0 {
+			return fmt.Errorf("agent 模式必须指定 deploy_agent_id")
+		}
+		agent, err := p.factory.DeployAgent().Get(ctx, req.DeployAgentId)
+		if err != nil {
+			return err
+		}
+		if agent == nil {
+			return fmt.Errorf("deploy agent %d 不存在", req.DeployAgentId)
+		}
+	}
+
 	return nil
 }
 
@@ -122,9 +135,14 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	}
 
 	planModel := &model.Plan{
-		Name:        req.Name,
-		UserId:      req.UserId,
-		Description: req.Description,
+		Name:          req.Name,
+		UserId:        req.UserId,
+		Description:   req.Description,
+		ExecMode:      req.ExecMode,
+		DeployAgentId: req.DeployAgentId,
+	}
+	if planModel.ExecMode == "" {
+		planModel.ExecMode = model.PlanExecModeLocal
 	}
 
 	createdPlan, err := p.factory.Plan().Create(ctx, planModel, p.createPlanSubResources(ctx, req))
@@ -454,6 +472,23 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 		return fmt.Errorf("获取 runner(%s) 失败 %v", cfg.OSImage, err)
 	}
 	klog.Infof("plan(%d) runner is %s", pid, runner)
+
+	planObj, err := p.factory.Plan().Get(ctx, pid)
+	if err != nil {
+		return err
+	}
+	if planObj != nil && planObj.ExecMode == model.PlanExecModeAgent {
+		if planObj.DeployAgentId == 0 {
+			return fmt.Errorf("agent 模式未绑定 deploy agent")
+		}
+		agent, err := p.factory.DeployAgent().Get(ctx, planObj.DeployAgentId)
+		if err != nil {
+			return err
+		}
+		if agent == nil {
+			return fmt.Errorf("deploy agent %d 不存在", planObj.DeployAgentId)
+		}
+	}
 	return nil
 }
 
@@ -547,6 +582,8 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		Step:              status,
 		KubernetesVersion: kubernetesVersion,
 		NodeCount:         nodeCount,
+		ExecMode:          o.ExecMode,
+		DeployAgentId:     o.DeployAgentId,
 	}, nil
 }
 

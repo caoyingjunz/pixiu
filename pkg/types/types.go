@@ -274,11 +274,13 @@ type Plan struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name              string           `json:"name"` // 用户名称
-	Step              model.TaskStatus `json:"step"`
-	Description       string           `json:"description"`        // 用户描述信息
-	KubernetesVersion string           `json:"kubernetes_version"` // k8s 版本
-	NodeCount         int              `json:"node_count"`         // 节点总数
+	Name              string             `json:"name"` // 用户名称
+	Step              model.TaskStatus   `json:"step"`
+	Description       string             `json:"description"`        // 用户描述信息
+	KubernetesVersion string             `json:"kubernetes_version"` // k8s 版本
+	NodeCount         int                `json:"node_count"`         // 节点总数
+	ExecMode          model.PlanExecMode `json:"exec_mode"`
+	DeployAgentId     int64              `json:"deploy_agent_id,omitempty"`
 
 	Config PlanConfig `json:"config"`
 	Nodes  []PlanNode `json:"nodes"`
@@ -679,4 +681,61 @@ type AgentInstallResponse struct {
 type KubeConfigResponse struct {
 	ClusterName string `json:"cluster_name"`
 	Content     string `json:"content"`
+}
+
+// DeployAgent HTTPS 作业通道边缘 Agent
+type DeployAgent struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Name          string                  `json:"name"`
+	Status        model.DeployAgentStatus `json:"status"`
+	Hostname      string                  `json:"hostname"`
+	Version       string                  `json:"version"`
+	LastHeartbeat time.Time               `json:"last_heartbeat"`
+	Description   string                  `json:"description"`
+}
+
+type CreateDeployAgentRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+}
+
+type DeployAgentCreateResponse struct {
+	DeployAgent
+	Token string `json:"token"` // 仅创建时返回一次
+}
+
+type DeployAgentInstallResponse struct {
+	ServerURL string `json:"server_url"`
+	Token     string `json:"token"`
+	Command   string `json:"command"`
+}
+
+type DeployAgentHeartbeatRequest struct {
+	Hostname string `json:"hostname"`
+	Version  string `json:"version"`
+}
+
+type DeployJob struct {
+	Id       int64                 `json:"id"`
+	PlanId   int64                 `json:"plan_id"`
+	AgentId  int64                 `json:"agent_id"`
+	TaskName string                `json:"task_name"`
+	Kind     model.DeployJobKind   `json:"kind"`
+	Action   string                `json:"action"`
+	Image    string                `json:"image"`
+	Payload  string                `json:"payload"`
+	Status   model.DeployJobStatus `json:"status"`
+	Message  string                `json:"message"`
+}
+
+type DeployJobLogsRequest struct {
+	Chunk string `json:"chunk"`
+}
+
+type DeployJobResultRequest struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Result  string `json:"result"` // 如 kubeconfig base64
 }

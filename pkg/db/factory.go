@@ -32,6 +32,8 @@ type ShareDaoFactory interface {
 	Audit() AuditInterface
 	Repository() RepositoryInterface
 	Agent() AgentInterface
+	DeployAgent() DeployAgentInterface
+	DeployJob() DeployJobInterface
 	Permission() PermissionInterface
 	Datasource() DatasourceInterface
 	Runner() RunnerInterface
@@ -53,14 +55,16 @@ func (f *shareDaoFactory) Plan() PlanInterface       { return newPlan(f.db) }
 func (f *shareDaoFactory) Distribution() DistributionInterface {
 	return newDistribution(f.db)
 }
-func (f *shareDaoFactory) Audit() AuditInterface           { return newAudit(f.db) }
-func (f *shareDaoFactory) Repository() RepositoryInterface { return newRepository(f.db) }
-func (f *shareDaoFactory) Agent() AgentInterface           { return newAgent(f.db) }
-func (f *shareDaoFactory) Permission() PermissionInterface { return newPermission(f.db) }
-func (f *shareDaoFactory) Datasource() DatasourceInterface { return newDatasource(f.db) }
-func (f *shareDaoFactory) Runner() RunnerInterface         { return newRunner(f.db) }
-func (f *shareDaoFactory) Assistant() AssistantInterface   { return newAssistant(f.db) }
-func (f *shareDaoFactory) Alert() AlertInterface           { return newAlert(f.db) }
+func (f *shareDaoFactory) Audit() AuditInterface             { return newAudit(f.db) }
+func (f *shareDaoFactory) Repository() RepositoryInterface   { return newRepository(f.db) }
+func (f *shareDaoFactory) Agent() AgentInterface             { return newAgent(f.db) }
+func (f *shareDaoFactory) DeployAgent() DeployAgentInterface { return newDeployAgent(f.db) }
+func (f *shareDaoFactory) DeployJob() DeployJobInterface     { return newDeployJob(f.db) }
+func (f *shareDaoFactory) Permission() PermissionInterface   { return newPermission(f.db) }
+func (f *shareDaoFactory) Datasource() DatasourceInterface   { return newDatasource(f.db) }
+func (f *shareDaoFactory) Runner() RunnerInterface           { return newRunner(f.db) }
+func (f *shareDaoFactory) Assistant() AssistantInterface     { return newAssistant(f.db) }
+func (f *shareDaoFactory) Alert() AlertInterface             { return newAlert(f.db) }
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
 	if migrate {

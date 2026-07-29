@@ -32,6 +32,11 @@ type Plan struct {
 	// 所属用户
 	UserId      int64  `gorm:"index:idx_user_id" json:"user_id"`
 	Description string `gorm:"type:text" json:"description"`
+
+	// 执行模式：local（默认）/ agent（单向网络边缘执行）
+	ExecMode PlanExecMode `gorm:"type:varchar(32);default:'local'" json:"exec_mode"`
+	// agent 模式下绑定的 Deploy Agent
+	DeployAgentId int64 `gorm:"index:idx_plan_deploy_agent;default:0" json:"deploy_agent_id"`
 }
 
 func (plan *Plan) TableName() string {
