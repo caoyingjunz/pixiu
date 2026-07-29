@@ -157,11 +157,15 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 
 	agentToken := ""
 	if req.ConnectMode == model.ConnectModeTunnel {
-		token, err := generateAgentToken()
-		if err != nil {
-			return nil, errors.ErrServerInternal
+		if req.AgentToken != "" {
+			agentToken = req.AgentToken
+		} else {
+			token, err := generateAgentToken()
+			if err != nil {
+				return nil, errors.ErrServerInternal
+			}
+			agentToken = token
 		}
-		agentToken = token
 	}
 
 	var cs *client.ClusterSet

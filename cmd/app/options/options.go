@@ -169,7 +169,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		&o.ComponentConfig.Log,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
-		jobmanager.NewClusterSyncer(o.Factory),
+		jobmanager.NewClusterSyncer(o.Factory, o.ComponentConfig.Default.Mode.InDebug()),
 		o.AlertEvaluator,
 	)
 	return nil

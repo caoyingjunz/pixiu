@@ -36,12 +36,14 @@ const (
 )
 
 type ClusterSyncer struct {
-	factory db.ShareDaoFactory
+	factory  db.ShareDaoFactory
+	disabled bool
 }
 
-func NewClusterSyncer(f db.ShareDaoFactory) *ClusterSyncer {
+func NewClusterSyncer(f db.ShareDaoFactory, disabled bool) *ClusterSyncer {
 	return &ClusterSyncer{
-		factory: f,
+		factory:  f,
+		disabled: disabled,
 	}
 }
 
@@ -58,6 +60,11 @@ func (cs *ClusterSyncer) LogLevel() logutil.LogLevel {
 }
 
 func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
+	if cs.disabled {
+		klog.V(2).Info("[ClusterSyncer] disabled")
+		return nil
+	}
+
 	clusters, err := cs.factory.Cluster().List(ctx)
 	if err != nil {
 		klog.Errorf("[ClusterSyncer] failed to get clusters: %v", err)
@@ -143,7 +150,10 @@ func parseStatus(update map[string]interface{}, status model.ClusterStatus, kube
 }
 
 func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
-	clusterSet, err := client.NewClusterSet(cluster.KubeConfig)
+	clusterSet, err := client.NewClusterSetWithOptions(cluster.KubeConfig, client.ClusterSetOptions{
+		ClusterName: cluster.Name,
+		ConnectMode: cluster.ConnectMode,
+	})
 	if err != nil {
 		return "", "", err
 	}
