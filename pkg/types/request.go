@@ -62,6 +62,7 @@ type (
 		Type        model.ClusterType `json:"cluster_type" binding:"omitempty,oneof=0 1"` // optional
 		KubeConfig  string            `json:"kube_config" binding:"omitempty"`            // required for direct; required for tunnel too (auth)
 		ConnectMode model.ConnectMode `json:"connect_mode" binding:"omitempty,oneof=0 1"` // 0 direct 1 tunnel
+		AgentToken  string            `json:"agent_token" binding:"omitempty"`            // optional, only for tunnel
 		Description string            `json:"description" binding:"omitempty"`            // optional
 		Protected   bool              `json:"protected" binding:"omitempty"`              // optional
 
