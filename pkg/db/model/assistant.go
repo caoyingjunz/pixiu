@@ -19,26 +19,39 @@ package model
 import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
 func init() {
-	register(&AIProvider{}, &Conversation{}, &Message{}, &Execution{})
+	register(&AIProvider{}, &AIAccount{}, &Conversation{}, &Message{}, &Execution{})
 }
 
-// AIProvider stores API credentials for a local user.
+// AIProvider stores an AI vendor endpoint and its wire protocol.
 type AIProvider struct {
 	pixiu.Model
 
-	Name        string `gorm:"column:name;type:varchar(128)" json:"name"` // 如: deepseek, openAI
-	APIKey      string `gorm:"column:api_key;type:text;not null" json:"api_key"`
-	BaseURL     string `gorm:"column:base_url;type:varchar(512)" json:"base_url"`
-	Enabled     bool   `gorm:"not null;default:true" json:"enabled"`
-	Description string `gorm:"type:text" json:"description"`
-	MaxTokens   int    `gorm:"default:4096" json:"max_tokens"`
-
-	ModelName string `gorm:"column:model;type:varchar(128)" json:"model"`
-	Provider  string `gorm:"type:varchar(64);not null" json:"provider"`
+	Name        string `gorm:"column:name;type:varchar(128);not null;uniqueIndex:uk_ai_providers_name" json:"name"`
+	BaseURL     string `gorm:"column:base_url;type:varchar(512);not null" json:"base_url"`
+	Protocol    string `gorm:"column:protocol;type:varchar(32);not null" json:"protocol"`
+	Description string `gorm:"column:description;type:text" json:"description"`
+	MaxTokens   int    `gorm:"column:max_tokens;not null;default:4096" json:"max_tokens"`
+	Builtin     bool   `gorm:"column:builtin;not null;default:false" json:"builtin"`
 }
 
 func (AIProvider) TableName() string {
 	return "ai_providers"
+}
+
+// AIAccount stores one model credential belonging to an AI provider.
+type AIAccount struct {
+	pixiu.Model
+
+	UserId     int64       `gorm:"column:user_id;not null;index:idx_ai_accounts_user_id;uniqueIndex:uk_ai_accounts_user_provider_name,priority:1" json:"user_id"`
+	ProviderId int64       `gorm:"column:provider_id;not null;index:idx_ai_accounts_provider_id;uniqueIndex:uk_ai_accounts_user_provider_name,priority:2" json:"provider_id"`
+	Name       string      `gorm:"column:name;type:varchar(128);not null;uniqueIndex:uk_ai_accounts_user_provider_name,priority:3" json:"name"`
+	APIKey     string      `gorm:"column:api_key;type:text;not null" json:"-"`
+	ModelName  string      `gorm:"column:model;type:varchar(128);not null" json:"model"`
+	Provider   *AIProvider `gorm:"foreignKey:ProviderId;references:Id" json:"-"`
+}
+
+func (AIAccount) TableName() string {
+	return "ai_accounts"
 }
 
 // Conversation stores persisted response-chain context for one user conversation.

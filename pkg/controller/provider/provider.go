@@ -50,23 +50,16 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateProviderRequest) error {
-	if err := validateProviderFields(req.Provider, req.APIKey, req.BaseURL, req.Model); err != nil {
+	if err := validateProviderFields(req.Name, req.BaseURL, req.Protocol); err != nil {
 		return err
 	}
 
-	enabled := true
-	if req.Enabled != nil {
-		enabled = *req.Enabled
-	}
-
 	_, err := c.factory.Assistant().Provider().Create(ctx, &model.AIProvider{
-		APIKey:      req.APIKey,
-		BaseURL:     req.BaseURL,
-		Enabled:     enabled,
+		Name:        strings.TrimSpace(req.Name),
+		BaseURL:     strings.TrimRight(strings.TrimSpace(req.BaseURL), "/"),
+		Protocol:    normalizeProtocol(req.Protocol),
 		Description: req.Description,
 		MaxTokens:   resolveMaxTokens(req.MaxTokens, 0),
-		ModelName:   req.Model,
-		Provider:    req.Provider,
 	})
 	if err != nil {
 		klog.Errorf("failed to create assistant provider: %v", err)
@@ -77,7 +70,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateProviderReques
 }
 
 func (c *controller) Update(ctx context.Context, req *types.UpdateProviderRequest) error {
-	if err := validateProviderFields(req.Provider, req.APIKey, req.BaseURL, req.Model); err != nil {
+	if err := validateProviderFields(req.Name, req.BaseURL, req.Protocol); err != nil {
 		return err
 	}
 
@@ -89,19 +82,15 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 	if old == nil {
 		return apierrors.NewError(fmt.Errorf("assistant provider not found"), http.StatusNotFound)
 	}
-
-	enabled := old.Enabled
-	if req.Enabled != nil {
-		enabled = *req.Enabled
+	if old.Builtin {
+		return apierrors.NewError(fmt.Errorf("builtin assistant provider cannot be updated"), http.StatusForbidden)
 	}
 
 	updates := map[string]interface{}{
-		"provider":    req.Provider,
-		"api_key":     req.APIKey,
-		"base_url":    req.BaseURL,
-		"model":       req.Model,
+		"name":        strings.TrimSpace(req.Name),
+		"base_url":    strings.TrimRight(strings.TrimSpace(req.BaseURL), "/"),
+		"protocol":    normalizeProtocol(req.Protocol),
 		"description": req.Description,
-		"enabled":     enabled,
 	}
 	if req.MaxTokens > 0 {
 		updates["max_tokens"] = req.MaxTokens
@@ -126,6 +115,17 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 	}
 	if old == nil {
 		return apierrors.NewError(fmt.Errorf("assistant provider not found"), http.StatusNotFound)
+	}
+	if old.Builtin {
+		return apierrors.NewError(fmt.Errorf("builtin assistant provider cannot be deleted"), http.StatusForbidden)
+	}
+	accountCount, err := c.factory.Assistant().Account().Count(ctx, db.WithAIProviderId(id))
+	if err != nil {
+		klog.Errorf("failed to count ai accounts for provider(%d): %v", id, err)
+		return apierrors.ErrServerInternal
+	}
+	if accountCount > 0 {
+		return apierrors.NewError(fmt.Errorf("assistant provider still has accounts"), http.StatusConflict)
 	}
 
 	if err = c.factory.Assistant().Provider().Delete(ctx, id); err != nil {
@@ -160,12 +160,7 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		},
 	}
 
-	opts := []db.Options{
-		db.WithProvider(listOption.Provider),
-	}
-	if listOption.Enabled != nil {
-		opts = append(opts, db.WithEnabled(*listOption.Enabled))
-	}
+	opts := []db.Options{db.WithNameLike(listOption.NameSelector)}
 
 	var err error
 	pageResult.Total, err = c.factory.Assistant().Provider().Count(ctx, opts...)
@@ -206,13 +201,12 @@ func modelToType(object *model.AIProvider) *types.AIProvider {
 			GmtCreate:   object.GmtCreate,
 			GmtModified: object.GmtModified,
 		},
-		Provider:    object.Provider,
-		APIKey:      object.APIKey,
+		Name:        object.Name,
 		BaseURL:     object.BaseURL,
-		Model:       object.ModelName,
+		Protocol:    object.Protocol,
 		Description: object.Description,
-		Enabled:     object.Enabled,
 		MaxTokens:   resolveMaxTokens(object.MaxTokens, 0),
+		Builtin:     object.Builtin,
 	}
 }
 
@@ -226,18 +220,24 @@ func resolveMaxTokens(value, fallback int) int {
 	return 4096
 }
 
-func validateProviderFields(provider, apiKey, baseURL, model string) error {
-	if strings.TrimSpace(provider) == "" {
-		return apierrors.NewError(fmt.Errorf("provider is required"), http.StatusBadRequest)
-	}
-	if strings.TrimSpace(apiKey) == "" {
-		return apierrors.NewError(fmt.Errorf("api_key is required"), http.StatusBadRequest)
+func validateProviderFields(name, baseURL, protocol string) error {
+	if strings.TrimSpace(name) == "" {
+		return apierrors.NewError(fmt.Errorf("name is required"), http.StatusBadRequest)
 	}
 	if strings.TrimSpace(baseURL) == "" {
 		return apierrors.NewError(fmt.Errorf("base_url is required"), http.StatusBadRequest)
 	}
-	if strings.TrimSpace(model) == "" {
-		return apierrors.NewError(fmt.Errorf("model is required"), http.StatusBadRequest)
+	if strings.TrimSpace(protocol) == "" {
+		return apierrors.NewError(fmt.Errorf("protocol is required"), http.StatusBadRequest)
+	}
+	switch normalizeProtocol(protocol) {
+	case "openai_chat", "openai_responses":
+	default:
+		return apierrors.NewError(fmt.Errorf("unsupported protocol %q", protocol), http.StatusBadRequest)
 	}
 	return nil
+}
+
+func normalizeProtocol(protocol string) string {
+	return strings.ToLower(strings.TrimSpace(protocol))
 }
