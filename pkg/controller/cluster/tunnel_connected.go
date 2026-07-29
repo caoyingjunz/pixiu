@@ -59,7 +59,7 @@ func (c *cluster) syncTunnelConnectivity(ctx context.Context) {
 func (c *cluster) checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, obj *model.Cluster) error {
 	// Skip clusters that are still being provisioned / not expected to be online.
 	switch obj.ClusterStatus {
-	case model.ClusterStatusDeploy, model.ClusterStatusUnStart, model.ClusterStatusFailed:
+	case model.ClusterStatusDeploy, model.ClusterStatusUnStart, model.ClusterStatusFailed, model.ClusterStatusPending:
 		tm.SetAgentConnected(obj.Name, false)
 		return nil
 	}

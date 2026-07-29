@@ -1101,7 +1101,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		KubernetesVersion: o.KubernetesVersion,
 		Nodes:             nodes,
 		PlanId:            o.PlanId,
-		Status:            o.ClusterStatus, // 默认是运行中状态，自建集群会根据实际任务状态修改状态
+		Status:            o.ClusterStatus,
 		Protected:         o.Protected,
 		ConnectMode:       o.ConnectMode,
 		AgentToken:        o.AgentToken,
@@ -1109,6 +1109,7 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	}
 
 	if o.ConnectMode == model.ConnectModeTunnel {
+		tc.Status = model.ClusterStatusPending // 等待 Agent 接入
 		if tm := tunnel.Default(); tm != nil {
 			tc.AgentConnected = tm.AgentConnected(o.Name)
 		}
@@ -1199,10 +1200,11 @@ func (c *cluster) registerIndexers(informerResources ...InformerResource) {
 
 func (c *cluster) Run(ctx context.Context, workers int) error {
 	klog.Infof("starting cluster manager")
-	// 同步集群状态，节点数，版本
-	go wait.UntilWithContext(ctx, c.Sync, 5*time.Second)
-	// 控制面周期检测 Agent 反向隧道连通性（参考 Rancher clusterconnected）
-	go wait.UntilWithContext(ctx, c.syncTunnelConnectivity, tunnelCheckInterval)
+
+	if !c.cc.Default.Mode.InDebug() {
+		go wait.UntilWithContext(ctx, c.Sync, 5*time.Second)
+		go wait.UntilWithContext(ctx, c.syncTunnelConnectivity, tunnelCheckInterval)
+	}
 
 	return nil
 }
