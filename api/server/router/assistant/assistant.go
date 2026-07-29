@@ -27,6 +27,7 @@ import (
 const (
 	assistantBaseURL    = "/pixiu/assistant"
 	providerBaseURL     = assistantBaseURL + "/providers"
+	accountBaseURL      = assistantBaseURL + "/accounts"
 	conversationBaseURL = assistantBaseURL + "/conversations"
 	messageBaseURL      = assistantBaseURL + "/messages"
 )
@@ -55,6 +56,19 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 		},
 	}
 	providerGroup.Register(ginEngine.Group(providerBaseURL), r.c.APIResource())
+
+	accountGroup := &apiregistry.Group{
+		Name:    "智能助手",
+		BaseURL: accountBaseURL,
+		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "", Handler: r.createAccount, Description: "Create assistant account"},
+			{Method: "PUT", RelativePath: "/:accountId", Handler: r.updateAccount, Description: "Update assistant account"},
+			{Method: "DELETE", RelativePath: "/:accountId", Handler: r.deleteAccount, Description: "Delete assistant account"},
+			{Method: "GET", RelativePath: "", Handler: r.listAccounts, Description: "List assistant accounts"},
+			{Method: "GET", RelativePath: "/:accountId", Handler: r.getAccount, Description: "Get assistant account"},
+		},
+	}
+	accountGroup.Register(ginEngine.Group(accountBaseURL), r.c.APIResource())
 
 	conversationGroup := &apiregistry.Group{
 		Name:    "智能助手",
