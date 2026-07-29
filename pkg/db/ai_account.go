@@ -96,7 +96,7 @@ func (a *aiAccount) Get(ctx context.Context, id int64) (*model.AIAccount, error)
 
 func (a *aiAccount) List(ctx context.Context, opts ...Options) ([]model.AIAccount, error) {
 	var objects []model.AIAccount
-	tx := a.db.WithContext(ctx)
+	tx := a.db.WithContext(ctx).Preload("Provider")
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
