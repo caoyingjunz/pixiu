@@ -58,7 +58,7 @@ func main() {
 	server = strings.TrimRight(server, "/")
 	workRoot := os.Getenv("PIXIU_AGENT_WORKDIR")
 	if workRoot == "" {
-		workRoot = "/var/lib/pixiu-deploy-agent"
+		workRoot = "/var/lib/pixiu"
 	}
 	_ = os.MkdirAll(workRoot, 0o755)
 
@@ -68,7 +68,7 @@ func main() {
 	hostname, _ := os.Hostname()
 	api := &pixiuAPI{server: server, token: token, client: &http.Client{Timeout: 0}}
 
-	klog.Infof("deploy-agent %s starting, server=%s", version, server)
+	klog.Infof("pixiu-deploy-agent %s starting, server=%s", version, server)
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
