@@ -695,25 +695,6 @@ type KubeConfigResponse struct {
 	Content     string `json:"content"`
 }
 
-// Agent HTTPS 作业通道边缘 Agent
-type DeployAgent = Agent
-
-type CreateDeployAgentRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-}
-
-type DeployAgentCreateResponse struct {
-	DeployAgent
-	Token string `json:"token"` // 仅创建时返回一次
-}
-
-type DeployAgentInstallResponse struct {
-	ServerURL string `json:"server_url"`
-	Token     string `json:"token"`
-	Command   string `json:"command"`
-}
-
 type AgentHeartbeatRequest struct {
 	Hostname string `json:"hostname"`
 	Version  string `json:"version"`

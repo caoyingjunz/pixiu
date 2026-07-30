@@ -276,8 +276,14 @@ func buildAgentFilters(opt types.ListOptions) []db.Options {
 
 func model2Type(o *model.Agent) *types.Agent {
 	return &types.Agent{
-		PixiuMeta:     types.PixiuMeta{Id: o.Id, ResourceVersion: o.ResourceVersion},
-		TimeMeta:      types.TimeMeta{GmtCreate: o.GmtCreate, GmtModified: o.GmtModified},
+		PixiuMeta: types.PixiuMeta{
+			Id:              o.Id,
+			ResourceVersion: o.ResourceVersion,
+		},
+		TimeMeta: types.TimeMeta{
+			GmtCreate:   o.GmtCreate,
+			GmtModified: o.GmtModified,
+		},
 		Name:          o.Name,
 		Type:          o.AgentType,
 		UserID:        o.UserID,
