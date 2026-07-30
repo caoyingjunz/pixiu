@@ -129,23 +129,43 @@ func (a *agentController) Get(ctx context.Context, agentId int64) (*types.Agent,
 
 func (a *agentController) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
 	listOption.SetDefaultPageOption()
-	pr := types.PageResult{PageRequest: types.PageRequest{Page: listOption.Page, Limit: listOption.Limit}}
 
-	filters := buildAgentFilters(listOption)
-	pr.Total, _ = a.factory.Agent().Count(ctx, filters...)
-	objects, err := a.factory.Agent().List(ctx, append(filters,
-		db.WithOffset((listOption.Page-1)*listOption.Limit),
-		db.WithLimit(listOption.Limit),
-		db.WithModifyOrderByDesc())...)
+	pageResult := types.PageResult{
+		PageRequest: types.PageRequest{
+			Page:  listOption.Page,
+			Limit: listOption.Limit,
+		},
+	}
+
+	filterOpts := buildFilterOpts(listOption)
+
+	var err error
+	pageResult.Total, err = a.factory.Agent().Count(ctx, filterOpts...)
 	if err != nil {
+		klog.Errorf("failed to get agents count: %v", err)
 		return nil, err
 	}
-	items := make([]types.Agent, len(objects))
-	for i := range objects {
-		items[i] = *model2Type(&objects[i])
+
+	offset := (listOption.Page - 1) * listOption.Limit
+	paginationOpts := append(filterOpts,
+		db.WithOffset(offset),
+		db.WithLimit(listOption.Limit),
+		db.WithOrderByDesc(),
+	)
+
+	objects, err := a.factory.Agent().List(ctx, paginationOpts...)
+	if err != nil {
+		klog.Errorf("failed to list agents: %v", err)
+		return nil, errors.ErrServerInternal
 	}
-	pr.Items = items
-	return pr, nil
+
+	ts := make([]types.Agent, 0)
+	for _, object := range objects {
+		ts = append(ts, *model2Type(&object))
+	}
+	pageResult.Items = ts
+
+	return pageResult, nil
 }
 
 // ── Agent job APIs (token auth) ──
