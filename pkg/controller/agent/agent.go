@@ -80,7 +80,7 @@ func (a *agentController) Create(ctx context.Context, req *types.CreateAgentRequ
 		Description: req.Description,
 	})
 	if err != nil {
-		klog.Errorf("failed to create deploy agent %s: %v", req.Name, err)
+		klog.Errorf("failed to create agent %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
 	return nil
@@ -98,7 +98,7 @@ func (a *agentController) Update(ctx context.Context, agentId int64, req *types.
 		updates["description"] = *req.Description
 	}
 	if err := a.factory.Agent().Update(ctx, agentId, req.ResourceVersion, updates); err != nil {
-		klog.Errorf("failed to update deploy agent %d: %v", agentId, err)
+		klog.Errorf("failed to update agent %d: %v", agentId, err)
 		return errors.ErrServerInternal
 	}
 	return nil
@@ -106,7 +106,7 @@ func (a *agentController) Update(ctx context.Context, agentId int64, req *types.
 
 func (a *agentController) Delete(ctx context.Context, agentId int64) error {
 	if err := a.factory.Agent().Delete(ctx, agentId); err != nil {
-		klog.Errorf("failed to delete deploy agent %d: %v", agentId, err)
+		klog.Errorf("failed to delete agent %d: %v", agentId, err)
 		return errors.ErrServerInternal
 	}
 	return nil
@@ -115,7 +115,7 @@ func (a *agentController) Delete(ctx context.Context, agentId int64) error {
 func (a *agentController) Get(ctx context.Context, agentId int64) (*types.Agent, error) {
 	obj, err := a.factory.Agent().Get(ctx, agentId)
 	if err != nil {
-		klog.Errorf("failed to get deploy agent(%d): %v", agentId, err)
+		klog.Errorf("failed to get agent(%d): %v", agentId, err)
 		return nil, errors.ErrServerInternal
 	}
 	if obj == nil {
