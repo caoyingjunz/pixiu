@@ -744,8 +744,8 @@ type AgentJobResultRequest struct {
 
 // AgentPlanMaterial 边缘 Agent 拉取后本地渲染所需的计划数据。
 type AgentPlanMaterial struct {
-	PlanId int64                `json:"plan_id"`
-	Config AgentPlanMaterialCfg `json:"config"`
+	PlanId int64                   `json:"plan_id"`
+	Config AgentPlanMaterialCfg    `json:"config"`
 	Nodes  []AgentPlanMaterialNode `json:"nodes"`
 }
 

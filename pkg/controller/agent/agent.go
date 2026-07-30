@@ -120,7 +120,7 @@ func (a *agentController) Get(ctx context.Context, agentId int64) (*types.Agent,
 	if obj == nil {
 		return nil, errors.ErrAgentNotFound
 	}
-	return toAgent(obj), nil
+	return model2Type(obj), nil
 }
 
 func (a *agentController) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
@@ -138,7 +138,7 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 	}
 	items := make([]types.Agent, len(objects))
 	for i := range objects {
-		items[i] = *toAgent(&objects[i])
+		items[i] = *model2Type(&objects[i])
 	}
 	pr.Items = items
 	return pr, nil
@@ -282,7 +282,7 @@ func buildAgentFilters(opt types.ListOptions) []db.Options {
 	return opts
 }
 
-func toAgent(o *model.Agent) *types.Agent {
+func model2Type(o *model.Agent) *types.Agent {
 	return &types.Agent{
 		PixiuMeta:     types.PixiuMeta{Id: o.Id, ResourceVersion: o.ResourceVersion},
 		TimeMeta:      types.TimeMeta{GmtCreate: o.GmtCreate, GmtModified: o.GmtModified},
