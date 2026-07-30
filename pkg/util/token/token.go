@@ -17,6 +17,8 @@ limitations under the License.
 package token
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -99,4 +101,13 @@ func ExtractToken(c *gin.Context, ws bool) (string, error) {
 	}
 
 	return fields[1], nil
+}
+
+// Generate creates a random 24-byte hex-encoded token for agent / deploy-agent authentication.
+func Generate() (string, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }

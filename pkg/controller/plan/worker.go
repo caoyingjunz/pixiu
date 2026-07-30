@@ -144,15 +144,20 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	dir := p.WorkDir()
 
 	task := newHandlerTask(taskData)
-	handlers := []Handler{
-		Runner{handlerTask: task, image: runner, factory: p.factory},
-		Render{handlerTask: task, dir: dir},
-		Check{handlerTask: task},
-		BootStrap{handlerTask: task, dir: dir, runner: runner},
-		DeployMaster{handlerTask: task, dir: dir, runner: runner},
-		DeployNode{handlerTask: task, dir: dir, runner: runner},
-		Register{handlerTask: task, factory: p.factory},
-		DeployChart{handlerTask: task, dir: dir, runner: runner},
+	var handlers []Handler
+	if taskData.Plan.ExecMode == model.PlanExecModeAgent {
+		handlers = p.buildAgentHandlers(task, runner, taskData)
+	} else {
+		handlers = []Handler{
+			Runner{handlerTask: task, image: runner, factory: p.factory},
+			Render{handlerTask: task, dir: dir},
+			Check{handlerTask: task},
+			BootStrap{handlerTask: task, dir: dir, runner: runner},
+			DeployMaster{handlerTask: task, dir: dir, runner: runner},
+			DeployNode{handlerTask: task, dir: dir, runner: runner},
+			Register{handlerTask: task, factory: p.factory},
+			DeployChart{handlerTask: task, dir: dir, runner: runner},
+		}
 	}
 
 	status := model.ClusterStatusRunning
@@ -163,6 +168,62 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 
 	if err = p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": status}); err != nil {
 		klog.Errorf("failed to update cluster status to %d: %v", status, err)
+	}
+}
+
+func (p *plan) buildAgentHandlers(task handlerTask, runner string, data TaskData) []Handler {
+	agentId := data.Plan.DeployAgentId
+	reg := Register{handlerTask: task, factory: p.factory}
+	payload, _ := buildRegisterPayload(data.Nodes)
+
+	return []Handler{
+		Check{handlerTask: task},
+		// 镜像拉取、配置渲染与部署均在边缘 Agent 执行；控制面只下发 Job 并等待结果
+		AgentStep{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "前置准备", step: model.RunningPlanStep,
+			kind: model.JobPullImage, action: "pull_image", image: runner,
+			timeout: 30 * time.Minute,
+		},
+		AgentStep{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "配置渲染", step: model.RunningPlanStep,
+			kind: model.JobRenderConfig, action: "render", image: runner,
+			timeout: 10 * time.Minute,
+		},
+		AgentStep{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "初始化部署环境", step: model.RunningPlanStep,
+			kind: model.JobRunContainer, action: "bootstrap-servers", image: runner,
+			timeout: 30 * time.Minute,
+		},
+		AgentStep{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "部署Master", step: model.RunningPlanStep,
+			kind: model.JobRunContainer, action: "deploy-master", image: runner,
+			timeout: 60 * time.Minute,
+		},
+		AgentStep{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "部署Node", step: model.RunningPlanStep,
+			kind: model.JobRunContainer, action: "deploy-node", image: runner,
+			timeout: 60 * time.Minute,
+		},
+		AgentStep{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "集群注册", step: model.RunningPlanStep,
+			kind: model.JobFetchKubeconfig, action: "register", payload: payload,
+			timeout: 15 * time.Minute,
+			onSuccess: func(result string) error {
+				return reg.finishWithKubeConfig(result)
+			},
+		},
+		AgentStep{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "部署基础组件", step: model.CompletedPlanStep,
+			kind: model.JobRunContainer, action: "apply", image: runner,
+			timeout: 60 * time.Minute,
+		},
 	}
 }
 

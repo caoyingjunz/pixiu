@@ -17,6 +17,8 @@ limitations under the License.
 package middleware
 
 import (
+	"strings"
+
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -31,9 +33,15 @@ func init() {
 	alwaysAllowPath = sets.NewString("/pixiu/users/login", "/pixiu/connect")
 }
 
-// 允许特定请求不经过验证
+// 允许特定请求不经过 JWT 验证（由业务侧 Token 鉴权）
 func allowCustomRequest(c *gin.Context) bool {
-	// TODO: 其他请求
+	path := c.Request.URL.Path
+	// Agent 任务 API（deploy-agent heartbeat / claim / logs / result / plan）
+	if strings.HasPrefix(path, "/pixiu/agents/heartbeat") ||
+		strings.HasPrefix(path, "/pixiu/agents/claim") ||
+		strings.HasPrefix(path, "/pixiu/agents/jobs/") {
+		return true
+	}
 	return false
 }
 

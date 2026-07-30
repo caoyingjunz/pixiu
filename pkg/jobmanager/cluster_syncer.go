@@ -36,12 +36,14 @@ const (
 )
 
 type ClusterSyncer struct {
-	factory db.ShareDaoFactory
+	factory  db.ShareDaoFactory
+	disabled bool
 }
 
-func NewClusterSyncer(f db.ShareDaoFactory) *ClusterSyncer {
+func NewClusterSyncer(f db.ShareDaoFactory, disabled bool) *ClusterSyncer {
 	return &ClusterSyncer{
-		factory: f,
+		factory:  f,
+		disabled: disabled,
 	}
 }
 
@@ -58,6 +60,11 @@ func (cs *ClusterSyncer) LogLevel() logutil.LogLevel {
 }
 
 func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
+	if cs.disabled {
+		klog.V(2).Info("[ClusterSyncer] disabled")
+		return nil
+	}
+
 	clusters, err := cs.factory.Cluster().List(ctx)
 	if err != nil {
 		klog.Errorf("[ClusterSyncer] failed to get clusters: %v", err)
@@ -100,7 +107,8 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 		// 自建环境，状态是部署未完成时，则直接不做同步，包含：部署中，等待部署，部署失败
 		if cluster.ClusterStatus == model.ClusterStatusUnStart ||
 			cluster.ClusterStatus == model.ClusterStatusDeploy ||
-			cluster.ClusterStatus == model.ClusterStatusFailed {
+			cluster.ClusterStatus == model.ClusterStatusFailed ||
+			cluster.ClusterStatus == model.ClusterStatusPending {
 			return nil
 		}
 	}
@@ -143,7 +151,10 @@ func parseStatus(update map[string]interface{}, status model.ClusterStatus, kube
 }
 
 func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
-	clusterSet, err := client.NewClusterSet(cluster.KubeConfig)
+	clusterSet, err := client.NewClusterSetWithOptions(cluster.KubeConfig, client.ClusterSetOptions{
+		ClusterName: cluster.Name,
+		ConnectMode: cluster.ConnectMode,
+	})
 	if err != nil {
 		return "", "", err
 	}

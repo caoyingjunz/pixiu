@@ -21,6 +21,7 @@ import "gorm.io/gorm"
 // AssistantInterface groups all assistant-related database accessors.
 type AssistantInterface interface {
 	Provider() AIProviderInterface
+	Account() AIAccountInterface
 	Conversation() ConversationInterface
 	Execution() ExecutionInterface
 	Message() MessageInterface
@@ -36,6 +37,10 @@ func newAssistant(db *gorm.DB) AssistantInterface {
 
 func (a *assistant) Provider() AIProviderInterface {
 	return newAIProvider(a.db)
+}
+
+func (a *assistant) Account() AIAccountInterface {
+	return newAIAccount(a.db)
 }
 
 func (a *assistant) Conversation() ConversationInterface {

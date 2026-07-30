@@ -26,24 +26,27 @@ type Agent struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name           string            `json:"name"`
-	Status         model.AgentStatus `json:"status"`
-	UserId         int64             `json:"user_id"`
-	LastReportTime time.Time         `json:"last_report_time"`
-	Description    string            `json:"description"`
+	Name          string                  `json:"name"`
+	Type          model.AgentType         `json:"type"`
+	UserID        int64                   `json:"user_id"`
+	Status        model.DeployAgentStatus `json:"status"`
+	Hostname      string                  `json:"hostname"`
+	Version       string                  `json:"version"`
+	LastHeartbeat time.Time               `json:"last_heartbeat"`
+	Description   string                  `json:"description"`
+	Token         string                  `json:"token,omitempty"`
 }
 
 type CreateAgentRequest struct {
-	Name        string            `json:"name" binding:"required"`
-	Status      model.AgentStatus `json:"status" binding:"omitempty"`
-	UserId      int64             `json:"user_id" binding:"required"`
-	Description string            `json:"description" binding:"omitempty"`
+	Name        string          `json:"name" binding:"required"`
+	UserID      int64           `json:"user_id"`
+	Type        model.AgentType `json:"type" binding:"omitempty"`
+	Description string          `json:"description" binding:"omitempty"`
 }
 
 type UpdateAgentRequest struct {
-	Name            *string            `json:"name" binding:"omitempty"`
-	Status          *model.AgentStatus `json:"status" binding:"omitempty"`
-	LastReportTime  *time.Time         `json:"last_report_time" binding:"omitempty"`
-	Description     *string            `json:"description" binding:"omitempty"`
-	ResourceVersion int64              `json:"resource_version" binding:"required"`
+	Name            *string          `json:"name" binding:"omitempty"`
+	ResourceVersion int64            `json:"resource_version"`
+	Type            *model.AgentType `json:"type" binding:"omitempty"`
+	Description     *string          `json:"description" binding:"omitempty"`
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2026 The Pixiu Authors.
+Copyright 2024 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,35 +14,55 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package jobmanager
 
 import (
 	"context"
-	"time"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
-const tunnelCheckInterval = 15 * time.Second
+const defaultTunnelSyncInterval = "@every 15s"
 
-// syncTunnelConnectivity periodically probes Agent reverse tunnels (Rancher-style
-// control-plane check) and persists Running/Error when connectivity flips.
-func (c *cluster) syncTunnelConnectivity(ctx context.Context) {
+// TunnelSyncer 定期探测集群 Agent 反向隧道连通性，并根据连通性状态更新集群状态。
+type TunnelSyncer struct {
+	factory db.ShareDaoFactory
+}
+
+func NewTunnelSyncer(f db.ShareDaoFactory) *TunnelSyncer {
+	return &TunnelSyncer{factory: f}
+}
+
+func (ts *TunnelSyncer) Name() string {
+	return "tunnel-syncer"
+}
+
+func (ts *TunnelSyncer) CronSpec() string {
+	return defaultTunnelSyncInterval
+}
+
+func (ts *TunnelSyncer) LogLevel() logutil.LogLevel {
+	return logutil.DebugLevel
+}
+
+func (ts *TunnelSyncer) Do(ctx *JobContext) error {
 	tm := tunnel.Default()
 	if tm == nil {
-		return
+		return nil
 	}
 
-	clusters, err := c.factory.Cluster().List(ctx)
+	clusters, err := ts.factory.Cluster().List(ctx)
 	if err != nil {
-		klog.Errorf("tunnel check: list clusters failed: %v", err)
-		return
+		klog.Errorf("[TunnelSyncer] list clusters failed: %v", err)
+		return err
 	}
 
 	for i := range clusters {
@@ -50,16 +70,17 @@ func (c *cluster) syncTunnelConnectivity(ctx context.Context) {
 		if obj.ConnectMode != model.ConnectModeTunnel {
 			continue
 		}
-		if err := c.checkTunnelCluster(ctx, tm, obj); err != nil {
-			klog.Errorf("tunnel check: cluster %s: %v", obj.Name, err)
+		if err := checkTunnelCluster(ctx, tm, ts.factory, obj); err != nil {
+			klog.Errorf("[TunnelSyncer] cluster %s: %v", obj.Name, err)
 		}
 	}
+	return nil
 }
 
-func (c *cluster) checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, obj *model.Cluster) error {
-	// Skip clusters that are still being provisioned / not expected to be online.
+func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.ShareDaoFactory, obj *model.Cluster) error {
+	// 跳过仍在部署/未启动/已失败/等待中的集群
 	switch obj.ClusterStatus {
-	case model.ClusterStatusDeploy, model.ClusterStatusUnStart, model.ClusterStatusFailed:
+	case model.ClusterStatusDeploy, model.ClusterStatusUnStart, model.ClusterStatusFailed, model.ClusterStatusPending:
 		tm.SetAgentConnected(obj.Name, false)
 		return nil
 	}
@@ -87,12 +108,12 @@ func (c *cluster) checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, ob
 
 	if desired == obj.ClusterStatus {
 		if prev != connected {
-			klog.Infof("tunnel check: cluster %s agent_connected=%v", obj.Name, connected)
+			klog.Infof("[TunnelSyncer] cluster %s agent_connected=%v", obj.Name, connected)
 		}
 		return nil
 	}
 
-	if err := c.factory.Cluster().InternalUpdate(ctx, obj.Id, map[string]interface{}{
+	if err := factory.Cluster().InternalUpdate(ctx, obj.Id, map[string]interface{}{
 		"status": desired,
 	}); err != nil {
 		if utilerrors.IsNotUpdated(err) {
@@ -100,7 +121,7 @@ func (c *cluster) checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, ob
 		}
 		return err
 	}
-	klog.Infof("tunnel check: cluster %s status %d -> %d (agent_connected=%v)",
+	klog.Infof("[TunnelSyncer] cluster %s status %d -> %d (agent_connected=%v)",
 		obj.Name, obj.ClusterStatus, desired, connected)
 	return nil
 }

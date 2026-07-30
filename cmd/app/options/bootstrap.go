@@ -91,6 +91,41 @@ var defaultDistributionCatalog = []struct {
 	},
 }
 
+var defaultAIProviderCatalog = []pixiuModel.AIProvider{
+	{
+		Name:        "openai",
+		BaseURL:     "https://api.openai.com",
+		Protocol:    "openai_responses",
+		Description: "OpenAI official API",
+		MaxTokens:   4096,
+		Builtin:     true,
+	},
+	{
+		Name:        "deepseek",
+		BaseURL:     "https://api.deepseek.com",
+		Protocol:    "openai_chat",
+		Description: "DeepSeek official API",
+		MaxTokens:   4096,
+		Builtin:     true,
+	},
+	{
+		Name:        "siliconflow",
+		BaseURL:     "https://api.siliconflow.cn/v1",
+		Protocol:    "openai_chat",
+		Description: "SiliconFlow official API",
+		MaxTokens:   4096,
+		Builtin:     true,
+	},
+	{
+		Name:        "zhipu",
+		BaseURL:     "https://open.bigmodel.cn/api/paas/v4",
+		Protocol:    "openai_chat",
+		Description: "Zhipu GLM official API",
+		MaxTokens:   4096,
+		Builtin:     true,
+	},
+}
+
 var defaultRunners = []struct {
 	name        string
 	engineImage string
@@ -116,6 +151,9 @@ func (o *Options) bootstrapDatabase() error {
 	if err := o.bootstrapRootUser(ctx); err != nil {
 		return err
 	}
+	if err := o.bootstrapAIProviders(ctx); err != nil {
+		return err
+	}
 	// 初始化操作系统
 	if err := o.bootstrapDistributions(ctx); err != nil {
 		return err
@@ -123,6 +161,16 @@ func (o *Options) bootstrapDatabase() error {
 	// 初始化 Runner
 	if err := o.bootstrapRunners(ctx); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (o *Options) bootstrapAIProviders(ctx context.Context) error {
+	for i := range defaultAIProviderCatalog {
+		provider := defaultAIProviderCatalog[i]
+		if err := o.Factory.Assistant().Provider().EnsureBuiltin(ctx, &provider); err != nil {
+			return fmt.Errorf("failed to initialize ai provider %s: %v", provider.Name, err)
+		}
 	}
 	return nil
 }

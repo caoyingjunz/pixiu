@@ -169,7 +169,9 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		&o.ComponentConfig.Log,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
-		jobmanager.NewClusterSyncer(o.Factory),
+		jobmanager.NewClusterSyncer(o.Factory, o.ComponentConfig.Default.Mode.InDebug()),
+		jobmanager.NewAgentSyncer(o.Factory),
+		jobmanager.NewTunnelSyncer(o.Factory),
 		o.AlertEvaluator,
 	)
 	return nil
@@ -186,7 +188,7 @@ func isCLIVerbositySet(cmd *cobra.Command) bool {
 
 // BindFlags binds the pixiu Configuration struct fields
 func (o *Options) BindFlags(cmd *cobra.Command) {
-	// Expose klog flags (e.g. -v) to cobra. klog.InitFlags registers them on
+	// Expose klog flags (e.g. -v) to cobra. InitFlags registers them on
 	// the standard flag.CommandLine in main; cobra will not accept them unless
 	// they are added to the command flag set.
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
