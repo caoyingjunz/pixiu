@@ -62,7 +62,10 @@ type agentController struct {
 }
 
 func NewAgent(cfg config.Config, f db.ShareDaoFactory) Interface {
-	return &agentController{cc: cfg, factory: f}
+	return &agentController{
+		cc:      cfg,
+		factory: f,
+	}
 }
 
 func (a *agentController) Create(ctx context.Context, req *types.CreateAgentRequest) error {
@@ -113,15 +116,15 @@ func (a *agentController) Delete(ctx context.Context, agentId int64) error {
 }
 
 func (a *agentController) Get(ctx context.Context, agentId int64) (*types.Agent, error) {
-	obj, err := a.factory.Agent().Get(ctx, agentId)
+	object, err := a.factory.Agent().Get(ctx, agentId)
 	if err != nil {
 		klog.Errorf("failed to get agent(%d): %v", agentId, err)
 		return nil, errors.ErrServerInternal
 	}
-	if obj == nil {
+	if object == nil {
 		return nil, errors.ErrAgentNotFound
 	}
-	return model2Type(obj), nil
+	return model2Type(object), nil
 }
 
 func (a *agentController) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
