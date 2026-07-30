@@ -26,11 +26,8 @@ mysql:
   name: pixiu
 
 worker:
-  # local 模式渲染产物目录；默认 /etc/pixiu（容器需挂载）
-  # agent 模式在边缘节点本地渲染，不依赖此目录
-  # 本地开发若无写权限，启动时会自动回退到 $TMPDIR/pixiu
+  # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
   #work_dir: /etc/pixiu
-  #work_dir: /tmp/pixiu
 
 # 配置 http 和 https， 默认 http，
 # 启用https的时候 cert_file 和 key_file 为必填

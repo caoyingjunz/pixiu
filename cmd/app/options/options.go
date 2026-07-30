@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +27,6 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
@@ -120,15 +118,6 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
 	}
-	// local 模式渲染产物目录；不可写时回退到临时目录（agent 模式在边缘本地渲染）
-	if err := os.MkdirAll(o.ComponentConfig.Worker.WorkDir, 0o755); err != nil {
-		fallback := filepath.Join(os.TempDir(), "pixiu")
-		klog.Warningf("work_dir %q is not writable (%v), fallback to %q", o.ComponentConfig.Worker.WorkDir, err, fallback)
-		o.ComponentConfig.Worker.WorkDir = fallback
-		if err = os.MkdirAll(fallback, 0o755); err != nil {
-			return fmt.Errorf("init worker work_dir: %w", err)
-		}
-	}
 	if len(o.ComponentConfig.Default.StaticFiles) == 0 {
 		o.ComponentConfig.Default.StaticFiles = defaultStaticDir
 	}
@@ -199,7 +188,7 @@ func isCLIVerbositySet(cmd *cobra.Command) bool {
 
 // BindFlags binds the pixiu Configuration struct fields
 func (o *Options) BindFlags(cmd *cobra.Command) {
-	// Expose klog flags (e.g. -v) to cobra. klog.InitFlags registers them on
+	// Expose klog flags (e.g. -v) to cobra. InitFlags registers them on
 	// the standard flag.CommandLine in main; cobra will not accept them unless
 	// they are added to the command flag set.
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
