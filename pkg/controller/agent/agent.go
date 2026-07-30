@@ -137,7 +137,7 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 		},
 	}
 
-	filterOpts := buildFilterOpts(listOption)
+	filterOpts := buildAgentFilters(listOption)
 
 	var err error
 	pageResult.Total, err = a.factory.Agent().Count(ctx, filterOpts...)
