@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
+    10|Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -17,19 +17,11 @@ limitations under the License.
 package plan
 
 import (
-	"bytes"
-	"fmt"
-	"path/filepath"
-	"strings"
-	"text/template"
-
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util"
-	pixiutpl "github.com/caoyingjunz/pixiu/template"
+	"github.com/caoyingjunz/pixiu/pkg/planrender"
 )
 
-// Render 渲染 pixiu 部署配置
+// Render 渲染 pixiu 部署配置（仅 local 执行模式在控制面执行）。
+// agent 模式由边缘 Agent 拉取计划数据后本地渲染。
 // 1. 渲染 hosts
 // 2. 渲染 globals.yaml
 // 3. 渲染 multinode
@@ -43,190 +35,5 @@ type Render struct {
 func (r Render) Name() string      { return "配置渲染" }
 func (r Render) GetAction() string { return "render" }
 func (r Render) Run() error {
-	// 渲染 hosts
-	if err := r.doRender("hosts", pixiutpl.HostTemplate, r.data); err != nil {
-		return err
-	}
-	// 渲染 multiNode
-	nodes, err := ParseMultinode(r.data, r.dir)
-	if err != nil {
-		return err
-	}
-	if err := r.doRender("multinode", pixiutpl.MultiModeTemplate, nodes); err != nil {
-		return err
-	}
-	// 渲染 globals
-	cfg, err := ParseConfig(r.data)
-	if err != nil {
-		return err
-	}
-	if err := r.doRender("globals.yml", pixiutpl.GlobalsTemplate, cfg); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r Render) doRender(name string, text string, data interface{}) error {
-	tpl := template.New(name)
-	tpl = template.Must(tpl.Parse(text))
-
-	var buf bytes.Buffer
-	if err := tpl.Execute(&buf, data); err != nil {
-		return err
-	}
-	filename, err := GetRenderFile(r.GetPlanId(), r.dir, name)
-	if err != nil {
-		return err
-	}
-	if err = util.WriteToFile(filename, buf.Bytes()); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type Multinode struct {
-	DockerMaster     []types.PlanNode
-	DockerNode       []types.PlanNode
-	ContainerdMaster []types.PlanNode
-	ContainerdNode   []types.PlanNode
-	StorageNode      []types.PlanNode
-}
-
-func ParseMultinode(data TaskData, workDir string) (Multinode, error) {
-	multinode := Multinode{
-		DockerMaster:     make([]types.PlanNode, 0),
-		DockerNode:       make([]types.PlanNode, 0),
-		ContainerdMaster: make([]types.PlanNode, 0),
-		ContainerdNode:   make([]types.PlanNode, 0),
-		StorageNode:      make([]types.PlanNode, 0),
-	}
-
-	runtime := types.RuntimeSpec{}
-	if err := runtime.Unmarshal(data.Config.Runtime); err != nil {
-		return multinode, err
-	}
-
-	for _, node := range data.Nodes {
-		nodeAuth := types.PlanNodeAuth{}
-		err := nodeAuth.Unmarshal(node.Auth)
-		if err != nil {
-			return multinode, err
-		}
-		// 生成rsa的渲染文件
-		_, err = RenderRSA(data.PlanId, node.Name, workDir, nodeAuth)
-		if err != nil {
-			return multinode, err
-		}
-
-		if nodeAuth.Type == types.KeyAuth {
-			if nodeAuth.Key == nil {
-				return multinode, fmt.Errorf("node(%s) key auth config is empty", node.Name)
-			}
-			nodeAuth.Key.File = fmt.Sprintf("/configs/ssh/%s/id_rsa", node.Name)
-		}
-		if nodeAuth.Type == types.PasswordAuth && nodeAuth.Password == nil {
-			return multinode, fmt.Errorf("node(%s) password auth config is empty", node.Name)
-		}
-		planNode := types.PlanNode{Name: node.Name, Auth: nodeAuth}
-
-		roles := strings.Split(node.Role, ",")
-		if runtime.IsDocker() {
-			for _, role := range roles {
-				if role == model.MasterRole {
-					multinode.DockerMaster = append(multinode.DockerMaster, planNode)
-				}
-				if role == model.NodeRole {
-					multinode.DockerNode = append(multinode.DockerNode, planNode)
-				}
-			}
-		}
-		if runtime.IsContainerd() {
-			for _, role := range roles {
-				if role == model.MasterRole {
-					multinode.ContainerdMaster = append(multinode.ContainerdMaster, planNode)
-				}
-				if role == model.NodeRole {
-					multinode.ContainerdNode = append(multinode.ContainerdNode, planNode)
-				}
-			}
-		}
-
-		// 获取存储节点，目前仅支持 nfs
-		for _, role := range roles {
-			if role == model.StorageRole {
-				multinode.StorageNode = append(multinode.StorageNode, planNode)
-				continue
-			}
-		}
-	}
-
-	return multinode, nil
-}
-
-// GetRenderFile
-// TODO: 后续优化
-func GetRenderFile(planId int64, workDir string, f string) (string, error) {
-	planDir := filepath.Join(workDir, fmt.Sprintf("%d", planId))
-	if err := util.EnsureDirectoryExists(planDir); err != nil {
-		return "", err
-	}
-
-	return filepath.Join(planDir, f), nil
-}
-
-func RenderRSA(planId int64, name string, workDir string, auth types.PlanNodeAuth) (string, error) {
-	if auth.Type == types.KeyAuth {
-		if auth.Key == nil {
-			return "", fmt.Errorf("node(%s) key auth config is empty", name)
-		}
-		f, err := GetRSAFile(planId, workDir, name)
-		if err != nil {
-			return "", err
-		}
-		if err = util.WriteToFile(f, []byte(auth.Key.Data)); err != nil {
-			return "", err
-		}
-		return f, nil
-	}
-
-	return "", nil
-}
-
-func GetRSAFile(planId int64, workDir string, name string) (string, error) {
-	rsaDir := filepath.Join(workDir, fmt.Sprintf("%d", planId), "ssh", name)
-	if err := util.EnsureDirectoryExists(rsaDir); err != nil {
-		return "", err
-	}
-
-	return filepath.Join(rsaDir, "id_rsa"), nil
-}
-
-func ParseConfig(data TaskData) (*types.PlanConfig, error) {
-	config := data.Config
-
-	network := types.NetworkSpec{}
-	if err := network.Unmarshal(config.Network); err != nil {
-		return nil, err
-	}
-	kubernetes := types.KubernetesSpec{}
-	if err := kubernetes.Unmarshal(config.Kubernetes); err != nil {
-		return nil, err
-	}
-	component := types.ComponentSpec{}
-	if err := component.Unmarshal(config.Component); err != nil {
-		return nil, err
-	}
-	runtimeSpec := types.RuntimeSpec{}
-	if err := runtimeSpec.Unmarshal(config.Runtime); err != nil {
-		return nil, err
-	}
-
-	return &types.PlanConfig{
-		Kubernetes: kubernetes,
-		Network:    network,
-		Component:  component,
-		Runtime:    runtimeSpec,
-	}, nil
+	return planrender.RenderToDir(r.dir, planrender.FromModels(r.data.PlanId, r.data.Config, r.data.Nodes))
 }

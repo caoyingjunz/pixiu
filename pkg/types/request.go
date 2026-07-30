@@ -195,6 +195,10 @@ type (
 		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
 		Description     string `json:"description" binding:"omitempty"`     // optional
 
+		// 执行模式：local（默认）/ agent（单向网络）
+		ExecMode      model.PlanExecMode `json:"exec_mode" binding:"omitempty,oneof=local agent"`
+		DeployAgentId int64              `json:"deploy_agent_id" binding:"omitempty"`
+
 		Config CreatePlanConfigRequest `json:"config"`
 		Nodes  []CreatePlanNodeRequest `json:"nodes"`
 	}

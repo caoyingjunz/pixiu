@@ -216,6 +216,27 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 		return errors.ErrServerInternal
 	}
 
+	execMode := req.ExecMode
+	if execMode == "" {
+		execMode = model.PlanExecModeLocal
+	}
+	deployAgentId := req.DeployAgentId
+	if execMode == model.PlanExecModeLocal {
+		deployAgentId = 0
+	}
+	if execMode == model.PlanExecModeAgent {
+		if deployAgentId == 0 {
+			return fmt.Errorf("agent 模式必须指定 deploy_agent_id")
+		}
+		agent, err := p.factory.Agent().Get(ctx, deployAgentId)
+		if err != nil {
+			return err
+		}
+		if agent == nil {
+			return fmt.Errorf("deploy agent %d 不存在", deployAgentId)
+		}
+	}
+
 	for i := range req.Nodes {
 		req.Nodes[i].UserId = oldPlan.UserId
 	}
@@ -227,6 +248,12 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	}
 	if oldPlan.Name != req.Name {
 		updates["name"] = req.Name
+	}
+	if oldPlan.ExecMode != execMode {
+		updates["exec_mode"] = execMode
+	}
+	if oldPlan.DeployAgentId != deployAgentId {
+		updates["deploy_agent_id"] = deployAgentId
 	}
 	if len(updates) != 0 {
 		if err = p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, updates); err != nil {

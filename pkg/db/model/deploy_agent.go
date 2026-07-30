@@ -92,6 +92,7 @@ type JobKind string
 const (
 	JobRunContainer    JobKind = "run_container"
 	JobPullImage       JobKind = "pull_image"
+	JobRenderConfig    JobKind = "render_config"
 	JobFetchKubeconfig JobKind = "fetch_kubeconfig"
 )
 

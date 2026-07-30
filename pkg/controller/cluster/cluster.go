@@ -1202,7 +1202,6 @@ func (c *cluster) Run(ctx context.Context, workers int) error {
 	return nil
 }
 
-
 func generateAgentToken() (string, error) {
 	return token.Generate()
 }

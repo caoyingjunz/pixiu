@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -33,7 +31,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util/archive"
 	"github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
@@ -55,7 +52,7 @@ type Interface interface {
 
 	AppendLogs(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobLogsRequest) error
 	ReportResult(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobResultRequest) error
-	BundlePath(ctx context.Context, agentToken string, jobId int64) (string, error)
+	GetPlanMaterial(ctx context.Context, agentToken string, jobId int64) (*types.AgentPlanMaterial, error)
 }
 
 type agentController struct {
@@ -223,28 +220,50 @@ func (a *agentController) ReportResult(ctx context.Context, agentToken string, j
 	})
 }
 
-func (a *agentController) BundlePath(ctx context.Context, agentToken string, jobId int64) (string, error) {
+func (a *agentController) GetPlanMaterial(ctx context.Context, agentToken string, jobId int64) (*types.AgentPlanMaterial, error) {
 	obj, err := a.getAuthAgent(ctx, agentToken)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	job, err := a.factory.Agent().Job().Get(ctx, jobId)
 	if err != nil || job == nil || job.AgentId != obj.Id {
-		return "", errors.NewError(fmt.Errorf("job not found"), http.StatusNotFound)
+		return nil, errors.NewError(fmt.Errorf("job not found"), http.StatusNotFound)
 	}
-	workDir := a.cc.Worker.WorkDir
-	if workDir == "" {
-		workDir = "/etc/pixiu"
+
+	cfg, err := a.factory.Plan().GetConfigByPlan(ctx, job.PlanId)
+	if err != nil {
+		return nil, err
 	}
-	src := filepath.Join(workDir, fmt.Sprintf("%d", job.PlanId))
-	if _, err = os.Stat(src); err != nil {
-		return "", errors.NewError(fmt.Errorf("plan bundle not ready: %v", err), http.StatusNotFound)
+	if cfg == nil {
+		return nil, errors.NewError(fmt.Errorf("plan config not found"), http.StatusNotFound)
 	}
-	tmp := filepath.Join(os.TempDir(), fmt.Sprintf("pixiu-plan-%d-%d.tar.gz", job.PlanId, time.Now().UnixNano()))
-	if err = archive.TarGzDir(src, tmp); err != nil {
-		return "", err
+	nodes, err := a.factory.Plan().ListNodes(ctx, job.PlanId)
+	if err != nil {
+		return nil, err
 	}
-	return tmp, nil
+
+	material := &types.AgentPlanMaterial{
+		PlanId: job.PlanId,
+		Config: types.AgentPlanMaterialCfg{
+			OSImage:    cfg.OSImage,
+			Region:     cfg.Region,
+			Kubernetes: cfg.Kubernetes,
+			Network:    cfg.Network,
+			Runtime:    cfg.Runtime,
+			Component:  cfg.Component,
+		},
+		Nodes: make([]types.AgentPlanMaterialNode, 0, len(nodes)),
+	}
+	for _, n := range nodes {
+		material.Nodes = append(material.Nodes, types.AgentPlanMaterialNode{
+			Name: n.Name,
+			Role: n.Role,
+			CRI:  string(n.CRI),
+			Ip:   n.Ip,
+			Auth: n.Auth,
+		})
+	}
+	return material, nil
 }
 
 // ── helpers ──

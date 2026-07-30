@@ -146,7 +146,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	task := newHandlerTask(taskData)
 	var handlers []Handler
 	if taskData.Plan.ExecMode == model.PlanExecModeAgent {
-		handlers = p.buildAgentHandlers(task, runner, dir, taskData)
+		handlers = p.buildAgentHandlers(task, runner, taskData)
 	} else {
 		handlers = []Handler{
 			Runner{handlerTask: task, image: runner, factory: p.factory},
@@ -171,22 +171,26 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 	}
 }
 
-func (p *plan) buildAgentHandlers(task handlerTask, runner, dir string, data TaskData) []Handler {
+func (p *plan) buildAgentHandlers(task handlerTask, runner string, data TaskData) []Handler {
 	agentId := data.Plan.DeployAgentId
 	reg := Register{handlerTask: task, factory: p.factory}
 	payload, _ := buildRegisterPayload(data.Nodes)
 
 	return []Handler{
-		// 镜像拉取改由边缘 Agent 执行
+		Check{handlerTask: task},
+		// 镜像拉取、配置渲染与部署均在边缘 Agent 执行；控制面只下发 Job 并等待结果
 		AgentStep{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "前置准备", step: model.RunningPlanStep,
 			kind: model.JobPullImage, action: "pull_image", image: runner,
 			timeout: 30 * time.Minute,
 		},
-		// 配置仍在控制面渲染，产物通过 bundle 下发
-		Render{handlerTask: task, dir: dir},
-		Check{handlerTask: task},
+		AgentStep{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "配置渲染", step: model.RunningPlanStep,
+			kind: model.JobRenderConfig, action: "render", image: runner,
+			timeout: 10 * time.Minute,
+		},
 		AgentStep{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "初始化部署环境", step: model.RunningPlanStep,

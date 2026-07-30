@@ -52,7 +52,7 @@ func (a *agentRouter) initRoutes(ginEngine *gin.Engine) {
 
 			{Method: "POST", RelativePath: "/jobs/:jobId/logs", Handler: a.agentLogs, Description: "Agent上报日志", Persist: &persist},
 			{Method: "POST", RelativePath: "/jobs/:jobId/result", Handler: a.agentResult, Description: "Agent上报结果", Persist: &persist},
-			{Method: "GET", RelativePath: "/jobs/:jobId/bundle", Handler: a.agentBundle, Description: "Agent下载物料包", Persist: &persist},
+			{Method: "GET", RelativePath: "/jobs/:jobId/material", Handler: a.agentMaterial, Description: "Agent拉取计划渲染数据", Persist: &persist},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/agents"), a.c.APIResource())

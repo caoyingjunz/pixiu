@@ -17,8 +17,6 @@ limitations under the License.
 package agent
 
 import (
-	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -202,17 +200,17 @@ func (a *agentRouter) agentResult(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (a *agentRouter) agentBundle(c *gin.Context) {
+func (a *agentRouter) agentMaterial(c *gin.Context) {
+	r := httputils.NewResponse()
 	jobId, err := strconv.ParseInt(c.Param("jobId"), 10, 64)
 	if err != nil {
-		httputils.AbortFailedWithCode(c, http.StatusBadRequest, err)
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	path, err := a.c.Agent().BundlePath(c, getAgentToken(c), jobId)
+	r.Result, err = a.c.Agent().GetPlanMaterial(c, getAgentToken(c), jobId)
 	if err != nil {
-		httputils.SetFailed(c, httputils.NewResponse(), err)
+		httputils.SetFailed(c, r, err)
 		return
 	}
-	defer os.Remove(path)
-	c.FileAttachment(path, "plan-bundle.tar.gz")
+	httputils.SetSuccess(c, r)
 }

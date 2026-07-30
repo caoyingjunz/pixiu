@@ -17,9 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -45,6 +43,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/controller/agent"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/planrender"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -192,28 +191,23 @@ func (a *DeployAgent) report(jobId int64, success bool, message, result string) 
 		types.AgentJobResultRequest{Success: success, Message: message, Result: result}, nil)
 }
 
-func (a *DeployAgent) downloadBundle(jobId int64, destDir string) error {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/pixiu/agents/jobs/%d/bundle", a.server, jobId), nil)
-	if err != nil {
-		return err
+func (a *DeployAgent) fetchMaterial(jobId int64) (*types.AgentPlanMaterial, error) {
+	var material types.AgentPlanMaterial
+	if err := a.do(http.MethodGet, fmt.Sprintf("/pixiu/agents/jobs/%d/material", jobId), nil, &material); err != nil {
+		return nil, err
 	}
-	req.Header.Set(agent.TokenHeader, a.token)
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return err
+	if material.PlanId == 0 {
+		return nil, fmt.Errorf("empty plan material")
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("bundle http %d: %s", resp.StatusCode, string(b))
-	}
-	return untarGz(resp.Body, destDir)
+	return &material, nil
 }
 
 func runJob(ctx context.Context, call *DeployAgent, workRoot string, job *types.Job) error {
 	switch job.Kind {
 	case model.JobPullImage:
 		return pullImage(ctx, call, job)
+	case model.JobRenderConfig:
+		return renderConfig(call, workRoot, job)
 	case model.JobRunContainer:
 		return runContainer(ctx, call, workRoot, job)
 	case model.JobFetchKubeconfig:
@@ -221,6 +215,52 @@ func runJob(ctx context.Context, call *DeployAgent, workRoot string, job *types.
 	default:
 		return fmt.Errorf("unknown job kind %s", job.Kind)
 	}
+}
+
+func renderConfig(call *DeployAgent, workRoot string, job *types.Job) error {
+	_ = call.logs(job.Id, "fetching plan material and rendering locally\n")
+	if err := preparePlanDir(call, workRoot, job); err != nil {
+		return err
+	}
+	return call.report(job.Id, true, "render ok", "")
+}
+
+func preparePlanDir(call *DeployAgent, workRoot string, job *types.Job) error {
+	material, err := call.fetchMaterial(job.Id)
+	if err != nil {
+		return fmt.Errorf("fetch material: %w", err)
+	}
+	planDir := filepath.Join(workRoot, fmt.Sprintf("%d", material.PlanId))
+	_ = os.RemoveAll(planDir)
+	if err = os.MkdirAll(planDir, 0o755); err != nil {
+		return err
+	}
+	data := planrender.Data{
+		PlanId: material.PlanId,
+		Config: planrender.Config{
+			OSImage:    material.Config.OSImage,
+			Region:     material.Config.Region,
+			Kubernetes: material.Config.Kubernetes,
+			Network:    material.Config.Network,
+			Runtime:    material.Config.Runtime,
+			Component:  material.Config.Component,
+		},
+		Nodes: make([]planrender.Node, 0, len(material.Nodes)),
+	}
+	for _, n := range material.Nodes {
+		data.Nodes = append(data.Nodes, planrender.Node{
+			Name: n.Name,
+			Role: n.Role,
+			CRI:  n.CRI,
+			Ip:   n.Ip,
+			Auth: n.Auth,
+		})
+	}
+	if err = planrender.RenderToDir(workRoot, data); err != nil {
+		return fmt.Errorf("render: %w", err)
+	}
+	_ = call.logs(job.Id, fmt.Sprintf("rendered plan %d to %s\n", material.PlanId, planDir))
+	return nil
 }
 
 func pullImage(ctx context.Context, call *DeployAgent, job *types.Job) error {
@@ -241,12 +281,11 @@ func pullImage(ctx context.Context, call *DeployAgent, job *types.Job) error {
 
 func runContainer(ctx context.Context, call *DeployAgent, workRoot string, job *types.Job) error {
 	planDir := filepath.Join(workRoot, fmt.Sprintf("%d", job.PlanId))
-	_ = os.RemoveAll(planDir)
-	if err := os.MkdirAll(planDir, 0o755); err != nil {
-		return err
-	}
-	if err := call.downloadBundle(job.Id, planDir); err != nil {
-		return fmt.Errorf("download bundle: %w", err)
+	if _, err := os.Stat(filepath.Join(planDir, "globals.yml")); err != nil {
+		// 渲染产物缺失时补渲染（例如 agent 重启）
+		if err = preparePlanDir(call, workRoot, job); err != nil {
+			return err
+		}
 	}
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -386,42 +425,4 @@ func sshGetAdminConf(ip, authJSON string) ([]byte, error) {
 	}
 	defer f.Close()
 	return io.ReadAll(f)
-}
-
-func untarGz(r io.Reader, dest string) error {
-	gr, err := gzip.NewReader(r)
-	if err != nil {
-		return err
-	}
-	defer gr.Close()
-	tr := tar.NewReader(gr)
-	for {
-		h, err := tr.Next()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dest, h.Name)
-		switch h.Typeflag {
-		case tar.TypeDir:
-			if err = os.MkdirAll(target, 0o755); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			if err = os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return err
-			}
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(h.Mode))
-			if err != nil {
-				return err
-			}
-			if _, err = io.Copy(f, tr); err != nil {
-				f.Close()
-				return err
-			}
-			f.Close()
-		}
-	}
 }

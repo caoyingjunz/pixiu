@@ -1,6 +1,6 @@
 # Pixiu Deploy Agent（单向装集群 HTTPS 作业通道）
 
-边缘节点主动出站连接 Pixiu，拉取部署任务并在本地执行 `kubez-ansible` 容器。
+边缘节点主动出站连接 Pixiu，拉取部署任务与计划数据，在本地渲染配置并执行 `kubez-ansible` 容器。
 
 ## 控制面
 
@@ -23,6 +23,8 @@ POST /pixiu/agents
 
 3. 启动 Plan：`POST /pixiu/plans/:id/start`
 
+控制面 **不渲染** 部署配置，只下发 Job 并等待 Agent 回报结果。
+
 ## Agent 节点
 
 ```bash
@@ -39,6 +41,15 @@ deploy-agent
 |------|------|------|
 | POST | `/pixiu/agents/heartbeat` | 心跳 |
 | GET | `/pixiu/agents/claim` | 领取任务 |
-| GET | `/pixiu/agents/jobs/:id/bundle` | 下载配置包 |
+| GET | `/pixiu/agents/jobs/:id/material` | 拉取计划数据（Agent 本地渲染） |
 | POST | `/pixiu/agents/jobs/:id/logs` | 追加日志 |
 | POST | `/pixiu/agents/jobs/:id/result` | 回传结果 |
+
+## 作业类型
+
+| kind | 说明 |
+|------|------|
+| `pull_image` | 拉取 runner 镜像 |
+| `render_config` | 拉取 material 并在 Agent 本地渲染 hosts/multinode/globals |
+| `run_container` | 挂载渲染目录执行 kubez-ansible |
+| `fetch_kubeconfig` | SSH 拉取 admin.conf 并回传 |
