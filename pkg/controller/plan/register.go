@@ -86,7 +86,11 @@ func (c Register) Run() error {
 		return fmt.Errorf("get the empty kubeconfig from master nodes")
 	}
 	config64 := base64.StdEncoding.EncodeToString(kubeConfig)
+	return c.finishWithKubeConfig(config64)
+}
 
+// finishWithKubeConfig 使用已拿到的 kubeconfig(base64) 完成集群注册。
+func (c Register) finishWithKubeConfig(config64 string) error {
 	// 1. 创建/更新集群
 	// 检查plan对应的集群是否存在，如果已经存在则直接更新，不存在则新建
 	objs, err := c.factory.Cluster().List(context.TODO(), db.WithUser(c.data.Plan.UserId), db.WithPlan(c.data.PlanId))
@@ -118,10 +122,9 @@ func (c Register) Run() error {
 		}
 	}
 
-	// 2. 注册权限规则
+	// 2. 注册权限规则（直连不可达时仅告警，不阻断注册）
 	if err = c.addPixiuClusterRole(context.TODO(), config64); err != nil {
-		klog.Errorf("failed to add pixiu cluster role for plan register: %v", err)
-		return err
+		klog.Warningf("failed to add pixiu cluster role for plan register: %v", err)
 	}
 	return nil
 }

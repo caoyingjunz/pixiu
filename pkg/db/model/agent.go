@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Pixiu Authors.
+Copyright 2026 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,28 +23,95 @@ import (
 )
 
 func init() {
-	register(&Agent{})
+	register(&Agent{}, &Job{})
 }
 
-type AgentStatus uint8
+// PlanExecMode 部署计划执行模式
+type PlanExecMode string
 
 const (
-	AgentStatusUnknown AgentStatus = 0
-	AgentStatusOnline  AgentStatus = 1
-	AgentStatusOffline AgentStatus = 2
-	AgentStatusError   AgentStatus = 3
+	// PlanExecModeLocal Pixiu 本机 Docker + 出站 SSH（默认）
+	PlanExecModeLocal PlanExecMode = "local"
+	// PlanExecModeAgent 单向网络：边缘 Deploy Agent 拉任务执行
+	PlanExecModeAgent PlanExecMode = "agent"
+)
+
+type AgentStatus = DeployAgentStatus
+
+// DeployAgentStatus Deploy Agent 在线状态
+type DeployAgentStatus uint8
+
+const (
+	DeployAgentStatusOffline DeployAgentStatus = 0
+	DeployAgentStatusOnline  DeployAgentStatus = 1
+)
+
+const (
+	AgentStatusOffline = DeployAgentStatusOffline
+	AgentStatusOnline  = DeployAgentStatusOnline
+)
+
+// AgentType 代理类型
+type AgentType uint8
+
+const (
+	AgentTypeDeploy  AgentType = iota // 部署代理
+	AgentTypeCluster                  // 集群代理
 )
 
 type Agent struct {
 	pixiu.Model
 
-	Name           string      `gorm:"index:idx_agent_name,unique;type:varchar(255)" json:"name"`
-	Status         AgentStatus `gorm:"type:tinyint;default:0" json:"status"`
-	UserId         int64       `gorm:"index" json:"user_id"`
-	LastReportTime time.Time   `gorm:"type:datetime" json:"last_report_time"`
-	Description    string      `gorm:"type:text" json:"description"`
+	Name          string            `gorm:"index:idx_deploy_agent_name,unique;type:varchar(255)" json:"name"`
+	AgentType     AgentType         `gorm:"agent_type:tinyint;default:0" json:"agent_type"`
+	UserID        int64             `gorm:"column:user_id;type:bigint;default:0" json:"user_id"`
+	Status        DeployAgentStatus `gorm:"type:tinyint;default:0" json:"status"`
+	Hostname      string            `gorm:"type:varchar(255)" json:"hostname"`
+	Version       string            `gorm:"type:varchar(64)" json:"version"`
+	LastHeartbeat time.Time         `gorm:"type:datetime" json:"last_heartbeat"`
+	Description   string            `gorm:"type:text" json:"description"`
+
+	Token string `gorm:"type:varchar(128);index:idx_deploy_agent_token" json:"-"`
 }
 
-func (a *Agent) TableName() string {
-	return "agents"
+func (Agent) TableName() string { return "agents" }
+
+// JobStatus 作业状态
+type JobStatus string
+
+const (
+	JobPending JobStatus = "pending"
+	JobRunning JobStatus = "running"
+	JobSuccess JobStatus = "success"
+	JobFailed  JobStatus = "failed"
+)
+
+// JobKind 作业类型
+type JobKind string
+
+const (
+	JobRunContainer    JobKind = "run_container"
+	JobPullImage       JobKind = "pull_image"
+	JobRenderConfig    JobKind = "render_config"
+	JobFetchKubeconfig JobKind = "fetch_kubeconfig"
+)
+
+// Job 可被 Deploy Agent claim 的作业
+type Job struct {
+	pixiu.Model
+
+	PlanId    int64      `gorm:"index:idx_deploy_job_plan" json:"plan_id"`
+	AgentId   int64      `gorm:"index:idx_deploy_job_agent" json:"agent_id"`
+	TaskName  string     `gorm:"type:varchar(128)" json:"task_name"`
+	Kind      JobKind    `gorm:"type:varchar(64)" json:"kind"`
+	Action    string     `gorm:"type:varchar(128)" json:"action"` // kubez-ansible COMMAND
+	Image     string     `gorm:"type:varchar(512)" json:"image"`
+	Payload   string     `gorm:"type:mediumtext" json:"payload"` // JSON 附加数据
+	Status    JobStatus  `gorm:"type:varchar(32);index:idx_deploy_job_status" json:"status"`
+	Message   string     `gorm:"type:text" json:"message"`
+	Logs      string     `gorm:"type:longtext" json:"logs"`
+	Result    string     `gorm:"type:mediumtext" json:"result"` // 如 base64 kubeconfig
+	ClaimedAt *time.Time `gorm:"type:datetime" json:"claimed_at"`
 }
+
+func (Job) TableName() string { return "jobs" }

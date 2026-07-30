@@ -102,6 +102,19 @@ func (p *plan) preCreate(ctx context.Context, req *types.CreatePlanRequest) erro
 		}
 	}
 
+	if req.ExecMode == model.PlanExecModeAgent {
+		if req.DeployAgentId == 0 {
+			return fmt.Errorf("agent 模式必须指定 deploy_agent_id")
+		}
+		agent, err := p.factory.Agent().Get(ctx, req.DeployAgentId)
+		if err != nil {
+			return err
+		}
+		if agent == nil {
+			return fmt.Errorf("deploy agent %d 不存在", req.DeployAgentId)
+		}
+	}
+
 	return nil
 }
 
@@ -122,9 +135,14 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	}
 
 	planModel := &model.Plan{
-		Name:        req.Name,
-		UserId:      req.UserId,
-		Description: req.Description,
+		Name:          req.Name,
+		UserId:        req.UserId,
+		Description:   req.Description,
+		ExecMode:      req.ExecMode,
+		DeployAgentId: req.DeployAgentId,
+	}
+	if planModel.ExecMode == "" {
+		planModel.ExecMode = model.PlanExecModeLocal
 	}
 
 	createdPlan, err := p.factory.Plan().Create(ctx, planModel, p.createPlanSubResources(ctx, req))
@@ -198,6 +216,27 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 		return errors.ErrServerInternal
 	}
 
+	execMode := req.ExecMode
+	if execMode == "" {
+		execMode = model.PlanExecModeLocal
+	}
+	deployAgentId := req.DeployAgentId
+	if execMode == model.PlanExecModeLocal {
+		deployAgentId = 0
+	}
+	if execMode == model.PlanExecModeAgent {
+		if deployAgentId == 0 {
+			return fmt.Errorf("agent 模式必须指定 deploy_agent_id")
+		}
+		agent, err := p.factory.Agent().Get(ctx, deployAgentId)
+		if err != nil {
+			return err
+		}
+		if agent == nil {
+			return fmt.Errorf("deploy agent %d 不存在", deployAgentId)
+		}
+	}
+
 	for i := range req.Nodes {
 		req.Nodes[i].UserId = oldPlan.UserId
 	}
@@ -209,6 +248,12 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	}
 	if oldPlan.Name != req.Name {
 		updates["name"] = req.Name
+	}
+	if oldPlan.ExecMode != execMode {
+		updates["exec_mode"] = execMode
+	}
+	if oldPlan.DeployAgentId != deployAgentId {
+		updates["deploy_agent_id"] = deployAgentId
 	}
 	if len(updates) != 0 {
 		if err = p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, updates); err != nil {
@@ -454,6 +499,26 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 		return fmt.Errorf("获取 runner(%s) 失败 %v", cfg.OSImage, err)
 	}
 	klog.Infof("plan(%d) runner is %s", pid, runner)
+
+	planObj, err := p.factory.Plan().Get(ctx, pid)
+	if err != nil {
+		return err
+	}
+	if planObj != nil && planObj.ExecMode == model.PlanExecModeAgent {
+		if planObj.DeployAgentId == 0 {
+			return fmt.Errorf("agent 模式未绑定 deploy agent")
+		}
+		agent, err := p.factory.Agent().Get(ctx, planObj.DeployAgentId)
+		if err != nil {
+			return err
+		}
+		if agent == nil {
+			return fmt.Errorf("deploy agent %d 不存在", planObj.DeployAgentId)
+		}
+		if agent.Status == model.AgentStatusOffline {
+			return fmt.Errorf("执行 Agent 已离线")
+		}
+	}
 	return nil
 }
 
@@ -547,6 +612,8 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		Step:              status,
 		KubernetesVersion: kubernetesVersion,
 		NodeCount:         nodeCount,
+		ExecMode:          o.ExecMode,
+		DeployAgentId:     o.DeployAgentId,
 	}, nil
 }
 

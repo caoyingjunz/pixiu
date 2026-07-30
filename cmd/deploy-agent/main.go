@@ -1,0 +1,407 @@
+/*
+Copyright 2026 The Pixiu Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
+	"k8s.io/klog/v2"
+
+	"github.com/caoyingjunz/pixiu/pkg/controller/agent"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/planrender"
+	"github.com/caoyingjunz/pixiu/pkg/types"
+)
+
+const version = "v0.1.0"
+
+func main() {
+	klog.InitFlags(nil)
+	flag.Parse()
+
+	server := strings.TrimSpace(os.Getenv("PIXIU_SERVER"))
+	token := strings.TrimSpace(os.Getenv("PIXIU_DEPLOY_TOKEN"))
+	if server == "" || token == "" {
+		klog.Fatalf("PIXIU_SERVER and PIXIU_DEPLOY_TOKEN are required")
+	}
+	server = strings.TrimRight(server, "/")
+	workRoot := os.Getenv("PIXIU_AGENT_WORKDIR")
+	if workRoot == "" {
+		workRoot = "/tmp/etc/pixiu"
+	}
+	// 文件夹不存在，则直接创建
+	if err := os.MkdirAll(workRoot, 0o755); err != nil {
+		klog.Fatalf("Failed to init work root directory: %v", err)
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		klog.Fatalf("Failed to get hostname: %v", err)
+	}
+	call := &DeployAgent{server: server, token: token, client: &http.Client{Timeout: 5 * time.Minute}}
+
+	klog.Infof("pixiu-deploy-agent %s starting, server=%s", version, server)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var running bool
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err = call.heartbeat(hostname); err != nil {
+				klog.Errorf("heartbeat failed: %v", err)
+			}
+
+			// 任务正在执行，不在重复执行
+			if running {
+				continue
+			}
+			job, err := call.claim()
+			if err != nil {
+				klog.Errorf("claim failed: %v", err)
+				continue
+			}
+			if job == nil {
+				continue
+			}
+			klog.Infof("claimed job %d kind=%s action=%s", job.Id, job.Kind, job.Action)
+			running = true
+			go func(j *types.Job) {
+				defer func() { running = false }()
+				if err := runJob(ctx, call, workRoot, j); err != nil {
+					klog.Errorf("job %d failed: %v", j.Id, err)
+					_ = call.report(j.Id, false, err.Error(), "")
+				}
+			}(job)
+		}
+	}
+}
+
+type DeployAgent struct {
+	server string
+	token  string
+
+	client *http.Client
+}
+
+func (a *DeployAgent) do(method, path string, body any, out any) error {
+	var reader io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		reader = bytes.NewReader(b)
+	}
+	req, err := http.NewRequest(method, a.server+path, reader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set(agent.TokenHeader, a.token)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("http %d: %s", resp.StatusCode, string(data))
+	}
+	if out == nil {
+		return nil
+	}
+	var wrap struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err = json.Unmarshal(data, &wrap); err != nil {
+		return err
+	}
+	if len(wrap.Result) == 0 || string(wrap.Result) == "null" {
+		return nil
+	}
+	return json.Unmarshal(wrap.Result, out)
+}
+
+func (a *DeployAgent) heartbeat(hostname string) error {
+	klog.V(2).Infof("sending heartbeat to %s", a.server)
+	return a.do(http.MethodPost, "/pixiu/agents/heartbeat", types.AgentHeartbeatRequest{Hostname: hostname, Version: version}, nil)
+}
+
+func (a *DeployAgent) claim() (*types.Job, error) {
+	var job types.Job
+	if err := a.do(http.MethodGet, "/pixiu/agents/claim", nil, &job); err != nil {
+		return nil, err
+	}
+	if job.Id == 0 {
+		return nil, nil
+	}
+	return &job, nil
+}
+
+func (a *DeployAgent) logs(jobId int64, chunk string) error {
+	return a.do(http.MethodPost, fmt.Sprintf("/pixiu/agents/jobs/%d/logs", jobId),
+		types.AgentJobLogsRequest{Chunk: chunk}, nil)
+}
+
+func (a *DeployAgent) report(jobId int64, success bool, message, result string) error {
+	return a.do(http.MethodPost, fmt.Sprintf("/pixiu/agents/jobs/%d/result", jobId),
+		types.AgentJobResultRequest{Success: success, Message: message, Result: result}, nil)
+}
+
+func (a *DeployAgent) fetchPlan(jobId int64) (*types.Plan, error) {
+	var plan types.Plan
+	if err := a.do(http.MethodGet, fmt.Sprintf("/pixiu/agents/jobs/%d/plan", jobId), nil, &plan); err != nil {
+		return nil, err
+	}
+	if plan.Id == 0 {
+		return nil, fmt.Errorf("empty plan")
+	}
+	return &plan, nil
+}
+
+func runJob(ctx context.Context, call *DeployAgent, workRoot string, job *types.Job) error {
+	switch job.Kind {
+	case model.JobPullImage:
+		return pullImage(ctx, call, job)
+	case model.JobRenderConfig:
+		return renderConfig(call, workRoot, job)
+	case model.JobRunContainer:
+		return runContainer(ctx, call, workRoot, job)
+	case model.JobFetchKubeconfig:
+		return fetchKubeconfig(call, job)
+	default:
+		return fmt.Errorf("unknown job kind %s", job.Kind)
+	}
+}
+
+func renderConfig(call *DeployAgent, workRoot string, job *types.Job) error {
+	_ = call.logs(job.Id, "fetching plan and rendering locally\n")
+	if err := preparePlanDir(call, workRoot, job); err != nil {
+		return err
+	}
+	return call.report(job.Id, true, "render ok", "")
+}
+
+func preparePlanDir(call *DeployAgent, workRoot string, job *types.Job) error {
+	plan, err := call.fetchPlan(job.Id)
+	if err != nil {
+		return fmt.Errorf("fetch plan: %w", err)
+	}
+	planDir := filepath.Join(workRoot, fmt.Sprintf("%d", plan.Id))
+	_ = os.RemoveAll(planDir)
+	if err = os.MkdirAll(planDir, 0o755); err != nil {
+		return err
+	}
+	if err = planrender.RenderToDir(workRoot, plan); err != nil {
+		return fmt.Errorf("render: %w", err)
+	}
+	_ = call.logs(job.Id, fmt.Sprintf("rendered plan %d to %s\n", plan.Id, planDir))
+	return nil
+}
+
+func pullImage(ctx context.Context, call *DeployAgent, job *types.Job) error {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+	defer cli.Close()
+	_ = call.logs(job.Id, fmt.Sprintf("pulling image %s\n", job.Image))
+	reader, err := cli.ImagePull(ctx, job.Image, image.PullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	_, _ = io.Copy(io.Discard, reader)
+	return call.report(job.Id, true, "image ready", "")
+}
+
+func runContainer(ctx context.Context, call *DeployAgent, workRoot string, job *types.Job) error {
+	planDir := filepath.Join(workRoot, fmt.Sprintf("%d", job.PlanId))
+	if _, err := os.Stat(filepath.Join(planDir, "globals.yml")); err != nil {
+		// 渲染产物缺失时补渲染（例如 agent 重启）
+		if err = preparePlanDir(call, workRoot, job); err != nil {
+			return err
+		}
+	}
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+	defer cli.Close()
+
+	name := fmt.Sprintf("%s-%d", job.Action, job.PlanId)
+	_ = removeContainerByName(ctx, cli, name)
+
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Image: job.Image,
+		Env:   []string{fmt.Sprintf("COMMAND=%s", job.Action)},
+	}, &container.HostConfig{
+		Binds:       []string{fmt.Sprintf("%s:/configs", planDir)},
+		NetworkMode: network.NetworkHost,
+	}, nil, nil, name)
+	if err != nil {
+		return err
+	}
+	if err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return err
+	}
+
+	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err = <-errCh:
+		if err != nil {
+			return err
+		}
+	case st := <-statusCh:
+		logs, _ := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+		if logs != nil {
+			b, _ := io.ReadAll(logs)
+			_ = logs.Close()
+			_ = call.logs(job.Id, string(b))
+		}
+		if st.StatusCode != 0 {
+			return fmt.Errorf("container exit code %d", st.StatusCode)
+		}
+	}
+	return call.report(job.Id, true, "ok", "")
+}
+
+func removeContainerByName(ctx context.Context, cli *client.Client, name string) error {
+	cs, err := cli.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return err
+	}
+	for _, c := range cs {
+		for _, n := range c.Names {
+			if n == "/"+name || n == name {
+				timeout := 5
+				_ = cli.ContainerStop(ctx, c.ID, container.StopOptions{Timeout: &timeout})
+				return cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true})
+			}
+		}
+	}
+	return nil
+}
+
+func fetchKubeconfig(call *DeployAgent, job *types.Job) error {
+	var payload struct {
+		Masters []struct {
+			Name string `json:"name"`
+			Ip   string `json:"ip"`
+			Auth string `json:"auth"`
+		} `json:"masters"`
+	}
+	if err := json.Unmarshal([]byte(job.Payload), &payload); err != nil {
+		return err
+	}
+	var lastErr error
+	for _, m := range payload.Masters {
+		cfg, err := sshGetAdminConf(m.Ip, m.Auth)
+		if err != nil {
+			lastErr = err
+			_ = call.logs(job.Id, fmt.Sprintf("master %s: %v\n", m.Ip, err))
+			continue
+		}
+		return call.report(job.Id, true, "ok", base64.StdEncoding.EncodeToString(cfg))
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no master nodes in payload")
+	}
+	return lastErr
+}
+
+func sshGetAdminConf(ip, authJSON string) ([]byte, error) {
+	var auth types.PlanNodeAuth
+	if err := auth.Unmarshal(authJSON); err != nil {
+		return nil, err
+	}
+	var (
+		user       string
+		authMethod ssh.AuthMethod
+	)
+	switch auth.Type {
+	case types.PasswordAuth:
+		if auth.Password == nil {
+			return nil, fmt.Errorf("password auth missing")
+		}
+		user = auth.Password.User
+		authMethod = ssh.Password(auth.Password.Password)
+	case types.KeyAuth:
+		if auth.Key == nil {
+			return nil, fmt.Errorf("key auth missing")
+		}
+		signer, err := ssh.ParsePrivateKey([]byte(auth.Key.Data))
+		if err != nil {
+			return nil, err
+		}
+		user = "root"
+		authMethod = ssh.PublicKeys(signer)
+	default:
+		return nil, fmt.Errorf("unsupported auth type %v", auth.Type)
+	}
+	sshClient, err := ssh.Dial("tcp", net.JoinHostPort(ip, "22"), &ssh.ClientConfig{
+		User:            user,
+		Auth:            []ssh.AuthMethod{authMethod},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // 部署节点由用户提供，网络可控，暂不做 host key 校验
+		Timeout:         15 * time.Second,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer sshClient.Close()
+	sftpClient, err := sftp.NewClient(sshClient)
+	if err != nil {
+		return nil, err
+	}
+	defer sftpClient.Close()
+	f, err := sftpClient.Open("/etc/kubernetes/admin.conf")
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(f)
+}

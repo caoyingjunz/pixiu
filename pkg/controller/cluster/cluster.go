@@ -18,8 +18,6 @@ package cluster
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +35,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -51,6 +48,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
+	"github.com/caoyingjunz/pixiu/pkg/util/token"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
@@ -93,7 +91,6 @@ type Interface interface {
 
 	GetKubeConfigByName(ctx context.Context, name string) (*restclient.Config, error)
 	GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error)
-	GetAgentInstall(ctx context.Context, cid int64) (*types.AgentInstallResponse, error)
 
 	GetIndexerResource(ctx context.Context, cluster string, resource string, namespace string, name string) (interface{}, error)
 	ListIndexerResources(ctx context.Context, cluster string, resource string, namespace string, listOption types.ListOptions) (interface{}, error)
@@ -1201,63 +1198,11 @@ func (c *cluster) registerIndexers(informerResources ...InformerResource) {
 func (c *cluster) Run(ctx context.Context, workers int) error {
 	klog.Infof("starting cluster manager")
 
-	if !c.cc.Default.Mode.InDebug() {
-		go wait.UntilWithContext(ctx, c.Sync, 5*time.Second)
-		go wait.UntilWithContext(ctx, c.syncTunnelConnectivity, tunnelCheckInterval)
-	}
-
 	return nil
 }
 
-func (c *cluster) Sync(ctx context.Context) {
-	// TODO: 后续添加同步任务
-}
-
 func generateAgentToken() (string, error) {
-	b := make([]byte, 24)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
-}
-
-func (c *cluster) GetAgentInstall(ctx context.Context, cid int64) (*types.AgentInstallResponse, error) {
-	obj, err := c.factory.Cluster().Get(ctx, cid)
-	if err != nil {
-		return nil, err
-	}
-	if obj == nil {
-		return nil, errors.ErrClusterNotFound
-	}
-	if obj.ConnectMode != model.ConnectModeTunnel {
-		return nil, errors.NewError(fmt.Errorf("cluster is not in tunnel mode"), http.StatusBadRequest)
-	}
-	if obj.AgentToken == "" {
-		return nil, errors.NewError(fmt.Errorf("agent token is empty"), http.StatusBadRequest)
-	}
-
-	serverURL := strings.TrimRight(c.cc.Default.PublicURL, "/")
-	if serverURL == "" {
-		serverURL = "https://<pixiu-server>"
-	}
-
-	connected := false
-	if tm := tunnel.Default(); tm != nil {
-		connected = tm.AgentConnected(obj.Name)
-	}
-
-	return &types.AgentInstallResponse{
-		ClusterName:    obj.Name,
-		ConnectMode:    obj.ConnectMode,
-		AgentToken:     obj.AgentToken,
-		ServerURL:      serverURL,
-		ConnectPath:    tunnel.ConnectPath,
-		AgentConnected: connected,
-		Command: fmt.Sprintf(
-			"PIXIU_SERVER=%s PIXIU_TOKEN=%s cluster-agent",
-			serverURL, obj.AgentToken,
-		),
-	}, nil
+	return token.Generate()
 }
 
 func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {

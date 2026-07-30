@@ -18,15 +18,24 @@ package agent
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
 
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/token"
 )
+
+const TokenHeader = "X-Pixiu-Deploy-Token"
 
 type AgentGetter interface {
 	Agent() Interface
@@ -38,6 +47,13 @@ type Interface interface {
 	Delete(ctx context.Context, agentId int64) error
 	Get(ctx context.Context, agentId int64) (*types.Agent, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+
+	Heartbeat(ctx context.Context, agentToken string, req *types.AgentHeartbeatRequest) error
+	Claim(ctx context.Context, agentToken string) (*types.Job, error)
+
+	AppendLogs(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobLogsRequest) error
+	ReportResult(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobResultRequest) error
+	GetPlan(ctx context.Context, agentToken string, jobId int64) (*types.Plan, error)
 }
 
 type agentController struct {
@@ -53,14 +69,20 @@ func NewAgent(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (a *agentController) Create(ctx context.Context, req *types.CreateAgentRequest) error {
-	object := &model.Agent{
-		Name:        req.Name,
-		Status:      req.Status,
-		UserId:      req.UserId,
-		Description: req.Description,
+	tkn, err := token.Generate()
+	if err != nil {
+		return errors.ErrServerInternal
 	}
-
-	if _, err := a.factory.Agent().Create(ctx, object); err != nil {
+	userId, _ := httputils.GetUserIdFromContext(ctx)
+	_, err = a.factory.Agent().Create(ctx, &model.Agent{
+		Name:        req.Name,
+		AgentType:   req.Type,
+		UserID:      userId,
+		Token:       tkn,
+		Status:      model.AgentStatusOffline,
+		Description: req.Description,
+	})
+	if err != nil {
 		klog.Errorf("failed to create agent %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
@@ -72,16 +94,12 @@ func (a *agentController) Update(ctx context.Context, agentId int64, req *types.
 	if req.Name != nil {
 		updates["name"] = *req.Name
 	}
-	if req.Status != nil {
-		updates["status"] = *req.Status
-	}
-	if req.LastReportTime != nil {
-		updates["last_report_time"] = *req.LastReportTime
+	if req.Type != nil {
+		updates["agent_type"] = *req.Type
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
 	}
-
 	if err := a.factory.Agent().Update(ctx, agentId, req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update agent %d: %v", agentId, err)
 		return errors.ErrServerInternal
@@ -100,7 +118,7 @@ func (a *agentController) Delete(ctx context.Context, agentId int64) error {
 func (a *agentController) Get(ctx context.Context, agentId int64) (*types.Agent, error) {
 	object, err := a.factory.Agent().Get(ctx, agentId)
 	if err != nil {
-		klog.Errorf("failed to get agent %d: %v", agentId, err)
+		klog.Errorf("failed to get agent(%d): %v", agentId, err)
 		return nil, errors.ErrServerInternal
 	}
 	if object == nil {
@@ -119,7 +137,7 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 		},
 	}
 
-	filterOpts := buildFilterOpts(listOption)
+	filterOpts := buildAgentFilters(listOption)
 
 	var err error
 	pageResult.Total, err = a.factory.Agent().Count(ctx, filterOpts...)
@@ -150,7 +168,99 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 	return pageResult, nil
 }
 
-func buildFilterOpts(opt types.ListOptions) []db.Options {
+// ── Agent job APIs (token auth) ──
+func (a *agentController) getAuthAgent(ctx context.Context, agentToken string) (*model.Agent, error) {
+	obj, err := a.factory.Agent().GetBy(ctx, db.WithToken(strings.TrimSpace(agentToken)))
+	if err != nil {
+		klog.Errorf("failed to auth agent by token: %v", err)
+		return nil, errors.NewError(fmt.Errorf("invalid agent token"), http.StatusUnauthorized)
+	}
+	if obj == nil {
+		return nil, errors.NewError(fmt.Errorf("invalid agent token"), http.StatusUnauthorized)
+	}
+	klog.V(2).Infof("agent auth ok: id=%d name=%s", obj.Id, obj.Name)
+	return obj, nil
+}
+
+func (a *agentController) Heartbeat(ctx context.Context, agentToken string, req *types.AgentHeartbeatRequest) error {
+	obj, err := a.getAuthAgent(ctx, agentToken)
+	if err != nil {
+		return err
+	}
+	updates := map[string]interface{}{"status": model.AgentStatusOnline, "last_heartbeat": time.Now()}
+	if req != nil {
+		if req.Hostname != "" {
+			updates["hostname"] = req.Hostname
+		}
+		if req.Version != "" {
+			updates["version"] = req.Version
+		}
+	}
+	return a.factory.Agent().InternalUpdate(ctx, obj.Id, updates)
+}
+
+func (a *agentController) Claim(ctx context.Context, agentToken string) (*types.Job, error) {
+	// 只获取和自己相关的
+	obj, err := a.getAuthAgent(ctx, agentToken)
+	if err != nil {
+		return nil, err
+	}
+
+	job, err := a.factory.Agent().Job().ClaimNext(ctx, obj.Id)
+	if err != nil || job == nil {
+		return nil, err
+	}
+	return &types.Job{
+		Id:       job.Id,
+		PlanId:   job.PlanId,
+		AgentId:  job.AgentId,
+		TaskName: job.TaskName,
+		Kind:     job.Kind,
+		Action:   job.Action,
+		Image:    job.Image,
+		Payload:  job.Payload,
+		Status:   job.Status,
+		Message:  job.Message,
+	}, nil
+}
+
+func (a *agentController) AppendLogs(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobLogsRequest) error {
+	if _, err := a.getAuthAgent(ctx, agentToken); err != nil {
+		return err
+	}
+	return a.factory.Agent().Job().AppendLogs(ctx, jobId, req.Chunk)
+}
+
+func (a *agentController) ReportResult(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobResultRequest) error {
+	if _, err := a.getAuthAgent(ctx, agentToken); err != nil {
+		return err
+	}
+	status := model.JobSuccess
+	if !req.Success {
+		status = model.JobFailed
+	}
+	return a.factory.Agent().Job().InternalUpdate(ctx, jobId, map[string]interface{}{
+		"status": status, "message": req.Message, "result": req.Result,
+	})
+}
+
+func (a *agentController) GetPlan(ctx context.Context, agentToken string, jobId int64) (*types.Plan, error) {
+	obj, err := a.getAuthAgent(ctx, agentToken)
+	if err != nil {
+		return nil, err
+	}
+	job, err := a.factory.Agent().Job().Get(ctx, jobId)
+	if err != nil || job == nil || job.AgentId != obj.Id {
+		return nil, errors.NewError(fmt.Errorf("job not found"), http.StatusNotFound)
+	}
+
+	// 复用 plan 子资源组装逻辑，按 job 鉴权后返回完整 plan
+	return plan.NewPlan(a.cc, a.factory).GetWithSubResources(ctx, job.PlanId)
+}
+
+// ── helpers ──
+
+func buildAgentFilters(opt types.ListOptions) []db.Options {
 	var opts []db.Options
 	if opt.NameSelector != "" {
 		opts = append(opts, db.WithNameLike(opt.NameSelector))
@@ -174,10 +284,14 @@ func model2Type(o *model.Agent) *types.Agent {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Name:           o.Name,
-		Status:         o.Status,
-		UserId:         o.UserId,
-		LastReportTime: o.LastReportTime,
-		Description:    o.Description,
+		Name:          o.Name,
+		Type:          o.AgentType,
+		UserID:        o.UserID,
+		Status:        o.Status,
+		Hostname:      o.Hostname,
+		Version:       o.Version,
+		LastHeartbeat: o.LastHeartbeat,
+		Description:   o.Description,
+		Token:         o.Token,
 	}
 }

@@ -285,11 +285,13 @@ type Plan struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name              string           `json:"name"` // 用户名称
-	Step              model.TaskStatus `json:"step"`
-	Description       string           `json:"description"`        // 用户描述信息
-	KubernetesVersion string           `json:"kubernetes_version"` // k8s 版本
-	NodeCount         int              `json:"node_count"`         // 节点总数
+	Name              string             `json:"name"` // 用户名称
+	Step              model.TaskStatus   `json:"step"`
+	Description       string             `json:"description"`        // 用户描述信息
+	KubernetesVersion string             `json:"kubernetes_version"` // k8s 版本
+	NodeCount         int                `json:"node_count"`         // 节点总数
+	ExecMode          model.PlanExecMode `json:"exec_mode"`
+	DeployAgentId     int64              `json:"deploy_agent_id,omitempty"`
 
 	Config PlanConfig `json:"config"`
 	Nodes  []PlanNode `json:"nodes"`
@@ -676,19 +678,36 @@ type Permission struct {
 	Description       string              `json:"description,omitempty"`
 }
 
-// AgentInstallResponse 隧道模式 Agent 安装信息
-type AgentInstallResponse struct {
-	ClusterName    string            `json:"cluster_name"`
-	ConnectMode    model.ConnectMode `json:"connect_mode"`
-	AgentToken     string            `json:"agent_token"`
-	ServerURL      string            `json:"server_url"`
-	ConnectPath    string            `json:"connect_path"`
-	AgentConnected bool              `json:"agent_connected"`
-	Command        string            `json:"command"`
-}
-
 // KubeConfigResponse 返回给前端的 kubeconfig 内容
 type KubeConfigResponse struct {
 	ClusterName string `json:"cluster_name"`
 	Content     string `json:"content"`
+}
+
+type AgentHeartbeatRequest struct {
+	Hostname string `json:"hostname"`
+	Version  string `json:"version"`
+}
+
+type Job struct {
+	Id       int64           `json:"id"`
+	PlanId   int64           `json:"plan_id"`
+	AgentId  int64           `json:"agent_id"`
+	TaskName string          `json:"task_name"`
+	Kind     model.JobKind   `json:"kind"`
+	Action   string          `json:"action"`
+	Image    string          `json:"image"`
+	Payload  string          `json:"payload"`
+	Status   model.JobStatus `json:"status"`
+	Message  string          `json:"message"`
+}
+
+type AgentJobLogsRequest struct {
+	Chunk string `json:"chunk"`
+}
+
+type AgentJobResultRequest struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Result  string `json:"result"` // 如 kubeconfig base64
 }
