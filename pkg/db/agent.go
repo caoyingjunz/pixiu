@@ -33,21 +33,32 @@ type AgentInterface interface {
 	Get(ctx context.Context, id int64) (*model.Agent, error)
 	List(ctx context.Context, opts ...Options) ([]model.Agent, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
+
+	GetBy(ctx context.Context, opts ...Options) (*model.Agent, error)
+	InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error
+	Job() JobInterface
 }
 
-type agent struct {
-	db *gorm.DB
+type agent struct{ db *gorm.DB }
+
+func WithToken(token string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if token == "" {
+			return tx
+		}
+		return tx.Where("token = ?", token)
+	}
 }
 
-func newAgent(db *gorm.DB) AgentInterface {
-	return &agent{db: db}
-}
+func newAgent(db *gorm.DB) AgentInterface { return &agent{db: db} }
+
+func (a *agent) Job() JobInterface { return newJob(a.db) }
 
 func (a *agent) Create(ctx context.Context, object *model.Agent) (*model.Agent, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
-
+	object.LastHeartbeat = now
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
@@ -57,18 +68,20 @@ func (a *agent) Create(ctx context.Context, object *model.Agent) (*model.Agent, 
 func (a *agent) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
 	updates["resource_version"] = resourceVersion + 1
 	updates["gmt_modified"] = time.Now()
-
-	result := a.db.WithContext(ctx).
-		Model(&model.Agent{}).
-		Where("id = ? AND resource_version = ?", id, resourceVersion).
-		Updates(updates)
-	if result.Error != nil {
-		return result.Error
+	f := a.db.WithContext(ctx).Model(&model.Agent{}).
+		Where("id = ? AND resource_version = ?", id, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
 	}
-	if result.RowsAffected == 0 {
+	if f.RowsAffected == 0 {
 		return errors.ErrRecordNotUpdate
 	}
 	return nil
+}
+
+func (a *agent) InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+	return a.db.WithContext(ctx).Model(&model.Agent{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (a *agent) Delete(ctx context.Context, id int64) error {
@@ -86,25 +99,38 @@ func (a *agent) Get(ctx context.Context, id int64) (*model.Agent, error) {
 	return &object, nil
 }
 
-func (a *agent) List(ctx context.Context, opts ...Options) ([]model.Agent, error) {
-	var agents []model.Agent
+func (a *agent) GetBy(ctx context.Context, opts ...Options) (*model.Agent, error) {
+	var object model.Agent
 	tx := a.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
-	if err := tx.Find(&agents).Error; err != nil {
+	if err := tx.First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
-	return agents, nil
+	return &object, nil
+}
+
+func (a *agent) List(ctx context.Context, opts ...Options) ([]model.Agent, error) {
+	var objects []model.Agent
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.Find(&objects).Error; err != nil {
+		return nil, err
+	}
+	return objects, nil
 }
 
 func (a *agent) Count(ctx context.Context, opts ...Options) (int64, error) {
-	tx := a.db.WithContext(ctx)
+	var total int64
+	tx := a.db.WithContext(ctx).Model(&model.Agent{})
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
-
-	var total int64
-	err := tx.Model(&model.Agent{}).Count(&total).Error
-	return total, err
+	return total, tx.Count(&total).Error
 }

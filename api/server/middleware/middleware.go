@@ -36,9 +36,9 @@ func init() {
 // 允许特定请求不经过 JWT 验证（由业务侧 Token 鉴权）
 func allowCustomRequest(c *gin.Context) bool {
 	path := c.Request.URL.Path
-	// Deploy Agent 作业 API
-	if strings.HasPrefix(path, "/pixiu/deploy-agents/heartbeat") ||
-		strings.HasPrefix(path, "/pixiu/deploy-agents/tasks/") {
+	// Agent 任务 API（deploy-agent heartbeat / claim / logs / result / bundle）
+	if strings.HasPrefix(path, "/pixiu/agents/heartbeat") ||
+		strings.HasPrefix(path, "/pixiu/agents/jobs/") {
 		return true
 	}
 	return false

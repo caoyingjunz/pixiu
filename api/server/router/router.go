@@ -32,7 +32,6 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/apiresource"
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
-	"github.com/caoyingjunz/pixiu/api/server/router/deployagent"
 	"github.com/caoyingjunz/pixiu/api/server/router/distribution"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/node"
@@ -67,7 +66,6 @@ func InstallRouters(o *options.Options) {
 		node.NewRouter,
 		audit.NewRouter,
 		agent.NewRouter,
-		deployagent.NewRouter,
 		datasource.NewRouter,
 		runner.NewRouter,
 		assistant.NewRouter,

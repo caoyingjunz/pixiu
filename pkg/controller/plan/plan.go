@@ -106,7 +106,7 @@ func (p *plan) preCreate(ctx context.Context, req *types.CreatePlanRequest) erro
 		if req.DeployAgentId == 0 {
 			return fmt.Errorf("agent 模式必须指定 deploy_agent_id")
 		}
-		agent, err := p.factory.DeployAgent().Get(ctx, req.DeployAgentId)
+		agent, err := p.factory.Agent().Get(ctx, req.DeployAgentId)
 		if err != nil {
 			return err
 		}
@@ -481,12 +481,15 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 		if planObj.DeployAgentId == 0 {
 			return fmt.Errorf("agent 模式未绑定 deploy agent")
 		}
-		agent, err := p.factory.DeployAgent().Get(ctx, planObj.DeployAgentId)
+		agent, err := p.factory.Agent().Get(ctx, planObj.DeployAgentId)
 		if err != nil {
 			return err
 		}
 		if agent == nil {
 			return fmt.Errorf("deploy agent %d 不存在", planObj.DeployAgentId)
+		}
+		if agent.Status == model.AgentStatusOffline {
+			return fmt.Errorf("执行 Agent 已离线")
 		}
 	}
 	return nil

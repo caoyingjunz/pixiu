@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -42,7 +43,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"k8s.io/klog/v2"
 
-	deployctl "github.com/caoyingjunz/pixiu/pkg/controller/deployagent"
+	"github.com/caoyingjunz/pixiu/pkg/controller/agent"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -50,6 +51,9 @@ import (
 const version = "v0.1.0"
 
 func main() {
+	klog.InitFlags(nil)
+	flag.Parse()
+
 	server := strings.TrimSpace(os.Getenv("PIXIU_SERVER"))
 	token := strings.TrimSpace(os.Getenv("PIXIU_DEPLOY_TOKEN"))
 	if server == "" || token == "" {
@@ -58,27 +62,42 @@ func main() {
 	server = strings.TrimRight(server, "/")
 	workRoot := os.Getenv("PIXIU_AGENT_WORKDIR")
 	if workRoot == "" {
-		workRoot = "/var/lib/pixiu"
+		workRoot = "/tmp/etc/pixiu"
 	}
-	_ = os.MkdirAll(workRoot, 0o755)
+	// 文件夹不存在，则直接创建
+	if err := os.MkdirAll(workRoot, 0o755); err != nil {
+		klog.Fatalf("Failed to init work root directory: %v", err)
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	hostname, _ := os.Hostname()
-	api := &pixiuAPI{server: server, token: token, client: &http.Client{Timeout: 0}}
+	hostname, err := os.Hostname()
+	if err != nil {
+		klog.Fatalf("Failed to get hostname: %v", err)
+	}
+	call := &DeployAgent{server: server, token: token, client: &http.Client{Timeout: 5 * time.Minute}}
 
 	klog.Infof("pixiu-deploy-agent %s starting, server=%s", version, server)
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+
+	var running bool
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = api.heartbeat(hostname)
-			job, err := api.claim()
+			if err = call.heartbeat(hostname); err != nil {
+				klog.Errorf("heartbeat failed: %v", err)
+			}
+
+			// 任务正在执行，不在重复执行
+			if running {
+				continue
+			}
+			job, err := call.claim()
 			if err != nil {
 				klog.Errorf("claim failed: %v", err)
 				continue
@@ -87,22 +106,26 @@ func main() {
 				continue
 			}
 			klog.Infof("claimed job %d kind=%s action=%s", job.Id, job.Kind, job.Action)
-			if err = runJob(ctx, api, workRoot, job); err != nil {
-				klog.Errorf("job %d failed: %v", job.Id, err)
-				_ = api.report(job.Id, false, err.Error(), "")
-				continue
-			}
+			running = true
+			go func(j *types.Job) {
+				defer func() { running = false }()
+				if err := runJob(ctx, call, workRoot, j); err != nil {
+					klog.Errorf("job %d failed: %v", j.Id, err)
+					_ = call.report(j.Id, false, err.Error(), "")
+				}
+			}(job)
 		}
 	}
 }
 
-type pixiuAPI struct {
+type DeployAgent struct {
 	server string
 	token  string
+
 	client *http.Client
 }
 
-func (a *pixiuAPI) do(method, path string, body any, out any) error {
+func (a *DeployAgent) do(method, path string, body any, out any) error {
 	var reader io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -115,7 +138,7 @@ func (a *pixiuAPI) do(method, path string, body any, out any) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set(deployctl.TokenHeader, a.token)
+	req.Header.Set(agent.TokenHeader, a.token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -143,16 +166,14 @@ func (a *pixiuAPI) do(method, path string, body any, out any) error {
 	return json.Unmarshal(wrap.Result, out)
 }
 
-func (a *pixiuAPI) heartbeat(hostname string) error {
-	return a.do(http.MethodPost, "/pixiu/deploy-agents/heartbeat", types.DeployAgentHeartbeatRequest{
-		Hostname: hostname,
-		Version:  version,
-	}, nil)
+func (a *DeployAgent) heartbeat(hostname string) error {
+	klog.V(2).Infof("sending heartbeat to %s", a.server)
+	return a.do(http.MethodPost, "/pixiu/agents/heartbeat", types.AgentHeartbeatRequest{Hostname: hostname, Version: version}, nil)
 }
 
-func (a *pixiuAPI) claim() (*types.DeployJob, error) {
-	var job types.DeployJob
-	if err := a.do(http.MethodGet, "/pixiu/deploy-agents/tasks/claim", nil, &job); err != nil {
+func (a *DeployAgent) claim() (*types.Job, error) {
+	var job types.Job
+	if err := a.do(http.MethodGet, "/pixiu/agents/claim", nil, &job); err != nil {
 		return nil, err
 	}
 	if job.Id == 0 {
@@ -161,22 +182,22 @@ func (a *pixiuAPI) claim() (*types.DeployJob, error) {
 	return &job, nil
 }
 
-func (a *pixiuAPI) logs(jobId int64, chunk string) error {
-	return a.do(http.MethodPost, fmt.Sprintf("/pixiu/deploy-agents/tasks/%d/logs", jobId),
-		types.DeployJobLogsRequest{Chunk: chunk}, nil)
+func (a *DeployAgent) logs(jobId int64, chunk string) error {
+	return a.do(http.MethodPost, fmt.Sprintf("/pixiu/agents/jobs/%d/logs", jobId),
+		types.AgentJobLogsRequest{Chunk: chunk}, nil)
 }
 
-func (a *pixiuAPI) report(jobId int64, success bool, message, result string) error {
-	return a.do(http.MethodPost, fmt.Sprintf("/pixiu/deploy-agents/tasks/%d/result", jobId),
-		types.DeployJobResultRequest{Success: success, Message: message, Result: result}, nil)
+func (a *DeployAgent) report(jobId int64, success bool, message, result string) error {
+	return a.do(http.MethodPost, fmt.Sprintf("/pixiu/agents/jobs/%d/result", jobId),
+		types.AgentJobResultRequest{Success: success, Message: message, Result: result}, nil)
 }
 
-func (a *pixiuAPI) downloadBundle(jobId int64, destDir string) error {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/pixiu/deploy-agents/tasks/%d/bundle", a.server, jobId), nil)
+func (a *DeployAgent) downloadBundle(jobId int64, destDir string) error {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/pixiu/agents/jobs/%d/bundle", a.server, jobId), nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set(deployctl.TokenHeader, a.token)
+	req.Header.Set(agent.TokenHeader, a.token)
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return err
@@ -189,42 +210,42 @@ func (a *pixiuAPI) downloadBundle(jobId int64, destDir string) error {
 	return untarGz(resp.Body, destDir)
 }
 
-func runJob(ctx context.Context, api *pixiuAPI, workRoot string, job *types.DeployJob) error {
+func runJob(ctx context.Context, call *DeployAgent, workRoot string, job *types.Job) error {
 	switch job.Kind {
-	case model.DeployJobPullImage:
-		return pullImage(ctx, api, job)
-	case model.DeployJobRunContainer:
-		return runContainer(ctx, api, workRoot, job)
-	case model.DeployJobFetchKubeconfig:
-		return fetchKubeconfig(api, job)
+	case model.JobPullImage:
+		return pullImage(ctx, call, job)
+	case model.JobRunContainer:
+		return runContainer(ctx, call, workRoot, job)
+	case model.JobFetchKubeconfig:
+		return fetchKubeconfig(call, job)
 	default:
 		return fmt.Errorf("unknown job kind %s", job.Kind)
 	}
 }
 
-func pullImage(ctx context.Context, api *pixiuAPI, job *types.DeployJob) error {
+func pullImage(ctx context.Context, call *DeployAgent, job *types.Job) error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
 	defer cli.Close()
-	_ = api.logs(job.Id, fmt.Sprintf("pulling image %s\n", job.Image))
+	_ = call.logs(job.Id, fmt.Sprintf("pulling image %s\n", job.Image))
 	reader, err := cli.ImagePull(ctx, job.Image, image.PullOptions{})
 	if err != nil {
 		return err
 	}
 	defer reader.Close()
 	_, _ = io.Copy(io.Discard, reader)
-	return api.report(job.Id, true, "image ready", "")
+	return call.report(job.Id, true, "image ready", "")
 }
 
-func runContainer(ctx context.Context, api *pixiuAPI, workRoot string, job *types.DeployJob) error {
+func runContainer(ctx context.Context, call *DeployAgent, workRoot string, job *types.Job) error {
 	planDir := filepath.Join(workRoot, fmt.Sprintf("%d", job.PlanId))
 	_ = os.RemoveAll(planDir)
 	if err := os.MkdirAll(planDir, 0o755); err != nil {
 		return err
 	}
-	if err := api.downloadBundle(job.Id, planDir); err != nil {
+	if err := call.downloadBundle(job.Id, planDir); err != nil {
 		return fmt.Errorf("download bundle: %w", err)
 	}
 
@@ -262,13 +283,13 @@ func runContainer(ctx context.Context, api *pixiuAPI, workRoot string, job *type
 		if logs != nil {
 			b, _ := io.ReadAll(logs)
 			_ = logs.Close()
-			_ = api.logs(job.Id, string(b))
+			_ = call.logs(job.Id, string(b))
 		}
 		if st.StatusCode != 0 {
 			return fmt.Errorf("container exit code %d", st.StatusCode)
 		}
 	}
-	return api.report(job.Id, true, "ok", "")
+	return call.report(job.Id, true, "ok", "")
 }
 
 func removeContainerByName(ctx context.Context, cli *client.Client, name string) error {
@@ -288,7 +309,7 @@ func removeContainerByName(ctx context.Context, cli *client.Client, name string)
 	return nil
 }
 
-func fetchKubeconfig(api *pixiuAPI, job *types.DeployJob) error {
+func fetchKubeconfig(call *DeployAgent, job *types.Job) error {
 	var payload struct {
 		Masters []struct {
 			Name string `json:"name"`
@@ -304,10 +325,10 @@ func fetchKubeconfig(api *pixiuAPI, job *types.DeployJob) error {
 		cfg, err := sshGetAdminConf(m.Ip, m.Auth)
 		if err != nil {
 			lastErr = err
-			_ = api.logs(job.Id, fmt.Sprintf("master %s: %v\n", m.Ip, err))
+			_ = call.logs(job.Id, fmt.Sprintf("master %s: %v\n", m.Ip, err))
 			continue
 		}
-		return api.report(job.Id, true, "ok", base64.StdEncoding.EncodeToString(cfg))
+		return call.report(job.Id, true, "ok", base64.StdEncoding.EncodeToString(cfg))
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no master nodes in payload")
@@ -347,7 +368,7 @@ func sshGetAdminConf(ip, authJSON string) ([]byte, error) {
 	sshClient, err := ssh.Dial("tcp", net.JoinHostPort(ip, "22"), &ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{authMethod},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // 部署节点由用户提供，网络可控，暂不做 host key 校验
 		Timeout:         15 * time.Second,
 	})
 	if err != nil {

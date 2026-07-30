@@ -181,7 +181,7 @@ func (p *plan) buildAgentHandlers(task handlerTask, runner, dir string, data Tas
 		AgentStep{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "前置准备", step: model.RunningPlanStep,
-			kind: model.DeployJobPullImage, action: "pull_image", image: runner,
+			kind: model.JobPullImage, action: "pull_image", image: runner,
 			timeout: 30 * time.Minute,
 		},
 		// 配置仍在控制面渲染，产物通过 bundle 下发
@@ -190,25 +190,25 @@ func (p *plan) buildAgentHandlers(task handlerTask, runner, dir string, data Tas
 		AgentStep{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "初始化部署环境", step: model.RunningPlanStep,
-			kind: model.DeployJobRunContainer, action: "bootstrap-servers", image: runner,
+			kind: model.JobRunContainer, action: "bootstrap-servers", image: runner,
 			timeout: 30 * time.Minute,
 		},
 		AgentStep{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "部署Master", step: model.RunningPlanStep,
-			kind: model.DeployJobRunContainer, action: "deploy-master", image: runner,
+			kind: model.JobRunContainer, action: "deploy-master", image: runner,
 			timeout: 60 * time.Minute,
 		},
 		AgentStep{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "部署Node", step: model.RunningPlanStep,
-			kind: model.DeployJobRunContainer, action: "deploy-node", image: runner,
+			kind: model.JobRunContainer, action: "deploy-node", image: runner,
 			timeout: 60 * time.Minute,
 		},
 		AgentStep{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "集群注册", step: model.RunningPlanStep,
-			kind: model.DeployJobFetchKubeconfig, action: "register", payload: payload,
+			kind: model.JobFetchKubeconfig, action: "register", payload: payload,
 			timeout: 15 * time.Minute,
 			onSuccess: func(result string) error {
 				return reg.finishWithKubeConfig(result)
@@ -217,7 +217,7 @@ func (p *plan) buildAgentHandlers(task handlerTask, runner, dir string, data Tas
 		AgentStep{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "部署基础组件", step: model.CompletedPlanStep,
-			kind: model.DeployJobRunContainer, action: "apply", image: runner,
+			kind: model.JobRunContainer, action: "apply", image: runner,
 			timeout: 60 * time.Minute,
 		},
 	}

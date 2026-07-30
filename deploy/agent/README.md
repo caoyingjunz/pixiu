@@ -7,7 +7,7 @@
 1. 创建 Agent（保存返回的 `token`）：
 
 ```bash
-POST /pixiu/deploy-agents
+POST /pixiu/agents
 {"name":"edge-1","description":"单向部署节点"}
 ```
 
@@ -37,8 +37,8 @@ deploy-agent
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/pixiu/deploy-agents/heartbeat` | 心跳 |
-| GET | `/pixiu/deploy-agents/tasks/claim` | 领取任务 |
-| GET | `/pixiu/deploy-agents/tasks/:id/bundle` | 下载配置包 |
-| POST | `/pixiu/deploy-agents/tasks/:id/logs` | 追加日志 |
-| POST | `/pixiu/deploy-agents/tasks/:id/result` | 回传结果 |
+| POST | `/pixiu/agents/heartbeat` | 心跳 |
+| GET | `/pixiu/agents/claim` | 领取任务 |
+| GET | `/pixiu/agents/jobs/:id/bundle` | 下载配置包 |
+| POST | `/pixiu/agents/jobs/:id/logs` | 追加日志 |
+| POST | `/pixiu/agents/jobs/:id/result` | 回传结果 |

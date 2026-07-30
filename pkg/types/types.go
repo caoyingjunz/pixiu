@@ -695,18 +695,8 @@ type KubeConfigResponse struct {
 	Content     string `json:"content"`
 }
 
-// DeployAgent HTTPS 作业通道边缘 Agent
-type DeployAgent struct {
-	PixiuMeta `json:",inline"`
-	TimeMeta  `json:",inline"`
-
-	Name          string                  `json:"name"`
-	Status        model.DeployAgentStatus `json:"status"`
-	Hostname      string                  `json:"hostname"`
-	Version       string                  `json:"version"`
-	LastHeartbeat time.Time               `json:"last_heartbeat"`
-	Description   string                  `json:"description"`
-}
+// Agent HTTPS 作业通道边缘 Agent
+type DeployAgent = Agent
 
 type CreateDeployAgentRequest struct {
 	Name        string `json:"name" binding:"required"`
@@ -724,29 +714,29 @@ type DeployAgentInstallResponse struct {
 	Command   string `json:"command"`
 }
 
-type DeployAgentHeartbeatRequest struct {
+type AgentHeartbeatRequest struct {
 	Hostname string `json:"hostname"`
 	Version  string `json:"version"`
 }
 
-type DeployJob struct {
-	Id       int64                 `json:"id"`
-	PlanId   int64                 `json:"plan_id"`
-	AgentId  int64                 `json:"agent_id"`
-	TaskName string                `json:"task_name"`
-	Kind     model.DeployJobKind   `json:"kind"`
-	Action   string                `json:"action"`
-	Image    string                `json:"image"`
-	Payload  string                `json:"payload"`
-	Status   model.DeployJobStatus `json:"status"`
-	Message  string                `json:"message"`
+type Job struct {
+	Id       int64           `json:"id"`
+	PlanId   int64           `json:"plan_id"`
+	AgentId  int64           `json:"agent_id"`
+	TaskName string          `json:"task_name"`
+	Kind     model.JobKind   `json:"kind"`
+	Action   string          `json:"action"`
+	Image    string          `json:"image"`
+	Payload  string          `json:"payload"`
+	Status   model.JobStatus `json:"status"`
+	Message  string          `json:"message"`
 }
 
-type DeployJobLogsRequest struct {
+type AgentJobLogsRequest struct {
 	Chunk string `json:"chunk"`
 }
 
-type DeployJobResultRequest struct {
+type AgentJobResultRequest struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 	Result  string `json:"result"` // 如 kubeconfig base64
