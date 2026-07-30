@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-    10|Unless required by applicable law or agreed to in writing, software
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -35,5 +35,9 @@ type Render struct {
 func (r Render) Name() string      { return "配置渲染" }
 func (r Render) GetAction() string { return "render" }
 func (r Render) Run() error {
-	return planrender.RenderToDir(r.dir, planrender.FromModels(r.data.PlanId, r.data.Config, r.data.Nodes))
+	plan, err := planrender.FromModels(r.data.PlanId, r.data.Config, r.data.Nodes)
+	if err != nil {
+		return err
+	}
+	return planrender.RenderToDir(r.dir, plan)
 }

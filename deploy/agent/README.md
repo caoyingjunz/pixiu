@@ -41,7 +41,7 @@ deploy-agent
 |------|------|------|
 | POST | `/pixiu/agents/heartbeat` | 心跳 |
 | GET | `/pixiu/agents/claim` | 领取任务 |
-| GET | `/pixiu/agents/jobs/:id/material` | 拉取计划数据（Agent 本地渲染） |
+| GET | `/pixiu/agents/jobs/:id/plan` | 拉取计划及子资源（Agent 本地渲染） |
 | POST | `/pixiu/agents/jobs/:id/logs` | 追加日志 |
 | POST | `/pixiu/agents/jobs/:id/result` | 回传结果 |
 
@@ -50,6 +50,6 @@ deploy-agent
 | kind | 说明 |
 |------|------|
 | `pull_image` | 拉取 runner 镜像 |
-| `render_config` | 拉取 material 并在 Agent 本地渲染 hosts/multinode/globals |
+| `render_config` | 拉取 plan 并在 Agent 本地渲染 hosts/multinode/globals |
 | `run_container` | 挂载渲染目录执行 kubez-ansible |
 | `fetch_kubeconfig` | SSH 拉取 admin.conf 并回传 |

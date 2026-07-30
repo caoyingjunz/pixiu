@@ -200,14 +200,14 @@ func (a *agentRouter) agentResult(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (a *agentRouter) agentMaterial(c *gin.Context) {
+func (a *agentRouter) agentPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 	jobId, err := strconv.ParseInt(c.Param("jobId"), 10, 64)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = a.c.Agent().GetPlanMaterial(c, getAgentToken(c), jobId)
+	r.Result, err = a.c.Agent().GetPlan(c, getAgentToken(c), jobId)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

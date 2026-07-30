@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-    10|Unless required by applicable law or agreed to in writing, software
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -29,32 +29,6 @@ import (
 	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
 
-// Data 部署计划渲染输入（控制面 local 模式与边缘 agent 共用）。
-type Data struct {
-	PlanId int64
-	Nodes  []Node
-	Config Config
-}
-
-// Node 渲染所需的节点信息。
-type Node struct {
-	Name string
-	Role string
-	CRI  string
-	Ip   string
-	Auth string // PlanNodeAuth JSON
-}
-
-// Config 渲染所需的配置（字段为 DB 中原始 JSON 字符串）。
-type Config struct {
-	OSImage    string
-	Region     string
-	Kubernetes string
-	Network    string
-	Runtime    string
-	Component  string
-}
-
 type Multinode struct {
 	DockerMaster     []types.PlanNode
 	DockerNode       []types.PlanNode
@@ -64,17 +38,20 @@ type Multinode struct {
 }
 
 // RenderToDir 将 hosts / multinode / globals.yml / ssh key 渲染到 workDir/<planId>/。
-func RenderToDir(workDir string, data Data) error {
-	planDir := filepath.Join(workDir, fmt.Sprintf("%d", data.PlanId))
+func RenderToDir(workDir string, plan *types.Plan) error {
+	if plan == nil {
+		return fmt.Errorf("plan is nil")
+	}
+	planDir := filepath.Join(workDir, fmt.Sprintf("%d", plan.Id))
 	if err := os.MkdirAll(planDir, 0o755); err != nil {
 		return err
 	}
 
-	if err := writeTemplate(filepath.Join(planDir, "hosts"), pixiutpl.HostTemplate, data); err != nil {
+	if err := writeTemplate(filepath.Join(planDir, "hosts"), pixiutpl.HostTemplate, plan); err != nil {
 		return err
 	}
 
-	nodes, err := ParseMultinode(data, workDir)
+	nodes, err := ParseMultinode(plan, workDir)
 	if err != nil {
 		return err
 	}
@@ -82,11 +59,7 @@ func RenderToDir(workDir string, data Data) error {
 		return err
 	}
 
-	cfg, err := ParseConfig(data)
-	if err != nil {
-		return err
-	}
-	return writeTemplate(filepath.Join(planDir, "globals.yml"), pixiutpl.GlobalsTemplate, cfg)
+	return writeTemplate(filepath.Join(planDir, "globals.yml"), pixiutpl.GlobalsTemplate, &plan.Config)
 }
 
 func writeTemplate(filename, text string, data interface{}) error {
@@ -98,7 +71,7 @@ func writeTemplate(filename, text string, data interface{}) error {
 	return os.WriteFile(filename, buf.Bytes(), 0o600)
 }
 
-func ParseMultinode(data Data, workDir string) (Multinode, error) {
+func ParseMultinode(plan *types.Plan, workDir string) (Multinode, error) {
 	multinode := Multinode{
 		DockerMaster:     make([]types.PlanNode, 0),
 		DockerNode:       make([]types.PlanNode, 0),
@@ -106,18 +79,14 @@ func ParseMultinode(data Data, workDir string) (Multinode, error) {
 		ContainerdNode:   make([]types.PlanNode, 0),
 		StorageNode:      make([]types.PlanNode, 0),
 	}
-
-	runtime := types.RuntimeSpec{}
-	if err := runtime.Unmarshal(data.Config.Runtime); err != nil {
-		return multinode, err
+	if plan == nil {
+		return multinode, fmt.Errorf("plan is nil")
 	}
 
-	for _, node := range data.Nodes {
-		nodeAuth := types.PlanNodeAuth{}
-		if err := nodeAuth.Unmarshal(node.Auth); err != nil {
-			return multinode, err
-		}
-		if _, err := writeRSA(data.PlanId, node.Name, workDir, nodeAuth); err != nil {
+	runtime := plan.Config.Runtime
+	for _, node := range plan.Nodes {
+		nodeAuth := node.Auth
+		if _, err := writeRSA(plan.Id, node.Name, workDir, nodeAuth); err != nil {
 			return multinode, err
 		}
 
@@ -125,13 +94,19 @@ func ParseMultinode(data Data, workDir string) (Multinode, error) {
 			if nodeAuth.Key == nil {
 				return multinode, fmt.Errorf("node(%s) key auth config is empty", node.Name)
 			}
-			nodeAuth.Key.File = fmt.Sprintf("/configs/ssh/%s/id_rsa", node.Name)
+			// 拷贝避免改写调用方数据
+			key := *nodeAuth.Key
+			key.File = fmt.Sprintf("/configs/ssh/%s/id_rsa", node.Name)
+			nodeAuth.Key = &key
 		}
 		if nodeAuth.Type == types.PasswordAuth && nodeAuth.Password == nil {
 			return multinode, fmt.Errorf("node(%s) password auth config is empty", node.Name)
 		}
 		planNode := types.PlanNode{Name: node.Name, Auth: nodeAuth}
-		roles := strings.Split(node.Role, ",")
+		roles := node.Role
+		if len(roles) == 0 {
+			continue
+		}
 
 		if runtime.IsDocker() {
 			for _, role := range roles {
@@ -181,52 +156,56 @@ func writeRSA(planId int64, name, workDir string, auth types.PlanNodeAuth) (stri
 	return f, nil
 }
 
-func ParseConfig(data Data) (*types.PlanConfig, error) {
-	network := types.NetworkSpec{}
-	if err := network.Unmarshal(data.Config.Network); err != nil {
-		return nil, err
+// FromModels 将 DB 模型转为 types.Plan，供 local 模式控制面渲染使用。
+func FromModels(planId int64, cfg *model.Config, nodes []model.Node) (*types.Plan, error) {
+	plan := &types.Plan{
+		PixiuMeta: types.PixiuMeta{Id: planId},
+		Nodes:     make([]types.PlanNode, 0, len(nodes)),
 	}
-	kubernetes := types.KubernetesSpec{}
-	if err := kubernetes.Unmarshal(data.Config.Kubernetes); err != nil {
-		return nil, err
-	}
-	component := types.ComponentSpec{}
-	if err := component.Unmarshal(data.Config.Component); err != nil {
-		return nil, err
-	}
-	runtimeSpec := types.RuntimeSpec{}
-	if err := runtimeSpec.Unmarshal(data.Config.Runtime); err != nil {
-		return nil, err
-	}
-	return &types.PlanConfig{
-		Kubernetes: kubernetes,
-		Network:    network,
-		Component:  component,
-		Runtime:    runtimeSpec,
-	}, nil
-}
-
-// FromModels 从 DB 模型构造渲染输入。
-func FromModels(planId int64, cfg *model.Config, nodes []model.Node) Data {
-	out := Data{PlanId: planId, Nodes: make([]Node, 0, len(nodes))}
 	if cfg != nil {
-		out.Config = Config{
-			OSImage:    cfg.OSImage,
+		ks := types.KubernetesSpec{}
+		if err := ks.Unmarshal(cfg.Kubernetes); err != nil {
+			return nil, err
+		}
+		ns := types.NetworkSpec{}
+		if err := ns.Unmarshal(cfg.Network); err != nil {
+			return nil, err
+		}
+		rs := types.RuntimeSpec{}
+		if err := rs.Unmarshal(cfg.Runtime); err != nil {
+			return nil, err
+		}
+		cs := types.ComponentSpec{}
+		if err := cs.Unmarshal(cfg.Component); err != nil {
+			return nil, err
+		}
+		plan.Config = types.PlanConfig{
+			PlanId:     planId,
 			Region:     cfg.Region,
-			Kubernetes: cfg.Kubernetes,
-			Network:    cfg.Network,
-			Runtime:    cfg.Runtime,
-			Component:  cfg.Component,
+			OSImage:    cfg.OSImage,
+			Kubernetes: ks,
+			Network:    ns,
+			Runtime:    rs,
+			Component:  cs,
 		}
 	}
 	for _, n := range nodes {
-		out.Nodes = append(out.Nodes, Node{
-			Name: n.Name,
-			Role: n.Role,
-			CRI:  string(n.CRI),
-			Ip:   n.Ip,
-			Auth: n.Auth,
+		auth := types.PlanNodeAuth{}
+		if err := auth.Unmarshal(n.Auth); err != nil {
+			return nil, err
+		}
+		var roles []string
+		if n.Role != "" {
+			roles = strings.Split(n.Role, ",")
+		}
+		plan.Nodes = append(plan.Nodes, types.PlanNode{
+			Name:   n.Name,
+			PlanId: planId,
+			Role:   roles,
+			CRI:    n.CRI,
+			Ip:     n.Ip,
+			Auth:   auth,
 		})
 	}
-	return out
+	return plan, nil
 }

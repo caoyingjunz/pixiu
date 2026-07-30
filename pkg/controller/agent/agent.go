@@ -28,6 +28,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -52,7 +53,7 @@ type Interface interface {
 
 	AppendLogs(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobLogsRequest) error
 	ReportResult(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobResultRequest) error
-	GetPlanMaterial(ctx context.Context, agentToken string, jobId int64) (*types.AgentPlanMaterial, error)
+	GetPlan(ctx context.Context, agentToken string, jobId int64) (*types.Plan, error)
 }
 
 type agentController struct {
@@ -220,7 +221,7 @@ func (a *agentController) ReportResult(ctx context.Context, agentToken string, j
 	})
 }
 
-func (a *agentController) GetPlanMaterial(ctx context.Context, agentToken string, jobId int64) (*types.AgentPlanMaterial, error) {
+func (a *agentController) GetPlan(ctx context.Context, agentToken string, jobId int64) (*types.Plan, error) {
 	obj, err := a.getAuthAgent(ctx, agentToken)
 	if err != nil {
 		return nil, err
@@ -230,40 +231,8 @@ func (a *agentController) GetPlanMaterial(ctx context.Context, agentToken string
 		return nil, errors.NewError(fmt.Errorf("job not found"), http.StatusNotFound)
 	}
 
-	cfg, err := a.factory.Plan().GetConfigByPlan(ctx, job.PlanId)
-	if err != nil {
-		return nil, err
-	}
-	if cfg == nil {
-		return nil, errors.NewError(fmt.Errorf("plan config not found"), http.StatusNotFound)
-	}
-	nodes, err := a.factory.Plan().ListNodes(ctx, job.PlanId)
-	if err != nil {
-		return nil, err
-	}
-
-	material := &types.AgentPlanMaterial{
-		PlanId: job.PlanId,
-		Config: types.AgentPlanMaterialCfg{
-			OSImage:    cfg.OSImage,
-			Region:     cfg.Region,
-			Kubernetes: cfg.Kubernetes,
-			Network:    cfg.Network,
-			Runtime:    cfg.Runtime,
-			Component:  cfg.Component,
-		},
-		Nodes: make([]types.AgentPlanMaterialNode, 0, len(nodes)),
-	}
-	for _, n := range nodes {
-		material.Nodes = append(material.Nodes, types.AgentPlanMaterialNode{
-			Name: n.Name,
-			Role: n.Role,
-			CRI:  string(n.CRI),
-			Ip:   n.Ip,
-			Auth: n.Auth,
-		})
-	}
-	return material, nil
+	// 复用 plan 子资源组装逻辑，按 job 鉴权后返回完整 plan
+	return plan.NewPlan(a.cc, a.factory).GetWithSubResources(ctx, job.PlanId)
 }
 
 // ── helpers ──

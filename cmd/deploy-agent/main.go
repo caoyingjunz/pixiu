@@ -191,15 +191,15 @@ func (a *DeployAgent) report(jobId int64, success bool, message, result string) 
 		types.AgentJobResultRequest{Success: success, Message: message, Result: result}, nil)
 }
 
-func (a *DeployAgent) fetchMaterial(jobId int64) (*types.AgentPlanMaterial, error) {
-	var material types.AgentPlanMaterial
-	if err := a.do(http.MethodGet, fmt.Sprintf("/pixiu/agents/jobs/%d/material", jobId), nil, &material); err != nil {
+func (a *DeployAgent) fetchPlan(jobId int64) (*types.Plan, error) {
+	var plan types.Plan
+	if err := a.do(http.MethodGet, fmt.Sprintf("/pixiu/agents/jobs/%d/plan", jobId), nil, &plan); err != nil {
 		return nil, err
 	}
-	if material.PlanId == 0 {
-		return nil, fmt.Errorf("empty plan material")
+	if plan.Id == 0 {
+		return nil, fmt.Errorf("empty plan")
 	}
-	return &material, nil
+	return &plan, nil
 }
 
 func runJob(ctx context.Context, call *DeployAgent, workRoot string, job *types.Job) error {
@@ -218,7 +218,7 @@ func runJob(ctx context.Context, call *DeployAgent, workRoot string, job *types.
 }
 
 func renderConfig(call *DeployAgent, workRoot string, job *types.Job) error {
-	_ = call.logs(job.Id, "fetching plan material and rendering locally\n")
+	_ = call.logs(job.Id, "fetching plan and rendering locally\n")
 	if err := preparePlanDir(call, workRoot, job); err != nil {
 		return err
 	}
@@ -226,40 +226,19 @@ func renderConfig(call *DeployAgent, workRoot string, job *types.Job) error {
 }
 
 func preparePlanDir(call *DeployAgent, workRoot string, job *types.Job) error {
-	material, err := call.fetchMaterial(job.Id)
+	plan, err := call.fetchPlan(job.Id)
 	if err != nil {
-		return fmt.Errorf("fetch material: %w", err)
+		return fmt.Errorf("fetch plan: %w", err)
 	}
-	planDir := filepath.Join(workRoot, fmt.Sprintf("%d", material.PlanId))
+	planDir := filepath.Join(workRoot, fmt.Sprintf("%d", plan.Id))
 	_ = os.RemoveAll(planDir)
 	if err = os.MkdirAll(planDir, 0o755); err != nil {
 		return err
 	}
-	data := planrender.Data{
-		PlanId: material.PlanId,
-		Config: planrender.Config{
-			OSImage:    material.Config.OSImage,
-			Region:     material.Config.Region,
-			Kubernetes: material.Config.Kubernetes,
-			Network:    material.Config.Network,
-			Runtime:    material.Config.Runtime,
-			Component:  material.Config.Component,
-		},
-		Nodes: make([]planrender.Node, 0, len(material.Nodes)),
-	}
-	for _, n := range material.Nodes {
-		data.Nodes = append(data.Nodes, planrender.Node{
-			Name: n.Name,
-			Role: n.Role,
-			CRI:  n.CRI,
-			Ip:   n.Ip,
-			Auth: n.Auth,
-		})
-	}
-	if err = planrender.RenderToDir(workRoot, data); err != nil {
+	if err = planrender.RenderToDir(workRoot, plan); err != nil {
 		return fmt.Errorf("render: %w", err)
 	}
-	_ = call.logs(job.Id, fmt.Sprintf("rendered plan %d to %s\n", material.PlanId, planDir))
+	_ = call.logs(job.Id, fmt.Sprintf("rendered plan %d to %s\n", plan.Id, planDir))
 	return nil
 }
 

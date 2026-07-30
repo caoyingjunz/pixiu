@@ -741,27 +741,3 @@ type AgentJobResultRequest struct {
 	Message string `json:"message"`
 	Result  string `json:"result"` // 如 kubeconfig base64
 }
-
-// AgentPlanMaterial 边缘 Agent 拉取后本地渲染所需的计划数据。
-type AgentPlanMaterial struct {
-	PlanId int64                   `json:"plan_id"`
-	Config AgentPlanMaterialCfg    `json:"config"`
-	Nodes  []AgentPlanMaterialNode `json:"nodes"`
-}
-
-type AgentPlanMaterialCfg struct {
-	OSImage    string `json:"os_image"`
-	Region     string `json:"region"`
-	Kubernetes string `json:"kubernetes"`
-	Network    string `json:"network"`
-	Runtime    string `json:"runtime"`
-	Component  string `json:"component"`
-}
-
-type AgentPlanMaterialNode struct {
-	Name string `json:"name"`
-	Role string `json:"role"`
-	CRI  string `json:"cri"`
-	Ip   string `json:"ip"`
-	Auth string `json:"auth"`
-}
