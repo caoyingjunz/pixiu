@@ -678,17 +678,6 @@ type Permission struct {
 	Description       string              `json:"description,omitempty"`
 }
 
-// AgentInstallResponse 隧道模式 Agent 安装信息
-type AgentInstallResponse struct {
-	ClusterName    string            `json:"cluster_name"`
-	ConnectMode    model.ConnectMode `json:"connect_mode"`
-	AgentToken     string            `json:"agent_token"`
-	ServerURL      string            `json:"server_url"`
-	ConnectPath    string            `json:"connect_path"`
-	AgentConnected bool              `json:"agent_connected"`
-	Command        string            `json:"command"`
-}
-
 // KubeConfigResponse 返回给前端的 kubeconfig 内容
 type KubeConfigResponse struct {
 	ClusterName string `json:"cluster_name"`
