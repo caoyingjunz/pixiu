@@ -32,6 +32,7 @@
 ### 1. 生成 Agent Token
 
 在 Pixiu 控制面导入集群时选择「隧道」连接模式，系统自动生成 Token。
+![img.png](img.png)
 
 ### 2. 部署 Cluster Agent
 
