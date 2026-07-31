@@ -22,7 +22,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/klog/v2"
 )
 
 const tpml = `/*
@@ -84,7 +84,7 @@ func main() {
 
 	for _, p := range ignorePatterns {
 		if !doublestar.ValidatePattern(p) {
-			log.Fatalf("ignore pattern %q is invalid", p)
+			klog.Fatalf("ignore pattern %q is invalid", p)
 		}
 	}
 
@@ -100,11 +100,11 @@ func main() {
 			wg.Go(func() error {
 				updated, err := addLicenseHeader(f.path, headerText, f.mode)
 				if err != nil {
-					log.Printf("%s: %v", f.path, err)
+					klog.Errorf("%s: %v", f.path, err)
 					return err
 				}
 				if *verbose && updated {
-					log.Printf("%s updated", f.path)
+					klog.Infof("%s updated", f.path)
 				}
 				return nil
 			})
@@ -118,7 +118,7 @@ func main() {
 
 	for _, d := range flag.Args() {
 		if err := walk(ch, d); err != nil {
-			log.Fatal(err)
+			klog.Fatal(err)
 		}
 	}
 	close(ch)
@@ -129,14 +129,14 @@ func main() {
 func walk(ch chan<- *file, root string) error {
 	return filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
-			log.Printf("%s error: %v", path, err)
+			klog.Errorf("%s error: %v", path, err)
 		}
 		if fi.IsDir() {
 			return nil
 		}
 		if match(path, ignorePatterns) || filepath.Ext(path) != ".go" {
 			if *verbose {
-				log.Printf("skipping: %s", path)
+				klog.Infof("skipping: %s", path)
 			}
 			return nil
 		}

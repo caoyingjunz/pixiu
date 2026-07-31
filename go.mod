@@ -21,7 +21,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
 	github.com/pkg/sftp v1.13.6
 	github.com/robfig/cron/v3 v3.0.0
-	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/crypto v0.21.0
 	golang.org/x/sync v0.10.0
@@ -38,7 +37,10 @@ require (
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
 )
 
-require github.com/rancher/remotedialer v0.6.1
+require (
+	github.com/rancher/remotedialer v0.6.1
+	gopkg.in/yaml.v3 v3.0.1
+)
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
@@ -135,6 +137,7 @@ require (
 	github.com/rubenv/sql-migrate v1.3.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
+	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
@@ -162,7 +165,6 @@ require (
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.26.2 // indirect
 	k8s.io/apiserver v0.26.2 // indirect
 	k8s.io/component-base v0.26.2 // indirect
