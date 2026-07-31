@@ -111,3 +111,10 @@ func Generate() (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
+
+const AgentTokenHeader = "X-Pixiu-Deploy-Token"
+
+// ExtractAgentToken 从请求头中提取 Agent 鉴权 token，已去除首尾空格。
+func ExtractAgentToken(c *gin.Context) string {
+	return strings.TrimSpace(c.GetHeader(AgentTokenHeader))
+}

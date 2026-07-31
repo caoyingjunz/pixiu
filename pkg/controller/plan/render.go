@@ -35,9 +35,9 @@ type Render struct {
 func (r Render) Name() string      { return "配置渲染" }
 func (r Render) GetAction() string { return "render" }
 func (r Render) Run() error {
-	plan, err := planrender.FromModels(r.data.PlanId, r.data.Config, r.data.Nodes)
+	plan, err := planrender.NewPlan(r.data.PlanId, r.data.Config, r.data.Nodes)
 	if err != nil {
 		return err
 	}
-	return planrender.RenderToDir(r.dir, plan)
+	return planrender.Render(r.dir, plan)
 }

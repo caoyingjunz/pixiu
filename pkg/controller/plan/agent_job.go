@@ -30,12 +30,12 @@ import (
 )
 
 const (
-	defaultAgentJobTimeout = 60 * time.Minute
-	agentJobPollInterval   = 2 * time.Second
+	defaultJobTimeout = 60 * time.Minute
+	jobPollInterval   = 2 * time.Second
 )
 
-// AgentStep 将部署步骤下发为 Job，等待边缘 Agent 执行完成。
-type AgentStep struct {
+// AgentJob 将部署步骤下发为 Job，等待边缘 Agent 执行完成。
+type AgentJob struct {
 	handlerTask
 
 	factory   db.ShareDaoFactory
@@ -50,11 +50,11 @@ type AgentStep struct {
 	onSuccess func(result string) error
 }
 
-func (a AgentStep) Name() string         { return a.stepName }
-func (a AgentStep) GetAction() string    { return a.action }
-func (a AgentStep) Step() model.PlanStep { return a.step }
+func (a AgentJob) Name() string         { return a.stepName }
+func (a AgentJob) GetAction() string    { return a.action }
+func (a AgentJob) Step() model.PlanStep { return a.step }
 
-func (a AgentStep) Run() error {
+func (a AgentJob) Run() error {
 	ctx := context.Background()
 	job, err := a.factory.Agent().Job().Create(ctx, &model.Job{
 		PlanId:   a.GetPlanId(),
@@ -73,7 +73,7 @@ func (a AgentStep) Run() error {
 
 	timeout := a.timeout
 	if timeout <= 0 {
-		timeout = defaultAgentJobTimeout
+		timeout = defaultJobTimeout
 	}
 	deadline := time.Now().Add(timeout)
 	for {
@@ -103,7 +103,7 @@ func (a AgentStep) Run() error {
 			}
 			return fmt.Errorf("deploy job %d failed", job.Id)
 		}
-		time.Sleep(agentJobPollInterval)
+		time.Sleep(jobPollInterval)
 	}
 }
 

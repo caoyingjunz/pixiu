@@ -506,14 +506,14 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	}
 	if planObj != nil && planObj.ExecMode == model.PlanExecModeAgent {
 		if planObj.DeployAgentId == 0 {
-			return fmt.Errorf("agent 模式未绑定 deploy agent")
+			return fmt.Errorf("agent 模式未绑定执行 Agent")
 		}
 		agent, err := p.factory.Agent().Get(ctx, planObj.DeployAgentId)
 		if err != nil {
 			return err
 		}
 		if agent == nil {
-			return fmt.Errorf("deploy agent %d 不存在", planObj.DeployAgentId)
+			return fmt.Errorf("执行 Agent 不存在，可能已被删除")
 		}
 		if agent.Status == model.AgentStatusOffline {
 			return fmt.Errorf("执行 Agent 已离线")
