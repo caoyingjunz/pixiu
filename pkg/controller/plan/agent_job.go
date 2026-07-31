@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	defaultJobTimeout  = 60 * time.Minute
-	jobPollInterval    = 2 * time.Second
+	defaultJobTimeout = 60 * time.Minute
+	jobPollInterval   = 2 * time.Second
 )
 
 // AgentJob 将部署步骤下发为 Job，等待边缘 Agent 执行完成。
