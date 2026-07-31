@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	defaultAgentJobTimeout = 60 * time.Minute
-	agentJobPollInterval   = 2 * time.Second
+	defaultJobTimeout  = 60 * time.Minute
+	jobPollInterval    = 2 * time.Second
 )
 
 // AgentJob 将部署步骤下发为 Job，等待边缘 Agent 执行完成。
@@ -73,7 +73,7 @@ func (a AgentJob) Run() error {
 
 	timeout := a.timeout
 	if timeout <= 0 {
-		timeout = defaultAgentJobTimeout
+		timeout = defaultJobTimeout
 	}
 	deadline := time.Now().Add(timeout)
 	for {
@@ -103,7 +103,7 @@ func (a AgentJob) Run() error {
 			}
 			return fmt.Errorf("deploy job %d failed", job.Id)
 		}
-		time.Sleep(agentJobPollInterval)
+		time.Sleep(jobPollInterval)
 	}
 }
 

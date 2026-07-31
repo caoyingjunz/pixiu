@@ -1,0 +1,15 @@
+# pixiu-deploy-agent 配置文件，优先级高于环境变量
+#
+# 使用方式:
+#   deploy-agent -config=/etc/pixiu/agent.yaml
+#
+# 环境变量（PIXIU_SERVER / PIXIU_DEPLOY_TOKEN / PIXIU_AGENT_WORKDIR）
+# 在配置文件值为空时作为回退。
+
+default:
+  # Pixiu 服务端地址
+  server: ""
+  # Agent 鉴权 token
+  token: ""
+  # 本地工作目录
+  work_dir: "/etc/pixiu"
