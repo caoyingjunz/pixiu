@@ -27,7 +27,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 const defaultTunnelSyncInterval = "@every 15s"
@@ -49,8 +48,8 @@ func (ts *TunnelSyncer) CronSpec() string {
 	return defaultTunnelSyncInterval
 }
 
-func (ts *TunnelSyncer) LogLevel() logutil.LogLevel {
-	return logutil.DebugLevel
+func (ts *TunnelSyncer) LogLevel() AccessLogLevel {
+	return AccessLogDebug
 }
 
 func (ts *TunnelSyncer) Do(ctx *JobContext) error {

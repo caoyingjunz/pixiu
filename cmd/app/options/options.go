@@ -33,7 +33,6 @@ import (
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
@@ -45,7 +44,7 @@ const (
 	defaultTokenKey   = "pixiu"
 	defaultToolbox    = "ccr.ccs.tencentyun.com/pixiucloud/pixiu-toolbox:v2.0.1"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
-	defaultLogFormat  = logutil.LogFormatJson
+	defaultLogFormat  = config.LogFormatJson
 	defaultWorkDir    = "/etc/pixiu"
 	defaultStaticDir  = "/static"
 
@@ -165,8 +164,13 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 
 	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
+	logCfg := o.ComponentConfig.Log
 	o.JobManager = jobmanager.NewManager(
-		&o.ComponentConfig.Log,
+		&jobmanager.AccessLogOptions{
+			Format: string(logCfg.LogFormat),
+			Level:  logCfg.LogLevel.String(),
+			SQL:    logCfg.LogSQL,
+		},
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory, o.ComponentConfig.Default.Mode.InDebug()),

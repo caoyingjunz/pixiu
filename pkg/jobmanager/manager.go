@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
+    10|Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -18,8 +18,6 @@ package jobmanager
 
 import (
 	"github.com/robfig/cron/v3"
-
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 type Job interface {
@@ -30,8 +28,8 @@ type Job interface {
 	// e.g. "* * * * *"
 	CronSpec() string
 
-	// LogLevel returns the log level of the job
-	LogLevel() logutil.LogLevel
+	// LogLevel returns the access log level of the job
+	LogLevel() AccessLogLevel
 
 	// Do is the job handler
 	Do(ctx *JobContext) error
@@ -41,9 +39,10 @@ type Manager struct {
 	cron *cron.Cron
 }
 
-func NewManager(lc *logutil.LogOptions, jobs ...Job) *Manager {
+func NewManager(lc *AccessLogOptions, jobs ...Job) *Manager {
 	c := cron.New()
 	for _, job := range jobs {
+		job := job
 		_, _ = c.AddFunc(job.CronSpec(), func() {
 			ctx := NewJobContext(job.Name(), lc)
 			ctx.Log(job.LogLevel(), job.Do(ctx))
