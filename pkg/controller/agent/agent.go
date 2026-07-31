@@ -35,7 +35,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
-const TokenHeader = "X-Pixiu-Deploy-Token"
+var TokenHeader = token.AgentTokenHeader
 
 type AgentGetter interface {
 	Agent() Interface

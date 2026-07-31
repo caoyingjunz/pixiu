@@ -31,3 +31,4 @@ dist
 hack/tools/licfmt/licfmt
 
 vendor
+/deploy-agent

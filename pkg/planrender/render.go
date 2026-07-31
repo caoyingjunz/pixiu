@@ -37,8 +37,8 @@ type Multinode struct {
 	StorageNode      []types.PlanNode
 }
 
-// RenderToDir 将 hosts / multinode / globals.yml / ssh key 渲染到 workDir/<planId>/。
-func RenderToDir(workDir string, plan *types.Plan) error {
+// Render 将 hosts / multinode / globals.yml / ssh key 渲染到 workDir/<planId>/。
+func Render(workDir string, plan *types.Plan) error {
 	if plan == nil {
 		return fmt.Errorf("plan is nil")
 	}
@@ -51,7 +51,7 @@ func RenderToDir(workDir string, plan *types.Plan) error {
 		return err
 	}
 
-	nodes, err := ParseMultinode(plan, workDir)
+	nodes, err := buildMultinode(plan, workDir)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func writeTemplate(filename, text string, data interface{}) error {
 	return os.WriteFile(filename, buf.Bytes(), 0o600)
 }
 
-func ParseMultinode(plan *types.Plan, workDir string) (Multinode, error) {
+func buildMultinode(plan *types.Plan, workDir string) (Multinode, error) {
 	multinode := Multinode{
 		DockerMaster:     make([]types.PlanNode, 0),
 		DockerNode:       make([]types.PlanNode, 0),
@@ -156,8 +156,8 @@ func writeRSA(planId int64, name, workDir string, auth types.PlanNodeAuth) (stri
 	return f, nil
 }
 
-// FromModels 将 DB 模型转为 types.Plan，供 local 模式控制面渲染使用。
-func FromModels(planId int64, cfg *model.Config, nodes []model.Node) (*types.Plan, error) {
+// NewPlan 将 DB 模型转为 types.Plan，供 local 模式控制面渲染使用。
+func NewPlan(planId int64, cfg *model.Config, nodes []model.Node) (*types.Plan, error) {
 	plan := &types.Plan{
 		PixiuMeta: types.PixiuMeta{Id: planId},
 		Nodes:     make([]types.PlanNode, 0, len(nodes)),

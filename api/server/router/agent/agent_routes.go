@@ -22,8 +22,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	agentctl "github.com/caoyingjunz/pixiu/pkg/controller/agent"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
 type AgentMeta struct {
@@ -127,9 +127,6 @@ func (a *agentRouter) listAgents(c *gin.Context) {
 }
 
 // Agent token-authenticated task APIs (no JWT).
-func getAgentToken(c *gin.Context) string {
-	return c.GetHeader(agentctl.TokenHeader)
-}
 
 func (a *agentRouter) heartbeat(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -142,7 +139,7 @@ func (a *agentRouter) heartbeat(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = a.c.Agent().Heartbeat(c, getAgentToken(c), &req); err != nil {
+	if err = a.c.Agent().Heartbeat(c, token.ExtractAgentToken(c), &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -153,7 +150,7 @@ func (a *agentRouter) claim(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var err error
-	r.Result, err = a.c.Agent().Claim(c, getAgentToken(c))
+	r.Result, err = a.c.Agent().Claim(c, token.ExtractAgentToken(c))
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -174,7 +171,7 @@ func (a *agentRouter) agentLogs(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = a.c.Agent().AppendLogs(c, getAgentToken(c), jobId, &req); err != nil {
+	if err = a.c.Agent().AppendLogs(c, token.ExtractAgentToken(c), jobId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -193,7 +190,7 @@ func (a *agentRouter) agentResult(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = a.c.Agent().ReportResult(c, getAgentToken(c), jobId, &req); err != nil {
+	if err = a.c.Agent().ReportResult(c, token.ExtractAgentToken(c), jobId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -207,7 +204,7 @@ func (a *agentRouter) agentPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = a.c.Agent().GetPlan(c, getAgentToken(c), jobId)
+	r.Result, err = a.c.Agent().GetPlan(c, token.ExtractAgentToken(c), jobId)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
