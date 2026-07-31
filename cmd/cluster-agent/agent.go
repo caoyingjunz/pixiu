@@ -18,21 +18,14 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
-	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/gorilla/websocket"
-	"github.com/rancher/remotedialer"
 	"k8s.io/klog/v2"
 
-	"github.com/caoyingjunz/pixiu/pkg/tunnel"
+	"github.com/caoyingjunz/pixiu/pkg/clusteragent"
 )
 
 func main() {
@@ -42,83 +35,15 @@ func main() {
 		klog.Fatalf("PIXIU_SERVER and PIXIU_TOKEN are required")
 	}
 
-	wsURL, err := buildConnectURL(server, token)
-	if err != nil {
-		klog.Fatalf("invalid PIXIU_SERVER: %v", err)
-	}
-
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	headers := http.Header{}
-	headers.Set(tunnel.TokenHeader, token)
-
-	insecure := strings.EqualFold(os.Getenv("PIXIU_INSECURE"), "true")
-	dialer := websocket.DefaultDialer
-	if insecure {
-		dialer = &websocket.Dialer{
-			Proxy:            http.ProxyFromEnvironment,
-			HandshakeTimeout: 45 * time.Second,
-			TLSClientConfig:  &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		}
+	cg := clusteragent.Agent{
+		Server:   strings.TrimRight(server, "/"),
+		Token:    token,
+		Insecure: strings.EqualFold(os.Getenv("PIXIU_INSECURE"), "true"),
 	}
-
-	klog.Infof("pixiu-cluster-agent connecting to %s (token_len=%d)", redactTokenQuery(wsURL), len(token))
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-		err := remotedialer.ClientConnect(ctx, wsURL, headers, dialer, func(proto, address string) bool {
-			return proto == "tcp"
-		}, func(ctx context.Context, _ *remotedialer.Session) error {
-			klog.Infof("tunnel connected, waiting for dial requests")
-			<-ctx.Done()
-			return nil
-		})
-		if ctx.Err() != nil {
-			return
-		}
-		klog.Errorf("tunnel disconnected: %v; retrying in 5s", err)
-		time.Sleep(5 * time.Second)
+	if err := cg.Run(ctx); err != nil {
+		klog.Fatalf("agent run failed: %v", err)
 	}
-}
-
-func buildConnectURL(server, token string) (string, error) {
-	if !strings.Contains(server, "://") {
-		server = "https://" + server
-	}
-	u, err := url.Parse(server)
-	if err != nil {
-		return "", err
-	}
-	switch u.Scheme {
-	case "http":
-		u.Scheme = "ws"
-	case "https":
-		u.Scheme = "wss"
-	case "ws", "wss":
-		// ok
-	default:
-		return "", fmt.Errorf("unsupported scheme %q", u.Scheme)
-	}
-	u.Path = tunnel.ConnectPath
-	// Query token is a fallback when intermediaries strip custom headers.
-	q := u.Query()
-	q.Set("token", token)
-	u.RawQuery = q.Encode()
-	u.Fragment = ""
-	return u.String(), nil
-}
-
-func redactTokenQuery(raw string) string {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return raw
-	}
-	q := u.Query()
-	if q.Has("token") {
-		q.Set("token", "***")
-		u.RawQuery = q.Encode()
-	}
-	return u.String()
 }

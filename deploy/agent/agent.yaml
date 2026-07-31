@@ -1,0 +1,6 @@
+# pixiu-deploy-agent 配置文件，优先级高于环境变量
+
+default:
+  server: "https://pixiu.example.com"
+  token: "your-agent-token"
+  work_dir: "/var/lib/pixiu"
