@@ -1,0 +1,111 @@
+# Pixiu 部署清单（Namespace / ConfigMap / Pixiu）
+# 安装前请先准备好 MySQL，并修改下方 ConfigMap 中的 mysql 配置。
+# 安装：kubectl apply -f deploy/pixiu/pixiu.yaml
+# 卸载：kubectl delete -f deploy/pixiu/pixiu.yaml
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pixiu-system
+  labels:
+    app.kubernetes.io/name: pixiu
+---
+# 对应 install.md 中 /etc/pixiu/config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pixiu-config
+  namespace: pixiu-system
+  labels:
+    app.kubernetes.io/name: pixiu
+    app.kubernetes.io/component: server
+data:
+  config.yaml: |
+    default:
+      # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
+      auto_migrate: true
+      # 超级管理初始化用户名和密码；不指定的情况下，默认为 admin/Pixiu123456!
+      admin_user: admin
+      admin_password: Pixiu123456!
+
+    # 数据库地址信息，根据实际情况配置
+    mysql:
+      host: <mysql-host>
+      user: root
+      password: Pixiu868686
+      port: 3306
+      name: pixiu
+---
+# 对应 install.md「启动 pixiu 服务端」
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pixiu
+  namespace: pixiu-system
+  labels:
+    app.kubernetes.io/name: pixiu
+    app.kubernetes.io/component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pixiu
+  template:
+    metadata:
+      labels:
+        app: pixiu
+        app.kubernetes.io/name: pixiu
+        app.kubernetes.io/component: server
+    spec:
+      containers:
+        - name: pixiu
+          image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1-beta.4
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/pixiu
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: config
+          configMap:
+            name: pixiu-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pixiu
+  namespace: pixiu-system
+  labels:
+    app.kubernetes.io/name: pixiu
+    app.kubernetes.io/component: server
+spec:
+  type: NodePort
+  selector:
+    app: pixiu
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
