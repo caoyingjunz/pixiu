@@ -21,7 +21,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/controller/alert/engine"
 	"github.com/caoyingjunz/pixiu/pkg/db"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 const DefaultAlertNotifyDispatchInterval = "@every 15s"
@@ -44,8 +43,8 @@ func (a *AlertEvaluator) CronSpec() string {
 	return DefaultAlertNotifyDispatchInterval
 }
 
-func (a *AlertEvaluator) LogLevel() logutil.LogLevel {
-	return logutil.InfoLevel
+func (a *AlertEvaluator) LogLevel() AccessLogLevel {
+	return AccessLogInfo
 }
 
 func (a *AlertEvaluator) Do(ctx *JobContext) error {

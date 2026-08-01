@@ -53,15 +53,14 @@ func (l *DBLogger) Warn(ctx context.Context, msg string, data ...interface{}) {}
 func (l *DBLogger) Error(ctx context.Context, msg string, data ...interface{}) {}
 
 func (l *DBLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
-	if l.LogLevel <= logger.Silent {
+	// 不向 gorm 默认通道打日志；仅在请求/任务 context 中采集 SQL（供 log.sql 访问日志使用）
+	v := ctx.Value(SQLContextKey)
+	if v == nil {
 		return
 	}
-
 	sql, _ := fc()
-	if v := ctx.Value(SQLContextKey); v != nil {
-		sqls := v.(*SQLs)
-		*sqls = append(*sqls, sql)
-	}
+	sqls := v.(*SQLs)
+	*sqls = append(*sqls, sql)
 }
 
 func WithDBContext(ctx context.Context) context.Context {

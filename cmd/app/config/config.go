@@ -18,7 +18,6 @@ package config
 
 import (
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 type Mode string
@@ -37,7 +36,7 @@ type Config struct {
 	Mysql   MysqlOptions            `yaml:"mysql"`
 	Worker  WorkerOptions           `yaml:"worker"`
 	Audit   jobmanager.AuditOptions `yaml:"audit"`
-	Log     logutil.LogOptions      `yaml:"log"`
+	Log     LogOptions              `yaml:"log"`
 
 	AlertHistory jobmanager.AlertHistoryOptions `yaml:"alert"`
 }

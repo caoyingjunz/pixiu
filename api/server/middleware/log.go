@@ -17,29 +17,52 @@ limitations under the License.
 package middleware
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/accesslog"
 	"github.com/caoyingjunz/pixiu/pkg/db"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
-func Logger(cfg *logutil.LogOptions) gin.HandlerFunc {
+func Logger(cfg *config.LogOptions) gin.HandlerFunc {
+	opts := accesslog.DefaultOptions()
+	if cfg != nil {
+		opts = cfg.AccessOptions()
+	}
 	return func(c *gin.Context) {
-		l := logutil.NewLogger(cfg)
-		c.Set(db.SQLContextKey, new(db.SQLs)) // set SQL context key
+		start := time.Now()
+		c.Set(db.SQLContextKey, new(db.SQLs))
 
-		// 处理请求操作
 		c.Next()
 
-		l.WithLogFields(map[string]interface{}{
+		err := httputils.GetRawError(c)
+		fields := map[string]interface{}{
 			"request_id":              requestid.Get(c),
 			"method":                  c.Request.Method,
 			"uri":                     c.Request.RequestURI,
 			httputils.ResponseCodeKey: httputils.GetResponseCode(c),
 			"client_ip":               c.ClientIP(),
-		})
-		l.Log(c, logutil.InfoLevel, httputils.GetRawError(c))
+			"latency":                 fmt.Sprintf("%dµs", time.Since(start).Microseconds()),
+		}
+		if opts.SQL {
+			if sqls := db.GetSQLs(c); len(sqls) > 0 {
+				fields["sqls"] = sqls
+			}
+		}
+		if err != nil {
+			fields["error"] = err.Error()
+			accesslog.Emit(opts, "FAIL", "error", fields, err)
+			return
+		}
+		// HTTP 成功请求均为 info 档；log.level=debug 时与 info 行为一致（仍输出）。
+		if !opts.AllowSuccess(accesslog.TierInfo) {
+			return
+		}
+		accesslog.Emit(opts, "SUCCESS", "info", fields, nil)
 	}
 }

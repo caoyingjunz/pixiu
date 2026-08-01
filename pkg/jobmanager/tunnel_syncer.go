@@ -27,7 +27,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 const defaultTunnelSyncInterval = "@every 15s"
@@ -49,8 +48,8 @@ func (ts *TunnelSyncer) CronSpec() string {
 	return defaultTunnelSyncInterval
 }
 
-func (ts *TunnelSyncer) LogLevel() logutil.LogLevel {
-	return logutil.DebugLevel
+func (ts *TunnelSyncer) LogLevel() AccessLogLevel {
+	return AccessLogDebug
 }
 
 func (ts *TunnelSyncer) Do(ctx *JobContext) error {
@@ -108,7 +107,7 @@ func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.Shar
 
 	if desired == obj.ClusterStatus {
 		if prev != connected {
-			klog.Infof("[TunnelSyncer] cluster %s agent_connected=%v", obj.Name, connected)
+			klog.V(2).Infof("[TunnelSyncer] cluster %s agent_connected=%v", obj.Name, connected)
 		}
 		return nil
 	}
@@ -121,7 +120,7 @@ func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.Shar
 		}
 		return err
 	}
-	klog.Infof("[TunnelSyncer] cluster %s status %d -> %d (agent_connected=%v)",
+	klog.V(2).Infof("[TunnelSyncer] cluster %s status %d -> %d (agent_connected=%v)",
 		obj.Name, obj.ClusterStatus, desired, connected)
 	return nil
 }

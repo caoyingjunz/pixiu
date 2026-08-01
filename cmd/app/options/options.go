@@ -33,7 +33,6 @@ import (
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
@@ -45,7 +44,7 @@ const (
 	defaultTokenKey   = "pixiu"
 	defaultToolbox    = "ccr.ccs.tencentyun.com/pixiucloud/pixiu-toolbox:v2.0.1"
 	defaultConfigFile = "/etc/pixiu/config.yaml"
-	defaultLogFormat  = logutil.LogFormatJson
+	defaultLogFormat  = config.LogFormatJson
 	defaultWorkDir    = "/etc/pixiu"
 	defaultStaticDir  = "/static"
 
@@ -165,8 +164,9 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 
 	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
+	accessOpts := o.ComponentConfig.Log.AccessOptions()
 	o.JobManager = jobmanager.NewManager(
-		&o.ComponentConfig.Log,
+		&accessOpts,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory, o.ComponentConfig.Default.Mode.InDebug()),
@@ -214,7 +214,8 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Name)
 
 	opt := &gorm.Config{
-		Logger: pixiudb.NewLogger(logger.Info, defaultSlowSQLDuration),
+		// SQL 仅通过 access log（log.sql）采集；不向 gorm 默认通道输出
+		Logger: pixiudb.NewLogger(logger.Silent, defaultSlowSQLDuration),
 	}
 	db, err := gorm.Open(mysql.Open(dsn), opt)
 	if err != nil {

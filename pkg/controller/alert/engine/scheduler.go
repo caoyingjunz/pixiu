@@ -26,6 +26,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/accesslog"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
@@ -162,7 +163,11 @@ func NewRuleWorker(rule *model.AlertRule, manager *Manager) (*RuleWorker, error)
 	}
 
 	cronSpec := EvalCronSpec(ruleCopy.EvalInterval)
-	worker.cron = cron.New(cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)))
+	cronLogger := accesslog.CronLogger{}
+	worker.cron = cron.New(
+		cron.WithLogger(cronLogger),
+		cron.WithChain(cron.SkipIfStillRunning(cronLogger)),
+	)
 	if _, err := worker.cron.AddFunc(cronSpec, func() {
 		if err := manager.EvaluateRule(context.Background(), &ruleCopy); err != nil {
 			klog.Errorf("failed to evaluate alert rule(%d:%s): %v", ruleCopy.Id, ruleCopy.Name, err)

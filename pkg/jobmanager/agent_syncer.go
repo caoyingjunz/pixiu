@@ -23,7 +23,6 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
 )
 
 const (
@@ -48,8 +47,8 @@ func (as *AgentSyncer) CronSpec() string {
 	return defaultAgentSyncInterval
 }
 
-func (as *AgentSyncer) LogLevel() logutil.LogLevel {
-	return logutil.DebugLevel
+func (as *AgentSyncer) LogLevel() AccessLogLevel {
+	return AccessLogDebug
 }
 
 func (as *AgentSyncer) Do(ctx *JobContext) error {
@@ -77,7 +76,7 @@ func (as *AgentSyncer) Do(ctx *JobContext) error {
 	}
 
 	if offlineCount > 0 {
-		klog.Infof("[AgentSyncer] marked %d agent(s) offline", offlineCount)
+		klog.V(2).Infof("[AgentSyncer] marked %d agent(s) offline", offlineCount)
 	}
 	return nil
 }

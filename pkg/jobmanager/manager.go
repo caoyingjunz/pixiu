@@ -19,7 +19,7 @@ package jobmanager
 import (
 	"github.com/robfig/cron/v3"
 
-	logutil "github.com/caoyingjunz/pixiu/pkg/util/log"
+	"github.com/caoyingjunz/pixiu/pkg/accesslog"
 )
 
 type Job interface {
@@ -30,8 +30,8 @@ type Job interface {
 	// e.g. "* * * * *"
 	CronSpec() string
 
-	// LogLevel returns the log level of the job
-	LogLevel() logutil.LogLevel
+	// LogLevel returns the access log level of the job
+	LogLevel() AccessLogLevel
 
 	// Do is the job handler
 	Do(ctx *JobContext) error
@@ -41,17 +41,20 @@ type Manager struct {
 	cron *cron.Cron
 }
 
-func NewManager(lc *logutil.LogOptions, jobs ...Job) *Manager {
-	c := cron.New()
+func NewManager(lc *accesslog.Options, jobs ...Job) *Manager {
+	logger := accesslog.CronLogger{}
+	c := cron.New(
+		cron.WithLogger(logger),
+		cron.WithChain(cron.SkipIfStillRunning(logger)),
+	)
 	for _, job := range jobs {
+		job := job
 		_, _ = c.AddFunc(job.CronSpec(), func() {
 			ctx := NewJobContext(job.Name(), lc)
 			ctx.Log(job.LogLevel(), job.Do(ctx))
 		})
 	}
-	return &Manager{
-		c,
-	}
+	return &Manager{c}
 }
 
 func (m *Manager) Run() {
