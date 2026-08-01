@@ -43,13 +43,13 @@ alert:
   # 保留天数，默认 3 天
   days_reserved: 3
 
-# 日志配置（统一使用 k8s.io/klog/v2）
+# 日志配置
 log:
-  # 请求/任务访问日志格式，可选 text 和 json
+  # 格式，可选 text 和 json
   format: json
-  # 请求/任务访问日志级别，可选 error / info / debug
+  # 级别，可选 error / info / debug
   level: info
   # klog 详细级别，等价于命令行 -v；默认 0，命令行显式 -v 优先于本配置
   verbosity: 0
-  # 是否在请求访问日志中输出 SQL
+  # 是否在请求日志中输出 SQL
   sql: false
