@@ -35,7 +35,7 @@
 
 ```bash
 # 下载最新版本（替换为实际版本号）
-VERSION=v2.0.1-beta.4
+VERSION=v2.0.1-beta.5
 curl -Lo /usr/local/bin/deploy-agent \
   https://github.com/caoyingjunz/pixiu/releases/download/${VERSION}/deploy-agent-linux-amd64
 chmod +x /usr/local/bin/deploy-agent
