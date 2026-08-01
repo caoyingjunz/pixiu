@@ -25,6 +25,8 @@ import (
 	"sync"
 
 	"k8s.io/klog/v2"
+
+	"github.com/caoyingjunz/pixiu/pkg/accesslog"
 )
 
 var logInitOnce sync.Once
@@ -104,6 +106,29 @@ func (o *LogOptions) Valid() error {
 		return nil
 	default:
 		return ErrInvalidLogFormat
+	}
+}
+
+// AccessOptions 返回请求/任务访问日志选项（与 klog verbosity 无关）。
+func (o *LogOptions) AccessOptions() accesslog.Options {
+	if o == nil {
+		return accesslog.DefaultOptions()
+	}
+	format := accesslog.FormatJSON
+	if o.LogFormat == LogFormatText {
+		format = accesslog.FormatText
+	}
+	level := accesslog.LevelInfo
+	switch o.LogLevel {
+	case ErrorLevel:
+		level = accesslog.LevelError
+	case DebugLevel:
+		level = accesslog.LevelDebug
+	}
+	return accesslog.Options{
+		Format: format,
+		Level:  level,
+		SQL:    o.LogSQL,
 	}
 }
 

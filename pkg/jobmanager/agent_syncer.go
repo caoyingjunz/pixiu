@@ -76,7 +76,7 @@ func (as *AgentSyncer) Do(ctx *JobContext) error {
 	}
 
 	if offlineCount > 0 {
-		klog.Infof("[AgentSyncer] marked %d agent(s) offline", offlineCount)
+		klog.V(2).Infof("[AgentSyncer] marked %d agent(s) offline", offlineCount)
 	}
 	return nil
 }

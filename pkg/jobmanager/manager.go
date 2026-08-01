@@ -18,6 +18,8 @@ package jobmanager
 
 import (
 	"github.com/robfig/cron/v3"
+
+	"github.com/caoyingjunz/pixiu/pkg/accesslog"
 )
 
 type Job interface {
@@ -39,8 +41,12 @@ type Manager struct {
 	cron *cron.Cron
 }
 
-func NewManager(lc *AccessLogOptions, jobs ...Job) *Manager {
-	c := cron.New()
+func NewManager(lc *accesslog.Options, jobs ...Job) *Manager {
+	logger := accesslog.CronLogger{}
+	c := cron.New(
+		cron.WithLogger(logger),
+		cron.WithChain(cron.SkipIfStillRunning(logger)),
+	)
 	for _, job := range jobs {
 		job := job
 		_, _ = c.AddFunc(job.CronSpec(), func() {
@@ -48,9 +54,7 @@ func NewManager(lc *AccessLogOptions, jobs ...Job) *Manager {
 			ctx.Log(job.LogLevel(), job.Do(ctx))
 		})
 	}
-	return &Manager{
-		c,
-	}
+	return &Manager{c}
 }
 
 func (m *Manager) Run() {

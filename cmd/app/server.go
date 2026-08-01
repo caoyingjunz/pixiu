@@ -43,16 +43,13 @@ func NewServerCommand(version string) *cobra.Command {
 		Long: "The pixiu server controller is a daemon that embeds the core control loops.",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err = opts.Complete(cmd); err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				os.Exit(1)
+				klog.Fatal(err)
 			}
 			if err = opts.Validate(); err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				os.Exit(1)
+				klog.Fatal(err)
 			}
 			if err = Run(opts); err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				os.Exit(1)
+				klog.Fatal(err)
 			}
 		},
 		Args: func(cmd *cobra.Command, args []string) error {

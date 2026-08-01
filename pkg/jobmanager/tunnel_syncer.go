@@ -107,7 +107,7 @@ func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.Shar
 
 	if desired == obj.ClusterStatus {
 		if prev != connected {
-			klog.Infof("[TunnelSyncer] cluster %s agent_connected=%v", obj.Name, connected)
+			klog.V(2).Infof("[TunnelSyncer] cluster %s agent_connected=%v", obj.Name, connected)
 		}
 		return nil
 	}
@@ -120,7 +120,7 @@ func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.Shar
 		}
 		return err
 	}
-	klog.Infof("[TunnelSyncer] cluster %s status %d -> %d (agent_connected=%v)",
+	klog.V(2).Infof("[TunnelSyncer] cluster %s status %d -> %d (agent_connected=%v)",
 		obj.Name, obj.ClusterStatus, desired, connected)
 	return nil
 }

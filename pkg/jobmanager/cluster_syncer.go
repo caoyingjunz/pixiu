@@ -97,7 +97,7 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 
 func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 	if cluster.PermissionId != 0 {
-		klog.V(1).Infof("authorized cluster %s(%d) needs no checking", cluster.AliasName, cluster.Id)
+		klog.V(2).Infof("authorized cluster %s(%d) needs no checking", cluster.AliasName, cluster.Id)
 		return nil
 	}
 

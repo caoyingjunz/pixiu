@@ -17,23 +17,22 @@ limitations under the License.
 package middleware
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
-	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/accesslog"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
 func Logger(cfg *config.LogOptions) gin.HandlerFunc {
-	if cfg == nil {
-		defaults := config.DefaultLogOptions()
-		cfg = &defaults
+	opts := accesslog.DefaultOptions()
+	if cfg != nil {
+		opts = cfg.AccessOptions()
 	}
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -50,60 +49,20 @@ func Logger(cfg *config.LogOptions) gin.HandlerFunc {
 			"client_ip":               c.ClientIP(),
 			"latency":                 fmt.Sprintf("%dµs", time.Since(start).Microseconds()),
 		}
-		if cfg.LogSQL {
+		if opts.SQL {
 			if sqls := db.GetSQLs(c); len(sqls) > 0 {
 				fields["sqls"] = sqls
 			}
 		}
-		emitAccessLog(cfg, fields, err)
-	}
-}
-
-func emitAccessLog(cfg *config.LogOptions, fields map[string]interface{}, err error) {
-	if err != nil {
-		fields["error"] = err.Error()
-		writeAccessLog(cfg, "FAIL", "error", fields, err)
-		return
-	}
-	if cfg.LogLevel == config.ErrorLevel {
-		return
-	}
-	writeAccessLog(cfg, "SUCCESS", "info", fields, nil)
-}
-
-func writeAccessLog(cfg *config.LogOptions, msg, level string, fields map[string]interface{}, err error) {
-	if cfg.LogFormat == config.LogFormatText {
-		kvs := make([]interface{}, 0, len(fields)*2)
-		for k, v := range fields {
-			if level == "error" && k == "error" {
-				continue
-			}
-			kvs = append(kvs, k, v)
-		}
-		if level == "error" {
-			klog.ErrorS(err, msg, kvs...)
+		if err != nil {
+			fields["error"] = err.Error()
+			accesslog.Emit(opts, "FAIL", "error", fields, err)
 			return
 		}
-		klog.InfoS(msg, kvs...)
-		return
+		// HTTP 成功请求均为 info 档；log.level=debug 时与 info 行为一致（仍输出）。
+		if !opts.AllowSuccess(accesslog.TierInfo) {
+			return
+		}
+		accesslog.Emit(opts, "SUCCESS", "info", fields, nil)
 	}
-
-	payload := make(map[string]interface{}, len(fields)+3)
-	for k, v := range fields {
-		payload[k] = v
-	}
-	payload["msg"] = msg
-	payload["level"] = level
-	payload["ts"] = time.Now().Format(time.RFC3339Nano)
-	b, marshalErr := json.Marshal(payload)
-	if marshalErr != nil {
-		klog.Errorf("marshal access log failed: %v", marshalErr)
-		return
-	}
-	line := string(b)
-	if level == "error" {
-		klog.Error(line)
-		return
-	}
-	klog.Info(line)
 }

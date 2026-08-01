@@ -164,13 +164,9 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 
 	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
-	logCfg := o.ComponentConfig.Log
+	accessOpts := o.ComponentConfig.Log.AccessOptions()
 	o.JobManager = jobmanager.NewManager(
-		&jobmanager.AccessLogOptions{
-			Format: string(logCfg.LogFormat),
-			Level:  logCfg.LogLevel.String(),
-			SQL:    logCfg.LogSQL,
-		},
+		&accessOpts,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory, o.ComponentConfig.Default.Mode.InDebug()),
@@ -218,7 +214,8 @@ func (o *Options) registerDatabase() error {
 		sqlConfig.Name)
 
 	opt := &gorm.Config{
-		Logger: pixiudb.NewLogger(logger.Info, defaultSlowSQLDuration),
+		// SQL 仅通过 access log（log.sql）采集；不向 gorm 默认通道输出
+		Logger: pixiudb.NewLogger(logger.Silent, defaultSlowSQLDuration),
 	}
 	db, err := gorm.Open(mysql.Open(dsn), opt)
 	if err != nil {

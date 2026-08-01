@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"os"
 	"os/signal"
 	"strings"
@@ -29,6 +30,9 @@ import (
 )
 
 func main() {
+	klog.InitFlags(nil)
+	flag.Parse()
+
 	server := strings.TrimSpace(os.Getenv("PIXIU_SERVER"))
 	token := strings.TrimSpace(os.Getenv("PIXIU_TOKEN"))
 	if server == "" || token == "" {
