@@ -22,8 +22,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
@@ -33,6 +35,21 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 	keyBytes := []byte(o.ComponentConfig.Default.JWTKey)
 
 	return func(c *gin.Context) {
+		// /k8s 网关：使用集群 Access Token（kubectl）
+		if proxy.IsKubeGatewayPath(c) {
+			if err := authenticateKubeGateway(c, o); err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, metav1.Status{
+					TypeMeta: metav1.TypeMeta{Kind: "Status", APIVersion: "v1"},
+					Status:   metav1.StatusFailure,
+					Message:  err.Error(),
+					Reason:   metav1.StatusReasonUnauthorized,
+					Code:     http.StatusUnauthorized,
+				})
+				return
+			}
+			return
+		}
+
 		// debug 模式，全部放通
 		if o.ComponentConfig.Default.Mode.InDebug() {
 			// Considered all as root user when running in debug mode.
@@ -60,6 +77,23 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 			return
 		}
 	}
+}
+
+func authenticateKubeGateway(c *gin.Context, o *options.Options) error {
+	if !o.ComponentConfig.KubeGateway.IsEnabled() {
+		return fmt.Errorf("kube gateway is disabled")
+	}
+	raw, err := tokenutil.ExtractToken(c, strings.EqualFold(c.GetHeader("Upgrade"), "websocket"))
+	if err != nil {
+		return fmt.Errorf("unauthorized")
+	}
+	user, rec, err := o.Controller.Cluster().ValidateKubeAccessToken(c, raw)
+	if err != nil {
+		return fmt.Errorf("unauthorized")
+	}
+	httputils.SetUserToContext(c, user)
+	httputils.SetKubeAccessClusterToContext(c, rec.ClusterName)
+	return nil
 }
 
 func parseRoleAndValidClaim(c *gin.Context, o *options.Options, keyBytes []byte) (*int64, error) {

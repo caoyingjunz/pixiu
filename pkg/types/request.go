@@ -82,6 +82,12 @@ type (
 		Protected       bool   `json:"protected" binding:"omitempty"`       // optional
 	}
 
+	// CreateProxyKubeconfigRequest 生成指向 Pixiu 的代理 kubeconfig
+	CreateProxyKubeconfigRequest struct {
+		Name         string `json:"name" binding:"omitempty"`          // token 备注
+		ExpireHours  int    `json:"expire_hours" binding:"omitempty"`  // 默认取配置
+	}
+
 	CreateDatasourceRequest struct {
 		Name        string                  `json:"name" binding:"required"`
 		ClusterName string                  `json:"cluster_name"`

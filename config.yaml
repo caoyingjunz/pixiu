@@ -53,3 +53,13 @@ log:
   verbosity: 0
   # 是否在请求日志中输出 SQL
   sql: false
+
+# 集群代理 kubeconfig（kubectl 经 Pixiu 转发）
+kube_gateway:
+  enabled: true
+  # 默认 token 有效期（小时），默认 720（30 天）
+  default_expire_hours: 720
+  # 最大 token 有效期（小时）
+  max_expire_hours: 8760
+  # kubeconfig 是否跳过 TLS 校验（自签证书时可 true）
+  insecure_skip_tls_verify: true

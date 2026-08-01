@@ -32,11 +32,12 @@ func (m Mode) InDebug() bool {
 }
 
 type Config struct {
-	Default DefaultOptions          `yaml:"default"`
-	Mysql   MysqlOptions            `yaml:"mysql"`
-	Worker  WorkerOptions           `yaml:"worker"`
-	Audit   jobmanager.AuditOptions `yaml:"audit"`
-	Log     LogOptions              `yaml:"log"`
+	Default     DefaultOptions          `yaml:"default"`
+	Mysql       MysqlOptions            `yaml:"mysql"`
+	Worker      WorkerOptions           `yaml:"worker"`
+	Audit       jobmanager.AuditOptions `yaml:"audit"`
+	Log         LogOptions              `yaml:"log"`
+	KubeGateway KubeGatewayOptions      `yaml:"kube_gateway"`
 
 	AlertHistory jobmanager.AlertHistoryOptions `yaml:"alert"`
 }
@@ -68,6 +69,37 @@ type DefaultOptions struct {
 }
 
 func (o DefaultOptions) Valid() error {
+	return nil
+}
+
+// KubeGatewayOptions 集群代理 kubeconfig /k8s 网关配置。
+type KubeGatewayOptions struct {
+	Enabled                *bool `yaml:"enabled"`
+	DefaultExpireHours     int   `yaml:"default_expire_hours"`
+	MaxExpireHours         int   `yaml:"max_expire_hours"`
+	InsecureSkipTLSVerify  bool  `yaml:"insecure_skip_tls_verify"`
+}
+
+func (o *KubeGatewayOptions) IsEnabled() bool {
+	if o == nil || o.Enabled == nil {
+		return true
+	}
+	return *o.Enabled
+}
+
+func (o *KubeGatewayOptions) Normalize() {
+	if o.DefaultExpireHours <= 0 {
+		o.DefaultExpireHours = 720
+	}
+	if o.MaxExpireHours <= 0 {
+		o.MaxExpireHours = 8760
+	}
+	if o.DefaultExpireHours > o.MaxExpireHours {
+		o.DefaultExpireHours = o.MaxExpireHours
+	}
+}
+
+func (o KubeGatewayOptions) Valid() error {
 	return nil
 }
 
@@ -112,6 +144,10 @@ func (c *Config) Valid() (err error) {
 		return
 	}
 	if err = c.Worker.Valid(); err != nil {
+		return
+	}
+	c.KubeGateway.Normalize()
+	if err = c.KubeGateway.Valid(); err != nil {
 		return
 	}
 

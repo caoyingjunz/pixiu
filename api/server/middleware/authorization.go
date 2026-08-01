@@ -51,9 +51,9 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 			return
 		}
 
-		// Proxy path should be skipped now.
+		// Proxy / kube gateway path should be skipped now.
 		// TODO: get object and ID from proxy path
-		if proxy.IsProxyPath(c) || cluster.IsKubeProxyPath(c) || cluster.IsHelmPath(c) {
+		if proxy.IsProxyPath(c) || proxy.IsKubeGatewayPath(c) || cluster.IsKubeProxyPath(c) || cluster.IsHelmPath(c) {
 			return
 		}
 	}

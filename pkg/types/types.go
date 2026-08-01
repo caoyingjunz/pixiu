@@ -684,6 +684,19 @@ type KubeConfigResponse struct {
 	Content     string `json:"content"`
 }
 
+// ProxyKubeconfigResponse 指向 Pixiu 网关的标准 kubeconfig（token 仅返回一次）
+type ProxyKubeconfigResponse struct {
+	ClusterId          int64  `json:"cluster_id"`
+	ClusterName        string `json:"cluster_name"`
+	AliasName          string `json:"alias_name"`
+	JTI                string `json:"jti"`
+	ExpireAt           string `json:"expire_at"`
+	Server             string `json:"server"`
+	Token              string `json:"token"`
+	KubeConfig         string `json:"kubeconfig"`
+	KubeConfigEncoding string `json:"kubeconfig_encoding"` // yaml
+}
+
 type AgentHeartbeatRequest struct {
 	Hostname string `json:"hostname"`
 	Version  string `json:"version"`

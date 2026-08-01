@@ -56,6 +56,8 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "/ping", Handler: cr.pingCluster, Description: "连通测试"},
 			{Method: "POST", RelativePath: "/protect/:clusterId", Handler: cr.protectCluster, Description: "删除保护"},
 			{Method: "GET", RelativePath: "/:clusterId/kubeconfig", Handler: cr.getClusterKubeconfig, Description: "查看KubeConfig"},
+			{Method: "POST", RelativePath: "/:clusterId/proxy-kubeconfig", Handler: cr.createProxyKubeconfig, Description: "生成代理KubeConfig"},
+			{Method: "DELETE", RelativePath: "/:clusterId/access-tokens/:jti", Handler: cr.revokeAccessToken, Description: "吊销访问令牌"},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())

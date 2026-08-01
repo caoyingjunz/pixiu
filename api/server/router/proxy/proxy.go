@@ -55,6 +55,7 @@ func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
 		// 通用的外部请求代理
 		proxyRoute.Any("/external/*act", p.externalProxyHandler)
 	}
+	p.initKubeGatewayRoutes(ginEngine)
 }
 
 func (p *proxyRouter) proxyHandler(c *gin.Context) {
@@ -69,6 +70,12 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	}
 
 	name := cluster.Name
+	if user, userErr := httputils.GetUserFromRequest(c); userErr == nil {
+		if _, authErr := p.c.Cluster().AuthorizeClusterAccessByName(c, user, name); authErr != nil {
+			httputils.SetFailed(c, resp, authErr)
+			return
+		}
+	}
 	clusterSet, err := p.c.Cluster().GetClusterSetByName(context.TODO(), name)
 	if err != nil {
 		httputils.SetFailed(c, resp, fmt.Errorf("failed to get cluster %q clusterSet %v", name, err))

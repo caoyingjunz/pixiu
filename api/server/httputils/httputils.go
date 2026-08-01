@@ -160,6 +160,25 @@ func SetUserToContext(c *gin.Context, user *model.User) {
 	c.Set(userKey, user)
 }
 
+const kubeAccessClusterKey = "kube_access_cluster"
+
+// SetKubeAccessClusterToContext 记录 Access Token 绑定的集群 name。
+func SetKubeAccessClusterToContext(c *gin.Context, clusterName string) {
+	c.Set(kubeAccessClusterKey, clusterName)
+}
+
+func GetKubeAccessClusterFromContext(ctx context.Context) (string, error) {
+	val := ctx.Value(kubeAccessClusterKey)
+	if val == nil {
+		return "", fmt.Errorf("get nil kube access cluster")
+	}
+	name, ok := val.(string)
+	if !ok || name == "" {
+		return "", fmt.Errorf("invalid kube access cluster")
+	}
+	return name, nil
+}
+
 func GetObjectFromRequest(c *gin.Context) (string, string, bool) {
 	return getObjectFromRequest(c.Request.URL.Path)
 }
