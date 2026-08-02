@@ -20,16 +20,7 @@ import (
 	"context"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/db"
 )
-
-func MakeDbOptions(ctx context.Context) (opts []db.Options) {
-	exists, ids := httputils.GetIdRangeFromListReq(ctx)
-	if exists {
-		opts = append(opts, db.WithIDIn(ids...))
-	}
-	return
-}
 
 func CurrentUserName(ctx context.Context) string {
 	user, err := httputils.GetUserFromContext(ctx)
