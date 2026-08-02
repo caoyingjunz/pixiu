@@ -23,7 +23,7 @@ import (
 )
 
 func CurrentUserName(ctx context.Context) string {
-	user, err := httputils.GetUserFromRequest(ctx)
+	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil || user == nil {
 		return ""
 	}

@@ -6,13 +6,19 @@ default:
   # jwt 签名的 key
   jwt_key: pixiu
   # true: 同账号仅允许单人在线；false: 允许多人同时在线
-  single_login: true
+  single_login: false
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
 
   # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
   admin_user: admin
   admin_password: Pixiu123456!
+
+  # 对外访问地址（须带协议，供 Agent 反向隧道、代理 kubeconfig 的 server 使用）
+  # 示例: https://pixiu.example.com
+  # 若填写 http://host:8091，签发 kubeconfig 时会自动改写为 https://host:8443（kubectl 不在明文 HTTP 上发送 Bearer）
+  # 未配置时，签发代理 kubeconfig 会尝试从当前请求的 Host / X-Forwarded-* 推断
+#  public_url: https://pixiu.example.com
 
   # CloudShell/工具容器镜像
 #  toolbox: ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0
@@ -32,8 +38,9 @@ worker:
 # 配置 http 和 https， 默认 http，
 # 启用https的时候 cert_file 和 key_file 为必填
 #tls:
-#  enable: false
-#  cert_file: test.pem
+#  enable: true
+#  listen: 8443
+#  cert_file: test.crt
 #  key_file: test.key
 
 # 告警历史清理（清理过期的告警通知记录）
@@ -53,3 +60,13 @@ log:
   verbosity: 0
   # 是否在请求日志中输出 SQL
   sql: false
+
+# 集群代理 kubeconfig（kubectl 经 Pixiu 转发，server 必须为 https，可以启用https或者前方挂 nginx）
+kube_gateway:
+  enabled: true
+  # 默认 token 有效期（小时），默认 720（30 天）
+  default_expire_hours: 720
+  # 最大 token 有效期（小时）
+  max_expire_hours: 8760
+  # kubeconfig 是否跳过 TLS 校验（自签证书时可 true）
+  insecure_skip_tls_verify: true

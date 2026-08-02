@@ -388,3 +388,30 @@ func WithAlertChannelType(channelType model.AlertNotifyChannel) Options {
 		return tx.Where("channel_type = ?", channelType)
 	}
 }
+
+func WithClusterId(clusterId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if clusterId == 0 {
+			return tx
+		}
+		return tx.Where("cluster_id = ?", clusterId)
+	}
+}
+
+func WithJTI(jti string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if jti == "" {
+			return tx
+		}
+		return tx.Where("jti = ?", jti)
+	}
+}
+
+func WithTokenHash(hash string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if hash == "" {
+			return tx
+		}
+		return tx.Where("token_hash = ?", hash)
+	}
+}

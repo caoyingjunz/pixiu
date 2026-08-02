@@ -227,7 +227,7 @@ func (o *Options) bootstrapDistributions(ctx context.Context) error {
 		}
 	}
 
-	klog.Infof("完成 operating system 的初始化")
+	klog.Infof("operating system initialization completed")
 	return nil
 }
 
@@ -261,6 +261,6 @@ func (o *Options) bootstrapRunners(ctx context.Context) error {
 		}
 	}
 
-	klog.Infof("完成 runner 的初始化")
+	klog.Infof("runner initialization completed")
 	return nil
 }

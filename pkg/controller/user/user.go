@@ -342,7 +342,7 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 		return nil, fmt.Errorf("生成用户 token 失败: %v", err)
 	}
 
-	if *u.cc.Default.SingleLogin {
+	if u.cc.Default.SingleLogin {
 		tokenIndexer.Set(object.Id, token)
 	} else {
 		tokenIndexer.Add(object.Id, token)
@@ -358,7 +358,7 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 // Logout
 // 允许用户登出登陆状态
 func (u *user) Logout(ctx *gin.Context, userId int64) error {
-	if *u.cc.Default.SingleLogin {
+	if u.cc.Default.SingleLogin {
 		tokenIndexer.Delete(userId)
 		return nil
 	}
@@ -372,7 +372,7 @@ func (u *user) Logout(ctx *gin.Context, userId int64) error {
 }
 
 func (u *user) ValidateLoginToken(ctx context.Context, userId int64, token string) (bool, error) {
-	if *u.cc.Default.SingleLogin {
+	if u.cc.Default.SingleLogin {
 		existToken, err := u.GetLoginToken(ctx, userId)
 		if err != nil {
 			return false, err

@@ -23,8 +23,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"k8s.io/apimachinery/pkg/util/proxy"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -55,6 +53,8 @@ func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
 		// 通用的外部请求代理
 		proxyRoute.Any("/external/*act", p.externalProxyHandler)
 	}
+
+	p.initKubeGatewayRoutes(ginEngine)
 }
 
 func (p *proxyRouter) proxyHandler(c *gin.Context) {
@@ -69,35 +69,24 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	}
 
 	name := cluster.Name
+	if user, userErr := httputils.GetUserFromContext(c); userErr == nil {
+		if _, authErr := p.c.Cluster().AuthorizeClusterAccessByName(c, user, name); authErr != nil {
+			httputils.SetFailed(c, resp, authErr)
+			return
+		}
+	}
 	clusterSet, err := p.c.Cluster().GetClusterSetByName(context.TODO(), name)
 	if err != nil {
 		httputils.SetFailed(c, resp, fmt.Errorf("failed to get cluster %q clusterSet %v", name, err))
 		return
 	}
-	config := clusterSet.Config
-
-	transport, err := rest.TransportFor(config)
-	if err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-	target, err := p.parseTarget(*c.Request.URL, config.Host, name)
-	if err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
-
-	// 清除可能导致 K8s 认证冲突的头部
-	// 浏览器发往 Pixiu 的请求带有 Pixiu 的 Authorization，透传给 K8s 会导致 K8s 认证失败
-	c.Request.Header.Del("Authorization")
-	c.Request.Header.Del("Cookie")
 
 	// 根据 X-Pixiu-Datasource-Id 从数据源配置解析上游服务（如 ES、Loki）认证信息
 	pixiuDatasourceId := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
 	if len(pixiuDatasourceId) != 0 {
 		klog.Infof("proxying with datasource %s", pixiuDatasourceId)
 		if upstreamAuth := p.resolveUpstreamAuth(c, pixiuDatasourceId); upstreamAuth != "" {
-			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, config, name, upstreamAuth)
+			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, name, upstreamAuth)
 			if handled {
 				if proxyErr != nil {
 					httputils.SetFailed(c, resp, proxyErr)
@@ -107,22 +96,17 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		}
 	}
 
-	klog.Infof("proxying serve directly")
-	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
-	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
-	httpProxy.ServeHTTP(c.Writer, c.Request)
+	target, err := p.parseProxyTarget(*c.Request.URL, name)
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = p.forwardToCluster(c, name, target); err != nil {
+		httputils.SetFailed(c, resp, err)
+	}
 }
 
-func (p *proxyRouter) parseTarget(target url.URL, host string, name string) (*url.URL, error) {
-	kubeURL, err := url.Parse(host)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: 检查 URL 是否规范
+func (p *proxyRouter) parseProxyTarget(target url.URL, name string) (*url.URL, error) {
 	target.Path = target.Path[len(proxyBaseURL+"/"+name):]
-
-	target.Host = kubeURL.Host
-	target.Scheme = kubeURL.Scheme
 	return &target, nil
 }

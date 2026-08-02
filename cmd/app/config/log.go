@@ -152,7 +152,7 @@ func (o *LogOptions) Init(cliVerbositySet bool) {
 		if f := flag.CommandLine.Lookup("v"); f != nil {
 			verbosity = f.Value.String()
 		}
-		klog.Infof("logging initialized: backend=klog/v2 format=%s level=%s verbosity=%s sql=%t",
+		klog.Infof("logging initialized: format=%s level=%s verbosity=%s sql=%t",
 			o.LogFormat, o.LogLevel.String(), verbosity, o.LogSQL)
 	})
 }

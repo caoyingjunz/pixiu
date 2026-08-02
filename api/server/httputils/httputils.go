@@ -25,6 +25,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	validatorutil "github.com/caoyingjunz/pixiu/api/server/validator"
@@ -135,7 +136,7 @@ func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}
 
 const userKey = "user"
 
-func GetUserFromRequest(ctx context.Context) (*model.User, error) {
+func GetUserFromContext(ctx context.Context) (*model.User, error) {
 	val := ctx.Value(userKey)
 	if val == nil {
 		return nil, fmt.Errorf("get nil user")
@@ -149,7 +150,7 @@ func GetUserFromRequest(ctx context.Context) (*model.User, error) {
 }
 
 func GetUserIdFromContext(ctx context.Context) (int64, error) {
-	user, err := GetUserFromRequest(ctx)
+	user, err := GetUserFromContext(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -158,6 +159,25 @@ func GetUserIdFromContext(ctx context.Context) (int64, error) {
 
 func SetUserToContext(c *gin.Context, user *model.User) {
 	c.Set(userKey, user)
+}
+
+const kubeAccessClusterKey = "kube_access_cluster"
+
+// SetKubeAccessClusterToContext 记录 Access Token 绑定的集群 name。
+func SetKubeAccessClusterToContext(c *gin.Context, clusterName string) {
+	c.Set(kubeAccessClusterKey, clusterName)
+}
+
+func GetKubeAccessClusterFromContext(ctx context.Context) (string, error) {
+	val := ctx.Value(kubeAccessClusterKey)
+	if val == nil {
+		return "", fmt.Errorf("get nil kube access cluster")
+	}
+	name, ok := val.(string)
+	if !ok || name == "" {
+		return "", fmt.Errorf("invalid kube access cluster")
+	}
+	return name, nil
 }
 
 func GetObjectFromRequest(c *gin.Context) (string, string, bool) {
@@ -229,4 +249,19 @@ func GetRawError(ctx context.Context) (err error) {
 
 	err = val.(error)
 	return
+}
+
+// WriteKubeError 以 K8s Status 格式响应网关错误（供 /k8s 代理路径使用）。
+func WriteKubeError(c *gin.Context, code int, reason metav1.StatusReason, message string) {
+	c.Header("WWW-Authenticate", `Bearer realm="pixiu"`)
+	c.AbortWithStatusJSON(code, metav1.Status{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Status",
+			APIVersion: "v1",
+		},
+		Status:  metav1.StatusFailure,
+		Message: message,
+		Reason:  reason,
+		Code:    int32(code),
+	})
 }

@@ -16,7 +16,11 @@ limitations under the License.
 
 package types
 
-import "github.com/caoyingjunz/pixiu/pkg/db/model"
+import (
+	"time"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+)
 
 const AllNamespace = "all_namespaces"
 
@@ -80,6 +84,14 @@ type (
 	ProtectClusterRequest struct {
 		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
 		Protected       bool   `json:"protected" binding:"omitempty"`       // optional
+	}
+
+	// CreateProxyKubeconfigRequest 生成指向 Pixiu 的代理 kubeconfig
+	CreateProxyKubeconfigRequest struct {
+		ClusterId int64 `uri:"clusterId"` // 由 handler 从 URI 注入
+
+		// ExpiresAt 过期时间（RFC3339，如 2026-08-02T22:00:00+08:00）；为空则按配置默认时长
+		ExpiresAt *time.Time `json:"expires_at"`
 	}
 
 	CreateDatasourceRequest struct {

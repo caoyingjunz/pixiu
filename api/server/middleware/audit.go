@@ -103,7 +103,7 @@ func Audit(o *options.Options) gin.HandlerFunc {
 
 func buildAuditRecord(c *gin.Context, startTime time.Time) *model.Audit {
 	userName := "unknown"
-	if user, err := httputils.GetUserFromRequest(c); err == nil && user != nil {
+	if user, err := httputils.GetUserFromContext(c); err == nil && user != nil {
 		userName = user.Name
 	}
 

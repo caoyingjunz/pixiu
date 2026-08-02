@@ -29,3 +29,8 @@ func IsProxyPath(c *gin.Context) bool {
 	path := c.Request.URL.Path
 	return strings.HasPrefix(path, proxyBaseURL) || strings.HasPrefix(path, externalProxyBaseURL)
 }
+
+// IsKubeGatewayPath returns true when the request hits /k8s/:clusterName/* gateway.
+func IsKubeGatewayPath(c *gin.Context) bool {
+	return strings.HasPrefix(c.Request.URL.Path, kubeGatewayBaseURL+"/")
+}
