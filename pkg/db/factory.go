@@ -22,7 +22,6 @@ import (
 
 type ShareDaoFactory interface {
 	Cluster() ClusterInterface
-	ClusterAccessToken() ClusterAccessTokenInterface
 	Tenant() TenantInterface
 	Role() RoleInterface
 	RoleAPI() RoleAPIInterface
@@ -44,10 +43,7 @@ type shareDaoFactory struct {
 	db *gorm.DB
 }
 
-func (f *shareDaoFactory) Cluster() ClusterInterface { return newCluster(f.db) }
-func (f *shareDaoFactory) ClusterAccessToken() ClusterAccessTokenInterface {
-	return newClusterAccessToken(f.db)
-}
+func (f *shareDaoFactory) Cluster() ClusterInterface           { return newCluster(f.db) }
 func (f *shareDaoFactory) Tenant() TenantInterface             { return newTenant(f.db) }
 func (f *shareDaoFactory) Role() RoleInterface                 { return newRole(f.db) }
 func (f *shareDaoFactory) RoleAPI() RoleAPIInterface           { return newRoleAPI(f.db) }

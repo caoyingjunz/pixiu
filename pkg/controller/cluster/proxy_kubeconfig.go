@@ -61,7 +61,7 @@ func (p *proxyKubeconfig) Create(ctx context.Context, req *types.CreateProxyKube
 	}
 
 	// 每个用户每个集群只允许一个代理 token
-	existing, _ := p.c.factory.ClusterAccessToken().List(ctx, db.WithClusterId(obj.Id), db.WithUser(user.Id))
+	existing, _ := p.c.factory.Cluster().AccessToken().List(ctx, db.WithClusterId(obj.Id), db.WithUser(user.Id))
 	if len(existing) > 0 {
 		return errors.NewError(fmt.Errorf("proxy kubeconfig already exists"), http.StatusConflict)
 	}
@@ -90,7 +90,7 @@ func (p *proxyKubeconfig) Create(ctx context.Context, req *types.CreateProxyKube
 		TokenHash:   hash,
 		ExpiresAt:   &expireAt,
 	}
-	if _, err = p.c.factory.ClusterAccessToken().Create(ctx, record); err != nil {
+	if _, err = p.c.factory.Cluster().AccessToken().Create(ctx, record); err != nil {
 		klog.Errorf("failed to create cluster access token: %v", err)
 		return errors.ErrServerInternal
 	}
@@ -111,7 +111,7 @@ func (p *proxyKubeconfig) Revoke(ctx context.Context, clusterId int64, jti strin
 	if jti == "" {
 		return errors.ErrInvalidRequest
 	}
-	if err = p.c.factory.ClusterAccessToken().RevokeByJTI(ctx, jti, user.Id); err != nil {
+	if err = p.c.factory.Cluster().AccessToken().RevokeByJTI(ctx, jti, user.Id); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.NewError(fmt.Errorf("access token not found"), http.StatusNotFound)
 		}
@@ -131,7 +131,7 @@ func (p *proxyKubeconfig) Get(ctx context.Context, clusterId int64) (*types.Prox
 	if err != nil {
 		return nil, err
 	}
-	tokens, err := p.c.factory.ClusterAccessToken().List(ctx, db.WithClusterId(clusterId), db.WithUser(user.Id))
+	tokens, err := p.c.factory.Cluster().AccessToken().List(ctx, db.WithClusterId(clusterId), db.WithUser(user.Id))
 	if err != nil {
 		return nil, errors.ErrServerInternal
 	}
@@ -146,7 +146,7 @@ func (p *proxyKubeconfig) Get(ctx context.Context, clusterId int64) (*types.Prox
 	if err != nil {
 		return nil, errors.ErrServerInternal
 	}
-	if err = p.c.factory.ClusterAccessToken().InternalUpdate(ctx, t.Id, map[string]interface{}{
+	if err = p.c.factory.Cluster().AccessToken().InternalUpdate(ctx, t.Id, map[string]interface{}{
 		"token_hash": hash,
 	}); err != nil {
 		return nil, errors.ErrServerInternal
@@ -180,7 +180,7 @@ func (p *proxyKubeconfig) Validate(ctx context.Context, plaintext string) (*mode
 		return nil, nil, errors.ErrUnauthorized
 	}
 	hash := token.HashKubeAccessToken(plaintext)
-	rec, err := p.c.factory.ClusterAccessToken().GetByTokenHash(ctx, hash)
+	rec, err := p.c.factory.Cluster().AccessToken().GetByTokenHash(ctx, hash)
 	if err != nil {
 		klog.Errorf("failed to get access token by hash: %v", err)
 		return nil, nil, errors.ErrServerInternal
@@ -196,7 +196,7 @@ func (p *proxyKubeconfig) Validate(ctx context.Context, plaintext string) (*mode
 		return nil, nil, errors.ErrForbidden
 	}
 	go func() {
-		_ = p.c.factory.ClusterAccessToken().TouchLastUsed(context.Background(), rec.Id)
+		_ = p.c.factory.Cluster().AccessToken().TouchLastUsed(context.Background(), rec.Id)
 	}()
 	return user, rec, nil
 }
