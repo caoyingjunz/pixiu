@@ -26,25 +26,26 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-type ClusterAccessTokenInterface interface {
+type AccessTokenInterface interface {
 	Create(ctx context.Context, object *model.ClusterAccessToken) (*model.ClusterAccessToken, error)
-	GetByJTI(ctx context.Context, jti string) (*model.ClusterAccessToken, error)
-	GetByTokenHash(ctx context.Context, hash string) (*model.ClusterAccessToken, error)
+	List(ctx context.Context, opts ...Options) ([]model.ClusterAccessToken, error)
+
+	GetBy(ctx context.Context, opts ...Options) (*model.ClusterAccessToken, error)
+
+	InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error
 	RevokeByJTI(ctx context.Context, jti string, userId int64) error
 	TouchLastUsed(ctx context.Context, id int64) error
-	List(ctx context.Context, opts ...Options) ([]model.ClusterAccessToken, error)
-	InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error
 }
 
-type clusterAccessToken struct {
+type accessToken struct {
 	db *gorm.DB
 }
 
-func newClusterAccessToken(db *gorm.DB) ClusterAccessTokenInterface {
-	return &clusterAccessToken{db: db}
+func newAccessToken(db *gorm.DB) AccessTokenInterface {
+	return &accessToken{db: db}
 }
 
-func (a *clusterAccessToken) Create(ctx context.Context, object *model.ClusterAccessToken) (*model.ClusterAccessToken, error) {
+func (a *accessToken) Create(ctx context.Context, object *model.ClusterAccessToken) (*model.ClusterAccessToken, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -54,9 +55,13 @@ func (a *clusterAccessToken) Create(ctx context.Context, object *model.ClusterAc
 	return object, nil
 }
 
-func (a *clusterAccessToken) GetByJTI(ctx context.Context, jti string) (*model.ClusterAccessToken, error) {
+func (a *accessToken) GetBy(ctx context.Context, opts ...Options) (*model.ClusterAccessToken, error) {
 	var object model.ClusterAccessToken
-	if err := a.db.WithContext(ctx).Where("jti = ?", jti).First(&object).Error; err != nil {
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
@@ -65,18 +70,7 @@ func (a *clusterAccessToken) GetByJTI(ctx context.Context, jti string) (*model.C
 	return &object, nil
 }
 
-func (a *clusterAccessToken) GetByTokenHash(ctx context.Context, hash string) (*model.ClusterAccessToken, error) {
-	var object model.ClusterAccessToken
-	if err := a.db.WithContext(ctx).Where("token_hash = ?", hash).First(&object).Error; err != nil {
-		if errors.IsRecordNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &object, nil
-}
-
-func (a *clusterAccessToken) RevokeByJTI(ctx context.Context, jti string, userId int64) error {
+func (a *accessToken) RevokeByJTI(ctx context.Context, jti string, userId int64) error {
 	now := time.Now()
 	f := a.db.WithContext(ctx).Model(&model.ClusterAccessToken{}).
 		Where("jti = ? AND user_id = ? AND revoked_at IS NULL", jti, userId).
@@ -93,7 +87,7 @@ func (a *clusterAccessToken) RevokeByJTI(ctx context.Context, jti string, userId
 	return nil
 }
 
-func (a *clusterAccessToken) TouchLastUsed(ctx context.Context, id int64) error {
+func (a *accessToken) TouchLastUsed(ctx context.Context, id int64) error {
 	now := time.Now()
 	return a.db.WithContext(ctx).Model(&model.ClusterAccessToken{}).
 		Where("id = ?", id).
@@ -103,7 +97,7 @@ func (a *clusterAccessToken) TouchLastUsed(ctx context.Context, id int64) error 
 		}).Error
 }
 
-func (a *clusterAccessToken) List(ctx context.Context, opts ...Options) ([]model.ClusterAccessToken, error) {
+func (a *accessToken) List(ctx context.Context, opts ...Options) ([]model.ClusterAccessToken, error) {
 	var objects []model.ClusterAccessToken
 	tx := a.db.WithContext(ctx)
 	for _, opt := range opts {
@@ -115,7 +109,7 @@ func (a *clusterAccessToken) List(ctx context.Context, opts ...Options) ([]model
 	return objects, nil
 }
 
-func (a *clusterAccessToken) InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error {
+func (a *accessToken) InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error {
 	updates["gmt_modified"] = time.Now()
 	return a.db.WithContext(ctx).Model(&model.ClusterAccessToken{}).Where("id = ?", id).Updates(updates).Error
 }

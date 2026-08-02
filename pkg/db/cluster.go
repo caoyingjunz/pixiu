@@ -41,7 +41,7 @@ type ClusterInterface interface {
 	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
 	UpdateByPlan(ctx context.Context, planId int64, updates map[string]interface{}) error
 
-	AccessToken() ClusterAccessTokenInterface
+	AccessToken() AccessTokenInterface
 }
 
 type cluster struct {
@@ -206,6 +206,6 @@ func newCluster(db *gorm.DB) ClusterInterface {
 	return &cluster{db}
 }
 
-func (c *cluster) AccessToken() ClusterAccessTokenInterface {
-	return newClusterAccessToken(c.db)
+func (c *cluster) AccessToken() AccessTokenInterface {
+	return newAccessToken(c.db)
 }

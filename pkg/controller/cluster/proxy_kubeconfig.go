@@ -180,7 +180,7 @@ func (p *proxyKubeconfig) Validate(ctx context.Context, plaintext string) (*mode
 		return nil, nil, errors.ErrUnauthorized
 	}
 	hash := token.HashKubeAccessToken(plaintext)
-	rec, err := p.c.factory.Cluster().AccessToken().GetByTokenHash(ctx, hash)
+	rec, err := p.c.factory.Cluster().AccessToken().GetBy(ctx, db.WithTokenHash(hash))
 	if err != nil {
 		klog.Errorf("failed to get access token by hash: %v", err)
 		return nil, nil, errors.ErrServerInternal
