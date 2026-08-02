@@ -68,25 +68,30 @@ func (p *proxyKubeconfig) Create(ctx context.Context, req *types.CreateProxyKube
 
 	gw := p.c.cc.KubeGateway
 	gw.SetDefaults()
-	expireHours := req.ExpireHours
-	if expireHours <= 0 {
-		expireHours = gw.DefaultExpireHours
-	}
-	if expireHours > gw.MaxExpireHours {
-		return errors.NewError(fmt.Errorf("expire_hours exceeds max %d", gw.MaxExpireHours), http.StatusBadRequest)
+	now := time.Now()
+	var expireAt time.Time
+	if req.ExpiresAt != nil {
+		expireAt = req.ExpiresAt.UTC()
+		if !expireAt.After(now) {
+			return errors.NewError(fmt.Errorf("expires_at must be in the future"), http.StatusBadRequest)
+		}
+		maxExpireAt := now.Add(time.Duration(gw.MaxExpireHours) * time.Hour)
+		if expireAt.After(maxExpireAt) {
+			return errors.NewError(fmt.Errorf("expires_at exceeds max %d hours", gw.MaxExpireHours), http.StatusBadRequest)
+		}
+	} else {
+		expireAt = now.Add(time.Duration(gw.DefaultExpireHours) * time.Hour)
 	}
 
 	_, jti, hash, err := token.GenerateKubeAccessToken()
 	if err != nil {
 		return errors.ErrServerInternal
 	}
-	expireAt := time.Now().Add(time.Duration(expireHours) * time.Hour)
 	record := &model.ClusterAccessToken{
 		JTI:         jti,
 		UserId:      user.Id,
 		ClusterId:   obj.Id,
 		ClusterName: obj.Name,
-		Name:        strings.TrimSpace(req.Name),
 		TokenHash:   hash,
 		ExpiresAt:   &expireAt,
 	}
@@ -98,7 +103,7 @@ func (p *proxyKubeconfig) Create(ctx context.Context, req *types.CreateProxyKube
 	return nil
 }
 
-// Revoke 吊销指定 jti 的访问令牌（仅 token 所有者）。
+// Revoke 关闭外部访问：直接删除指定 jti 的访问令牌（仅 token 所有者）。
 func (p *proxyKubeconfig) Revoke(ctx context.Context, clusterId int64, jti string) error {
 	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil {
@@ -111,11 +116,11 @@ func (p *proxyKubeconfig) Revoke(ctx context.Context, clusterId int64, jti strin
 	if jti == "" {
 		return errors.ErrInvalidRequest
 	}
-	if err = p.c.factory.Cluster().AccessToken().RevokeByJTI(ctx, jti, user.Id); err != nil {
+	if err = p.c.factory.Cluster().AccessToken().Delete(ctx, db.WithJTI(jti), db.WithUser(user.Id)); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.NewError(fmt.Errorf("access token not found"), http.StatusNotFound)
 		}
-		klog.Errorf("failed to revoke access token(%s): %v", jti, err)
+		klog.Errorf("failed to delete access token(%s): %v", jti, err)
 		return errors.ErrServerInternal
 	}
 	return nil
@@ -160,12 +165,16 @@ func (p *proxyKubeconfig) Get(ctx context.Context, clusterId int64) (*types.Prox
 	if err != nil {
 		return nil, errors.ErrServerInternal
 	}
+	expireAt := ""
+	if t.ExpiresAt != nil {
+		expireAt = t.ExpiresAt.Format(time.RFC3339)
+	}
 	return &types.ProxyKubeconfigResponse{
 		ClusterId:          obj.Id,
 		ClusterName:        obj.Name,
 		AliasName:          obj.AliasName,
 		JTI:                t.JTI,
-		ExpireAt:           "",
+		ExpireAt:           expireAt,
 		Server:             server,
 		Token:              plaintext,
 		KubeConfig:         kubeconfigYAML,

@@ -18,6 +18,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -29,11 +30,10 @@ import (
 type AccessTokenInterface interface {
 	Create(ctx context.Context, object *model.ClusterAccessToken) (*model.ClusterAccessToken, error)
 	List(ctx context.Context, opts ...Options) ([]model.ClusterAccessToken, error)
+	Delete(ctx context.Context, opts ...Options) error
 
 	GetBy(ctx context.Context, opts ...Options) (*model.ClusterAccessToken, error)
-
 	InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error
-	RevokeByJTI(ctx context.Context, jti string, userId int64) error
 	TouchLastUsed(ctx context.Context, id int64) error
 }
 
@@ -70,14 +70,15 @@ func (a *accessToken) GetBy(ctx context.Context, opts ...Options) (*model.Cluste
 	return &object, nil
 }
 
-func (a *accessToken) RevokeByJTI(ctx context.Context, jti string, userId int64) error {
-	now := time.Now()
-	f := a.db.WithContext(ctx).Model(&model.ClusterAccessToken{}).
-		Where("jti = ? AND user_id = ? AND revoked_at IS NULL", jti, userId).
-		Updates(map[string]interface{}{
-			"revoked_at":   now,
-			"gmt_modified": now,
-		})
+func (a *accessToken) Delete(ctx context.Context, opts ...Options) error {
+	if len(opts) == 0 {
+		return fmt.Errorf("delete access token requires at least one filter option")
+	}
+	tx := a.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	f := tx.Delete(&model.ClusterAccessToken{})
 	if f.Error != nil {
 		return f.Error
 	}
