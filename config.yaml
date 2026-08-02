@@ -14,6 +14,11 @@ default:
   admin_user: admin
   admin_password: Pixiu123456!
 
+  # 对外访问地址（须带协议，供 Agent 反向隧道、代理 kubeconfig 的 server 使用）
+  # 示例: https://pixiu.example.com 或 http://1.2.3.4:8090
+  # 未配置时，签发代理 kubeconfig 会尝试从当前请求的 Host / X-Forwarded-* 推断
+#  public_url: https://pixiu.example.com
+
   # CloudShell/工具容器镜像
 #  toolbox: ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0
 
