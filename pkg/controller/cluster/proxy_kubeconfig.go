@@ -222,10 +222,14 @@ func (c *cluster) buildGatewayServer(ctx context.Context, clusterName string) (s
 }
 
 // renderProxyKubeconfig 生成经 Pixiu 网关访问的 kubeconfig 文档（YAML）。
+// 集群/上下文名称使用集群 Name（ASCII），避免中文别名在部分 YAML/kubectl 环境下解析失败。
 func renderProxyKubeconfig(obj *model.Cluster, userId int64, server, accessToken string, insecureSkipTLS bool) (string, error) {
-	ctxName := obj.AliasName
+	ctxName := strings.TrimSpace(obj.Name)
 	if ctxName == "" {
-		ctxName = obj.Name
+		ctxName = strings.TrimSpace(obj.AliasName)
+	}
+	if ctxName == "" {
+		ctxName = "pixiu-cluster"
 	}
 	userName := fmt.Sprintf("pixiu-%d", userId)
 
