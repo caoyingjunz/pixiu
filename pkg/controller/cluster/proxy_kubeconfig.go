@@ -19,10 +19,12 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
@@ -34,7 +36,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 	"github.com/caoyingjunz/pixiu/pkg/util/token"
-	"github.com/gin-gonic/gin"
 )
 
 type proxyKubeconfig struct {
@@ -213,19 +214,33 @@ func (p *proxyKubeconfig) Validate(ctx context.Context, plaintext string) (*mode
 func (c *cluster) buildGatewayServer(ctx context.Context, clusterName string) (string, error) {
 	base := strings.TrimRight(strings.TrimSpace(c.cc.Default.PublicURL), "/")
 	if base == "" {
+		// 不从 127.0.0.1/localhost 推断，避免签发出本机地址的 kubeconfig
 		base = inferPublicURL(ctx)
 	}
 	if base == "" {
-		return "", fmt.Errorf("public_url is not configured, unable to generate proxy kubeconfig")
+		return "", fmt.Errorf("default.public_url is not configured; set it to the externally reachable HTTPS address (e.g. https://console.example.com)")
+	}
+
+	httpsPort := 8443
+	if c.cc.TLS.Listen > 0 {
+		httpsPort = c.cc.TLS.Listen
+	}
+	base, err := ensureHTTPSGatewayBase(base, httpsPort)
+	if err != nil {
+		return "", err
 	}
 	return fmt.Sprintf("%s/k8s/%s", base, clusterName), nil
 }
 
 // renderProxyKubeconfig 生成经 Pixiu 网关访问的 kubeconfig 文档（YAML）。
+// 集群/上下文名称使用集群 Name（ASCII），避免中文别名在部分 YAML/kubectl 环境下解析失败。
 func renderProxyKubeconfig(obj *model.Cluster, userId int64, server, accessToken string, insecureSkipTLS bool) (string, error) {
-	ctxName := obj.AliasName
+	ctxName := strings.TrimSpace(obj.Name)
 	if ctxName == "" {
-		ctxName = obj.Name
+		ctxName = strings.TrimSpace(obj.AliasName)
+	}
+	if ctxName == "" {
+		ctxName = "pixiu-cluster"
 	}
 	userName := fmt.Sprintf("pixiu-%d", userId)
 
@@ -269,5 +284,22 @@ func inferPublicURL(ctx context.Context) string {
 	if host == "" {
 		return ""
 	}
+	// 取 hostname（去掉端口）判断是否回环地址
+	hostname := host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		hostname = h
+	}
+	if isLoopbackHost(hostname) {
+		return ""
+	}
 	return proto + "://" + host
+}
+
+func isLoopbackHost(host string) bool {
+	h := strings.TrimSpace(strings.ToLower(host))
+	if h == "" || h == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }
