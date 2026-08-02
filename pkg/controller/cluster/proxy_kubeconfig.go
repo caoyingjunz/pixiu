@@ -156,7 +156,7 @@ func (p *proxyKubeconfig) Get(ctx context.Context, clusterId int64) (*types.Prox
 	if err != nil {
 		return nil, errors.NewError(err, http.StatusInternalServerError)
 	}
-	kubeconfigYAML, err := buildProxyKubeconfigYAML(obj, user.Id, server, plaintext, gw.InsecureSkipTLSVerify)
+	kubeconfigYAML, err := renderProxyKubeconfig(obj, user.Id, server, plaintext, gw.InsecureSkipTLSVerify)
 	if err != nil {
 		return nil, errors.ErrServerInternal
 	}
@@ -212,7 +212,8 @@ func (c *cluster) buildGatewayServer(ctx context.Context, clusterName string) (s
 	return fmt.Sprintf("%s/k8s/%s", base, clusterName), nil
 }
 
-func buildProxyKubeconfigYAML(obj *model.Cluster, userId int64, server, accessToken string, insecureSkipTLS bool) (string, error) {
+// renderProxyKubeconfig 生成经 Pixiu 网关访问的 kubeconfig 文档（YAML）。
+func renderProxyKubeconfig(obj *model.Cluster, userId int64, server, accessToken string, insecureSkipTLS bool) (string, error) {
 	ctxName := obj.AliasName
 	if ctxName == "" {
 		ctxName = obj.Name
