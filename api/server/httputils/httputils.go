@@ -185,24 +185,6 @@ func getObjectFromRequest(path string) (obj, sid string, ok bool) {
 }
 
 const (
-	objIDsKey = "objIDs"
-)
-
-func SetIdRangeContext(c *gin.Context, ids []int64) {
-	c.Set(objIDsKey, ids)
-}
-
-func GetIdRangeFromListReq(ctx context.Context) (exists bool, ids []int64) {
-	val := ctx.Value(objIDsKey)
-	if val == nil {
-		return
-	}
-
-	ids, exists = val.([]int64)
-	return
-}
-
-const (
 	ResponseCodeKey = "response_code"
 	RawErrorKey     = "raw_error"
 )
