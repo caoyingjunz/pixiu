@@ -14,11 +14,12 @@ default:
   admin_user: admin
   admin_password: Pixiu123456!
 
-  # 对外访问地址（须带协议，供 Agent 反向隧道、代理 kubeconfig 的 server 使用）
-  # 示例: https://pixiu.example.com
-  # 若填写 http://host:8091，签发 kubeconfig 时会自动改写为 https://host:8443（kubectl 不在明文 HTTP 上发送 Bearer）
-  # 未配置时，签发代理 kubeconfig 会尝试从当前请求的 Host / X-Forwarded-* 推断
-#  public_url: https://pixiu.example.com
+  # 对外访问地址（须带协议；代理 kubeconfig 的 server 取自此配置）
+  # 示例: https://console.cloud.pixiuio.com
+  # 必填建议：启用「外部访问」前务必配置，否则本地访问会错误签出 http://127.0.0.1:8091
+  # 若填写 http://host:8091，签发时会改写为 https://host:8443（kubectl 不在明文 HTTP 上发送 Bearer）
+  # 前置 Nginx/反代终止 TLS 时，直接填 https://公网域名（不要填 127.0.0.1）
+#  public_url: https://console.cloud.pixiuio.com
 
   # CloudShell/工具容器镜像
 #  toolbox: ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0
