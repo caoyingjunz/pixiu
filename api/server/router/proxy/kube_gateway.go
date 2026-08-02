@@ -17,7 +17,7 @@ limitations under the License.
 package proxy
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -25,15 +25,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/proxy"
-	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
+	pixiuerrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 )
 
+// TODO: 确认是否兼容 kubectl 的原生命令行
 const kubeGatewayBaseURL = "/k8s"
 
 func (p *proxyRouter) initKubeGatewayRoutes(ginEngine *gin.Engine) {
@@ -45,19 +44,19 @@ func (p *proxyRouter) kubeGatewayHandler(c *gin.Context) {
 		Name string `uri:"clusterName" binding:"required"`
 	}
 	if err := c.ShouldBindUri(&cluster); err != nil {
-		writeKubeStatus(c, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
+		httputils.WriteKubeError(c, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
 		return
 	}
 
-	user, err := httputils.GetUserFromRequest(c)
+	user, err := httputils.GetUserFromContext(c)
 	if err != nil {
-		writeKubeStatus(c, http.StatusUnauthorized, metav1.StatusReasonUnauthorized, "unauthorized")
+		httputils.WriteKubeError(c, http.StatusUnauthorized, metav1.StatusReasonUnauthorized, "unauthorized")
 		return
 	}
 
 	if accessCluster, err := httputils.GetKubeAccessClusterFromContext(c); err == nil {
 		if accessCluster != cluster.Name {
-			writeKubeStatus(c, http.StatusForbidden, metav1.StatusReasonForbidden, "token is not allowed for this cluster")
+			httputils.WriteKubeError(c, http.StatusForbidden, metav1.StatusReasonForbidden, "token is not allowed for this cluster")
 			return
 		}
 	}
@@ -67,47 +66,25 @@ func (p *proxyRouter) kubeGatewayHandler(c *gin.Context) {
 		writeAuthzError(c, err)
 		return
 	}
-
 	if obj.ConnectMode == model.ConnectModeTunnel {
 		if tm := tunnel.Default(); tm == nil || !tm.AgentConnected(obj.Name) {
-			writeKubeStatus(c, http.StatusServiceUnavailable, metav1.StatusReasonServiceUnavailable, "cluster agent is not connected")
+			httputils.WriteKubeError(c, http.StatusServiceUnavailable, metav1.StatusReasonServiceUnavailable, "cluster agent is not connected")
 			return
 		}
 	}
 
-	clusterSet, err := p.c.Cluster().GetClusterSetByName(context.TODO(), cluster.Name)
+	target, err := p.parseKubeGatewayTarget(*c.Request.URL, obj.Name)
 	if err != nil {
-		writeKubeStatus(c, http.StatusBadGateway, metav1.StatusReasonInternalError,
-			fmt.Sprintf("failed to get cluster %q: %v", cluster.Name, err))
+		httputils.WriteKubeError(c, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
 		return
 	}
 
-	config := clusterSet.Config
-	transport, err := rest.TransportFor(config)
-	if err != nil {
-		writeKubeStatus(c, http.StatusInternalServerError, metav1.StatusReasonInternalError, err.Error())
-		return
+	if err = p.forwardToCluster(c, cluster.Name, target); err != nil {
+		httputils.WriteKubeError(c, http.StatusBadGateway, metav1.StatusReasonInternalError, err.Error())
 	}
-	target, err := p.parseKubeGatewayTarget(*c.Request.URL, config.Host, cluster.Name)
-	if err != nil {
-		writeKubeStatus(c, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
-		return
-	}
-
-	c.Request.Header.Del("Authorization")
-	c.Request.Header.Del("Cookie")
-
-	klog.V(2).Infof("kube gateway proxying cluster=%s path=%s user=%d", cluster.Name, c.Request.URL.Path, user.Id)
-	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
-	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
-	httpProxy.ServeHTTP(c.Writer, c.Request)
 }
 
-func (p *proxyRouter) parseKubeGatewayTarget(target url.URL, host string, name string) (*url.URL, error) {
-	kubeURL, err := url.Parse(host)
-	if err != nil {
-		return nil, err
-	}
+func (p *proxyRouter) parseKubeGatewayTarget(target url.URL, name string) (*url.URL, error) {
 	prefix := kubeGatewayBaseURL + "/" + name
 	if !strings.HasPrefix(target.Path, prefix) {
 		return nil, fmt.Errorf("invalid gateway path")
@@ -116,33 +93,17 @@ func (p *proxyRouter) parseKubeGatewayTarget(target url.URL, host string, name s
 	if target.Path == "" {
 		target.Path = "/"
 	}
-	target.Host = kubeURL.Host
-	target.Scheme = kubeURL.Scheme
 	return &target, nil
 }
 
 func writeAuthzError(c *gin.Context, err error) {
-	msg := err.Error()
-	lower := strings.ToLower(msg)
-	switch {
-	case strings.Contains(lower, "not found"):
-		writeKubeStatus(c, http.StatusNotFound, metav1.StatusReasonNotFound, msg)
-	case strings.Contains(lower, "unauthorized"):
-		writeKubeStatus(c, http.StatusUnauthorized, metav1.StatusReasonUnauthorized, msg)
-	default:
-		writeKubeStatus(c, http.StatusForbidden, metav1.StatusReasonForbidden, msg)
+	if errors.Is(err, pixiuerrors.ErrUnauthorized) {
+		httputils.WriteKubeError(c, http.StatusUnauthorized, metav1.StatusReasonUnauthorized, err.Error())
+		return
 	}
-}
-
-func writeKubeStatus(c *gin.Context, code int, reason metav1.StatusReason, message string) {
-	c.AbortWithStatusJSON(code, metav1.Status{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Status",
-			APIVersion: "v1",
-		},
-		Status:  metav1.StatusFailure,
-		Message: message,
-		Reason:  reason,
-		Code:    int32(code),
-	})
+	if errors.Is(err, pixiuerrors.ErrClusterNotFound) || errors.Is(err, pixiuerrors.ErrUserNotFound) {
+		httputils.WriteKubeError(c, http.StatusNotFound, metav1.StatusReasonNotFound, err.Error())
+		return
+	}
+	httputils.WriteKubeError(c, http.StatusForbidden, metav1.StatusReasonForbidden, err.Error())
 }

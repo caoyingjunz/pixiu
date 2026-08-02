@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"strings"
 )
 
@@ -53,16 +52,4 @@ func HashKubeAccessToken(plaintext string) string {
 
 func IsKubeAccessToken(plaintext string) bool {
 	return strings.HasPrefix(plaintext, KubeAccessTokenPrefix)
-}
-
-func ParseKubeAccessTokenJTI(plaintext string) (string, error) {
-	if !IsKubeAccessToken(plaintext) {
-		return "", fmt.Errorf("invalid kube access token prefix")
-	}
-	body := strings.TrimPrefix(plaintext, KubeAccessTokenPrefix)
-	parts := strings.SplitN(body, ".", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", fmt.Errorf("invalid kube access token format")
-	}
-	return parts[0], nil
 }

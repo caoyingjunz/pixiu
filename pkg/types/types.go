@@ -697,6 +697,16 @@ type ProxyKubeconfigResponse struct {
 	KubeConfigEncoding string `json:"kubeconfig_encoding"` // yaml
 }
 
+// ProxyKubeconfigInfo 代理 kubeconfig 信息（不含 token 原文）。
+type ProxyKubeconfigInfo struct {
+	JTI       string `json:"jti"`
+	Name      string `json:"name"`
+	Server    string `json:"server"`
+	ExpireAt  string `json:"expire_at"`
+	CreatedAt string `json:"created_at"`
+	IsActive  bool   `json:"is_active"`
+}
+
 type AgentHeartbeatRequest struct {
 	Hostname string `json:"hostname"`
 	Version  string `json:"version"`

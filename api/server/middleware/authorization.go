@@ -37,7 +37,7 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 			return
 		}
 
-		user, err := httputils.GetUserFromRequest(c)
+		user, err := httputils.GetUserFromContext(c)
 		if err != nil {
 			httputils.AbortFailedWithCode(c, http.StatusMethodNotAllowed, err)
 			return
@@ -54,6 +54,7 @@ func Authorization(o *options.Options) gin.HandlerFunc {
 		// Proxy / kube gateway path should be skipped now.
 		// TODO: get object and ID from proxy path
 		if proxy.IsProxyPath(c) || proxy.IsKubeGatewayPath(c) || cluster.IsKubeProxyPath(c) || cluster.IsHelmPath(c) {
+			c.Next()
 			return
 		}
 	}

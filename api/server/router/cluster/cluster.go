@@ -58,6 +58,7 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "/:clusterId/kubeconfig", Handler: cr.getClusterKubeconfig, Description: "查看KubeConfig"},
 
 			{Method: "POST", RelativePath: "/:clusterId/proxy-kubeconfig", Handler: cr.createProxyKubeconfig, Description: "生成代理KubeConfig"},
+			{Method: "GET", RelativePath: "/:clusterId/proxy-kubeconfig", Handler: cr.getProxyKubeconfig, Description: "获取代理KubeConfig"},
 			{Method: "DELETE", RelativePath: "/:clusterId/access-tokens/:jti", Handler: cr.revokeAccessToken, Description: "吊销访问令牌"},
 		},
 	}

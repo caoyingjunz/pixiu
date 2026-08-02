@@ -37,9 +37,31 @@ type Config struct {
 	Worker      WorkerOptions           `yaml:"worker"`
 	Audit       jobmanager.AuditOptions `yaml:"audit"`
 	Log         LogOptions              `yaml:"log"`
+	TLS         TLSOptions              `yaml:"tls"`
 	KubeGateway KubeGatewayOptions      `yaml:"kube_gateway"`
 
 	AlertHistory jobmanager.AlertHistoryOptions `yaml:"alert"`
+}
+
+// TLSOptions HTTPS 监听配置。kubectl 经 /k8s 网关必须走 HTTPS（client-go 不会在明文 HTTP 上发送 Bearer token）。
+type TLSOptions struct {
+	Enable   bool   `yaml:"enable"`
+	Listen   int    `yaml:"listen"` // HTTPS 端口，默认 8443
+	CertFile string `yaml:"cert_file"`
+	KeyFile  string `yaml:"key_file"`
+}
+
+func (o *TLSOptions) Normalize() {
+	if o == nil {
+		return
+	}
+	if o.Listen <= 0 {
+		o.Listen = 8443
+	}
+}
+
+func (o *TLSOptions) IsEnabled() bool {
+	return o != nil && o.Enable
 }
 
 type DefaultOptions struct {
@@ -64,8 +86,8 @@ type DefaultOptions struct {
 
 	// 启用单人登录限制
 	// true: 同账号仅允许单人在线；false: 允许多人同时在线
-	// 默认值为 true
-	SingleLogin *bool `yaml:"single_login"`
+	// 默认值为 false
+	SingleLogin bool `yaml:"single_login"`
 }
 
 func (o DefaultOptions) Valid() error {
@@ -74,10 +96,10 @@ func (o DefaultOptions) Valid() error {
 
 // KubeGatewayOptions 集群代理 kubeconfig /k8s 网关配置。
 type KubeGatewayOptions struct {
-	Enabled                *bool `yaml:"enabled"`
-	DefaultExpireHours     int   `yaml:"default_expire_hours"`
-	MaxExpireHours         int   `yaml:"max_expire_hours"`
-	InsecureSkipTLSVerify  bool  `yaml:"insecure_skip_tls_verify"`
+	Enabled               *bool `yaml:"enabled"`
+	DefaultExpireHours    int   `yaml:"default_expire_hours"`
+	MaxExpireHours        int   `yaml:"max_expire_hours"`
+	InsecureSkipTLSVerify bool  `yaml:"insecure_skip_tls_verify"`
 }
 
 func (o *KubeGatewayOptions) IsEnabled() bool {
@@ -150,6 +172,7 @@ func (c *Config) Valid() (err error) {
 	if err = c.KubeGateway.Valid(); err != nil {
 		return
 	}
+	c.TLS.Normalize()
 
 	return
 }

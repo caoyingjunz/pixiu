@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -30,6 +32,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/router"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
+	"github.com/caoyingjunz/pixiu/pkg/util/tlscert"
 )
 
 func NewServerCommand(version string) *cobra.Command {
@@ -96,9 +99,27 @@ func Run(opt *options.Options) error {
 	// 安装 http 路由
 	router.InstallRouters(opt)
 
+	var tlsSrv *http.Server
+	if opt.ComponentConfig.TLS.IsEnabled() {
+		certFile, keyFile, err := prepareTLSFiles(opt)
+		if err != nil {
+			return fmt.Errorf("prepare TLS certificates: %w", err)
+		}
+		tlsSrv = &http.Server{
+			Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.TLS.Listen),
+			Handler: opt.HttpEngine,
+		}
+		go func() {
+			klog.Infof("starting pixiu HTTPS server on :%d", opt.ComponentConfig.TLS.Listen)
+			if err := tlsSrv.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+				klog.Fatal("failed to listen pixiu HTTPS server: ", err)
+			}
+		}()
+	}
+
 	// Initializing the server in a goroutine so that it won't block the graceful shutdown handling below
 	go func() {
-		klog.Infof("starting pixiu server, liston on :%d", opt.ComponentConfig.Default.Listen)
+		klog.Infof("starting pixiu HTTP server, listen on :%d", opt.ComponentConfig.Default.Listen)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			klog.Fatal("failed to listen pixiu server: ", err)
 		}
@@ -108,7 +129,7 @@ func Run(opt *options.Options) error {
 	opt.JobManager.Run()
 
 	// Wait for interrupt signal to gracefully shut down the server with a timeout of 5 seconds.
-	quit := make(chan os.Signal)
+	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	klog.Info("shutting pixiu server down ...")
@@ -120,6 +141,11 @@ func Run(opt *options.Options) error {
 	if err := srv.Shutdown(ctx); err != nil {
 		klog.Fatalf("pixiu server forced to shutdown: %v", err)
 	}
+	if tlsSrv != nil {
+		if err := tlsSrv.Shutdown(ctx); err != nil {
+			klog.Fatalf("pixiu HTTPS server forced to shutdown: %v", err)
+		}
+	}
 
 	klog.Info("shutting job manager down ...")
 	opt.JobManager.Stop()
@@ -128,4 +154,34 @@ func Run(opt *options.Options) error {
 	}
 
 	return nil
+}
+
+func prepareTLSFiles(opt *options.Options) (certFile, keyFile string, err error) {
+	tlsCfg := &opt.ComponentConfig.TLS
+	tlsCfg.Normalize()
+	certFile = tlsCfg.CertFile
+	keyFile = tlsCfg.KeyFile
+	if certFile == "" || keyFile == "" {
+		dir := filepath.Join(opt.ComponentConfig.Worker.WorkDir, "certs")
+		if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
+			dir = filepath.Join(".", "certs")
+		}
+		certFile = filepath.Join(dir, "server.crt")
+		keyFile = filepath.Join(dir, "server.key")
+		tlsCfg.CertFile = certFile
+		tlsCfg.KeyFile = keyFile
+	}
+	hosts := tlsHostsFromPublicURL(opt.ComponentConfig.Default.PublicURL)
+	if err = tlscert.EnsureSelfSigned(certFile, keyFile, hosts); err != nil {
+		return "", "", err
+	}
+	return certFile, keyFile, nil
+}
+
+func tlsHostsFromPublicURL(publicURL string) []string {
+	u, err := url.Parse(publicURL)
+	if err != nil || u.Hostname() == "" {
+		return nil
+	}
+	return []string{u.Hostname()}
 }

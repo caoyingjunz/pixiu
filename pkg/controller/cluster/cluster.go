@@ -66,16 +66,6 @@ type Interface interface {
 	// GetKubeConfig 获取集群的 kubeconfig
 	GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error)
 
-	// CreateProxyKubeconfig 生成指向 Pixiu 网关的标准 kubeconfig
-	CreateProxyKubeconfig(ctx context.Context, cid int64, req *types.CreateProxyKubeconfigRequest) (*types.ProxyKubeconfigResponse, error)
-	// RevokeAccessToken 吊销集群访问令牌
-	RevokeAccessToken(ctx context.Context, cid int64, jti string) error
-	// ValidateKubeAccessToken 校验网关 Access Token
-	ValidateKubeAccessToken(ctx context.Context, plaintext string) (*model.User, *model.ClusterAccessToken, error)
-	// AuthorizeClusterAccess 校验用户是否可访问集群
-	AuthorizeClusterAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
-	AuthorizeClusterAccessByName(ctx context.Context, user *model.User, clusterName string) (*model.Cluster, error)
-
 	// Ping 检查和 k8s 集群的连通性
 	Ping(ctx context.Context, kubeConfig string) error
 
@@ -111,6 +101,13 @@ type Interface interface {
 	ListPermissions(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 	UpdatePermission(ctx context.Context, req *types.UpdatePermissionRequest) error
 	DeletePermission(ctx context.Context, permissionId int64) error
+
+	// ProxyKubeconfig 代理 KubeConfig 管理（签发/获取/吊销/校验）
+	ProxyKubeconfig() ProxyKubeconfigInterface
+
+	// AuthorizeClusterAccess 校验用户是否可访问集群
+	AuthorizeClusterAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
+	AuthorizeClusterAccessByName(ctx context.Context, user *model.User, clusterName string) (*model.Cluster, error)
 
 	// Run 启动 cluster worker 处理协程
 	Run(ctx context.Context, workers int) error
@@ -1292,4 +1289,12 @@ func NewCluster(cfg config.Config, f db.ShareDaoFactory) *cluster {
 	//	// TODO: 补充更多资源实现
 	//}...)
 	return c
+}
+
+// ProxyKubeconfigInterface 代理 KubeConfig 子接口。
+type ProxyKubeconfigInterface interface {
+	Create(ctx context.Context, req *types.CreateProxyKubeconfigRequest) error
+	Revoke(ctx context.Context, cid int64, jti string) error
+	Get(ctx context.Context, cid int64) (*types.ProxyKubeconfigResponse, error)
+	Validate(ctx context.Context, plaintext string) (*model.User, *model.ClusterAccessToken, error)
 }

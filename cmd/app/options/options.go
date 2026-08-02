@@ -50,7 +50,7 @@ const (
 
 	defaultAdminUser     = "admin"
 	defaultAdminPassword = "Pixiu123456!"
-	defaultSingleLogin   = true
+	defaultSingleLogin   = false
 
 	defaultSlowSQLDuration = 1 * time.Second
 )
@@ -137,10 +137,6 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 	if len(o.ComponentConfig.Default.AdminPassword) == 0 {
 		o.ComponentConfig.Default.AdminPassword = defaultAdminPassword
-	}
-	if o.ComponentConfig.Default.SingleLogin == nil {
-		singleLogin := defaultSingleLogin
-		o.ComponentConfig.Default.SingleLogin = &singleLogin
 	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {

@@ -84,8 +84,10 @@ type (
 
 	// CreateProxyKubeconfigRequest 生成指向 Pixiu 的代理 kubeconfig
 	CreateProxyKubeconfigRequest struct {
-		Name         string `json:"name" binding:"omitempty"`          // token 备注
-		ExpireHours  int    `json:"expire_hours" binding:"omitempty"`  // 默认取配置
+		ClusterId int64 `uri:"clusterId"` // 由 handler 从 URI 注入
+
+		Name        string `json:"name" binding:"omitempty"`         // token 备注
+		ExpireHours int    `json:"expire_hours" binding:"omitempty"` // 默认取配置
 	}
 
 	CreateDatasourceRequest struct {

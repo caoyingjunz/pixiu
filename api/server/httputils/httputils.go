@@ -25,6 +25,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	validatorutil "github.com/caoyingjunz/pixiu/api/server/validator"
@@ -135,7 +136,7 @@ func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}
 
 const userKey = "user"
 
-func GetUserFromRequest(ctx context.Context) (*model.User, error) {
+func GetUserFromContext(ctx context.Context) (*model.User, error) {
 	val := ctx.Value(userKey)
 	if val == nil {
 		return nil, fmt.Errorf("get nil user")
@@ -149,7 +150,7 @@ func GetUserFromRequest(ctx context.Context) (*model.User, error) {
 }
 
 func GetUserIdFromContext(ctx context.Context) (int64, error) {
-	user, err := GetUserFromRequest(ctx)
+	user, err := GetUserFromContext(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -266,4 +267,19 @@ func GetRawError(ctx context.Context) (err error) {
 
 	err = val.(error)
 	return
+}
+
+// WriteKubeError 以 K8s Status 格式响应网关错误（供 /k8s 代理路径使用）。
+func WriteKubeError(c *gin.Context, code int, reason metav1.StatusReason, message string) {
+	c.Header("WWW-Authenticate", `Bearer realm="pixiu"`)
+	c.AbortWithStatusJSON(code, metav1.Status{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Status",
+			APIVersion: "v1",
+		},
+		Status:  metav1.StatusFailure,
+		Message: message,
+		Reason:  reason,
+		Code:    int32(code),
+	})
 }

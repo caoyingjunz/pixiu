@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
@@ -38,15 +39,11 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 		// /k8s 网关：使用集群 Access Token（kubectl）
 		if proxy.IsKubeGatewayPath(c) {
 			if err := authenticateKubeGateway(c, o); err != nil {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, metav1.Status{
-					TypeMeta: metav1.TypeMeta{Kind: "Status", APIVersion: "v1"},
-					Status:   metav1.StatusFailure,
-					Message:  err.Error(),
-					Reason:   metav1.StatusReasonUnauthorized,
-					Code:     http.StatusUnauthorized,
-				})
+				klog.Errorf("[AUTH] kube-gateway auth failed: %v", err)
+				httputils.WriteKubeError(c, http.StatusUnauthorized, metav1.StatusReasonUnauthorized, err.Error())
 				return
 			}
+			c.Next()
 			return
 		}
 
@@ -85,11 +82,13 @@ func authenticateKubeGateway(c *gin.Context, o *options.Options) error {
 	}
 	raw, err := tokenutil.ExtractToken(c, strings.EqualFold(c.GetHeader("Upgrade"), "websocket"))
 	if err != nil {
-		return fmt.Errorf("unauthorized")
+		klog.Errorf("[AUTH-kube] extract token failed: %v", err)
+		return fmt.Errorf("unauthorized: %w", err)
 	}
-	user, rec, err := o.Controller.Cluster().ValidateKubeAccessToken(c, raw)
+	user, rec, err := o.Controller.Cluster().ProxyKubeconfig().Validate(c, raw)
 	if err != nil {
-		return fmt.Errorf("unauthorized")
+		klog.Errorf("[AUTH-kube] validate token failed: %v", err)
+		return fmt.Errorf("unauthorized: %w", err)
 	}
 	httputils.SetUserToContext(c, user)
 	httputils.SetKubeAccessClusterToContext(c, rec.ClusterName)

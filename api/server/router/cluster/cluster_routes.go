@@ -184,24 +184,39 @@ func (cr *clusterRouter) getClusterKubeconfig(c *gin.Context) {
 }
 
 func (cr *clusterRouter) createProxyKubeconfig(c *gin.Context) {
-	r := httputils.NewResponse()
+	resp := httputils.NewResponse()
 
 	var (
 		idMeta IdMeta
 		req    types.CreateProxyKubeconfigRequest
 		err    error
 	)
-	if err = c.ShouldBindUri(&idMeta); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	req.ClusterId = idMeta.ClusterId
+	if err = cr.c.Cluster().ProxyKubeconfig().Create(c, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (cr *clusterRouter) getProxyKubeconfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		meta struct {
+			ClusterId int64 `uri:"clusterId" binding:"required"`
+		}
+		err error
+	)
+	if err = c.ShouldBindUri(&meta); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if c.Request.ContentLength != 0 {
-		if err = c.ShouldBindJSON(&req); err != nil {
-			httputils.SetFailed(c, r, err)
-			return
-		}
-	}
-	if r.Result, err = cr.c.Cluster().CreateProxyKubeconfig(c, idMeta.ClusterId, &req); err != nil {
+	if r.Result, err = cr.c.Cluster().ProxyKubeconfig().Get(c, meta.ClusterId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -222,7 +237,7 @@ func (cr *clusterRouter) revokeAccessToken(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.Cluster().RevokeAccessToken(c, meta.ClusterId, meta.JTI); err != nil {
+	if err = cr.c.Cluster().ProxyKubeconfig().Revoke(c, meta.ClusterId, meta.JTI); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

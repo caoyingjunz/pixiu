@@ -33,6 +33,7 @@ type ClusterAccessTokenInterface interface {
 	RevokeByJTI(ctx context.Context, jti string, userId int64) error
 	TouchLastUsed(ctx context.Context, id int64) error
 	List(ctx context.Context, opts ...Options) ([]model.ClusterAccessToken, error)
+	InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error
 }
 
 type clusterAccessToken struct {
@@ -112,4 +113,9 @@ func (a *clusterAccessToken) List(ctx context.Context, opts ...Options) ([]model
 		return nil, err
 	}
 	return objects, nil
+}
+
+func (a *clusterAccessToken) InternalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+	return a.db.WithContext(ctx).Model(&model.ClusterAccessToken{}).Where("id = ?", id).Updates(updates).Error
 }
