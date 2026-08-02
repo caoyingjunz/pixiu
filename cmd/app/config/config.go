@@ -51,7 +51,7 @@ type TLSOptions struct {
 	KeyFile  string `yaml:"key_file"`
 }
 
-func (o *TLSOptions) Normalize() {
+func (o *TLSOptions) SetDefaults() {
 	if o == nil {
 		return
 	}
@@ -109,7 +109,8 @@ func (o *KubeGatewayOptions) IsEnabled() bool {
 	return *o.Enabled
 }
 
-func (o *KubeGatewayOptions) Normalize() {
+// SetDefaults 补齐未配置或非法的过期时间默认值。
+func (o *KubeGatewayOptions) SetDefaults() {
 	if o.DefaultExpireHours <= 0 {
 		o.DefaultExpireHours = 720
 	}
@@ -168,11 +169,11 @@ func (c *Config) Valid() (err error) {
 	if err = c.Worker.Valid(); err != nil {
 		return
 	}
-	c.KubeGateway.Normalize()
+	c.KubeGateway.SetDefaults()
 	if err = c.KubeGateway.Valid(); err != nil {
 		return
 	}
-	c.TLS.Normalize()
+	c.TLS.SetDefaults()
 
 	return
 }

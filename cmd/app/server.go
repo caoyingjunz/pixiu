@@ -158,7 +158,7 @@ func Run(opt *options.Options) error {
 
 func prepareTLSFiles(opt *options.Options) (certFile, keyFile string, err error) {
 	tlsCfg := &opt.ComponentConfig.TLS
-	tlsCfg.Normalize()
+	tlsCfg.SetDefaults()
 	certFile = tlsCfg.CertFile
 	keyFile = tlsCfg.KeyFile
 	if certFile == "" || keyFile == "" {

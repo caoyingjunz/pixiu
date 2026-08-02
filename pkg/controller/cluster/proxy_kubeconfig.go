@@ -67,7 +67,7 @@ func (p *proxyKubeconfig) Create(ctx context.Context, req *types.CreateProxyKube
 	}
 
 	gw := p.c.cc.KubeGateway
-	gw.Normalize()
+	gw.SetDefaults()
 	expireHours := req.ExpireHours
 	if expireHours <= 0 {
 		expireHours = gw.DefaultExpireHours
@@ -141,7 +141,7 @@ func (p *proxyKubeconfig) Get(ctx context.Context, clusterId int64) (*types.Prox
 	t := tokens[0]
 
 	gw := p.c.cc.KubeGateway
-	gw.Normalize()
+	gw.SetDefaults()
 	plaintext, _, hash, err := token.GenerateKubeAccessToken()
 	if err != nil {
 		return nil, errors.ErrServerInternal
