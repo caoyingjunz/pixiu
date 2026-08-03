@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "master"
+      - "pg"
     paths-ignore:
       - 'docs/**'
       - 'cmd/cluster-agent/**'
