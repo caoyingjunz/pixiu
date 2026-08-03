@@ -54,9 +54,9 @@ type Audit struct {
 	Operator          string               `gorm:"type:varchar(255)" json:"operator"`                                     // 操作人 ID
 	Path              string               `gorm:"type:varchar(255)" json:"path"`                                         // HTTP 路径
 	ObjectType        ObjectType           `gorm:"column:resource_type;type:varchar(128)" json:"resource_type"`           // 操作资源类型 [cluster/plan...]
-	Status            AuditOperationStatus `gorm:"type:tinyint" json:"status"`                                            // 记录操作运行结果[OperationStatus]
+	Status            AuditOperationStatus `gorm:"type:smallint" json:"status"`                                            // 记录操作运行结果[OperationStatus]
 	Duration          int64                `gorm:"column:duration;type:bigint;default:0" json:"duration"`                 // 请求耗时 ms
-	ResponseCode      int                  `gorm:"column:response_code;type:int;default:0" json:"response_code"`          // HTTP 响应码
+	ResponseCode      int                  `gorm:"column:response_code;type:integer;default:0" json:"response_code"`      // HTTP 响应码
 	Cluster           string               `gorm:"column:cluster;type:varchar(255)" json:"cluster"`                       // K8s 集群名
 	ResourceName      string               `gorm:"column:resource_name;type:varchar(255)" json:"resource_name"`           // 资源名称
 	ResourceNamespace string               `gorm:"column:resource_namespace;type:varchar(255)" json:"resource_namespace"` // 资源命名空间

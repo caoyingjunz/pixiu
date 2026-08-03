@@ -100,7 +100,7 @@ func (j *job) AppendLogs(ctx context.Context, id int64, chunk string) error {
 		return nil
 	}
 	return j.db.WithContext(ctx).Exec(
-		"UPDATE deploy_jobs SET logs = CONCAT(IFNULL(logs,''), ?), gmt_modified = ? WHERE id = ?",
+		"UPDATE deploy_jobs SET logs = CONCAT(COALESCE(logs,''), ?), gmt_modified = ? WHERE id = ?",
 		chunk, time.Now(), id,
 	).Error
 }

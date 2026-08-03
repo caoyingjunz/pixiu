@@ -24,7 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -201,19 +201,19 @@ func (o *Options) register() error {
 }
 
 func (o *Options) registerDatabase() error {
-	sqlConfig := o.ComponentConfig.Mysql
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
-		sqlConfig.User,
-		sqlConfig.Password,
+	sqlConfig := o.ComponentConfig.Database
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Shanghai",
 		sqlConfig.Host,
 		sqlConfig.Port,
+		sqlConfig.User,
+		sqlConfig.Password,
 		sqlConfig.Name)
 
 	opt := &gorm.Config{
 		// SQL 仅通过 access log（log.sql）采集；不向 gorm 默认通道输出
 		Logger: pixiudb.NewLogger(logger.Silent, defaultSlowSQLDuration),
 	}
-	db, err := gorm.Open(mysql.Open(dsn), opt)
+	db, err := gorm.Open(postgres.Open(dsn), opt)
 	if err != nil {
 		return err
 	}

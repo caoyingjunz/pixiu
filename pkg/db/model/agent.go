@@ -63,12 +63,12 @@ type Agent struct {
 	pixiu.Model
 
 	Name          string            `gorm:"index:idx_deploy_agent_name,unique;type:varchar(255)" json:"name"`
-	AgentType     AgentType         `gorm:"agent_type:tinyint;default:0" json:"agent_type"`
+	AgentType     AgentType         `gorm:"type:smallint;default:0" json:"agent_type"`
 	UserID        int64             `gorm:"column:user_id;type:bigint;default:0" json:"user_id"`
-	Status        DeployAgentStatus `gorm:"type:tinyint;default:0" json:"status"`
+	Status        DeployAgentStatus `gorm:"type:smallint;default:0" json:"status"`
 	Hostname      string            `gorm:"type:varchar(255)" json:"hostname"`
 	Version       string            `gorm:"type:varchar(64)" json:"version"`
-	LastHeartbeat time.Time         `gorm:"type:datetime" json:"last_heartbeat"`
+	LastHeartbeat time.Time         `gorm:"type:timestamp" json:"last_heartbeat"`
 	Description   string            `gorm:"type:text" json:"description"`
 
 	Token string `gorm:"type:varchar(128);index:idx_deploy_agent_token" json:"-"`
@@ -106,12 +106,12 @@ type Job struct {
 	Kind      JobKind    `gorm:"type:varchar(64)" json:"kind"`
 	Action    string     `gorm:"type:varchar(128)" json:"action"` // kubez-ansible COMMAND
 	Image     string     `gorm:"type:varchar(512)" json:"image"`
-	Payload   string     `gorm:"type:mediumtext" json:"payload"` // JSON 附加数据
+	Payload   string     `gorm:"type:text" json:"payload"` // JSON 附加数据
 	Status    JobStatus  `gorm:"type:varchar(32);index:idx_deploy_job_status" json:"status"`
 	Message   string     `gorm:"type:text" json:"message"`
-	Logs      string     `gorm:"type:longtext" json:"logs"`
-	Result    string     `gorm:"type:mediumtext" json:"result"` // 如 base64 kubeconfig
-	ClaimedAt *time.Time `gorm:"type:datetime" json:"claimed_at"`
+	Logs      string     `gorm:"type:text" json:"logs"`
+	Result    string     `gorm:"type:text" json:"result"` // 如 base64 kubeconfig
+	ClaimedAt *time.Time `gorm:"type:timestamp" json:"claimed_at"`
 }
 
 func (Job) TableName() string { return "jobs" }

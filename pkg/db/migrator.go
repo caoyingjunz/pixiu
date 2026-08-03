@@ -28,15 +28,13 @@ type migrator struct {
 
 // AutoMigrate 自动创建/更新指定模型的数据库表结构（补齐新增字段）
 func (m *migrator) AutoMigrate() error {
-	db := m.db.Set("gorm:table_options", "AUTO_INCREMENT=20220801 DEFAULT CHARSET=utf8")
-
 	for _, d := range model.GetMigrationModels() {
-		if err := db.AutoMigrate(d); err != nil {
+		if err := m.db.AutoMigrate(d); err != nil {
 			return err
 		}
 	}
 
-	return m.migrateAPIGroupColumn(db)
+	return m.migrateAPIGroupColumn(m.db)
 }
 
 // migrateAPIGroupColumn 将历史保留字段 group 迁移到 api_group，避免 MySQL 保留字导致读写异常
@@ -49,7 +47,7 @@ func (m *migrator) migrateAPIGroupColumn(db *gorm.DB) error {
 
 	if hasLegacyGroup && hasAPIGroup {
 		if err := db.Exec(
-			"UPDATE apis SET api_group = `group` WHERE (`group` IS NOT NULL AND `group` != '') AND (api_group IS NULL OR api_group = '')",
+			"UPDATE apis SET api_group = \"group\" WHERE (\"group\" IS NOT NULL AND \"group\" != '') AND (api_group IS NULL OR api_group = '')",
 		).Error; err != nil {
 			return err
 		}

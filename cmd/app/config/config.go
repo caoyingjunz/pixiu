@@ -33,7 +33,7 @@ func (m Mode) InDebug() bool {
 
 type Config struct {
 	Default     DefaultOptions          `yaml:"default"`
-	Mysql       MysqlOptions            `yaml:"mysql"`
+	Database    DatabaseOptions         `yaml:"database"`
 	Worker      WorkerOptions           `yaml:"worker"`
 	Audit       jobmanager.AuditOptions `yaml:"audit"`
 	Log         LogOptions              `yaml:"log"`
@@ -126,8 +126,8 @@ func (o KubeGatewayOptions) Valid() error {
 	return nil
 }
 
-// MysqlOptions 数据库具体配置
-type MysqlOptions struct {
+// DatabaseOptions 数据库具体配置
+type DatabaseOptions struct {
 	Host     string `yaml:"host"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
@@ -135,7 +135,7 @@ type MysqlOptions struct {
 	Name     string `yaml:"name"`
 }
 
-func (o MysqlOptions) Valid() error {
+func (o DatabaseOptions) Valid() error {
 	// TODO
 	return nil
 }
@@ -163,7 +163,7 @@ func (c *Config) Valid() (err error) {
 	if err = c.Log.Valid(); err != nil {
 		return
 	}
-	if err = c.Mysql.Valid(); err != nil {
+	if err = c.Database.Valid(); err != nil {
 		return
 	}
 	if err = c.Worker.Valid(); err != nil {

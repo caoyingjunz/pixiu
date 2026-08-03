@@ -39,7 +39,7 @@ type Runner struct {
 
 	Name        string       `gorm:"index:idx_runner_name,unique;type:varchar(255)" json:"name"`
 	EngineImage string       `gorm:"type:varchar(255)" json:"engine_image"`
-	Status      RunnerStatus `gorm:"type:tinyint;default:0" json:"status"`
+	Status      RunnerStatus `gorm:"type:smallint;default:0" json:"status"`
 	Description string       `gorm:"type:text" json:"description"`
 }
 

@@ -43,7 +43,7 @@ type User struct {
 	TenantId    int64      `gorm:"not null;uniqueIndex:uk_tenant_username" json:"tenant_id"`
 	Name        string     `gorm:"type:varchar(100);not null;uniqueIndex:uk_tenant_username" json:"username"`
 	Password    string     `gorm:"type:varchar(256)" json:"-"`
-	Status      UserStatus `gorm:"type:tinyint" json:"status"`
+	Status      UserStatus `gorm:"type:smallint" json:"status"`
 	Role        UserLevel  `json:"role"`
 	Email       string     `gorm:"type:varchar(128)" json:"email"`
 	Phone       string     `gorm:"column:phone;type:varchar(32)" json:"phone"`

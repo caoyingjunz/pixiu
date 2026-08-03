@@ -135,8 +135,8 @@ type AlertEvent struct {
 	ClusterId         int64            `gorm:"column:cluster_id;index:idx_alert_events_cluster_id" json:"cluster_id"`
 	TenantId          int64            `gorm:"column:tenant_id" json:"tenant_id"`
 	RecoverValue      string           `gorm:"column:recover_value;type:varchar(256)" json:"recover_value"`
-	RecoverTime       *time.Time       `gorm:"column:recover_time;type:datetime" json:"recover_time"`
-	LastSentAt        *time.Time       `gorm:"column:last_sent_at;type:datetime" json:"last_sent_at"`
+	RecoverTime       *time.Time       `gorm:"column:recover_time;type:timestamp" json:"recover_time"`
+	LastSentAt        *time.Time       `gorm:"column:last_sent_at;type:timestamp" json:"last_sent_at"`
 	NotifyCurNumber   int              `gorm:"column:notify_cur_number;default:0" json:"notify_cur_number"`
 	Labels            string           `gorm:"column:labels;type:text" json:"labels"`
 	Annotations       string           `gorm:"column:annotations;type:text" json:"annotations"`
@@ -194,8 +194,8 @@ type AlertSilence struct {
 	Name             string    `gorm:"column:name;type:varchar(128);not null" json:"name"`
 	MatchLabels      string    `gorm:"column:match_labels;type:text" json:"match_labels"`
 	MatchExpressions string    `gorm:"column:match_expressions;type:text" json:"match_expressions"`
-	StartsAt         time.Time `gorm:"column:starts_at;type:datetime;not null;index:idx_alert_silences_time_range,priority:1" json:"starts_at"`
-	EndsAt           time.Time `gorm:"column:ends_at;type:datetime;not null;index:idx_alert_silences_time_range,priority:2" json:"ends_at"`
+	StartsAt         time.Time `gorm:"column:starts_at;type:timestamp;not null;index:idx_alert_silences_time_range,priority:1" json:"starts_at"`
+	EndsAt           time.Time `gorm:"column:ends_at;type:timestamp;not null;index:idx_alert_silences_time_range,priority:2" json:"ends_at"`
 	Enabled          bool      `gorm:"column:enabled;default:true;not null;index:idx_alert_silences_enabled" json:"enabled"`
 	CreatedBy        string    `gorm:"column:created_by;type:varchar(128)" json:"created_by"`
 	Comment          string    `gorm:"column:comment;type:text" json:"comment"`

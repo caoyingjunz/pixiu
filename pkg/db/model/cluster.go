@@ -63,7 +63,7 @@ type Cluster struct {
 	AliasName string `json:"alias_name"`
 
 	// 0：标准集群 1: 自建集群
-	ClusterType `gorm:"type:tinyint" json:"cluster_type"`
+	ClusterType `gorm:"type:smallint" json:"cluster_type"`
 	// 自建集群关联的 PlanId
 	PlanId int64
 
@@ -74,7 +74,7 @@ type Cluster struct {
 	OwnerReference int64
 
 	// 集群运行状态 0: 运行中 1: 部署中 2: 未部署 3: 部署失败 4: 运行中断 5: 所有的 node 不健康
-	ClusterStatus `gorm:"column:status;type:tinyint" json:"status"`
+	ClusterStatus `gorm:"column:status;type:smallint" json:"status"`
 
 	// 集群的版本
 	KubernetesVersion string `gorm:"type:varchar(255)" json:"kubernetes_version,omitempty"`
@@ -90,7 +90,7 @@ type Cluster struct {
 	KubeConfig string `json:"kube_config"`
 
 	// 连接模式：0 直连 1 Agent 反向隧道
-	ConnectMode ConnectMode `gorm:"type:tinyint;default:0" json:"connect_mode"`
+	ConnectMode ConnectMode `gorm:"type:smallint;default:0" json:"connect_mode"`
 
 	// 集群用途描述，可以为空
 	Description string `gorm:"type:text" json:"description"`

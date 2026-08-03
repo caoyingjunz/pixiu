@@ -21,7 +21,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
@@ -73,11 +73,11 @@ func IsNotUpdated(err error) bool {
 }
 
 func IsUniqueConstraintError(err error) bool {
-	mysqlErr, ok := err.(*mysql.MySQLError)
-	if !ok {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
 		return false
 	}
 
-	// 数据库的 1062 错误码为固定的主键冲突号
-	return mysqlErr.Number == 1062
+	// PostgreSQL / KingbaseES 的唯一约束冲突错误码固定为 23505
+	return pgErr.Code == "23505"
 }

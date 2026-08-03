@@ -63,7 +63,7 @@ type Conversation struct {
 	ModelName          string `gorm:"column:model;type:varchar(128)" json:"model"`
 	Title              string `gorm:"type:varchar(256)" json:"title"`
 	PreviousResponseId string `gorm:"column:previous_response_id;type:varchar(256)" json:"previous_response_id"`
-	History            string `gorm:"type:longtext" json:"history"`
+	History            string `gorm:"type:text" json:"history"`
 }
 
 func (Conversation) TableName() string {
@@ -79,8 +79,8 @@ type Message struct {
 	Provider        string `gorm:"column:provider;type:varchar(64);index:idx_messages_provider" json:"provider"`
 	ModelName       string `gorm:"column:model;type:varchar(128)" json:"model"`
 	ResponseId      string `gorm:"column:response_id;type:varchar(128);index:idx_messages_response_id" json:"response_id"`
-	InputText       string `gorm:"column:input_text;type:longtext" json:"input_text"`
-	OutputText      string `gorm:"column:output_text;type:longtext" json:"output_text"`
+	InputText       string `gorm:"column:input_text;type:text" json:"input_text"`
+	OutputText      string `gorm:"column:output_text;type:text" json:"output_text"`
 	Success         bool   `gorm:"column:success;not null;default:false;index:idx_messages_success" json:"success"`
 	ErrorMessage    string `gorm:"column:error_message;type:text" json:"error_message"`
 	Duration        int64  `gorm:"column:duration;type:bigint;default:0" json:"duration"`
@@ -105,8 +105,8 @@ type Execution struct {
 	ModelName      string `gorm:"column:model;type:varchar(128)" json:"model"`
 	ToolName       string `gorm:"column:tool_name;type:varchar(128);index:idx_executions_tool_name" json:"tool_name"`
 	CallId         string `gorm:"column:call_id;type:varchar(128);index:idx_executions_call_id" json:"call_id"`
-	Arguments      string `gorm:"column:arguments;type:longtext" json:"arguments"`
-	Output         string `gorm:"column:output;type:longtext" json:"output"`
+	Arguments      string `gorm:"column:arguments;type:text" json:"arguments"`
+	Output         string `gorm:"column:output;type:text" json:"output"`
 	Success        bool   `gorm:"column:success;not null;default:false;index:idx_executions_success" json:"success"`
 	ErrorMessage   string `gorm:"column:error_message;type:text" json:"error_message"`
 	Duration       int64  `gorm:"column:duration;type:bigint;default:0" json:"duration"`
