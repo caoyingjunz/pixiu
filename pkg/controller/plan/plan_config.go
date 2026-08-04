@@ -103,7 +103,7 @@ func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *type
 		updates["runtime"] = newRuntime
 	}
 
-	newComponent, err := newConfig.Component.Marshal()
+	newComponent, err := buildAndCleanComponentConfig(newConfig.Component)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 	if err != nil {
 		return nil, err
 	}
-	componentConfig, err := req.Component.Marshal()
+	componentConfig, err := buildAndCleanComponentConfig(req.Component)
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +181,15 @@ func (p *plan) buildPlanConfig(ctx context.Context, req *types.CreatePlanConfigR
 		Runtime:    runtimeConfig,
 		Component:  componentConfig,
 	}, nil
+}
+
+func buildAndCleanComponentConfig(component types.ComponentSpec) (string, error) {
+	repositoryFiles, err := types.CleanRepositoryFiles(component.RepositoryFiles)
+	if err != nil {
+		return "", err
+	}
+	component.RepositoryFiles = repositoryFiles
+	return component.Marshal()
 }
 
 func (p *plan) modelConfig2Type(o *model.Config) (*types.PlanConfig, error) {

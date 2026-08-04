@@ -46,6 +46,9 @@ func Render(workDir string, plan *types.Plan) error {
 	if err := os.MkdirAll(planDir, 0o755); err != nil {
 		return err
 	}
+	if err := writeRepositoryFiles(planDir, plan.Config.Component.RepositoryFiles); err != nil {
+		return err
+	}
 
 	if err := writeTemplate(filepath.Join(planDir, "hosts"), pixiutpl.HostTemplate, plan); err != nil {
 		return err
@@ -60,6 +63,29 @@ func Render(workDir string, plan *types.Plan) error {
 	}
 
 	return writeTemplate(filepath.Join(planDir, "globals.yml"), pixiutpl.GlobalsTemplate, &plan.Config)
+}
+
+func writeRepositoryFiles(planDir string, files map[string]string) error {
+	repoDir := filepath.Join(planDir, "repo")
+	if err := os.RemoveAll(repoDir); err != nil {
+		return err
+	}
+	cleaned, err := types.CleanRepositoryFiles(files)
+	if err != nil {
+		return err
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	if err = os.Mkdir(repoDir, 0o700); err != nil {
+		return err
+	}
+	for name, content := range cleaned {
+		if err = os.WriteFile(filepath.Join(repoDir, name), []byte(content), 0o600); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func writeTemplate(filename, text string, data interface{}) error {

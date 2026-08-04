@@ -53,6 +53,11 @@ enable_calico: "yes"
 image_repository: "{{ .Kubernetes.ImageRepository }}"
 {{- end }}
 
+{{- if .Component.RepositoryFiles }}
+repo_dir: "/configs/repo"
+software_repo_skip_gpg: "yes"
+{{- end }}
+
 {{- if and .Component.MetricServer .Component.MetricServer.Enable }}
 enable_metrics_server: "yes"
 enable_metrics_scraper: "yes"
