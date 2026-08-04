@@ -23,6 +23,7 @@ const (
 	distributionFamilyDebian    = "Debian"
 	distributionFamilyOpenEuler = "OpenEuler"
 	distributionFamilyRocky     = "RockyLinux"
+	distributionFamilyKylin     = "Kylin"
 )
 
 var defaultDistributionCatalog = []struct {
@@ -92,6 +93,11 @@ var defaultDistributionCatalog = []struct {
 	{
 		family: distributionFamilyRocky,
 		name:   "rocky10.2",
+		runner: RunnerAgentV3,
+	},
+	{
+		family: distributionFamilyKylin,
+		name:   "kylinV10",
 		runner: RunnerAgentV3,
 	},
 }
