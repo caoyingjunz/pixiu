@@ -39,8 +39,8 @@ func newExecution(db *gorm.DB) ExecutionInterface {
 
 func (a *execution) Create(ctx context.Context, object *model.Execution) (*model.Execution, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}

@@ -142,10 +142,10 @@ func buildNotificationTemplateData(rule *model.AlertRule, event *model.AlertEven
 		data.ResourceType = event.ResourceType
 		data.ResourceName = event.ResourceName
 		data.Annotations = event.Annotations
-		data.FireTime = formatNotificationTime(event.GmtCreate)
+		data.FireTime = formatNotificationTime(event.GmtCreate.StdTime())
 		data.TriggerTime = formatNotificationTime(time.Now())
 		if event.RecoverTime != nil {
-			data.RecoverTime = formatNotificationTime(*event.RecoverTime)
+			data.RecoverTime = formatNotificationTime(event.RecoverTime.StdTime())
 		}
 	}
 	ruleLabels := map[string]string{}

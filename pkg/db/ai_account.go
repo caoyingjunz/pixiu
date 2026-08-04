@@ -50,8 +50,8 @@ func newAIAccount(db *gorm.DB) AIAccountInterface { return &aiAccount{db: db} }
 
 func (a *aiAccount) Create(ctx context.Context, object *model.AIAccount) (*model.AIAccount, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}

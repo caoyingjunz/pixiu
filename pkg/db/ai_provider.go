@@ -47,8 +47,8 @@ func newAIProvider(db *gorm.DB) AIProviderInterface {
 
 func (a *aiProvider) Create(ctx context.Context, object *model.AIProvider) (*model.AIProvider, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
@@ -57,8 +57,8 @@ func (a *aiProvider) Create(ctx context.Context, object *model.AIProvider) (*mod
 
 func (a *aiProvider) EnsureBuiltin(ctx context.Context, object *model.AIProvider) error {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	return a.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "name"}},
 		DoUpdates: clause.Assignments(map[string]interface{}{"builtin": true}),

@@ -290,7 +290,7 @@ func model2Type(o *model.Agent) *types.Agent {
 		Status:        o.Status,
 		Hostname:      o.Hostname,
 		Version:       o.Version,
-		LastHeartbeat: o.LastHeartbeat,
+		LastHeartbeat: o.LastHeartbeat.StdTime(),
 		Description:   o.Description,
 		Token:         o.Token,
 	}

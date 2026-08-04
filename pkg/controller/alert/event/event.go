@@ -131,8 +131,8 @@ func modelToType(object *model.AlertEvent) *types.AlertEvent {
 		TriggerValue: object.TriggerValue, TriggerExpr: object.TriggerExpr,
 		ResourceType: object.ResourceType, ResourceName: object.ResourceName,
 		ResourceNamespace: object.ResourceNamespace, ClusterId: object.ClusterId, TenantId: object.TenantId,
-		RecoverValue: object.RecoverValue, RecoverTime: object.RecoverTime,
-		LastSentAt: object.LastSentAt, NotifyCurNumber: object.NotifyCurNumber,
+		RecoverValue: object.RecoverValue, RecoverTime: object.RecoverTime.StdTimePtr(),
+		LastSentAt: object.LastSentAt.StdTimePtr(), NotifyCurNumber: object.NotifyCurNumber,
 		Labels: object.Labels, Annotations: object.Annotations, Extension: object.Extension,
 	}
 }

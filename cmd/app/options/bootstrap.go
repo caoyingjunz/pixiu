@@ -89,6 +89,11 @@ var defaultDistributionCatalog = []struct {
 		name:   "rocky9.3",
 		runner: RunnerAgentV3,
 	},
+	{
+		family: distributionFamilyRocky,
+		name:   "rocky10.2",
+		runner: RunnerAgentV3,
+	},
 }
 
 var defaultAIProviderCatalog = []pixiuModel.AIProvider{

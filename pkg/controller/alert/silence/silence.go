@@ -58,8 +58,8 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertSilenceRe
 		Name:             req.Name,
 		MatchLabels:      req.MatchLabels,
 		MatchExpressions: req.MatchExpressions,
-		StartsAt:         req.StartsAt,
-		EndsAt:           req.EndsAt,
+		StartsAt:         model.AsLocalTime(req.StartsAt),
+		EndsAt:           model.AsLocalTime(req.EndsAt),
 		Enabled:          enabled,
 		CreatedBy:        ctrlutil.CurrentUserName(ctx),
 		Comment:          req.Comment,
@@ -193,7 +193,7 @@ func modelToType(object *model.AlertSilence) *types.AlertSilence {
 		PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion},
 		TimeMeta:  types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified},
 		Name:      object.Name, MatchLabels: object.MatchLabels, MatchExpressions: object.MatchExpressions,
-		StartsAt: object.StartsAt, EndsAt: object.EndsAt, Enabled: object.Enabled,
+		StartsAt: object.StartsAt.StdTime(), EndsAt: object.EndsAt.StdTime(), Enabled: object.Enabled,
 		CreatedBy: object.CreatedBy, Comment: object.Comment, Extension: object.Extension,
 	}
 }

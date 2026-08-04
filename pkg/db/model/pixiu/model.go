@@ -18,13 +18,12 @@ package pixiu
 
 import (
 	"strconv"
-	"time"
 )
 
 type Model struct {
 	Id              int64     `gorm:"column:id;primaryKey;autoIncrement;not null" json:"id"`
-	GmtCreate       time.Time `gorm:"column:gmt_create;type:timestamp;default:current_timestamp;not null" json:"gmt_create"`
-	GmtModified     time.Time `gorm:"column:gmt_modified;type:timestamp;default:current_timestamp;not null" json:"gmt_modified"`
+	GmtCreate       LocalTime `gorm:"column:gmt_create;type:timestamp;default:current_timestamp;not null" json:"gmt_create"`
+	GmtModified     LocalTime `gorm:"column:gmt_modified;type:timestamp;default:current_timestamp;not null" json:"gmt_modified"`
 	ResourceVersion int64     `gorm:"column:resource_version;default:0;not null" json:"resource_version"`
 }
 

@@ -44,8 +44,8 @@ type apis struct {
 
 func (a *apis) Create(ctx context.Context, object *model.API) (*model.API, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err

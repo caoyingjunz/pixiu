@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -213,7 +212,11 @@ func (o *Options) registerDatabase() error {
 		// SQL 仅通过 access log（log.sql）采集；不向 gorm 默认通道输出
 		Logger: pixiudb.NewLogger(logger.Silent, defaultSlowSQLDuration),
 	}
-	db, err := gorm.Open(postgres.Open(dsn), opt)
+	dbDialector, err := pixiudb.OpenPostgres(dsn)
+	if err != nil {
+		return err
+	}
+	db, err := gorm.Open(dbDialector, opt)
 	if err != nil {
 		return err
 	}

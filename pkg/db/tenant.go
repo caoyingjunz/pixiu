@@ -43,8 +43,8 @@ type tenant struct {
 
 func (t *tenant) Create(ctx context.Context, object *model.Tenant) (*model.Tenant, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := t.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err

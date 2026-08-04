@@ -67,7 +67,7 @@ func matchSilence(silence *model.AlertSilence, labels map[string]string) bool {
 		return false
 	}
 	now := time.Now()
-	if now.Before(silence.StartsAt) || now.After(silence.EndsAt) {
+	if now.Before(silence.StartsAt.StdTime()) || now.After(silence.EndsAt.StdTime()) {
 		return false
 	}
 

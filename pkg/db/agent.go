@@ -56,9 +56,9 @@ func (a *agent) Job() JobInterface { return newJob(a.db) }
 
 func (a *agent) Create(ctx context.Context, object *model.Agent) (*model.Agent, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
-	object.LastHeartbeat = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
+	object.LastHeartbeat = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}

@@ -104,7 +104,7 @@ func (t *Trigger) Fire(ctx context.Context, rule *model.AlertRule, sample Metric
 		return nil
 	}
 
-	lastSent := now
+	lastSent := model.AsLocalTime(now)
 	event, err := t.factory.Alert().Event().Create(ctx, &model.AlertEvent{
 		RuleId:            rule.Id,
 		RuleName:          rule.Name,
@@ -174,7 +174,7 @@ func (t *Trigger) fireRepeat(ctx context.Context, rule *model.AlertRule, active 
 
 	active.TriggerValue = sample.Value
 	active.NotifyCurNumber = nextCount
-	active.LastSentAt = &now
+	active.LastSentAt = model.AsLocalTimePtr(&now)
 	active.ResourceVersion++
 	klog.V(1).Infof("alert rule(%d:%s) resource(%s/%s): repeat notification for event(%d), count=%d",
 		rule.Id, rule.Name, active.ResourceType, active.ResourceName, active.Id, active.NotifyCurNumber)
@@ -193,7 +193,7 @@ func (t *Trigger) sendFirstNotification(ctx context.Context, rule *model.AlertRu
 
 	active.TriggerValue = sample.Value
 	active.NotifyCurNumber = 1
-	active.LastSentAt = &now
+	active.LastSentAt = model.AsLocalTimePtr(&now)
 	active.ResourceVersion++
 	return t.notify.EnqueueForEvent(ctx, rule, active, false)
 }
@@ -249,7 +249,7 @@ func (t *Trigger) markRecovered(ctx context.Context, rule *model.AlertRule, acti
 
 	active.Status = model.AlertEventStatusRecovered
 	active.RecoverValue = recoverValue
-	active.RecoverTime = &now
+	active.RecoverTime = model.AsLocalTimePtr(&now)
 	if notifyRecovery {
 		return t.notify.EnqueueForEvent(ctx, rule, active, true)
 	}
@@ -268,7 +268,7 @@ func (t *Trigger) recoveryDurationSatisfied(event *model.AlertEvent, durationSec
 	if durationSeconds <= 0 {
 		durationSeconds = minRecoveryDurationSeconds
 	}
-	return time.Since(*event.LastSentAt) >= time.Duration(durationSeconds)*time.Second
+	return time.Since(event.LastSentAt.StdTime()) >= time.Duration(durationSeconds)*time.Second
 }
 
 func (t *Trigger) durationSatisfied(event *model.AlertEvent, durationSeconds int) bool {
@@ -278,5 +278,5 @@ func (t *Trigger) durationSatisfied(event *model.AlertEvent, durationSeconds int
 	if event == nil {
 		return false
 	}
-	return time.Since(event.GmtCreate) >= time.Duration(durationSeconds)*time.Second
+	return time.Since(event.GmtCreate.StdTime()) >= time.Duration(durationSeconds)*time.Second
 }

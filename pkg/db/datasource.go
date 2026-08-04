@@ -45,8 +45,8 @@ func newDatasource(db *gorm.DB) DatasourceInterface {
 
 func (l *datasource) Create(ctx context.Context, object *model.Datasource) (*model.Datasource, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := l.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}

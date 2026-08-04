@@ -17,8 +17,6 @@ limitations under the License.
 package model
 
 import (
-	"time"
-
 	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 )
 
@@ -68,7 +66,7 @@ type Agent struct {
 	Status        DeployAgentStatus `gorm:"type:smallint;default:0" json:"status"`
 	Hostname      string            `gorm:"type:varchar(255)" json:"hostname"`
 	Version       string            `gorm:"type:varchar(64)" json:"version"`
-	LastHeartbeat time.Time         `gorm:"type:timestamp" json:"last_heartbeat"`
+	LastHeartbeat pixiu.LocalTime   `gorm:"type:timestamp" json:"last_heartbeat"`
 	Description   string            `gorm:"type:text" json:"description"`
 
 	Token string `gorm:"type:varchar(128);index:idx_deploy_agent_token" json:"-"`
@@ -111,7 +109,7 @@ type Job struct {
 	Message   string     `gorm:"type:text" json:"message"`
 	Logs      string     `gorm:"type:text" json:"logs"`
 	Result    string     `gorm:"type:text" json:"result"` // 如 base64 kubeconfig
-	ClaimedAt *time.Time `gorm:"type:timestamp" json:"claimed_at"`
+	ClaimedAt *pixiu.LocalTime `gorm:"type:timestamp" json:"claimed_at"`
 }
 
 func (Job) TableName() string { return "jobs" }

@@ -47,8 +47,8 @@ func newAccessToken(db *gorm.DB) AccessTokenInterface {
 
 func (a *accessToken) Create(ctx context.Context, object *model.ClusterAccessToken) (*model.ClusterAccessToken, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}

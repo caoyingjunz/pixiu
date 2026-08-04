@@ -44,8 +44,8 @@ func newMessage(db *gorm.DB) MessageInterface {
 
 func (a *message) Create(ctx context.Context, object *model.Message) (*model.Message, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}

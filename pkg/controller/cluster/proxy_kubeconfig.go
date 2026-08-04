@@ -94,7 +94,7 @@ func (p *proxyKubeconfig) Create(ctx context.Context, req *types.CreateProxyKube
 		ClusterId:   obj.Id,
 		ClusterName: obj.Name,
 		TokenHash:   hash,
-		ExpiresAt:   &expireAt,
+		ExpiresAt:   model.AsLocalTimePtr(&expireAt),
 	}
 	if _, err = p.c.factory.Cluster().AccessToken().Create(ctx, record); err != nil {
 		klog.Errorf("failed to create cluster access token: %v", err)

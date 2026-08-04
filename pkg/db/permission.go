@@ -43,8 +43,8 @@ type permission struct {
 
 func (p *permission) Create(ctx context.Context, object *model.Permission) (*model.Permission, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err

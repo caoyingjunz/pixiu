@@ -50,8 +50,8 @@ type cluster struct {
 
 func (c *cluster) Create(ctx context.Context, object *model.Cluster, fns ...func(*model.Cluster) error) (*model.Cluster, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(object).Error; err != nil {

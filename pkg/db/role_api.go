@@ -61,8 +61,8 @@ func (r *roleAPI) ReplaceByRoleId(ctx context.Context, roleId int64, apiIds []in
 				RoleId: roleId,
 				APIId:  apiId,
 			}
-			records[i].GmtCreate = now
-			records[i].GmtModified = now
+			records[i].GmtCreate = model.AsLocalTime(now)
+			records[i].GmtModified = model.AsLocalTime(now)
 		}
 
 		return tx.Create(&records).Error

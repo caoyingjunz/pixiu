@@ -48,9 +48,9 @@ type PixiuMeta struct {
 
 type TimeMeta struct {
 	// pixiu 对象创建时间
-	GmtCreate time.Time `json:"gmt_create"`
+	GmtCreate model.LocalTime `json:"gmt_create"`
 	// pixiu 对象修改时间
-	GmtModified time.Time `json:"gmt_modified"`
+	GmtModified model.LocalTime `json:"gmt_modified"`
 }
 
 type HTTPHeader struct {

@@ -45,8 +45,8 @@ type user struct {
 
 func (u *user) Create(ctx context.Context, object *model.User, fns ...func() error) (*model.User, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(object).Error; err != nil {

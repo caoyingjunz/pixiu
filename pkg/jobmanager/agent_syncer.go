@@ -62,7 +62,7 @@ func (as *AgentSyncer) Do(ctx *JobContext) error {
 	now := time.Now()
 	var offlineCount int
 	for _, agent := range agents {
-		if now.Sub(agent.LastHeartbeat) > agentHeartbeatTimeout {
+		if now.Sub(agent.LastHeartbeat.StdTime()) > agentHeartbeatTimeout {
 			if err := as.factory.Agent().InternalUpdate(ctx, agent.Id, map[string]interface{}{
 				"status": model.AgentStatusOffline,
 			}); err != nil {

@@ -36,9 +36,9 @@ type ClusterAccessToken struct {
 	ClusterName string     `gorm:"column:cluster_name;type:varchar(128)" json:"cluster_name"`
 	Name        string     `gorm:"column:name;type:varchar(128);default:''" json:"name"`
 	TokenHash   string     `gorm:"column:token_hash;type:varchar(128);index:idx_token_hash" json:"-"`
-	ExpiresAt   *time.Time `gorm:"column:expires_at" json:"expires_at,omitempty"`
-	RevokedAt   *time.Time `gorm:"column:revoked_at" json:"revoked_at,omitempty"`
-	LastUsedAt  *time.Time `gorm:"column:last_used_at" json:"last_used_at,omitempty"`
+	ExpiresAt   *pixiu.LocalTime `gorm:"column:expires_at" json:"expires_at,omitempty"`
+	RevokedAt   *pixiu.LocalTime `gorm:"column:revoked_at" json:"revoked_at,omitempty"`
+	LastUsedAt  *pixiu.LocalTime `gorm:"column:last_used_at" json:"last_used_at,omitempty"`
 }
 
 func (*ClusterAccessToken) TableName() string {
@@ -53,7 +53,7 @@ func (t *ClusterAccessToken) IsExpired() bool {
 	if t == nil || t.ExpiresAt == nil {
 		return false
 	}
-	return time.Now().After(*t.ExpiresAt)
+	return t.ExpiresAt.Before(time.Now())
 }
 
 func (t *ClusterAccessToken) IsActive() bool {

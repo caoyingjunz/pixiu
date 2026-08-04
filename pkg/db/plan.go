@@ -80,8 +80,8 @@ type CreatePlanOption func(plan *model.Plan, tx *gorm.DB) (*gorm.DB, error)
 
 func (p *plan) Create(ctx context.Context, object *model.Plan, opts ...CreatePlanOption) (*model.Plan, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if len(opts) == 0 {
 		// no transaction
@@ -170,8 +170,8 @@ func (p *plan) Count(ctx context.Context, opts ...Options) (int64, error) {
 
 func (p *plan) CreateNode(ctx context.Context, object *model.Node) (*model.Node, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
@@ -182,8 +182,8 @@ func (p *plan) CreateNode(ctx context.Context, object *model.Node) (*model.Node,
 // TxCreateNode creates a node object in the given transaction.
 func (p *plan) TxCreateNode(ctx context.Context, tx *gorm.DB, object *model.Node) error {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	return tx.WithContext(ctx).Create(object).Error
 }
@@ -297,8 +297,8 @@ func (p *plan) CountNodes(ctx context.Context, opts ...Options) (int64, error) {
 
 func (p *plan) CreateConfig(ctx context.Context, object *model.Config) (*model.Config, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
@@ -309,8 +309,8 @@ func (p *plan) CreateConfig(ctx context.Context, object *model.Config) (*model.C
 // TxCreateConfig creates a config object in the given transaction.
 func (p *plan) TxCreateConfig(ctx context.Context, tx *gorm.DB, object *model.Config) error {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	return tx.WithContext(ctx).Create(object).Error
 }
@@ -383,8 +383,8 @@ func (p *plan) GetConfigByPlan(ctx context.Context, planId int64) (*model.Config
 
 func (p *plan) CreateTask(ctx context.Context, object *model.Task) (*model.Task, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := p.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err

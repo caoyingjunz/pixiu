@@ -42,8 +42,8 @@ func newJob(db *gorm.DB) JobInterface { return &job{db: db} }
 
 func (j *job) Create(ctx context.Context, object *model.Job) (*model.Job, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if object.Status == "" {
 		object.Status = model.JobPending
 	}

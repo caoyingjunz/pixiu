@@ -61,8 +61,8 @@ type alertRule struct{ db *gorm.DB }
 
 func (a *alertRule) Create(ctx context.Context, object *model.AlertRule) (*model.AlertRule, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
@@ -143,8 +143,8 @@ type alertEvent struct{ db *gorm.DB }
 
 func (a *alertEvent) Create(ctx context.Context, object *model.AlertEvent) (*model.AlertEvent, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
@@ -240,8 +240,8 @@ type alertNotification struct{ db *gorm.DB }
 
 func (a *alertNotification) Create(ctx context.Context, object *model.AlertNotification) (*model.AlertNotification, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
@@ -337,8 +337,8 @@ type alertChannel struct{ db *gorm.DB }
 
 func (a *alertChannel) Create(ctx context.Context, object *model.AlertChannel) (*model.AlertChannel, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}
@@ -418,8 +418,8 @@ type alertSilence struct{ db *gorm.DB }
 
 func (a *alertSilence) Create(ctx context.Context, object *model.AlertSilence) (*model.AlertSilence, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 	if err := a.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
 	}

@@ -20,9 +20,10 @@ import (
 	"context"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
-	"gorm.io/gorm"
 )
 
 type RepositoryInterface interface {
@@ -46,8 +47,8 @@ var _ RepositoryInterface = &repository{}
 
 func (r *repository) Create(ctx context.Context, object *model.Repository) (*model.Repository, error) {
 	now := time.Now()
-	object.GmtCreate = now
-	object.GmtModified = now
+	object.GmtCreate = model.AsLocalTime(now)
+	object.GmtModified = model.AsLocalTime(now)
 
 	if err := r.db.WithContext(ctx).Create(object).Error; err != nil {
 		return nil, err
@@ -69,7 +70,6 @@ func (r *repository) Update(ctx context.Context, id int64, resourceVersion int64
 	}
 
 	return nil
-
 }
 
 func (r *repository) Delete(ctx context.Context, id int64) error {
