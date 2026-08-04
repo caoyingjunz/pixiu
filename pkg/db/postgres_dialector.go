@@ -33,10 +33,10 @@ import (
 
 // OpenPostgres 打开 PostgreSQL / 人大金仓（PG 协议）连接。
 //
-// 1. PreferSimpleProtocol：金仓时间 OID（如 7954）与标准 PG 不同，扩展协议编码 time.Time 会失败。
-// 2. AfterConnect 注册金仓日期时间 OID：否则回读时驱动把时间当成 string，
-//    Scan 到 *time.Time 会报 unsupported Scan ... type string。
-// 3. 兼容 Migrator：ColumnTypes 遇 udt_name 缺失时回退 data_type。
+//  1. PreferSimpleProtocol：金仓时间 OID（如 7954）与标准 PG 不同，扩展协议编码 time.Time 会失败。
+//  2. AfterConnect 注册金仓日期时间 OID：否则回读时驱动把时间当成 string，
+//     Scan 到 *time.Time 会报 unsupported Scan ... type string。
+//  3. 兼容 Migrator：ColumnTypes 遇 udt_name 缺失时回退 data_type。
 func OpenPostgres(dsn string) (gorm.Dialector, error) {
 	cfg, err := pgx.ParseConfig(dsn)
 	if err != nil {

@@ -30,12 +30,12 @@ func init() {
 type ClusterAccessToken struct {
 	pixiu.Model
 
-	JTI         string     `gorm:"column:jti;type:varchar(64);uniqueIndex:uk_jti" json:"jti"`
-	UserId      int64      `gorm:"column:user_id;index:idx_user_id" json:"user_id"`
-	ClusterId   int64      `gorm:"column:cluster_id;index:idx_cluster_id" json:"cluster_id"`
-	ClusterName string     `gorm:"column:cluster_name;type:varchar(128)" json:"cluster_name"`
-	Name        string     `gorm:"column:name;type:varchar(128);default:''" json:"name"`
-	TokenHash   string     `gorm:"column:token_hash;type:varchar(128);index:idx_token_hash" json:"-"`
+	JTI         string           `gorm:"column:jti;type:varchar(64);uniqueIndex:uk_jti" json:"jti"`
+	UserId      int64            `gorm:"column:user_id;index:idx_user_id" json:"user_id"`
+	ClusterId   int64            `gorm:"column:cluster_id;index:idx_cluster_id" json:"cluster_id"`
+	ClusterName string           `gorm:"column:cluster_name;type:varchar(128)" json:"cluster_name"`
+	Name        string           `gorm:"column:name;type:varchar(128);default:''" json:"name"`
+	TokenHash   string           `gorm:"column:token_hash;type:varchar(128);index:idx_token_hash" json:"-"`
 	ExpiresAt   *pixiu.LocalTime `gorm:"column:expires_at" json:"expires_at,omitempty"`
 	RevokedAt   *pixiu.LocalTime `gorm:"column:revoked_at" json:"revoked_at,omitempty"`
 	LastUsedAt  *pixiu.LocalTime `gorm:"column:last_used_at" json:"last_used_at,omitempty"`

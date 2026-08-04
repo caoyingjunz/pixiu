@@ -98,17 +98,17 @@ const (
 type Job struct {
 	pixiu.Model
 
-	PlanId    int64      `gorm:"index:idx_deploy_job_plan" json:"plan_id"`
-	AgentId   int64      `gorm:"index:idx_deploy_job_agent" json:"agent_id"`
-	TaskName  string     `gorm:"type:varchar(128)" json:"task_name"`
-	Kind      JobKind    `gorm:"type:varchar(64)" json:"kind"`
-	Action    string     `gorm:"type:varchar(128)" json:"action"` // kubez-ansible COMMAND
-	Image     string     `gorm:"type:varchar(512)" json:"image"`
-	Payload   string     `gorm:"type:text" json:"payload"` // JSON 附加数据
-	Status    JobStatus  `gorm:"type:varchar(32);index:idx_deploy_job_status" json:"status"`
-	Message   string     `gorm:"type:text" json:"message"`
-	Logs      string     `gorm:"type:text" json:"logs"`
-	Result    string     `gorm:"type:text" json:"result"` // 如 base64 kubeconfig
+	PlanId    int64            `gorm:"index:idx_deploy_job_plan" json:"plan_id"`
+	AgentId   int64            `gorm:"index:idx_deploy_job_agent" json:"agent_id"`
+	TaskName  string           `gorm:"type:varchar(128)" json:"task_name"`
+	Kind      JobKind          `gorm:"type:varchar(64)" json:"kind"`
+	Action    string           `gorm:"type:varchar(128)" json:"action"` // kubez-ansible COMMAND
+	Image     string           `gorm:"type:varchar(512)" json:"image"`
+	Payload   string           `gorm:"type:text" json:"payload"` // JSON 附加数据
+	Status    JobStatus        `gorm:"type:varchar(32);index:idx_deploy_job_status" json:"status"`
+	Message   string           `gorm:"type:text" json:"message"`
+	Logs      string           `gorm:"type:text" json:"logs"`
+	Result    string           `gorm:"type:text" json:"result"` // 如 base64 kubeconfig
 	ClaimedAt *pixiu.LocalTime `gorm:"type:timestamp" json:"claimed_at"`
 }
 

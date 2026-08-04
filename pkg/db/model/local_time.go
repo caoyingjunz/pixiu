@@ -25,6 +25,6 @@ import (
 // LocalTime / LocalNow 便捷转发，供 db 层赋值使用。
 type LocalTime = pixiu.LocalTime
 
-func LocalNow() LocalTime                 { return pixiu.LocalNow() }
-func AsLocalTime(t time.Time) LocalTime   { return pixiu.AsLocalTime(t) }
+func LocalNow() LocalTime                    { return pixiu.LocalNow() }
+func AsLocalTime(t time.Time) LocalTime      { return pixiu.AsLocalTime(t) }
 func AsLocalTimePtr(t *time.Time) *LocalTime { return pixiu.AsLocalTimePtr(t) }

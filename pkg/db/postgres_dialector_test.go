@@ -36,11 +36,11 @@ func TestIsKingbaseUdtNameError(t *testing.T) {
 
 func TestNormalizeSQLDataType(t *testing.T) {
 	cases := map[string]string{
-		"character varying":            "varchar",
-		"INTEGER":                      "int4",
-		"timestamp without time zone":  "timestamp",
-		"double precision":             "float8",
-		"text":                         "text",
+		"character varying":           "varchar",
+		"INTEGER":                     "int4",
+		"timestamp without time zone": "timestamp",
+		"double precision":            "float8",
+		"text":                        "text",
 	}
 	for in, want := range cases {
 		if got := normalizeSQLDataType(in); got != want {

@@ -189,15 +189,15 @@ func (AlertChannel) TableName() string {
 type AlertSilence struct {
 	pixiu.Model
 
-	Name             string    `gorm:"column:name;type:varchar(128);not null" json:"name"`
-	MatchLabels      string    `gorm:"column:match_labels;type:text" json:"match_labels"`
-	MatchExpressions string    `gorm:"column:match_expressions;type:text" json:"match_expressions"`
+	Name             string          `gorm:"column:name;type:varchar(128);not null" json:"name"`
+	MatchLabels      string          `gorm:"column:match_labels;type:text" json:"match_labels"`
+	MatchExpressions string          `gorm:"column:match_expressions;type:text" json:"match_expressions"`
 	StartsAt         pixiu.LocalTime `gorm:"column:starts_at;type:timestamp;not null;index:idx_alert_silences_time_range,priority:1" json:"starts_at"`
 	EndsAt           pixiu.LocalTime `gorm:"column:ends_at;type:timestamp;not null;index:idx_alert_silences_time_range,priority:2" json:"ends_at"`
-	Enabled          bool      `gorm:"column:enabled;default:true;not null;index:idx_alert_silences_enabled" json:"enabled"`
-	CreatedBy        string    `gorm:"column:created_by;type:varchar(128)" json:"created_by"`
-	Comment          string    `gorm:"column:comment;type:text" json:"comment"`
-	Extension        string    `gorm:"column:extension;type:text" json:"extension"`
+	Enabled          bool            `gorm:"column:enabled;default:true;not null;index:idx_alert_silences_enabled" json:"enabled"`
+	CreatedBy        string          `gorm:"column:created_by;type:varchar(128)" json:"created_by"`
+	Comment          string          `gorm:"column:comment;type:text" json:"comment"`
+	Extension        string          `gorm:"column:extension;type:text" json:"extension"`
 }
 
 func (AlertSilence) TableName() string {
