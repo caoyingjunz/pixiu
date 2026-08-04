@@ -34,11 +34,10 @@
 ### 2. 下载二进制文件
 
 ```bash
-# 下载最新版本（替换为实际版本号）
-VERSION=v2.0.1-beta.5
-curl -Lo /usr/local/bin/deploy-agent \
-  https://github.com/caoyingjunz/pixiu/releases/download/${VERSION}/deploy-agent-linux-amd64
-chmod +x /usr/local/bin/deploy-agent
+# 下载最新版本
+curl -Lo /usr/local/bin/pixiu-deploy-agent \
+  https://pixiu-1302939330.cos.ap-guangzhou.myqcloud.com/deploy-agent/pixiu-deploy-agent
+chmod +x /usr/local/bin/pixiu-deploy-agent
 ```
 
 ### 3. 生成配置文件
@@ -66,7 +65,7 @@ Wants=docker.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/deploy-agent -config=/etc/pixiu/agent.yaml
+ExecStart=/usr/local/bin/pixiu-deploy-agent -config=/etc/pixiu/agent.yaml
 Restart=always
 RestartSec=5
 LimitNOFILE=65536
