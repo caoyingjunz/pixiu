@@ -549,13 +549,14 @@ type RuntimeSpec struct {
 }
 
 type ComponentSpec struct {
-	Helm         *Helm         `json:"helm,omitempty"` // 忽略，则使用默认值
-	Prometheus   *Prometheus   `json:"prometheus,omitempty"`
-	Grafana      *Grafana      `json:"grafana,omitempty"`
-	Haproxy      *Haproxy      `json:"haproxy,omitempty"`
-	MetricServer *MetricServer `json:"metric_server,omitempty"`
-	IngressNginx *IngressNginx `json:"ingress_nginx,omitempty"`
-	NFS          *NFS          `json:"nfs,omitempty"`
+	RepositoryFiles map[string]string `json:"repository_files,omitempty"`
+	Helm            *Helm             `json:"helm,omitempty"` // 忽略，则使用默认值
+	Prometheus      *Prometheus       `json:"prometheus,omitempty"`
+	Grafana         *Grafana          `json:"grafana,omitempty"`
+	Haproxy         *Haproxy          `json:"haproxy,omitempty"`
+	MetricServer    *MetricServer     `json:"metric_server,omitempty"`
+	IngressNginx    *IngressNginx     `json:"ingress_nginx,omitempty"`
+	NFS             *NFS              `json:"nfs,omitempty"`
 }
 
 type Helm struct {
