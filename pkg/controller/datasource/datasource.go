@@ -277,20 +277,11 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		return nil, apierrors.ErrServerInternal
 	}
 
-	aliasByName := c.buildClusterAliasMap(ctx, objects)
-
 	items := make([]types.Datasource, 0)
 	for i := range objects {
 		t, convErr := modelToType(&objects[i])
 		if convErr != nil {
 			return nil, apierrors.ErrServerInternal
-		}
-		if t.ClusterName != "" {
-			if alias, ok := aliasByName[t.ClusterName]; ok && alias != "" {
-				t.ClusterAliasName = alias
-			} else {
-				t.ClusterAliasName = t.ClusterName
-			}
 		}
 		items = append(items, *t)
 	}
@@ -313,30 +304,6 @@ func (c *controller) enrichClusterAlias(ctx context.Context, ds *types.Datasourc
 		return
 	}
 	ds.ClusterAliasName = cluster.Name
-}
-
-func (c *controller) buildClusterAliasMap(ctx context.Context, objects []model.Datasource) map[string]string {
-	names := make(map[string]struct{})
-	for i := range objects {
-		name := objects[i].ClusterName
-		if name != "" {
-			names[name] = struct{}{}
-		}
-	}
-	aliasByName := make(map[string]string, len(names))
-	for name := range names {
-		cluster, err := c.factory.Cluster().GetClusterByName(ctx, name)
-		if err != nil || cluster == nil {
-			aliasByName[name] = name
-			continue
-		}
-		if cluster.AliasName != "" {
-			aliasByName[name] = cluster.AliasName
-		} else {
-			aliasByName[name] = cluster.Name
-		}
-	}
-	return aliasByName
 }
 
 func modelToType(object *model.Datasource) (*types.Datasource, error) {
