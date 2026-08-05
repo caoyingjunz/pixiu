@@ -263,6 +263,16 @@ func (u *userRouter) login(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (u *userRouter) getMyPermissions(c *gin.Context) {
+	r := httputils.NewResponse()
+	var err error
+	if r.Result, err = u.c.User().GetMyPermissions(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
 // TODO
 func (u *userRouter) logout(c *gin.Context) {
 	r := httputils.NewResponse()

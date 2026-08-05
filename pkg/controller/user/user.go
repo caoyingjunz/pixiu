@@ -19,6 +19,7 @@ package user
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -68,6 +69,7 @@ type Interface interface {
 	Logout(ctx *gin.Context, userId int64) error
 
 	GetLoginToken(ctx context.Context, userId int64) (string, error)
+	GetMyPermissions(ctx context.Context) (*types.MyPermissionsResponse, error)
 	ValidAccess(ctx *gin.Context, roleId int64) error
 	ValidateLoginToken(ctx context.Context, userId int64, token string) (bool, error)
 }
@@ -426,7 +428,106 @@ func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) 
 	return t, nil
 }
 
+func (u *user) GetMyPermissions(ctx context.Context) (*types.MyPermissionsResponse, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil || user == nil {
+		return nil, errors.ErrUnauthorized
+	}
+
+	resp := &types.MyPermissionsResponse{
+		Role:    user.Role,
+		IsRoot:  user.Role == model.RoleRoot,
+		APIs:    make([]types.APIResource, 0),
+		Scopes:  make([]types.RoleAPIScope, 0),
+		Buttons: make([]string, 0),
+	}
+
+	if user.Role == model.RoleRoot {
+		apis, err := u.factory.API().List(ctx)
+		if err != nil {
+			klog.Errorf("failed to list apis for root permissions: %v", err)
+			return nil, errors.ErrServerInternal
+		}
+		for i := range apis {
+			api := model2APIResource(&apis[i])
+			resp.APIs = append(resp.APIs, *api)
+			resp.Buttons = append(resp.Buttons, apis[i].Method+":"+apis[i].Path)
+		}
+		return resp, nil
+	}
+
+	roleId := int64(user.Role)
+	apis, err := u.factory.API().GetByRoleId(ctx, roleId)
+	if err != nil {
+		klog.Errorf("failed to list apis for role %d: %v", roleId, err)
+		return nil, errors.ErrServerInternal
+	}
+	for i := range apis {
+		api := model2APIResource(&apis[i])
+		resp.APIs = append(resp.APIs, *api)
+		resp.Buttons = append(resp.Buttons, apis[i].Method+":"+apis[i].Path)
+	}
+
+	scopes, err := u.factory.RoleAPIScope().ListByRoleId(ctx, roleId)
+	if err != nil {
+		klog.Errorf("failed to list api scopes for role %d: %v", roleId, err)
+		return nil, errors.ErrServerInternal
+	}
+	for i := range scopes {
+		resp.Scopes = append(resp.Scopes, types.RoleAPIScope{
+			APIId:        scopes[i].APIId,
+			Cluster:      scopes[i].Cluster,
+			Namespace:    scopes[i].Namespace,
+			ResourceName: scopes[i].ResourceName,
+		})
+	}
+	return resp, nil
+}
+
+func model2APIResource(o *model.API) *types.APIResource {
+	return &types.APIResource{
+		PixiuMeta: types.PixiuMeta{
+			Id:              o.Id,
+			ResourceVersion: o.ResourceVersion,
+		},
+		TimeMeta: types.TimeMeta{
+			GmtCreate:   o.GmtCreate,
+			GmtModified: o.GmtModified,
+		},
+		Method:      o.Method,
+		Path:        o.Path,
+		Group:       o.Group,
+		Description: o.Description,
+	}
+}
+
 func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
+	// 超管已在 ValidAccess 放行；此处防御性跳过
+	if roleId == 0 {
+		return nil
+	}
+
+	scopes, err := u.factory.RoleAPIScope().ListByRoleId(ctx, roleId)
+	if err != nil {
+		klog.Errorf("failed to list role api scopes for role %d: %v", roleId, err)
+		return fmt.Errorf("无访问权限")
+	}
+	// 未配置作用域：兼容仅绑定平台 API 的角色，由集群 Authorize + kube RBAC 兜底
+	if len(scopes) == 0 {
+		return nil
+	}
+
+	clusterName := strings.TrimSpace(ctx.Param("clusterName"))
+	act := ctx.Param("act")
+	if act == "" {
+		// 兼容部分路由未绑定 *act 的情况
+		prefix := "/pixiu/proxy/" + clusterName
+		act = strings.TrimPrefix(ctx.Request.URL.Path, prefix)
+	}
+	namespace, resourceName := parseK8sProxyPath(act)
+	if !matchRoleAPIScope(scopes, clusterName, namespace, resourceName) {
+		return fmt.Errorf("无访问权限")
+	}
 	return nil
 }
 

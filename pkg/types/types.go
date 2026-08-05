@@ -288,6 +288,29 @@ type RoleAPIsResponse struct {
 	Unassociated []APIResource `json:"unassociated"`
 }
 
+// RoleAPIScope 角色 API 资源作用域
+type RoleAPIScope struct {
+	APIId        int64  `json:"api_id"`
+	Cluster      string `json:"cluster"`
+	Namespace    string `json:"namespace"`
+	ResourceName string `json:"resource_name"`
+}
+
+// RoleAPIScopesResponse 角色 Kubernetes 资源权限
+type RoleAPIScopesResponse struct {
+	Scopes []RoleAPIScope `json:"scopes"`
+	APIs   []APIResource  `json:"apis"`
+}
+
+// MyPermissionsResponse 当前登录用户可用权限（供前端控制显示）
+type MyPermissionsResponse struct {
+	Role    model.UserLevel `json:"role"`
+	IsRoot  bool            `json:"is_root"`
+	APIs    []APIResource   `json:"apis"`
+	Scopes  []RoleAPIScope  `json:"scopes"`
+	Buttons []string        `json:"buttons"` // METHOD:path，供前端 hasAuth / 菜单过滤
+}
+
 type Plan struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`

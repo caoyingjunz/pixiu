@@ -42,6 +42,7 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -452,20 +453,14 @@ func (c *cluster) deletePixiuClusterRole(ctx context.Context, cluster *model.Clu
 }
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
-	object, err := c.factory.Cluster().Get(ctx, cid)
+	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil {
-		klog.Errorf("failed to get cluster(%d): %v", cid, err)
-		return nil, errors.ErrServerInternal
+		return nil, errors.ErrUnauthorized
 	}
-	if object == nil {
-		return nil, errors.ErrClusterNotFound
-	}
-
-	// 资源确认是否归属自己，非超级管理员只能查看自己的集群
-	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
+	object, err := c.AuthorizeClusterAccess(ctx, user, cid)
+	if err != nil {
 		return nil, err
 	}
-
 	return c.model2Type(object), nil
 }
 

@@ -177,6 +177,19 @@ type (
 		APIIds []int64 `json:"api_ids"` // 已关联的 API 资源 ID 列表，全量替换
 	}
 
+	RoleAPIScopeItem struct {
+		APIId        int64  `json:"api_id"`
+		Cluster      string `json:"cluster"`
+		Namespace    string `json:"namespace"`
+		ResourceName string `json:"resource_name"`
+	}
+
+	UpdateRoleAPIScopesRequest struct {
+		Scopes       []RoleAPIScopeItem `json:"scopes"`        // 全量替换（优先）
+		AddScopes    []RoleAPIScopeItem `json:"add_scopes"`    // 增量添加
+		RemoveScopes []RoleAPIScopeItem `json:"remove_scopes"` // 增量删除
+	}
+
 	CreateAPIRequest struct {
 		Method      string  `json:"method" binding:"required,oneof=GET POST PUT DELETE PATCH"`
 		Path        string  `json:"path" binding:"required"`

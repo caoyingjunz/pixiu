@@ -158,3 +158,42 @@ func (r *roleRouter) updateRoleAPIs(c *gin.Context) {
 
 	httputils.SetSuccess(c, resp)
 }
+
+func (r *roleRouter) getRoleAPIScopes(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		opt RoleMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if resp.Result, err = r.c.Role().GetAPIScopes(c, opt.RoleId); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *roleRouter) updateRoleAPIScopes(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		opt RoleMeta
+		err error
+	)
+	var req types.UpdateRoleAPIScopesRequest
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Role().UpdateAPIScopes(c, opt.RoleId, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+
+	httputils.SetSuccess(c, resp)
+}
