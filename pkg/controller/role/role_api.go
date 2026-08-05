@@ -69,14 +69,12 @@ func (r *role) GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse,
 	return resp, nil
 }
 
+// 更新前置检查：资源存在
+// role.Update 与 role.UpdateAPIs 共用 role.go 的 preUpdate，role.Update 需要旧值做名称查重，故返回 (*model.Role, error)
 func (r *role) UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleAPIsRequest) error {
-	object, err := r.factory.Role().Get(ctx, rid)
-	if err != nil {
-		klog.Errorf("failed to get role %d: %v", rid, err)
-		return errors.ErrServerInternal
-	}
-	if object == nil {
-		return errors.ErrRoleNotFound
+	if _, err := r.preUpdate(ctx, rid); err != nil {
+		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
+		return err
 	}
 
 	apiIds := dedupeInt64(req.APIIds)

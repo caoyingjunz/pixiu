@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/gorilla/websocket"
 	appv1 "k8s.io/api/apps/v1"
@@ -172,6 +173,12 @@ func handler(turn *types.Turn) {
 // 2. 等待 pod running
 // 3. ws pod
 func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequest, w http.ResponseWriter, r *http.Request) error {
+	userId, err := httputils.GetUserIdFromContext(ctx)
+	if err != nil {
+		klog.Errorf("failed to get user from context: %v", err)
+		return err
+	}
+
 	ownerClusterName, err := c.getOwnerClusterName(ctx, req.ClusterId)
 	if err != nil {
 		klog.Errorf("failed to get owner reference cluster name: %v", err)
@@ -183,7 +190,7 @@ func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequ
 		return err
 	}
 
-	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, req.UserId)
+	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, userId)
 	namespace := "pixiu-system" // 导入集群或者部署集群的时候已确保存在
 	podName := stsName + "-0"
 
@@ -192,7 +199,7 @@ func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequ
 		klog.Infof("pod(%s) already exists, reuse it", podName)
 	} else {
 		if errors.IsNotFound(err) {
-			if err = c.CreateAndWaitForPodRunning(ctx, clientSet, req); err != nil {
+			if err = c.CreateAndWaitForPodRunning(ctx, clientSet, req, userId); err != nil {
 				return err
 			}
 		} else {
@@ -221,11 +228,11 @@ func cloudShellBashCommand() []string {
 	}
 }
 
-func (c *cluster) CreateAndWaitForPodRunning(ctx context.Context, clientSet client.ClusterSet, req types.ClusterWebRequest) error {
-	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, req.UserId)
+func (c *cluster) CreateAndWaitForPodRunning(ctx context.Context, clientSet client.ClusterSet, req types.ClusterWebRequest, userId int64) error {
+	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, userId)
 	podName := stsName + "-0"
 	namespace := "pixiu-system" // 导入集群或者部署集群的时候已确保存在
-	cmName := fmt.Sprintf("ws-%d-%d", req.ClusterId, req.UserId)
+	cmName := fmt.Sprintf("ws-%d-%d", req.ClusterId, userId)
 	labels := map[string]string{"maintainer": "pixiu", "cluster": req.ClusterName, "app": stsName}
 
 	// 创建 cm，创建 sts，等待pod启动

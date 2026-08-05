@@ -53,6 +53,7 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/:clusterId", Handler: cr.deleteCluster, Description: "删除集群"},
 			{Method: "GET", RelativePath: "/:clusterId", Handler: cr.getCluster, Description: "查看详情"},
 			{Method: "GET", RelativePath: "", Handler: cr.listClusters, Description: "查看列表"},
+
 			{Method: "POST", RelativePath: "/ping", Handler: cr.pingCluster, Description: "连通测试"},
 			{Method: "POST", RelativePath: "/protect/:clusterId", Handler: cr.protectCluster, Description: "删除保护"},
 			{Method: "GET", RelativePath: "/:clusterId/kubeconfig", Handler: cr.getClusterKubeconfig, Description: "查看KubeConfig"},

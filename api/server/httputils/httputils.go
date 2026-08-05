@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -130,6 +131,34 @@ func ShouldBindAny(c *gin.Context, jsonObject interface{}, uriObject interface{}
 		if err = c.ShouldBindQuery(queryObject); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func BindListOptionsWithUser(c *gin.Context, o *types.ListOptions) error {
+	if err := ShouldBindAny(c, nil, nil, o); err != nil {
+		return err
+	}
+	user, err := GetUserFromContext(c)
+	if err != nil {
+		return err
+	}
+	o.SetUserOption(user)
+	return nil
+}
+
+// BindCreateRequest 绑定创建请求 JSON；若请求实现了 types.UserIDSetter，
+// 则将当前登录用户设置为资源归属（不允许客户端指定，也不支持代建）。
+func BindCreateRequest(c *gin.Context, req any) error {
+	if err := c.ShouldBindJSON(req); err != nil {
+		return err
+	}
+	if u, ok := req.(types.UserIDSetter); ok {
+		user, err := GetUserFromContext(c)
+		if err != nil {
+			return err
+		}
+		u.SetUserID(user.Id)
 	}
 	return nil
 }

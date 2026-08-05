@@ -26,9 +26,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -73,11 +73,10 @@ func (a *agentController) Create(ctx context.Context, req *types.CreateAgentRequ
 	if err != nil {
 		return errors.ErrServerInternal
 	}
-	userId, _ := httputils.GetUserIdFromContext(ctx)
 	_, err = a.factory.Agent().Create(ctx, &model.Agent{
 		Name:        req.Name,
 		AgentType:   req.Type,
-		UserID:      userId,
+		UserID:      req.UserID,
 		Token:       tkn,
 		Status:      model.AgentStatusOffline,
 		Description: req.Description,
@@ -89,7 +88,28 @@ func (a *agentController) Create(ctx context.Context, req *types.CreateAgentRequ
 	return nil
 }
 
+// 更新前置检查：资源存在 + 非超级管理员只能更新自己的 Agent
+func (a *agentController) preUpdate(ctx context.Context, agentId int64) error {
+	object, err := a.factory.Agent().Get(ctx, agentId)
+	if err != nil {
+		klog.Errorf("failed to get agent(%d): %v", agentId, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrAgentNotFound
+	}
+	if err := util.CheckResourceOwner(ctx, object.UserID); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *agentController) Update(ctx context.Context, agentId int64, req *types.UpdateAgentRequest) error {
+	if err := a.preUpdate(ctx, agentId); err != nil {
+		klog.Errorf("pre-update check failed for agent(%d): %v", agentId, err)
+		return err
+	}
+
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		updates["name"] = *req.Name
@@ -108,6 +128,19 @@ func (a *agentController) Update(ctx context.Context, agentId int64, req *types.
 }
 
 func (a *agentController) Delete(ctx context.Context, agentId int64) error {
+	// 非超级管理员只能删除自己的 Agent
+	object, err := a.factory.Agent().Get(ctx, agentId)
+	if err != nil {
+		klog.Errorf("failed to get agent(%d): %v", agentId, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrAgentNotFound
+	}
+	if err = util.CheckResourceOwner(ctx, object.UserID); err != nil {
+		return err
+	}
+
 	if err := a.factory.Agent().Delete(ctx, agentId); err != nil {
 		klog.Errorf("failed to delete agent %d: %v", agentId, err)
 		return errors.ErrServerInternal
@@ -124,6 +157,12 @@ func (a *agentController) Get(ctx context.Context, agentId int64) (*types.Agent,
 	if object == nil {
 		return nil, errors.ErrAgentNotFound
 	}
+
+	// 非超级管理员只能查看自己的 Agent
+	if err = util.CheckResourceOwner(ctx, object.UserID); err != nil {
+		return nil, err
+	}
+
 	return model2Type(object), nil
 }
 
@@ -137,7 +176,7 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 		},
 	}
 
-	filterOpts := buildAgentFilters(listOption)
+	filterOpts := buildAgentFilters(listOption.UserId, listOption)
 
 	var err error
 	pageResult.Total, err = a.factory.Agent().Count(ctx, filterOpts...)
@@ -260,13 +299,13 @@ func (a *agentController) GetPlan(ctx context.Context, agentToken string, jobId 
 
 // ── helpers ──
 
-func buildAgentFilters(opt types.ListOptions) []db.Options {
+func buildAgentFilters(uid int64, opt types.ListOptions) []db.Options {
 	var opts []db.Options
 	if opt.NameSelector != "" {
 		opts = append(opts, db.WithNameLike(opt.NameSelector))
 	}
-	if opt.UserId != 0 {
-		opts = append(opts, db.WithUser(opt.UserId))
+	if uid != 0 {
+		opts = append(opts, db.WithUser(uid))
 	}
 	if opt.AgentStatus != nil {
 		opts = append(opts, db.WithStatus(*opt.AgentStatus))

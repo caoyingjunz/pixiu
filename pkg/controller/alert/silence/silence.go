@@ -72,7 +72,25 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertSilenceRe
 	return nil
 }
 
+// 更新前置检查：资源存在
+func (c *controller) preUpdate(ctx context.Context, silenceId int64) error {
+	object, err := c.factory.Alert().Silence().Get(ctx, silenceId)
+	if err != nil {
+		klog.Errorf("failed to get alert silence(%d): %v", silenceId, err)
+		return apierrors.ErrServerInternal
+	}
+	if object == nil {
+		return apierrors.NewError(fmt.Errorf("alert silence not found"), http.StatusNotFound)
+	}
+	return nil
+}
+
 func (c *controller) Update(ctx context.Context, silenceId int64, req *types.UpdateAlertSilenceRequest) error {
+	if err := c.preUpdate(ctx, silenceId); err != nil {
+		klog.Errorf("pre-update check failed for alert silence(%d): %v", silenceId, err)
+		return err
+	}
+
 	updates := map[string]interface{}{}
 	if req.Name != nil {
 		updates["name"] = *req.Name

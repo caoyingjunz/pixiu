@@ -108,14 +108,24 @@ func (a *apiResource) Register(ctx context.Context, req *types.CreateAPIRequest)
 	return a.Create(ctx, req)
 }
 
-func (a *apiResource) Update(ctx context.Context, aid int64, req *types.UpdateAPIRequest) error {
+// 更新前置检查：资源存在
+func (a *apiResource) preUpdate(ctx context.Context, aid int64) (*model.API, error) {
 	object, err := a.factory.API().Get(ctx, aid)
 	if err != nil {
-		klog.Errorf("failed to get api %d: %v", aid, err)
-		return errors.ErrServerInternal
+		klog.Errorf("failed to get api(%d): %v", aid, err)
+		return nil, errors.ErrServerInternal
 	}
 	if object == nil {
-		return errors.ErrAPINotFound
+		return nil, errors.ErrAPINotFound
+	}
+	return object, nil
+}
+
+func (a *apiResource) Update(ctx context.Context, aid int64, req *types.UpdateAPIRequest) error {
+	object, err := a.preUpdate(ctx, aid)
+	if err != nil {
+		klog.Errorf("pre-update check failed for api(%d): %v", aid, err)
+		return err
 	}
 
 	method := object.Method

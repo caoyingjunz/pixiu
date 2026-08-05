@@ -30,7 +30,7 @@ type accountMeta struct {
 func (r *router) createAccount(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var req types.CreateAIAccountRequest
-	if err := httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -90,7 +90,7 @@ func (r *router) listAccounts(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var opts types.ListOptions
 	var err error
-	if err = httputils.ShouldBindAny(c, nil, nil, &opts); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &opts); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

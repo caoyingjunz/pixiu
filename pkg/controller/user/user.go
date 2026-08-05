@@ -28,6 +28,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -121,7 +122,25 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 	return nil
 }
 
+// 更新前置检查：资源存在
+func (u *user) preUpdate(ctx context.Context, uid int64) error {
+	object, err := u.factory.User().Get(ctx, uid)
+	if err != nil {
+		klog.Errorf("failed to get user(%d): %v", uid, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrUserNotFound
+	}
+	return nil
+}
+
 func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserRequest) error {
+	if err := u.preUpdate(ctx, uid); err != nil {
+		klog.Errorf("pre-update check failed for user(%d): %v", uid, err)
+		return err
+	}
+
 	updates := map[string]interface{}{
 		"status":      req.Status,
 		"email":       req.Email,
@@ -219,6 +238,18 @@ func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.Upda
 }
 
 func (u *user) Delete(ctx context.Context, userId int64) error {
+	object, err := u.factory.User().Get(ctx, userId)
+	if err != nil {
+		klog.Errorf("failed to get user(%d): %v", userId, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrUserNotFound
+	}
+	// 非超级管理员只能删除自己
+	if err := controllerutil.CheckResourceOwner(ctx, userId); err != nil {
+		return err
+	}
 	if err := u.factory.User().Delete(ctx, userId); err != nil {
 		klog.Errorf("failed to delete user(%d): %v", userId, err)
 		return errors.ErrServerInternal

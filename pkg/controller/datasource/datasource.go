@@ -128,14 +128,24 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	return nil
 }
 
-func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequest) error {
-	old, err := c.factory.Datasource().Get(ctx, req.Id)
+// 更新前置检查：资源存在
+func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource, error) {
+	old, err := c.factory.Datasource().Get(ctx, id)
 	if err != nil {
-		klog.Errorf("failed to get datasource %d: %v", req.Id, err)
-		return apierrors.ErrServerInternal
+		klog.Errorf("failed to get datasource(%d): %v", id, err)
+		return nil, apierrors.ErrServerInternal
 	}
 	if old == nil {
-		return apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
+		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
+	}
+	return old, nil
+}
+
+func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequest) error {
+	old, err := c.preUpdate(ctx, req.Id)
+	if err != nil {
+		klog.Errorf("pre-update check failed for datasource(%d): %v", req.Id, err)
+		return err
 	}
 
 	updates := make(map[string]interface{})
@@ -190,7 +200,18 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 }
 
 func (c *controller) Delete(ctx context.Context, datasourceId int64) error {
+	object, err := c.factory.Datasource().Get(ctx, datasourceId)
+	if err != nil {
+		klog.Errorf("failed to get datasource(%d): %v", datasourceId, err)
+		return apierrors.ErrServerInternal
+	}
+	if object == nil {
+		return apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
+	}
 	if err := c.factory.Datasource().Delete(ctx, datasourceId); err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
+		}
 		klog.Errorf("failed to delete datasource %d: %v", datasourceId, err)
 		return apierrors.ErrServerInternal
 	}
@@ -206,7 +227,12 @@ func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Dataso
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 	}
-	return modelToType(object)
+	ds, err := modelToType(object)
+	if err != nil {
+		return nil, apierrors.ErrServerInternal
+	}
+	c.enrichClusterAlias(ctx, ds)
+	return ds, nil
 }
 
 func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
@@ -251,17 +277,66 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		return nil, apierrors.ErrServerInternal
 	}
 
+	aliasByName := c.buildClusterAliasMap(ctx, objects)
+
 	items := make([]types.Datasource, 0)
 	for i := range objects {
 		t, convErr := modelToType(&objects[i])
 		if convErr != nil {
 			return nil, apierrors.ErrServerInternal
 		}
+		if t.ClusterName != "" {
+			if alias, ok := aliasByName[t.ClusterName]; ok && alias != "" {
+				t.ClusterAliasName = alias
+			} else {
+				t.ClusterAliasName = t.ClusterName
+			}
+		}
 		items = append(items, *t)
 	}
 	pageResult.Items = items
 
 	return pageResult, nil
+}
+
+func (c *controller) enrichClusterAlias(ctx context.Context, ds *types.Datasource) {
+	if ds == nil || ds.ClusterName == "" {
+		return
+	}
+	cluster, err := c.factory.Cluster().GetClusterByName(ctx, ds.ClusterName)
+	if err != nil || cluster == nil {
+		ds.ClusterAliasName = ds.ClusterName
+		return
+	}
+	if cluster.AliasName != "" {
+		ds.ClusterAliasName = cluster.AliasName
+		return
+	}
+	ds.ClusterAliasName = cluster.Name
+}
+
+func (c *controller) buildClusterAliasMap(ctx context.Context, objects []model.Datasource) map[string]string {
+	names := make(map[string]struct{})
+	for i := range objects {
+		name := objects[i].ClusterName
+		if name != "" {
+			names[name] = struct{}{}
+		}
+	}
+	aliasByName := make(map[string]string, len(names))
+	for name := range names {
+		cluster, err := c.factory.Cluster().GetClusterByName(ctx, name)
+		if err != nil || cluster == nil {
+			aliasByName[name] = name
+			continue
+		}
+		if cluster.AliasName != "" {
+			aliasByName[name] = cluster.AliasName
+		} else {
+			aliasByName[name] = cluster.Name
+		}
+	}
+	return aliasByName
 }
 
 func modelToType(object *model.Datasource) (*types.Datasource, error) {

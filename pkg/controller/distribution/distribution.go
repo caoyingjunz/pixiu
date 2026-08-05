@@ -78,15 +78,25 @@ func (d *distribution) CreateDistribution(ctx context.Context, req *types.Create
 	return nil
 }
 
-func (d *distribution) UpdateDistribution(ctx context.Context, req *types.UpdateDistributionRequest) error {
-	id := req.Id
+// 更新前置检查：资源存在
+func (d *distribution) preUpdate(ctx context.Context, id int64) (*model.Distribution, error) {
 	object, err := d.factory.Distribution().GetDistribution(ctx, id)
 	if err != nil {
-		klog.Errorf("failed to get distribution %d: %v", id, err)
-		return errors.ErrServerInternal
+		klog.Errorf("failed to get distribution(%d): %v", id, err)
+		return nil, errors.ErrServerInternal
 	}
 	if object == nil {
-		return errors.ErrDistributionNotFound
+		return nil, errors.ErrDistributionNotFound
+	}
+	return object, nil
+}
+
+func (d *distribution) UpdateDistribution(ctx context.Context, req *types.UpdateDistributionRequest) error {
+	id := req.Id
+	object, err := d.preUpdate(ctx, id)
+	if err != nil {
+		klog.Errorf("pre-update check failed for distribution(%d): %v", id, err)
+		return err
 	}
 
 	family := object.Family

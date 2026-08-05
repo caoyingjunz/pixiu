@@ -31,7 +31,7 @@ func (n *nodeRouter) createNode(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var req types.CreateNodeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -105,7 +105,7 @@ func (n *nodeRouter) listNodes(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

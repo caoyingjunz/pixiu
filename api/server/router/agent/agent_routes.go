@@ -37,7 +37,7 @@ func (a *agentRouter) createAgent(c *gin.Context) {
 		req types.CreateAgentRequest
 		err error
 	)
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -114,7 +114,7 @@ func (a *agentRouter) listAgents(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

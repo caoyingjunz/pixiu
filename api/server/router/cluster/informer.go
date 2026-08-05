@@ -57,7 +57,11 @@ func (cr *clusterRouter) listIndexerResources(c *gin.Context) {
 		listOption   types.ListOptions // 分页设置
 		err          error
 	)
-	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, &listOption); err != nil {
+	if err = httputils.ShouldBindAny(c, nil, &resourceMeta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -34,7 +34,7 @@ func (r *router) createProvider(c *gin.Context) {
 		req types.CreateProviderRequest
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -108,7 +108,7 @@ func (r *router) listProviders(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

@@ -48,7 +48,7 @@ func (u *userRouter) createUser(c *gin.Context) {
 		req types.CreateUserRequest
 		err error
 	)
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -140,6 +140,7 @@ func (u *userRouter) updatePassword(c *gin.Context) {
 //	@Param        userId  path      int  true  "User ID"
 //	@Success      200     {object}  httputils.Response
 //	@Failure      400     {object}  httputils.Response
+//	@Failure      403     {object}  httputils.Response
 //	@Failure      404     {object}  httputils.Response
 //	@Failure      500     {object}  httputils.Response
 //	@Router       /pixiu/users/{userId} [delete]
@@ -216,7 +217,7 @@ func (u *userRouter) listUsers(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

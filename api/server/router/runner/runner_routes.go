@@ -34,7 +34,7 @@ func (r *runnerRouter) createRunner(c *gin.Context) {
 		req types.CreateRunnerRequest
 		err error
 	)
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}
@@ -112,7 +112,7 @@ func (r *runnerRouter) listRunners(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, result, err)
 		return
 	}

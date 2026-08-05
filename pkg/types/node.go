@@ -35,6 +35,9 @@ type CreateNodeRequest struct {
 	Auth   PlanNodeAuth `json:"auth" binding:"required"`
 }
 
+// SetUserID 实现 UserIDSetter 接口。
+func (r *CreateNodeRequest) SetUserID(id int64) { r.UserId = id }
+
 // UpdateNodeRequest PUT /pixiu/nodes/:nodeId
 // ResourceVersion 使用指针：binding:"required" 在 int64 上会把合法值 0 判为缺失，乐观锁版本 0 必须允许提交。
 type UpdateNodeRequest struct {

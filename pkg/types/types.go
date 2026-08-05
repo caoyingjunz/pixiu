@@ -126,14 +126,15 @@ type Datasource struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	ClusterName string                  `json:"cluster_name"`
-	Name        string                  `json:"name"`
-	Type        model.DatasourceType    `json:"type"`
-	SubType     model.DatasourceSubType `json:"sub_type"`
-	Config      DatasourceConfig        `json:"config"`
-	IsDefault   bool                    `json:"is_default"`
-	External    bool                    `json:"external"`
-	Description string                  `json:"description"`
+	ClusterName      string                  `json:"cluster_name"`
+	ClusterAliasName string                  `json:"cluster_alias_name,omitempty"`
+	Name             string                  `json:"name"`
+	Type             model.DatasourceType    `json:"type"`
+	SubType          model.DatasourceSubType `json:"sub_type"`
+	Config           DatasourceConfig        `json:"config"`
+	IsDefault        bool                    `json:"is_default"`
+	External         bool                    `json:"external"`
+	Description      string                  `json:"description"`
 }
 
 type AIProvider struct {
@@ -443,7 +444,8 @@ type Turn struct {
 
 // ListOptions is the query options to a standard REST list call.
 type ListOptions struct {
-	UserId int64 `form:"user_id" json:"user_id"` // 用户 id
+	UserId   int64 `form:"user_id" json:"user_id"` // 用户ID，不接受用户传，直接从会话里获取
+	UserRole model.UserLevel
 
 	CustomMeta  `form:",inline" json:",inline"`
 	PageRequest `form:",inline" json:",inline"` // 分页请求属性
@@ -505,6 +507,14 @@ func (o *ListOptions) SetDefaultPageOption() {
 	}
 	if o.Limit > 100 {
 		o.Limit = 100
+	}
+}
+
+// SetUserOption 应用当前用户到查询条件：仅超级管理员（RoleRoot）保留客户端 UserId（0=全部）；
+// 其他角色强制为当前用户。
+func (o *ListOptions) SetUserOption(user *model.User) {
+	if user.Role != model.RoleRoot {
+		o.UserId = user.Id
 	}
 }
 

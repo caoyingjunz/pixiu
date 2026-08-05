@@ -43,7 +43,7 @@ func (hr *helmRouter) createRepository(c *gin.Context) {
 		err error
 		req types.CreateRepository
 	)
-	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

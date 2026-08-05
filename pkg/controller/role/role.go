@@ -93,14 +93,24 @@ func (r *role) Create(ctx context.Context, req *types.CreateRoleRequest) error {
 	return nil
 }
 
-func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleRequest) error {
+// 更新前置检查：资源存在
+func (r *role) preUpdate(ctx context.Context, rid int64) (*model.Role, error) {
 	object, err := r.factory.Role().Get(ctx, rid)
 	if err != nil {
-		klog.Errorf("failed to get role %d: %v", rid, err)
-		return errors.ErrServerInternal
+		klog.Errorf("failed to get role(%d): %v", rid, err)
+		return nil, errors.ErrServerInternal
 	}
 	if object == nil {
-		return errors.ErrRoleNotFound
+		return nil, errors.ErrRoleNotFound
+	}
+	return object, nil
+}
+
+func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleRequest) error {
+	object, err := r.preUpdate(ctx, rid)
+	if err != nil {
+		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
+		return err
 	}
 
 	updates := make(map[string]interface{})

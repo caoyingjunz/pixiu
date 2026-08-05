@@ -19,6 +19,7 @@ package helm
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -30,9 +31,11 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
+	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type RepositoryGetter interface {
@@ -81,7 +84,27 @@ func (r *Repository) Create(ctx context.Context, repo *types.CreateRepository) e
 }
 
 func (r *Repository) Delete(ctx context.Context, id int64) error {
-	return r.factory.Repository().Delete(ctx, id)
+	// 前置检查：资源存在
+	repository, err := r.factory.Repository().Get(ctx, id)
+	if err != nil {
+		klog.Errorf("failed to get repository(%d): %v", id, err)
+		if utilerrors.IsRecordNotFound(err) {
+			return apierrors.NewError(fmt.Errorf("repository not found"), http.StatusNotFound)
+		}
+		return apierrors.ErrServerInternal
+	}
+	if repository == nil {
+		return apierrors.NewError(fmt.Errorf("repository not found"), http.StatusNotFound)
+	}
+
+	if err := r.factory.Repository().Delete(ctx, id); err != nil {
+		klog.Errorf("failed to delete repository(%d): %v", id, err)
+		if utilerrors.IsRecordNotFound(err) {
+			return apierrors.NewError(fmt.Errorf("repository not found"), http.StatusNotFound)
+		}
+		return apierrors.ErrServerInternal
+	}
+	return nil
 }
 
 func (r *Repository) Get(ctx context.Context, id int64) (*model.Repository, error) {
@@ -96,7 +119,21 @@ func (r *Repository) List(ctx context.Context) ([]*model.Repository, error) {
 	return r.factory.Repository().List(ctx)
 }
 
+// 更新前置检查：资源存在（Helm 仓库无标准 ErrXxxNotFound，错误原样透传）
+func (r *Repository) preUpdate(ctx context.Context, id int64) error {
+	if _, err := r.factory.Repository().Get(ctx, id); err != nil {
+		klog.Errorf("failed to get repository(%d): %v", id, err)
+		return err
+	}
+	return nil
+}
+
 func (r *Repository) Update(ctx context.Context, id int64, update *types.UpdateRepository) error {
+	if err := r.preUpdate(ctx, id); err != nil {
+		klog.Errorf("pre-update check failed for repository(%d): %v", id, err)
+		return err
+	}
+
 	updates := map[string]interface{}{
 		"name":     update.Name,
 		"url":      update.URL,

@@ -31,7 +31,7 @@ func (a *apiResourceRouter) createAPI(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var req types.CreateAPIRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -50,12 +50,8 @@ func (a *apiResourceRouter) updateAPI(c *gin.Context) {
 		opt APIMeta
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
 	var req types.UpdateAPIRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -112,7 +108,7 @@ func (a *apiResourceRouter) listAPIs(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

@@ -22,7 +22,11 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-const AllNamespace = "all_namespaces"
+// UserIDSetter 创建请求统一实现：设置资源归属用户 id。
+// 创建归属一律为当前登录用户（router 层解析），不允许客户端指定。
+type UserIDSetter interface {
+	SetUserID(id int64)
+}
 
 type (
 	// LoginRequest is the request body struct for user login.
@@ -75,10 +79,10 @@ type (
 	}
 
 	UpdateClusterRequest struct {
+		ResourceVersion int64 `json:"resource_version"`
+
 		AliasName   *string `json:"alias_name" binding:"omitempty"`  // optional
 		Description *string `json:"description" binding:"omitempty"` // optional
-		// TODO: put resource version in a common struct for updating request only
-		ResourceVersion *int64 `json:"resource_version" binding:"required"` // required
 	}
 
 	ProtectClusterRequest struct {
@@ -192,7 +196,7 @@ type (
 		Name        string `json:"name" binding:"required"`         // required
 		Description string `json:"description" binding:"omitempty"` // optional
 
-		UserId int64 `json:"user_id" binding:"required"` // 关联用户
+		UserId int64 `json:"user_id"` // 关联用户（router 层从会话解析填充，不接受客户端指定）
 
 		// 执行模式：local（默认）/ agent（单向网络）
 		ExecMode      model.PlanExecMode `json:"exec_mode" binding:"omitempty,oneof=local agent"`
@@ -297,6 +301,15 @@ type (
 		UserId      int64  `form:"user_id" json:"user_id"`
 	}
 )
+
+// SetUserID 实现 UserIDSetter 接口。
+func (r *CreateClusterRequest) SetUserID(id int64) { r.UserId = id }
+
+// SetUserID 实现 UserIDSetter 接口。
+func (r *CreatePlanRequest) SetUserID(id int64) { r.UserId = id }
+
+// SetUserID 实现 UserIDSetter 接口。
+func (r *CreatePlanNodeRequest) SetUserID(id int64) { r.UserId = id }
 
 type (
 	LoginResponse struct {

@@ -50,7 +50,7 @@ type notifyMeta struct {
 func (r *router) createRule(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var req types.CreateAlertRuleRequest
-	if err := httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -117,7 +117,7 @@ func (r *router) listRules(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -202,7 +202,7 @@ func (r *router) listEvents(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -237,7 +237,7 @@ func (r *router) createChannel(c *gin.Context) {
 		req types.CreateAlertChannelRequest
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -310,7 +310,7 @@ func (r *router) listChannels(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -343,7 +343,7 @@ func (r *router) listNotifications(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -374,7 +374,7 @@ func (r *router) deleteNotification(c *gin.Context) {
 func (r *router) createSilence(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var req types.CreateAlertSilenceRequest
-	if err := httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -441,7 +441,7 @@ func (r *router) listSilences(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
