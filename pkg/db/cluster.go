@@ -38,7 +38,6 @@ type ClusterInterface interface {
 	InternalUpdate(ctx context.Context, cid int64, updates map[string]interface{}) error
 
 	GetBy(ctx context.Context, opts ...Options) (*model.Cluster, error)
-	GetClusterByName(ctx context.Context, name string) (*model.Cluster, error)
 	UpdateByPlan(ctx context.Context, planId int64, updates map[string]interface{}) error
 
 	AccessToken() AccessTokenInterface
@@ -159,18 +158,6 @@ func (c *cluster) Count(ctx context.Context, opts ...Options) (int64, error) {
 		return 0, err
 	}
 	return total, nil
-}
-
-func (c *cluster) GetClusterByName(ctx context.Context, name string) (*model.Cluster, error) {
-	var object model.Cluster
-	if err := c.db.WithContext(ctx).Where("name = ?", name).First(&object).Error; err != nil {
-		if errors.IsRecordNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &object, nil
 }
 
 func (c *cluster) GetBy(ctx context.Context, opts ...Options) (*model.Cluster, error) {

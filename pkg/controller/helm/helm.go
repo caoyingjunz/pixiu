@@ -75,7 +75,7 @@ func (h *Helm) MustGetClusterSetByName(ctx context.Context, name string) client.
 
 	klog.Infof("building clusterSet for %s", name)
 	// 缓存中不存在，则新建并重写回缓存
-	object, err := h.factory.Cluster().GetClusterByName(ctx, name)
+	object, err := h.factory.Cluster().GetBy(ctx, db.WithName(name))
 	if err != nil {
 		return client.ClusterSet{}
 	}

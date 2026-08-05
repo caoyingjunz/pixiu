@@ -31,6 +31,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apitypes "k8s.io/apimachinery/pkg/types"
@@ -203,8 +204,12 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 		return nil, errors.ErrServerInternal
 	}
 
-	// 隧道模式：Agent 未上线前不强制注入 ClusterRole
+	// 隧道模式：Agent 未上线前不强制注入 ClusterRole，也无法通过隧道创建命名空间
 	if req.ConnectMode != model.ConnectModeTunnel {
+		if err = c.ensurePixiuSystemNamespace(ctx, cs); err != nil {
+			klog.Errorf("failed to ensure pixiu-system namespace %s: %v", req.Name, err)
+			_ = c.Delete(ctx, obj.Id, true)
+		}
 		if err = c.addPixiuClusterRole(ctx, req, cs); err != nil {
 			klog.Errorf("failed to add pixiu cluster role %s: %v", req.Name, err)
 			_ = c.Delete(ctx, obj.Id, true)
@@ -214,6 +219,32 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	// TODO: 暂时不做创建后动作
 	ClusterIndexer.Set(req.Name, *cs)
 	return obj, nil
+}
+
+// pixiuSystemNamespace 是 pixiu 内置组件（如 CloudShell 运行 pod、permission 授权 SA）所在的命名空间，
+// 导入集群时需要确保其存在。
+const pixiuSystemNamespace = "pixiu-system"
+
+// ensurePixiuSystemNamespace 确保目标集群存在 pixiu-system 命名空间，幂等：已存在则忽略。
+func (c *cluster) ensurePixiuSystemNamespace(ctx context.Context, cs *client.ClusterSet) error {
+	_, err := cs.Client.CoreV1().Namespaces().Get(ctx, pixiuSystemNamespace, metav1.GetOptions{})
+	if err == nil {
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("检查命名空间 %s 失败: %v", pixiuSystemNamespace, err)
+	}
+
+	_, err = cs.Client.CoreV1().Namespaces().Create(ctx, &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   pixiuSystemNamespace,
+			Labels: map[string]string{"maintainer": "pixiu"},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("创建命名空间 %s 失败: %v", pixiuSystemNamespace, err)
+	}
+	return nil
 }
 
 // 创建内置的 ClusterRole
@@ -975,7 +1006,7 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 
 	klog.Infof("building clusterSet for %s", name)
 	// 缓存中不存在，则新建并重写回缓存
-	object, err := c.factory.Cluster().GetClusterByName(ctx, name)
+	object, err := c.factory.Cluster().GetBy(ctx, db.WithName(name))
 	if err != nil {
 		return client.ClusterSet{}, err
 	}

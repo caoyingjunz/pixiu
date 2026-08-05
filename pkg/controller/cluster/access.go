@@ -53,7 +53,7 @@ func (c *cluster) AuthorizeClusterAccessByName(ctx context.Context, user *model.
 	if user == nil {
 		return nil, errors.ErrUnauthorized
 	}
-	obj, err := c.factory.Cluster().GetClusterByName(ctx, clusterName)
+	obj, err := c.factory.Cluster().GetBy(ctx, db.WithName(clusterName))
 	if err != nil {
 		klog.Errorf("failed to get cluster(%s): %v", clusterName, err)
 		return nil, errors.ErrServerInternal
