@@ -231,7 +231,6 @@ func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Dataso
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
 	}
-	c.enrichClusterAlias(ctx, ds)
 	return ds, nil
 }
 
@@ -288,22 +287,6 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	pageResult.Items = items
 
 	return pageResult, nil
-}
-
-func (c *controller) enrichClusterAlias(ctx context.Context, ds *types.Datasource) {
-	if ds == nil || ds.ClusterName == "" {
-		return
-	}
-	cluster, err := c.factory.Cluster().GetClusterByName(ctx, ds.ClusterName)
-	if err != nil || cluster == nil {
-		ds.ClusterAliasName = ds.ClusterName
-		return
-	}
-	if cluster.AliasName != "" {
-		ds.ClusterAliasName = cluster.AliasName
-		return
-	}
-	ds.ClusterAliasName = cluster.Name
 }
 
 func modelToType(object *model.Datasource) (*types.Datasource, error) {

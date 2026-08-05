@@ -126,15 +126,14 @@ type Datasource struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	ClusterName      string                  `json:"cluster_name"`
-	ClusterAliasName string                  `json:"cluster_alias_name,omitempty"`
-	Name             string                  `json:"name"`
-	Type             model.DatasourceType    `json:"type"`
-	SubType          model.DatasourceSubType `json:"sub_type"`
-	Config           DatasourceConfig        `json:"config"`
-	IsDefault        bool                    `json:"is_default"`
-	External         bool                    `json:"external"`
-	Description      string                  `json:"description"`
+	ClusterName string                  `json:"cluster_name"`
+	Name        string                  `json:"name"`
+	Type        model.DatasourceType    `json:"type"`
+	SubType     model.DatasourceSubType `json:"sub_type"`
+	Config      DatasourceConfig        `json:"config"`
+	IsDefault   bool                    `json:"is_default"`
+	External    bool                    `json:"external"`
+	Description string                  `json:"description"`
 }
 
 type AIProvider struct {
