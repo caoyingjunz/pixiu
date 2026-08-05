@@ -238,7 +238,7 @@ func (p *DatasourceMetricProvider) getClusterSet(ctx context.Context, clusterNam
 	}
 	p.mu.Unlock()
 
-	object, err := p.factory.Cluster().GetClusterByName(ctx, clusterName)
+	object, err := p.factory.Cluster().GetBy(ctx, db.WithName(clusterName))
 	if err != nil {
 		return nil, fmt.Errorf("load cluster %s: %w", clusterName, err)
 	}

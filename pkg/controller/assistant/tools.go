@@ -29,6 +29,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	clustercontroller "github.com/caoyingjunz/pixiu/pkg/controller/cluster"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -191,7 +192,7 @@ func (c *controller) getClusterSetForAI(ctx context.Context, clusterName string)
 		return clusterSet, nil
 	}
 
-	object, err := c.factory.Cluster().GetClusterByName(ctx, clusterName)
+	object, err := c.factory.Cluster().GetBy(ctx, db.WithName(clusterName))
 	if err != nil {
 		return client.ClusterSet{}, err
 	}

@@ -126,7 +126,7 @@ func (c *Client) doInternal(ctx context.Context, ep *Endpoint, method string, re
 		return nil, 0, fmt.Errorf("internal datasource missing cluster_name")
 	}
 
-	cluster, err := c.factory.Cluster().GetClusterByName(ctx, ep.ClusterName)
+	cluster, err := c.factory.Cluster().GetBy(ctx, db.WithName(ep.ClusterName))
 	if err != nil {
 		return nil, 0, err
 	}
