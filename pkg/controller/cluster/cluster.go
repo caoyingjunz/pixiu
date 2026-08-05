@@ -88,6 +88,7 @@ type Interface interface {
 
 	// WatchPodLog 实时获取 pod 的日志
 	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
+
 	// ReRunJob 重新执行指定任务
 	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
 
@@ -110,6 +111,13 @@ type Interface interface {
 	// AuthorizeClusterAccess 校验用户是否可访问集群
 	AuthorizeClusterAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
 	AuthorizeClusterAccessByName(ctx context.Context, user *model.User, clusterName string) (*model.Cluster, error)
+
+	// ListPodFiles 列出 Pod 容器内目录文件
+	ListPodFiles(ctx context.Context, cluster, namespace, pod, container, filePath string) (*types.PodFileListResult, error)
+	// DownloadPodFile 下载 Pod 容器内文件或目录(tar)
+	DownloadPodFile(ctx context.Context, cluster, namespace, pod, container, filePath string, w http.ResponseWriter) error
+	// UploadPodFile 上传本地文件到 Pod 容器目录
+	UploadPodFile(ctx context.Context, cluster, namespace, pod, container, dirPath, filename string, r io.Reader, size int64) error
 
 	// Run 启动 cluster worker 处理协程
 	Run(ctx context.Context, workers int) error
