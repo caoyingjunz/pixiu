@@ -39,6 +39,13 @@ type PixiuObjectMeta struct {
 	Name      string `uri:"name"`
 }
 
+// PodResourceMeta Pod 资源定位（cluster + namespace + pod）。
+type PodResourceMeta struct {
+	Cluster   string `uri:"cluster" binding:"required"`
+	Namespace string `uri:"namespace" binding:"required"`
+	Pod       string `uri:"pod" binding:"required"`
+}
+
 type PixiuMeta struct {
 	// pixiu 对象 ID
 	Id int64 `json:"id"`
@@ -336,6 +343,11 @@ const (
 )
 
 const (
+	// PodFileMaxBytes 单次 pod 文件传输（上传/下载）负载大小上限。
+	PodFileMaxBytes int64 = 100 * 1024 * 1024 // 100MiB
+)
+
+const (
 	defaultExpiration        = 365 * 24 * time.Hour
 	defaultExpirationSeconds = int64(defaultExpiration / time.Second)
 	defaultNamespace         = "pixiu-system"
@@ -529,6 +541,29 @@ type EventOptions struct {
 type PodLogOptions struct {
 	Container string `form:"container"`
 	TailLines int64  `form:"tailLines"`
+}
+
+// PodFileOptions query for pod file browse APIs.
+type PodFileOptions struct {
+	Container string `form:"container" binding:"required"`
+	Path      string `form:"path"`
+}
+
+// PodFileEntry is one filesystem entry inside a pod container.
+type PodFileEntry struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"` // dir | file | link | other
+	Size    int64  `json:"size"`
+	ModTime string `json:"modTime,omitempty"`
+	Mode    string `json:"mode,omitempty"`
+	Uid     string `json:"uid,omitempty"`
+	Gid     string `json:"gid,omitempty"`
+}
+
+// PodFileListResult is the list response for pod file browse.
+type PodFileListResult struct {
+	Path  string         `json:"path"`
+	Items []PodFileEntry `json:"items"`
 }
 
 type KubernetesSpec struct {

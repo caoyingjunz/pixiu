@@ -92,6 +92,10 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "/pods/ws", Handler: cr.podWebShell, Description: "Pod WebShell"},
 			{Method: "GET", RelativePath: "/nodes/ws", Handler: cr.nodeWebShell, Description: "Node WebShell"},
 			{Method: "GET", RelativePath: "/clusters/ws", Handler: cr.clusterWebShell, Description: "Cluster WebShell"},
+
+			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/pods/:pod/files", Handler: cr.listPodFiles, Description: "Pod文件列表"},
+			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/pods/:pod/files/download", Handler: cr.downloadPodFile, Description: "下载Pod文件"},
+			{Method: "POST", RelativePath: "/clusters/:cluster/namespaces/:namespace/pods/:pod/files/upload", Handler: cr.uploadPodFile, Description: "上传Pod文件"},
 		},
 	}
 	proxyGroup.Register(ginEngine.Group(kubeProxyBaseURL), cr.c.APIResource())

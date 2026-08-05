@@ -292,11 +292,7 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		opts struct {
-			Cluster   string `uri:"cluster" binding:"required"`
-			Namespace string `uri:"namespace" binding:"required"`
-			Pod       string `uri:"pod" binding:"required"` //pod name
-		}
+		opts   types.PodResourceMeta
 		logOpt types.PodLogOptions
 		err    error
 	)
