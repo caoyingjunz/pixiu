@@ -24,9 +24,10 @@ import (
 
 // parseK8sProxyPath 从 Kubernetes API path 中解析 namespace / resourceName。
 // 示例：
-//   /apis/apps/v1/namespaces/default/deployments/nginx -> ns=default, name=nginx
-//   /api/v1/namespaces/default/pods -> ns=default, name=""
-//   /api/v1/nodes/node-1 -> ns="", name=node-1（集群级资源，仅校验集群）
+//
+//	/apis/apps/v1/namespaces/default/deployments/nginx -> ns=default, name=nginx
+//	/api/v1/namespaces/default/pods -> ns=default, name=""
+//	/api/v1/nodes/node-1 -> ns="", name=node-1（集群级资源，仅校验集群）
 func parseK8sProxyPath(act string) (namespace, resourceName string) {
 	parts := strings.Split(strings.Trim(act, "/"), "/")
 	if len(parts) == 0 {
