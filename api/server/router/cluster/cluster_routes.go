@@ -31,7 +31,7 @@ func (cr *clusterRouter) createCluster(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var req types.CreateClusterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -49,13 +49,8 @@ func (cr *clusterRouter) updateCluster(c *gin.Context) {
 		idMeta IdMeta
 		err    error
 	)
-	if err = c.ShouldBindUri(&idMeta); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
 	var req types.UpdateClusterRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -114,10 +109,11 @@ func (cr *clusterRouter) listClusters(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	if r.Result, err = cr.c.Cluster().List(c, listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -191,7 +187,11 @@ func (cr *clusterRouter) createProxyKubeconfig(c *gin.Context) {
 		req    types.CreateProxyKubeconfigRequest
 		err    error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &idMeta, nil); err != nil {
+	if err = c.ShouldBindUri(&idMeta); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -321,7 +321,11 @@ func (cr *clusterRouter) createPermission(c *gin.Context) {
 		}
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &clusterOpt, nil); err != nil {
+	if err = c.ShouldBindUri(&clusterOpt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -363,7 +367,7 @@ func (cr *clusterRouter) listPermissions(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

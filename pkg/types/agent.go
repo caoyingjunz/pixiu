@@ -44,6 +44,9 @@ type CreateAgentRequest struct {
 	Description string          `json:"description" binding:"omitempty"`
 }
 
+// SetUserID 实现 UserIDSetter 接口。
+func (r *CreateAgentRequest) SetUserID(id int64) { r.UserID = id }
+
 type UpdateAgentRequest struct {
 	Name            *string          `json:"name" binding:"omitempty"`
 	ResourceVersion int64            `json:"resource_version"`

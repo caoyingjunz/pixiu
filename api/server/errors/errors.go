@@ -139,4 +139,12 @@ var (
 		Code: http.StatusConflict,
 		Err:  errors.ErrRootAlreadyExists,
 	}
+	ErrPlanNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.ErrPlanNotFound,
+	}
+	ErrConflict = Error{
+		Code: http.StatusConflict,
+		Err:  errors.ErrConflict,
+	}
 )

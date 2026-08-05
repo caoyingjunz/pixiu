@@ -23,6 +23,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
@@ -99,7 +100,7 @@ func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types
 	}
 
 	for _, newNode := range newNodes {
-		node, err := p.buildNodeFromRequest(planId, &newNode)
+		node, err := p.buildNodeFromRequest(ctx, planId, &newNode)
 		if err != nil {
 			return err
 		}
@@ -111,7 +112,7 @@ func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types
 	return nil
 }
 
-func (p *plan) buildNodeFromRequest(planId int64, req *types.CreatePlanNodeRequest) (*model.Node, error) {
+func (p *plan) buildNodeFromRequest(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) (*model.Node, error) {
 	auth, err := req.Auth.Marshal()
 	if err != nil {
 		return nil, err
@@ -129,7 +130,7 @@ func (p *plan) buildNodeFromRequest(planId int64, req *types.CreatePlanNodeReque
 }
 
 func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) error {
-	node, err := p.buildNodeFromRequest(planId, req)
+	node, err := p.buildNodeFromRequest(ctx, planId, req)
 	if err != nil {
 		klog.Errorf("failed to build plan(%d) node from request: %v", planId, err)
 		return err
@@ -143,7 +144,24 @@ func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePl
 }
 
 func (p *plan) DeleteNode(ctx context.Context, pid int64, nodeId int64) error {
+	object, err := p.factory.Plan().GetNode(ctx, nodeId)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return errors.ErrNodeNotFound
+		}
+		klog.Errorf("failed to get plan(%d) node(%d): %v", pid, nodeId, err)
+		return errors.ErrServerInternal
+	}
+
+	// 非超级管理员只能删除自己的节点
+	if err := controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
+		return err
+	}
+
 	if _, err := p.factory.Plan().DeleteNode(ctx, nodeId); err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return errors.ErrNodeNotFound
+		}
 		klog.Errorf("failed to delete plan(%d) node(%d): %v", pid, nodeId, err)
 		return errors.ErrServerInternal
 	}

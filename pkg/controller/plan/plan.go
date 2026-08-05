@@ -30,9 +30,11 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
@@ -89,8 +91,8 @@ type plan struct {
 	factory db.ShareDaoFactory
 }
 
-func (p *plan) preCreate(ctx context.Context, req *types.CreatePlanRequest) error {
-	plans, err := p.factory.Plan().List(ctx, db.WithUser(req.UserId))
+func (p *plan) preCreate(ctx context.Context, uid int64, req *types.CreatePlanRequest) error {
+	plans, err := p.factory.Plan().List(ctx, db.WithUser(uid))
 	if err != nil {
 		klog.Errorf("list plans err: %v", err)
 		return err
@@ -125,7 +127,7 @@ func (p *plan) preCreate(ctx context.Context, req *types.CreatePlanRequest) erro
 // 4. 创建扩展组件
 // 5. 创建容器服务
 func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
-	if err := p.preCreate(ctx, req); err != nil {
+	if err := p.preCreate(ctx, req.UserId, req); err != nil {
 		return err
 	}
 
@@ -192,7 +194,7 @@ func (p *plan) createPlanSubResources(ctx context.Context, req *types.CreatePlan
 
 		for i := range req.Nodes {
 			nodeReq := &req.Nodes[i]
-			node, err := p.buildNodeFromRequest(planModel.Id, nodeReq)
+			node, err := p.buildNodeFromRequest(ctx, planModel.Id, nodeReq)
 			if err != nil {
 				klog.Errorf("failed to build plan(%d) node from request: %v", planModel.Id, err)
 				return nil, err
@@ -207,13 +209,29 @@ func (p *plan) createPlanSubResources(ctx context.Context, req *types.CreatePlan
 	}
 }
 
+// 更新前置检查：资源存在 + 非超级管理员只能更新自己的部署计划
+func (p *plan) preUpdate(ctx context.Context, planId int64) (*model.Plan, error) {
+	oldPlan, err := p.factory.Plan().Get(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get plan(%d): %v", planId, err)
+		return nil, errors.ErrServerInternal
+	}
+	if oldPlan == nil {
+		return nil, errors.ErrServerInternal
+	}
+	if err := util.CheckResourceOwner(ctx, oldPlan.UserId); err != nil {
+		return nil, err
+	}
+	return oldPlan, nil
+}
+
 // Update
 // 更新部署计划
 func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
-	oldPlan, err := p.factory.Plan().Get(ctx, planId)
+	oldPlan, err := p.preUpdate(ctx, planId)
 	if err != nil {
-		klog.Errorf("failed to get plan(%d) %v", planId, err)
-		return errors.ErrServerInternal
+		klog.Errorf("pre-update check failed for plan(%d): %v", planId, err)
+		return err
 	}
 
 	execMode := req.ExecMode
@@ -278,14 +296,32 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 }
 
 // 删除前检查
-// 有正在运行中的任务则不允许删除
+// 1. 资源存在（不存在返回 404）
+// 2. 非超级管理员只能删除自己的部署计划（403）
+// 3. 有正在运行中的任务则不允许删除（409）
 func (p *plan) preDelete(ctx context.Context, planId int64) error {
+	planObj, err := p.factory.Plan().Get(ctx, planId)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return errors.ErrPlanNotFound
+		}
+		klog.Errorf("failed to get plan(%d): %v", planId, err)
+		return errors.ErrServerInternal
+	}
+	if planObj == nil {
+		return errors.ErrPlanNotFound
+	}
+	if err = util.CheckResourceOwner(ctx, planObj.UserId); err != nil {
+		return err
+	}
+
+	// 有正在运行中的任务则不允许删除
 	isRunning, err := p.TaskIsRunning(ctx, planId)
 	if err != nil {
 		return errors.ErrServerInternal
 	}
 	if isRunning {
-		return errors.ErrNotAcceptable
+		return errors.ErrConflict
 	}
 	return nil
 }
@@ -296,7 +332,7 @@ func (p *plan) preDelete(ctx context.Context, planId int64) error {
 // 3. 删除关联配置
 // 4. 删除关联节点
 func (p *plan) Delete(ctx context.Context, planId int64) error {
-	// 删除前校验
+	// 删除前校验：存在性 + owner + 运行中任务
 	if err := p.preDelete(ctx, planId); err != nil {
 		return err
 	}
@@ -333,6 +369,14 @@ func (p *plan) Get(ctx context.Context, pid int64) (*types.Plan, error) {
 		klog.Errorf("failed to get plan %d: %v", pid, err)
 		return nil, errors.ErrServerInternal
 	}
+	if object == nil {
+		return nil, errors.ErrServerInternal
+	}
+
+	// 非超级管理员只能查看自己的部署计划
+	if err := util.CheckResourceOwner(ctx, object.UserId); err != nil {
+		return nil, err
+	}
 
 	return p.model2Type(object)
 }
@@ -342,7 +386,17 @@ func (p *plan) Get(ctx context.Context, pid int64) (*types.Plan, error) {
 // 获取 configs
 // 获取 nodes
 func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error) {
-	result, err := p.Get(ctx, planId)
+	// 内部组装（免 owner 校验）：调用方 agent 已通过 agent token 鉴权，
+	// API 层入口 getPlanWithSubResources 已先经 Get 完成 owner 校验。
+	object, err := p.factory.Plan().Get(ctx, planId)
+	if err != nil {
+		klog.Errorf("failed to get plan %d: %v", planId, err)
+		return nil, errors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, errors.ErrServerInternal
+	}
+	result, err := p.model2Type(object)
 	if err != nil {
 		return nil, err
 	}

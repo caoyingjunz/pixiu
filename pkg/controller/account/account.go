@@ -27,6 +27,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -76,7 +77,8 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAIAccountReque
 	return nil
 }
 
-func (c *controller) Update(ctx context.Context, req *types.UpdateAIAccountRequest) error {
+// 更新前置检查：字段校验 + provider 关联校验 + 资源存在 + owner 校验
+func (c *controller) preUpdate(ctx context.Context, req *types.UpdateAIAccountRequest) error {
 	if err := validateAccountFields(req.Name, req.APIKey, req.Model, req.ProviderId, false); err != nil {
 		return err
 	}
@@ -95,6 +97,14 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateAIAccountReque
 	if err = ensureAccountOwner(ctx, old); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (c *controller) Update(ctx context.Context, req *types.UpdateAIAccountRequest) error {
+	if err := c.preUpdate(ctx, req); err != nil {
+		klog.Errorf("pre-update check failed for ai account(%d): %v", req.Id, err)
+		return err
+	}
 
 	updates := map[string]interface{}{
 		"name":        strings.TrimSpace(req.Name),
@@ -104,7 +114,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateAIAccountReque
 	if strings.TrimSpace(req.APIKey) != "" {
 		updates["api_key"] = strings.TrimSpace(req.APIKey)
 	}
-	if err = c.factory.Assistant().Account().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+	if err := c.factory.Assistant().Account().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("ai account not found or resource version conflict"), http.StatusConflict)
 		}
@@ -123,7 +133,7 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 	if object == nil {
 		return apierrors.NewError(fmt.Errorf("ai account not found"), http.StatusNotFound)
 	}
-	if err = ensureAccountOwner(ctx, object); err != nil {
+	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
 		return err
 	}
 	if err := c.factory.Assistant().Account().Delete(ctx, id); err != nil {

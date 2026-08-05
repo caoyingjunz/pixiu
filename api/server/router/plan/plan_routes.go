@@ -46,7 +46,7 @@ func (t *planRouter) createPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var req types.CreatePlanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -131,6 +131,11 @@ func (t *planRouter) getPlanWithSubResources(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	// API 层入口：先经 Get 完成 owner 校验，再组装子资源
+	if _, err = t.c.Plan().Get(c, opt.PlanId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	if r.Result, err = t.c.Plan().GetWithSubResources(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -146,7 +151,7 @@ func (t *planRouter) listPlans(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

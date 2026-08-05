@@ -23,6 +23,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -75,7 +76,28 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 	return nil
 }
 
+// 更新前置检查：资源存在 + 非超级管理员只能更新自己的节点
+func (n *nodeController) preUpdate(ctx context.Context, nodeId int64) error {
+	object, err := n.factory.Plan().GetNode(ctx, nodeId)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return errors.ErrNodeNotFound
+		}
+		klog.Errorf("get node %d: %v", nodeId, err)
+		return errors.ErrServerInternal
+	}
+	if err := util.CheckResourceOwner(ctx, object.UserId); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (n *nodeController) Update(ctx context.Context, nodeId int64, req *types.UpdateNodeRequest) error {
+	if err := n.preUpdate(ctx, nodeId); err != nil {
+		klog.Errorf("pre-update check failed for node(%d): %v", nodeId, err)
+		return err
+	}
+
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		updates["name"] = *req.Name
@@ -106,6 +128,19 @@ func (n *nodeController) Update(ctx context.Context, nodeId int64, req *types.Up
 }
 
 func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
+	// 非超级管理员只能删除自己的节点
+	object, err := n.factory.Plan().GetNode(ctx, nodeId)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return errors.ErrNodeNotFound
+		}
+		klog.Errorf("get node %d: %v", nodeId, err)
+		return errors.ErrServerInternal
+	}
+	if err := util.CheckResourceOwner(ctx, object.UserId); err != nil {
+		return err
+	}
+
 	if _, err := n.factory.Plan().DeleteNode(ctx, nodeId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.ErrNodeNotFound
@@ -125,6 +160,12 @@ func (n *nodeController) Get(ctx context.Context, nodeId int64) (*types.NodeResu
 		klog.Errorf("get node %d: %v", nodeId, err)
 		return nil, errors.ErrServerInternal
 	}
+
+	// 非超级管理员只能查看自己的节点
+	if err := util.CheckResourceOwner(ctx, object.UserId); err != nil {
+		return nil, err
+	}
+
 	return model2Node(object), nil
 }
 

@@ -69,7 +69,8 @@ func (c *controller) Create(ctx context.Context, req *types.CreateProviderReques
 	return nil
 }
 
-func (c *controller) Update(ctx context.Context, req *types.UpdateProviderRequest) error {
+// 更新前置检查：字段校验 + 资源存在 + 内置 provider 不可更新
+func (c *controller) preUpdate(ctx context.Context, req *types.UpdateProviderRequest) error {
 	if err := validateProviderFields(req.Name, req.BaseURL, req.Protocol); err != nil {
 		return err
 	}
@@ -85,6 +86,14 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 	if old.Builtin {
 		return apierrors.NewError(fmt.Errorf("builtin assistant provider cannot be updated"), http.StatusForbidden)
 	}
+	return nil
+}
+
+func (c *controller) Update(ctx context.Context, req *types.UpdateProviderRequest) error {
+	if err := c.preUpdate(ctx, req); err != nil {
+		klog.Errorf("pre-update check failed for provider(%d): %v", req.Id, err)
+		return err
+	}
 
 	updates := map[string]interface{}{
 		"name":        strings.TrimSpace(req.Name),
@@ -96,7 +105,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 		updates["max_tokens"] = req.MaxTokens
 	}
 
-	if err = c.factory.Assistant().Provider().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+	if err := c.factory.Assistant().Provider().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("assistant provider not found or resource version conflict"), http.StatusConflict)
 		}

@@ -37,7 +37,11 @@ func (t *planRouter) createPlanConfig(c *gin.Context) {
 		req types.CreatePlanConfigRequest
 		err error
 	)
-	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

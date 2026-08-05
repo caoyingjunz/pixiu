@@ -70,15 +70,25 @@ func (t *tenant) Create(ctx context.Context, req *types.CreateTenantRequest) err
 	return nil
 }
 
-func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error {
+// 更新前置检查：资源存在
+func (t *tenant) preUpdate(ctx context.Context, tid int64) error {
 	object, err := t.factory.Tenant().Get(ctx, tid)
 	if err != nil {
-		klog.Errorf("failed to get tenant %d: %v", tid, err)
+		klog.Errorf("failed to get tenant(%d): %v", tid, err)
 		return errors.ErrServerInternal
 	}
 	if object == nil {
 		return errors.ErrTenantNotFound
 	}
+	return nil
+}
+
+func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error {
+	if err := t.preUpdate(ctx, tid); err != nil {
+		klog.Errorf("pre-update check failed for tenant(%d): %v", tid, err)
+		return err
+	}
+
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		updates["name"] = *req.Name

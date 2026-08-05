@@ -31,7 +31,7 @@ func (t *tenantRouter) createTenant(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var req types.CreateTenantRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -50,12 +50,8 @@ func (t *tenantRouter) updateTenant(c *gin.Context) {
 		opt TenantMeta
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
 	var req types.UpdateTenantRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -112,7 +108,7 @@ func (t *tenantRouter) listTenants(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

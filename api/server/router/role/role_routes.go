@@ -31,7 +31,7 @@ func (r *roleRouter) createRole(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var req types.CreateRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -50,12 +50,8 @@ func (r *roleRouter) updateRole(c *gin.Context) {
 		opt RoleMeta
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
 	var req types.UpdateRoleRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -112,7 +108,7 @@ func (r *roleRouter) listRoles(c *gin.Context) {
 		listOption types.ListOptions
 		err        error
 	)
-	if err = httputils.ShouldBindAny(c, nil, nil, &listOption); err != nil {
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
@@ -150,12 +146,8 @@ func (r *roleRouter) updateRoleAPIs(c *gin.Context) {
 		opt RoleMeta
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
 	var req types.UpdateRoleAPIsRequest
-	if err = c.ShouldBindJSON(&req); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

@@ -62,6 +62,9 @@ var (
 	ErrAuditExists    = errors.New("审计记录已存在")
 
 	ErrRootAlreadyExists = errors.New("超级管理员已存在")
+
+	ErrPlanNotFound = errors.New("部署计划不存在")
+	ErrConflict     = errors.New("操作冲突")
 )
 
 func IsRecordNotFound(err error) bool {

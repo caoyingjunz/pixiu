@@ -43,6 +43,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
@@ -265,15 +266,34 @@ func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClus
 	return nil
 }
 
-func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error {
+// 更新前置检查
+func (c *cluster) preUpdate(ctx context.Context, cid int64) error {
 	object, err := c.factory.Cluster().Get(ctx, cid)
 	if err != nil {
-		klog.Errorf("failed to get cluster(%d): %v", cid, err)
+		klog.Errorf("failed to get cluster %d: %v", cid, err)
 		return errors.ErrServerInternal
 	}
 	if object == nil {
+		klog.Errorf("cluster %d not found", cid)
 		return errors.ErrClusterNotFound
 	}
+
+	// 非超级管理员只能更新自己的集群
+	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
+		klog.Errorf("failed to check object owner: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateClusterRequest) error {
+	if err := c.preUpdate(ctx, cid); err != nil {
+		klog.Errorf("pre-update check failed for cluster(%d): %v", cid, err)
+		return err
+	}
+
+	klog.V(2).Infof("updating cluster(%d)", cid)
 	updates := make(map[string]interface{})
 	if req.AliasName != nil {
 		updates["alias_name"] = *req.AliasName
@@ -285,7 +305,7 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 		klog.V(2).Infof("cluster(%d): no fields to update", cid)
 		return errors.ErrInvalidRequest
 	}
-	if err = c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, updates); err != nil {
+	if err := c.factory.Cluster().Update(ctx, cid, req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
 	}
@@ -294,35 +314,49 @@ func (c *cluster) Update(ctx context.Context, cid int64, req *types.UpdateCluste
 
 // 删除前置检查
 // 开启集群删除保护，则不允许删除
-func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (cluster *model.Cluster, err error) {
-	if cluster, err = c.factory.Cluster().Get(ctx, cid); err != nil {
+func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (*model.Cluster, error) {
+	obj, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
 		klog.Errorf("failed to get cluster(%d): %v", cid, err)
-		return
+		return nil, err
 	}
-	if cluster == nil {
+	if obj == nil {
 		return nil, errors.ErrClusterNotFound
+	}
+
+	// 非超级管理员只能删除自己的集群
+	if err = controllerutil.CheckResourceOwner(ctx, obj.UserId); err != nil {
+		return nil, err
 	}
 
 	// 跳过检查，则直接返回
 	if skipCheck {
-		return
+		return obj, nil
+	}
+
+	// 从集群（授权生成的子集群）不允许直接删除，必须通过撤销授权
+	if obj.PermissionId != 0 {
+		return nil, errors.NewError(fmt.Errorf("集群 %s 是授权生成的子集群，请通过撤销授权删除", obj.AliasName), http.StatusForbidden)
 	}
 
 	// 开启集群删除保护，则不允许删除
-	if cluster.Protected {
-		return nil, errors.NewError(fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", cluster.AliasName),
-			http.StatusForbidden)
+	if obj.Protected {
+		return nil, errors.NewError(fmt.Errorf("已开启集群删除保护功能，不允许删除 %s", obj.AliasName), http.StatusForbidden)
 	}
 
 	// 如果还存在授权，不允许删除
 	objs, err := c.factory.Permission().List(ctx, db.WithOwnerCluster(cid))
-	if err == nil && len(objs) > 0 {
-		return nil, errors.NewError(fmt.Errorf("存在授权集群，不允许删除 %s", cluster.AliasName),
+	if err != nil {
+		klog.Errorf("failed to list cluster permissions: %v", err)
+		return nil, err
+	}
+	if len(objs) > 0 {
+		return nil, errors.NewError(fmt.Errorf("存在授权集群，不允许删除 %s", obj.AliasName),
 			http.StatusForbidden)
 	}
 
 	// TODO: 其他删除策略检查
-	return
+	return obj, nil
 }
 
 func (c *cluster) Delete(ctx context.Context, cid int64, skipCheck bool) error {
@@ -381,10 +415,16 @@ func (c *cluster) deletePixiuClusterRole(ctx context.Context, cluster *model.Clu
 func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 	object, err := c.factory.Cluster().Get(ctx, cid)
 	if err != nil {
+		klog.Errorf("failed to get cluster(%d): %v", cid, err)
 		return nil, errors.ErrServerInternal
 	}
 	if object == nil {
 		return nil, errors.ErrClusterNotFound
+	}
+
+	// 资源确认是否归属自己，非超级管理员只能查看自己的集群
+	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
+		return nil, err
 	}
 
 	return c.model2Type(object), nil
@@ -393,10 +433,16 @@ func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
 func (c *cluster) GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error) {
 	object, err := c.factory.Cluster().Get(ctx, cid)
 	if err != nil {
+		klog.Errorf("failed to get cluster(%d): %v", cid, err)
 		return nil, errors.ErrServerInternal
 	}
 	if object == nil {
 		return nil, errors.ErrClusterNotFound
+	}
+
+	// kubeconfig 含集群凭据，非超级管理员只能获取自己集群的 kubeconfig
+	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
+		return nil, err
 	}
 
 	return &types.KubeConfigResponse{

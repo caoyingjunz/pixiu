@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	servererrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,14 +19,15 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-func (c *cluster) preCreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error { // 一个集群只能授权给一个用户一次
-	_, err := c.factory.Permission().GetBy(ctx, db.WithUser(req.UserId), db.WithOwnerCluster(req.ClusterId))
+func (c *cluster) preCreatePermission(ctx context.Context, uid int64, req *types.CreatePermissionRequest) error { // 一个集群只能授权给一个用户一次
+	_, err := c.factory.Permission().GetBy(ctx, db.WithUser(uid), db.WithOwnerCluster(req.ClusterId))
 	if err == nil {
 		return fmt.Errorf("集群已关联到用户")
 	}
@@ -39,14 +41,21 @@ func (c *cluster) preCreatePermission(ctx context.Context, req *types.CreatePerm
 // CreatePermission 创建 scoped kubeconfig 并持久化
 // TODO 后续优化
 func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermissionRequest) error {
-	if err := c.preCreatePermission(ctx, req); err != nil {
-		return err
+	uid, err := util.EffectiveUserID(ctx, req.UserId)
+	if err != nil {
+		klog.Errorf("failed to get effective user id: %v", err)
+		return errors.ErrInternal
 	}
 
 	// 用户 id 和授权集群 ID 必须存在
-	if req.UserId == 0 || req.ClusterId == 0 {
+	if uid == 0 || req.ClusterId == 0 {
 		return errors.ErrReqParams
 	}
+
+	if err := c.preCreatePermission(ctx, uid, req); err != nil {
+		return err
+	}
+
 	// 设置默认值
 	req.SetDefaultOptions()
 
@@ -54,6 +63,16 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	old, err := c.factory.Cluster().Get(ctx, req.ClusterId)
 	if err != nil {
 		klog.Errorf("failed to get attributes of master cluster(%d): %v", req.ClusterId, err)
+		return err
+	}
+	if old == nil {
+		klog.Errorf("master cluster(%d) not found", req.ClusterId)
+		return servererrors.ErrClusterNotFound
+	}
+
+	// 授权属于主集群所有者的权限，非主集群 owner 或超管一律 403
+	if err = util.CheckResourceOwner(ctx, old.UserId); err != nil {
+		klog.Errorf("failed to check master cluster owner: %v", err)
 		return err
 	}
 
@@ -72,7 +91,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	}
 
 	// 查询用户信息
-	userObj, err := c.factory.User().Get(ctx, req.UserId)
+	userObj, err := c.factory.User().Get(ctx, uid)
 	if err != nil {
 		return err
 	}
@@ -80,7 +99,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	// 待补充目标集群的集群id（区别主集群id）
 	p, err := c.factory.Permission().Create(ctx, &model.Permission{
 		Name:                  req.Name,
-		UserId:                req.UserId,
+		UserId:                uid,
 		UserName:              userObj.Name,
 		OwnerClusterId:        req.ClusterId,
 		OwnerClusterName:      old.Name,
@@ -112,7 +131,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	}
 
 	newObj, err := c.Create(ctx, &types.CreateClusterRequest{
-		UserId:         req.UserId,
+		UserId:         uid,
 		Type:           old.ClusterType,
 		KubeConfig:     kubeConfig,
 		PermissionId:   p.Id,
@@ -193,18 +212,58 @@ func (c *cluster) ListPermissions(ctx context.Context, listOption types.ListOpti
 	return pageResult, nil
 }
 
+// 更新前置检查：资源存在
+func (c *cluster) preUpdatePermission(ctx context.Context, permissionId int64) (*model.Permission, error) {
+	oldP, err := c.factory.Permission().Get(ctx, permissionId)
+	if err != nil {
+		klog.Errorf("failed to get permission(%d): %v", permissionId, err)
+		return nil, errors.ErrInternal
+	}
+	if oldP == nil {
+		klog.Errorf("permission(%d) not found", permissionId)
+		return nil, errors.ErrPermissionNotFound
+	}
+	return oldP, nil
+}
+
+// 删除前置检查：资源存在 + 撤销授权属于主集群所有者的权限
+func (c *cluster) preDeletePermission(ctx context.Context, permissionId int64) (*model.Permission, error) {
+	object, err := c.factory.Permission().Get(ctx, permissionId)
+	if err != nil {
+		klog.Errorf("failed to get permission(%d): %v", permissionId, err)
+		return nil, errors.ErrInternal
+	}
+	if object == nil {
+		klog.Errorf("permission(%d) not found", permissionId)
+		return nil, errors.ErrPermissionNotFound
+	}
+
+	// 撤销授权属于主集群所有者的权限，非主集群 owner 或超管一律 403
+	masterCluster, err := c.factory.Cluster().Get(ctx, object.OwnerClusterId)
+	if err != nil {
+		klog.Errorf("failed to get master cluster(%d): %v", object.OwnerClusterId, err)
+		return nil, err
+	}
+	if masterCluster == nil {
+		klog.Errorf("master cluster(%d) not found", object.OwnerClusterId)
+		return nil, servererrors.ErrClusterNotFound
+	}
+	if err = util.CheckResourceOwner(ctx, masterCluster.UserId); err != nil {
+		klog.Errorf("failed to check resource owner: %v", err)
+		return nil, err
+	}
+
+	return object, nil
+}
+
 // UpdatePermission
 // 1. 调整权限访问和内容
 // 2. 移除缓存客户端，使其立即生效
 func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermissionRequest) error {
-	oldP, err := c.factory.Permission().Get(ctx, req.Id)
+	oldP, err := c.preUpdatePermission(ctx, req.Id)
 	if err != nil {
-		klog.Errorf("failed to get permission(%d): %v", req.Id, err)
-		return errors.ErrInternal
-	}
-	if oldP == nil {
-		klog.Errorf("permission (%d) not found", req.Id)
-		return errors.ErrPermissionNotFound
+		klog.Errorf("pre-update check failed for permission(%d): %v", req.Id, err)
+		return err
 	}
 
 	// 计算命名空间是否有变化，新增或者减少，或者不变
@@ -287,17 +346,19 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 }
 
 // DeletePermission
-// 1. 删除数据库记录
-// 2. 移除 k8s 的资源
-// 3. 删除已授权的集群记录
+// 1. 校验权限归属（主集群所有者或超管）
+// 2. 删除数据库记录
+// 3. 移除 k8s 的资源
+// 4. 删除已授权的集群记录
 func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) error {
-	object, err := c.factory.Permission().Delete(ctx, permissionId)
+	object, err := c.preDeletePermission(ctx, permissionId)
 	if err != nil {
+		return err
+	}
+
+	if _, err = c.factory.Permission().Delete(ctx, permissionId); err != nil {
 		klog.Errorf("failed to delete permission(%d): %v", permissionId, err)
 		return errors.ErrInternal
-	}
-	if object == nil {
-		return errors.ErrPermissionNotFound
 	}
 
 	// 删除 k8s 资源规则

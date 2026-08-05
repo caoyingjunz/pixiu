@@ -100,7 +100,25 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	return pageResult, nil
 }
 
+// 更新前置检查：资源存在
+func (c *controller) preUpdate(ctx context.Context, eventId int64) error {
+	object, err := c.factory.Alert().Event().Get(ctx, eventId)
+	if err != nil {
+		klog.Errorf("failed to get alert event(%d): %v", eventId, err)
+		return apierrors.ErrServerInternal
+	}
+	if object == nil {
+		return apierrors.NewError(fmt.Errorf("alert event not found"), http.StatusNotFound)
+	}
+	return nil
+}
+
 func (c *controller) UpdateStatus(ctx context.Context, eventId int64, req *types.UpdateAlertEventStatusRequest) error {
+	if err := c.preUpdate(ctx, eventId); err != nil {
+		klog.Errorf("pre-update check failed for alert event(%d): %v", eventId, err)
+		return err
+	}
+
 	if err := c.factory.Alert().Event().Update(ctx, eventId, req.ResourceVersion, map[string]interface{}{"status": req.Status}); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("alert event not found"), http.StatusNotFound)

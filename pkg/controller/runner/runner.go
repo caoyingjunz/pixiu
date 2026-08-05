@@ -30,6 +30,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/docker"
+	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type RunnerGetter interface {
@@ -74,8 +75,25 @@ func (r *runnerController) Create(ctx context.Context, req *types.CreateRunnerRe
 	return nil
 }
 
+// 更新前置检查：资源存在
+func (r *runnerController) preUpdate(ctx context.Context, runnerId int64) error {
+	object, err := r.factory.Runner().Get(ctx, runnerId)
+	if err != nil {
+		klog.Errorf("failed to get runner(%d): %v", runnerId, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrRunnerNotFound
+	}
+	return nil
+}
+
 func (r *runnerController) Update(ctx context.Context, req *types.UpdateRunnerRequest) error {
 	runnerId := req.Id
+	if err := r.preUpdate(ctx, runnerId); err != nil {
+		klog.Errorf("pre-update check failed for runner(%d): %v", runnerId, err)
+		return err
+	}
 
 	updates := make(map[string]interface{})
 	if req.Name != nil {
@@ -99,7 +117,23 @@ func (r *runnerController) Update(ctx context.Context, req *types.UpdateRunnerRe
 }
 
 func (r *runnerController) Delete(ctx context.Context, runnerId int64) error {
+	// 前置检查：资源存在
+	object, err := r.factory.Runner().Get(ctx, runnerId)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return errors.ErrRunnerNotFound
+		}
+		klog.Errorf("failed to get runner(%d): %v", runnerId, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrRunnerNotFound
+	}
+
 	if _, err := r.factory.Runner().Delete(ctx, runnerId); err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return errors.ErrRunnerNotFound
+		}
 		klog.Errorf("failed to delete runner %d: %v", runnerId, err)
 		return errors.ErrServerInternal
 	}

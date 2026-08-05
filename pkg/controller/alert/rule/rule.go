@@ -102,7 +102,26 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 	return nil
 }
 
+// 更新前置检查：资源存在
+func (c *controller) preUpdate(ctx context.Context, ruleId int64) (*model.AlertRule, error) {
+	current, err := c.factory.Alert().Rule().Get(ctx, ruleId)
+	if err != nil {
+		klog.Errorf("failed to get alert rule(%d): %v", ruleId, err)
+		return nil, apierrors.ErrServerInternal
+	}
+	if current == nil {
+		return nil, apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
+	}
+	return current, nil
+}
+
 func (c *controller) Update(ctx context.Context, ruleId int64, req *types.UpdateAlertRuleRequest) error {
+	current, err := c.preUpdate(ctx, ruleId)
+	if err != nil {
+		klog.Errorf("pre-update check failed for alert rule(%d): %v", ruleId, err)
+		return err
+	}
+
 	updates := map[string]interface{}{}
 	if req.Name != nil {
 		updates["name"] = *req.Name
@@ -164,15 +183,6 @@ func (c *controller) Update(ctx context.Context, ruleId int64, req *types.Update
 	}
 
 	if req.RuleConfig != nil {
-		current, err := c.factory.Alert().Rule().Get(ctx, ruleId)
-		if err != nil {
-			klog.Errorf("failed to get alert rule(%d) before update: %v", ruleId, err)
-			return apierrors.ErrServerInternal
-		}
-		if current == nil {
-			return apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
-		}
-
 		ruleConfig := current.RuleConfig
 		if req.RuleConfig != nil {
 			ruleConfig = *req.RuleConfig
