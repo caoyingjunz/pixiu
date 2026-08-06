@@ -22,7 +22,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -181,15 +180,9 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 	}
 
 	// 资源级授权：非超管用户叠加 scope 授权的 node id（超管走 listOption.UserId 现状即可）
-	var authorizedNodeIDs []int64
-	if user, err := httputils.GetUserFromContext(ctx); err != nil {
+	authorizedNodeIDs, err := util.AuthorizedResourceIDs(ctx, n.factory, types.ResourceTypeNode)
+	if err != nil {
 		return nil, err
-	} else if user.Role != model.RoleRoot {
-		authorizedNodeIDs, err = n.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypeNode)
-		if err != nil {
-			klog.Errorf("failed to list authorized node ids: %v", err)
-			return nil, errors.ErrServerInternal
-		}
 	}
 
 	opts := []db.Options{
@@ -197,7 +190,6 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 		db.WithNameLike(listOption.NameSelector),
 	}
 
-	var err error
 	pageResult.Total, err = n.factory.Plan().CountNodes(ctx, opts...)
 	if err != nil {
 		klog.Errorf("count nodes: %v", err)

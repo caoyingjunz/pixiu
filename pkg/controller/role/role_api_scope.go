@@ -23,6 +23,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	rbacapi "github.com/caoyingjunz/pixiu/pkg/rbac/api"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -126,17 +127,11 @@ func (r *roleAPIScope) syncRoleAPIsFromScopes(ctx context.Context, rid int64) er
 		return errors.ErrServerInternal
 	}
 
-	merged := make(map[int64]struct{}, len(existing)+len(scopes))
-	for _, id := range existing {
-		merged[id] = struct{}{}
-	}
+	scopeAPIIds := make([]int64, 0, len(scopes))
 	for i := range scopes {
-		merged[scopes[i].APIId] = struct{}{}
+		scopeAPIIds = append(scopeAPIIds, scopes[i].APIId)
 	}
-	apiIds := make([]int64, 0, len(merged))
-	for id := range merged {
-		apiIds = append(apiIds, id)
-	}
+	apiIds := rbacapi.MergeIDs(existing, scopeAPIIds)
 	if err = r.factory.Role().API().ReplaceByRoleId(ctx, rid, apiIds); err != nil {
 		klog.Errorf("failed to sync role apis from scopes for role %d: %v", rid, err)
 		return errors.ErrServerInternal

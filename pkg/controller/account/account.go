@@ -168,15 +168,10 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		return nil, apierrors.NewError(fmt.Errorf("failed to get current user"), http.StatusUnauthorized)
 	}
 	// 资源级授权：非超管用户叠加 scope 授权的 account id
-	var authorizedAccountIDs []int64
-	if user, uerr := httputils.GetUserFromContext(ctx); uerr != nil {
-		return nil, apierrors.NewError(fmt.Errorf("failed to get current user"), http.StatusUnauthorized)
-	} else if user.Role != model.RoleRoot {
-		authorizedAccountIDs, err = c.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypeAccount)
-		if err != nil {
-			klog.Errorf("failed to list authorized account ids: %v", err)
-			return nil, apierrors.ErrServerInternal
-		}
+	authorizedAccountIDs, err := controllerutil.AuthorizedResourceIDs(ctx, c.factory, types.ResourceTypeAccount)
+	if err != nil {
+		klog.Errorf("failed to list authorized account ids: %v", err)
+		return nil, apierrors.ErrServerInternal
 	}
 	opts := []db.Options{
 		db.WithUserOrResourceIDs(userId, authorizedAccountIDs),

@@ -26,7 +26,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -178,20 +177,13 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 	}
 
 	// 资源级授权：非超管用户叠加 scope 授权的 agent id（超管走 listOption.UserId 现状即可）
-	var authorizedAgentIDs []int64
-	if user, err := httputils.GetUserFromContext(ctx); err != nil {
+	authorizedAgentIDs, err := util.AuthorizedResourceIDs(ctx, a.factory, types.ResourceTypeAgent)
+	if err != nil {
 		return nil, err
-	} else if user.Role != model.RoleRoot {
-		authorizedAgentIDs, err = a.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypeAgent)
-		if err != nil {
-			klog.Errorf("failed to list authorized agent ids: %v", err)
-			return nil, errors.ErrServerInternal
-		}
 	}
 
 	filterOpts := buildAgentFilters(listOption.UserId, listOption, authorizedAgentIDs)
 
-	var err error
 	pageResult.Total, err = a.factory.Agent().Count(ctx, filterOpts...)
 	if err != nil {
 		klog.Errorf("failed to get agents count: %v", err)

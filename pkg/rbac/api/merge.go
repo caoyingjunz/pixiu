@@ -14,16 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package scope 提供平台数据权限（资源实例）纯策略判断。
-package scope
+package api
 
-// CanAccess 数据权限决策：超管 → 资源 owner → 角色 scope 命中。
-// hasScope 由调用方查库后传入，本函数不做 I/O。
-func CanAccess(isRoot, isOwner, hasScope bool) bool {
-	return isRoot || isOwner || hasScope
-}
-
-// NeedFilter 非超管列表查询需叠加角色 scope 授权的资源 ID。
-func NeedFilter(isRoot bool) bool {
-	return !isRoot
+// MergeIDs 合并多组 int64 ID（去重）；忽略 <=0 的无效值。
+func MergeIDs(sets ...[]int64) []int64 {
+	n := 0
+	for _, s := range sets {
+		n += len(s)
+	}
+	merged := make(map[int64]struct{}, n)
+	for _, s := range sets {
+		for _, id := range s {
+			if id <= 0 {
+				continue
+			}
+			merged[id] = struct{}{}
+		}
+	}
+	out := make([]int64, 0, len(merged))
+	for id := range merged {
+		out = append(out, id)
+	}
+	return out
 }
