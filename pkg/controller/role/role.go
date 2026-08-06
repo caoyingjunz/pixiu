@@ -33,18 +33,55 @@ type RoleGetter interface {
 	Role() Interface
 }
 
-type Interface interface {
+type RoleBaseInterface interface {
 	Create(ctx context.Context, req *types.CreateRoleRequest) error
 	Update(ctx context.Context, rid int64, req *types.UpdateRoleRequest) error
 	Delete(ctx context.Context, rid int64) error
 	Get(ctx context.Context, rid int64) (*types.Role, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+}
 
+type APIInterface interface {
 	GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse, error)
 	UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleAPIsRequest) error
 }
 
+type MenuInterface interface {
+	GetMenus(ctx context.Context, rid int64) (*types.RoleMenusResponse, error)
+	UpdateMenus(ctx context.Context, rid int64, req *types.UpdateRoleMenusRequest) error
+}
+
+type ScopeInterface interface {
+	GetAPIScopes(ctx context.Context, rid int64) (*types.RoleAPIScopesResponse, error)
+	UpdateAPIScopes(ctx context.Context, rid int64, req *types.UpdateRoleAPIScopesRequest) error
+}
+
+type Interface interface {
+	RoleBaseInterface
+	APIInterface
+	MenuInterface
+	ScopeInterface
+}
+
 type role struct {
+	cc      config.Config
+	factory db.ShareDaoFactory
+	*roleAPI
+	*roleMenu
+	*roleAPIScope
+}
+
+type roleAPI struct {
+	cc      config.Config
+	factory db.ShareDaoFactory
+}
+
+type roleMenu struct {
+	cc      config.Config
+	factory db.ShareDaoFactory
+}
+
+type roleAPIScope struct {
 	cc      config.Config
 	factory db.ShareDaoFactory
 }
@@ -55,7 +92,7 @@ func (r *role) Create(ctx context.Context, req *types.CreateRoleRequest) error {
 		tenantId = *req.TenantId
 	}
 
-	object, err := r.factory.Role().GetRoleByTenantAndName(ctx, tenantId, req.Name)
+	object, err := r.factory.Role().GetBy(ctx, db.WithTenantId(tenantId), db.WithName(req.Name))
 	if err != nil {
 		klog.Errorf("failed to get role %s: %v", req.Name, err)
 		return errors.ErrServerInternal
@@ -93,9 +130,9 @@ func (r *role) Create(ctx context.Context, req *types.CreateRoleRequest) error {
 	return nil
 }
 
-// 更新前置检查：资源存在
-func (r *role) preUpdate(ctx context.Context, rid int64) (*model.Role, error) {
-	object, err := r.factory.Role().Get(ctx, rid)
+// preUpdateRole 更新前置检查：资源存在
+func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (*model.Role, error) {
+	object, err := factory.Role().Get(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to get role(%d): %v", rid, err)
 		return nil, errors.ErrServerInternal
@@ -107,7 +144,7 @@ func (r *role) preUpdate(ctx context.Context, rid int64) (*model.Role, error) {
 }
 
 func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleRequest) error {
-	object, err := r.preUpdate(ctx, rid)
+	object, err := preUpdateRole(ctx, r.factory, rid)
 	if err != nil {
 		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
 		return err
@@ -116,7 +153,7 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		if *req.Name != object.Name {
-			existing, err := r.factory.Role().GetRoleByTenantAndName(ctx, object.TenantId, *req.Name)
+			existing, err := r.factory.Role().GetBy(ctx, db.WithTenantId(object.TenantId), db.WithName(*req.Name))
 			if err != nil {
 				klog.Errorf("failed to get role %s: %v", *req.Name, err)
 				return errors.ErrServerInternal
@@ -233,7 +270,10 @@ func (r *role) model2Type(o *model.Role) *types.Role {
 
 func NewRole(cfg config.Config, f db.ShareDaoFactory) *role {
 	return &role{
-		cc:      cfg,
-		factory: f,
+		cc:           cfg,
+		factory:      f,
+		roleAPI:      &roleAPI{cc: cfg, factory: f},
+		roleMenu:     &roleMenu{cc: cfg, factory: f},
+		roleAPIScope: &roleAPIScope{cc: cfg, factory: f},
 	}
 }

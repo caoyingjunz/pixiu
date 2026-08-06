@@ -45,8 +45,15 @@ func (r *roleRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/:roleId", Handler: r.deleteRole, Description: "删除角色"},
 			{Method: "GET", RelativePath: "/:roleId", Handler: r.getRole, Description: "查看详情"},
 			{Method: "GET", RelativePath: "", Handler: r.listRoles, Description: "查看列表"},
+			// 规则APIs
 			{Method: "GET", RelativePath: "/:roleId/apis", Handler: r.getRoleAPIs, Description: "查看权限"},
 			{Method: "PUT", RelativePath: "/:roleId/apis", Handler: r.updateRoleAPIs, Description: "修改权限"},
+
+			{Method: "GET", RelativePath: "/:roleId/menus", Handler: r.getRoleMenus, Description: "查看菜单权限"},
+			{Method: "PUT", RelativePath: "/:roleId/menus", Handler: r.updateRoleMenus, Description: "修改菜单权限"},
+
+			{Method: "GET", RelativePath: "/:roleId/api-scopes", Handler: r.getRoleAPIScopes, Description: "查看资源权限"},
+			{Method: "PUT", RelativePath: "/:roleId/api-scopes", Handler: r.updateRoleAPIScopes, Description: "修改资源权限"},
 		},
 	}
 	roleGroup.Register(ginEngine.Group("/pixiu/roles"), r.c.APIResource())

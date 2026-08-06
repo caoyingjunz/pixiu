@@ -23,21 +23,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-// GetRelease retrieves a release by its name in the specified namespace and cluster
-//
-// @Summary get a release
-// @Description retrieves a release from the specified namespace and cluster
-// @Tags helm
-// @Accept json
-// @Produce json
-// @Param cluster path string true "Kubernetes cluster name"
-// @Param namespace path string true "Kubernetes namespace"
-// @Param name path string true "Release name"
-// @Success 200 {object} httputils.Response{result=types.Release}
-// @Failure 400 {object} httputils.Response
-// @Failure 404 {object} httputils.Response
-// @Failure 500 {object} httputils.Response
-// @Router /helm/releases/{cluster}/{namespace}/{name} [get]
 func (hr *helmRouter) GetRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -57,20 +42,6 @@ func (hr *helmRouter) GetRelease(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// ListReleases lists all releases in the specified namespace and cluster
-//
-// @Summary list releases
-// @Description lists all releases in the specified namespace and cluster
-// @Tags helm
-// @Accept json
-// @Produce json
-// @Param cluster path string true "Kubernetes cluster name"
-// @Param namespace path string true "Kubernetes namespace"
-// @Success 200 {object} httputils.Response{result=[]types.Release}
-// @Failure 400 {object} httputils.Response
-// @Failure 404 {object} httputils.Response
-// @Failure 500 {object} httputils.Response
-// @Router /helm/releases/{cluster}/{namespace} [get]
 func (hr *helmRouter) ListReleases(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -90,20 +61,6 @@ func (hr *helmRouter) ListReleases(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// InstallRelease installs a new release in the specified namespace and cluster
-//
-// @Summary install a release
-// @Description installs a release in the specified Kubernetes namespace and cluster
-// @Tags helm
-// @Accept json
-// @Produce json
-// @Param cluster path string true "Kubernetes cluster name"
-// @Param namespace path string true "Kubernetes namespace"
-// @Param body body types.ReleaseForm true "Release information"
-// @Success 200 {object} httputils.Response
-// @Failure 400 {object} httputils.Response
-// @Failure 500 {object} httputils.Response
-// @Router /helm/releases/{cluster}/{namespace} [post]
 func (hr *helmRouter) InstallRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -124,21 +81,6 @@ func (hr *helmRouter) InstallRelease(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// UninstallRelease uninstalls a release from the specified namespace and cluster
-//
-// @Summary uninstall a release
-// @Description uninstalls a release from the specified Kubernetes namespace and cluster
-// @Tags helm
-// @Accept json
-// @Produce json
-// @Param cluster path string true "Kubernetes cluster name"
-// @Param namespace path string true "Kubernetes namespace"
-// @Param name path string true "Release name"
-// @Success 200 {object} httputils.Response
-// @Failure 400 {object} httputils.Response
-// @Failure 404 {object} httputils.Response
-// @Failure 500 {object} httputils.Response
-// @Router /helm/releases/{cluster}/{namespace}/{name} [delete]
 func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -158,21 +100,6 @@ func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// UpgradeRelease upgrades a release in the specified namespace and cluster
-//
-// @Summary upgrade a release
-// @Description upgrades a release in the specified Kubernetes namespace and cluster
-// @Tags helm
-// @Accept json
-// @Produce json
-// @Param cluster path string true "Kubernetes cluster name"
-// @Param namespace path string true "Kubernetes namespace"
-// @Param name path string true "Release name"
-// @Param body body types.ReleaseForm true "Release information"
-// @Success 200 {object} httputils.Response
-// @Failure 400 {object} httputils.Response
-// @Failure 500 {object} httputils.Response
-// @Router /helm/releases/{cluster}/{namespace}/{name} [put]
 func (hr *helmRouter) UpgradeRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -193,21 +120,6 @@ func (hr *helmRouter) UpgradeRelease(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// GetReleaseHistory retrieves the history of a release in the specified namespace and cluster
-//
-// @Summary get a release history
-// @Description retrieves the history of a release from the specified Kubernetes namespace and cluster
-// @Tags helm
-// @Accept json
-// @Produce json
-// @Param cluster path string true "Kubernetes cluster name"
-// @Param namespace path string true "Kubernetes namespace"
-// @Param name path string true "Release name"
-// @Success 200 {object} httputils.Response{result=types.ReleaseHistory}
-// @Failure 400 {object} httputils.Response
-// @Failure 404 {object} httputils.Response
-// @Failure 500 {object} httputils.Response
-// @Router /helm/releases/history/{cluster}/{namespace}/{name} [get]
 func (hr *helmRouter) GetReleaseHistory(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (
@@ -227,22 +139,6 @@ func (hr *helmRouter) GetReleaseHistory(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// RollbackRelease rolls back a release in the specified namespace and cluster to the specified revision
-//
-// @Summary rollback a release
-// @Description rolls back a release from the specified Kubernetes namespace and cluster to the specified revision
-// @Tags helm
-// @Accept json
-// @Produce json
-// @Param cluster path string true "Kubernetes cluster name"
-// @Param namespace path string true "Kubernetes namespace"
-// @Param name path string true "Release name"
-// @Param version query int true "Release revision"
-// @Success 200 {object} httputils.Response
-// @Failure 400 {object} httputils.Response
-// @Failure 404 {object} httputils.Response
-// @Failure 500 {object} httputils.Response
-// @Router /helm/releases/rollback/{cluster}/{namespace}/{name} [post]
 func (hr *helmRouter) RollbackRelease(c *gin.Context) {
 	r := httputils.NewResponse()
 	var (

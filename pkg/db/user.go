@@ -31,11 +31,11 @@ type UserInterface interface {
 	Update(ctx context.Context, uid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, uid int64) error
 	Get(ctx context.Context, uid int64) (*model.User, error)
-	GetRoot(ctx context.Context) (*model.User, error)
 	List(ctx context.Context, opts ...Options) ([]model.User, error)
 
 	Count(ctx context.Context, opts ...Options) (int64, error)
 
+	GetRoot(ctx context.Context) (*model.User, error)
 	GetUserByName(ctx context.Context, userName string) (*model.User, error)
 }
 

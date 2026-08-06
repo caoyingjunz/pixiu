@@ -37,7 +37,3 @@ licfmt:
 
 clean:
 	-rm -f ./$(releaseName)
-
-.PHONY: api-docs
-api-docs: ## generate the api docs
-	swag init --generalInfo ./cmd/pixiuserver.go --output ./api/docs

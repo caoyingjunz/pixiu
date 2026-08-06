@@ -158,3 +158,87 @@ func (r *roleRouter) updateRoleAPIs(c *gin.Context) {
 
 	httputils.SetSuccess(c, resp)
 }
+
+func (r *roleRouter) getRoleMenus(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		opt RoleMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if resp.Result, err = r.c.Role().GetMenus(c, opt.RoleId); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+
+	httputils.SetSuccess(c, resp)
+}
+
+// @Summary 修改角色菜单权限
+// @Tags 角色管理
+// @Param roleId path int true "角色 ID"
+// @Param body body types.UpdateRoleMenusRequest true "菜单码全量替换"
+// @Success 200 {object} httputils.Response
+// @Router /pixiu/roles/{roleId}/menus [put]
+func (r *roleRouter) updateRoleMenus(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		opt RoleMeta
+		req types.UpdateRoleMenusRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Role().UpdateMenus(c, opt.RoleId, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *roleRouter) getRoleAPIScopes(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		opt RoleMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if resp.Result, err = r.c.Role().GetAPIScopes(c, opt.RoleId); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *roleRouter) updateRoleAPIScopes(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		opt RoleMeta
+		req types.UpdateRoleAPIScopesRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Role().UpdateAPIScopes(c, opt.RoleId, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+
+	httputils.SetSuccess(c, resp)
+}

@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -98,7 +99,7 @@ func (a *agentController) preUpdate(ctx context.Context, agentId int64) error {
 	if object == nil {
 		return errors.ErrAgentNotFound
 	}
-	if err := util.CheckResourceOwner(ctx, object.UserID); err != nil {
+	if err := util.CheckResourceAccess(ctx, a.factory, object.UserID, types.ResourceTypeAgent, agentId); err != nil {
 		return err
 	}
 	return nil
@@ -137,7 +138,7 @@ func (a *agentController) Delete(ctx context.Context, agentId int64) error {
 	if object == nil {
 		return errors.ErrAgentNotFound
 	}
-	if err = util.CheckResourceOwner(ctx, object.UserID); err != nil {
+	if err = util.CheckResourceAccess(ctx, a.factory, object.UserID, types.ResourceTypeAgent, agentId); err != nil {
 		return err
 	}
 
@@ -158,8 +159,8 @@ func (a *agentController) Get(ctx context.Context, agentId int64) (*types.Agent,
 		return nil, errors.ErrAgentNotFound
 	}
 
-	// 非超级管理员只能查看自己的 Agent
-	if err = util.CheckResourceOwner(ctx, object.UserID); err != nil {
+	// 非超级管理员只能查看自己的 Agent 或被 scope 授权的 Agent
+	if err = util.CheckResourceAccess(ctx, a.factory, object.UserID, types.ResourceTypeAgent, agentId); err != nil {
 		return nil, err
 	}
 
@@ -176,7 +177,19 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 		},
 	}
 
-	filterOpts := buildAgentFilters(listOption.UserId, listOption)
+	// 资源级授权：非超管用户叠加 scope 授权的 agent id（超管走 listOption.UserId 现状即可）
+	var authorizedAgentIDs []int64
+	if user, err := httputils.GetUserFromContext(ctx); err != nil {
+		return nil, err
+	} else if user.Role != model.RoleRoot {
+		authorizedAgentIDs, err = a.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypeAgent)
+		if err != nil {
+			klog.Errorf("failed to list authorized agent ids: %v", err)
+			return nil, errors.ErrServerInternal
+		}
+	}
+
+	filterOpts := buildAgentFilters(listOption.UserId, listOption, authorizedAgentIDs)
 
 	var err error
 	pageResult.Total, err = a.factory.Agent().Count(ctx, filterOpts...)
@@ -299,14 +312,12 @@ func (a *agentController) GetPlan(ctx context.Context, agentToken string, jobId 
 
 // ── helpers ──
 
-func buildAgentFilters(uid int64, opt types.ListOptions) []db.Options {
+func buildAgentFilters(uid int64, opt types.ListOptions, authorizedIDs []int64) []db.Options {
 	var opts []db.Options
 	if opt.NameSelector != "" {
 		opts = append(opts, db.WithNameLike(opt.NameSelector))
 	}
-	if uid != 0 {
-		opts = append(opts, db.WithUser(uid))
-	}
+	opts = append(opts, db.WithUserOrResourceIDs(uid, authorizedIDs))
 	if opt.AgentStatus != nil {
 		opts = append(opts, db.WithStatus(*opt.AgentStatus))
 	}

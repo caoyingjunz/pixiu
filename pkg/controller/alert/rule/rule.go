@@ -73,6 +73,10 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		return apierrors.NewError(err, http.StatusBadRequest)
 	}
 
+	createdBy, err := ctrlutil.UserNameFromContext(ctx)
+	if err != nil {
+		return err
+	}
 	_, err = c.factory.Alert().Rule().Create(ctx, &model.AlertRule{
 		Name:             req.Name,
 		Description:      req.Description,
@@ -91,7 +95,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleReque
 		EnableEtime:      engine.NormalizeEnableTime(req.EnableEtime),
 		DatasourceId:     req.DatasourceId,
 		Enabled:          enabled,
-		CreatedBy:        ctrlutil.CurrentUserName(ctx),
+		CreatedBy:        createdBy,
 		Extension:        req.Extension,
 		Labels:           labels,
 	})

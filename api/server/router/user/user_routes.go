@@ -27,20 +27,6 @@ type IdMeta struct {
 	UserId int64 `uri:"userId" binding:"required"`
 }
 
-// CreateUser godoc
-//
-//	@Summary      Create a user
-//	@Description  Create by a json user
-//	@Tags         Users
-//	@Accept       json
-//	@Produce      json
-//	@Param        user  body      types.CreateUserRequest  true  "Create user"
-//	@Success      200   {object}  httputils.Response
-//	@Failure      400   {object}  httputils.Response
-//	@Failure      404   {object}  httputils.Response
-//	@Failure      500   {object}  httputils.Response
-//	@Router       /pixiu/users/ [post]
-//	              @Security  Bearer
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -60,21 +46,6 @@ func (u *userRouter) createUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// UpdateUser godoc
-//
-//	@Summary      Update an user
-//	@Description  Update by json user
-//	@Tags         Users
-//	@Accept       json
-//	@Produce      json
-//	@Param        userId  path      int                      true  "User ID"
-//	@Param        user    body      types.UpdateUserRequest  true  "Update user"
-//	@Success      200     {object}  httputils.Response
-//	@Failure      400     {object}  httputils.Response
-//	@Failure      404     {object}  httputils.Response
-//	@Failure      500     {object}  httputils.Response
-//	@Router       /pixiu/users/{userId} [put]
-//	              @Security  Bearer
 func (u *userRouter) updateUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -95,21 +66,6 @@ func (u *userRouter) updateUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// UpdateUserPassword godoc
-//
-//	@Summary      Update user password
-//	@Description  Update by json user
-//	@Tags         Users
-//	@Accept       json
-//	@Produce      json
-//	@Param        userId  path      int                              true  "User ID"
-//	@Param        user    body      types.UpdateUserPasswordRequest  true  "Update user password"
-//	@Success      200     {object}  httputils.Response
-//	@Failure      400     {object}  httputils.Response
-//	@Failure      404     {object}  httputils.Response
-//	@Failure      500     {object}  httputils.Response
-//	@Router       /pixiu/users/password [put]
-//	              @Security  Bearer
 func (u *userRouter) updatePassword(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -130,21 +86,6 @@ func (u *userRouter) updatePassword(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// DeleteUser godoc
-//
-//	@Summary      Delete user by userId
-//	@Description  Delete by userID
-//	@Tags         Users
-//	@Accept       json
-//	@Produce      json
-//	@Param        userId  path      int  true  "User ID"
-//	@Success      200     {object}  httputils.Response
-//	@Failure      400     {object}  httputils.Response
-//	@Failure      403     {object}  httputils.Response
-//	@Failure      404     {object}  httputils.Response
-//	@Failure      500     {object}  httputils.Response
-//	@Router       /pixiu/users/{userId} [delete]
-//	              @Security  Bearer
 func (u *userRouter) deleteUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -164,20 +105,6 @@ func (u *userRouter) deleteUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// Getuser godoc
-//
-//	@Summary      Get user by userId
-//	@Description  Get by user ID
-//	@Tags         Users
-//	@Accept       json
-//	@Produce      json
-//	@Param        userId  path      int  true  "User ID"
-//	@Success      200     {object}  httputils.Response{result=types.User}
-//	@Failure      400     {object}  httputils.Response
-//	@Failure      404     {object}  httputils.Response
-//	@Failure      500     {object}  httputils.Response
-//	@Router       /pixiu/users/{userId} [get]
-//	              @Security  Bearer
 func (u *userRouter) getUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -197,19 +124,6 @@ func (u *userRouter) getUser(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// Listusers godoc
-//
-//	@Summary      List users
-//	@Description  List users
-//	@Tags         Users
-//	@Accept       json
-//	@Produce      json
-//	@Success      200  {array}   httputils.Response{result=[]types.User}
-//	@Failure      400  {object}  httputils.Response
-//	@Failure      404  {object}  httputils.Response
-//	@Failure      500  {object}  httputils.Response
-//	@Router       /pixiu/users [get]
-//	              @Security  Bearer
 func (u *userRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -229,19 +143,6 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// Login godoc
-//
-//	@Summary      User login
-//	@Description  Login by a json user
-//	@Tags         Login
-//	@Accept       json
-//	@Produce      json
-//	@Param        user  body      types.LoginRequest  true  "User login"
-//	@Success      200   {object}  httputils.Response
-//	@Failure      400   {object}  httputils.Response
-//	@Failure      404   {object}  httputils.Response
-//	@Failure      500   {object}  httputils.Response
-//	@Router       /pixiu/users/login [post]
 func (u *userRouter) login(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -263,7 +164,6 @@ func (u *userRouter) login(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// TODO
 func (u *userRouter) logout(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -280,5 +180,18 @@ func (u *userRouter) logout(c *gin.Context) {
 		return
 	}
 
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getCurrentUserPermissions(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		err error
+	)
+	if r.Result, err = u.c.User().GetCurrentUserPermissions(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }

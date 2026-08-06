@@ -133,7 +133,7 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 	if object == nil {
 		return apierrors.NewError(fmt.Errorf("ai account not found"), http.StatusNotFound)
 	}
-	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeAccount, id); err != nil {
 		return err
 	}
 	if err := c.factory.Assistant().Account().Delete(ctx, id); err != nil {
@@ -167,8 +167,19 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	if err != nil {
 		return nil, apierrors.NewError(fmt.Errorf("failed to get current user"), http.StatusUnauthorized)
 	}
+	// 资源级授权：非超管用户叠加 scope 授权的 account id
+	var authorizedAccountIDs []int64
+	if user, uerr := httputils.GetUserFromContext(ctx); uerr != nil {
+		return nil, apierrors.NewError(fmt.Errorf("failed to get current user"), http.StatusUnauthorized)
+	} else if user.Role != model.RoleRoot {
+		authorizedAccountIDs, err = c.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypeAccount)
+		if err != nil {
+			klog.Errorf("failed to list authorized account ids: %v", err)
+			return nil, apierrors.ErrServerInternal
+		}
+	}
 	opts := []db.Options{
-		db.WithUser(userId),
+		db.WithUserOrResourceIDs(userId, authorizedAccountIDs),
 		db.WithAIProviderId(listOption.ProviderId),
 		db.WithNameLike(listOption.NameSelector),
 	}

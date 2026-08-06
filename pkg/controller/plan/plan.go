@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -219,7 +220,7 @@ func (p *plan) preUpdate(ctx context.Context, planId int64) (*model.Plan, error)
 	if oldPlan == nil {
 		return nil, errors.ErrServerInternal
 	}
-	if err := util.CheckResourceOwner(ctx, oldPlan.UserId); err != nil {
+	if err := util.CheckResourceAccess(ctx, p.factory, oldPlan.UserId, types.ResourceTypePlan, planId); err != nil {
 		return nil, err
 	}
 	return oldPlan, nil
@@ -311,7 +312,7 @@ func (p *plan) preDelete(ctx context.Context, planId int64) error {
 	if planObj == nil {
 		return errors.ErrPlanNotFound
 	}
-	if err = util.CheckResourceOwner(ctx, planObj.UserId); err != nil {
+	if err = util.CheckResourceAccess(ctx, p.factory, planObj.UserId, types.ResourceTypePlan, planId); err != nil {
 		return err
 	}
 
@@ -373,8 +374,8 @@ func (p *plan) Get(ctx context.Context, pid int64) (*types.Plan, error) {
 		return nil, errors.ErrServerInternal
 	}
 
-	// 非超级管理员只能查看自己的部署计划
-	if err := util.CheckResourceOwner(ctx, object.UserId); err != nil {
+	// 非超级管理员只能查看自己的部署计划或被 scope 授权的部署计划
+	if err := util.CheckResourceAccess(ctx, p.factory, object.UserId, types.ResourceTypePlan, pid); err != nil {
 		return nil, err
 	}
 
@@ -426,8 +427,20 @@ func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interfac
 		},
 	}
 
+	// 资源级授权：非超管用户叠加 scope 授权的 plan id（超管走 listOption.UserId 现状即可）
+	var authorizedPlanIDs []int64
+	if user, err := httputils.GetUserFromContext(ctx); err != nil {
+		return nil, err
+	} else if user.Role != model.RoleRoot {
+		authorizedPlanIDs, err = p.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypePlan)
+		if err != nil {
+			klog.Errorf("failed to list authorized plan ids: %v", err)
+			return nil, errors.ErrServerInternal
+		}
+	}
+
 	opts := []db.Options{
-		db.WithUser(listOption.UserId),
+		db.WithUserOrResourceIDs(listOption.UserId, authorizedPlanIDs),
 		db.WithNameLike(listOption.NameSelector),
 	}
 

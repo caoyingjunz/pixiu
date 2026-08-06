@@ -34,12 +34,25 @@ type RoleInterface interface {
 	List(ctx context.Context, opts ...Options) ([]model.Role, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
 
-	GetRoleByTenantAndName(ctx context.Context, tenantId int64, name string) (*model.Role, error)
+	// GetBy 按自定义条件过滤查询
+	GetBy(ctx context.Context, opts ...Options) (*model.Role, error)
+
+	// API 子角色接口
+	API() APIInterface
+	Scope() ScopeInterface
+	Menu() MenuInterface
 }
 
 type role struct {
 	db *gorm.DB
+	*roleAPI
+	*roleAPIScope
+	*roleMenu
 }
+
+func (r *role) API() APIInterface     { return r.roleAPI }
+func (r *role) Scope() ScopeInterface { return r.roleAPIScope }
+func (r *role) Menu() MenuInterface   { return r.roleMenu }
 
 func (r *role) Create(ctx context.Context, object *model.Role) (*model.Role, error) {
 	now := time.Now()
@@ -120,9 +133,13 @@ func (r *role) Count(ctx context.Context, opts ...Options) (int64, error) {
 	return total, nil
 }
 
-func (r *role) GetRoleByTenantAndName(ctx context.Context, tenantId int64, name string) (*model.Role, error) {
+func (r *role) GetBy(ctx context.Context, opts ...Options) (*model.Role, error) {
 	var object model.Role
-	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND name = ?", tenantId, name).First(&object).Error; err != nil {
+	tx := r.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}
@@ -133,5 +150,10 @@ func (r *role) GetRoleByTenantAndName(ctx context.Context, tenantId int64, name 
 }
 
 func newRole(db *gorm.DB) *role {
-	return &role{db}
+	return &role{
+		db:           db,
+		roleAPI:      newRoleAPI(db),
+		roleAPIScope: newRoleAPIScope(db),
+		roleMenu:     newRoleMenu(db),
+	}
 }

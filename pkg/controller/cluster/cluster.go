@@ -42,6 +42,7 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -317,9 +318,9 @@ func (c *cluster) preUpdate(ctx context.Context, cid int64) error {
 		return errors.ErrClusterNotFound
 	}
 
-	// 非超级管理员只能更新自己的集群
-	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
-		klog.Errorf("failed to check object owner: %v", err)
+	// 非超级管理员只能更新自己的集群或被 scope 授权的集群
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeCluster, cid); err != nil {
+		klog.Errorf("failed to check cluster access: %v", err)
 		return err
 	}
 
@@ -363,8 +364,8 @@ func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (*mo
 		return nil, errors.ErrClusterNotFound
 	}
 
-	// 非超级管理员只能删除自己的集群
-	if err = controllerutil.CheckResourceOwner(ctx, obj.UserId); err != nil {
+	// 非超级管理员只能删除自己的集群或被 scope 授权的集群
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, obj.UserId, types.ResourceTypeCluster, cid); err != nil {
 		return nil, err
 	}
 
@@ -452,20 +453,14 @@ func (c *cluster) deletePixiuClusterRole(ctx context.Context, cluster *model.Clu
 }
 
 func (c *cluster) Get(ctx context.Context, cid int64) (*types.Cluster, error) {
-	object, err := c.factory.Cluster().Get(ctx, cid)
+	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil {
-		klog.Errorf("failed to get cluster(%d): %v", cid, err)
-		return nil, errors.ErrServerInternal
+		return nil, errors.ErrUnauthorized
 	}
-	if object == nil {
-		return nil, errors.ErrClusterNotFound
-	}
-
-	// 资源确认是否归属自己，非超级管理员只能查看自己的集群
-	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
+	object, err := c.AuthorizeClusterAccess(ctx, user, cid)
+	if err != nil {
 		return nil, err
 	}
-
 	return c.model2Type(object), nil
 }
 
@@ -479,8 +474,8 @@ func (c *cluster) GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConf
 		return nil, errors.ErrClusterNotFound
 	}
 
-	// kubeconfig 含集群凭据，非超级管理员只能获取自己集群的 kubeconfig
-	if err = controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
+	// kubeconfig 含集群凭据，非超级管理员只能获取自己或被 scope 授权集群的 kubeconfig
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeCluster, cid); err != nil {
 		return nil, err
 	}
 
@@ -500,8 +495,20 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 		},
 	}
 
+	// 资源级授权：非超管用户叠加 scope 授权的 cluster id（超管走 listOption.UserId 现状即可）
+	var authorizedClusterIDs []int64
+	if user, err := httputils.GetUserFromContext(ctx); err != nil {
+		return nil, err
+	} else if user.Role != model.RoleRoot {
+		authorizedClusterIDs, err = c.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypeCluster)
+		if err != nil {
+			klog.Errorf("failed to list authorized cluster ids: %v", err)
+			return nil, errors.ErrServerInternal
+		}
+	}
+
 	opts := []db.Options{
-		db.WithUser(listOption.UserId),
+		db.WithUserOrResourceIDs(listOption.UserId, authorizedClusterIDs),
 		db.WithAliasNameLike(listOption.NameSelector),
 	}
 	// 先把所有的集群查询出来

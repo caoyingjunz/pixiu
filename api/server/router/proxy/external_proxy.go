@@ -63,16 +63,6 @@ var externalProxyTransport = &http.Transport{
 	ResponseHeaderTimeout: externalProxyResponseHeaderTimeout,
 }
 
-// externalProxyHandler 通用外部 HTTP 代理：透传 Method / Query / Body / 请求头。
-//
-//	@Summary		通用外部请求代理
-//	@Description	将请求转发至 url 查询参数指定的上游；上游认证使用 X-Pixiu-Proxy-Authorization 请求头
-//	@Tags			Proxy
-//	@Param			url	query	string	true	"上游基础地址，如 http://es.example.com:9200"
-//	@Param			X-Pixiu-Proxy-Authorization	header	string	false	"上游 Authorization，如 Basic xxx"
-//	@Param			act	path	string	true	"上游 API 路径后缀"
-//	@Success		200	{object}	object
-//	@Router			/pixiu/external/*act [get]
 func (p *proxyRouter) externalProxyHandler(c *gin.Context) {
 	resp := httputils.NewResponse()
 	ctx, cancel := context.WithTimeout(c.Request.Context(), externalProxyRequestTimeout)

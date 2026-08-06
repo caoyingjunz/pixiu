@@ -56,13 +56,18 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertChannelRe
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	_, err := c.factory.Alert().Channel().Create(ctx, &model.AlertChannel{
+
+	createdBy, err := ctrlutil.UserNameFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = c.factory.Alert().Channel().Create(ctx, &model.AlertChannel{
 		Name:        req.Name,
 		Description: req.Description,
 		ChannelType: req.ChannelType,
 		Config:      req.Config,
 		Enabled:     enabled,
-		CreatedBy:   ctrlutil.CurrentUserName(ctx),
+		CreatedBy:   createdBy,
 		Extension:   req.Extension,
 	})
 	if err != nil {

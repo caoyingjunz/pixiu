@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Pixiu Authors.
+Copyright 2026 The Pixiu Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,50 +25,48 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-type APIInterface interface {
-	ListAPIIdsByRoleId(ctx context.Context, roleId int64) ([]int64, error)
-	ReplaceByRoleId(ctx context.Context, roleId int64, apiIds []int64) error
+type MenuInterface interface {
+	ListMenuCodesByRoleId(ctx context.Context, roleId int64) ([]string, error)
+	ReplaceByRoleId(ctx context.Context, roleId int64, menuCodes []string) error
 }
 
-type roleAPI struct {
+type roleMenu struct {
 	db *gorm.DB
 }
 
-func (r *roleAPI) ListAPIIdsByRoleId(ctx context.Context, roleId int64) ([]int64, error) {
-	var apiIds []int64
-	if err := r.db.WithContext(ctx).Model(&model.RoleAPI{}).
+func (r *roleMenu) ListMenuCodesByRoleId(ctx context.Context, roleId int64) ([]string, error) {
+	var codes []string
+	if err := r.db.WithContext(ctx).Model(&model.RoleMenu{}).
 		Where("role_id = ?", roleId).
-		Pluck("api_id", &apiIds).Error; err != nil {
+		Pluck("menu_code", &codes).Error; err != nil {
 		return nil, err
 	}
-
-	return apiIds, nil
+	return codes, nil
 }
 
-func (r *roleAPI) ReplaceByRoleId(ctx context.Context, roleId int64, apiIds []int64) error {
+func (r *roleMenu) ReplaceByRoleId(ctx context.Context, roleId int64, menuCodes []string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("role_id = ?", roleId).Delete(&model.RoleAPI{}).Error; err != nil {
+		if err := tx.Where("role_id = ?", roleId).Delete(&model.RoleMenu{}).Error; err != nil {
 			return err
 		}
-		if len(apiIds) == 0 {
+		if len(menuCodes) == 0 {
 			return nil
 		}
 
 		now := time.Now()
-		records := make([]model.RoleAPI, len(apiIds))
-		for i, apiId := range apiIds {
-			records[i] = model.RoleAPI{
-				RoleId: roleId,
-				APIId:  apiId,
+		records := make([]model.RoleMenu, len(menuCodes))
+		for i, code := range menuCodes {
+			records[i] = model.RoleMenu{
+				RoleId:   roleId,
+				MenuCode: code,
 			}
 			records[i].GmtCreate = now
 			records[i].GmtModified = now
 		}
-
 		return tx.Create(&records).Error
 	})
 }
 
-func newRoleAPI(db *gorm.DB) *roleAPI {
-	return &roleAPI{db}
+func newRoleMenu(db *gorm.DB) *roleMenu {
+	return &roleMenu{db: db}
 }

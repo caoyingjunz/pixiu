@@ -31,6 +31,9 @@ import (
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	rbacaccess "github.com/caoyingjunz/pixiu/pkg/rbac/access"
+	rbacapi "github.com/caoyingjunz/pixiu/pkg/rbac/api"
+	menupkg "github.com/caoyingjunz/pixiu/pkg/rbac/menu"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
@@ -66,6 +69,8 @@ type Interface interface {
 
 	Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error)
 	Logout(ctx *gin.Context, userId int64) error
+
+	GetCurrentUserPermissions(ctx context.Context) (*types.CurrentUserPermissionsResponse, error)
 
 	GetLoginToken(ctx context.Context, userId int64) (string, error)
 	ValidAccess(ctx *gin.Context, roleId int64) error
@@ -122,21 +127,30 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 	return nil
 }
 
-// 更新前置检查：资源存在
-func (u *user) preUpdate(ctx context.Context, uid int64) error {
+// 更新前置检查：资源存在 + 非超管只能更新自己的用户
+func (u *user) preUpdate(ctx context.Context, uid int64) (*model.User, *model.User, error) {
+	curUser, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
 	object, err := u.factory.User().Get(ctx, uid)
 	if err != nil {
 		klog.Errorf("failed to get user(%d): %v", uid, err)
-		return errors.ErrServerInternal
+		return nil, nil, errors.ErrServerInternal
 	}
 	if object == nil {
-		return errors.ErrUserNotFound
+		return nil, nil, errors.ErrUserNotFound
 	}
-	return nil
+	// 非超级管理员只能更新自己的用户（等价于 CheckResourceOwner：Root 放行 / Id 相等放行）
+	if curUser.Role != model.RoleRoot && curUser.Id != uid {
+		return nil, nil, errors.ErrForbidden
+	}
+	return curUser, object, nil
 }
 
 func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserRequest) error {
-	if err := u.preUpdate(ctx, uid); err != nil {
+	curUser, old, err := u.preUpdate(ctx, uid)
+	if err != nil {
 		klog.Errorf("pre-update check failed for user(%d): %v", uid, err)
 		return err
 	}
@@ -145,10 +159,16 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 		"status":      req.Status,
 		"email":       req.Email,
 		"phone":       req.Phone,
-		"role":        req.Role,
 		"description": req.Description,
 	}
-	if err := u.factory.User().Update(ctx, uid, *req.ResourceVersion, updates); err != nil {
+	// 非超管不允许修改角色（垂直越权防护）；req.Role 是值类型，前端不传时零值=RoleRoot(0)，故非超管一律强制保持旧角色
+	if curUser.Role == model.RoleRoot {
+		updates["role"] = req.Role
+	} else {
+		updates["role"] = old.Role
+	}
+
+	if err = u.factory.User().Update(ctx, uid, req.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update user(%d): %v", uid, err)
 		return errors.ErrServerInternal
 	}
@@ -426,38 +446,126 @@ func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) 
 	return t, nil
 }
 
+func (u *user) GetCurrentUserPermissions(ctx context.Context) (*types.CurrentUserPermissionsResponse, error) {
+	curUser, err := httputils.GetUserFromContext(ctx)
+	if err != nil || curUser == nil {
+		return nil, errors.ErrUnauthorized
+	}
+
+	resp := &types.CurrentUserPermissionsResponse{
+		Role:    curUser.Role,
+		IsRoot:  curUser.Role == model.RoleRoot,
+		APIs:    make([]types.APIResource, 0),
+		Scopes:  make([]types.RoleAPIScope, 0),
+		Buttons: make([]string, 0),
+		Menus:   make([]string, 0),
+	}
+
+	// 超级管理员角色
+	if curUser.Role == model.RoleRoot {
+		apis, apiErr := u.factory.API().List(ctx) // 全部APIs
+		if apiErr != nil {
+			klog.Errorf("failed to list apis for root permissions: %v", err)
+			return nil, errors.ErrServerInternal
+		}
+		for i := range apis {
+			api := toAPIResource(&apis[i])
+			resp.APIs = append(resp.APIs, *api)
+			resp.Buttons = append(resp.Buttons, rbacapi.Button(apis[i].Method, apis[i].Path))
+		}
+		resp.Menus = menupkg.Resolve(menupkg.ResolveOptions{IsRoot: true})
+		return resp, nil
+	}
+
+	roleId := int64(curUser.Role)
+	apis, err := u.factory.API().GetByRoleId(ctx, roleId) // 关联 role 的 APIs
+	if err != nil {
+		klog.Errorf("failed to list APIs for role %d: %v", roleId, err)
+		return nil, errors.ErrServerInternal
+	}
+	for i := range apis {
+		api := toAPIResource(&apis[i])
+		resp.APIs = append(resp.APIs, *api)
+		resp.Buttons = append(resp.Buttons, rbacapi.Button(apis[i].Method, apis[i].Path))
+	}
+
+	scopes, err := u.factory.Role().Scope().ListScopes(ctx, roleId)
+	if err != nil {
+		klog.Errorf("failed to list api scopes for role %d: %v", roleId, err)
+		return nil, errors.ErrServerInternal
+	}
+	for i := range scopes {
+		resp.Scopes = append(resp.Scopes, types.RoleAPIScope{
+			APIId:        scopes[i].APIId,
+			ResourceType: scopes[i].ResourceType,
+			ResourceId:   scopes[i].ResourceId,
+		})
+	}
+
+	explicitMenus, menuErr := u.factory.Role().Menu().ListMenuCodesByRoleId(ctx, roleId)
+	if menuErr != nil {
+		klog.Errorf("failed to list role menus for role %d: %v", roleId, menuErr)
+		return nil, errors.ErrServerInternal
+	}
+	resp.Menus = menupkg.Resolve(menupkg.ResolveOptions{
+		IsAdmin:       curUser.Role == model.RoleAdmin,
+		Buttons:       resp.Buttons,
+		ExplicitMenus: explicitMenus,
+	})
+	return resp, nil
+}
+
+func toAPIResource(o *model.API) *types.APIResource {
+	return &types.APIResource{
+		PixiuMeta: types.PixiuMeta{
+			Id:              o.Id,
+			ResourceVersion: o.ResourceVersion,
+		},
+		TimeMeta: types.TimeMeta{
+			GmtCreate:   o.GmtCreate,
+			GmtModified: o.GmtModified,
+		},
+		Method:      o.Method,
+		Path:        o.Path,
+		Group:       o.Group,
+		Description: o.Description,
+	}
+}
+
 func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
+	// 超管已在 ValidAccess 放行；此处防御性跳过
+	if roleId == 0 {
+		return nil
+	}
+	// k8s 资源授权由 Permission（scoped kubeconfig）/ 集群 Authorize 兜底，proxy 请求不再按 scope 校验
 	return nil
 }
 
 func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
-	// 如果 roleId 为 0，则表示为超级管理员，直接不做任何限制
-	if roleId == 0 {
-		klog.V(1).Infof("super admin, skipping permission check")
-		return nil
-	}
-
-	// 获取当前请求的方法和路由模板
 	method := ctx.Request.Method
-	path := ctx.FullPath() // 如 /api/v1/users/:id
+	path := ctx.FullPath() // 如 /pixiu/users/:id
 
-	// 如果是 proxy 路由，直接放通，鉴权由后端代理目标或中间件自身实现
-	if path == "/pixiu/proxy/:clusterName/*act" || path == "/pixiu/external/*act" {
+	switch rbacaccess.Classify(roleId, method, path) {
+	case rbacaccess.Allow:
+		if roleId == 0 {
+			klog.V(1).Infof("super admin, skipping permission check")
+		}
+		return nil
+	case rbacaccess.Proxy:
 		return u.ValidProxy(ctx, roleId)
-	}
-
-	// 非管理员根据权限
-	// TODO 通过缓存提示性能
-	apisMap, err := u.FormatAPIsForRole(ctx, roleId)
-	if err != nil {
-		return err
-	}
-	action := method + ":" + path
-	if !apisMap[action] {
+	case rbacaccess.Check:
+		// TODO 通过缓存提示性能
+		apisMap, err := u.FormatAPIsForRole(ctx, roleId)
+		if err != nil {
+			return err
+		}
+		if !rbacaccess.AllowedBySet(apisMap, method, path) {
+			return fmt.Errorf("无访问权限")
+		}
+		return nil
+	default:
 		return fmt.Errorf("无访问权限")
 	}
-
-	return nil
 }
 
 func (u *user) FormatAPIsForRole(ctx context.Context, roleId int64) (map[string]bool, error) {
@@ -466,12 +574,11 @@ func (u *user) FormatAPIsForRole(ctx context.Context, roleId int64) (map[string]
 		return nil, err
 	}
 
-	permSet := make(map[string]bool)
-	for _, a := range apis {
-		permSet[a.Method+":"+a.Path] = true
+	eps := make([]rbacapi.Endpoint, 0, len(apis))
+	for i := range apis {
+		eps = append(eps, rbacapi.Endpoint{Method: apis[i].Method, Path: apis[i].Path})
 	}
-
-	return permSet, nil
+	return rbacapi.BuildSet(eps), nil
 }
 
 func (u *user) GetTokenKey() []byte {
