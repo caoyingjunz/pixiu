@@ -159,11 +159,6 @@ func (r *roleRouter) updateRoleAPIs(c *gin.Context) {
 	httputils.SetSuccess(c, resp)
 }
 
-// @Summary 查看角色菜单权限
-// @Tags 角色管理
-// @Param roleId path int true "角色 ID"
-// @Success 200 {object} httputils.Response{result=types.RoleMenusResponse}
-// @Router /pixiu/roles/{roleId}/menus [get]
 func (r *roleRouter) getRoleMenus(c *gin.Context) {
 	resp := httputils.NewResponse()
 
