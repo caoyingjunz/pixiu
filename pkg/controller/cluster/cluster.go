@@ -496,15 +496,9 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 	}
 
 	// 资源级授权：非超管用户叠加 scope 授权的 cluster id（超管走 listOption.UserId 现状即可）
-	var authorizedClusterIDs []int64
-	if user, err := httputils.GetUserFromContext(ctx); err != nil {
+	authorizedClusterIDs, err := controllerutil.AuthorizedResourceIDs(ctx, c.factory, types.ResourceTypeCluster)
+	if err != nil {
 		return nil, err
-	} else if user.Role != model.RoleRoot {
-		authorizedClusterIDs, err = c.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypeCluster)
-		if err != nil {
-			klog.Errorf("failed to list authorized cluster ids: %v", err)
-			return nil, errors.ErrServerInternal
-		}
 	}
 
 	opts := []db.Options{

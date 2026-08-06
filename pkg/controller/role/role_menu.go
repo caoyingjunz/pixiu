@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
+    10|Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -38,21 +38,6 @@ func (r *roleMenu) GetMenus(ctx context.Context, rid int64) (*types.RoleMenusRes
 		return nil, errors.ErrRoleNotFound
 	}
 
-	catalog := menu.Catalog()
-	defs := make([]types.MenuResource, 0, len(catalog))
-	for _, d := range catalog {
-		defs = append(defs, types.MenuResource{
-			Code:         d.Code,
-			ParentCode:   d.ParentCode,
-			Title:        d.Title,
-			Path:         d.Path,
-			Kind:         d.Kind,
-			Public:       d.Public,
-			AdminOnly:    d.AdminOnly,
-			RequiredAPIs: d.RequiredAPIs,
-		})
-	}
-
 	explicit, err := r.factory.Role().Menu().ListMenuCodesByRoleId(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to list role menus for role %d: %v", rid, err)
@@ -60,7 +45,7 @@ func (r *roleMenu) GetMenus(ctx context.Context, rid int64) (*types.RoleMenusRes
 	}
 
 	resp := &types.RoleMenusResponse{
-		Catalog:    defs,
+		Catalog:    menu.CatalogResources(),
 		Associated: make([]string, 0),
 		Derived:    false,
 	}
@@ -76,12 +61,12 @@ func (r *roleMenu) GetMenus(ctx context.Context, rid int64) (*types.RoleMenusRes
 		klog.Errorf("failed to list APIs for role %d menus: %v", rid, err)
 		return nil, errors.ErrServerInternal
 	}
-	buttons := make([]string, 0, len(apis))
+	eps := make([]rbacapi.Endpoint, 0, len(apis))
 	for i := range apis {
-		buttons = append(buttons, rbacapi.Button(apis[i].Method, apis[i].Path))
+		eps = append(eps, rbacapi.Endpoint{Method: apis[i].Method, Path: apis[i].Path})
 	}
 	isAdmin := rid == int64(model.RoleAdmin)
-	resp.Associated = menu.DeriveFromButtons(buttons, isAdmin)
+	resp.Associated = menu.DeriveFromButtons(rbacapi.Buttons(eps), isAdmin)
 	resp.Derived = true
 	return resp, nil
 }
@@ -92,21 +77,9 @@ func (r *roleMenu) UpdateMenus(ctx context.Context, rid int64, req *types.Update
 		return err
 	}
 
-	valid := menu.ValidCodes()
-	codes := make([]string, 0, len(req.MenuCodes))
-	seen := make(map[string]struct{}, len(req.MenuCodes))
-	for _, code := range req.MenuCodes {
-		if code == "" {
-			continue
-		}
-		if _, ok := valid[code]; !ok {
-			return errors.ErrInvalidRequest
-		}
-		if _, ok := seen[code]; ok {
-			continue
-		}
-		seen[code] = struct{}{}
-		codes = append(codes, code)
+	codes, err := menu.SanitizeCodes(req.MenuCodes)
+	if err != nil {
+		return errors.ErrInvalidRequest
 	}
 
 	if err := r.factory.Role().Menu().ReplaceByRoleId(ctx, rid, codes); err != nil {

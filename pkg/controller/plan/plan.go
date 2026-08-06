@@ -28,7 +28,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
@@ -428,15 +427,9 @@ func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interfac
 	}
 
 	// 资源级授权：非超管用户叠加 scope 授权的 plan id（超管走 listOption.UserId 现状即可）
-	var authorizedPlanIDs []int64
-	if user, err := httputils.GetUserFromContext(ctx); err != nil {
+	authorizedPlanIDs, err := util.AuthorizedResourceIDs(ctx, p.factory, types.ResourceTypePlan)
+	if err != nil {
 		return nil, err
-	} else if user.Role != model.RoleRoot {
-		authorizedPlanIDs, err = p.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypePlan)
-		if err != nil {
-			klog.Errorf("failed to list authorized plan ids: %v", err)
-			return nil, errors.ErrServerInternal
-		}
 	}
 
 	opts := []db.Options{
@@ -444,7 +437,6 @@ func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interfac
 		db.WithNameLike(listOption.NameSelector),
 	}
 
-	var err error
 	pageResult.Total, err = p.factory.Plan().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count plans: %v", err)

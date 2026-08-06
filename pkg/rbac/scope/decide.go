@@ -22,3 +22,8 @@ package scope
 func CanAccess(isRoot, isOwner, hasScope bool) bool {
 	return isRoot || isOwner || hasScope
 }
+
+// NeedFilter 非超管列表查询需叠加角色 scope 授权的资源 ID。
+func NeedFilter(isRoot bool) bool {
+	return !isRoot
+}

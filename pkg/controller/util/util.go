@@ -86,3 +86,16 @@ func CheckResourceAccess(ctx context.Context, factory db.ShareDaoFactory, resour
 	}
 	return errors.ErrForbidden
 }
+
+// AuthorizedResourceIDs 返回当前用户角色在指定资源类型下被授权的实例 ID。
+// 超管返回 nil（表示不按 scope 额外过滤）；非超管返回 scope 列表（可能为空切片）。
+func AuthorizedResourceIDs(ctx context.Context, factory db.ShareDaoFactory, resourceType string) ([]int64, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !scope.NeedFilter(user.Role == model.RoleRoot) {
+		return nil, nil
+	}
+	return factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), resourceType)
+}
