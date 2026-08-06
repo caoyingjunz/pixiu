@@ -221,6 +221,22 @@ func WithUser(userId int64) Options {
 	}
 }
 
+// WithUserOrResourceIDs 用户所属 + 被 scope 授权资源，生成 (user_id = ? OR id IN (?))
+func WithUserOrResourceIDs(userId int64, resourceIDs []int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if userId == 0 && len(resourceIDs) == 0 {
+			return tx
+		}
+		if userId != 0 && len(resourceIDs) == 0 {
+			return tx.Where("user_id = ?", userId)
+		}
+		if userId == 0 && len(resourceIDs) > 0 {
+			return tx.Where("id IN (?)", resourceIDs)
+		}
+		return tx.Where("(user_id = ? OR id IN (?))", userId, resourceIDs)
+	}
+}
+
 func WithEngineImage(image string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if len(image) == 0 {

@@ -53,7 +53,7 @@ type (
 		Email           string           `json:"email" binding:"omitempty,email"`        // optional
 		Phone           string           `json:"phone" binding:"omitempty"`              // optional
 		Description     string           `json:"description" binding:"omitempty"`        // optional
-		ResourceVersion *int64           `json:"resource_version" binding:"required"`    // required
+		ResourceVersion int64            `json:"resource_version"`
 	}
 
 	UpdateUserPasswordRequest struct {
@@ -177,17 +177,14 @@ type (
 		APIIds []int64 `json:"api_ids"` // 已关联的 API 资源 ID 列表，全量替换
 	}
 
-	RoleAPIScopeItem struct {
-		APIId        int64  `json:"api_id"`
-		Cluster      string `json:"cluster"`
-		Namespace    string `json:"namespace"`
-		ResourceName string `json:"resource_name"`
+	UpdateRoleMenusRequest struct {
+		MenuCodes []string `json:"menu_codes"` // 已关联的菜单码列表，全量替换；传空数组清除显式绑定并回退 API 推导
 	}
 
 	UpdateRoleAPIScopesRequest struct {
-		Scopes       []RoleAPIScopeItem `json:"scopes"`        // 全量替换（优先）
-		AddScopes    []RoleAPIScopeItem `json:"add_scopes"`    // 增量添加
-		RemoveScopes []RoleAPIScopeItem `json:"remove_scopes"` // 增量删除
+		Scopes       []RoleAPIScope `json:"scopes"`        // 全量替换（优先）
+		AddScopes    []RoleAPIScope `json:"add_scopes"`    // 增量添加
+		RemoveScopes []RoleAPIScope `json:"remove_scopes"` // 增量删除
 	}
 
 	CreateAPIRequest struct {

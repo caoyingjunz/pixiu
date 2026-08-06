@@ -22,16 +22,15 @@ func init() {
 	register(&RoleAPIScope{})
 }
 
-// RoleAPIScope 角色对 Kubernetes 资源的细粒度授权范围。
-// 同一角色下 (api_id, cluster, namespace, resource_name) 唯一。
+// RoleAPIScope 角色对 pixiu 自有资源的细粒度授权范围。
+// 同一角色下 (api_id, resource_type, resource_id) 唯一。
 type RoleAPIScope struct {
 	pixiu.Model
 
-	RoleId       int64  `gorm:"column:role_id;not null;index:idx_role_api_scope_role;uniqueIndex:uk_role_api_scope,priority:1" json:"role_id"`
+	RoleId       int64  `gorm:"column:role_id;not null;uniqueIndex:uk_role_api_scope,priority:1" json:"role_id"`
 	APIId        int64  `gorm:"column:api_id;not null;uniqueIndex:uk_role_api_scope,priority:2" json:"api_id"`
-	Cluster      string `gorm:"column:cluster;type:varchar(128);not null;uniqueIndex:uk_role_api_scope,priority:3" json:"cluster"`
-	Namespace    string `gorm:"column:namespace;type:varchar(128);not null;uniqueIndex:uk_role_api_scope,priority:4" json:"namespace"`
-	ResourceName string `gorm:"column:resource_name;type:varchar(256);not null;default:'*';uniqueIndex:uk_role_api_scope,priority:5" json:"resource_name"`
+	ResourceType string `gorm:"column:resource_type;type:varchar(64);not null;uniqueIndex:uk_role_api_scope,priority:3" json:"resource_type"`
+	ResourceId   int64  `gorm:"column:resource_id;not null;uniqueIndex:uk_role_api_scope,priority:4" json:"resource_id"`
 }
 
 func (*RoleAPIScope) TableName() string {

@@ -26,7 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-type APIInterface interface {
+type APIResourceInterface interface {
 	Create(ctx context.Context, object *model.API) (*model.API, error)
 	Update(ctx context.Context, aid int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, aid int64) (*model.API, error)

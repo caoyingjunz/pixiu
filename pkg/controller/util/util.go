@@ -21,15 +21,19 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/rbac/scope"
 )
 
-func CurrentUserName(ctx context.Context) string {
+// UserNameFromContext 返回当前登录用户名；未登录或从上下文获取异常时返回空串。
+func UserNameFromContext(ctx context.Context) (string, error) {
 	user, err := httputils.GetUserFromContext(ctx)
-	if err != nil || user == nil {
-		return ""
+	if err != nil {
+		return "", err
 	}
-	return user.Name
+
+	return user.Name, nil
 }
 
 // EffectiveUserID 返回查询/创建实际生效的 user_id：
@@ -41,15 +45,6 @@ func EffectiveUserID(ctx context.Context, reqUserID int64) (int64, error) {
 	}
 	if user.Role == model.RoleRoot {
 		return reqUserID, nil
-	}
-	return user.Id, nil
-}
-
-// CurrentUserID 返回当前登录用户 id（创建资源归属用，一律当前用户）。
-func CurrentUserID(ctx context.Context) (int64, error) {
-	user, err := httputils.GetUserFromContext(ctx)
-	if err != nil {
-		return 0, err
 	}
 	return user.Id, nil
 }
@@ -67,4 +62,27 @@ func CheckResourceOwner(ctx context.Context, resourceOwnerID int64) error {
 		return errors.ErrForbidden
 	}
 	return nil
+}
+
+// CheckResourceAccess 校验当前用户是否有权访问 pixiu 资源：
+// 超管放行 → owner 放行 → 角色 scope 命中放行 → 否则 403
+func CheckResourceAccess(ctx context.Context, factory db.ShareDaoFactory, resourceOwnerID int64, resourceType string, resourceId int64) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	isRoot := user.Role == model.RoleRoot
+	isOwner := user.Id == resourceOwnerID
+	hasScope := false
+	if !isRoot && !isOwner {
+		ok, scopeErr := factory.Role().Scope().HasScope(ctx, int64(user.Role), resourceType, resourceId)
+		if scopeErr != nil {
+			return scopeErr
+		}
+		hasScope = ok
+	}
+	if scope.CanAccess(isRoot, isOwner, hasScope) {
+		return nil
+	}
+	return errors.ErrForbidden
 }

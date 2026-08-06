@@ -22,6 +22,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -86,7 +87,7 @@ func (n *nodeController) preUpdate(ctx context.Context, nodeId int64) error {
 		klog.Errorf("get node %d: %v", nodeId, err)
 		return errors.ErrServerInternal
 	}
-	if err := util.CheckResourceOwner(ctx, object.UserId); err != nil {
+	if err := util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, nodeId); err != nil {
 		return err
 	}
 	return nil
@@ -137,7 +138,7 @@ func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
 		klog.Errorf("get node %d: %v", nodeId, err)
 		return errors.ErrServerInternal
 	}
-	if err := util.CheckResourceOwner(ctx, object.UserId); err != nil {
+	if err := util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, nodeId); err != nil {
 		return err
 	}
 
@@ -161,8 +162,8 @@ func (n *nodeController) Get(ctx context.Context, nodeId int64) (*types.NodeResu
 		return nil, errors.ErrServerInternal
 	}
 
-	// 非超级管理员只能查看自己的节点
-	if err := util.CheckResourceOwner(ctx, object.UserId); err != nil {
+	// 非超级管理员只能查看自己的节点或被 scope 授权的节点
+	if err := util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, nodeId); err != nil {
 		return nil, err
 	}
 
@@ -179,8 +180,20 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 		},
 	}
 
+	// 资源级授权：非超管用户叠加 scope 授权的 node id（超管走 listOption.UserId 现状即可）
+	var authorizedNodeIDs []int64
+	if user, err := httputils.GetUserFromContext(ctx); err != nil {
+		return nil, err
+	} else if user.Role != model.RoleRoot {
+		authorizedNodeIDs, err = n.factory.Role().Scope().ListResourceIDsByRole(ctx, int64(user.Role), types.ResourceTypeNode)
+		if err != nil {
+			klog.Errorf("failed to list authorized node ids: %v", err)
+			return nil, errors.ErrServerInternal
+		}
+	}
+
 	opts := []db.Options{
-		db.WithUser(listOption.UserId),
+		db.WithUserOrResourceIDs(listOption.UserId, authorizedNodeIDs),
 		db.WithNameLike(listOption.NameSelector),
 	}
 

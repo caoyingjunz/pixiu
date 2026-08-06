@@ -18,7 +18,6 @@ package role
 
 import (
 	"context"
-	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -27,9 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-const kubernetesAPIGroup = "Kubernetes 资源"
-
-func (r *role) GetAPIScopes(ctx context.Context, rid int64) (*types.RoleAPIScopesResponse, error) {
+func (r *roleAPIScope) GetAPIScopes(ctx context.Context, rid int64) (*types.RoleAPIScopesResponse, error) {
 	object, err := r.factory.Role().Get(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to get role %d: %v", rid, err)
@@ -39,7 +36,7 @@ func (r *role) GetAPIScopes(ctx context.Context, rid int64) (*types.RoleAPIScope
 		return nil, errors.ErrRoleNotFound
 	}
 
-	scopes, err := r.factory.RoleAPIScope().ListByRoleId(ctx, rid)
+	scopes, err := r.factory.Role().Scope().ListScopes(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to list role api scopes for role %d: %v", rid, err)
 		return nil, errors.ErrServerInternal
@@ -47,7 +44,7 @@ func (r *role) GetAPIScopes(ctx context.Context, rid int64) (*types.RoleAPIScope
 
 	apis, err := r.factory.API().List(ctx)
 	if err != nil {
-		klog.Errorf("failed to list apis: %v", err)
+		klog.Errorf("failed to list role apis for role %d: %v", rid, err)
 		return nil, errors.ErrServerInternal
 	}
 
@@ -58,37 +55,31 @@ func (r *role) GetAPIScopes(ctx context.Context, rid int64) (*types.RoleAPIScope
 	for i := range scopes {
 		resp.Scopes = append(resp.Scopes, types.RoleAPIScope{
 			APIId:        scopes[i].APIId,
-			Cluster:      scopes[i].Cluster,
-			Namespace:    scopes[i].Namespace,
-			ResourceName: scopes[i].ResourceName,
+			ResourceType: scopes[i].ResourceType,
+			ResourceId:   scopes[i].ResourceId,
 		})
 	}
+
+	// 可选资源类型清单：暂返回全部持久化 API，前端 UI 后续阶段再细化
 	for i := range apis {
-		if strings.TrimSpace(apis[i].Group) != kubernetesAPIGroup {
-			continue
-		}
-		resp.APIs = append(resp.APIs, *r.apiModel2Type(&apis[i]))
+		resp.APIs = append(resp.APIs, *apiModel2Type(&apis[i]))
 	}
 	return resp, nil
 }
 
-func (r *role) UpdateAPIScopes(ctx context.Context, rid int64, req *types.UpdateRoleAPIScopesRequest) error {
-	if _, err := r.preUpdate(ctx, rid); err != nil {
-		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
+func (r *roleAPIScope) UpdateAPIScopes(ctx context.Context, rid int64, req *types.UpdateRoleAPIScopesRequest) error {
+	if _, err := preUpdateRole(ctx, r.factory, rid); err != nil {
+		klog.Errorf("pre-update check failed for role %d: %v", rid, err)
 		return err
 	}
-	if req == nil {
-		return nil
-	}
 
-	toModels := func(items []types.RoleAPIScopeItem) []model.RoleAPIScope {
+	toModels := func(items []types.RoleAPIScope) []model.RoleAPIScope {
 		out := make([]model.RoleAPIScope, 0, len(items))
 		for i := range items {
 			out = append(out, model.RoleAPIScope{
 				APIId:        items[i].APIId,
-				Cluster:      items[i].Cluster,
-				Namespace:    items[i].Namespace,
-				ResourceName: items[i].ResourceName,
+				ResourceType: items[i].ResourceType,
+				ResourceId:   items[i].ResourceId,
 			})
 		}
 		return out
@@ -96,16 +87,16 @@ func (r *role) UpdateAPIScopes(ctx context.Context, rid int64, req *types.Update
 
 	var err error
 	if req.Scopes != nil {
-		err = r.factory.RoleAPIScope().ReplaceByRoleId(ctx, rid, toModels(req.Scopes))
+		err = r.factory.Role().Scope().ReplaceScopes(ctx, rid, toModels(req.Scopes))
 	} else {
 		if len(req.RemoveScopes) > 0 {
-			if err = r.factory.RoleAPIScope().Remove(ctx, rid, toModels(req.RemoveScopes)); err != nil {
+			if err = r.factory.Role().Scope().RemoveScopes(ctx, rid, toModels(req.RemoveScopes)); err != nil {
 				klog.Errorf("failed to remove role api scopes for role %d: %v", rid, err)
 				return errors.ErrServerInternal
 			}
 		}
 		if len(req.AddScopes) > 0 {
-			if err = r.factory.RoleAPIScope().Add(ctx, rid, toModels(req.AddScopes)); err != nil {
+			if err = r.factory.Role().Scope().AddScopes(ctx, rid, toModels(req.AddScopes)); err != nil {
 				klog.Errorf("failed to add role api scopes for role %d: %v", rid, err)
 				return errors.ErrServerInternal
 			}
@@ -123,13 +114,13 @@ func (r *role) UpdateAPIScopes(ctx context.Context, rid int64, req *types.Update
 	return nil
 }
 
-func (r *role) syncRoleAPIsFromScopes(ctx context.Context, rid int64) error {
-	scopes, err := r.factory.RoleAPIScope().ListByRoleId(ctx, rid)
+func (r *roleAPIScope) syncRoleAPIsFromScopes(ctx context.Context, rid int64) error {
+	scopes, err := r.factory.Role().Scope().ListScopes(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to list scopes when syncing role apis for role %d: %v", rid, err)
 		return errors.ErrServerInternal
 	}
-	existing, err := r.factory.RoleAPI().ListAPIIdsByRoleId(ctx, rid)
+	existing, err := r.factory.Role().API().ListAPIIdsByRoleId(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to list role apis when syncing for role %d: %v", rid, err)
 		return errors.ErrServerInternal
@@ -146,7 +137,7 @@ func (r *role) syncRoleAPIsFromScopes(ctx context.Context, rid int64) error {
 	for id := range merged {
 		apiIds = append(apiIds, id)
 	}
-	if err = r.factory.RoleAPI().ReplaceByRoleId(ctx, rid, apiIds); err != nil {
+	if err = r.factory.Role().API().ReplaceByRoleId(ctx, rid, apiIds); err != nil {
 		klog.Errorf("failed to sync role apis from scopes for role %d: %v", rid, err)
 		return errors.ErrServerInternal
 	}

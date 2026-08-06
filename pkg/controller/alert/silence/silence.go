@@ -54,14 +54,19 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertSilenceRe
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	_, err := c.factory.Alert().Silence().Create(ctx, &model.AlertSilence{
+
+	createdBy, err := ctrlutil.UserNameFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = c.factory.Alert().Silence().Create(ctx, &model.AlertSilence{
 		Name:             req.Name,
 		MatchLabels:      req.MatchLabels,
 		MatchExpressions: req.MatchExpressions,
 		StartsAt:         req.StartsAt,
 		EndsAt:           req.EndsAt,
 		Enabled:          enabled,
-		CreatedBy:        ctrlutil.CurrentUserName(ctx),
+		CreatedBy:        createdBy,
 		Comment:          req.Comment,
 		Extension:        req.Extension,
 	})

@@ -42,13 +42,17 @@ func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
 		Entries: []apiregistry.RouteEntry{
 			{Method: "POST", RelativePath: "", Handler: u.createUser, Description: "创建用户"},
 			{Method: "GET", RelativePath: "", Handler: u.listUsers, Description: "查看列表"},
-			{Method: "POST", RelativePath: "/login", Handler: u.login, Description: "登录"},
-			{Method: "GET", RelativePath: "/permissions", Handler: u.getMyPermissions, Description: "当前用户权限"},
 			{Method: "PUT", RelativePath: "/:userId", Handler: u.updateUser, Description: "更新用户"},
 			{Method: "DELETE", RelativePath: "/:userId", Handler: u.deleteUser, Description: "删除用户"},
 			{Method: "GET", RelativePath: "/:userId", Handler: u.getUser, Description: "查看详情"},
+
+			// 修改密码
 			{Method: "PUT", RelativePath: "/:userId/password", Handler: u.updatePassword, Description: "修改密码"},
+
+			// 登录相关APIs
 			{Method: "POST", RelativePath: "/:userId/logout", Handler: u.logout, Description: "登出"},
+			{Method: "POST", RelativePath: "/login", Handler: u.login, Description: "登录"},
+			{Method: "GET", RelativePath: "/permissions", Handler: u.getCurrentUserPermissions, Description: "获取当前用户权限"},
 		},
 	}
 	userGroup.Register(httpEngine.Group("/pixiu/users"), u.c.APIResource())

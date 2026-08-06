@@ -26,7 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-func (r *role) GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse, error) {
+func (r *roleAPI) GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse, error) {
 	object, err := r.factory.Role().Get(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to get role %d: %v", rid, err)
@@ -36,7 +36,7 @@ func (r *role) GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse,
 		return nil, errors.ErrRoleNotFound
 	}
 
-	associatedIds, err := r.factory.RoleAPI().ListAPIIdsByRoleId(ctx, rid)
+	associatedIds, err := r.factory.Role().API().ListAPIIdsByRoleId(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to list role apis for role %d: %v", rid, err)
 		return nil, errors.ErrServerInternal
@@ -58,7 +58,7 @@ func (r *role) GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse,
 		Unassociated: make([]types.APIResource, 0),
 	}
 	for i := range apis {
-		api := r.apiModel2Type(&apis[i])
+		api := apiModel2Type(&apis[i])
 		if _, ok := associatedSet[apis[i].Id]; ok {
 			resp.Associated = append(resp.Associated, *api)
 		} else {
@@ -70,9 +70,9 @@ func (r *role) GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsResponse,
 }
 
 // 更新前置检查：资源存在
-// role.Update 与 role.UpdateAPIs 共用 role.go 的 preUpdate，role.Update 需要旧值做名称查重，故返回 (*model.Role, error)
-func (r *role) UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleAPIsRequest) error {
-	if _, err := r.preUpdate(ctx, rid); err != nil {
+// role.Update 与 role.UpdateAPIs 共用 role.go 的 preUpdateRole，role.Update 需要旧值做名称查重，故返回 (*model.Role, error)
+func (r *roleAPI) UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleAPIsRequest) error {
+	if _, err := preUpdateRole(ctx, r.factory, rid); err != nil {
 		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
 		return err
 	}
@@ -89,7 +89,7 @@ func (r *role) UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleA
 		}
 	}
 
-	if err := r.factory.RoleAPI().ReplaceByRoleId(ctx, rid, apiIds); err != nil {
+	if err := r.factory.Role().API().ReplaceByRoleId(ctx, rid, apiIds); err != nil {
 		klog.Errorf("failed to update role apis for role %d: %v", rid, err)
 		return errors.ErrServerInternal
 	}
@@ -97,7 +97,7 @@ func (r *role) UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleA
 	return nil
 }
 
-func (r *role) apiModel2Type(o *model.API) *types.APIResource {
+func apiModel2Type(o *model.API) *types.APIResource {
 	return &types.APIResource{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,

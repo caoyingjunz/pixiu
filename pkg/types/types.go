@@ -33,6 +33,18 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
+// 资源类型（scope 授权维度）
+const (
+	ResourceTypePlan         = "plan"
+	ResourceTypeCluster      = "cluster"
+	ResourceTypeNode         = "node"
+	ResourceTypeRunner       = "runner"
+	ResourceTypeAgent        = "agent"
+	ResourceTypeAccount      = "account" // 用户中心账号
+	ResourceTypeDatasource   = "datasource"
+	ResourceTypeDistribution = "distribution"
+)
+
 type PixiuObjectMeta struct {
 	Cluster   string `uri:"cluster" binding:"required"`
 	Namespace string `uri:"namespace" binding:"required"`
@@ -288,27 +300,47 @@ type RoleAPIsResponse struct {
 	Unassociated []APIResource `json:"unassociated"`
 }
 
-// RoleAPIScope 角色 API 资源作用域
+// RoleAPIScope 角色对 pixiu 自有资源的授权
 type RoleAPIScope struct {
 	APIId        int64  `json:"api_id"`
-	Cluster      string `json:"cluster"`
-	Namespace    string `json:"namespace"`
-	ResourceName string `json:"resource_name"`
+	ResourceType string `json:"resource_type"`
+	ResourceId   int64  `json:"resource_id"`
 }
 
-// RoleAPIScopesResponse 角色 Kubernetes 资源权限
+// RoleAPIScopesResponse 角色 pixiu 资源权限
 type RoleAPIScopesResponse struct {
 	Scopes []RoleAPIScope `json:"scopes"`
 	APIs   []APIResource  `json:"apis"`
 }
 
-// MyPermissionsResponse 当前登录用户可用权限（供前端控制显示）
-type MyPermissionsResponse struct {
+// MenuResource 菜单目录项（与 APIResource 对称，供角色菜单授权下发）
+type MenuResource struct {
+	Code         string   `json:"code"`
+	ParentCode   string   `json:"parent_code,omitempty"`
+	Title        string   `json:"title"`
+	Path         string   `json:"path,omitempty"`
+	Kind         string   `json:"kind"`
+	Public       bool     `json:"public,omitempty"`
+	AdminOnly    bool     `json:"admin_only,omitempty"`
+	RequiredAPIs []string `json:"required_apis,omitempty"`
+}
+
+// RoleMenusResponse 角色菜单权限
+type RoleMenusResponse struct {
+	Associated []string       `json:"associated"` // 当前生效菜单码
+	Catalog    []MenuResource `json:"catalog"`    // 全量目录
+	Derived    bool           `json:"derived"`    // true 表示尚无显式绑定，当前为 API 推导结果
+}
+
+// CurrentUserPermissionsResponse 当前登录用户可用权限（供前端控制显示）
+// 三层模型：menus（菜单）/ buttons（操作 API）/ scopes（数据）
+type CurrentUserPermissionsResponse struct {
 	Role    model.UserLevel `json:"role"`
 	IsRoot  bool            `json:"is_root"`
 	APIs    []APIResource   `json:"apis"`
 	Scopes  []RoleAPIScope  `json:"scopes"`
-	Buttons []string        `json:"buttons"` // METHOD:path，供前端 hasAuth / 菜单过滤
+	Buttons []string        `json:"buttons"` // METHOD:path，供前端 hasAuth / ValidAccess 对齐
+	Menus   []string        `json:"menus"`   // 菜单业务码，供侧栏与路由可见性
 }
 
 type Plan struct {
