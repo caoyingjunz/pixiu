@@ -1,0 +1,24 @@
+services:
+  mysql:
+    image: ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7
+    container_name: mysql
+    restart: always
+#    ports:
+#      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: "Pixiu868686"
+      MYSQL_DATABASE: "pixiu"
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+
+  pixiu:
+    image: ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.5
+    container_name: pixiu
+    restart: always
+    ports:
+      - 8080:80
+    depends_on:
+      - mysql
+    volumes:
+      - /etc/pixiu:/etc/pixiu
+      - /var/run/docker.sock:/var/run/docker.sock

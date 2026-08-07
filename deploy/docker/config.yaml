@@ -1,0 +1,75 @@
+default:
+  # 运行模式，可选 debug 和 release，默认是 release
+  # debug: 有登录态时沿用真实用户身份（菜单/权限按角色过滤），不做 API ValidAccess；无登录态回退 root
+  # release: 完整 JWT 认证 + API 级权限校验
+  mode: release
+  # 服务监听端口
+#  listen: 8091
+  # jwt 签名的 key
+  jwt_key: pixiu
+  # true: 同账号仅允许单人在线；false: 允许多人同时在线
+  single_login: false
+  # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
+  auto_migrate: true
+
+  # 超级管理初始化用户名和密码，默认为 admin/Pixiu123456!
+  admin_user: admin
+  admin_password: Pixiu123456!
+
+  # 对外访问地址（须带协议；代理 kubeconfig 的 server 取自此配置）
+  # 示例: https://console.cloud.pixiuio.com
+  # 必填建议：启用「外部访问」前务必配置，否则本地访问会错误签出 http://127.0.0.1:8091
+  # 若填写 http://host:8091，签发时会改写为 https://host:8443（kubectl 不在明文 HTTP 上发送 Bearer）
+  # 前置 Nginx/反代终止 TLS 时，直接填 https://公网域名（不要填 127.0.0.1）
+#  public_url: https://console.cloud.pixiuio.com
+
+  # CloudShell/工具容器镜像
+#  toolbox: ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0
+
+# 数据库地址信息
+mysql:
+  host: mysql
+  user: root
+  password: Pixiu868686
+  port: 3306
+  name: pixiu
+
+worker:
+  # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
+  #work_dir: /etc/pixiu
+
+# 配置 http 和 https， 默认 http，
+# 启用https的时候 cert_file 和 key_file 为必填
+#tls:
+#  enable: true
+#  listen: 8443
+#  cert_file: test.crt
+#  key_file: test.key
+
+# 告警历史清理（清理过期的告警通知记录）
+alert:
+  # cron 表达式，默认每天凌晨 2 点执行
+  schedule: "0 2 * * *"
+  # 保留天数，默认 3 天
+  days_reserved: 3
+
+# 日志配置
+log:
+  # 格式，可选 text 和 json
+  format: json
+  # 级别，可选 error / info / debug
+  level: info
+  # klog 详细级别，等价于命令行 -v；默认 0，命令行显式 -v 优先于本配置
+  verbosity: 0
+  # 是否在请求日志中输出 SQL
+  sql: false
+
+# 集群代理 kubeconfig（kubectl 经 Pixiu 转发，server 必须为 https，可以启用https或者前方挂 nginx）
+kube_gateway:
+  enabled: true
+  # 默认 token 有效期（小时），默认 720（30 天）
+  default_expire_hours: 720
+  # 最大 token 有效期（小时）
+  max_expire_hours: 8760
+  # kubeconfig 是否跳过 TLS 校验（自签证书时可 true）
+  insecure_skip_tls_verify: true
