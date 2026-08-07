@@ -25,6 +25,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -111,6 +112,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	}
 
 	_, err = c.factory.Datasource().Create(ctx, &model.Datasource{
+		UserId:      req.UserId,
 		ClusterName: req.ClusterName,
 		Name:        req.Name,
 		Type:        req.Type,
@@ -145,6 +147,11 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 	old, err := c.preUpdate(ctx, req.Id)
 	if err != nil {
 		klog.Errorf("pre-update check failed for datasource(%d): %v", req.Id, err)
+		return err
+	}
+
+	// 资源级授权校验：超管放行 → 资源 owner 放行 → 角色 scope 命中放行
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, old.UserId, types.ResourceTypeDatasource, req.Id); err != nil {
 		return err
 	}
 
@@ -208,6 +215,9 @@ func (c *controller) Delete(ctx context.Context, datasourceId int64) error {
 	if object == nil {
 		return apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 	}
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
+		return err
+	}
 	if err := c.factory.Datasource().Delete(ctx, datasourceId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
@@ -227,6 +237,9 @@ func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Dataso
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 	}
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
+		return nil, err
+	}
 	ds, err := modelToType(object)
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
@@ -244,7 +257,14 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		},
 	}
 
+	// 资源级授权：非超管用户叠加 scope 授权的 datasource id（超管走 listOption.UserId 现状即可）
+	authorizedDatasourceIDs, err := controllerutil.AuthorizedResourceIDs(ctx, c.factory, types.ResourceTypeDatasource)
+	if err != nil {
+		return nil, err
+	}
+
 	opts := []db.Options{
+		db.WithUserOrResourceIDs(listOption.UserId, authorizedDatasourceIDs),
 		db.WithNameLike(listOption.NameSelector),
 		db.WithClusterName(listOption.ClusterName),
 	}
@@ -255,7 +275,6 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		opts = append(opts, db.WithDatasourceSubType(listOption.SubType))
 	}
 
-	var err error
 	pageResult.Total, err = c.factory.Datasource().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count dataSources: %v", err)
@@ -303,6 +322,7 @@ func modelToType(object *model.Datasource) (*types.Datasource, error) {
 			GmtCreate:   object.GmtCreate,
 			GmtModified: object.GmtModified,
 		},
+		UserId:      object.UserId,
 		ClusterName: object.ClusterName,
 		Name:        object.Name,
 		Type:        object.Type,

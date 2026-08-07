@@ -99,6 +99,7 @@ type (
 	}
 
 	CreateDatasourceRequest struct {
+		UserId      int64                   `json:"user_id"` // 关联用户（router 层从会话解析填充，不接受客户端指定）
 		Name        string                  `json:"name" binding:"required"`
 		ClusterName string                  `json:"cluster_name"`
 		Type        model.DatasourceType    `json:"type"`
@@ -320,6 +321,9 @@ func (r *CreatePlanRequest) SetUserID(id int64) { r.UserId = id }
 
 // SetUserID 实现 UserIDSetter 接口。
 func (r *CreatePlanNodeRequest) SetUserID(id int64) { r.UserId = id }
+
+// SetUserID 实现 UserIDSetter 接口。
+func (r *CreateDatasourceRequest) SetUserID(id int64) { r.UserId = id }
 
 type (
 	LoginResponse struct {

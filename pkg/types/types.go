@@ -145,6 +145,7 @@ type Datasource struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
+	UserId      int64                   `json:"user_id"`
 	ClusterName string                  `json:"cluster_name"`
 	Name        string                  `json:"name"`
 	Type        model.DatasourceType    `json:"type"`
