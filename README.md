@@ -9,7 +9,7 @@ Pixiu is an open source container platform for cloud-native application manageme
 ## Pixiu 安装手册
 - [手动安装](deploy/docker/README)
 - [kubernetes安装](deploy/k8s/README.md)
-- [docker安装](deploy/docker/README.md)
+- [docker-compose安装](deploy/docker/README.md)
 
 ## 增强代理
 
