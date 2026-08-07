@@ -1,6 +1,6 @@
 # 前置准备
 ```bash
-确保 docker 已经安装
+确保 docker 和 docker-compose 已经安装
 ```
 
 
