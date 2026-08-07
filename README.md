@@ -12,7 +12,6 @@ Pixiu is an open source container platform for cloud-native application manageme
 - [docker-compose安装](deploy/docker-compose/README.md)
 
 ## 增强代理
-
 - [DeployAgent](deploy/deploy-agent/README.md) 边缘节点在网络隔离的情况下通过驱动完成 Kubernetes 集群部署。
 - [ClusterAgent](deploy/cluster-agent/README.md) 通过轻量 Sidecar 使控制面能够访问网络隔离环境下的集群 kube-apiserver。
 
