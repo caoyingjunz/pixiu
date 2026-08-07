@@ -39,6 +39,7 @@ const (
 type Datasource struct {
 	pixiu.Model
 
+	UserId      int64             `gorm:"index:idx_user_id" json:"user_id"` // 所属用户
 	ClusterName string            `gorm:"column:cluster_name;type:varchar(128)" json:"cluster_name"`
 	Name        string            `gorm:"column:name;type:varchar(128);not null" json:"name"`
 	Type        DatasourceType    `gorm:"column:type;not null" json:"type"`
