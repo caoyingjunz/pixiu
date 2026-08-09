@@ -77,6 +77,7 @@ func Catalog() []Definition {
 		{Code: "system.user", ParentCode: "system-mgr", Title: "用户", Path: "/system-mgr/user", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/users"}},
 		{Code: "system.tenant", ParentCode: "system-mgr", Title: "租户", Path: "/system-mgr/tenant", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/tenants"}},
 		{Code: "system.api", ParentCode: "system-mgr", Title: "API", Path: "/system-mgr/api", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/apis"}},
+		{Code: "system.email", ParentCode: "system-mgr", Title: "系统邮件", Path: "/system/email", Kind: KindMenu, AdminOnly: true},
 	}
 }
 

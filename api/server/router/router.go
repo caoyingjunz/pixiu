@@ -33,6 +33,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/distribution"
+	emailrouter "github.com/caoyingjunz/pixiu/api/server/router/email"
 	"github.com/caoyingjunz/pixiu/api/server/router/helm"
 	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
@@ -70,6 +71,7 @@ func InstallRouters(o *options.Options) {
 		runner.NewRouter,
 		assistant.NewRouter,
 		alertrouter.NewRouter,
+		emailrouter.NewRouter,
 		tunnel.NewRouter,
 	}
 

@@ -156,6 +156,26 @@ type Datasource struct {
 	Description string                  `json:"description"`
 }
 
+// EmailConfig 系统邮件 SMTP 配置响应。
+// PasswordSet 表示是否已配置密码（明文密码不回显）。
+type EmailConfig struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Name        string `json:"name"`
+	SmtpHost    string `json:"smtp_host"`
+	SmtpPort    int    `json:"smtp_port"`
+	Username    string `json:"username"`
+	PasswordSet bool   `json:"password_set"`
+	FromEmail   string `json:"from_email"`
+	FromName    string `json:"from_name"`
+	Encryption  string `json:"encryption"`
+	Enabled     bool   `json:"enabled"`
+	IsDefault   bool   `json:"is_default"`
+	Description string `json:"description"`
+	CreatedBy   int64  `json:"created_by"`
+}
+
 type AIProvider struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
