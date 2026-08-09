@@ -117,9 +117,10 @@ type (
 		CreateDatasourceRequest `form:",inline"`
 	}
 
-	// CreateEmailConfigRequest 创建系统邮件 SMTP 配置。
+	// CreateEmailRequest 创建系统邮件 SMTP 配置。
 	// Password 为空表示无密码认证（部分 SMTP 中继）；加密方式仅影响传输通道。
-	CreateEmailConfigRequest struct {
+	// 密码明文落库，不回显。
+	CreateEmailRequest struct {
 		Name        string `json:"name" binding:"required"`
 		SmtpHost    string `json:"smtp_host" binding:"required"`
 		SmtpPort    int    `json:"smtp_port" binding:"required"`
@@ -133,13 +134,13 @@ type (
 		Description string `json:"description"`
 	}
 
-	// UpdateEmailConfigRequest 更新系统邮件 SMTP 配置。
-	// Password 留空表示保持原密码不变；仅传入新密码时才重新加密更新。
-	UpdateEmailConfigRequest struct {
+	// UpdateEmailRequest 更新系统邮件 SMTP 配置。
+	// Password 留空表示保持原密码不变；仅传入新密码时才更新。
+	UpdateEmailRequest struct {
 		Id              int64 `json:"id"`
 		ResourceVersion int64 `json:"resource_version"`
 
-		CreateEmailConfigRequest `form:",inline"`
+		CreateEmailRequest `form:",inline"`
 	}
 
 	// TestSendEmailRequest 测试邮件发送请求（验证指定 SMTP 配置是否可用）。

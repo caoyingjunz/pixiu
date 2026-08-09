@@ -29,15 +29,15 @@ import (
 const emailBaseURL = "/pixiu/emails"
 
 type emailMeta struct {
-	EmailConfigId int64 `uri:"id"`
+	EmailId int64 `uri:"id"`
 }
 
-// emailRouter is a router to talk with the email config controller.
+// emailRouter is a router to talk with the email controller.
 type emailRouter struct {
 	c controller.PixiuInterface
 }
 
-// NewRouter initializes a new email config router.
+// NewRouter initializes a new email router.
 func NewRouter(o *options.Options) {
 	r := &emailRouter{
 		c: o.Controller,
@@ -50,21 +50,21 @@ func (r *emailRouter) initRoutes(ginEngine *gin.Engine) {
 		Name:    "系统邮件",
 		BaseURL: emailBaseURL,
 		Entries: []apiregistry.RouteEntry{
-			{Method: "POST", RelativePath: "", Handler: r.createEmailConfig, Description: "创建邮件配置"},
-			{Method: "PUT", RelativePath: "/:id", Handler: r.updateEmailConfig, Description: "更新邮件配置"},
-			{Method: "DELETE", RelativePath: "/:id", Handler: r.deleteEmailConfig, Description: "删除邮件配置"},
-			{Method: "GET", RelativePath: "/:id", Handler: r.getEmailConfig, Description: "查看邮件配置详情"},
-			{Method: "GET", RelativePath: "", Handler: r.listEmailConfigs, Description: "查看邮件配置列表"},
+			{Method: "POST", RelativePath: "", Handler: r.createEmail, Description: "创建邮件"},
+			{Method: "PUT", RelativePath: "/:id", Handler: r.updateEmail, Description: "更新邮件"},
+			{Method: "DELETE", RelativePath: "/:id", Handler: r.deleteEmail, Description: "删除邮件"},
+			{Method: "GET", RelativePath: "/:id", Handler: r.getEmail, Description: "查看邮件详情"},
+			{Method: "GET", RelativePath: "", Handler: r.listEmails, Description: "查看邮件列表"},
 			{Method: "POST", RelativePath: "/:id/test", Handler: r.testSendEmail, Description: "测试邮件发送"},
 		},
 	}
 	group.Register(ginEngine.Group(emailBaseURL), r.c.APIResource())
 }
 
-func (r *emailRouter) createEmailConfig(c *gin.Context) {
+func (r *emailRouter) createEmail(c *gin.Context) {
 	resp := httputils.NewResponse()
 
-	var req types.CreateEmailConfigRequest
+	var req types.CreateEmailRequest
 	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
@@ -76,18 +76,18 @@ func (r *emailRouter) createEmailConfig(c *gin.Context) {
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *emailRouter) updateEmailConfig(c *gin.Context) {
+func (r *emailRouter) updateEmail(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
 		meta emailMeta
-		req  types.UpdateEmailConfigRequest
+		req  types.UpdateEmailRequest
 	)
 	if err := httputils.ShouldBindAny(c, &req, &meta, nil); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	req.Id = meta.EmailConfigId
+	req.Id = meta.EmailId
 	if err := r.c.Email().Update(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
@@ -95,7 +95,7 @@ func (r *emailRouter) updateEmailConfig(c *gin.Context) {
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *emailRouter) deleteEmailConfig(c *gin.Context) {
+func (r *emailRouter) deleteEmail(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
@@ -106,14 +106,14 @@ func (r *emailRouter) deleteEmailConfig(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = r.c.Email().Delete(c, meta.EmailConfigId); err != nil {
+	if err = r.c.Email().Delete(c, meta.EmailId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *emailRouter) getEmailConfig(c *gin.Context) {
+func (r *emailRouter) getEmail(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
@@ -124,14 +124,14 @@ func (r *emailRouter) getEmailConfig(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if resp.Result, err = r.c.Email().Get(c, meta.EmailConfigId); err != nil {
+	if resp.Result, err = r.c.Email().Get(c, meta.EmailId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *emailRouter) listEmailConfigs(c *gin.Context) {
+func (r *emailRouter) listEmails(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	var (
@@ -160,7 +160,7 @@ func (r *emailRouter) testSendEmail(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err := r.c.Email().TestSend(c, meta.EmailConfigId, &req); err != nil {
+	if err := r.c.Email().TestSend(c, meta.EmailId, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

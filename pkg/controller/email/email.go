@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package emailconfig
+package email
 
 import (
 	"context"
@@ -35,7 +35,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util/encryption"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
@@ -44,10 +43,10 @@ type Getter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, req *types.CreateEmailConfigRequest) error
-	Update(ctx context.Context, req *types.UpdateEmailConfigRequest) error
+	Create(ctx context.Context, req *types.CreateEmailRequest) error
+	Update(ctx context.Context, req *types.UpdateEmailRequest) error
 	Delete(ctx context.Context, id int64) error
-	Get(ctx context.Context, id int64) (*types.EmailConfig, error)
+	Get(ctx context.Context, id int64) (*types.Email, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 	TestSend(ctx context.Context, id int64, req *types.TestSendEmailRequest) error
 }
@@ -61,27 +60,18 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{cc: cfg, factory: f}
 }
 
-// newCipher 构造基于配置密钥的 AES-GCM 加解密器（密码字段加密落库）。
-func (c *controller) newCipher() (*encryption.Cipher, error) {
-	return encryption.NewCipher(c.cc.Default.JWTKey)
-}
-
-func (c *controller) Create(ctx context.Context, req *types.CreateEmailConfigRequest) error {
-	cipher, err := c.newCipher()
-	if err != nil {
-		klog.Errorf("failed to init email encryption cipher: %v", err)
-		return apierrors.ErrServerInternal
-	}
+func (c *controller) Create(ctx context.Context, req *types.CreateEmailRequest) error {
 	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil {
 		return apierrors.ErrUnauthorized
 	}
 
-	object := &model.EmailConfig{
+	object := &model.Email{
 		Name:        req.Name,
 		SmtpHost:    req.SmtpHost,
 		SmtpPort:    req.SmtpPort,
 		Username:    req.Username,
+		Password:    req.Password, // 明文落库
 		FromEmail:   req.FromEmail,
 		FromName:    req.FromName,
 		Encryption:  req.Encryption,
@@ -90,47 +80,37 @@ func (c *controller) Create(ctx context.Context, req *types.CreateEmailConfigReq
 		Description: req.Description,
 		CreatedBy:   user.Id,
 	}
-	if req.Password != "" {
-		enc, encErr := cipher.Encrypt(req.Password)
-		if encErr != nil {
-			klog.Errorf("failed to encrypt smtp password: %v", encErr)
-			return apierrors.ErrServerInternal
-		}
-		object.Password = enc
-	}
 
-	// 新建默认配置时，先清除既有默认标记保证唯一性
 	if req.IsDefault {
 		if err = c.factory.Email().ClearDefaultExcept(ctx, 0); err != nil {
-			klog.Errorf("failed to clear default email config before create: %v", err)
+			klog.Errorf("failed to clear default email before create: %v", err)
 			return apierrors.ErrServerInternal
 		}
 	}
 
 	if _, err = c.factory.Email().Create(ctx, object); err != nil {
-		klog.Errorf("failed to create email config %s: %v", req.Name, err)
+		klog.Errorf("failed to create email %s: %v", req.Name, err)
 		return apierrors.ErrServerInternal
 	}
 	return nil
 }
 
-// preUpdate 更新前置检查：资源存在。
-func (c *controller) preUpdate(ctx context.Context, id int64) (*model.EmailConfig, error) {
+func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Email, error) {
 	old, err := c.factory.Email().Get(ctx, id)
 	if err != nil {
-		klog.Errorf("failed to get email config(%d): %v", id, err)
+		klog.Errorf("failed to get email(%d): %v", id, err)
 		return nil, apierrors.ErrServerInternal
 	}
 	if old == nil {
-		return nil, apierrors.NewError(fmt.Errorf("email config not found"), http.StatusNotFound)
+		return nil, apierrors.NewError(fmt.Errorf("email not found"), http.StatusNotFound)
 	}
 	return old, nil
 }
 
-func (c *controller) Update(ctx context.Context, req *types.UpdateEmailConfigRequest) error {
+func (c *controller) Update(ctx context.Context, req *types.UpdateEmailRequest) error {
 	old, err := c.preUpdate(ctx, req.Id)
 	if err != nil {
-		klog.Errorf("pre-update check failed for email config(%d): %v", req.Id, err)
+		klog.Errorf("pre-update check failed for email(%d): %v", req.Id, err)
 		return err
 	}
 
@@ -162,24 +142,13 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateEmailConfigReq
 	if req.Description != old.Description {
 		updates["description"] = req.Description
 	}
-	// 密码留空表示保持原密码不变，仅在传入新密码时重新加密
+	// 密码留空表示保持原密码不变；传入新密码时明文更新
 	if req.Password != "" {
-		cipher, cipherErr := c.newCipher()
-		if cipherErr != nil {
-			klog.Errorf("failed to init email encryption cipher: %v", cipherErr)
-			return apierrors.ErrServerInternal
-		}
-		enc, encErr := cipher.Encrypt(req.Password)
-		if encErr != nil {
-			klog.Errorf("failed to encrypt smtp password: %v", encErr)
-			return apierrors.ErrServerInternal
-		}
-		updates["password"] = enc
+		updates["password"] = req.Password
 	}
-	// IsDefault 从 false → true 时，先清除其他默认标记保证唯一性
 	if req.IsDefault && !old.IsDefault {
 		if err = c.factory.Email().ClearDefaultExcept(ctx, req.Id); err != nil {
-			klog.Errorf("failed to clear default email config before update(%d): %v", req.Id, err)
+			klog.Errorf("failed to clear default email before update(%d): %v", req.Id, err)
 			return apierrors.ErrServerInternal
 		}
 	}
@@ -188,17 +157,17 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateEmailConfigReq
 	}
 
 	if len(updates) == 0 {
-		klog.V(2).Infof("email config(%d): no fields to update", req.Id)
+		klog.V(2).Infof("email(%d): no fields to update", req.Id)
 		return nil
 	}
 	if err = c.factory.Email().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
 		if utilerrors.IsNotUpdated(err) {
 			return apierrors.NewError(
-				fmt.Errorf("email config not found or resource version conflict"),
+				fmt.Errorf("email not found or resource version conflict"),
 				http.StatusConflict,
 			)
 		}
-		klog.Errorf("failed to update email config %d: %v", req.Id, err)
+		klog.Errorf("failed to update email %d: %v", req.Id, err)
 		return apierrors.ErrServerInternal
 	}
 	return nil
@@ -207,27 +176,27 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateEmailConfigReq
 func (c *controller) Delete(ctx context.Context, id int64) error {
 	object, err := c.factory.Email().Get(ctx, id)
 	if err != nil {
-		klog.Errorf("failed to get email config(%d): %v", id, err)
+		klog.Errorf("failed to get email(%d): %v", id, err)
 		return apierrors.ErrServerInternal
 	}
 	if object == nil {
-		return apierrors.NewError(fmt.Errorf("email config not found"), http.StatusNotFound)
+		return apierrors.NewError(fmt.Errorf("email not found"), http.StatusNotFound)
 	}
 	if _, err = c.factory.Email().Delete(ctx, id); err != nil {
-		klog.Errorf("failed to delete email config %d: %v", id, err)
+		klog.Errorf("failed to delete email %d: %v", id, err)
 		return apierrors.ErrServerInternal
 	}
 	return nil
 }
 
-func (c *controller) Get(ctx context.Context, id int64) (*types.EmailConfig, error) {
+func (c *controller) Get(ctx context.Context, id int64) (*types.Email, error) {
 	object, err := c.factory.Email().Get(ctx, id)
 	if err != nil {
-		klog.Errorf("failed to get email config(%d): %v", id, err)
+		klog.Errorf("failed to get email(%d): %v", id, err)
 		return nil, apierrors.ErrServerInternal
 	}
 	if object == nil {
-		return nil, apierrors.NewError(fmt.Errorf("email config not found"), http.StatusNotFound)
+		return nil, apierrors.NewError(fmt.Errorf("email not found"), http.StatusNotFound)
 	}
 	return modelToType(object), nil
 }
@@ -249,7 +218,7 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	var err error
 	pageResult.Total, err = c.factory.Email().Count(ctx, opts...)
 	if err != nil {
-		klog.Errorf("failed to count email configs: %v", err)
+		klog.Errorf("failed to count emails: %v", err)
 		pageResult.Message = err.Error()
 	}
 
@@ -262,12 +231,12 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 
 	objects, err := c.factory.Email().List(ctx, opts...)
 	if err != nil {
-		klog.Errorf("failed to list email configs: %v", err)
+		klog.Errorf("failed to list emails: %v", err)
 		pageResult.Message = err.Error()
 		return nil, apierrors.ErrServerInternal
 	}
 
-	items := make([]types.EmailConfig, 0)
+	items := make([]types.Email, 0)
 	for i := range objects {
 		items = append(items, *modelToType(&objects[i]))
 	}
@@ -280,40 +249,22 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 func (c *controller) TestSend(ctx context.Context, id int64, req *types.TestSendEmailRequest) error {
 	object, err := c.factory.Email().Get(ctx, id)
 	if err != nil {
-		klog.Errorf("failed to get email config(%d): %v", id, err)
+		klog.Errorf("failed to get email(%d): %v", id, err)
 		return apierrors.ErrServerInternal
 	}
 	if object == nil {
-		return apierrors.NewError(fmt.Errorf("email config not found"), http.StatusNotFound)
+		return apierrors.NewError(fmt.Errorf("email not found"), http.StatusNotFound)
 	}
 
-	password := ""
-	if object.Password != "" {
-		cipher, cipherErr := c.newCipher()
-		if cipherErr != nil {
-			klog.Errorf("failed to init email encryption cipher: %v", cipherErr)
-			return apierrors.ErrServerInternal
-		}
-		plain, decryptErr := cipher.Decrypt(object.Password)
-		if decryptErr != nil {
-			klog.Errorf("failed to decrypt smtp password for email config(%d): %v", id, decryptErr)
-			return apierrors.NewError(
-				fmt.Errorf("failed to decrypt smtp password, please save the config again"),
-				http.StatusBadRequest,
-			)
-		}
-		password = plain
-	}
-
-	if err = sendEmail(object, password, req.To); err != nil {
-		klog.Errorf("failed to send test email via config(%d) to %s: %v", id, req.To, err)
+	if err = sendEmail(object, object.Password, req.To); err != nil {
+		klog.Errorf("failed to send test email via email(%d) to %s: %v", id, req.To, err)
 		return apierrors.NewError(fmt.Errorf("test send email failed: %v", err), http.StatusBadRequest)
 	}
 	return nil
 }
 
-func modelToType(object *model.EmailConfig) *types.EmailConfig {
-	return &types.EmailConfig{
+func modelToType(object *model.Email) *types.Email {
+	return &types.Email{
 		PixiuMeta: types.PixiuMeta{
 			Id:              object.Id,
 			ResourceVersion: object.ResourceVersion,
@@ -340,7 +291,7 @@ func modelToType(object *model.EmailConfig) *types.EmailConfig {
 // sendEmail 按配置的加密方式发送测试邮件，仅依赖标准库 net/smtp / crypto/tls。
 // encryption 取值约定：ssl/tls 隐式 TLS（465）；starttls 先明文握手再升级 TLS；
 // none 或空值走明文（587/25）。
-func sendEmail(cfg *model.EmailConfig, password, to string) error {
+func sendEmail(cfg *model.Email, password, to string) error {
 	addr := net.JoinHostPort(cfg.SmtpHost, strconv.Itoa(cfg.SmtpPort))
 	msg := buildTestMessage(cfg, to)
 
@@ -354,8 +305,7 @@ func sendEmail(cfg *model.EmailConfig, password, to string) error {
 	}
 }
 
-// buildTestMessage 构造测试邮件内容（主题走 RFC 2047 编码避免中文乱码）。
-func buildTestMessage(cfg *model.EmailConfig, to string) []byte {
+func buildTestMessage(cfg *model.Email, to string) []byte {
 	from := cfg.FromEmail
 	if cfg.FromName != "" {
 		from = fmt.Sprintf("%s <%s>", cfg.FromName, cfg.FromEmail)
@@ -367,7 +317,7 @@ func buildTestMessage(cfg *model.EmailConfig, to string) []byte {
 	return []byte(msg)
 }
 
-func sendPlain(cfg *model.EmailConfig, password, to, addr string, msg []byte) error {
+func sendPlain(cfg *model.Email, password, to, addr string, msg []byte) error {
 	var auth smtp.Auth
 	if cfg.Username != "" {
 		auth = smtp.PlainAuth("", cfg.Username, password, cfg.SmtpHost)
@@ -375,7 +325,7 @@ func sendPlain(cfg *model.EmailConfig, password, to, addr string, msg []byte) er
 	return smtp.SendMail(addr, auth, cfg.FromEmail, []string{to}, msg)
 }
 
-func sendImplicitTLS(cfg *model.EmailConfig, password, to, addr string, msg []byte) error {
+func sendImplicitTLS(cfg *model.Email, password, to, addr string, msg []byte) error {
 	conn, err := tls.Dial("tcp", addr, &tls.Config{ServerName: cfg.SmtpHost})
 	if err != nil {
 		return err
@@ -396,7 +346,7 @@ func sendImplicitTLS(cfg *model.EmailConfig, password, to, addr string, msg []by
 	return deliverMail(client, cfg.FromEmail, to, msg)
 }
 
-func sendStartTLS(cfg *model.EmailConfig, password, to, addr string, msg []byte) error {
+func sendStartTLS(cfg *model.Email, password, to, addr string, msg []byte) error {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
@@ -420,7 +370,6 @@ func sendStartTLS(cfg *model.EmailConfig, password, to, addr string, msg []byte)
 	return deliverMail(client, cfg.FromEmail, to, msg)
 }
 
-// deliverMail 在已建立（并可能已升级 TLS）的 smtp.Client 上投递邮件。
 func deliverMail(client *smtp.Client, from, to string, msg []byte) error {
 	if err := client.Mail(from); err != nil {
 		return err

@@ -27,21 +27,21 @@ import (
 )
 
 type EmailInterface interface {
-	Create(ctx context.Context, object *model.EmailConfig) (*model.EmailConfig, error)
+	Create(ctx context.Context, object *model.Email) (*model.Email, error)
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
-	Delete(ctx context.Context, id int64) (*model.EmailConfig, error)
-	Get(ctx context.Context, id int64) (*model.EmailConfig, error)
-	List(ctx context.Context, opts ...Options) ([]model.EmailConfig, error)
+	Delete(ctx context.Context, id int64) (*model.Email, error)
+	Get(ctx context.Context, id int64) (*model.Email, error)
+	List(ctx context.Context, opts ...Options) ([]model.Email, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
 	// ClearDefaultExcept 将除指定 id 外的所有配置 is_default 置为 false（用于默认配置唯一性）
 	ClearDefaultExcept(ctx context.Context, exceptID int64) error
 }
 
-type emailConfig struct {
+type email struct {
 	db *gorm.DB
 }
 
-func (e *emailConfig) Create(ctx context.Context, object *model.EmailConfig) (*model.EmailConfig, error) {
+func (e *email) Create(ctx context.Context, object *model.Email) (*model.Email, error) {
 	now := time.Now()
 	object.GmtCreate = now
 	object.GmtModified = now
@@ -52,24 +52,21 @@ func (e *emailConfig) Create(ctx context.Context, object *model.EmailConfig) (*m
 	return object, nil
 }
 
-func (e *emailConfig) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
-	// 系统维护字段
+func (e *email) Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error {
 	updates["gmt_modified"] = time.Now()
 	updates["resource_version"] = resourceVersion + 1
 
-	f := e.db.WithContext(ctx).Model(&model.EmailConfig{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
+	f := e.db.WithContext(ctx).Model(&model.Email{}).Where("id = ? and resource_version = ?", id, resourceVersion).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
-
 	if f.RowsAffected == 0 {
 		return utilerrors.ErrRecordNotUpdate
 	}
-
 	return nil
 }
 
-func (e *emailConfig) Delete(ctx context.Context, id int64) (*model.EmailConfig, error) {
+func (e *email) Delete(ctx context.Context, id int64) (*model.Email, error) {
 	object, err := e.Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -77,27 +74,25 @@ func (e *emailConfig) Delete(ctx context.Context, id int64) (*model.EmailConfig,
 	if object == nil {
 		return nil, nil
 	}
-	if err = e.db.WithContext(ctx).Where("id = ?", id).Delete(&model.EmailConfig{}).Error; err != nil {
+	if err = e.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Email{}).Error; err != nil {
 		return nil, err
 	}
-
 	return object, nil
 }
 
-func (e *emailConfig) Get(ctx context.Context, id int64) (*model.EmailConfig, error) {
-	var object model.EmailConfig
+func (e *email) Get(ctx context.Context, id int64) (*model.Email, error) {
+	var object model.Email
 	if err := e.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-
 	return &object, nil
 }
 
-func (e *emailConfig) List(ctx context.Context, opts ...Options) ([]model.EmailConfig, error) {
-	var objects []model.EmailConfig
+func (e *email) List(ctx context.Context, opts ...Options) ([]model.Email, error) {
+	var objects []model.Email
 	tx := e.db.WithContext(ctx)
 	for _, opt := range opts {
 		tx = opt(tx)
@@ -105,32 +100,30 @@ func (e *emailConfig) List(ctx context.Context, opts ...Options) ([]model.EmailC
 	if err := tx.Find(&objects).Error; err != nil {
 		return nil, err
 	}
-
 	return objects, nil
 }
 
-func (e *emailConfig) Count(ctx context.Context, opts ...Options) (int64, error) {
+func (e *email) Count(ctx context.Context, opts ...Options) (int64, error) {
 	var total int64
-	tx := e.db.WithContext(ctx).Model(&model.EmailConfig{})
+	tx := e.db.WithContext(ctx).Model(&model.Email{})
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
 	if err := tx.Count(&total).Error; err != nil {
 		return 0, err
 	}
-
 	return total, nil
 }
 
 // ClearDefaultExcept 将除 exceptID 外的所有配置 is_default 置为 false。
 // exceptID 传 0 表示清除全部（用于新建默认配置前的唯一性清理）。
-func (e *emailConfig) ClearDefaultExcept(ctx context.Context, exceptID int64) error {
+func (e *email) ClearDefaultExcept(ctx context.Context, exceptID int64) error {
 	return e.db.WithContext(ctx).
-		Model(&model.EmailConfig{}).
+		Model(&model.Email{}).
 		Where("id <> ?", exceptID).
 		Update("is_default", false).Error
 }
 
-func newEmailConfig(db *gorm.DB) *emailConfig {
-	return &emailConfig{db}
+func newEmail(db *gorm.DB) *email {
+	return &email{db}
 }

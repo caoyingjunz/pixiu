@@ -58,7 +58,7 @@ func (f *shareDaoFactory) Datasource() DatasourceInterface     { return newDatas
 func (f *shareDaoFactory) Runner() RunnerInterface             { return newRunner(f.db) }
 func (f *shareDaoFactory) Assistant() AssistantInterface       { return newAssistant(f.db) }
 func (f *shareDaoFactory) Alert() AlertInterface               { return newAlert(f.db) }
-func (f *shareDaoFactory) Email() EmailInterface               { return newEmailConfig(f.db) }
+func (f *shareDaoFactory) Email() EmailInterface               { return newEmail(f.db) }
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
 	if migrate {

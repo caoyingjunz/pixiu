@@ -156,9 +156,9 @@ type Datasource struct {
 	Description string                  `json:"description"`
 }
 
-// EmailConfig 系统邮件 SMTP 配置响应。
+// Email 系统邮件 SMTP 配置响应。
 // PasswordSet 表示是否已配置密码（明文密码不回显）。
-type EmailConfig struct {
+type Email struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
@@ -676,11 +676,26 @@ type ComponentSpec struct {
 	MetricServer *MetricServer `json:"metric_server,omitempty"`
 	IngressNginx *IngressNginx `json:"ingress_nginx,omitempty"`
 	NFS          *NFS          `json:"nfs,omitempty"`
+
+	CustomRepo        *CustomRepo        `json:"custom_repo,omitempty"`
+	CertificatePeriod *CertificatePeriod `json:"certificate_period,omitempty"` // 证书有效期
 }
 
 type Helm struct {
 	Enable      bool   `json:"enable"`
 	HelmRelease string `json:"helm_release"`
+}
+
+type CustomRepo struct {
+	Enable  bool   `json:"enable"`
+	Content string `json:"content"`
+}
+
+type CertificatePeriod struct {
+	Enable bool `json:"enable"`
+
+	CertificateValidityPeriod   string `json:"certificate_validity_period"`    // 证书有效期 默认 1你那
+	CaCertificateValidityPeriod string `json:"ca_certificate_validity_period"` // 根证书有效期 默认 10年
 }
 
 type NFS struct {
