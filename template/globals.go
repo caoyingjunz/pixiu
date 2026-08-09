@@ -51,6 +51,7 @@ enable_calico: "yes"
 # 自定义配置
 {{- if ne .Kubernetes.ImageRepository "" }}
 image_repository: "{{ .Kubernetes.ImageRepository }}"
+app_image_repository: "{{ .Kubernetes.ImageRepository }}"
 {{- end }}
 
 {{- if and .Component.MetricServer .Component.MetricServer.Enable }}
