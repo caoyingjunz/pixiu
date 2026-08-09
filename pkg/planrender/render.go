@@ -59,6 +59,14 @@ func Render(workDir string, plan *types.Plan) error {
 		return err
 	}
 
+	// 启用自定义源时，将内容直接写入 pixiu 文件（容器内路径 /configs/pixiu）
+	cfg := plan.Config
+	if cfg.Component.CustomRepo != nil && cfg.Component.CustomRepo.Enable {
+		if err = os.WriteFile(filepath.Join(planDir, "pixiu"), []byte(cfg.Component.CustomRepo.Content), 0o600); err != nil {
+			return fmt.Errorf("write custom repo file %s: %w", pixiuFile, err)
+		}
+	}
+
 	return writeTemplate(filepath.Join(planDir, "globals.yml"), pixiutpl.GlobalsTemplate, &plan.Config)
 }
 
