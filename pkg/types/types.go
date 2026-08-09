@@ -156,6 +156,26 @@ type Datasource struct {
 	Description string                  `json:"description"`
 }
 
+// Email 系统邮件 SMTP 配置响应。
+// PasswordSet 表示是否已配置密码（明文密码不回显）。
+type Email struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Name        string `json:"name"`
+	SmtpHost    string `json:"smtp_host"`
+	SmtpPort    int    `json:"smtp_port"`
+	Username    string `json:"username"`
+	PasswordSet bool   `json:"password_set"`
+	FromEmail   string `json:"from_email"`
+	FromName    string `json:"from_name"`
+	Encryption  string `json:"encryption"`
+	Enabled     bool   `json:"enabled"`
+	IsDefault   bool   `json:"is_default"`
+	Description string `json:"description"`
+	CreatedBy   int64  `json:"created_by"`
+}
+
 type AIProvider struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
@@ -656,11 +676,26 @@ type ComponentSpec struct {
 	MetricServer *MetricServer `json:"metric_server,omitempty"`
 	IngressNginx *IngressNginx `json:"ingress_nginx,omitempty"`
 	NFS          *NFS          `json:"nfs,omitempty"`
+
+	CustomRepo        *CustomRepo        `json:"custom_repo,omitempty"`
+	CertificatePeriod *CertificatePeriod `json:"certificate_period,omitempty"` // 证书有效期
 }
 
 type Helm struct {
 	Enable      bool   `json:"enable"`
 	HelmRelease string `json:"helm_release"`
+}
+
+type CustomRepo struct {
+	Enable  bool   `json:"enable"`
+	Content string `json:"content"`
+}
+
+type CertificatePeriod struct {
+	Enable bool `json:"enable"`
+
+	CertificateValidityPeriod   string `json:"certificate_validity_period"`    // 证书有效期 默认 1你那
+	CaCertificateValidityPeriod string `json:"ca_certificate_validity_period"` // 根证书有效期 默认 10年
 }
 
 type NFS struct {

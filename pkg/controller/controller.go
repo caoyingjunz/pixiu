@@ -26,6 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/distribution"
+	"github.com/caoyingjunz/pixiu/pkg/controller/email"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
@@ -52,6 +53,7 @@ type PixiuInterface interface {
 	runner.RunnerGetter
 	assistant.Getter
 	alert.Getter
+	email.Getter
 }
 
 type pixiu struct {
@@ -74,6 +76,9 @@ func (p *pixiu) Agent() agent.Interface           { return agent.NewAgent(p.cc, 
 func (p *pixiu) Datasource() datasource.Interface { return datasource.New(p.cc, p.factory) }
 func (p *pixiu) Assistant() assistant.Interface   { return assistant.New(p.cc, p.factory) }
 func (p *pixiu) Alert() alert.Interface           { return alert.New(p.cc, p.factory) }
+func (p *pixiu) Email() email.Interface {
+	return email.New(p.cc, p.factory)
+}
 func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)
 }

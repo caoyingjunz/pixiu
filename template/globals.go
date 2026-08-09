@@ -95,6 +95,16 @@ nfs_share: "{{ .Component.NFS.StorageDataDir }}"
 enable_nfs: "no"
 {{- end }}
 
+{{- if and .Component.CustomRepo .Component.CustomRepo.Enable }}
+enable_custom_repo: "yes"
+{{- end }}
+
+{{- if and .Component.CertificatePeriod .Component.CertificatePeriod.Enable }}
+enable_certificate_period: "yes"
+certificate_validity_period: {{ .Component.CertificatePeriod.CertificateValidityPeriod }}h
+ca_certificate_validity_period: {{ .Component.CertificatePeriod.CaCertificateValidityPeriod }}h
+{{- end }}
+
 # 组件默认开关
 enable_prometheus: "no"
 enable_prometheus_adapter: "no"
