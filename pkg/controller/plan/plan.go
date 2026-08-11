@@ -156,10 +156,9 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	planId := createdPlan.Id
 
 	// 如果启用pixiu注册功能，则创建容器服务
-	// agent 模式（单向网络）使用反向隧道，而非直连 apiserver
 	kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
 	nodes, _ := kubeNode.Marshal()
-	clusterObj := &model.Cluster{
+	obj := &model.Cluster{
 		Name:          uuid.NewRandName(8),
 		AliasName:     req.Name,
 		ClusterType:   model.ClusterTypeCustom,
@@ -169,6 +168,8 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		Protected:     true,
 		Nodes:         nodes,
 	}
+
+	// agent 模式（单向网络）使用反向隧道，而非直连 apiServer
 	if planModel.ExecMode == model.PlanExecModeAgent {
 		agentToken, tokenErr := token.Generate()
 		if tokenErr != nil {
@@ -176,10 +177,10 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 			_ = p.Delete(ctx, planId)
 			return errors.ErrServerInternal
 		}
-		clusterObj.ConnectMode = model.ConnectModeTunnel
-		clusterObj.AgentToken = agentToken
+		obj.ConnectMode = model.ConnectModeTunnel
+		obj.AgentToken = agentToken
 	}
-	_, err = p.factory.Cluster().Create(ctx, clusterObj)
+	_, err = p.factory.Cluster().Create(ctx, obj)
 	if err != nil {
 		klog.Errorf("failed to register cluster for plan: %v", err)
 		_ = p.Delete(ctx, planId)
