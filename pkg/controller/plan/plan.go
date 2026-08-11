@@ -35,6 +35,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"github.com/caoyingjunz/pixiu/pkg/util/token"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
@@ -155,9 +156,10 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	planId := createdPlan.Id
 
 	// 如果启用pixiu注册功能，则创建容器服务
+	// agent 模式（单向网络）使用反向隧道，而非直连 apiserver
 	kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
 	nodes, _ := kubeNode.Marshal()
-	_, err = p.factory.Cluster().Create(ctx, &model.Cluster{
+	clusterObj := &model.Cluster{
 		Name:          uuid.NewRandName(8),
 		AliasName:     req.Name,
 		ClusterType:   model.ClusterTypeCustom,
@@ -166,7 +168,18 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		ClusterStatus: model.ClusterStatusUnStart,
 		Protected:     true,
 		Nodes:         nodes,
-	})
+	}
+	if planModel.ExecMode == model.PlanExecModeAgent {
+		agentToken, tokenErr := token.Generate()
+		if tokenErr != nil {
+			klog.Errorf("failed to generate agent token for plan %s: %v", req.Name, tokenErr)
+			_ = p.Delete(ctx, planId)
+			return errors.ErrServerInternal
+		}
+		clusterObj.ConnectMode = model.ConnectModeTunnel
+		clusterObj.AgentToken = agentToken
+	}
+	_, err = p.factory.Cluster().Create(ctx, clusterObj)
 	if err != nil {
 		klog.Errorf("failed to register cluster for plan: %v", err)
 		_ = p.Delete(ctx, planId)
@@ -276,6 +289,14 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	if len(updates) != 0 {
 		if err = p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, updates); err != nil {
 			klog.Errorf("failed to update plan %d: %v", planId, err)
+			return errors.ErrServerInternal
+		}
+	}
+
+	// 切换为 agent 模式时，同步关联集群为隧道连接
+	if oldPlan.ExecMode != execMode && execMode == model.PlanExecModeAgent {
+		if err = p.ensureClusterTunnelMode(ctx, planId); err != nil {
+			klog.Errorf("failed to sync cluster connect mode for plan(%d): %v", planId, err)
 			return errors.ErrServerInternal
 		}
 	}
@@ -674,6 +695,29 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		ExecMode:          o.ExecMode,
 		DeployAgentId:     o.DeployAgentId,
 	}, nil
+}
+
+// ensureClusterTunnelMode 将 plan 关联集群切换为隧道模式，并在缺少 token 时生成。
+func (p *plan) ensureClusterTunnelMode(ctx context.Context, planId int64) error {
+	objs, err := p.factory.Cluster().List(ctx, db.WithPlan(planId))
+	if err != nil {
+		return err
+	}
+	if len(objs) == 0 {
+		return nil
+	}
+
+	updates := map[string]interface{}{
+		"connect_mode": model.ConnectModeTunnel,
+	}
+	if objs[0].AgentToken == "" {
+		agentToken, tokenErr := token.Generate()
+		if tokenErr != nil {
+			return tokenErr
+		}
+		updates["agent_token"] = agentToken
+	}
+	return p.factory.Cluster().UpdateByPlan(ctx, planId, updates)
 }
 
 func NewPlan(cfg config.Config, f db.ShareDaoFactory) *plan {
