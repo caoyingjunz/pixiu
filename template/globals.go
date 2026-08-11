@@ -37,6 +37,10 @@ service_cidr: "{{ .Network.ServiceNetwork }}"
 
 network_interface: "{{ .Network.NetworkInterface }}"
 
+{{- if eq .Network.KubeProxy "ipvs" }}
+kube_proxy_mode: "ipvs"
+{{- end }}
+
 {{- if and .Component.Haproxy .Component.Haproxy.Enable }}
 enable_haproxy: "yes"
 {{- if .Component.Haproxy.KeepalivedVirtualRouterId }}
