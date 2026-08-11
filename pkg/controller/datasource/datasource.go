@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -93,6 +94,9 @@ func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceR
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) error {
+	if err := validateRedisConstraint(req); err != nil {
+		return err
+	}
 	if err := c.preCreate(ctx, req); err != nil {
 		return err
 	}
@@ -130,6 +134,63 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	return nil
 }
 
+// validateRedisConstraint 校验 Redis 数据源的约束：
+// 1. type 与 sub_type 必须配对；2. 仅支持外部直连；3. 必须提供连接地址
+func validateRedisConstraint(req *types.CreateDatasourceRequest) error {
+	isRedisType := req.Type == model.DatasourceTypeRedis
+	isRedisSubType := req.SubType == model.DatasourceSubTypeRedis
+	if !isRedisType && !isRedisSubType {
+		return nil
+	}
+	if !isRedisType || !isRedisSubType {
+		return apierrors.NewError(
+			fmt.Errorf("redis datasource requires type=%d and sub_type=%s", model.DatasourceTypeRedis, model.DatasourceSubTypeRedis),
+			http.StatusBadRequest,
+		)
+	}
+	if !req.External {
+		return apierrors.NewError(
+			fmt.Errorf("redis datasource only supports external direct connection, please enable external"),
+			http.StatusBadRequest,
+		)
+	}
+	if req.Config == nil || req.Config.Redis == nil {
+		return apierrors.NewError(
+			fmt.Errorf("redis datasource requires config.redis"),
+			http.StatusBadRequest,
+		)
+	}
+
+	redisCfg := req.Config.Redis
+	// 归一化模式并按模式校验连接配置
+	redisCfg.Mode = redisCfg.NormalizeMode()
+	switch redisCfg.Mode {
+	case types.RedisModeSentinel:
+		if strings.TrimSpace(redisCfg.MasterName) == "" || len(redisCfg.Addresses) == 0 {
+			return apierrors.NewError(
+				fmt.Errorf("redis sentinel mode requires master_name and addresses"),
+				http.StatusBadRequest,
+			)
+		}
+	case types.RedisModeCluster:
+		if len(redisCfg.Addresses) == 0 {
+			return apierrors.NewError(
+				fmt.Errorf("redis cluster mode requires addresses"),
+				http.StatusBadRequest,
+			)
+		}
+		redisCfg.DB = 0 // Redis Cluster 仅支持 db 0
+	default:
+		if strings.TrimSpace(redisCfg.Address) == "" {
+			return apierrors.NewError(
+				fmt.Errorf("redis standalone mode requires address (host:port)"),
+				http.StatusBadRequest,
+			)
+		}
+	}
+	return nil
+}
+
 // 更新前置检查：资源存在
 func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource, error) {
 	old, err := c.factory.Datasource().Get(ctx, id)
@@ -144,6 +205,9 @@ func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource
 }
 
 func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequest) error {
+	if err := validateRedisConstraint(&req.CreateDatasourceRequest); err != nil {
+		return err
+	}
 	old, err := c.preUpdate(ctx, req.Id)
 	if err != nil {
 		klog.Errorf("pre-update check failed for datasource(%d): %v", req.Id, err)

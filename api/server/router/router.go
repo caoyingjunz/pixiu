@@ -38,6 +38,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/node"
 	"github.com/caoyingjunz/pixiu/api/server/router/plan"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
+	redisrouter "github.com/caoyingjunz/pixiu/api/server/router/redis"
 	"github.com/caoyingjunz/pixiu/api/server/router/role"
 	"github.com/caoyingjunz/pixiu/api/server/router/runner"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
@@ -73,6 +74,7 @@ func InstallRouters(o *options.Options) {
 		alertrouter.NewRouter,
 		emailrouter.NewRouter,
 		tunnel.NewRouter,
+		redisrouter.NewRouter,
 	}
 
 	install(o, fs...)

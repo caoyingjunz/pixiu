@@ -30,6 +30,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
+	rediscontroller "github.com/caoyingjunz/pixiu/pkg/controller/redis"
 	"github.com/caoyingjunz/pixiu/pkg/controller/role"
 	"github.com/caoyingjunz/pixiu/pkg/controller/runner"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
@@ -54,11 +55,15 @@ type PixiuInterface interface {
 	assistant.Getter
 	alert.Getter
 	email.Getter
+	rediscontroller.Getter
 }
 
 type pixiu struct {
 	cc      config.Config
 	factory db.ShareDaoFactory
+
+	// redis controller 内部缓存连接，必须保持单例
+	redis rediscontroller.Interface
 }
 
 func (p *pixiu) Cluster() cluster.Interface { return cluster.NewCluster(p.cc, p.factory) }
@@ -82,11 +87,13 @@ func (p *pixiu) Email() email.Interface {
 func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)
 }
-func (p *pixiu) Runner() runner.Interface { return runner.NewRunner(p.cc, p.factory) }
+func (p *pixiu) Runner() runner.Interface         { return runner.NewRunner(p.cc, p.factory) }
+func (p *pixiu) Redis() rediscontroller.Interface { return p.redis }
 
 func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{
 		cc:      cfg,
 		factory: f,
+		redis:   rediscontroller.New(cfg, f),
 	}
 }
