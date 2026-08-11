@@ -116,6 +116,9 @@ func (c *controller) preUpdate(ctx context.Context, ruleId int64) (*model.AlertR
 	if current == nil {
 		return nil, apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
 	}
+	if err = ctrlutil.CheckCreatedByName(ctx, current.CreatedBy); err != nil {
+		return nil, err
+	}
 	return current, nil
 }
 

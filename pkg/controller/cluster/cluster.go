@@ -578,6 +578,19 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 }
 
 func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error {
+	object, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
+		klog.Errorf("failed to get cluster(%d): %v", cid, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrClusterNotFound
+	}
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeCluster, cid); err != nil {
+		klog.Errorf("failed to check cluster access for protect(%d): %v", cid, err)
+		return err
+	}
+
 	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, map[string]interface{}{
 		"protected": req.Protected,
 	}); err != nil {

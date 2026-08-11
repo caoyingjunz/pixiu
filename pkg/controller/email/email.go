@@ -32,6 +32,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -111,6 +112,9 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateEmailRequest) 
 	old, err := c.preUpdate(ctx, req.Id)
 	if err != nil {
 		klog.Errorf("pre-update check failed for email(%d): %v", req.Id, err)
+		return err
+	}
+	if err = ctrlutil.CheckResourceOwner(ctx, old.CreatedBy); err != nil {
 		return err
 	}
 

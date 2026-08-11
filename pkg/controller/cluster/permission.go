@@ -228,7 +228,7 @@ func (c *cluster) ListPermissions(ctx context.Context, listOption types.ListOpti
 	return pageResult, nil
 }
 
-// 更新前置检查：资源存在
+// 更新前置检查：资源存在 + 属于主集群所有者的权限
 func (c *cluster) preUpdatePermission(ctx context.Context, permissionId int64) (*model.Permission, error) {
 	oldP, err := c.factory.Permission().Get(ctx, permissionId)
 	if err != nil {
@@ -239,6 +239,21 @@ func (c *cluster) preUpdatePermission(ctx context.Context, permissionId int64) (
 		klog.Errorf("permission(%d) not found", permissionId)
 		return nil, errors.ErrPermissionNotFound
 	}
+
+	masterCluster, err := c.factory.Cluster().Get(ctx, oldP.OwnerClusterId)
+	if err != nil {
+		klog.Errorf("failed to get master cluster(%d): %v", oldP.OwnerClusterId, err)
+		return nil, err
+	}
+	if masterCluster == nil {
+		klog.Errorf("master cluster(%d) not found", oldP.OwnerClusterId)
+		return nil, servererrors.ErrClusterNotFound
+	}
+	if err = util.CheckResourceOwner(ctx, masterCluster.UserId); err != nil {
+		klog.Errorf("failed to check resource owner: %v", err)
+		return nil, err
+	}
+
 	return oldP, nil
 }
 

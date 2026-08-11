@@ -23,6 +23,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -130,8 +131,11 @@ func (r *role) Create(ctx context.Context, req *types.CreateRoleRequest) error {
 	return nil
 }
 
-// preUpdateRole 更新前置检查：资源存在
+// preUpdateRole 更新前置检查：资源存在 + 仅超管可改角色
 func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (*model.Role, error) {
+	if err := controllerutil.RequireRoot(ctx); err != nil {
+		return nil, err
+	}
 	object, err := factory.Role().Get(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to get role(%d): %v", rid, err)

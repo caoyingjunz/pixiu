@@ -77,7 +77,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertChannelRe
 	return nil
 }
 
-// 更新前置检查：资源存在
+// 更新前置检查：资源存在 + 创建者归属
 func (c *controller) preUpdate(ctx context.Context, channelId int64) error {
 	object, err := c.factory.Alert().Channel().Get(ctx, channelId)
 	if err != nil {
@@ -86,6 +86,9 @@ func (c *controller) preUpdate(ctx context.Context, channelId int64) error {
 	}
 	if object == nil {
 		return apierrors.NewError(fmt.Errorf("alert channel not found"), http.StatusNotFound)
+	}
+	if err = ctrlutil.CheckCreatedByName(ctx, object.CreatedBy); err != nil {
+		return err
 	}
 	return nil
 }
