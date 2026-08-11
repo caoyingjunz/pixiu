@@ -9,7 +9,7 @@
 
 ```shell
 docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
-docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.3
+docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.4
 ```
 
 # 启动 pixiu
