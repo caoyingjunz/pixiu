@@ -177,8 +177,8 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 			_ = p.Delete(ctx, planId)
 			return errors.ErrServerInternal
 		}
-		obj.ConnectMode = model.ConnectModeTunnel
 		obj.AgentToken = agentToken
+		obj.ConnectMode = model.ConnectModeTunnel
 	}
 	_, err = p.factory.Cluster().Create(ctx, obj)
 	if err != nil {
@@ -296,7 +296,7 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 
 	// 切换为 agent 模式时，同步关联集群为隧道连接
 	if oldPlan.ExecMode != execMode && execMode == model.PlanExecModeAgent {
-		if err = p.ensureClusterTunnelMode(ctx, planId); err != nil {
+		if err = p.syncClusterToTunnel(ctx, planId); err != nil {
 			klog.Errorf("failed to sync cluster connect mode for plan(%d): %v", planId, err)
 			return errors.ErrServerInternal
 		}
@@ -698,20 +698,19 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 	}, nil
 }
 
-// ensureClusterTunnelMode 将 plan 关联集群切换为隧道模式，并在缺少 token 时生成。
-func (p *plan) ensureClusterTunnelMode(ctx context.Context, planId int64) error {
-	objs, err := p.factory.Cluster().List(ctx, db.WithPlan(planId))
+// syncClusterToTunnel 将 plan 关联集群切换为隧道模式，并在缺少 token 时生成。
+// TODO: 暂不实现隧道切换直连
+func (p *plan) syncClusterToTunnel(ctx context.Context, planId int64) error {
+	obj, err := p.factory.Cluster().GetBy(ctx, db.WithPlan(planId))
 	if err != nil {
 		return err
 	}
-	if len(objs) == 0 {
+	if obj == nil {
 		return nil
 	}
 
-	updates := map[string]interface{}{
-		"connect_mode": model.ConnectModeTunnel,
-	}
-	if objs[0].AgentToken == "" {
+	updates := map[string]interface{}{"connect_mode": model.ConnectModeTunnel}
+	if obj.AgentToken == "" {
 		agentToken, tokenErr := token.Generate()
 		if tokenErr != nil {
 			return tokenErr
