@@ -84,7 +84,8 @@ func (c *cluster) WsPodHandler(ctx context.Context, opt *types.WebShellOptions, 
 		}, scheme.ParameterCodec)
 
 	// remotecommand 主要实现了http 转 SPDY 添加X-Stream-Protocol-Version相关header 并发送请求
-	executor, err := remotecommand.NewSPDYExecutor(cs.Config, "POST", req.URL())
+	// 使用 client.NewSPDYExecutor，确保隧道模式下走 rest.Config.Dial
+	executor, err := client.NewSPDYExecutor(cs.Config, "POST", req.URL())
 	if err != nil {
 		return err
 	}
