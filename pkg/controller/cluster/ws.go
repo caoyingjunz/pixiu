@@ -84,7 +84,8 @@ func (c *cluster) WsPodHandler(ctx context.Context, opt *types.WebShellOptions, 
 		}, scheme.ParameterCodec)
 
 	// remotecommand 主要实现了http 转 SPDY 添加X-Stream-Protocol-Version相关header 并发送请求
-	executor, err := remotecommand.NewSPDYExecutor(cs.Config, "POST", req.URL())
+	// 使用 client.NewSPDYExecutor，确保隧道模式下走 rest.Config.Dial
+	executor, err := client.NewSPDYExecutor(cs.Config, "POST", req.URL())
 	if err != nil {
 		return err
 	}
@@ -190,8 +191,14 @@ func (c *cluster) WsClusterHandler(ctx context.Context, req types.ClusterWebRequ
 		return err
 	}
 
+	// 隧道导入时可能未创建 pixiu-system，CloudShell 启动前幂等补齐
+	if err = c.ensurePixiuSystemNamespace(ctx, &clientSet); err != nil {
+		klog.Errorf("failed to ensure namespace %s for cloudshell: %v", pixiuSystemNamespace, err)
+		return err
+	}
+
 	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, userId)
-	namespace := "pixiu-system" // 导入集群或者部署集群的时候已确保存在
+	namespace := pixiuSystemNamespace
 	podName := stsName + "-0"
 
 	_, err = clientSet.Client.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
@@ -231,7 +238,7 @@ func cloudShellBashCommand() []string {
 func (c *cluster) CreateAndWaitForPodRunning(ctx context.Context, clientSet client.ClusterSet, req types.ClusterWebRequest, userId int64) error {
 	stsName := fmt.Sprintf("ws-%d-%d", req.ClusterId, userId)
 	podName := stsName + "-0"
-	namespace := "pixiu-system" // 导入集群或者部署集群的时候已确保存在
+	namespace := pixiuSystemNamespace
 	cmName := fmt.Sprintf("ws-%d-%d", req.ClusterId, userId)
 	labels := map[string]string{"maintainer": "pixiu", "cluster": req.ClusterName, "app": stsName}
 
