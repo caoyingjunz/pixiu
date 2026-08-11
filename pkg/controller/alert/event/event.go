@@ -55,6 +55,9 @@ func (c *controller) Get(ctx context.Context, eventId int64) (*types.AlertEvent,
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("alert event not found"), http.StatusNotFound)
 	}
+	if err = c.checkEventAccess(ctx, object.RuleId); err != nil {
+		return nil, err
+	}
 	return modelToType(object), nil
 }
 

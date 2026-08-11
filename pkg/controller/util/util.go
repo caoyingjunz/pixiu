@@ -91,6 +91,42 @@ func CheckCreatedByName(ctx context.Context, createdBy string) error {
 	return nil
 }
 
+// AppendCreatedByOpt 非超管 List 时追加 created_by=user.Id 过滤。
+func AppendCreatedByOpt(ctx context.Context, opts []db.Options) ([]db.Options, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if user.Role == model.RoleRoot {
+		return opts, nil
+	}
+	return append(opts, db.WithCreatedBy(user.Id)), nil
+}
+
+// AppendCreatedByNameOpt 非超管 List 时追加 created_by=user.Name 过滤。
+func AppendCreatedByNameOpt(ctx context.Context, opts []db.Options) ([]db.Options, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if user.Role == model.RoleRoot {
+		return opts, nil
+	}
+	return append(opts, db.WithCreatedByName(user.Name)), nil
+}
+
+// AppendUserIDOpt 非超管 List 时追加 user_id=user.Id 过滤。
+func AppendUserIDOpt(ctx context.Context, opts []db.Options) ([]db.Options, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if user.Role == model.RoleRoot {
+		return opts, nil
+	}
+	return append(opts, db.WithUser(user.Id)), nil
+}
+
 // CheckResourceAccess 校验当前用户是否有权访问 pixiu 资源：
 // 超管放行 → owner 放行 → 角色 scope 命中放行 → 否则 403
 func CheckResourceAccess(ctx context.Context, factory db.ShareDaoFactory, resourceOwnerID int64, resourceType string, resourceId int64) error {

@@ -180,6 +180,9 @@ func (a *apiResource) Update(ctx context.Context, aid int64, req *types.UpdateAP
 }
 
 func (a *apiResource) Delete(ctx context.Context, aid int64) error {
+	if err := controllerutil.RequireRoot(ctx); err != nil {
+		return err
+	}
 	object, err := a.factory.API().Delete(ctx, aid)
 	if err != nil {
 		klog.Errorf("failed to delete api %d: %v", aid, err)

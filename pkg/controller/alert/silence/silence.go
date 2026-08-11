@@ -139,6 +139,9 @@ func (c *controller) Update(ctx context.Context, silenceId int64, req *types.Upd
 }
 
 func (c *controller) Delete(ctx context.Context, silenceId int64) error {
+	if err := c.preUpdate(ctx, silenceId); err != nil {
+		return err
+	}
 	if err := c.factory.Alert().Silence().Delete(ctx, silenceId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("alert silence not found"), http.StatusNotFound)
@@ -158,6 +161,9 @@ func (c *controller) Get(ctx context.Context, silenceId int64) (*types.AlertSile
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("alert silence not found"), http.StatusNotFound)
 	}
+	if err = ctrlutil.CheckCreatedByName(ctx, object.CreatedBy); err != nil {
+		return nil, err
+	}
 	return modelToType(object), nil
 }
 
@@ -172,8 +178,11 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	}
 
 	opts := buildListOpts(listOption)
+	opts, err := ctrlutil.AppendCreatedByNameOpt(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 
-	var err error
 	pageResult.Total, err = c.factory.Alert().Silence().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count alert silences: %v", err)

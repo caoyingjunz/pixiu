@@ -188,6 +188,9 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 }
 
 func (r *role) Delete(ctx context.Context, rid int64) error {
+	if err := controllerutil.RequireRoot(ctx); err != nil {
+		return err
+	}
 	object, err := r.factory.Role().Delete(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to delete role %d: %v", rid, err)

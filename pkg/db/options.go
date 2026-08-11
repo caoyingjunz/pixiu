@@ -221,6 +221,26 @@ func WithUser(userId int64) Options {
 	}
 }
 
+// WithCreatedBy 按创建者用户 ID 过滤（email.created_by 为 int64）。
+func WithCreatedBy(userId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if userId == 0 {
+			return tx
+		}
+		return tx.Where("created_by = ?", userId)
+	}
+}
+
+// WithCreatedByName 按创建者用户名过滤（alert*.created_by 为 string）。
+func WithCreatedByName(name string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if name == "" {
+			return tx
+		}
+		return tx.Where("created_by = ?", name)
+	}
+}
+
 // WithUserOrResourceIDs 用户所属 + 被 scope 授权资源，生成 (user_id = ? OR id IN (?))
 func WithUserOrResourceIDs(userId int64, resourceIDs []int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
