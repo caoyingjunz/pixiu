@@ -52,10 +52,14 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 #### 创建部署
 指定 Kubernetes 镜像仓库 和 自定义源为私有地址
 
+#### ubuntu配置参考如下：
+
 ![img_8.png](img_8.png)
 
+#### 麒麟V10配置参考如下：
+![img_7.png](img_7.png)
 #### 调整 runner 为私有镜像
-![img_6.png](img_6.png)
+![img_9.png](img_9.png)
 
 #### 完成部署
 2分钟完成部署
