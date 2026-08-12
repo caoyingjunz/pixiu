@@ -379,7 +379,7 @@ func (p *plan) syncPlanStatus(ctx context.Context, planId int64, taskStatus mode
 		return p.factory.Plan().UpdateStatus(ctx, planId, taskStatus)
 	}
 
-	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+	tasks, err := p.factory.Plan().ListTasks(ctx, planId, db.WithOrderByASC())
 	if err != nil {
 		return err
 	}
