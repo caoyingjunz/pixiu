@@ -449,7 +449,7 @@ func (p *plan) DeleteTask(ctx context.Context, pid int64) error {
 
 func (p *plan) ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error) {
 	var objects []model.Task
-	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid).Order("id ASC")
+	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
