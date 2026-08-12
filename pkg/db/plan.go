@@ -403,21 +403,6 @@ func (p *plan) UpdateTask(ctx context.Context, pid int64, name string, updates m
 		return nil, errors.ErrRecordNotFound
 	}
 
-	// 任务状态变更时同步回写 plan.status：非成功直接写，成功则按全量任务推导
-	if raw, ok := updates["status"]; ok {
-		status, err := toTaskStatus(raw)
-		if err != nil {
-			return nil, err
-		}
-		if status == model.SuccessPlanStatus {
-			if err = p.syncStatusFromTasks(ctx, pid); err != nil {
-				return nil, err
-			}
-		} else if err = p.UpdateStatus(ctx, pid, status); err != nil {
-			return nil, err
-		}
-	}
-
 	return p.GetTaskByName(ctx, pid, name)
 }
 
@@ -449,7 +434,7 @@ func (p *plan) DeleteTask(ctx context.Context, pid int64) error {
 
 func (p *plan) ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error) {
 	var objects []model.Task
-	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid)
+	tx := p.db.WithContext(ctx).Where("plan_id = ?", pid).Order("id ASC")
 	for _, opt := range opts {
 		tx = opt(tx)
 	}
@@ -465,37 +450,6 @@ func (p *plan) UpdateStatus(ctx context.Context, planId int64, status model.Task
 		"status":       status,
 		"gmt_modified": time.Now(),
 	}).Error
-}
-
-func (p *plan) syncStatusFromTasks(ctx context.Context, planId int64) error {
-	tasks, err := p.ListTasks(ctx, planId)
-	if err != nil {
-		return err
-	}
-
-	status := model.SuccessPlanStatus
-	if len(tasks) == 0 {
-		status = model.UnStartPlanStatus
-	} else {
-		for _, task := range tasks {
-			if task.Status != model.SuccessPlanStatus {
-				status = task.Status
-				break
-			}
-		}
-	}
-	return p.UpdateStatus(ctx, planId, status)
-}
-
-func toTaskStatus(v interface{}) (model.TaskStatus, error) {
-	switch s := v.(type) {
-	case model.TaskStatus:
-		return s, nil
-	case string:
-		return model.TaskStatus(s), nil
-	default:
-		return "", fmt.Errorf("unsupported task status type %T", v)
-	}
 }
 
 func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error) {

@@ -601,7 +601,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 }
 
 // IsRunning
-// 校验是否有任务正在运行（读 plan 冗余 status，避免再扫 tasks）
+// 校验是否有任务正在运行
 func (p *plan) IsRunning(ctx context.Context, planId int64) (bool, error) {
 	object, err := p.factory.Plan().Get(ctx, planId)
 	if err != nil {

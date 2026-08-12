@@ -294,6 +294,7 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 		return err
 	}
 
+	updated := false
 	for _, task := range tasks {
 		if task.Status != model.RunningPlanStatus {
 			continue
@@ -304,6 +305,10 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 			klog.Errorf("failed to update plan(%d) status: %v", planId, err)
 			return err
 		}
+		updated = true
+	}
+	if updated {
+		return p.syncPlanStatus(ctx, planId, model.FailedPlanStatus)
 	}
 	return nil
 }
@@ -328,6 +333,9 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			klog.Errorf("failed to update plan(%d) status before run task(%s): %v", planId, name, err)
 			return err
 		}
+		if err = p.syncPlanStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
+			return err
+		}
 		taskC.SetByTask(planId, *start)
 
 		status := model.SuccessPlanStatus
@@ -350,6 +358,9 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", planId, name, err)
 			return err
 		}
+		if err = p.syncPlanStatus(context.TODO(), planId, status); err != nil {
+			return err
+		}
 		taskC.SetByTask(planId, *end)
 		if runErr != nil {
 			klog.Errorf("run plan(%d) task(%s) failed %v", planId, name, err)
@@ -359,4 +370,29 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 	}
 
 	return nil
+}
+
+// syncPlanStatus 根据最近变更的任务状态回写 plan 冗余 status。
+// 非成功直接写；成功则按全量任务推导（全部成功 / 落到下一未开始）。
+func (p *plan) syncPlanStatus(ctx context.Context, planId int64, taskStatus model.TaskStatus) error {
+	if taskStatus != model.SuccessPlanStatus {
+		return p.factory.Plan().UpdateStatus(ctx, planId, taskStatus)
+	}
+
+	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+	if err != nil {
+		return err
+	}
+	status := model.SuccessPlanStatus
+	if len(tasks) == 0 {
+		status = model.UnStartPlanStatus
+	} else {
+		for _, task := range tasks {
+			if task.Status != model.SuccessPlanStatus {
+				status = task.Status
+				break
+			}
+		}
+	}
+	return p.factory.Plan().UpdateStatus(ctx, planId, status)
 }
