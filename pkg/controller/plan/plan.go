@@ -18,7 +18,6 @@ package plan
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -129,11 +128,13 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	}
 
 	planModel := &model.Plan{
-		Name:          req.Name,
-		UserId:        req.UserId,
-		Description:   req.Description,
-		ExecMode:      req.ExecMode,
-		DeployAgentId: req.DeployAgentId,
+		Name:              req.Name,
+		UserId:            req.UserId,
+		Description:       req.Description,
+		ExecMode:          req.ExecMode,
+		DeployAgentId:     req.DeployAgentId,
+		KubernetesVersion: req.Config.Kubernetes.KubernetesVersion,
+		NodeCount:         len(req.Nodes),
 	}
 	if planModel.ExecMode == "" {
 		planModel.ExecMode = model.PlanExecModeLocal
@@ -232,6 +233,7 @@ func (p *plan) preUpdate(ctx context.Context, planId int64) (*model.Plan, error)
 
 // Update
 // 更新部署计划
+// TODO: 实现太过丑陋，后续优化
 func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
 	oldPlan, err := p.preUpdate(ctx, planId)
 	if err != nil {
@@ -277,6 +279,13 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	}
 	if oldPlan.DeployAgentId != deployAgentId {
 		updates["deploy_agent_id"] = deployAgentId
+	}
+	// 同步冗余字段：k8s 版本来自配置，节点数来自本次节点列表
+	if oldPlan.KubernetesVersion != req.Config.Kubernetes.KubernetesVersion {
+		updates["kubernetes_version"] = req.Config.Kubernetes.KubernetesVersion
+	}
+	if oldPlan.NodeCount != len(req.Nodes) {
+		updates["node_count"] = len(req.Nodes)
 	}
 	if len(updates) != 0 {
 		if err = p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, updates); err != nil {
@@ -674,23 +683,6 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		}
 	}
 
-	// 获取 kubernetes 版本，获取失败不中断
-	kubernetesVersion := ""
-	if cfg, err := p.factory.Plan().GetConfigByPlan(context.TODO(), o.Id); err == nil && cfg != nil {
-		var kubeSpec struct {
-			KubernetesVersion string `json:"kubernetes_version"`
-		}
-		if err := json.Unmarshal([]byte(cfg.Kubernetes), &kubeSpec); err == nil {
-			kubernetesVersion = kubeSpec.KubernetesVersion
-		}
-	}
-
-	// 获取节点总数，获取失败不中断
-	nodeCount := 0
-	if nodes, err := p.factory.Plan().ListNodes(context.TODO(), o.Id); err == nil {
-		nodeCount = len(nodes)
-	}
-
 	return &types.Plan{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -703,8 +695,8 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		Name:              o.Name,
 		Description:       o.Description,
 		Step:              status,
-		KubernetesVersion: kubernetesVersion,
-		NodeCount:         nodeCount,
+		KubernetesVersion: o.KubernetesVersion,
+		NodeCount:         o.NodeCount,
 		ExecMode:          o.ExecMode,
 		DeployAgentId:     o.DeployAgentId,
 	}, nil
