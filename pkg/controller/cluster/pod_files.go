@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -210,7 +211,7 @@ func (c *cluster) execPodStream(ctx context.Context, timeout time.Duration, clus
 			TTY:       false,
 		}, scheme.ParameterCodec)
 
-	executor, err := remotecommand.NewSPDYExecutor(cs.Config, "POST", req.URL())
+	executor, err := client.NewSPDYExecutor(cs.Config, "POST", req.URL())
 	if err != nil {
 		return nil, "", err
 	}

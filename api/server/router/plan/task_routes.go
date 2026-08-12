@@ -22,18 +22,6 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 )
 
-type taskNodeMeta struct {
-	planMeta `json:",inline"`
-
-	TaskId int64 `uri:"taskId" binding:"required"`
-}
-
-func (t *planRouter) runTasks(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	httputils.SetSuccess(c, r)
-}
-
 func (t *planRouter) listTasks(c *gin.Context) {
 	r := httputils.NewResponse()
 

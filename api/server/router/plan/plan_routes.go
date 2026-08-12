@@ -97,6 +97,10 @@ func (t *planRouter) deletePlan(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// getPlan
+// 获取 plan
+// 获取 configs
+// 获取 nodes
 func (t *planRouter) getPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -108,30 +112,8 @@ func (t *planRouter) getPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = t.c.Plan().Get(c, opt.PlanId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-// getPlanWithSubResources
-// 获取 plan
-// 获取 configs
-// 获取 nodes
-func (t *planRouter) getPlanWithSubResources(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		opt planMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	// API 层入口：先经 Get 完成 owner 校验，再组装子资源
+	// API 层入口：先经 Get 完成 owner 校验，再组装子资源，
+	// TODO: agent controller（agent.go:302）调用。改变校验会破坏 agent 流程
 	if _, err = t.c.Plan().Get(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -175,25 +157,6 @@ func (t *planRouter) startPlan(c *gin.Context) {
 		return
 	}
 	if err = t.c.Plan().Start(c, opt.PlanId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
-
-func (t *planRouter) stopPlan(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		opt planMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = t.c.Plan().Stop(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

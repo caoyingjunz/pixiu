@@ -37,6 +37,8 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/klog/v2"
+
+	pixiuclient "github.com/caoyingjunz/pixiu/pkg/client"
 )
 
 var (
@@ -171,7 +173,7 @@ func proxyViaPodPortForward(
 	readyCh := make(chan struct{})
 	defer close(stopCh)
 
-	roundTripper, upgrader, err := spdy.RoundTripperFor(config)
+	roundTripper, upgrader, err := pixiuclient.RoundTripperFor(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spdy round tripper: %w", err)
 	}
