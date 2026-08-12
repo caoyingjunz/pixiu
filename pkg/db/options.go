@@ -380,6 +380,16 @@ func WithAlertRuleId(ruleId int64) Options {
 	}
 }
 
+// WithAlertRuleIdIn 按多个告警规则 ID 过滤；空切片表示无匹配（强制空结果）。
+func WithAlertRuleIdIn(ids ...int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(ids) == 0 {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("rule_id IN ?", ids)
+	}
+}
+
 func WithAlertEventId(eventId int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if eventId == 0 {

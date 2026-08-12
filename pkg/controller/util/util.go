@@ -127,6 +127,30 @@ func AppendUserIDOpt(ctx context.Context, opts []db.Options) ([]db.Options, erro
 	return append(opts, db.WithUser(user.Id)), nil
 }
 
+// AppendOwnedAlertRuleOpt 非超管按本人创建的告警规则过滤 event/notification。
+// 返回 (opts, empty, err)：empty=true 表示无任何自有规则，调用方应直接返回空列表。
+func AppendOwnedAlertRuleOpt(ctx context.Context, factory db.ShareDaoFactory, opts []db.Options) ([]db.Options, bool, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	if user.Role == model.RoleRoot {
+		return opts, false, nil
+	}
+	rules, err := factory.Alert().Rule().List(ctx, db.WithCreatedByName(user.Name))
+	if err != nil {
+		return nil, false, err
+	}
+	if len(rules) == 0 {
+		return opts, true, nil
+	}
+	ids := make([]int64, 0, len(rules))
+	for i := range rules {
+		ids = append(ids, rules[i].Id)
+	}
+	return append(opts, db.WithAlertRuleIdIn(ids...)), false, nil
+}
+
 // CheckResourceAccess 校验当前用户是否有权访问 pixiu 资源：
 // 超管放行 → owner 放行 → 角色 scope 命中放行 → 否则 403
 func CheckResourceAccess(ctx context.Context, factory db.ShareDaoFactory, resourceOwnerID int64, resourceType string, resourceId int64) error {
