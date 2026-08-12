@@ -472,7 +472,19 @@ func (p *plan) syncStatusFromTasks(ctx context.Context, planId int64) error {
 	if err != nil {
 		return err
 	}
-	return p.UpdateStatus(ctx, planId, model.DerivePlanStatus(tasks))
+
+	status := model.SuccessPlanStatus
+	if len(tasks) == 0 {
+		status = model.UnStartPlanStatus
+	} else {
+		for _, task := range tasks {
+			if task.Status != model.SuccessPlanStatus {
+				status = task.Status
+				break
+			}
+		}
+	}
+	return p.UpdateStatus(ctx, planId, status)
 }
 
 func toTaskStatus(v interface{}) (model.TaskStatus, error) {

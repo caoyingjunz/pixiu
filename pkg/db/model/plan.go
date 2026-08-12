@@ -113,19 +113,6 @@ const (
 	DestroyingPlanStatus TaskStatus = "销毁中"
 )
 
-// DerivePlanStatus 按任务创建顺序推导部署计划整体状态。
-func DerivePlanStatus(tasks []Task) TaskStatus {
-	if len(tasks) == 0 {
-		return UnStartPlanStatus
-	}
-	for _, task := range tasks {
-		if task.Status != SuccessPlanStatus {
-			return task.Status
-		}
-	}
-	return SuccessPlanStatus
-}
-
 type Task struct {
 	pixiu.Model
 
