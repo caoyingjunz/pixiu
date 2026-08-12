@@ -37,6 +37,7 @@ const (
 
 const (
 	pathUserPermissions = "/pixiu/users/permissions"
+	pathUserLogout      = "/pixiu/users/:userId/logout"
 	pathProxy           = "/pixiu/proxy/:clusterName/*act"
 	pathExternal        = "/pixiu/external/*act"
 )
@@ -49,6 +50,10 @@ func Classify(roleId int64, method, fullPath string) Decision {
 	}
 	// 任意已登录用户可拉自身权限，避免菜单初始化死锁
 	if method == http.MethodGet && fullPath == pathUserPermissions {
+		return Allow
+	}
+	// 任意已登录用户可登出自身（handler 内仍校验 userId 归属）
+	if method == http.MethodPost && fullPath == pathUserLogout {
 		return Allow
 	}
 	if fullPath == pathProxy || fullPath == pathExternal {
