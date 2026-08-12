@@ -27,7 +27,8 @@ func init() {
 type Plan struct {
 	pixiu.Model
 
-	Name string `gorm:"index:idx_name,unique" json:"name"`
+	Name   string     `gorm:"index:idx_name,unique" json:"name"`
+	Status TaskStatus `gorm:"type:varchar(32);default:'未开始';index:idx_plan_status" json:"status"` // 部署状态
 
 	// 所属用户
 	UserId      int64  `gorm:"index:idx_user_id" json:"user_id"`
@@ -111,6 +112,19 @@ const (
 	StoppingPlanStatus   TaskStatus = "停止中"
 	DestroyingPlanStatus TaskStatus = "销毁中"
 )
+
+// DerivePlanStatus 按任务创建顺序推导部署计划整体状态。
+func DerivePlanStatus(tasks []Task) TaskStatus {
+	if len(tasks) == 0 {
+		return UnStartPlanStatus
+	}
+	for _, task := range tasks {
+		if task.Status != SuccessPlanStatus {
+			return task.Status
+		}
+	}
+	return SuccessPlanStatus
+}
 
 type Task struct {
 	pixiu.Model

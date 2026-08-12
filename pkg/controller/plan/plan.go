@@ -135,6 +135,7 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		DeployAgentId:     req.DeployAgentId,
 		KubernetesVersion: req.Config.Kubernetes.KubernetesVersion,
 		NodeCount:         len(req.Nodes),
+		Status:            model.UnStartPlanStatus,
 	}
 	if planModel.ExecMode == "" {
 		planModel.ExecMode = model.PlanExecModeLocal
@@ -338,7 +339,7 @@ func (p *plan) preDelete(ctx context.Context, planId int64) error {
 	}
 
 	// 有正在运行中的任务则不允许删除
-	isRunning, err := p.TaskIsRunning(ctx, planId)
+	isRunning, err := p.IsRunning(ctx, planId)
 	if err != nil {
 		return errors.ErrServerInternal
 	}
@@ -479,15 +480,11 @@ func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interfac
 		return nil, errors.ErrServerInternal
 	}
 
-	ps := make([]types.Plan, 0)
+	ps := make([]types.Plan, 0, len(objects))
 	for _, object := range objects {
 		no, err := p.model2Type(&object)
 		if err != nil {
 			return nil, err
-		}
-		// 状态过滤（在内存中过滤，因为状态来自关联表）
-		if listOption.Step != "" && string(no.Step) != listOption.Step {
-			continue
 		}
 		ps = append(ps, *no)
 	}
@@ -550,7 +547,7 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 // 3. 运行任务
 func (p *plan) preStart(ctx context.Context, pid int64) error {
 	// 4. 校验运行任务
-	isRunning, err := p.TaskIsRunning(ctx, pid)
+	isRunning, err := p.IsRunning(ctx, pid)
 	if err != nil {
 		return errors.ErrServerInternal
 	}
@@ -603,23 +600,25 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	return nil
 }
 
-// TaskIsRunning
-// 校验是否有任务正在运行
-func (p *plan) TaskIsRunning(ctx context.Context, planId int64) (bool, error) {
-	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+// IsRunning
+// 校验是否有任务正在运行（读 plan 冗余 status，避免再扫 tasks）
+func (p *plan) IsRunning(ctx context.Context, planId int64) (bool, error) {
+	object, err := p.factory.Plan().Get(ctx, planId)
 	if err != nil {
-		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
+		klog.Errorf("failed to get plan %d: %v", planId, err)
+		return false, errors.ErrServerInternal
+	}
+	if object == nil {
 		return false, errors.ErrServerInternal
 	}
 
-	for _, task := range tasks {
-		if task.Status == model.RunningPlanStatus || task.Status == model.DestroyingPlanStatus || task.Status == model.StoppingPlanStatus {
-			klog.Warningf("task %d of plan %d is running", task.Id, planId)
-			return true, nil
-		}
+	switch object.Status {
+	case model.RunningPlanStatus, model.DestroyingPlanStatus, model.StoppingPlanStatus:
+		klog.Warningf("plan %d is running with status %s", planId, object.Status)
+		return true, nil
+	default:
+		return false, nil
 	}
-
-	return false, nil
 }
 
 // checkPlanAccess 校验当前用户是否有权操作该部署计划：超管放行 → owner 放行 → scope 命中放行。
@@ -666,23 +665,6 @@ func (p *plan) Destroy(ctx context.Context, pid int64, restart bool) error {
 }
 
 func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
-	status := model.SuccessPlanStatus
-
-	// 尝试获取最新的任务状态
-	// 获取失败也不中断返回
-	if tasks, err := p.factory.Plan().ListTasks(context.TODO(), o.Id); err == nil {
-		if len(tasks) == 0 {
-			status = model.UnStartPlanStatus
-		} else {
-			for _, task := range tasks {
-				if task.Status != model.SuccessPlanStatus {
-					status = task.Status
-					break
-				}
-			}
-		}
-	}
-
 	return &types.Plan{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -694,7 +676,7 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		},
 		Name:              o.Name,
 		Description:       o.Description,
-		Step:              status,
+		Step:              o.Status,
 		KubernetesVersion: o.KubernetesVersion,
 		NodeCount:         o.NodeCount,
 		ExecMode:          o.ExecMode,
