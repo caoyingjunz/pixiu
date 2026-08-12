@@ -308,7 +308,10 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 		updated = true
 	}
 	if updated {
-		return p.syncPlanStatus(ctx, planId, model.FailedPlanStatus)
+		if err := p.syncPlanStatus(ctx, planId, model.FailedPlanStatus); err != nil {
+			klog.Errorf("failed to sync plan(%d) status after correcting running tasks: %v", planId, err)
+			return err
+		}
 	}
 	return nil
 }
@@ -334,6 +337,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			return err
 		}
 		if err = p.syncPlanStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
+			klog.Errorf("failed to sync plan(%d) status to running before task(%s): %v", planId, name, err)
 			return err
 		}
 		taskC.SetByTask(planId, *start)
@@ -359,6 +363,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			return err
 		}
 		if err = p.syncPlanStatus(context.TODO(), planId, status); err != nil {
+			klog.Errorf("failed to sync plan(%d) status after task(%s): %v", planId, name, err)
 			return err
 		}
 		taskC.SetByTask(planId, *end)
