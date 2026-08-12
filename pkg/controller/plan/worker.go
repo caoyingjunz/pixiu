@@ -321,6 +321,16 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 	if err := p.createPlanTasksIfNotExist(tasks...); err != nil {
 		return err
 	}
+	if len(tasks) == 0 {
+		return nil
+	}
+
+	// 重置 plan 状态为进行中
+	planId := tasks[0].GetPlanId()
+	if err := p.factory.Plan().UpdateStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
+		klog.Errorf("failed to sync plan(%d) status to running: %v", planId, err)
+		return err
+	}
 
 	// 执行任务并更新状态
 	for i, task := range tasks {
@@ -334,10 +344,6 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		})
 		if err != nil {
 			klog.Errorf("failed to update plan(%d) status before run task(%s): %v", planId, name, err)
-			return err
-		}
-		if err = p.factory.Plan().UpdateStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
-			klog.Errorf("failed to sync plan(%d) status to running before task(%s): %v", planId, name, err)
 			return err
 		}
 		taskC.SetByTask(planId, *start)
@@ -362,6 +368,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", planId, name, err)
 			return err
 		}
+
 		// 中间步骤成功保持「运行中」；失败或最后一步成功再回写 plan.status
 		if status == model.FailedPlanStatus || (status == model.SuccessPlanStatus && i == len(tasks)-1) {
 			if err = p.factory.Plan().UpdateStatus(context.TODO(), planId, status); err != nil {
