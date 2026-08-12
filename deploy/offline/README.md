@@ -6,7 +6,50 @@
 - 安装包获取 [Ubuntu-v1.31.6](https://github.com/offline-hub/repo/releases/tag/v1.31.6)
 
 ### 离线包部署
-以系统 v1.31.6为例
+以系统 v1.31.6为例，将下载的镜像上传到服务器目录
+#### 启动离线仓库
+```
+chmod +x builder
+# 使用 systemctl 管理
+sudo vi /etc/systemd/system/pixiu_builder.service
+
+[Unit]
+Description=Pixiu builder
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home # builder所在目录
+ExecStart=/home/builder serve --dir data
+Restart=always
+RestartSec=5
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+[Install]
+WantedBy=multi-user.target
+
+# 配置完加载，并设置开机启动
+sudo systemctl daemon-reload
+sudo systemctl enable pixiu_builder
+sudo systemctl start pixiu_builder
+```
+### 查看日志
+```bash
+root@localhost:~# journalctl -u pixiu_builder -f
+加载离线产物到 ./serve-data ...
+  已加载 0 个 bundle（跳过 0 个）
+  未发现 .rpm/.deb，跳过软件源
+软件源已启动: http://10.206.32.17:8080 （rpm=0 deb=0）
+导入镜像到 registry 10.206.32.17:5000 ...
+  已导入 0 个镜像
+
+========== builder serve 就绪 ==========
+Registry:  10.206.32.17:5000
+  示例:
+    docker pull 10.206.32.17:5000/<name>:<tag>
+  Docker insecure-registries 需包含: "10.206.32.17:5000"
+```
+### 加载镜像，安装运行环境
 - [Ubuntu24.04](Ubuntu.md)
 - [麒麟V10](KylinV10.md)
 
@@ -18,10 +61,10 @@ docker run -d --net host --restart=always --privileged=true --name mariadb -e MY
 ```
 
 #### 配置 pixiu
-# 创建配置文件夹 （文件夹路径不可修改）
+##### 创建配置文件夹 （文件夹路径不可修改）
 mkdir -p /etc/pixiu/
 vim /etc/pixiu/config.yaml 写入后端如下配置
-# 后端配置(host 根据实际情况调整)
+##### 后端配置(host 根据实际情况调整)
 ```bash
 default:
   auto_migrate: true
