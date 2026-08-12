@@ -1199,9 +1199,12 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 	}
 
 	if o.ConnectMode == model.ConnectModeTunnel {
-		tc.Status = model.ClusterStatusPending // 等待 Agent 接入
 		if tm := tunnel.Default(); tm != nil {
 			tc.AgentConnected = tm.AgentConnected(o.Name)
+		}
+		// Agent 未接入时显示"等待接入"，接入后按数据库实际状态展示
+		if !tc.AgentConnected {
+			tc.Status = model.ClusterStatusPending
 		}
 	}
 
