@@ -308,7 +308,7 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 		updated = true
 	}
 	if updated {
-		if err := p.syncPlanStatus(ctx, planId, model.FailedPlanStatus); err != nil {
+		if err := p.factory.Plan().UpdateStatus(ctx, planId, model.FailedPlanStatus); err != nil {
 			klog.Errorf("failed to sync plan(%d) status after correcting running tasks: %v", planId, err)
 			return err
 		}
@@ -323,7 +323,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 	}
 
 	// 执行任务并更新状态
-	for _, task := range tasks {
+	for i, task := range tasks {
 		planId := task.GetPlanId()
 		name := task.Name()
 		klog.Infof("starting plan(%d) task(%s)", planId, name)
@@ -336,7 +336,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			klog.Errorf("failed to update plan(%d) status before run task(%s): %v", planId, name, err)
 			return err
 		}
-		if err = p.syncPlanStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
+		if err = p.factory.Plan().UpdateStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
 			klog.Errorf("failed to sync plan(%d) status to running before task(%s): %v", planId, name, err)
 			return err
 		}
@@ -362,9 +362,12 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", planId, name, err)
 			return err
 		}
-		if err = p.syncPlanStatus(context.TODO(), planId, status); err != nil {
-			klog.Errorf("failed to sync plan(%d) status after task(%s): %v", planId, name, err)
-			return err
+		// 中间步骤成功保持「运行中」；失败或最后一步成功再回写 plan.status
+		if status == model.FailedPlanStatus || (status == model.SuccessPlanStatus && i == len(tasks)-1) {
+			if err = p.factory.Plan().UpdateStatus(context.TODO(), planId, status); err != nil {
+				klog.Errorf("failed to sync plan(%d) status after task(%s): %v", planId, name, err)
+				return err
+			}
 		}
 		taskC.SetByTask(planId, *end)
 		if runErr != nil {
@@ -375,29 +378,4 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 	}
 
 	return nil
-}
-
-// syncPlanStatus 根据最近变更的任务状态回写 plan 冗余 status。
-// 非成功直接写；成功则按全量任务推导（全部成功 / 落到下一未开始）。
-func (p *plan) syncPlanStatus(ctx context.Context, planId int64, taskStatus model.TaskStatus) error {
-	if taskStatus != model.SuccessPlanStatus {
-		return p.factory.Plan().UpdateStatus(ctx, planId, taskStatus)
-	}
-
-	tasks, err := p.factory.Plan().ListTasks(ctx, planId, db.WithOrderByASC())
-	if err != nil {
-		return err
-	}
-	status := model.SuccessPlanStatus
-	if len(tasks) == 0 {
-		status = model.UnStartPlanStatus
-	} else {
-		for _, task := range tasks {
-			if task.Status != model.SuccessPlanStatus {
-				status = task.Status
-				break
-			}
-		}
-	}
-	return p.factory.Plan().UpdateStatus(ctx, planId, status)
 }
