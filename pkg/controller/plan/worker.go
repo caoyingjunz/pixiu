@@ -294,6 +294,7 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 		return err
 	}
 
+	updated := false
 	for _, task := range tasks {
 		if task.Status != model.RunningPlanStatus {
 			continue
@@ -302,6 +303,13 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 			"status": model.FailedPlanStatus, "step": model.FailedPlanStep, "message": "服务异常修正，请重新启动部署计划", "gmt_modified": time.Now(),
 		}); err != nil {
 			klog.Errorf("failed to update plan(%d) status: %v", planId, err)
+			return err
+		}
+		updated = true
+	}
+	if updated {
+		if err := p.factory.Plan().UpdateStatus(ctx, planId, model.FailedPlanStatus); err != nil {
+			klog.Errorf("failed to sync plan(%d) status after correcting running tasks: %v", planId, err)
 			return err
 		}
 	}
@@ -313,9 +321,19 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 	if err := p.createPlanTasksIfNotExist(tasks...); err != nil {
 		return err
 	}
+	if len(tasks) == 0 {
+		return nil
+	}
+
+	// 重置 plan 状态为进行中
+	planId := tasks[0].GetPlanId()
+	if err := p.factory.Plan().UpdateStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
+		klog.Errorf("failed to sync plan(%d) status to running: %v", planId, err)
+		return err
+	}
 
 	// 执行任务并更新状态
-	for _, task := range tasks {
+	for i, task := range tasks {
 		planId := task.GetPlanId()
 		name := task.Name()
 		klog.Infof("starting plan(%d) task(%s)", planId, name)
@@ -349,6 +367,14 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		if err != nil {
 			klog.Errorf("failed to update plan(%d) status after run task(%s): %v", planId, name, err)
 			return err
+		}
+
+		// 中间步骤成功保持「运行中」；失败或最后一步成功再回写 plan.status
+		if status == model.FailedPlanStatus || (status == model.SuccessPlanStatus && i == len(tasks)-1) {
+			if err = p.factory.Plan().UpdateStatus(context.TODO(), planId, status); err != nil {
+				klog.Errorf("failed to sync plan(%d) status after task(%s): %v", planId, name, err)
+				return err
+			}
 		}
 		taskC.SetByTask(planId, *end)
 		if runErr != nil {

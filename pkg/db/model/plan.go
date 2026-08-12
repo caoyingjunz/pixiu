@@ -27,7 +27,8 @@ func init() {
 type Plan struct {
 	pixiu.Model
 
-	Name string `gorm:"index:idx_name,unique" json:"name"`
+	Name   string     `gorm:"index:idx_name,unique" json:"name"`
+	Status TaskStatus `gorm:"type:varchar(32);default:'未开始';index:idx_plan_status" json:"status"` // 部署状态
 
 	// 所属用户
 	UserId      int64  `gorm:"index:idx_user_id" json:"user_id"`
@@ -36,7 +37,9 @@ type Plan struct {
 	// 执行模式：local（默认）/ agent（单向网络边缘执行）
 	ExecMode PlanExecMode `gorm:"type:varchar(32);default:'local'" json:"exec_mode"`
 	// agent 模式下绑定的 Deploy Agent
-	DeployAgentId int64 `gorm:"index:idx_plan_deploy_agent;default:0" json:"deploy_agent_id"`
+	DeployAgentId     int64  `gorm:"index:idx_plan_deploy_agent;default:0" json:"deploy_agent_id"`
+	KubernetesVersion string `gorm:"type:varchar(64)" json:"kubernetes_version"` // k8s 版本（冗余自 configs.kubernetes）
+	NodeCount         int    `gorm:"default:0" json:"node_count"`                // 节点总数（冗余自 nodes 表）
 }
 
 func (plan *Plan) TableName() string {

@@ -66,6 +66,8 @@ type PlanInterface interface {
 	ListTasks(ctx context.Context, pid int64, opts ...Options) ([]model.Task, error)
 
 	UpdateTaskBy(ctx context.Context, updates map[string]interface{}, opts ...Options) error
+	// UpdateStatus 直接回写 plan 冗余状态
+	UpdateStatus(ctx context.Context, planId int64, status model.TaskStatus) error
 
 	GetNewestTask(ctx context.Context, pid int64) (*model.Task, error)
 	GetTaskByName(ctx context.Context, planId int64, name string) (*model.Task, error)
@@ -441,6 +443,13 @@ func (p *plan) ListTasks(ctx context.Context, pid int64, opts ...Options) ([]mod
 	}
 
 	return objects, nil
+}
+
+func (p *plan) UpdateStatus(ctx context.Context, planId int64, status model.TaskStatus) error {
+	return p.db.WithContext(ctx).Model(&model.Plan{}).Where("id = ?", planId).Updates(map[string]interface{}{
+		"status":       status,
+		"gmt_modified": time.Now(),
+	}).Error
 }
 
 func (p *plan) GetNewestTask(ctx context.Context, pid int64) (*model.Task, error) {
