@@ -1202,10 +1202,8 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		if tm := tunnel.Default(); tm != nil {
 			tc.AgentConnected = tm.AgentConnected(o.Name)
 		}
-		// Agent 未接入时显示"等待接入"，接入后按数据库实际状态展示
-		if !tc.AgentConnected {
-			tc.Status = model.ClusterStatusPending
-		}
+		// 状态以数据库为准（由 TunnelSyncer 维护），不按进程内 AgentConnected 覆盖，
+		// 避免 agent 隧道连到其他 server 时本进程误显示"等待接入"。
 	}
 
 	// 子集群，需要整合主集群字段
