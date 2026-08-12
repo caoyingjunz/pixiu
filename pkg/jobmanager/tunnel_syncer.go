@@ -77,9 +77,9 @@ func (ts *TunnelSyncer) Do(ctx *JobContext) error {
 }
 
 func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.ShareDaoFactory, obj *model.Cluster) error {
-	// 跳过仍在部署/未启动/已失败/等待中的集群
+	// 跳过仍在部署/未启动/已失败的集群；Pending（等待接入）需继续探测隧道连通性
 	switch obj.ClusterStatus {
-	case model.ClusterStatusDeploy, model.ClusterStatusUnStart, model.ClusterStatusFailed, model.ClusterStatusPending:
+	case model.ClusterStatusDeploy, model.ClusterStatusUnStart, model.ClusterStatusFailed:
 		tm.SetAgentConnected(obj.Name, false)
 		return nil
 	}
@@ -99,7 +99,7 @@ func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.Shar
 
 	desired := obj.ClusterStatus
 	switch {
-	case connected && obj.ClusterStatus == model.ClusterStatusError:
+	case connected && (obj.ClusterStatus == model.ClusterStatusPending || obj.ClusterStatus == model.ClusterStatusError):
 		desired = model.ClusterStatusRunning
 	case !connected && obj.ClusterStatus == model.ClusterStatusRunning:
 		desired = model.ClusterStatusError
