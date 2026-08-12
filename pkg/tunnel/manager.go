@@ -54,6 +54,7 @@ type Manager struct {
 
 	mu        sync.RWMutex
 	connected map[string]bool // last control-plane probe result by cluster name
+	seen      map[string]bool // clusters whose agent tunnel ever connected to this process
 }
 
 // Init creates the process-wide tunnel manager. Safe to call multiple times;
@@ -92,6 +93,13 @@ func (m *Manager) authorize(req *http.Request) (string, bool, error) {
 		klog.Warningf("tunnel authorize denied: token not found (len=%d)", len(token))
 		return "", false, nil
 	}
+	// 记录本进程曾成功授权接入的集群，用于区分"agent 连到其他 server"与"本进程接入后断开"
+	m.mu.Lock()
+	if m.seen == nil {
+		m.seen = make(map[string]bool)
+	}
+	m.seen[name] = true
+	m.mu.Unlock()
 	klog.V(2).Infof("tunnel authorize ok: cluster=%s", name)
 	return name, true, nil
 }
@@ -120,6 +128,17 @@ func (m *Manager) HasSession(clusterName string) bool {
 		return false
 	}
 	return m.server.HasSession(clusterName)
+}
+
+// SeenSession reports whether this process ever authorized the cluster's agent tunnel.
+// Used to distinguish "agent connected to another server" from "this process lost the session".
+func (m *Manager) SeenSession(clusterName string) bool {
+	if m == nil {
+		return false
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.seen != nil && m.seen[clusterName]
 }
 
 // Dialer returns a net.Dialer-compatible function that dials through the agent tunnel.

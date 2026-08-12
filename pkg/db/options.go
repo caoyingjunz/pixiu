@@ -124,6 +124,12 @@ func WithClusterStatus(status int) Options {
 	}
 }
 
+func WithConnectMode(mode int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("connect_mode = ?", mode)
+	}
+}
+
 func WithPhoneLike(phone string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if phone == "" {
@@ -305,6 +311,12 @@ func WithOwnerCluster(clusterId int64) Options {
 			return tx
 		}
 		return tx.Where("owner_cluster_id = ?", clusterId)
+	}
+}
+
+func WithPermissionID(pid int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("permission_id = ?", pid)
 	}
 }
 

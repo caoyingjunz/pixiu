@@ -29,7 +29,7 @@ import (
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-const defaultTunnelSyncInterval = "@every 15s"
+const defaultTunnelSyncInterval = "@every 30s"
 
 // TunnelSyncer 定期探测集群 Agent 反向隧道连通性，并根据连通性状态更新集群状态。
 type TunnelSyncer struct {
@@ -58,18 +58,19 @@ func (ts *TunnelSyncer) Do(ctx *JobContext) error {
 		return nil
 	}
 
-	clusters, err := ts.factory.Cluster().List(ctx)
+	// 仅同步隧道集群且非授权集群（授权集群状态由主集群维护）
+	clusters, err := ts.factory.Cluster().List(ctx,
+		db.WithConnectMode(int(model.ConnectModeTunnel)),
+		db.WithPermissionID(0),
+	)
 	if err != nil {
-		klog.Errorf("[TunnelSyncer] list clusters failed: %v", err)
+		klog.Errorf("[TunnelSyncer] list tunnel clusters failed: %v", err)
 		return err
 	}
 
 	for i := range clusters {
 		obj := &clusters[i]
-		if obj.ConnectMode != model.ConnectModeTunnel {
-			continue
-		}
-		if err := checkTunnelCluster(ctx, tm, ts.factory, obj); err != nil {
+		if err = checkTunnelCluster(ctx, tm, ts.factory, obj); err != nil {
 			klog.Errorf("[TunnelSyncer] cluster %s: %v", obj.Name, err)
 		}
 	}
@@ -77,9 +78,22 @@ func (ts *TunnelSyncer) Do(ctx *JobContext) error {
 }
 
 func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.ShareDaoFactory, obj *model.Cluster) error {
-	// 跳过仍在部署/未启动/已失败/等待中的集群
+	// 授权（共享/子）集群的状态由主集群维护，不单独检测隧道连通性
+	if obj.PermissionId != 0 {
+		return nil
+	}
+
+	// 跳过仍在部署/未启动/已失败的集群；Pending（等待接入）需继续探测隧道连通性
 	switch obj.ClusterStatus {
-	case model.ClusterStatusDeploy, model.ClusterStatusUnStart, model.ClusterStatusFailed, model.ClusterStatusPending:
+	case model.ClusterStatusDeploy, model.ClusterStatusUnStart, model.ClusterStatusFailed:
+		tm.SetAgentConnected(obj.Name, false)
+		return nil
+	}
+
+	// 多 server 共享 db 场景：agent 隧道可能连到其他 server 实例（如生产）。
+	// 本进程从未接入该集群（无 session 且未授权过）时不修改共享 db 状态，
+	// 避免本进程把集群误判为失联/等待接入。
+	if !tm.HasSession(obj.Name) && !tm.SeenSession(obj.Name) {
 		tm.SetAgentConnected(obj.Name, false)
 		return nil
 	}
@@ -99,7 +113,7 @@ func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.Shar
 
 	desired := obj.ClusterStatus
 	switch {
-	case connected && obj.ClusterStatus == model.ClusterStatusError:
+	case connected && (obj.ClusterStatus == model.ClusterStatusPending || obj.ClusterStatus == model.ClusterStatusError):
 		desired = model.ClusterStatusRunning
 	case !connected && obj.ClusterStatus == model.ClusterStatusRunning:
 		desired = model.ClusterStatusError
@@ -112,15 +126,13 @@ func checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, factory db.Shar
 		return nil
 	}
 
-	if err := factory.Cluster().InternalUpdate(ctx, obj.Id, map[string]interface{}{
-		"status": desired,
-	}); err != nil {
+	if err := factory.Cluster().InternalUpdate(ctx, obj.Id, map[string]interface{}{"status": desired}); err != nil {
 		if utilerrors.IsNotUpdated(err) {
 			return nil
 		}
 		return err
 	}
-	klog.V(2).Infof("[TunnelSyncer] cluster %s status %d -> %d (agent_connected=%v)",
-		obj.Name, obj.ClusterStatus, desired, connected)
+
+	klog.V(2).Infof("[TunnelSyncer] cluster %s status %d -> %d (agent_connected=%v)", obj.Name, obj.ClusterStatus, desired, connected)
 	return nil
 }

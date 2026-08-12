@@ -23,50 +23,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
-	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
-
-// 创建前预检查
-// 1. 创建 node 时 plan 必须存在
-func (p *plan) preCreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error {
-	_, err := p.Get(ctx, pid)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *plan) CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error {
-	if err := p.preCreateNode(ctx, pid, req); err != nil {
-		return err
-	}
-
-	if err := p.createNode(ctx, pid, req); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (p *plan) CreateNodes(ctx context.Context, planId int64, nodes []types.CreatePlanNodeRequest) error {
-	_, err := p.Get(ctx, planId)
-	if err != nil {
-		return err
-	}
-
-	for _, node := range nodes {
-		if err = p.createNode(ctx, planId, &node); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-func (p *plan) UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error {
-	return nil
-}
 
 // 删除多余的节点
 // 新增没有的节点
@@ -127,56 +87,6 @@ func (p *plan) buildNodeFromRequest(ctx context.Context, planId int64, req *type
 		Ip:     req.Ip,
 		Auth:   auth,
 	}, nil
-}
-
-func (p *plan) createNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) error {
-	node, err := p.buildNodeFromRequest(ctx, planId, req)
-	if err != nil {
-		klog.Errorf("failed to build plan(%d) node from request: %v", planId, err)
-		return err
-	}
-	if _, err = p.factory.Plan().CreateNode(ctx, node); err != nil {
-		klog.Errorf("failed to create node(%s): %v", req.Name, err)
-		return err
-	}
-
-	return nil
-}
-
-func (p *plan) DeleteNode(ctx context.Context, pid int64, nodeId int64) error {
-	object, err := p.factory.Plan().GetNode(ctx, nodeId)
-	if err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return errors.ErrNodeNotFound
-		}
-		klog.Errorf("failed to get plan(%d) node(%d): %v", pid, nodeId, err)
-		return errors.ErrServerInternal
-	}
-
-	// 非超级管理员只能删除自己的节点
-	if err := controllerutil.CheckResourceOwner(ctx, object.UserId); err != nil {
-		return err
-	}
-
-	if _, err := p.factory.Plan().DeleteNode(ctx, nodeId); err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return errors.ErrNodeNotFound
-		}
-		klog.Errorf("failed to delete plan(%d) node(%d): %v", pid, nodeId, err)
-		return errors.ErrServerInternal
-	}
-
-	return nil
-}
-
-func (p *plan) GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error) {
-	object, err := p.factory.Plan().GetNode(ctx, nodeId)
-	if err != nil {
-		klog.Errorf("failed to get plan(%d) node(%d): %v", pid, nodeId, err)
-		return nil, errors.ErrServerInternal
-	}
-
-	return p.modelNode2Type(object)
 }
 
 func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {

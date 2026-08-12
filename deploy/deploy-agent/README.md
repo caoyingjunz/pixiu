@@ -23,6 +23,7 @@
 
 - Pixiu 控制面已部署，Agent 可访问控制面地址
 - 已在控制面创建 Agent 并获取 Token
+- Agent节点已安装 docker
 
 ## 安装步骤
 
