@@ -431,8 +431,20 @@ const (
 
 type PlanNodeAuth struct {
 	Type     AuthType      `json:"type"` // 节点认证模式，支持 key 和 password
+	Port     int           `json:"port,omitempty"`
 	Key      *KeySpec      `json:"key,omitempty"`
 	Password *PasswordSpec `json:"password,omitempty"`
+}
+
+const DefaultSSHPort = 22
+
+// SSHPort returns the configured SSH port, falling back to the standard port
+// for old node records and invalid values.
+func (a PlanNodeAuth) SSHPort() int {
+	if a.Port < 1 || a.Port > 65535 {
+		return DefaultSSHPort
+	}
+	return a.Port
 }
 
 type PlanTask struct {

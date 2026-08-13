@@ -20,50 +20,50 @@ const MultiModeTemplate = `# Render below by Pixiu engine
 [docker-master]
 {{- range .DockerMaster }}
 {{- if eq .Auth.Type "password" }}
-{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
 {{- end }}
 {{- if eq .Auth.Type "key" }}
-{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}
 {{- end }}
 {{- end }}
 
 [docker-node]
 {{- range .DockerNode }}
 {{- if eq .Auth.Type "password" }}
-{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
 {{- end }}
 {{- if eq .Auth.Type "key" }}
-{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}
 {{- end }}
 {{- end }}
 
 [containerd-master]
 {{- range .ContainerdMaster }}
 {{- if eq .Auth.Type "password" }}
-{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
 {{- end }}
 {{- if eq .Auth.Type "key" }}
-{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}
 {{- end }}
 {{- end }}
 
 [containerd-node]
 {{- range .ContainerdNode }}
 {{- if eq .Auth.Type "password" }}
-{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
 {{- end }}
 {{- if eq .Auth.Type "key" }}
-{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}
 {{- end }}
 {{- end }}
 
 [storage]
 {{- range .StorageNode }}
 {{- if eq .Auth.Type "password" }}
-{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
+{{ .Name }} ansible_ssh_user={{ .Auth.Password.User }} ansible_ssh_pass={{ .Auth.Password.Password }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}{{ if ne .Auth.Password.User "root" }} ansible_become=true ansible_become_method=sudo ansible_become_user=root ansible_become_password={{ .Auth.Password.Password }}{{ end }}
 {{- end }}
 {{- if eq .Auth.Type "key" }}
-{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}
+{{ .Name }} ansible_ssh_user=root ansible_ssh_private_key_file={{ .Auth.Key.File }}{{ if ne .Auth.SSHPort 22 }} ansible_ssh_port={{ .Auth.SSHPort }}{{ end }}
 {{- end }}
 {{- end }}
 
