@@ -4,12 +4,6 @@ on:
   push:
     branches:
       - "*"
-    paths-ignore:
-      - 'docs/**'
-      - 'cmd/cluster-agent/**'
-      - 'docker/Dockerfile-cluster-agent'
-      - 'deploy/agent/**'
-      - '.github/workflows/build-cluster-agent-image.yml'
 
 jobs:
   build:
