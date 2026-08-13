@@ -27,38 +27,25 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
+// ConfigInterface 计划配置子接口
+type ConfigInterface interface {
+	Get(ctx context.Context, planId int64) (*types.PlanConfig, error)
+}
+
+type planConfig struct {
+	p *plan
+}
+
+func (p *plan) Config() ConfigInterface {
+	return &planConfig{p: p}
+}
+
 func (p *plan) preCreateConfig(ctx context.Context, planId int64, req *types.CreatePlanConfigRequest) error {
 	_, err := p.factory.Plan().GetConfigByPlan(ctx, planId)
 	if err == nil {
 		return fmt.Errorf("plan(%d) 配置已存在", planId)
 	}
 
-	return nil
-}
-
-func (p *plan) CreateConfig(ctx context.Context, pid int64, req *types.CreatePlanConfigRequest) error {
-	// 创建前检查
-	if err := p.preCreateConfig(ctx, pid, req); err != nil {
-		return err
-	}
-
-	planConfig, err := p.buildPlanConfig(ctx, req)
-	if err != nil {
-		return err
-	}
-	planConfig.PlanId = pid
-	// 创建配置
-	if _, err = p.factory.Plan().CreateConfig(ctx, planConfig); err != nil {
-		klog.Errorf("failed to create plan(%s) config: %v", pid, err)
-		return err
-	}
-
-	return nil
-}
-
-// UpdateConfig
-// TODO
-func (p *plan) UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error {
 	return nil
 }
 
@@ -123,23 +110,14 @@ func (p *plan) UpdateConfigIfNeeded(ctx context.Context, planId int64, req *type
 	return nil
 }
 
-func (p *plan) DeleteConfig(ctx context.Context, pid int64, cfgId int64) error {
-	if _, err := p.factory.Plan().DeleteConfig(ctx, cfgId); err != nil {
-		klog.Errorf("failed to delete plan(%d) config(%d): %v", pid, cfgId, err)
-		return errors.ErrServerInternal
-	}
-
-	return nil
-}
-
-func (p *plan) GetConfig(ctx context.Context, pid int64) (*types.PlanConfig, error) {
-	object, err := p.factory.Plan().GetConfigByPlan(ctx, pid)
+func (pc *planConfig) Get(ctx context.Context, pid int64) (*types.PlanConfig, error) {
+	object, err := pc.p.factory.Plan().GetConfigByPlan(ctx, pid)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) config: %v", pid, err)
 		return nil, errors.ErrServerInternal
 	}
 
-	return p.modelConfig2Type(object)
+	return pc.p.modelConfig2Type(object)
 }
 
 func (p *plan) buildAndCleanKubernetesConfig(ks types.KubernetesSpec) (string, error) {

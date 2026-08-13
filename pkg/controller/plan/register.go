@@ -35,6 +35,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/token"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
@@ -97,10 +98,12 @@ func (c Register) finishWithKubeConfig(config64 string) error {
 	if err != nil {
 		return fmt.Errorf("get clusters error: %v", err)
 	}
+
+	isAgentMode := c.data.Plan.ExecMode == model.PlanExecModeAgent
 	if len(objs) == 0 {
 		kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
 		nodes, _ := kubeNode.Marshal()
-		_, err = c.factory.Cluster().Create(context.TODO(), &model.Cluster{
+		clusterObj := &model.Cluster{
 			Name:          uuid.NewRandName(8),
 			AliasName:     c.data.Plan.Name,
 			ClusterType:   model.ClusterTypeCustom,
@@ -110,14 +113,34 @@ func (c Register) finishWithKubeConfig(config64 string) error {
 			Protected:     true,
 			Nodes:         nodes,
 			KubeConfig:    config64,
-		})
+		}
+		if isAgentMode {
+			agentToken, tokenErr := token.Generate()
+			if tokenErr != nil {
+				return fmt.Errorf("failed to generate agent token: %v", tokenErr)
+			}
+			clusterObj.ConnectMode = model.ConnectModeTunnel
+			clusterObj.AgentToken = agentToken
+		}
+		_, err = c.factory.Cluster().Create(context.TODO(), clusterObj)
 		if err != nil {
 			klog.Errorf("failed to register cluster for plan: %v", err)
 			return fmt.Errorf("failed to create cluster for plan %v", err)
 		}
 	} else {
-		if err = c.factory.Cluster().UpdateByPlan(context.TODO(),
-			c.data.PlanId, map[string]interface{}{"kube_config": config64}); err != nil {
+		updates := map[string]interface{}{"kube_config": config64}
+		if isAgentMode {
+			updates["connect_mode"] = model.ConnectModeTunnel
+			// 已有 token 不覆盖，避免已部署的 cluster-agent 失效
+			if objs[0].AgentToken == "" {
+				agentToken, tokenErr := token.Generate()
+				if tokenErr != nil {
+					return fmt.Errorf("failed to generate agent token: %v", tokenErr)
+				}
+				updates["agent_token"] = agentToken
+			}
+		}
+		if err = c.factory.Cluster().UpdateByPlan(context.TODO(), c.data.PlanId, updates); err != nil {
 			return err
 		}
 	}

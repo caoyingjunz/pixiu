@@ -17,9 +17,9 @@ limitations under the License.
 package plan
 
 import (
-	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
@@ -38,28 +38,19 @@ func NewRouter(o *options.Options) {
 func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
 	persist := false
 	group := &apiregistry.Group{
-		Name:    "部署",
+		Name:    "部署集群",
 		BaseURL: "/pixiu/plans",
 		Entries: []apiregistry.RouteEntry{
 			{Method: "POST", RelativePath: "", Handler: t.createPlan, Description: "创建部署"},
-			{Method: "PUT", RelativePath: "/:planId", Handler: t.updatePlan, Description: "更新部署2", Persist: &persist},
+			{Method: "PUT", RelativePath: "/:planId", Handler: t.updatePlan, Description: "更新部署", Persist: &persist},
 			{Method: "DELETE", RelativePath: "/:planId", Handler: t.deletePlan, Description: "删除部署"},
-			{Method: "GET", RelativePath: "/:planId", Handler: t.getPlan, Description: "部署详情"},
+			{Method: "GET", RelativePath: "/:planId", Handler: t.getPlan, Description: "获取部署详情"},
 			{Method: "GET", RelativePath: "", Handler: t.listPlans, Description: "部署列表"},
-			{Method: "GET", RelativePath: "/:planId/resources", Handler: t.getPlanWithSubResources, Description: "更新部署"},
+
+			// 对任务的操作接口
 			{Method: "POST", RelativePath: "/:planId/start", Handler: t.startPlan, Description: "启动"},
-			{Method: "POST", RelativePath: "/:planId/stop", Handler: t.stopPlan, Description: "终止"},
 			{Method: "POST", RelativePath: "/:planId/destroy", Handler: t.destroyPlan, Description: "销毁"},
-			{Method: "POST", RelativePath: "/:planId/nodes", Handler: t.createPlanNode, Description: "部署节点", Persist: &persist},
-			{Method: "PUT", RelativePath: "/:planId/nodes/:nodeId", Handler: t.updatePlanNode, Description: "更新部署计划节点", Persist: &persist},
-			{Method: "DELETE", RelativePath: "/:planId/nodes/:nodeId", Handler: t.deletePlanNode, Description: "删除部署计划节点", Persist: &persist},
-			{Method: "GET", RelativePath: "/:planId/nodes/:nodeId", Handler: t.getPlanNode, Description: "获取部署计划节点详情", Persist: &persist},
-			{Method: "GET", RelativePath: "/:planId/nodes", Handler: t.listPlanNodes, Description: "获取部署计划节点列表", Persist: &persist},
-			//{Method: "POST", RelativePath: "/:planId/configs", Handler: t.createPlanConfig, Description: "创建部署配置", Persist: &persist},
-			//{Method: "PUT", RelativePath: "/:planId/configs/:configId", Handler: t.updatePlanConfig, Description: "更新部署配置", Persist: &persist},
-			//{Method: "DELETE", RelativePath: "/:planId/configs/:configId", Handler: t.deletePlanConfig, Description: "删除部署配置", Persist: &persist},
-			//{Method: "GET", RelativePath: "/:planId/configs", Handler: t.getPlanConfig, Description: "配置", Persist: &persist},
-			{Method: "POST", RelativePath: "/:planId/tasks/:taskId", Handler: t.runTasks, Description: "执行"},
+
 			{Method: "GET", RelativePath: "/:planId/tasks", Handler: t.listTasks, Description: "查询任务"},
 			{Method: "GET", RelativePath: "/:planId/tasks/:taskId/logs", Handler: t.watchTaskLog, Description: "部署日志"},
 		},

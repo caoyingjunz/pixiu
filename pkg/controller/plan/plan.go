@@ -18,7 +18,6 @@ package plan
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -35,6 +34,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"github.com/caoyingjunz/pixiu/pkg/util/token"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
 
@@ -53,29 +53,20 @@ type Interface interface {
 
 	// Start 启动部署任务
 	Start(ctx context.Context, pid int64) error
-	// Stop 终止部署任务
-	Stop(ctx context.Context, pid int64) error
 	// Destroy 销毁k8s集群
 	Destroy(ctx context.Context, pid int64, restart bool) error
 
-	CreateNode(ctx context.Context, pid int64, req *types.CreatePlanNodeRequest) error
-	UpdateNode(ctx context.Context, pid int64, nodeId int64, req *types.UpdatePlanNodeRequest) error
-	DeleteNode(ctx context.Context, pid int64, nodeId int64) error
-	GetNode(ctx context.Context, pid int64, nodeId int64) (*types.PlanNode, error)
 	ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error)
-
-	CreateConfig(ctx context.Context, planId int64, req *types.CreatePlanConfigRequest) error
-	UpdateConfig(ctx context.Context, pid int64, cfgId int64, req *types.UpdatePlanConfigRequest) error
-	DeleteConfig(ctx context.Context, pid int64, cfgId int64) error
-	GetConfig(ctx context.Context, planId int64) (*types.PlanConfig, error)
 
 	// Run 启动 plan worker 处理协程
 	Run(ctx context.Context, workers int) error
 
-	RunTask(ctx context.Context, planId int64, taskId int64) error
 	ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error)
 	WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request)
 	WatchTaskLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error
+
+	// Config 计划配置子接口
+	Config() ConfigInterface
 }
 
 var taskQueue workqueue.RateLimitingInterface
@@ -137,11 +128,14 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	}
 
 	planModel := &model.Plan{
-		Name:          req.Name,
-		UserId:        req.UserId,
-		Description:   req.Description,
-		ExecMode:      req.ExecMode,
-		DeployAgentId: req.DeployAgentId,
+		Name:              req.Name,
+		UserId:            req.UserId,
+		Description:       req.Description,
+		ExecMode:          req.ExecMode,
+		DeployAgentId:     req.DeployAgentId,
+		KubernetesVersion: req.Config.Kubernetes.KubernetesVersion,
+		NodeCount:         len(req.Nodes),
+		Status:            model.UnStartPlanStatus,
 	}
 	if planModel.ExecMode == "" {
 		planModel.ExecMode = model.PlanExecModeLocal
@@ -157,7 +151,7 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	// 如果启用pixiu注册功能，则创建容器服务
 	kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
 	nodes, _ := kubeNode.Marshal()
-	_, err = p.factory.Cluster().Create(ctx, &model.Cluster{
+	obj := &model.Cluster{
 		Name:          uuid.NewRandName(8),
 		AliasName:     req.Name,
 		ClusterType:   model.ClusterTypeCustom,
@@ -166,7 +160,20 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 		ClusterStatus: model.ClusterStatusUnStart,
 		Protected:     true,
 		Nodes:         nodes,
-	})
+	}
+
+	// agent 模式（单向网络）使用反向隧道，而非直连 apiServer
+	if planModel.ExecMode == model.PlanExecModeAgent {
+		agentToken, tokenErr := token.Generate()
+		if tokenErr != nil {
+			klog.Errorf("failed to generate agent token for plan %s: %v", req.Name, tokenErr)
+			_ = p.Delete(ctx, planId)
+			return errors.ErrServerInternal
+		}
+		obj.AgentToken = agentToken
+		obj.ConnectMode = model.ConnectModeTunnel
+	}
+	_, err = p.factory.Cluster().Create(ctx, obj)
 	if err != nil {
 		klog.Errorf("failed to register cluster for plan: %v", err)
 		_ = p.Delete(ctx, planId)
@@ -227,6 +234,7 @@ func (p *plan) preUpdate(ctx context.Context, planId int64) (*model.Plan, error)
 
 // Update
 // 更新部署计划
+// TODO: 实现太过丑陋，后续优化
 func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
 	oldPlan, err := p.preUpdate(ctx, planId)
 	if err != nil {
@@ -273,9 +281,24 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	if oldPlan.DeployAgentId != deployAgentId {
 		updates["deploy_agent_id"] = deployAgentId
 	}
+	// 同步冗余字段：k8s 版本来自配置，节点数来自本次节点列表
+	if oldPlan.KubernetesVersion != req.Config.Kubernetes.KubernetesVersion {
+		updates["kubernetes_version"] = req.Config.Kubernetes.KubernetesVersion
+	}
+	if oldPlan.NodeCount != len(req.Nodes) {
+		updates["node_count"] = len(req.Nodes)
+	}
 	if len(updates) != 0 {
 		if err = p.factory.Plan().Update(ctx, planId, *req.ResourceVersion, updates); err != nil {
 			klog.Errorf("failed to update plan %d: %v", planId, err)
+			return errors.ErrServerInternal
+		}
+	}
+
+	// 切换为 agent 模式时，同步关联集群为隧道连接
+	if oldPlan.ExecMode != execMode && execMode == model.PlanExecModeAgent {
+		if err = p.syncClusterToTunnel(ctx, planId); err != nil {
+			klog.Errorf("failed to sync cluster connect mode for plan(%d): %v", planId, err)
 			return errors.ErrServerInternal
 		}
 	}
@@ -316,7 +339,7 @@ func (p *plan) preDelete(ctx context.Context, planId int64) error {
 	}
 
 	// 有正在运行中的任务则不允许删除
-	isRunning, err := p.TaskIsRunning(ctx, planId)
+	isRunning, err := p.IsRunning(ctx, planId)
 	if err != nil {
 		return errors.ErrServerInternal
 	}
@@ -402,7 +425,7 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 	}
 
 	// 追加配置
-	cfg, err := p.GetConfig(ctx, planId)
+	cfg, err := p.Config().Get(ctx, planId)
 	if err != nil {
 		return nil, err
 	}
@@ -457,15 +480,11 @@ func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interfac
 		return nil, errors.ErrServerInternal
 	}
 
-	ps := make([]types.Plan, 0)
+	ps := make([]types.Plan, 0, len(objects))
 	for _, object := range objects {
 		no, err := p.model2Type(&object)
 		if err != nil {
 			return nil, err
-		}
-		// 状态过滤（在内存中过滤，因为状态来自关联表）
-		if listOption.Step != "" && string(no.Step) != listOption.Step {
-			continue
 		}
 		ps = append(ps, *no)
 	}
@@ -528,7 +547,7 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 // 3. 运行任务
 func (p *plan) preStart(ctx context.Context, pid int64) error {
 	// 4. 校验运行任务
-	isRunning, err := p.TaskIsRunning(ctx, pid)
+	isRunning, err := p.IsRunning(ctx, pid)
 	if err != nil {
 		return errors.ErrServerInternal
 	}
@@ -537,7 +556,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	}
 
 	// 1. 校验配置
-	cfg, err := p.GetConfig(ctx, pid)
+	cfg, err := p.Config().Get(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("failed to get plan(%d) config %v", pid, err)
 	}
@@ -581,26 +600,49 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	return nil
 }
 
-// TaskIsRunning
+// IsRunning
 // 校验是否有任务正在运行
-func (p *plan) TaskIsRunning(ctx context.Context, planId int64) (bool, error) {
-	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+func (p *plan) IsRunning(ctx context.Context, planId int64) (bool, error) {
+	object, err := p.factory.Plan().Get(ctx, planId)
 	if err != nil {
-		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
+		klog.Errorf("failed to get plan %d: %v", planId, err)
+		return false, errors.ErrServerInternal
+	}
+	if object == nil {
 		return false, errors.ErrServerInternal
 	}
 
-	for _, task := range tasks {
-		if task.Status == model.RunningPlanStatus || task.Status == model.DestroyingPlanStatus || task.Status == model.StoppingPlanStatus {
-			klog.Warningf("task %d of plan %d is running", task.Id, planId)
-			return true, nil
-		}
+	switch object.Status {
+	case model.RunningPlanStatus, model.DestroyingPlanStatus, model.StoppingPlanStatus:
+		klog.Warningf("plan %d is running with status %s", planId, object.Status)
+		return true, nil
+	default:
+		return false, nil
 	}
+}
 
-	return false, nil
+// checkPlanAccess 校验当前用户是否有权操作该部署计划：超管放行 → owner 放行 → scope 命中放行。
+func (p *plan) checkPlanAccess(ctx context.Context, pid int64) error {
+	object, err := p.factory.Plan().Get(ctx, pid)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return errors.ErrPlanNotFound
+		}
+		klog.Errorf("get plan %d: %v", pid, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrPlanNotFound
+	}
+	return util.CheckResourceAccess(ctx, p.factory, object.UserId, types.ResourceTypePlan, pid)
 }
 
 func (p *plan) Start(ctx context.Context, pid int64) error {
+	// 非超级管理员只能启动自己的部署计划或被 scope 授权的计划
+	if err := p.checkPlanAccess(ctx, pid); err != nil {
+		klog.Errorf("start plan(%d) access check failed: %v", pid, err)
+		return err
+	}
 	// 启动前校验
 	if err := p.preStart(ctx, pid); err != nil {
 		klog.Errorf("pre-start check failed: %v", err)
@@ -611,52 +653,18 @@ func (p *plan) Start(ctx context.Context, pid int64) error {
 	return nil
 }
 
-// Stop
-// 已完成的忽略，剩余非未开始的设置成停止
-func (p *plan) Stop(ctx context.Context, pid int64) error {
-	return nil
-}
-
 // Destroy 全部设置成销毁
 func (p *plan) Destroy(ctx context.Context, pid int64, restart bool) error {
+	// 非超级管理员只能销毁自己的部署计划或被 scope 授权的计划
+	if err := p.checkPlanAccess(ctx, pid); err != nil {
+		klog.Errorf("destroy plan(%d) access check failed: %v", pid, err)
+		return err
+	}
+
 	return nil
 }
 
 func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
-	status := model.SuccessPlanStatus
-
-	// 尝试获取最新的任务状态
-	// 获取失败也不中断返回
-	if tasks, err := p.factory.Plan().ListTasks(context.TODO(), o.Id); err == nil {
-		if len(tasks) == 0 {
-			status = model.UnStartPlanStatus
-		} else {
-			for _, task := range tasks {
-				if task.Status != model.SuccessPlanStatus {
-					status = task.Status
-					break
-				}
-			}
-		}
-	}
-
-	// 获取 kubernetes 版本，获取失败不中断
-	kubernetesVersion := ""
-	if cfg, err := p.factory.Plan().GetConfigByPlan(context.TODO(), o.Id); err == nil && cfg != nil {
-		var kubeSpec struct {
-			KubernetesVersion string `json:"kubernetes_version"`
-		}
-		if err := json.Unmarshal([]byte(cfg.Kubernetes), &kubeSpec); err == nil {
-			kubernetesVersion = kubeSpec.KubernetesVersion
-		}
-	}
-
-	// 获取节点总数，获取失败不中断
-	nodeCount := 0
-	if nodes, err := p.factory.Plan().ListNodes(context.TODO(), o.Id); err == nil {
-		nodeCount = len(nodes)
-	}
-
 	return &types.Plan{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -668,12 +676,34 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		},
 		Name:              o.Name,
 		Description:       o.Description,
-		Step:              status,
-		KubernetesVersion: kubernetesVersion,
-		NodeCount:         nodeCount,
+		Step:              o.Status,
+		KubernetesVersion: o.KubernetesVersion,
+		NodeCount:         o.NodeCount,
 		ExecMode:          o.ExecMode,
 		DeployAgentId:     o.DeployAgentId,
 	}, nil
+}
+
+// syncClusterToTunnel 将 plan 关联集群切换为隧道模式，并在缺少 token 时生成。
+// TODO: 暂不实现隧道切换直连
+func (p *plan) syncClusterToTunnel(ctx context.Context, planId int64) error {
+	obj, err := p.factory.Cluster().GetBy(ctx, db.WithPlan(planId))
+	if err != nil {
+		return err
+	}
+	if obj == nil {
+		return nil
+	}
+
+	updates := map[string]interface{}{"connect_mode": model.ConnectModeTunnel}
+	if obj.AgentToken == "" {
+		agentToken, tokenErr := token.Generate()
+		if tokenErr != nil {
+			return tokenErr
+		}
+		updates["agent_token"] = agentToken
+	}
+	return p.factory.Cluster().UpdateByPlan(ctx, planId, updates)
 }
 
 func NewPlan(cfg config.Config, f db.ShareDaoFactory) *plan {

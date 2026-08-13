@@ -19,6 +19,7 @@ package jobmanager
 import (
 	"context"
 	"sync"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,8 @@ import (
 
 const (
 	DefaultSyncInterval = "@every 30s"
+	// clusterProbeTimeout 直连集群拨测超时，避免 apiserver 无响应时 goroutine 长时间挂起
+	clusterProbeTimeout = 15 * time.Second
 )
 
 type ClusterSyncer struct {
@@ -64,7 +67,11 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 		return nil
 	}
 
-	clusters, err := cs.factory.Cluster().List(ctx)
+	// 仅同步直连集群（隧道集群由 TunnelSyncer 维护）且非授权集群
+	clusters, err := cs.factory.Cluster().List(ctx,
+		db.WithPermissionID(0),
+		db.WithConnectMode(int(model.ConnectModeDirect)),
+	)
 	if err != nil {
 		klog.Errorf("[ClusterSyncer] failed to get clusters: %v", err)
 		return err
@@ -158,7 +165,9 @@ func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 		return "", "", err
 	}
 
-	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	probeCtx, cancel := context.WithTimeout(context.Background(), clusterProbeTimeout)
+	defer cancel()
+	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{})
 	if err != nil {
 		return "", "", err
 	}

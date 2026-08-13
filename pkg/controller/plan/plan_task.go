@@ -32,12 +32,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/container"
 )
 
-// RunTask
-// 只运行指定的计划任务
-func (p *plan) RunTask(ctx context.Context, planId int64, taskId int64) error {
-	return nil
-}
-
 func (p *plan) ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error) {
 	objects, err := p.factory.Plan().ListTasks(ctx, planId)
 	if err != nil {
