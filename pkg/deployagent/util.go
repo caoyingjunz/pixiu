@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -114,7 +115,7 @@ func sshGetAdminConf(ip, authJSON string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported auth type %v", auth.Type)
 	}
-	sshClient, err := ssh.Dial("tcp", net.JoinHostPort(ip, "22"), &ssh.ClientConfig{
+	sshClient, err := ssh.Dial("tcp", net.JoinHostPort(ip, strconv.Itoa(auth.SSHPort())), &ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{authMethod},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
