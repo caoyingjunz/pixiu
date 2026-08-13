@@ -3,7 +3,7 @@
 ### 下载离线包，并传到离线部署节点
 - builder 二进制和 pixiu 镜像包 获取 [Pixiu基础包](https://github.com/offline-hub/repo/releases/tag/download)
 - k8s 镜像包获取 [镜像包](https://github.com/offline-hub/repo/releases/tag/images)
-- 安装包获取 [Ubuntu-v1.31.6](https://github.com/offline-hub/repo/releases/tag/v1.31.6)
+- 安装包获取 [v1.31.6](https://github.com/offline-hub/repo/releases/tag/v1.31.6)
 
 ### 离线包部署
 以系统 v1.31.6为例，将下载的镜像上传到服务器目录
@@ -51,7 +51,7 @@ Registry:  10.206.32.17:5000
 ```
 ### 加载镜像，安装运行环境
 - [Ubuntu24.04](Ubuntu.md)
-- [麒麟V10](KylinV10.md)
+- [KylinV10](KylinV10.md)
 
 ### 安装 pixiu
 

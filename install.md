@@ -2,6 +2,8 @@
 ```bash
 确保 docker 已经安装
 ```
+[Docker 极速安装](./deploy/offline/docker.md)
+
 # 数据库
 ```bash
 # 选择1：直接提供可用数据库，初始化 pixiu 数据库（CREATE DATABASE pixiu;）

@@ -26,6 +26,8 @@
 - Agent节点已安装 docker
 
 ## 安装步骤
+### 0. docker 极速安装
+[Docker极速安装](../offline/docker.md)
 
 ### 1. 获取 Token
 
