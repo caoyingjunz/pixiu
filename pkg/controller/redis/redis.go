@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	goredis "github.com/redis/go-redis/v9"
 	"k8s.io/klog/v2"
@@ -53,6 +54,9 @@ const (
 	maxWriteKeySize      = 512                    // 写入 key 最大长度（rune）
 	maxWriteValueSize    = 65536                  // 写入 string 值最大长度（rune）
 	maxTTLSeconds        = int64(365 * 24 * 3600) // TTL 上限 1 年
+	previewBytesLimit    = 65536                  // 值预览 GETRANGE 最多拉取字节数（与写入上限对齐，保证列内展示真实值）
+	previewRuneLimit     = 4096                   // 值预览最多返回字符数（rune，与详情截断上限一致）
+	maxBatchDeleteKeys   = 500                    // 单次批量删除的 key 数上限
 )
 
 type Getter interface {
@@ -70,6 +74,10 @@ type Interface interface {
 	// 写操作：新增 key（仅 string）/删除 key/修改 TTL
 	CreateKey(ctx context.Context, datasourceId int64, db *int, req *types.RedisCreateKeyRequest) error
 	DeleteKey(ctx context.Context, datasourceId int64, db *int, key string) error
+	// DeleteKeys 批量删除 key，返回实际删除数量
+	DeleteKeys(ctx context.Context, datasourceId int64, db *int, keys []string) (*types.RedisDeleteKeysResult, error)
+	// UpdateKeyValue 修改 string 类型 key 的值（保持原 TTL）
+	UpdateKeyValue(ctx context.Context, datasourceId int64, db *int, req *types.RedisUpdateKeyValueRequest) error
 	SetKeyTTL(ctx context.Context, datasourceId int64, db *int, key string, ttl int64) error
 }
 
@@ -552,7 +560,73 @@ func (c *controller) ScanKeys(ctx context.Context, datasourceId int64, db *int, 
 		}
 	}
 
+	// 尽力补充值预览与元素计数；预览失败不影响 key 列表返回
+	attachPreviews(ctx, client, items)
+
 	return &types.RedisScanResult{Page: page, PageSize: pageSize, HasMore: hasMore, Keys: items}, nil
+}
+
+// attachPreviews 批量补充值预览：string 取前段文本，集合类取元素数量
+func attachPreviews(ctx context.Context, client goredis.UniversalClient, items []types.RedisKeyItem) {
+	if len(items) == 0 {
+		return
+	}
+	pipe := client.Pipeline()
+	strCmds := make([]*goredis.StringCmd, len(items))
+	lenCmds := make([]*goredis.IntCmd, len(items))
+	for i := range items {
+		item := &items[i]
+		if item.TTL == -2 {
+			continue // key 已过期
+		}
+		switch item.Type {
+		case "string":
+			strCmds[i] = pipe.GetRange(ctx, item.Key, 0, previewBytesLimit-1)
+			lenCmds[i] = pipe.StrLen(ctx, item.Key)
+		case "hash":
+			lenCmds[i] = pipe.HLen(ctx, item.Key)
+		case "list":
+			lenCmds[i] = pipe.LLen(ctx, item.Key)
+		case "set":
+			lenCmds[i] = pipe.SCard(ctx, item.Key)
+		case "zset":
+			lenCmds[i] = pipe.ZCard(ctx, item.Key)
+		case "stream":
+			lenCmds[i] = pipe.XLen(ctx, item.Key)
+		}
+	}
+	if _, err := pipe.Exec(ctx); err != nil {
+		klog.Warningf("failed to fetch redis value previews: %v", err)
+		return
+	}
+	for i := range items {
+		item := &items[i]
+		if lenCmds[i] != nil {
+			if n, err := lenCmds[i].Result(); err == nil {
+				item.Length = n
+			}
+		}
+		if strCmds[i] != nil {
+			if preview, err := strCmds[i].Result(); err == nil {
+				item.ValuePreview, item.PreviewTruncated = safePreview(preview, item.Length)
+			}
+		}
+	}
+}
+
+// safePreview 按 rune 截断预览文本，修正 GETRANGE 截在多字节字符中间的问题，返回截断标记
+func safePreview(raw string, fullLen int64) (string, bool) {
+	truncated := int64(len(raw)) < fullLen
+	// GETRANGE 可能截断在多字节 UTF-8 字符中间，剥除尾部无效字节
+	for len(raw) > 0 && !utf8.ValidString(raw) {
+		raw = raw[:len(raw)-1]
+		truncated = true
+	}
+	if runes := []rune(raw); len(runes) > previewRuneLimit {
+		raw = string(runes[:previewRuneLimit])
+		truncated = true
+	}
+	return raw, truncated
 }
 
 func (c *controller) GetKeyDetail(ctx context.Context, datasourceId int64, db *int, key string) (*types.RedisKeyDetail, error) {
@@ -649,6 +723,80 @@ func (c *controller) DeleteKey(ctx context.Context, datasourceId int64, db *int,
 	}
 	if n == 0 {
 		return apierrors.NewError(fmt.Errorf("key not found"), http.StatusNotFound)
+	}
+	return nil
+}
+
+// DeleteKeys 批量删除 key，返回实际删除数量（为 0 不报错）
+func (c *controller) DeleteKeys(ctx context.Context, datasourceId int64, db *int, keys []string) (*types.RedisDeleteKeysResult, error) {
+	// 过滤空值并去重，保留 key 原始内容（不裁剪空白，空白可能是 key 的一部分）
+	seen := make(map[string]struct{}, len(keys))
+	cleaned := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		cleaned = append(cleaned, key)
+	}
+	if len(cleaned) == 0 {
+		return nil, apierrors.NewError(fmt.Errorf("keys is required"), http.StatusBadRequest)
+	}
+	if len(cleaned) > maxBatchDeleteKeys {
+		return nil, apierrors.NewError(fmt.Errorf("batch delete exceeds limit %d keys", maxBatchDeleteKeys), http.StatusBadRequest)
+	}
+	client, _, err := c.clientFor(ctx, datasourceId, db)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := opContext(ctx)
+	defer cancel()
+
+	n, err := client.Del(ctx, cleaned...).Result()
+	if err != nil {
+		return nil, wrapRedisErr(err)
+	}
+	return &types.RedisDeleteKeysResult{Deleted: n}, nil
+}
+
+// UpdateKeyValue 修改 string 类型 key 的值并保持原 TTL；非 string 类型拒绝
+func (c *controller) UpdateKeyValue(ctx context.Context, datasourceId int64, db *int, req *types.RedisUpdateKeyValueRequest) error {
+	if req == nil || strings.TrimSpace(req.Key) == "" {
+		return apierrors.NewError(fmt.Errorf("key is required"), http.StatusBadRequest)
+	}
+	if runes := []rune(req.Value); int64(len(runes)) > maxWriteValueSize {
+		return apierrors.NewError(fmt.Errorf("value length exceeds limit %d", maxWriteValueSize), http.StatusBadRequest)
+	}
+	client, _, err := c.clientFor(ctx, datasourceId, db)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := opContext(ctx)
+	defer cancel()
+
+	keyType, err := client.Type(ctx, req.Key).Result()
+	if err != nil {
+		return wrapRedisErr(err)
+	}
+	if keyType == "none" {
+		return apierrors.NewError(fmt.Errorf("key not found"), http.StatusNotFound)
+	}
+	if keyType != "string" {
+		return apierrors.NewError(fmt.Errorf("only string keys can be edited, current type: %s", keyType), http.StatusConflict)
+	}
+
+	// 写回时保持原 TTL（剩余 <=0 表示永不过期）
+	var expiration time.Duration
+	if ttl, err := client.TTL(ctx, req.Key).Result(); err == nil && ttl > 0 {
+		expiration = ttl
+	}
+	if _, err = client.Set(ctx, req.Key, req.Value, expiration).Result(); err != nil {
+		return wrapRedisErr(err)
 	}
 	return nil
 }

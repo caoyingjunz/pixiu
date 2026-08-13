@@ -45,6 +45,12 @@ type RedisKeyItem struct {
 	Key  string `json:"key"`
 	Type string `json:"type"` // string/hash/list/set/zset/stream 等
 	TTL  int64  `json:"ttl"`  // 秒；-1 永不过期，-2 key 已不存在
+	// ValuePreview 值预览：string 为截断后的值文本；集合类型为空（用 Length 展示元素数）
+	ValuePreview string `json:"value_preview,omitempty"`
+	// PreviewTruncated 预览是否被截断（string 值超出预览长度/字节限制）
+	PreviewTruncated bool `json:"preview_truncated,omitempty"`
+	// Length string 为字节长度；hash/list/set/zset/stream 为元素数量
+	Length int64 `json:"length,omitempty"`
 }
 
 // RedisScanResult SCAN 分页结果
@@ -79,4 +85,22 @@ type RedisSetTTLRequest struct {
 	Key string `json:"key" binding:"required"`
 	TTL int64  `json:"ttl"` // 秒；>=0 设置过期，-1 移除过期（PERSIST）
 	DB  *int   `json:"db,omitempty"`
+}
+
+// RedisDeleteKeysRequest 批量删除 key 请求
+type RedisDeleteKeysRequest struct {
+	Keys []string `json:"keys" binding:"required"`
+	DB   *int     `json:"db,omitempty"`
+}
+
+// RedisDeleteKeysResult 批量删除 key 结果
+type RedisDeleteKeysResult struct {
+	Deleted int64 `json:"deleted"` // 实际删除的 key 数量
+}
+
+// RedisUpdateKeyValueRequest 修改 string 类型 key 的值请求（保持原 TTL）
+type RedisUpdateKeyValueRequest struct {
+	Key   string `json:"key" binding:"required"`
+	Value string `json:"value"`
+	DB    *int   `json:"db,omitempty"`
 }

@@ -51,6 +51,8 @@ func (rr *redisRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "/:datasourceId/key", Handler: rr.getRedisKeyDetail, Description: "Redis Key 详情"},
 			{Method: "POST", RelativePath: "/:datasourceId/key", Handler: rr.createRedisKey, Description: "Redis 新增 Key"},
 			{Method: "DELETE", RelativePath: "/:datasourceId/key", Handler: rr.deleteRedisKey, Description: "Redis 删除 Key"},
+			{Method: "DELETE", RelativePath: "/:datasourceId/keys", Handler: rr.deleteRedisKeys, Description: "Redis 批量删除 Key"},
+			{Method: "PUT", RelativePath: "/:datasourceId/key", Handler: rr.updateRedisKeyValue, Description: "Redis 修改 Key 值"},
 			{Method: "POST", RelativePath: "/:datasourceId/key/ttl", Handler: rr.setRedisKeyTTL, Description: "Redis 修改 Key TTL"},
 		},
 	}

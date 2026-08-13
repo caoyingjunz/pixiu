@@ -178,6 +178,46 @@ func (rr *redisRouter) deleteRedisKey(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// deleteRedisKeys 批量删除 key（写操作），请求体传 keys 数组，返回实际删除数量
+func (rr *redisRouter) deleteRedisKeys(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		req types.RedisDeleteKeysRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = rr.c.Redis().DeleteKeys(c, m.DatasourceId, req.DB, req.Keys); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+// updateRedisKeyValue 修改 string 类型 key 的值（写操作，保持原 TTL）
+func (rr *redisRouter) updateRedisKeyValue(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		req types.RedisUpdateKeyValueRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = rr.c.Redis().UpdateKeyValue(c, m.DatasourceId, req.DB, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
 // setRedisKeyTTL 修改 key TTL（写操作）
 func (rr *redisRouter) setRedisKeyTTL(c *gin.Context) {
 	r := httputils.NewResponse()
