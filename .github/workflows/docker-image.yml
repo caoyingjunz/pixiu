@@ -10,6 +10,7 @@ on:
       - 'docker/Dockerfile-cluster-agent'
       - 'deploy/agent/**'
       - '.github/workflows/build-cluster-agent-image.yml'
+
 jobs:
   build:
     runs-on: ubuntu-latest
