@@ -40,12 +40,14 @@ const (
 type ClusterSyncer struct {
 	factory  db.ShareDaoFactory
 	disabled bool
+	backoff  *probeBackoff
 }
 
 func NewClusterSyncer(f db.ShareDaoFactory, disabled bool) *ClusterSyncer {
 	return &ClusterSyncer{
 		factory:  f,
 		disabled: disabled,
+		backoff:  newProbeBackoff(),
 	}
 }
 
@@ -81,15 +83,18 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	errCh := make(chan error, diff)
 	var wg sync.WaitGroup
 	wg.Add(diff)
+	exist := make(map[string]struct{}, diff)
 	for _, cluster := range clusters {
+		exist[cluster.Name] = struct{}{}
 		go func(c model.Cluster) {
 			defer wg.Done()
-			if err = doSync(cs.factory, c); err != nil {
+			if err = cs.doSync(c); err != nil {
 				errCh <- err
 			}
 		}(cluster)
 	}
 	wg.Wait()
+	cs.backoff.cleanup(exist)
 
 	select {
 	case err = <-errCh:
@@ -102,7 +107,7 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	return nil
 }
 
-func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
+func (cs *ClusterSyncer) doSync(cluster model.Cluster) error {
 	if cluster.PermissionId != 0 {
 		klog.V(2).Infof("authorized cluster %s(%d) needs no checking", cluster.AliasName, cluster.Id)
 		return nil
@@ -119,26 +124,39 @@ func doSync(f db.ShareDaoFactory, cluster model.Cluster) error {
 		}
 	}
 
+	// 指数退避：距上次探测未到退避间隔则跳过本轮
+	now := time.Now()
+	if !cs.backoff.shouldProbe(cluster.Name, now) {
+		return nil
+	}
+
 	var (
 		kubernetesVersion string
 		nodeData          string
 		err               error
 	)
 	status := model.ClusterStatusRunning
+	connected := true
+	probeReason := "Healthy"
+	probeMessage := ""
 	nodeData, kubernetesVersion, err = getNewestKubeStatus(cluster)
 	if err != nil {
 		klog.Errorf("[getNewestKubeStatus] %s failed: %v, cluster status will be marked as unavailable", cluster.AliasName, err)
 		status = model.ClusterStatusError
+		connected = false
+		probeReason = "ProbeFailed"
+		probeMessage = err.Error()
 	}
+	cs.backoff.markResult(cluster.Name, connected, now)
 
 	updates := make(map[string]interface{})
 	parseStatus(updates, status, kubernetesVersion, nodeData, cluster)
-	if len(updates) == 0 {
-		klog.V(2).Infof("cluster(%d:%s): no status changes to update", cluster.Id, cluster.Name)
-		return nil
+	// 每次探测都写入连通性 condition 并刷新探测时间（不受"无变化跳过"影响）
+	for k, v := range probeConditionUpdates(connected, probeReason, probeMessage, now) {
+		updates[k] = v
 	}
 
-	if err = f.Cluster().InternalUpdate(context.TODO(), cluster.Id, updates); err != nil {
+	if err = cs.factory.Cluster().InternalUpdate(context.TODO(), cluster.Id, updates); err != nil {
 		klog.Errorf("failed to update cluster(%s) status: %v", cluster.Name, err)
 	}
 	return nil

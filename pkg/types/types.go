@@ -137,6 +137,12 @@ type Cluster struct {
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
 
+	// 集群连通性探测状态（Ready condition 语义），由 syncer 定期维护
+	ProbeStatus   model.ClusterProbeStatus `json:"probe_status"`
+	ProbeReason   string                   `json:"probe_reason"`
+	ProbeMessage  string                   `json:"probe_message"`
+	LastProbeTime time.Time                `json:"last_probe_time"`
+
 	KubernetesMeta `json:",inline"`
 	TimeMeta       `json:",inline"`
 }
