@@ -39,6 +39,7 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           platforms: linux/amd64
+         # platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
           push: true
