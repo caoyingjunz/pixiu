@@ -141,7 +141,7 @@ type Cluster struct {
 	ProbeStatus   model.ClusterProbeStatus `json:"probe_status"`
 	ProbeReason   string                   `json:"probe_reason"`
 	ProbeMessage  string                   `json:"probe_message"`
-	LastProbeTime time.Time                `json:"last_probe_time"`
+	LastProbeTime *time.Time               `json:"last_probe_time,omitempty"`
 
 	KubernetesMeta `json:",inline"`
 	TimeMeta       `json:",inline"`

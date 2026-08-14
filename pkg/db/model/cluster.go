@@ -110,7 +110,8 @@ type Cluster struct {
 	ProbeStatus   ClusterProbeStatus `gorm:"column:probe_status;type:tinyint;default:0" json:"probe_status"`
 	ProbeReason   string             `gorm:"column:probe_reason;type:varchar(128)" json:"probe_reason"`
 	ProbeMessage  string             `gorm:"column:probe_message;type:varchar(512)" json:"probe_message"`
-	LastProbeTime time.Time          `gorm:"column:last_probe_time;type:datetime" json:"last_probe_time"`
+	// LastProbeTime 未探测前为 NULL，避免 MySQL 严格模式拒绝零日期
+	LastProbeTime *time.Time `gorm:"column:last_probe_time;type:datetime;default:null" json:"last_probe_time"`
 
 	// Agent 建连 token（仅隧道模式），全局唯一
 	AgentToken string `gorm:"type:varchar(128);index:idx_agent_token" json:"agent_token,omitempty"`
