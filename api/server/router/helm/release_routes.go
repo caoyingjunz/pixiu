@@ -20,20 +20,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
-
-func (hr *helmRouter) authorizeRelease(c *gin.Context, cluster, namespace string) (helm.ReleaseInterface, error) {
-	user, err := httputils.GetUserFromContext(c)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = hr.c.Cluster().AuthorizeClusterAccessByName(c, user, cluster); err != nil {
-		return nil, err
-	}
-	return hr.c.Helm().Release(cluster, namespace), nil
-}
 
 func (hr *helmRouter) GetRelease(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -46,7 +34,7 @@ func (hr *helmRouter) GetRelease(c *gin.Context) {
 		return
 	}
 
-	releaseAPI, err := hr.authorizeRelease(c, helmMeta.Cluster, helmMeta.Namespace)
+	releaseAPI, err := hr.c.Helm().Release(c, helmMeta.Cluster, helmMeta.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -69,7 +57,7 @@ func (hr *helmRouter) ListReleases(c *gin.Context) {
 		return
 	}
 
-	releaseAPI, err := hr.authorizeRelease(c, helmMeta.Cluster, helmMeta.Namespace)
+	releaseAPI, err := hr.c.Helm().Release(c, helmMeta.Cluster, helmMeta.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -93,7 +81,7 @@ func (hr *helmRouter) InstallRelease(c *gin.Context) {
 		return
 	}
 
-	releaseAPI, err := hr.authorizeRelease(c, helmMeta.Cluster, helmMeta.Namespace)
+	releaseAPI, err := hr.c.Helm().Release(c, helmMeta.Cluster, helmMeta.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -116,7 +104,7 @@ func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 		return
 	}
 
-	releaseAPI, err := hr.authorizeRelease(c, helmMeta.Cluster, helmMeta.Namespace)
+	releaseAPI, err := hr.c.Helm().Release(c, helmMeta.Cluster, helmMeta.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -140,7 +128,7 @@ func (hr *helmRouter) UpgradeRelease(c *gin.Context) {
 		return
 	}
 
-	releaseAPI, err := hr.authorizeRelease(c, helmMeta.Cluster, helmMeta.Namespace)
+	releaseAPI, err := hr.c.Helm().Release(c, helmMeta.Cluster, helmMeta.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -163,7 +151,7 @@ func (hr *helmRouter) GetReleaseHistory(c *gin.Context) {
 		return
 	}
 
-	releaseAPI, err := hr.authorizeRelease(c, helmMeta.Cluster, helmMeta.Namespace)
+	releaseAPI, err := hr.c.Helm().Release(c, helmMeta.Cluster, helmMeta.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -187,7 +175,7 @@ func (hr *helmRouter) RollbackRelease(c *gin.Context) {
 		return
 	}
 
-	releaseAPI, err := hr.authorizeRelease(c, helmMeta.Cluster, helmMeta.Namespace)
+	releaseAPI, err := hr.c.Helm().Release(c, helmMeta.Cluster, helmMeta.Namespace)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

@@ -23,6 +23,9 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -33,16 +36,26 @@ type HelmGetter interface {
 }
 
 type Interface interface {
-	Release(cluster, namespace string) ReleaseInterface
+	// Release 校验当前用户对目标集群的访问权限后，返回对应 namespace 的 Release 操作接口
+	Release(ctx context.Context, clusterName, namespace string) (ReleaseInterface, error)
 	Repository() RepositoryInterface
 }
 
 type Helm struct {
+	cc      config.Config
 	factory db.ShareDaoFactory
 }
 
-func (h *Helm) Release(cluster, namespace string) ReleaseInterface {
-	cs := h.MustGetClusterSetByName(context.Background(), cluster)
+func (h *Helm) Release(ctx context.Context, clusterName, namespace string) (ReleaseInterface, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, errors.ErrUnauthorized
+	}
+	if _, err = cluster.NewCluster(h.cc, h.factory).AuthorizeClusterAccessByName(ctx, user, clusterName); err != nil {
+		return nil, err
+	}
+
+	cs := h.MustGetClusterSetByName(ctx, clusterName)
 	settings := cli.New()
 	settings.SetNamespace(namespace)
 	actionConfig := new(action.Configuration)
@@ -53,15 +66,16 @@ func (h *Helm) Release(cluster, namespace string) ReleaseInterface {
 		"secrets",
 		klog.Infof,
 	)
-	return NewReleases(actionConfig, settings)
+	return NewReleases(actionConfig, settings), nil
 }
 
 func (h *Helm) Repository() RepositoryInterface {
 	return NewRepository(h.factory)
 }
 
-func NewHelm(factory db.ShareDaoFactory) Interface {
+func NewHelm(cfg config.Config, factory db.ShareDaoFactory) Interface {
 	return &Helm{
+		cc:      cfg,
 		factory: factory,
 	}
 }
