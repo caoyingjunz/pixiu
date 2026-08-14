@@ -190,8 +190,6 @@ require (
 )
 
 replace (
-	// github.com/glebarez/sqlite => github.com/glebarez/sqlite v1.4.0
 	github.com/pelletier/go-toml/v2 => github.com/pelletier/go-toml/v2 v2.1.1
 	golang.org/x/net => golang.org/x/net v0.17.0
-// gorm.io/driver/sqlserver => gorm.io/driver/sqlserver v1.4.1
 )

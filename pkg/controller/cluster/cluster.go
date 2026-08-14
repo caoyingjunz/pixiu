@@ -1209,6 +1209,10 @@ func (c *cluster) model2Type(o *model.Cluster) *types.Cluster {
 		ConnectMode:       o.ConnectMode,
 		AgentToken:        o.AgentToken,
 		Description:       o.Description,
+		ProbeStatus:       o.ProbeStatus,
+		ProbeReason:       o.ProbeReason,
+		ProbeMessage:      o.ProbeMessage,
+		LastProbeTime:     o.LastProbeTime,
 	}
 
 	if o.ConnectMode == model.ConnectModeTunnel {
