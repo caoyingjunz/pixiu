@@ -677,6 +677,8 @@ func ensureServiceAccount(ctx context.Context, req *types.CreatePermissionReques
 	return err
 }
 
+// createToken 为 ServiceAccount 签发 token：
+// 优先使用 TokenRequest API（k8s >= 1.20 提供）；老集群（< 1.20）无该子资源，回退到传统 ServiceAccount token Secret（legacy SA token）。
 func createToken(ctx context.Context, client kubernetes.Interface, ns, name string, duration time.Duration) (string, error) {
 	tr, err := client.CoreV1().ServiceAccounts(ns).CreateToken(ctx, name,
 		&authenticationv1.TokenRequest{
@@ -684,10 +686,74 @@ func createToken(ctx context.Context, client kubernetes.Interface, ns, name stri
 				ExpirationSeconds: ptrInt64(int64(duration.Seconds())),
 			},
 		}, metav1.CreateOptions{})
-	if err != nil {
-		return "", err
+	if err == nil {
+		return tr.Status.Token, nil
 	}
-	return tr.Status.Token, nil
+	// TokenRequest 子资源不可用（老集群 404 "could not find the requested resource"），回退 legacy
+	if apierrors.IsNotFound(err) {
+		klog.Warningf("TokenRequest API 不可用（可能是 k8s < 1.20），回退到 legacy ServiceAccount token Secret: %v", err)
+		return createLegacyToken(ctx, client, ns, name)
+	}
+	return "", err
+}
+
+// legacyTokenPollTimes / legacyTokenPollInterval 等待 token controller 填充 legacy token 的轮询参数
+const (
+	legacyTokenPollTimes    = 10
+	legacyTokenPollInterval = 500 * time.Millisecond
+)
+
+// createLegacyToken 通过传统 ServiceAccount token Secret 获取 token（k8s < 1.24 的兼容路径）。
+// 优先复用已存在的 legacy token Secret；否则新建并轮询等待 token controller 填充。
+func createLegacyToken(ctx context.Context, client kubernetes.Interface, ns, name string) (string, error) {
+	secretClient := client.CoreV1().Secrets(ns)
+
+	// 1. 复用已存在且已填充的 legacy token Secret
+	existing, err := secretClient.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("获取 SA token Secret 列表失败: %w", err)
+	}
+	for i := range existing.Items {
+		sec := &existing.Items[i]
+		if sec.Type == corev1.SecretTypeServiceAccountToken &&
+			sec.Annotations[corev1.ServiceAccountNameKey] == name {
+			if token := sec.Data[corev1.ServiceAccountTokenKey]; len(token) > 0 {
+				return string(token), nil
+			}
+		}
+	}
+
+	// 2. 新建 legacy token Secret（token controller 会异步填充 token 字段）
+	secret, err := secretClient.Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: name + "-token-",
+			Namespace:    ns,
+			Annotations: map[string]string{
+				corev1.ServiceAccountNameKey: name,
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("创建 SA token Secret 失败: %w", err)
+	}
+
+	// 3. 轮询等待 token 字段被填充
+	for i := 0; i < legacyTokenPollTimes; i++ {
+		got, err := secretClient.Get(ctx, secret.Name, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("获取 SA token Secret(%s) 失败: %w", secret.Name, err)
+		}
+		if token := got.Data[corev1.ServiceAccountTokenKey]; len(token) > 0 {
+			return string(token), nil
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(legacyTokenPollInterval):
+		}
+	}
+	return "", fmt.Errorf("等待 SA(%s/%s) token 生成超时", ns, name)
 }
 
 func buildKubeconfig(name, server string, caData []byte, token string) string {
