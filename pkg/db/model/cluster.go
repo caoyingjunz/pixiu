@@ -17,6 +17,8 @@ limitations under the License.
 package model
 
 import (
+	"time"
+
 	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 )
 
@@ -51,6 +53,15 @@ const (
 	ClusterStatusFailed                       // 部署失败
 	ClusterStatusError                        // 集群失联，API不可用
 	ClusterStatusPending                      // 等待 Agent 接入
+)
+
+// ClusterProbeStatus 集群连通性探测状态（Ready condition 语义），由 syncer 定期维护
+type ClusterProbeStatus uint8
+
+const (
+	ClusterProbeUnknown   ClusterProbeStatus = iota // 未探测/不可用
+	ClusterProbeHealthy                             // 健康
+	ClusterProbeUnhealthy                           // 不健康
 )
 
 // Cluster kubernetes 集群信息
@@ -94,6 +105,12 @@ type Cluster struct {
 
 	// 集群用途描述，可以为空
 	Description string `gorm:"type:text" json:"description"`
+
+	// 集群连通性探测状态（Ready condition 语义），由 syncer 定期维护
+	ProbeStatus   ClusterProbeStatus `gorm:"column:probe_status;type:tinyint;default:0" json:"probe_status"`
+	ProbeReason   string             `gorm:"column:probe_reason;type:varchar(128)" json:"probe_reason"`
+	ProbeMessage  string             `gorm:"column:probe_message;type:varchar(512)" json:"probe_message"`
+	LastProbeTime time.Time          `gorm:"column:last_probe_time;type:datetime" json:"last_probe_time"`
 
 	// Agent 建连 token（仅隧道模式），全局唯一
 	AgentToken string `gorm:"type:varchar(128);index:idx_agent_token" json:"agent_token,omitempty"`
