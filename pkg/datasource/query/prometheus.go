@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
@@ -39,6 +40,21 @@ type MetricSample struct {
 	TenantId     int64
 	Labels       map[string]string
 	Annotations  map[string]string
+}
+
+type Point struct {
+	Timestamp float64 `json:"timestamp"`
+	Value     string  `json:"value"`
+}
+
+type Series struct {
+	Metric map[string]string `json:"metric"`
+	Values []Point           `json:"values"`
+}
+
+type SeriesResult struct {
+	ResultType string   `json:"result_type"`
+	Series     []Series `json:"series"`
 }
 
 // InstantQuery 按数据源 sub_type 执行即时查询（与实时查询选择逻辑对齐：metric 目前仅 prometheus）。
@@ -78,6 +94,65 @@ func (c *Client) prometheusInstantQuery(ctx context.Context, ds *model.Datasourc
 	return ParsePrometheusQueryResponse(body)
 }
 
+func (c *Client) InstantSeriesQuery(ctx context.Context, ds *model.Datasource, promQL string) (*SeriesResult, error) {
+	return c.prometheusSeriesQuery(ctx, ds, "/api/v1/query", url.Values{"query": []string{promQL}})
+}
+
+func (c *Client) RangeSeriesQuery(ctx context.Context, ds *model.Datasource, promQL string, start, end time.Time, step time.Duration) (*SeriesResult, error) {
+	if !end.After(start) {
+		return nil, fmt.Errorf("query end must be after start")
+	}
+	if step < time.Second {
+		return nil, fmt.Errorf("query step must be at least one second")
+	}
+	values := url.Values{}
+	values.Set("query", promQL)
+	values.Set("start", strconv.FormatInt(start.Unix(), 10))
+	values.Set("end", strconv.FormatInt(end.Unix(), 10))
+	values.Set("step", strconv.FormatInt(int64(step.Seconds()), 10))
+	return c.prometheusSeriesQuery(ctx, ds, "/api/v1/query_range", values)
+}
+
+func (c *Client) MetricNames(ctx context.Context, ds *model.Datasource) (map[string]struct{}, error) {
+	body, status, err := c.Do(ctx, ds, Request{Method: http.MethodGet, APIPath: "/api/v1/label/__name__/values"})
+	if err != nil {
+		return nil, err
+	}
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("prometheus metric catalog status %d: %s", status, truncateForError(string(body)))
+	}
+	var response struct {
+		Status string   `json:"status"`
+		Data   []string `json:"data"`
+		Error  string   `json:"error"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("invalid prometheus metric catalog: %w", err)
+	}
+	if response.Status != "success" {
+		return nil, fmt.Errorf("prometheus metric catalog: %s", response.Error)
+	}
+	result := make(map[string]struct{}, len(response.Data))
+	for _, name := range response.Data {
+		result[name] = struct{}{}
+	}
+	return result, nil
+}
+
+func (c *Client) prometheusSeriesQuery(ctx context.Context, ds *model.Datasource, apiPath string, values url.Values) (*SeriesResult, error) {
+	if ds == nil || ds.SubType != model.DatasourceSubTypePrometheus {
+		return nil, fmt.Errorf("a Prometheus datasource is required")
+	}
+	body, status, err := c.Do(ctx, ds, Request{Method: http.MethodGet, APIPath: apiPath, Query: values})
+	if err != nil {
+		return nil, err
+	}
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("prometheus query status %d: %s", status, truncateForError(string(body)))
+	}
+	return ParsePrometheusSeriesResponse(body)
+}
+
 type prometheusAPIResponse struct {
 	Status    string `json:"status"`
 	ErrorType string `json:"errorType"`
@@ -91,6 +166,80 @@ type prometheusAPIResponse struct {
 type prometheusVectorItem struct {
 	Metric map[string]string `json:"metric"`
 	Value  []interface{}     `json:"value"`
+}
+
+type prometheusMatrixItem struct {
+	Metric map[string]string `json:"metric"`
+	Values [][]interface{}   `json:"values"`
+}
+
+func ParsePrometheusSeriesResponse(body []byte) (*SeriesResult, error) {
+	var resp prometheusAPIResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("invalid prometheus response: %w", err)
+	}
+	if !strings.EqualFold(resp.Status, "success") {
+		message := strings.TrimSpace(resp.Error)
+		if message == "" {
+			message = "unknown prometheus error"
+		}
+		return nil, fmt.Errorf("prometheus status=%s error=%s", resp.Status, message)
+	}
+
+	result := &SeriesResult{ResultType: resp.Data.ResultType, Series: []Series{}}
+	switch resp.Data.ResultType {
+	case "vector":
+		var items []prometheusVectorItem
+		if err := json.Unmarshal(resp.Data.Result, &items); err != nil {
+			return nil, fmt.Errorf("invalid prometheus vector: %w", err)
+		}
+		for _, item := range items {
+			point, ok := prometheusPoint(item.Value)
+			if ok {
+				result.Series = append(result.Series, Series{Metric: cloneStringMap(item.Metric), Values: []Point{point}})
+			}
+		}
+	case "matrix":
+		var items []prometheusMatrixItem
+		if err := json.Unmarshal(resp.Data.Result, &items); err != nil {
+			return nil, fmt.Errorf("invalid prometheus matrix: %w", err)
+		}
+		for _, item := range items {
+			series := Series{Metric: cloneStringMap(item.Metric), Values: []Point{}}
+			for _, raw := range item.Values {
+				if point, ok := prometheusPoint(raw); ok {
+					series.Values = append(series.Values, point)
+				}
+			}
+			result.Series = append(result.Series, series)
+		}
+	case "scalar":
+		var raw []interface{}
+		if err := json.Unmarshal(resp.Data.Result, &raw); err != nil {
+			return nil, fmt.Errorf("invalid prometheus scalar: %w", err)
+		}
+		if point, ok := prometheusPoint(raw); ok {
+			result.Series = append(result.Series, Series{Metric: map[string]string{}, Values: []Point{point}})
+		}
+	default:
+		return nil, fmt.Errorf("unsupported prometheus result type %q", resp.Data.ResultType)
+	}
+	return result, nil
+}
+
+func prometheusPoint(pair []interface{}) (Point, bool) {
+	if len(pair) < 2 {
+		return Point{}, false
+	}
+	timestamp, ok := pair[0].(float64)
+	if !ok {
+		return Point{}, false
+	}
+	value, ok := prometheusSampleValue(pair)
+	if !ok {
+		return Point{}, false
+	}
+	return Point{Timestamp: timestamp, Value: value}, true
 }
 
 // ParsePrometheusQueryResponse parses Prometheus /api/v1/query JSON.

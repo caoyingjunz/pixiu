@@ -52,6 +52,7 @@ func Catalog() []Definition {
 		{Code: "middleware.elasticsearch", ParentCode: "middleware", Title: "Elasticsearch", Path: "/middleware/elasticsearch", Kind: KindMenu, AdminOnly: true},
 
 		{Code: "monitor", Title: "监控告警", Path: "/monitor", Kind: KindDirectory},
+		{Code: "monitor.dashboard", ParentCode: "monitor", Title: "仪表盘", Path: "/monitor/dashboard", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/dashboard/definition"}},
 		{Code: "monitor.realtime", ParentCode: "monitor", Title: "实时查询", Path: "/monitor/realtime-query", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/datasources"}},
 		{Code: "monitor.logs", ParentCode: "monitor", Title: "日志", Path: "/monitor/logs", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/datasources"}},
 		{Code: "monitor.alert", ParentCode: "monitor", Title: "配置告警", Path: "/monitor/alert-config", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/alerts/rules"}},

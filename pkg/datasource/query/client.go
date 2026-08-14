@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -118,10 +120,6 @@ func (c *Client) doExternal(ctx context.Context, ep *Endpoint, method string, re
 }
 
 func (c *Client) doInternal(ctx context.Context, ep *Endpoint, method string, req Request) ([]byte, int, error) {
-	inCluster, err := ParseInClusterEndpoint(ep.BaseURL)
-	if err != nil {
-		return nil, 0, err
-	}
 	if ep.ClusterName == "" {
 		return nil, 0, fmt.Errorf("internal datasource missing cluster_name")
 	}
@@ -136,6 +134,14 @@ func (c *Client) doInternal(ctx context.Context, ep *Endpoint, method string, re
 	clusterSet, err := client.NewClusterSet(cluster.KubeConfig)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to build cluster client: %w", err)
+	}
+
+	inCluster, err := ParseInClusterEndpoint(ep.BaseURL)
+	if err != nil {
+		inCluster, err = resolveNodePortEndpoint(ctx, clusterSet, ep.BaseURL)
+		if err != nil {
+			return nil, 0, err
+		}
 	}
 
 	proxyPath := joinAPIPath(inCluster.BasePath, req.APIPath)
@@ -165,6 +171,53 @@ func (c *Client) doInternal(ctx context.Context, ep *Endpoint, method string, re
 	}
 	_ = method // ProxyGet is GET-oriented; metric query only needs GET today.
 	return raw, http.StatusOK, nil
+}
+
+// resolveNodePortEndpoint supports internal datasources configured with a node IP
+// and NodePort by locating the owning Service in the selected cluster.
+func resolveNodePortEndpoint(ctx context.Context, clusterSet *client.ClusterSet, rawURL string) (*InClusterEndpoint, error) {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return nil, fmt.Errorf("invalid datasource url: %w", err)
+	}
+	if !isIPAddress(parsed.Hostname()) || parsed.Port() == "" {
+		return nil, fmt.Errorf("internal datasource url must be an in-cluster DNS name or node IP with NodePort")
+	}
+	nodePort, err := strconv.Atoi(parsed.Port())
+	if err != nil || nodePort <= 0 {
+		return nil, fmt.Errorf("invalid NodePort in datasource url")
+	}
+
+	services, err := clusterSet.Client.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("list services for NodePort %d: %w", nodePort, err)
+	}
+	var matches []*InClusterEndpoint
+	for i := range services.Items {
+		svc := &services.Items[i]
+		for _, port := range svc.Spec.Ports {
+			if int(port.NodePort) != nodePort {
+				continue
+			}
+			matches = append(matches, &InClusterEndpoint{
+				ServiceName: svc.Name,
+				Namespace:   svc.Namespace,
+				Port:        int(port.Port),
+				Scheme:      strings.ToLower(parsed.Scheme),
+				BasePath:    normalizeBasePath(parsed.Path),
+			})
+		}
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no Service exposes NodePort %d in cluster", nodePort)
+	}
+	if len(matches) > 1 {
+		return nil, fmt.Errorf("multiple Services expose NodePort %d in cluster", nodePort)
+	}
+	if matches[0].Scheme != "http" && matches[0].Scheme != "https" {
+		return nil, fmt.Errorf("unsupported scheme %q", parsed.Scheme)
+	}
+	return matches[0], nil
 }
 
 func applyAuthAndHeaders(req *http.Request, ep *Endpoint, extra map[string]string) {

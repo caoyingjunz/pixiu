@@ -24,6 +24,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/assistant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
+	"github.com/caoyingjunz/pixiu/pkg/controller/dashboard"
 	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/distribution"
 	"github.com/caoyingjunz/pixiu/pkg/controller/email"
@@ -50,6 +51,7 @@ type PixiuInterface interface {
 	helm.HelmGetter
 	agent.AgentGetter
 	datasource.Getter
+	dashboard.Getter
 	runner.RunnerGetter
 	assistant.Getter
 	alert.Getter
@@ -74,6 +76,7 @@ func (p *pixiu) Audit() audit.Interface           { return audit.NewAudit(p.cc, 
 func (p *pixiu) Helm() helm.Interface             { return helm.NewHelm(p.factory) }
 func (p *pixiu) Agent() agent.Interface           { return agent.NewAgent(p.cc, p.factory) }
 func (p *pixiu) Datasource() datasource.Interface { return datasource.New(p.cc, p.factory) }
+func (p *pixiu) Dashboard() dashboard.Interface   { return dashboard.New(p.factory) }
 func (p *pixiu) Assistant() assistant.Interface   { return assistant.New(p.cc, p.factory) }
 func (p *pixiu) Alert() alert.Interface           { return alert.New(p.cc, p.factory) }
 func (p *pixiu) Email() email.Interface {
