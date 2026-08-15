@@ -53,8 +53,6 @@ const (
 	maxWriteKeySize    = 512                    // 写入 key 最大长度（rune）
 	maxWriteValueSize  = 65536                  // 写入 string 值最大长度（rune）
 	maxTTLSeconds      = int64(365 * 24 * 3600) // TTL 上限 1 年
-	previewBytesLimit  = 65536                  // 值预览 GETRANGE 最多拉取字节数（与写入上限对齐，保证列内展示真实值）
-	previewRuneLimit   = 4096                   // 值预览最多返回字符数（rune，与详情截断上限一致）
 	maxBatchDeleteKeys = 500                    // 单次批量删除的 key 数上限
 	maxCachedClients   = 64                     // client 连接缓存上限，超过时按最近访问时间清理最旧连接
 )
@@ -477,73 +475,7 @@ func (c *controller) ScanKeys(ctx context.Context, datasourceId int64, db *int, 
 		}
 	}
 
-	// 尽力补充值预览与元素计数；预览失败不影响 key 列表返回
-	attachPreviews(ctx, client, items)
-
 	return &types.RedisScanResult{Cursor: next, Keys: items}, nil
-}
-
-// attachPreviews 批量补充值预览：string 取前段文本，集合类取元素数量
-func attachPreviews(ctx context.Context, client goredis.UniversalClient, items []types.RedisKeyItem) {
-	if len(items) == 0 {
-		return
-	}
-	pipe := client.Pipeline()
-	strCmds := make([]*goredis.StringCmd, len(items))
-	lenCmds := make([]*goredis.IntCmd, len(items))
-	for i := range items {
-		item := &items[i]
-		if item.TTL == -2 {
-			continue // key 已过期
-		}
-		switch item.Type {
-		case "string":
-			strCmds[i] = pipe.GetRange(ctx, item.Key, 0, previewBytesLimit-1)
-			lenCmds[i] = pipe.StrLen(ctx, item.Key)
-		case "hash":
-			lenCmds[i] = pipe.HLen(ctx, item.Key)
-		case "list":
-			lenCmds[i] = pipe.LLen(ctx, item.Key)
-		case "set":
-			lenCmds[i] = pipe.SCard(ctx, item.Key)
-		case "zset":
-			lenCmds[i] = pipe.ZCard(ctx, item.Key)
-		case "stream":
-			lenCmds[i] = pipe.XLen(ctx, item.Key)
-		}
-	}
-	if _, err := pipe.Exec(ctx); err != nil {
-		klog.Warningf("failed to fetch redis value previews: %v", err)
-		return
-	}
-	for i := range items {
-		item := &items[i]
-		if lenCmds[i] != nil {
-			if n, err := lenCmds[i].Result(); err == nil {
-				item.Length = n
-			}
-		}
-		if strCmds[i] != nil {
-			if preview, err := strCmds[i].Result(); err == nil {
-				item.ValuePreview, item.PreviewTruncated = safePreview(preview, item.Length)
-			}
-		}
-	}
-}
-
-// safePreview 按 rune 截断预览文本，修正 GETRANGE 截在多字节字符中间的问题，返回截断标记
-func safePreview(raw string, fullLen int64) (string, bool) {
-	truncated := int64(len(raw)) < fullLen
-	// GETRANGE 可能截断在多字节 UTF-8 字符中间，剥除尾部无效字节
-	for len(raw) > 0 && !utf8.ValidString(raw) {
-		raw = raw[:len(raw)-1]
-		truncated = true
-	}
-	if runes := []rune(raw); len(runes) > previewRuneLimit {
-		raw = string(runes[:previewRuneLimit])
-		truncated = true
-	}
-	return raw, truncated
 }
 
 func (c *controller) GetKeyDetail(ctx context.Context, datasourceId int64, db *int, key string) (*types.RedisKeyDetail, error) {

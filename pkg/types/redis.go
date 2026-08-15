@@ -40,17 +40,11 @@ type RedisInfo struct {
 	Raw              string `json:"raw"`        // INFO 命令原始输出
 }
 
-// RedisKeyItem SCAN 扫描出的 key 概览
+// RedisKeyItem SCAN 扫描出的 key 概览（列表仅返回元数据，不含 value）
 type RedisKeyItem struct {
 	Key  string `json:"key"`
 	Type string `json:"type"` // string/hash/list/set/zset/stream 等
 	TTL  int64  `json:"ttl"`  // 秒；-1 永不过期，-2 key 已不存在
-	// ValuePreview 值预览：string 为截断后的值文本；集合类型为空（用 Length 展示元素数）
-	ValuePreview string `json:"value_preview,omitempty"`
-	// PreviewTruncated 预览是否被截断（string 值超出预览长度/字节限制）
-	PreviewTruncated bool `json:"preview_truncated,omitempty"`
-	// Length string 为字节长度；hash/list/set/zset/stream 为元素数量
-	Length int64 `json:"length,omitempty"`
 }
 
 // RedisScanResult SCAN 分页结果（cursor 透传，后端无状态）
