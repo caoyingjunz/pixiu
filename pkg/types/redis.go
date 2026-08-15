@@ -66,8 +66,8 @@ type RedisKeyDetail struct {
 	TTL       int64       `json:"ttl"`
 	Encoding  string      `json:"encoding,omitempty"`
 	SizeBytes int64       `json:"size_bytes"`          // MEMORY USAGE 估算
-	Value     interface{} `json:"value"`               // string 为字符串；hash 为 map；list/set/zset 为数组
-	Truncated bool        `json:"truncated,omitempty"` // 值过大被截断时为 true
+	Value     interface{} `json:"value"`               // string 为字符串（GETRANGE 拉取，超限截断）；hash 为 map；list/set/zset 为数组
+	Truncated bool        `json:"truncated,omitempty"` // 值过大被截断时为 true；截断时禁止经控制台编辑保存
 }
 
 // RedisCreateKeyRequest 新增 key 请求（第一版仅支持 string 类型）

@@ -32,6 +32,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -60,19 +61,19 @@ const (
 
 type Interface interface {
 	Ping(ctx context.Context, datasourceId int64) (*types.RedisPing, error)
-	// PingAdhoc 临时探测（不落库、不缓存连接），用于创建数据源前的连通性验证
+	// PingAdhoc 临时探测（不落库、不缓存连接），用于创建数据源前的连通性验证；仅管理员可调用
 	PingAdhoc(ctx context.Context, cfg *types.RedisSourceConfig) (*types.RedisPing, error)
 	// db 为逻辑库编号（0-15）；nil 表示使用数据源配置的默认 DB；cluster 模式强制 0
 	Info(ctx context.Context, datasourceId int64, db *int) (*types.RedisInfo, error)
 	// ScanKeys cursor 透传分页：前端保存 cursor，后端无状态；count<=0 用默认值，超上限截断
 	ScanKeys(ctx context.Context, datasourceId int64, db *int, cursor uint64, match string, count int64) (*types.RedisScanResult, error)
 	GetKeyDetail(ctx context.Context, datasourceId int64, db *int, key string) (*types.RedisKeyDetail, error)
-	// 写操作：新增 key（仅 string）/删除 key/修改 TTL
+	// 写操作：新增 key（仅 string）/删除 key/修改 TTL；仅管理员可调用
 	CreateKey(ctx context.Context, datasourceId int64, db *int, req *types.RedisCreateKeyRequest) error
 	DeleteKey(ctx context.Context, datasourceId int64, db *int, key string) error
-	// DeleteKeys 批量删除 key，返回实际删除数量
+	// DeleteKeys 批量删除 key，返回实际删除数量；仅管理员可调用
 	DeleteKeys(ctx context.Context, datasourceId int64, db *int, keys []string) (*types.RedisDeleteKeysResult, error)
-	// UpdateKeyValue 修改 string 类型 key 的值（保持原 TTL）
+	// UpdateKeyValue 修改 string 类型 key 的值（保持原 TTL）；仅管理员可调用
 	UpdateKeyValue(ctx context.Context, datasourceId int64, db *int, req *types.RedisUpdateKeyValueRequest) error
 	SetKeyTTL(ctx context.Context, datasourceId int64, db *int, key string, ttl int64) error
 }
@@ -99,6 +100,19 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 		factory: f,
 		clients: make(map[string]*cachedClient),
 	}
+}
+
+// requireRedisAdmin 限制高危操作（临时探测 / 写 key）仅超管与内置管理员可执行，
+// 与菜单 AdminOnly（IsRoot / IsAdmin）对齐，避免普通用户借 API 做 SSRF 或破坏生产数据。
+func requireRedisAdmin(ctx context.Context) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if user.Role != model.RoleRoot && user.Role != model.RoleAdmin {
+		return apierrors.ErrForbidden
+	}
+	return nil
 }
 
 // resolveDB 解析生效的逻辑库编号：请求值优先，否则用配置默认；cluster 强制 0
@@ -324,8 +338,12 @@ func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.Redis
 	return result, nil
 }
 
-// PingAdhoc 使用临时连接探测指定配置，探测完成后立即关闭连接
+// PingAdhoc 使用临时连接探测指定配置，探测完成后立即关闭连接。
+// 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
 func (c *controller) PingAdhoc(ctx context.Context, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
+	if err := requireRedisAdmin(ctx); err != nil {
+		return nil, err
+	}
 	if cfg == nil {
 		return nil, apierrors.NewError(fmt.Errorf("redis config is required"), http.StatusBadRequest)
 	}
@@ -568,6 +586,9 @@ func (c *controller) GetKeyDetail(ctx context.Context, datasourceId int64, db *i
 
 // CreateKey 新增 string 类型 key；key 已存在时拒绝（防误覆盖）
 func (c *controller) CreateKey(ctx context.Context, datasourceId int64, db *int, req *types.RedisCreateKeyRequest) error {
+	if err := requireRedisAdmin(ctx); err != nil {
+		return err
+	}
 	if req == nil || strings.TrimSpace(req.Key) == "" {
 		return apierrors.NewError(fmt.Errorf("key is required"), http.StatusBadRequest)
 	}
@@ -605,6 +626,9 @@ func (c *controller) CreateKey(ctx context.Context, datasourceId int64, db *int,
 
 // DeleteKey 删除指定 key
 func (c *controller) DeleteKey(ctx context.Context, datasourceId int64, db *int, key string) error {
+	if err := requireRedisAdmin(ctx); err != nil {
+		return err
+	}
 	if strings.TrimSpace(key) == "" {
 		return apierrors.NewError(fmt.Errorf("key is required"), http.StatusBadRequest)
 	}
@@ -628,6 +652,9 @@ func (c *controller) DeleteKey(ctx context.Context, datasourceId int64, db *int,
 
 // DeleteKeys 批量删除 key，返回实际删除数量（为 0 不报错）
 func (c *controller) DeleteKeys(ctx context.Context, datasourceId int64, db *int, keys []string) (*types.RedisDeleteKeysResult, error) {
+	if err := requireRedisAdmin(ctx); err != nil {
+		return nil, err
+	}
 	// 过滤空值并去重，保留 key 原始内容（不裁剪空白，空白可能是 key 的一部分）
 	seen := make(map[string]struct{}, len(keys))
 	cleaned := make([]string, 0, len(keys))
@@ -664,6 +691,9 @@ func (c *controller) DeleteKeys(ctx context.Context, datasourceId int64, db *int
 
 // UpdateKeyValue 修改 string 类型 key 的值并保持原 TTL；非 string 类型拒绝
 func (c *controller) UpdateKeyValue(ctx context.Context, datasourceId int64, db *int, req *types.RedisUpdateKeyValueRequest) error {
+	if err := requireRedisAdmin(ctx); err != nil {
+		return err
+	}
 	if req == nil || strings.TrimSpace(req.Key) == "" {
 		return apierrors.NewError(fmt.Errorf("key is required"), http.StatusBadRequest)
 	}
@@ -689,6 +719,18 @@ func (c *controller) UpdateKeyValue(ctx context.Context, datasourceId int64, db 
 		return apierrors.NewError(fmt.Errorf("only string keys can be edited, current type: %s", keyType), http.StatusConflict)
 	}
 
+	// 超大 value 禁止经控制台编辑，避免截断内容误覆盖
+	strLen, err := client.StrLen(ctx, req.Key).Result()
+	if err != nil {
+		return wrapRedisErr(err)
+	}
+	if strLen > maxWriteValueSize {
+		return apierrors.NewError(
+			fmt.Errorf("value too large to edit safely (size %d exceeds limit %d)", strLen, maxWriteValueSize),
+			http.StatusConflict,
+		)
+	}
+
 	// 写回时保持原 TTL（剩余 <=0 表示永不过期）
 	var expiration time.Duration
 	if ttl, err := client.TTL(ctx, req.Key).Result(); err == nil && ttl > 0 {
@@ -703,6 +745,9 @@ func (c *controller) UpdateKeyValue(ctx context.Context, datasourceId int64, db 
 // SetKeyTTL 修改 key 过期时间：ttl=-1 永久化（PERSIST）；ttl>=1 设置过期（EXPIRE）；
 // ttl=0 拒绝（Redis EXPIRE key 0 会直接删除 key，防误删）
 func (c *controller) SetKeyTTL(ctx context.Context, datasourceId int64, db *int, key string, ttl int64) error {
+	if err := requireRedisAdmin(ctx); err != nil {
+		return err
+	}
 	if strings.TrimSpace(key) == "" {
 		return apierrors.NewError(fmt.Errorf("key is required"), http.StatusBadRequest)
 	}
@@ -732,17 +777,27 @@ func (c *controller) SetKeyTTL(ctx context.Context, datasourceId int64, db *int,
 	return nil
 }
 
-// readKeyValue 按类型读取 key 的值，统一做数量截断保护
+// readKeyValue 按类型读取 key 的值，统一做数量截断保护。
+// string：用 GETRANGE + STRLEN，避免超大 key 全量入内存；截断上限与写入上限对齐。
 func readKeyValue(ctx context.Context, client goredis.UniversalClient, key, keyType string) (interface{}, bool) {
 	switch keyType {
 	case "string":
-		val, err := client.Get(ctx, key).Result()
+		fullLen, err := client.StrLen(ctx, key).Result()
 		if err != nil {
 			return nil, false
 		}
-		truncated := false
-		if runes := []rune(val); len(runes) > maxStringValueSize {
-			val = string(runes[:maxStringValueSize])
+		// 按字节拉取，上限与写入一致；再按 rune 截断，避免截在多字节字符中间
+		val, err := client.GetRange(ctx, key, 0, maxWriteValueSize-1).Result()
+		if err != nil {
+			return nil, false
+		}
+		truncated := int64(len(val)) < fullLen
+		for len(val) > 0 && !utf8.ValidString(val) {
+			val = val[:len(val)-1]
+			truncated = true
+		}
+		if runes := []rune(val); len(runes) > maxWriteValueSize {
+			val = string(runes[:maxWriteValueSize])
 			truncated = true
 		}
 		return val, truncated
