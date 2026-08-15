@@ -8,11 +8,11 @@ COPY ../go.sum ./
 COPY .. .
 RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o pixiu ./cmd
 
-FROM node:23.7.0-alpine as dashboard-builder
+FROM node:22.13.0-alpine as dashboard-builder
 WORKDIR /build
 RUN apk add git
 RUN git clone https://github.com/caoyingjunz/pixiu-ui
-RUN cd pixiu-ui && npm install &&npx vite build --mode docker
+RUN cd pixiu-ui && npm install --ignore-scripts && npx vite build --mode docker
 
 FROM nginx:1.30.1-alpine as runner
 LABEL MAINTAINER="PIXIU"
