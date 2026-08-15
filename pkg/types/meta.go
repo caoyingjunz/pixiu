@@ -458,4 +458,12 @@ func (c *DatasourceConfig) Clean(t model.DatasourceType) {
 			c.Alert = nil
 		}
 	}
+	// Redis 与日志/告警配置互斥，只保留自身配置
+	if t == model.DatasourceTypeRedis {
+		c.Log = nil
+		c.Alert = nil
+		c.Headers = nil
+	} else {
+		c.Redis = nil
+	}
 }

@@ -19,6 +19,7 @@ package types
 import (
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,6 +82,7 @@ type DatasourceConfig struct {
 	Headers []HTTPHeader       `json:"headers"`
 	Log     *LogSourceConfig   `json:"log,omitempty"`
 	Alert   *AlertSourceConfig `json:"alert,omitempty"`
+	Redis   *RedisSourceConfig `json:"redis,omitempty"`
 }
 
 type LogSourceConfig struct {
@@ -94,6 +96,48 @@ type AlertSourceConfig struct {
 
 	UserName string `json:"user_name,omitempty"`
 	Password string `json:"password,omitempty"`
+}
+
+// Redis 部署模式
+const (
+	RedisModeStandalone = "standalone" // 单机
+	RedisModeSentinel   = "sentinel"   // 哨兵
+	RedisModeCluster    = "cluster"    // 集群
+)
+
+// RedisSourceConfig Redis 数据源连接配置（仅外部直连）
+type RedisSourceConfig struct {
+	Mode             string   `json:"mode,omitempty"`              // standalone/sentinel/cluster，空视为 standalone（兼容存量数据）
+	Address          string   `json:"address,omitempty"`           // standalone 连接地址 host:port
+	Addresses        []string `json:"addresses,omitempty"`         // sentinel/cluster 节点地址列表
+	MasterName       string   `json:"master_name,omitempty"`       // sentinel master 名称
+	Password         string   `json:"password,omitempty"`          // 数据节点密码
+	SentinelPassword string   `json:"sentinel_password,omitempty"` // 哨兵节点密码（仅 sentinel）
+	DB               int      `json:"db,omitempty"`                // DB 编号（cluster 固定 0）
+}
+
+// NormalizeMode 归一化部署模式，未知/空值按 standalone 处理
+func (r *RedisSourceConfig) NormalizeMode() string {
+	switch r.Mode {
+	case RedisModeSentinel:
+		return RedisModeSentinel
+	case RedisModeCluster:
+		return RedisModeCluster
+	default:
+		return RedisModeStandalone
+	}
+}
+
+// DisplayAddress 用于日志/探测结果展示的连接摘要
+func (r *RedisSourceConfig) DisplayAddress() string {
+	switch r.NormalizeMode() {
+	case RedisModeSentinel:
+		return fmt.Sprintf("sentinel://%s@%s", r.MasterName, strings.Join(r.Addresses, ","))
+	case RedisModeCluster:
+		return "cluster://" + strings.Join(r.Addresses, ",")
+	default:
+		return r.Address
+	}
 }
 
 type KubeNode struct {
