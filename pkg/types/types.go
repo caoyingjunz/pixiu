@@ -181,6 +181,12 @@ type Cluster struct {
 	// 集群用途描述，可以为空
 	Description string `json:"description"`
 
+	// 集群连通性探测状态（Ready condition 语义），由 syncer 定期维护
+	ProbeStatus   model.ClusterProbeStatus `json:"probe_status"`
+	ProbeReason   string                   `json:"probe_reason"`
+	ProbeMessage  string                   `json:"probe_message"`
+	LastProbeTime *time.Time               `json:"last_probe_time,omitempty"`
+
 	KubernetesMeta `json:",inline"`
 	TimeMeta       `json:",inline"`
 }
@@ -475,8 +481,20 @@ const (
 
 type PlanNodeAuth struct {
 	Type     AuthType      `json:"type"` // 节点认证模式，支持 key 和 password
+	Port     int           `json:"port,omitempty"`
 	Key      *KeySpec      `json:"key,omitempty"`
 	Password *PasswordSpec `json:"password,omitempty"`
+}
+
+const DefaultSSHPort = 22
+
+// SSHPort returns the configured SSH port, falling back to the standard port
+// for old node records and invalid values.
+func (a PlanNodeAuth) SSHPort() int {
+	if a.Port < 1 || a.Port > 65535 {
+		return DefaultSSHPort
+	}
+	return a.Port
 }
 
 type PlanTask struct {

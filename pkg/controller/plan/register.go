@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -263,7 +264,7 @@ func newSftpClient(node model.Node) (*sftp.Client, error) {
 		return nil, fmt.Errorf("unsupported ssh auth type: %s", nodeAuth.Type)
 	}
 
-	addr := fmt.Sprintf("%s:%d", node.Ip, 22)
+	addr := net.JoinHostPort(node.Ip, strconv.Itoa(nodeAuth.SSHPort()))
 	sshClient, err := ssh.Dial("tcp", addr, clientConfig)
 	if err != nil {
 		return nil, err

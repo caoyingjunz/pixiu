@@ -35,7 +35,7 @@ func (c *cluster) ResolveSSHConfigForHost(ctx context.Context, host string) (*ty
 
 	req := &types.WebSSHRequest{
 		Host: n.Ip,
-		Port: 22,
+		Port: auth.SSHPort(),
 	}
 
 	switch auth.Type {
