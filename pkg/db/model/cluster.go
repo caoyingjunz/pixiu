@@ -107,9 +107,9 @@ type Cluster struct {
 	Description string `gorm:"type:text" json:"description"`
 
 	// 集群连通性探测状态（Ready condition 语义），由 syncer 定期维护
-	ProbeStatus   ClusterProbeStatus `gorm:"column:probe_status;type:tinyint;default:0" json:"probe_status"`
-	ProbeReason   string             `gorm:"column:probe_reason;type:varchar(128)" json:"probe_reason"`
-	ProbeMessage  string             `gorm:"column:probe_message;type:varchar(512)" json:"probe_message"`
+	ProbeStatus  ClusterProbeStatus `gorm:"column:probe_status;type:tinyint;default:0" json:"probe_status"`
+	ProbeReason  string             `gorm:"column:probe_reason;type:varchar(128)" json:"probe_reason"`
+	ProbeMessage string             `gorm:"column:probe_message;type:varchar(512)" json:"probe_message"`
 	// LastProbeTime 未探测前为 NULL，避免 MySQL 严格模式拒绝零日期
 	LastProbeTime *time.Time `gorm:"column:last_probe_time;type:datetime;default:null" json:"last_probe_time"`
 
