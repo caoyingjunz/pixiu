@@ -135,18 +135,26 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 }
 
 // validateRedisConstraint 校验 Redis 数据源的约束：
-// 1. type 与 sub_type 必须配对；2. 仅支持外部直连；3. 必须提供连接地址
+// 1. type 与 sub_type 必须配对（redis 可搭配缓存/中间件类型）；2. 仅支持外部直连；3. 必须提供连接地址
 func validateRedisConstraint(req *types.CreateDatasourceRequest) error {
 	isRedisType := req.Type == model.DatasourceTypeRedis
 	isRedisSubType := req.SubType == model.DatasourceSubTypeRedis
-	if !isRedisType && !isRedisSubType {
-		return nil
-	}
-	if !isRedisType || !isRedisSubType {
+	// 缓存类型仅与 redis 配对
+	if isRedisType && !isRedisSubType {
 		return apierrors.NewError(
-			fmt.Errorf("redis datasource requires type=%d and sub_type=%s", model.DatasourceTypeRedis, model.DatasourceSubTypeRedis),
+			fmt.Errorf("cache datasource requires sub_type=%s", model.DatasourceSubTypeRedis),
 			http.StatusBadRequest,
 		)
+	}
+	// redis 允许搭配缓存（存量）或中间件类型
+	if isRedisSubType && !isRedisType && req.Type != model.DatasourceTypeMiddleware {
+		return apierrors.NewError(
+			fmt.Errorf("redis datasource requires type=%d or type=%d", model.DatasourceTypeRedis, model.DatasourceTypeMiddleware),
+			http.StatusBadRequest,
+		)
+	}
+	if !isRedisSubType {
+		return nil
 	}
 	if !req.External {
 		return apierrors.NewError(
