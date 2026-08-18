@@ -41,6 +41,7 @@ type Interface interface {
 	Delete(ctx context.Context, nodeId int64) error
 	Get(ctx context.Context, nodeId int64) (*types.NodeResult, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+
 	CheckConnectivity(ctx context.Context, req *types.NodeConnectivityRequest) (*types.NodeConnectivityResult, error)
 }
 
@@ -234,6 +235,7 @@ func (n *nodeController) CheckConnectivity(ctx context.Context, req *types.NodeC
 		webssh.Port = 22
 		result.Port = 22
 	}
+
 	client, e := sshutil.NewSSHClient(webssh)
 	if e != nil {
 		// 连通性失败返回 200 + connected=false + message，不将业务失败当 HTTP 错误
@@ -241,6 +243,7 @@ func (n *nodeController) CheckConnectivity(ctx context.Context, req *types.NodeC
 		return result, nil
 	}
 	defer client.Close()
+
 	result.Connected = true
 	return result, nil
 }
