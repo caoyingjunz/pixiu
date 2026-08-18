@@ -83,6 +83,13 @@ type DatasourceConfig struct {
 	Log     *LogSourceConfig   `json:"log,omitempty"`
 	Alert   *AlertSourceConfig `json:"alert,omitempty"`
 	Redis   *RedisSourceConfig `json:"redis,omitempty"`
+	Nacos   *NacosSourceConfig `json:"nacos,omitempty"`
+}
+
+// NacosSourceConfig Nacos 数据源附加配置
+// Version 取值 v2/v3：v2 使用 Nacos 2.x（v1 OpenAPI），v3 使用 Nacos 3.x（v3 Console API）
+type NacosSourceConfig struct {
+	Version string `json:"version,omitempty"`
 }
 
 type LogSourceConfig struct {

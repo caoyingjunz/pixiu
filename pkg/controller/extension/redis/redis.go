@@ -219,7 +219,8 @@ func (c *controller) clientFor(ctx context.Context, datasourceId int64, db *int)
 	if object == nil {
 		return nil, nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 	}
-	if object.Type != model.DatasourceTypeRedis || object.SubType != model.DatasourceSubTypeRedis {
+	if (object.Type != model.DatasourceTypeRedis && object.Type != model.DatasourceTypeMiddleware) ||
+		object.SubType != model.DatasourceSubTypeRedis {
 		return nil, nil, apierrors.NewError(fmt.Errorf("datasource(%d) is not a redis datasource", datasourceId), http.StatusBadRequest)
 	}
 	if !object.External {
