@@ -452,17 +452,23 @@ func (c *DatasourceConfig) Clean(t model.DatasourceType) {
 		if c.Log != nil {
 			c.Log = nil
 		}
+		c.Nacos = nil
 	}
 	if t == model.DatasourceTypeLog {
 		if c.Alert != nil {
 			c.Alert = nil
 		}
 	}
+	// 中间件保留 log（Nacos 鉴权账号）与 headers，仅清空告警配置
+	if t == model.DatasourceTypeMiddleware {
+		c.Alert = nil
+	}
 	// Redis 与日志/告警配置互斥，只保留自身配置
 	if t == model.DatasourceTypeRedis {
 		c.Log = nil
 		c.Alert = nil
 		c.Headers = nil
+		c.Nacos = nil
 	} else {
 		c.Redis = nil
 	}
