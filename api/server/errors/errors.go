@@ -127,6 +127,10 @@ var (
 		Code: http.StatusConflict,
 		Err:  errors.ErrNodeNameExists,
 	}
+	ErrNodeIPExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.ErrNodeIPExists,
+	}
 	ErrDistributionExists = Error{
 		Code: http.StatusConflict,
 		Err:  errors.DistributionExistError,

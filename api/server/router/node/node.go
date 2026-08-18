@@ -24,6 +24,10 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
 
+const (
+	nodeBaseURL = "/pixiu/nodes"
+)
+
 type nodeRouter struct {
 	c controller.PixiuInterface
 }
@@ -38,14 +42,16 @@ func NewRouter(o *options.Options) {
 func (n *nodeRouter) initRoutes(ginEngine *gin.Engine) {
 	group := &apiregistry.Group{
 		Name:    "节点管理",
-		BaseURL: "/pixiu/nodes",
+		BaseURL: nodeBaseURL,
 		Entries: []apiregistry.RouteEntry{
 			{Method: "POST", RelativePath: "", Handler: n.createNode, Description: "创建节点"},
 			{Method: "PUT", RelativePath: "/:nodeId", Handler: n.updateNode, Description: "更新节点"},
 			{Method: "DELETE", RelativePath: "/:nodeId", Handler: n.deleteNode, Description: "删除节点"},
 			{Method: "GET", RelativePath: "/:nodeId", Handler: n.getNode, Description: "查看详情"},
 			{Method: "GET", RelativePath: "", Handler: n.listNodes, Description: "查看列表"},
+
+			{Method: "POST", RelativePath: "/connectivity", Handler: n.checkConnectivity, Description: "连通性检测"},
 		},
 	}
-	group.Register(ginEngine.Group("/pixiu/nodes"), n.c.APIResource())
+	group.Register(ginEngine.Group(nodeBaseURL), n.c.APIResource())
 }

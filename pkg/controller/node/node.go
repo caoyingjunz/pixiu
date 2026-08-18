@@ -28,6 +28,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 )
 
 type NodeGetter interface {
@@ -40,6 +41,7 @@ type Interface interface {
 	Delete(ctx context.Context, nodeId int64) error
 	Get(ctx context.Context, nodeId int64) (*types.NodeResult, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+	CheckConnectivity(ctx context.Context, req *types.NodeConnectivityRequest) (*types.NodeConnectivityResult, error)
 }
 
 type nodeController struct {
@@ -55,25 +57,41 @@ func NewNode(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeRequest) error {
+	if err := n.preCreate(ctx, req); err != nil {
+		klog.Errorf("pre-create check failed for node %s: %v", req.Name, err)
+		return err
+	}
+
 	authStr, err := req.Auth.Marshal()
 	if err != nil {
 		klog.Errorf("marshal node auth: %v", err)
 		return errors.ErrInvalidRequest
 	}
-
 	object := &model.Node{
 		Name:   req.Name,
 		UserId: req.UserId,
 		Ip:     req.Ip,
 		Auth:   authStr,
 	}
-
-	_, err = n.factory.Plan().CreateNode(ctx, object)
-	if err != nil {
+	if _, err = n.factory.Plan().CreateNode(ctx, object); err != nil {
 		klog.Errorf("failed to create node %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
+
 	return nil
+}
+
+// 创建前置检查：ip 全局唯一，不允许与已存在节点冲突
+func (n *nodeController) preCreate(ctx context.Context, req *types.CreateNodeRequest) error {
+	_, err := n.factory.Plan().GetNodeByIP(ctx, req.Ip)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return nil
+		}
+		klog.Errorf("get node by ip %s: %v", req.Ip, err)
+		return errors.ErrServerInternal
+	}
+	return errors.ErrNodeIPExists
 }
 
 // 更新前置检查：资源存在 + 非超级管理员只能更新自己的节点
@@ -86,7 +104,7 @@ func (n *nodeController) preUpdate(ctx context.Context, nodeId int64) error {
 		klog.Errorf("get node %d: %v", nodeId, err)
 		return errors.ErrServerInternal
 	}
-	if err := util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, nodeId); err != nil {
+	if err = util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, nodeId); err != nil {
 		return err
 	}
 	return nil
@@ -162,11 +180,69 @@ func (n *nodeController) Get(ctx context.Context, nodeId int64) (*types.NodeResu
 	}
 
 	// 非超级管理员只能查看自己的节点或被 scope 授权的节点
-	if err := util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, nodeId); err != nil {
+	if err = util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, nodeId); err != nil {
 		return nil, err
 	}
 
 	return model2Node(object), nil
+}
+
+// CheckConnectivity 节点 SSH 连通性检测：node_id>0 走库内认证（需 owner 校验），否则用用户传入的 host+凭据直接检测
+func (n *nodeController) CheckConnectivity(ctx context.Context, req *types.NodeConnectivityRequest) (*types.NodeConnectivityResult, error) {
+	var (
+		webssh = &types.WebSSHRequest{}
+		err    error
+	)
+	if req.NodeId > 0 {
+		// 模式A：从库取认证
+		object, e := n.factory.Plan().GetNode(ctx, req.NodeId)
+		if e != nil {
+			if utilerrors.IsRecordNotFound(e) {
+				return nil, errors.ErrNodeNotFound
+			}
+			klog.Errorf("get node %d: %v", req.NodeId, e)
+			return nil, errors.ErrServerInternal
+		}
+		if e := util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, req.NodeId); e != nil {
+			return nil, e
+		}
+		var auth types.PlanNodeAuth
+		if e := auth.Unmarshal(object.Auth); e != nil {
+			return nil, errors.ErrInvalidRequest
+		}
+		if webssh, err = sshutil.ResolveAuth(&auth); err != nil {
+			return nil, errors.ErrInvalidRequest
+		}
+		webssh.Host = object.Ip
+	} else {
+		// 模式B：用户直接传凭据（不落库）
+		if req.Host == "" {
+			return nil, errors.ErrInvalidRequest
+		}
+		webssh.Host = req.Host
+		webssh.Port = req.Port
+		webssh.User = req.User
+		if webssh.User == "" {
+			webssh.User = "root"
+		}
+		webssh.Password = req.Password
+		webssh.PrivateKey = req.PrivateKey
+	}
+
+	result := &types.NodeConnectivityResult{Host: webssh.Host, Port: webssh.Port, User: webssh.User}
+	if webssh.Port == 0 {
+		webssh.Port = 22
+		result.Port = 22
+	}
+	client, e := sshutil.NewSSHClient(webssh)
+	if e != nil {
+		// 连通性失败返回 200 + connected=false + message，不将业务失败当 HTTP 错误
+		result.Message = e.Error()
+		return result, nil
+	}
+	defer client.Close()
+	result.Connected = true
+	return result, nil
 }
 
 func (n *nodeController) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
@@ -221,6 +297,13 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 }
 
 func model2Node(o *model.Node) *types.NodeResult {
+	auth := types.NodeAuthResult{}
+	if o.Auth != "" {
+		var spec types.PlanNodeAuth
+		if err := spec.Unmarshal(o.Auth); err == nil {
+			auth = types.NodeAuthResult{Type: spec.Type, Port: spec.Port}
+		}
+	}
 	return &types.NodeResult{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -233,6 +316,6 @@ func model2Node(o *model.Node) *types.NodeResult {
 		Name:   o.Name,
 		UserId: o.UserId,
 		Ip:     o.Ip,
-		//Auth:   o.Auth,
+		Auth:   auth,
 	}
 }

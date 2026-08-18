@@ -45,8 +45,7 @@ func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string
 
 	var username, password string
 	switch datasource.Type {
-	case model.DatasourceTypeLog, model.DatasourceTypeMiddleware:
-		// 中间件（如 Nacos）的鉴权账号复用 log 配置存储
+	case model.DatasourceTypeLog:
 		if datasource.Config.Log == nil {
 			return ""
 		}

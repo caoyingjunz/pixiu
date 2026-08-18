@@ -43,6 +43,7 @@ var (
 	ErrRunnerNotFound       = errors.New("Runner 不存在")
 	ErrNodeNotFound         = errors.New("节点不存在")
 	ErrNodeNameExists       = errors.New("该部署计划下已存在同名主机")
+	ErrNodeIPExists         = errors.New("主机 IP 已存在")
 	DistributionExistError  = errors.New("操作系统发行版已存在")
 	ErrDistributionNotFound = errors.New("操作系统发行版不存在")
 

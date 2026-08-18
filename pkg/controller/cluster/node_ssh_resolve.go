@@ -16,6 +16,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 )
 
 // ResolveSSHConfigForHost 根据已注册节点的 IP 解析 SSH 连接参数（端口默认 22，账号与凭证来自节点 auth JSON）。
@@ -33,32 +34,11 @@ func (c *cluster) ResolveSSHConfigForHost(ctx context.Context, host string) (*ty
 		return nil, fmt.Errorf("解析节点认证信息失败: %w", err)
 	}
 
-	req := &types.WebSSHRequest{
-		Host: n.Ip,
-		Port: auth.SSHPort(),
+	req, err := sshutil.ResolveAuth(&auth)
+	if err != nil {
+		return nil, err
 	}
-
-	switch auth.Type {
-	case types.PasswordAuth:
-		if auth.Password == nil || auth.Password.Password == "" {
-			return nil, fmt.Errorf("节点未配置 SSH 密码")
-		}
-		req.User = auth.Password.User
-		if req.User == "" {
-			req.User = "root"
-		}
-		req.Password = auth.Password.Password
-
-	case types.KeyAuth:
-		if auth.Key == nil || auth.Key.Data == "" {
-			return nil, fmt.Errorf("节点未配置 SSH 私钥")
-		}
-		req.User = "root"
-		req.PrivateKey = auth.Key.Data
-	default:
-		return nil, fmt.Errorf("不支持的认证类型: %s", auth.Type)
-	}
+	req.Host = n.Ip
 
 	return req, nil
-
 }
