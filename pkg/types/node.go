@@ -16,15 +16,21 @@ limitations under the License.
 
 package types
 
+// NodeAuthResult 节点认证对外返回（仅认证类型与端口，不含密钥/密码）
+type NodeAuthResult struct {
+	Type AuthType `json:"type"`
+	Port int      `json:"port"`
+}
+
 // NodeResult 主机节点 API 返回结构（与 model.Node 持久化字段对齐）
 type NodeResult struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name   string `json:"name"`
-	UserId int64  `json:"user_id"`
-	Ip     string `json:"ip"`
-	Auth   string `json:"auth"`
+	Name   string         `json:"name"`
+	UserId int64          `json:"user_id"`
+	Ip     string         `json:"ip"`
+	Auth   NodeAuthResult `json:"auth"`
 }
 
 // CreateNodeRequest POST /pixiu/nodes
@@ -39,7 +45,8 @@ type CreateNodeRequest struct {
 func (r *CreateNodeRequest) SetUserID(id int64) { r.UserId = id }
 
 // UpdateNodeRequest PUT /pixiu/nodes/:nodeId
-// ResourceVersion 使用指针：binding:"required" 在 int64 上会把合法值 0 判为缺失，乐观锁版本 0 必须允许提交。
+// ResourceVersion 为值类型 int64：客户端必须显式携带当前版本号（乐观锁），0 也会参与 WHERE 比较，
+// 未命中则返回 404，用于并发保护。Name/Ip/Auth 为可空指针，仅非空字段参与更新。
 type UpdateNodeRequest struct {
 	ResourceVersion int64 `json:"resource_version"`
 

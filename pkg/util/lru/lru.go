@@ -43,6 +43,9 @@ func NewLRUCache(cap int) *LRUCache {
 }
 
 func (c *LRUCache) Contains(key interface{}) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	_, exists := c.items[key]
 	return exists
 }
@@ -69,9 +72,11 @@ func (c *LRUCache) Add(key, value interface{}) {
 	}
 }
 
+// Get 语义上是读，但 MoveToFront 会修改链表结构，必须持有完整写锁，
+// 否则并发 Get 会并发写 container/list 引发数据竞争。
 func (c *LRUCache) Get(key interface{}) (value interface{}) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if ent, ok := c.items[key]; ok {
 		value = ent.Value.(*entry).value
@@ -80,4 +85,9 @@ func (c *LRUCache) Get(key interface{}) (value interface{}) {
 	return
 }
 
-func (c *LRUCache) Len() int { return c.evictList.Len() }
+func (c *LRUCache) Len() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.evictList.Len()
+}
