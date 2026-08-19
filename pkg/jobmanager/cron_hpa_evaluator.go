@@ -33,7 +33,9 @@ type CronHpaEvaluator struct {
 	}
 }
 
-func NewCronHpaEvaluator(as interface{ EvaluateOnce(ctx context.Context) error }) *CronHpaEvaluator {
+func NewCronHpaEvaluator(as interface {
+	EvaluateOnce(ctx context.Context) error
+}) *CronHpaEvaluator {
 	return &CronHpaEvaluator{autoscaling: as}
 }
 

@@ -29,9 +29,9 @@ import (
 )
 
 // executeJob 执行一次定时扩缩动作，返回执行前副本数与执行结果描述：
-// - 目标为 Deployment/StatefulSet：通过 scale 子资源直接修改副本数；
-// - 目标为 HPA（兼容模式）：按兼容规则调整 HPA 的 min/max，不直接写副本数，
-//   副本伸缩仍由 HPA 按指标完成，实现"定时 + 指标"共存。
+//   - 目标为 Deployment/StatefulSet：通过 scale 子资源直接修改副本数；
+//   - 目标为 HPA（兼容模式）：按兼容规则调整 HPA 的 min/max，不直接写副本数，
+//     副本伸缩仍由 HPA 按指标完成，实现"定时 + 指标"共存。
 func executeJob(ctx context.Context, cs *client.ClusterSet, rule *model.CronHpa, job *types.CronHpaJob) (int32, string, error) {
 	switch rule.TargetKind {
 	case types.CronHpaTargetKindHpa:

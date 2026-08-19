@@ -35,7 +35,7 @@ const (
 
 // 定时扩缩容支持的目标类型
 const (
-	CronHpaTargetKindDeployment = "Deployment"
+	CronHpaTargetKindDeployment  = "Deployment"
 	CronHpaTargetKindStatefulSet = "StatefulSet"
 	// CronHpaTargetKindHpa 兼容模式：目标是已存在的 HPA，定时调整其 min/max，
 	// 与指标弹性共存（副本数仍由 HPA 按指标决定）
