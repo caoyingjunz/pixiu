@@ -41,6 +41,8 @@ type Config struct {
 	KubeGateway KubeGatewayOptions      `yaml:"kube_gateway"`
 
 	AlertHistory jobmanager.AlertHistoryOptions `yaml:"alert"`
+	// CronHpaHistory 定时扩缩容执行历史清理配置
+	CronHpaHistory jobmanager.CronHpaHistoryOptions `yaml:"cron_hpa"`
 }
 
 // TLSOptions HTTPS 监听配置。kubectl 经 /k8s 网关必须走 HTTPS（client-go 不会在明文 HTTP 上发送 Bearer token）。

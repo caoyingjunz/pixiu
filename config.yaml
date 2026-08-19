@@ -53,6 +53,13 @@ alert:
   # 保留天数，默认 3 天
   days_reserved: 3
 
+# 定时扩缩容执行历史清理（清理过期的执行历史记录）
+cron_hpa:
+  # cron 表达式，默认每天凌晨 3 点执行
+  schedule: "0 3 * * *"
+  # 保留天数，默认 30 天
+  days_reserved: 30
+
 # 日志配置
 log:
   # 格式，可选 text 和 json
