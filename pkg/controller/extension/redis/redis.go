@@ -292,14 +292,15 @@ func (c *controller) clientFor(ctx context.Context, datasourceId int64, db *int)
 }
 
 // wrapRedisErr 将 redis 操作错误转换为带语义错误码的网关类错误：
-// key 不存在→404；认证失败→401；连接层故障→502；其余命令失败→502
+// key 不存在→404；认证失败/连接层故障/其余命令失败→502
+// 注意：上游认证失败不能返回 401，前端全局拦截器将 401 视为 Pixiu 登录失效并登出跳转
 func wrapRedisErr(err error) error {
 	msg := strings.ToLower(err.Error())
 	switch {
 	case errors.Is(err, goredis.Nil):
 		return apierrors.NewError(fmt.Errorf("redis key not found"), http.StatusNotFound)
 	case strings.Contains(msg, "wrongpass") || strings.Contains(msg, "noauth") || strings.Contains(msg, "authentication"):
-		return apierrors.NewError(fmt.Errorf("redis authentication failed: %v", err), http.StatusUnauthorized)
+		return apierrors.NewError(fmt.Errorf("redis authentication failed: %v", err), http.StatusBadGateway)
 	case errors.Is(err, goredis.ErrClosed) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) ||
 		strings.Contains(msg, "connection refused") || strings.Contains(msg, "i/o timeout") || strings.Contains(msg, "network is unreachable"):
 		return apierrors.NewError(fmt.Errorf("redis connection failed: %v", err), http.StatusBadGateway)
