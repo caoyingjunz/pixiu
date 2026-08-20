@@ -446,7 +446,7 @@ func (c *DatasourceConfig) Unmarshal(s string) error {
 }
 
 // Clean 移除不必要的配置，防止持久化的时候存储多余配置
-func (c *DatasourceConfig) Clean(t model.DatasourceType) {
+func (c *DatasourceConfig) Clean(t model.DatasourceType, subType model.DatasourceSubType) {
 	// 如果是告警，则清空日志相关配置
 	if t == model.DatasourceTypeAlert {
 		if c.Log != nil {
@@ -463,8 +463,8 @@ func (c *DatasourceConfig) Clean(t model.DatasourceType) {
 	if t == model.DatasourceTypeMiddleware {
 		c.Alert = nil
 	}
-	// Redis 与日志/告警配置互斥，只保留自身配置
-	if t == model.DatasourceTypeRedis {
+	// Redis 与日志/告警配置互斥，只保留自身配置；redis 可搭配缓存（存量）或中间件类型，故以 sub_type 判定
+	if t == model.DatasourceTypeRedis || subType == model.DatasourceSubTypeRedis {
 		c.Log = nil
 		c.Alert = nil
 		c.Headers = nil
