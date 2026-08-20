@@ -1,8 +1,9 @@
 # 前置准备
 ```bash
 确保 docker 已经安装
+注意: pixiu 和 kubernetes 集群复用节点的时候, 在ubuntu系统上通过 apt 的方式直接安装 docker. 安装方式推荐如下:
 ```
-[Docker 极速安装](./deploy/offline/docker.md)
+[docker 快速安装](./deploy/offline/docker.md)
 
 # 数据库
 ```bash
@@ -23,9 +24,10 @@ docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.4
 ```bash
 # 创建配置文件夹
 mkdir -p /etc/pixiu/
-
 # 后端配置(host 根据实际情况调整)
 vim /etc/pixiu/config.yaml 写入后端如下配置
+
+### 配置文件内容
 default:
   # 自动创建指定模型的数据库表结构，不会更新已存在的数据库表
   auto_migrate: true
