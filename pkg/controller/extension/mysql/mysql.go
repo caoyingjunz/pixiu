@@ -72,6 +72,8 @@ type Interface interface {
 	GetTableDetail(ctx context.Context, datasourceId int64, database, table string) (*types.MySQLTableDetail, error)
 	// ExecuteSQL SQL 控制台：读语句放行，写语句仅管理员可执行
 	ExecuteSQL(ctx context.Context, datasourceId int64, req *types.MySQLQueryRequest) (*types.MySQLQueryResult, error)
+	// ExecuteBatchSQL SQL 控制台批量执行：服务端拆分语句并逐条执行，遇错即停，错误带语句序号
+	ExecuteBatchSQL(ctx context.Context, datasourceId int64, req *types.MySQLExecuteBatchRequest) (*types.MySQLExecuteBatchResult, error)
 	// 用户权限管理（均仅管理员可调用）
 	ListUsers(ctx context.Context, datasourceId int64) ([]types.MySQLUser, error)
 	CreateUser(ctx context.Context, datasourceId int64, req *types.MySQLCreateUserRequest) error

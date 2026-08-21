@@ -41,6 +41,7 @@ const (
 	maxBackupBytes     = 8 << 20 // 备份 SQL 文本体积上限 8MB
 	maxBackupTables    = 200     // 单次备份表数量上限
 	maxSessionListSize = 1000    // PROCESSLIST 最大返回条数
+	maxBatchStatements = 50      // 批量执行单次最大语句条数
 )
 
 // readOnlyKeywords 只读语句关键字：控制台普通用户仅可执行这类语句
@@ -167,6 +168,105 @@ func hasMultipleStatements(sqlText string) bool {
 	return false
 }
 
+// sqlStatement 拆分出的单条语句及在原始文本中的起始行（1-based）
+type sqlStatement struct {
+	Text      string
+	StartLine int
+}
+
+// splitStatements 拆分多条语句（规则与 hasMultipleStatements 一致：
+// 引号/行注释/块注释内的分号不作为分隔符），并记录每条语句起始行
+func splitStatements(sqlText string) []sqlStatement {
+	var (
+		stmts          []sqlStatement
+		startIdx       = -1
+		startLine      = 1
+		line           = 1
+		quote          byte // 当前所在引号：' " ` ；0 表示不在引号内
+		inLineComment  bool
+		inBlockComment bool
+	)
+	markStart := func(i int) {
+		if startIdx < 0 {
+			startIdx = i
+			startLine = line
+		}
+	}
+	closeStmt := func(endIdx int) {
+		if startIdx < 0 {
+			return
+		}
+		if text := strings.TrimSpace(sqlText[startIdx:endIdx]); text != "" {
+			stmts = append(stmts, sqlStatement{Text: text, StartLine: startLine})
+		}
+		startIdx = -1
+	}
+	for i := 0; i < len(sqlText); i++ {
+		ch := sqlText[i]
+		if inLineComment {
+			if ch == '\n' {
+				line++
+				inLineComment = false
+			}
+			continue
+		}
+		if inBlockComment {
+			if ch == '\n' {
+				line++
+			} else if ch == '*' && i+1 < len(sqlText) && sqlText[i+1] == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		}
+		if quote != 0 {
+			if ch == '\\' && quote != '`' && i+1 < len(sqlText) { // 反斜杠转义（反引号内不生效）
+				if sqlText[i+1] == '\n' {
+					line++
+				}
+				i++
+				continue
+			}
+			if ch == '\n' {
+				line++
+			} else if ch == quote {
+				quote = 0
+			}
+			continue
+		}
+		switch ch {
+		case '\n':
+			line++
+		case '\'', '"', '`':
+			markStart(i)
+			quote = ch
+		case '-':
+			markStart(i)
+			if i+1 < len(sqlText) && sqlText[i+1] == '-' { // 行注释
+				inLineComment = true
+				i++
+			}
+		case '#':
+			markStart(i)
+			inLineComment = true
+		case '/':
+			markStart(i)
+			if i+1 < len(sqlText) && sqlText[i+1] == '*' { // 块注释
+				inBlockComment = true
+				i++
+			}
+		case ';':
+			closeStmt(i)
+		case ' ', '\t', '\r':
+			// 空白不启动新语句
+		default:
+			markStart(i)
+		}
+	}
+	closeStmt(len(sqlText))
+	return stmts
+}
+
 // ── SQL 控制台 ───────────────────────────────────────────────
 
 // ExecuteSQL 执行单条 SQL：只读语句放行，写/DDL 语句仅管理员可执行。
@@ -216,7 +316,85 @@ func (c *controller) ExecuteSQL(ctx context.Context, datasourceId int64, req *ty
 		}
 	}
 
-	limit := req.Limit
+	return runStatementOnConn(ctx, conn, req.SQL, req.Limit, readOnly)
+}
+
+// ExecuteBatchSQL 批量执行：服务端拆分语句并在同一连接上逐条执行（保持会话状态，
+// 如 USE/临时表/变量），遇错即停；失败项携带语句序号与起始行号，供前端定位
+func (c *controller) ExecuteBatchSQL(ctx context.Context, datasourceId int64, req *types.MySQLExecuteBatchRequest) (*types.MySQLExecuteBatchResult, error) {
+	if req == nil || strings.TrimSpace(req.SQL) == "" {
+		return nil, apierrors.NewError(fmt.Errorf("sql is required"), http.StatusBadRequest)
+	}
+	if len(req.SQL) > maxSQLBytes {
+		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxSQLBytes), http.StatusBadRequest)
+	}
+	statements := splitStatements(req.SQL)
+	if len(statements) == 0 {
+		return nil, apierrors.NewError(fmt.Errorf("no executable statement found"), http.StatusBadRequest)
+	}
+	if len(statements) > maxBatchStatements {
+		return nil, apierrors.NewError(fmt.Errorf("too many statements: %d, limit %d", len(statements), maxBatchStatements), http.StatusBadRequest)
+	}
+	if req.Database != "" {
+		if err := checkIdentifier("database", req.Database); err != nil {
+			return nil, err
+		}
+	}
+
+	// 写/DDL/管理语句门禁：任一条非只读即要求管理员，与单条执行一致
+	for _, st := range statements {
+		if !isReadOnlyStatement(st.Text) {
+			if err := requireMySQLAdmin(ctx); err != nil {
+				return nil, err
+			}
+			break
+		}
+	}
+
+	dbConn, _, err := c.connFor(ctx, datasourceId)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := queryContext(ctx)
+	defer cancel()
+
+	conn, err := dbConn.Conn(ctx)
+	if err != nil {
+		return nil, wrapMySQLErr(err)
+	}
+	defer conn.Close()
+
+	// 会话级切库：整批语句共享同一连接，只需执行一次
+	if req.Database != "" {
+		if _, err := conn.ExecContext(ctx, "USE "+quoteIdent(req.Database)); err != nil {
+			return nil, wrapMySQLErr(err)
+		}
+	}
+
+	batch := &types.MySQLExecuteBatchResult{
+		Items: make([]types.MySQLExecuteBatchItem, 0, len(statements)),
+		Total: len(statements),
+	}
+	for i, st := range statements {
+		item := types.MySQLExecuteBatchItem{Index: i + 1, StartLine: st.StartLine}
+		result, err := runStatementOnConn(ctx, conn, st.Text, req.Limit, isReadOnlyStatement(st.Text))
+		if err != nil {
+			item.Error = err.Error()
+			batch.Items = append(batch.Items, item)
+			batch.StoppedAt = item.Index
+			break
+		}
+		item.Ok = true
+		item.Result = result
+		batch.Items = append(batch.Items, item)
+	}
+	return batch, nil
+}
+
+// runStatementOnConn 在给定连接上执行单条语句（limit 归一化 + 结果填充），
+// ExecuteSQL 与 ExecuteBatchSQL 共用
+func runStatementOnConn(ctx context.Context, conn *sql.Conn, sqlText string, limit int64, readOnly bool) (*types.MySQLQueryResult, error) {
 	if limit <= 0 {
 		limit = defaultQueryLimit
 	}
@@ -224,11 +402,11 @@ func (c *controller) ExecuteSQL(ctx context.Context, datasourceId int64, req *ty
 		limit = maxQueryLimit
 	}
 
-	result := &types.MySQLQueryResult{Statement: strings.ToLower(firstKeyword(req.SQL))}
+	result := &types.MySQLQueryResult{Statement: strings.ToLower(firstKeyword(sqlText))}
 	start := time.Now()
 
 	if readOnly {
-		rows, err := conn.QueryContext(ctx, req.SQL)
+		rows, err := conn.QueryContext(ctx, sqlText)
 		if err != nil {
 			return nil, wrapMySQLErr(err)
 		}
@@ -237,7 +415,7 @@ func (c *controller) ExecuteSQL(ctx context.Context, datasourceId int64, req *ty
 			return nil, wrapMySQLErr(err)
 		}
 	} else {
-		res, err := conn.ExecContext(ctx, req.SQL)
+		res, err := conn.ExecContext(ctx, sqlText)
 		if err != nil {
 			return nil, wrapMySQLErr(err)
 		}

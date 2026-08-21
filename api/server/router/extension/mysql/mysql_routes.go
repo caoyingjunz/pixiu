@@ -181,6 +181,26 @@ func (mr *mysqlRouter) executeSQL(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// executeBatchSQL SQL 控制台批量执行：服务端拆分并逐条执行，遇错即停
+func (mr *mysqlRouter) executeBatchSQL(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		req types.MySQLExecuteBatchRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = mr.c.Extension().Mysql().ExecuteBatchSQL(c, m.DatasourceId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
 func (mr *mysqlRouter) listUsers(c *gin.Context) {
 	r := httputils.NewResponse()
 

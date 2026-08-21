@@ -109,6 +109,29 @@ type MySQLQueryResult struct {
 	Statement string          `json:"statement"`           // 语句类型：select/insert/update/delete/ddl/...
 }
 
+// MySQLExecuteBatchRequest SQL 控制台批量执行请求：原始文本一次提交，服务端拆分并逐条执行
+type MySQLExecuteBatchRequest struct {
+	Database string `json:"database"` // 执行库（可空表示实例级）
+	SQL      string `json:"sql" binding:"required"`
+	Limit    int64  `json:"limit,omitempty"` // 每条 SELECT 结果行数上限，缺省/超限时归一化
+}
+
+// MySQLExecuteBatchItem 单条语句的执行结果；ok=false 时 Error 携带错误信息
+type MySQLExecuteBatchItem struct {
+	Index     int               `json:"index"`               // 语句序号（从 1 开始）
+	StartLine int               `json:"start_line"`          // 语句在原始文本中的起始行（从 1 开始），供前端定位
+	Ok        bool              `json:"ok"`
+	Error     string            `json:"error,omitempty"`
+	Result    *MySQLQueryResult `json:"result,omitempty"`
+}
+
+// MySQLExecuteBatchResult 批量执行结果：遇错停止，StoppedAt 为出错语句序号（0 表示全部成功）
+type MySQLExecuteBatchResult struct {
+	Items     []MySQLExecuteBatchItem `json:"items"`
+	StoppedAt int                     `json:"stopped_at"`
+	Total     int                     `json:"total"` // 拆分出的语句总数
+}
+
 // MySQLUser 实例用户
 type MySQLUser struct {
 	User            string `json:"user"`
