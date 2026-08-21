@@ -39,6 +39,10 @@ import (
 const (
 	maxIdleConns = 10
 	maxOpenConns = 100
+	// dbConnMaxLifetime/dbConnMaxIdleTime 主动回收连接，避免远端 MySQL 空闲连接被
+	// NAT/防火墙静默断开后，后续请求挂在死 TCP 连接上直至内核重传超时（约 90 秒）
+	dbConnMaxLifetime = 5 * time.Minute
+	dbConnMaxIdleTime = 3 * time.Minute
 
 	defaultListen     = 8091
 	defaultTokenKey   = "pixiu"
@@ -132,6 +136,12 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	if o.ComponentConfig.AlertHistory.DaysReserved == 0 {
 		o.ComponentConfig.AlertHistory.DaysReserved = jobmanager.DefaultAlertHistoryDaysReserved
 	}
+	if o.ComponentConfig.CronHpaHistory.Schedule == "" {
+		o.ComponentConfig.CronHpaHistory.Schedule = jobmanager.DefaultCronHpaHistorySchedule
+	}
+	if o.ComponentConfig.CronHpaHistory.DaysReserved == 0 {
+		o.ComponentConfig.CronHpaHistory.DaysReserved = jobmanager.DefaultCronHpaHistoryDaysReserved
+	}
 	if len(o.ComponentConfig.Default.AdminUser) == 0 {
 		o.ComponentConfig.Default.AdminUser = defaultAdminUser
 	}
@@ -165,9 +175,11 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		&accessOpts,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
+		jobmanager.NewCronHpaHistoryCleaner(o.ComponentConfig.CronHpaHistory, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory, o.ComponentConfig.Default.Mode.InDebug()),
 		jobmanager.NewAgentSyncer(o.Factory),
 		jobmanager.NewTunnelSyncer(o.Factory),
+		jobmanager.NewCronHpaEvaluator(o.Controller.Extension().Autoscaling()),
 		o.AlertEvaluator,
 	)
 	return nil
@@ -202,7 +214,9 @@ func (o *Options) register() error {
 
 func (o *Options) registerDatabase() error {
 	sqlConfig := o.ComponentConfig.Mysql
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
+	// timeout/readTimeout/writeTimeout：SQL 读写显式超时，死连接快速失败并由驱动重试，
+	// 防止定时任务评估轮被单条 SQL 长时间挂起
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local&timeout=5s&readTimeout=10s&writeTimeout=10s",
 		sqlConfig.User,
 		sqlConfig.Password,
 		sqlConfig.Host,
@@ -226,6 +240,8 @@ func (o *Options) registerDatabase() error {
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetConnMaxLifetime(dbConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(dbConnMaxIdleTime)
 
 	o.Factory, err = pixiudb.NewDaoFactory(db, o.ComponentConfig.Default.AutoMigrate)
 	return err
