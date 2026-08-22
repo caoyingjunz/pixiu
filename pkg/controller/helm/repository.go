@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -84,6 +85,9 @@ func (r *Repository) Create(ctx context.Context, repo *types.CreateRepository) e
 }
 
 func (r *Repository) Delete(ctx context.Context, id int64) error {
+	if err := controllerutil.RequireRoot(ctx); err != nil {
+		return err
+	}
 	// 前置检查：资源存在
 	repository, err := r.factory.Repository().Get(ctx, id)
 	if err != nil {

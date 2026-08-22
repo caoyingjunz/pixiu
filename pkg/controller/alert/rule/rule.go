@@ -116,6 +116,9 @@ func (c *controller) preUpdate(ctx context.Context, ruleId int64) (*model.AlertR
 	if current == nil {
 		return nil, apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
 	}
+	if err = ctrlutil.CheckCreatedByName(ctx, current.CreatedBy); err != nil {
+		return nil, err
+	}
 	return current, nil
 }
 
@@ -278,6 +281,9 @@ func (c *controller) cleanupOnDisable(ctx context.Context, ruleId int64) error {
 }
 
 func (c *controller) Delete(ctx context.Context, ruleId int64) error {
+	if _, err := c.preUpdate(ctx, ruleId); err != nil {
+		return err
+	}
 	if err := c.factory.Alert().Rule().Delete(ctx, ruleId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
@@ -297,6 +303,9 @@ func (c *controller) Get(ctx context.Context, ruleId int64) (*types.AlertRule, e
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
 	}
+	if err = ctrlutil.CheckCreatedByName(ctx, object.CreatedBy); err != nil {
+		return nil, err
+	}
 	return modelToType(object), nil
 }
 
@@ -314,8 +323,11 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		db.WithNameLike(listOption.NameSelector),
 		db.WithAlertSeverity(listOption.Severity),
 	}
+	opts, err := ctrlutil.AppendCreatedByNameOpt(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 
-	var err error
 	pageResult.Total, err = c.factory.Alert().Rule().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count alert rules: %v", err)
@@ -363,6 +375,17 @@ func (c *controller) Export(ctx context.Context, ids []int64) ([]byte, error) {
 	if len(objects) == 0 {
 		return nil, apierrors.NewError(fmt.Errorf("no alert rules found for export"), http.StatusNotFound)
 	}
+	owned := make([]model.AlertRule, 0, len(objects))
+	for i := range objects {
+		if err = ctrlutil.CheckCreatedByName(ctx, objects[i].CreatedBy); err != nil {
+			continue
+		}
+		owned = append(owned, objects[i])
+	}
+	if len(owned) == 0 {
+		return nil, apierrors.ErrForbidden
+	}
+	objects = owned
 
 	// Batch collect datasource IDs and channel IDs across all rules.
 	var dsIDs, channelIDs []int64

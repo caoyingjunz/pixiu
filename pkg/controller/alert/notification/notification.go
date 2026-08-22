@@ -25,6 +25,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -91,6 +92,26 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 }
 
 func (c *controller) Delete(ctx context.Context, notificationId int64) error {
+	object, err := c.factory.Alert().Notification().Get(ctx, notificationId)
+	if err != nil {
+		klog.Errorf("failed to get alert notification(%d): %v", notificationId, err)
+		return apierrors.ErrServerInternal
+	}
+	if object == nil {
+		return apierrors.NewError(fmt.Errorf("alert notification not found"), http.StatusNotFound)
+	}
+	rule, err := c.factory.Alert().Rule().Get(ctx, object.RuleId)
+	if err != nil {
+		klog.Errorf("failed to get alert rule(%d) for notification(%d): %v", object.RuleId, notificationId, err)
+		return apierrors.ErrServerInternal
+	}
+	if rule == nil {
+		return apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
+	}
+	if err = ctrlutil.CheckCreatedByName(ctx, rule.CreatedBy); err != nil {
+		return err
+	}
+
 	rows, err := c.factory.Alert().Notification().Delete(ctx, db.WithIDIn(notificationId))
 	if err != nil {
 		klog.Errorf("failed to delete alert notification(%d): %v", notificationId, err)

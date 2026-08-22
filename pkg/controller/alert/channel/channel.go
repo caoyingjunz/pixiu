@@ -77,7 +77,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateAlertChannelRe
 	return nil
 }
 
-// 更新前置检查：资源存在
+// 更新前置检查：资源存在 + 创建者归属
 func (c *controller) preUpdate(ctx context.Context, channelId int64) error {
 	object, err := c.factory.Alert().Channel().Get(ctx, channelId)
 	if err != nil {
@@ -86,6 +86,9 @@ func (c *controller) preUpdate(ctx context.Context, channelId int64) error {
 	}
 	if object == nil {
 		return apierrors.NewError(fmt.Errorf("alert channel not found"), http.StatusNotFound)
+	}
+	if err = ctrlutil.CheckCreatedByName(ctx, object.CreatedBy); err != nil {
+		return err
 	}
 	return nil
 }
@@ -130,6 +133,9 @@ func (c *controller) Update(ctx context.Context, channelId int64, req *types.Upd
 }
 
 func (c *controller) Delete(ctx context.Context, channelId int64) error {
+	if err := c.preUpdate(ctx, channelId); err != nil {
+		return err
+	}
 	if err := c.factory.Alert().Channel().Delete(ctx, channelId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("alert channel not found"), http.StatusNotFound)
@@ -149,6 +155,9 @@ func (c *controller) Get(ctx context.Context, channelId int64) (*types.AlertChan
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("alert channel not found"), http.StatusNotFound)
 	}
+	if err = ctrlutil.CheckCreatedByName(ctx, object.CreatedBy); err != nil {
+		return nil, err
+	}
 	return modelToType(object), nil
 }
 
@@ -163,8 +172,11 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	}
 
 	opts := buildListOpts(listOption)
+	opts, err := ctrlutil.AppendCreatedByNameOpt(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 
-	var err error
 	pageResult.Total, err = c.factory.Alert().Channel().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count alert channels: %v", err)

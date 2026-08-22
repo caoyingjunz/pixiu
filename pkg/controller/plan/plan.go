@@ -546,6 +546,17 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 // 3. 校验runner
 // 3. 运行任务
 func (p *plan) preStart(ctx context.Context, pid int64) error {
+	planObj, err := p.factory.Plan().Get(ctx, pid)
+	if err != nil {
+		return err
+	}
+	if planObj == nil {
+		return errors.ErrPlanNotFound
+	}
+	if err = util.CheckResourceAccess(ctx, p.factory, planObj.UserId, types.ResourceTypePlan, pid); err != nil {
+		return err
+	}
+
 	// 4. 校验运行任务
 	isRunning, err := p.IsRunning(ctx, pid)
 	if err != nil {
@@ -578,11 +589,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	}
 	klog.Infof("plan(%d) runner is %s", pid, runner)
 
-	planObj, err := p.factory.Plan().Get(ctx, pid)
-	if err != nil {
-		return err
-	}
-	if planObj != nil && planObj.ExecMode == model.PlanExecModeAgent {
+	if planObj.ExecMode == model.PlanExecModeAgent {
 		if planObj.DeployAgentId == 0 {
 			return fmt.Errorf("agent 模式未绑定执行 Agent")
 		}

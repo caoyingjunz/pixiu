@@ -32,6 +32,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -113,6 +114,9 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateEmailRequest) 
 		klog.Errorf("pre-update check failed for email(%d): %v", req.Id, err)
 		return err
 	}
+	if err = ctrlutil.CheckResourceOwner(ctx, old.CreatedBy); err != nil {
+		return err
+	}
 
 	updates := make(map[string]interface{})
 	if req.Name != old.Name {
@@ -182,6 +186,9 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 	if object == nil {
 		return apierrors.NewError(fmt.Errorf("email not found"), http.StatusNotFound)
 	}
+	if err = ctrlutil.CheckResourceOwner(ctx, object.CreatedBy); err != nil {
+		return err
+	}
 	if _, err = c.factory.Email().Delete(ctx, id); err != nil {
 		klog.Errorf("failed to delete email %d: %v", id, err)
 		return apierrors.ErrServerInternal
@@ -197,6 +204,9 @@ func (c *controller) Get(ctx context.Context, id int64) (*types.Email, error) {
 	}
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("email not found"), http.StatusNotFound)
+	}
+	if err = ctrlutil.CheckResourceOwner(ctx, object.CreatedBy); err != nil {
+		return nil, err
 	}
 	return modelToType(object), nil
 }
@@ -214,8 +224,11 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	opts := []db.Options{
 		db.WithNameLike(listOption.NameSelector),
 	}
+	opts, err := ctrlutil.AppendCreatedByOpt(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 
-	var err error
 	pageResult.Total, err = c.factory.Email().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count emails: %v", err)
@@ -254,6 +267,9 @@ func (c *controller) TestSend(ctx context.Context, id int64, req *types.TestSend
 	}
 	if object == nil {
 		return apierrors.NewError(fmt.Errorf("email not found"), http.StatusNotFound)
+	}
+	if err = ctrlutil.CheckResourceOwner(ctx, object.CreatedBy); err != nil {
+		return err
 	}
 
 	if err = sendEmail(object, object.Password, req.To); err != nil {
