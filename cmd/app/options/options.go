@@ -39,10 +39,6 @@ import (
 const (
 	maxIdleConns = 10
 	maxOpenConns = 100
-	// dbConnMaxLifetime/dbConnMaxIdleTime 主动回收连接，避免远端 MySQL 空闲连接被
-	// NAT/防火墙静默断开后，后续请求挂在死 TCP 连接上直至内核重传超时（约 90 秒）
-	dbConnMaxLifetime = 5 * time.Minute
-	dbConnMaxIdleTime = 3 * time.Minute
 
 	defaultListen     = 8091
 	defaultTokenKey   = "pixiu"
