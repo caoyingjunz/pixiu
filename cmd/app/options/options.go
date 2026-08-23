@@ -214,9 +214,7 @@ func (o *Options) register() error {
 
 func (o *Options) registerDatabase() error {
 	sqlConfig := o.ComponentConfig.Mysql
-	// timeout/readTimeout/writeTimeout：SQL 读写显式超时，死连接快速失败并由驱动重试，
-	// 防止定时任务评估轮被单条 SQL 长时间挂起
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local&timeout=5s&readTimeout=10s&writeTimeout=10s",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
 		sqlConfig.User,
 		sqlConfig.Password,
 		sqlConfig.Host,
@@ -240,8 +238,6 @@ func (o *Options) registerDatabase() error {
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
-	sqlDB.SetConnMaxLifetime(dbConnMaxLifetime)
-	sqlDB.SetConnMaxIdleTime(dbConnMaxIdleTime)
 
 	o.Factory, err = pixiudb.NewDaoFactory(db, o.ComponentConfig.Default.AutoMigrate)
 	return err
