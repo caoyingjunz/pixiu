@@ -59,7 +59,7 @@ spec:
     spec:
       containers:
         - name: pixiu
-          image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1-beta.5
+          image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1-beta.6
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

@@ -88,7 +88,7 @@ mysql:
 
 #### 安装 pixiu-server
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.1-beta.5
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.1-beta.6
 ```
 ![img_4.png](img_4.png)
 
