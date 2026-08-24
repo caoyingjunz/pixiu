@@ -48,14 +48,14 @@ type RedisInfo struct {
 	Raw              string `json:"raw"`        // INFO 命令原始输出
 
 	// 内存详情
-	UsedMemory       int64   `json:"used_memory"`              // 字节
-	UsedMemoryRss    int64   `json:"used_memory_rss"`          // 字节
-	UsedMemoryPeak   int64   `json:"used_memory_peak"`         // 字节
-	UsedMemoryLua    int64   `json:"used_memory_lua"`          // 字节
-	MaxMemory        int64   `json:"max_memory"`               // 字节，0 表示未限制
-	MaxMemoryHuman   string  `json:"max_memory_human"`         // 可读格式
-	MaxMemoryPolicy  string  `json:"max_memory_policy"`        // 淘汰策略
-	MemFragmentation float64 `json:"mem_fragmentation_ratio"`  // 内存碎片率
+	UsedMemory       int64   `json:"used_memory"`             // 字节
+	UsedMemoryRss    int64   `json:"used_memory_rss"`         // 字节
+	UsedMemoryPeak   int64   `json:"used_memory_peak"`        // 字节
+	UsedMemoryLua    int64   `json:"used_memory_lua"`         // 字节
+	MaxMemory        int64   `json:"max_memory"`              // 字节，0 表示未限制
+	MaxMemoryHuman   string  `json:"max_memory_human"`        // 可读格式
+	MaxMemoryPolicy  string  `json:"max_memory_policy"`       // 淘汰策略
+	MemFragmentation float64 `json:"mem_fragmentation_ratio"` // 内存碎片率
 
 	// 命令统计
 	TotalCommands    int64 `json:"total_commands_processed"`
@@ -79,7 +79,7 @@ type RedisInfo struct {
 	AofEnabled        int64  `json:"aof_enabled"`
 
 	// 复制
-	Role            string `json:"role"`             // master/slave
+	Role            string `json:"role"` // master/slave
 	ConnectedSlaves int64  `json:"connected_slaves"`
 
 	// Keyspace 各 DB 分布
