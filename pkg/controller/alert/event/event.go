@@ -25,7 +25,6 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	ctrlutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -56,9 +55,6 @@ func (c *controller) Get(ctx context.Context, eventId int64) (*types.AlertEvent,
 	if object == nil {
 		return nil, apierrors.NewError(fmt.Errorf("alert event not found"), http.StatusNotFound)
 	}
-	if err = c.checkEventAccess(ctx, object.RuleId); err != nil {
-		return nil, err
-	}
 	return modelToType(object), nil
 }
 
@@ -73,15 +69,8 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	}
 
 	opts := buildListOpts(listOption)
-	opts, empty, err := ctrlutil.AppendOwnedAlertRuleOpt(ctx, c.factory, opts)
-	if err != nil {
-		return nil, err
-	}
-	if empty {
-		pageResult.Items = []types.AlertEvent{}
-		return pageResult, nil
-	}
 
+	var err error
 	pageResult.Total, err = c.factory.Alert().Event().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count alert events: %v", err)
@@ -111,7 +100,7 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	return pageResult, nil
 }
 
-// 更新前置检查：资源存在 + 经关联规则校验归属
+// 更新前置检查：资源存在
 func (c *controller) preUpdate(ctx context.Context, eventId int64) error {
 	object, err := c.factory.Alert().Event().Get(ctx, eventId)
 	if err != nil {
@@ -121,7 +110,7 @@ func (c *controller) preUpdate(ctx context.Context, eventId int64) error {
 	if object == nil {
 		return apierrors.NewError(fmt.Errorf("alert event not found"), http.StatusNotFound)
 	}
-	return c.checkEventAccess(ctx, object.RuleId)
+	return nil
 }
 
 func (c *controller) UpdateStatus(ctx context.Context, eventId int64, req *types.UpdateAlertEventStatusRequest) error {
@@ -138,18 +127,6 @@ func (c *controller) UpdateStatus(ctx context.Context, eventId int64, req *types
 		return apierrors.ErrServerInternal
 	}
 	return nil
-}
-
-func (c *controller) checkEventAccess(ctx context.Context, ruleId int64) error {
-	rule, err := c.factory.Alert().Rule().Get(ctx, ruleId)
-	if err != nil {
-		klog.Errorf("failed to get alert rule(%d): %v", ruleId, err)
-		return apierrors.ErrServerInternal
-	}
-	if rule == nil {
-		return apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
-	}
-	return ctrlutil.CheckCreatedByName(ctx, rule.CreatedBy)
 }
 
 func buildListOpts(opt types.ListOptions) []db.Options {
