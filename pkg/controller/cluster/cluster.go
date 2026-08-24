@@ -216,16 +216,16 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	// 隧道模式：Agent 未上线前不强制注入 ClusterRole，也无法通过隧道创建命名空间
 	if req.ConnectMode != model.ConnectModeTunnel {
 		if err = c.ensurePixiuSystemNamespace(ctx, cs); err != nil {
-			klog.Errorf("failed to ensure pixiu-system namespace %s: %v", req.Name, err)
+			klog.Errorf("cluster %s: create pixiu-system namespace failed, rolling back by deleting the cluster: %v", req.Name, err)
 			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
-				klog.Errorf("failed to delete cluster %s after namespace failure: %v", req.Name, delErr)
+				klog.Errorf("cluster %s: rollback delete failed after pixiu-system namespace creation failure: %v", req.Name, delErr)
 			}
 			return nil, err
 		}
 		if err = c.addPixiuClusterRole(ctx, req, cs); err != nil {
-			klog.Errorf("failed to add pixiu cluster role %s: %v", req.Name, err)
+			klog.Errorf("cluster %s: create pixiu cluster role failed, rolling back by deleting the cluster: %v", req.Name, err)
 			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
-				klog.Errorf("failed to delete cluster %s after role failure: %v", req.Name, delErr)
+				klog.Errorf("cluster %s: rollback delete failed after pixiu cluster role creation failure: %v", req.Name, delErr)
 			}
 			return nil, err
 		}
