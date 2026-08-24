@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -408,6 +409,44 @@ func (c *controller) Info(ctx context.Context, datasourceId int64, db *int) (*ty
 		KeyspaceMisses:   parseInfoInt(raw, "keyspace_misses"),
 		TotalKeys:        dbSize,
 		Raw:              raw,
+
+		// 内存详情
+		UsedMemory:       parseInfoInt(raw, "used_memory"),
+		UsedMemoryRss:    parseInfoInt(raw, "used_memory_rss"),
+		UsedMemoryPeak:   parseInfoInt(raw, "used_memory_peak"),
+		UsedMemoryLua:    parseInfoInt(raw, "used_memory_lua"),
+		MaxMemory:        parseInfoInt(raw, "maxmemory"),
+		MaxMemoryHuman:   parseInfoField(raw, "maxmemory_human"),
+		MaxMemoryPolicy:  parseInfoField(raw, "maxmemory_policy"),
+		MemFragmentation: parseInfoFloat(raw, "mem_fragmentation_ratio"),
+
+		// 命令统计
+		TotalCommands:    parseInfoInt(raw, "total_commands_processed"),
+		InstantaneousOps: parseInfoInt(raw, "instantaneous_ops_per_sec"),
+
+		// 网络
+		NetInputBytes:  parseInfoInt(raw, "net_input_bytes_total"),
+		NetOutputBytes: parseInfoInt(raw, "net_output_bytes_total"),
+
+		// 键空间统计
+		EvictedKeys: parseInfoInt(raw, "evicted_keys"),
+		ExpiredKeys: parseInfoInt(raw, "expired_keys"),
+
+		// 连接
+		BlockedClients: parseInfoInt(raw, "blocked_clients"),
+		RejectedConns:  parseInfoInt(raw, "rejected_connections"),
+
+		// 持久化
+		RdbLastSaveStatus: parseInfoField(raw, "rdb_last_bgsave_status"),
+		RdbLastSaveTime:   parseInfoInt(raw, "rdb_last_save_time"),
+		AofEnabled:        parseInfoInt(raw, "aof_enabled"),
+
+		// 复制
+		Role:            parseInfoField(raw, "role"),
+		ConnectedSlaves: parseInfoInt(raw, "connected_slaves"),
+
+		// Keyspace 各 DB 分布
+		KeyspaceDBs: parseKeyspaceDBs(raw),
 	}
 	return info, nil
 }
@@ -809,4 +848,34 @@ func parseInfoField(raw, field string) string {
 func parseInfoInt(raw, field string) int64 {
 	n, _ := strconv.ParseInt(parseInfoField(raw, field), 10, 64)
 	return n
+}
+
+func parseInfoFloat(raw, field string) float64 {
+	f, _ := strconv.ParseFloat(parseInfoField(raw, field), 64)
+	return f
+}
+
+// keyspaceLineRe 匹配 INFO keyspace 段中的行：db0:keys=123,expires=45,avg_ttl=67890
+var keyspaceLineRe = regexp.MustCompile(`^(db\d+):keys=(\d+),expires=(\d+),avg_ttl=(\d+)$`)
+
+// parseKeyspaceDBs 从 INFO 原始输出中解析 keyspace 段，提取各 DB 的 key 分布
+func parseKeyspaceDBs(raw string) []types.RedisKeyspaceDB {
+	var dbs []types.RedisKeyspaceDB
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimRight(strings.TrimSpace(line), "\r")
+		m := keyspaceLineRe.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		keys, _ := strconv.ParseInt(m[2], 10, 64)
+		expires, _ := strconv.ParseInt(m[3], 10, 64)
+		avgTTL, _ := strconv.ParseInt(m[4], 10, 64)
+		dbs = append(dbs, types.RedisKeyspaceDB{
+			DB:      m[1],
+			Keys:    keys,
+			Expires: expires,
+			AvgTTL:  avgTTL,
+		})
+	}
+	return dbs
 }
