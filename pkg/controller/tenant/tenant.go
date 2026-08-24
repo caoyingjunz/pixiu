@@ -23,6 +23,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -108,6 +109,9 @@ func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantR
 }
 
 func (t *tenant) Delete(ctx context.Context, tid int64) error {
+	if err := controllerutil.RequireRoot(ctx); err != nil {
+		return err
+	}
 	object, err := t.factory.Tenant().Delete(ctx, tid)
 	if err != nil {
 		klog.Errorf("failed to delete tenant %d: %v", tid, err)

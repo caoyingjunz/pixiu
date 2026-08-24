@@ -409,6 +409,9 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 // Logout
 // 允许用户登出登陆状态
 func (u *user) Logout(ctx *gin.Context, userId int64) error {
+	if err := controllerutil.CheckResourceOwner(ctx, userId); err != nil {
+		return err
+	}
 	if u.cc.Default.SingleLogin {
 		tokenIndexer.Delete(userId)
 		return nil

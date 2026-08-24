@@ -26,6 +26,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -117,6 +118,9 @@ func (r *runnerController) Update(ctx context.Context, req *types.UpdateRunnerRe
 }
 
 func (r *runnerController) Delete(ctx context.Context, runnerId int64) error {
+	if err := controllerutil.RequireRoot(ctx); err != nil {
+		return err
+	}
 	// 前置检查：资源存在
 	object, err := r.factory.Runner().Get(ctx, runnerId)
 	if err != nil {
@@ -230,6 +234,9 @@ func (r *runnerController) Install(ctx context.Context, req types.InstallRunnerR
 }
 
 func (r *runnerController) UnInstall(ctx context.Context, req types.UninstallRunnerRequest) error {
+	if err := controllerutil.RequireRoot(ctx); err != nil {
+		return err
+	}
 	// 1. 查询现有 runner
 	obj, err := r.factory.Runner().Get(ctx, req.Id)
 	if err != nil || obj == nil {

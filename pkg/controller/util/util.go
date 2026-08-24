@@ -64,6 +64,18 @@ func CheckResourceOwner(ctx context.Context, resourceOwnerID int64) error {
 	return nil
 }
 
+// RequireRoot 仅允许超级管理员执行敏感变更（如角色 API / ACL 目录）。
+func RequireRoot(ctx context.Context) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if user.Role != model.RoleRoot {
+		return errors.ErrForbidden
+	}
+	return nil
+}
+
 // CheckResourceAccess 校验当前用户是否有权访问 pixiu 资源：
 // 超管放行 → owner 放行 → 角色 scope 命中放行 → 否则 403
 func CheckResourceAccess(ctx context.Context, factory db.ShareDaoFactory, resourceOwnerID int64, resourceType string, resourceId int64) error {
