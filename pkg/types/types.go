@@ -495,6 +495,8 @@ type PlanNodeAuth struct {
 
 const DefaultSSHPort = 22
 
+const PixiuViewClusterRole = "pixiu-view"
+
 // SSHPort returns the configured SSH port, falling back to the standard port
 // for old node records and invalid values.
 func (a PlanNodeAuth) SSHPort() int {
@@ -849,7 +851,7 @@ func (o *CreatePermissionRequest) SetDefaultOptions() {
 		o.ClusterRoleName = fmt.Sprintf("pixiu-cr-%d", o.UserId)
 	}
 	if o.PType == 0 {
-		o.ClusterRoleName = "pixiu-view"
+		o.ClusterRoleName = PixiuViewClusterRole
 	}
 	if o.PType == 2 {
 		o.ClusterRoleName = "cluster-admin"

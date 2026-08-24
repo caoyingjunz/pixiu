@@ -280,7 +280,7 @@ func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.Clus
 	}...)
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "pixiu-view",
+			Name:   types.PixiuViewClusterRole,
 			Labels: map[string]string{"maintainer": "pixiu"},
 		},
 		Rules: rules,
@@ -294,7 +294,7 @@ func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClus
 		return nil
 	}
 
-	clusterRoleView := "pixiu-view"
+	clusterRoleView := types.PixiuViewClusterRole
 	// 已存在则忽略
 	_, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleView, metav1.GetOptions{})
 	if err == nil {
@@ -450,7 +450,7 @@ func (c *cluster) deletePixiuClusterRole(ctx context.Context, cluster *model.Clu
 		return nil
 	}
 
-	clusterRoleView := "pixiu-view"
+	clusterRoleView := types.PixiuViewClusterRole
 	if err := cs.Client.RbacV1().ClusterRoles().Delete(ctx, clusterRoleView, metav1.DeleteOptions{}); err != nil {
 		klog.Errorf("failed to delete clusterRole(%s): %v", clusterRoleView, err)
 		return nil

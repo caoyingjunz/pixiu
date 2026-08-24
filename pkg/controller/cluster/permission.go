@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -490,14 +491,14 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 
 	// 自定义规则时，删除 ClusterRoles 和 RoleBindings
 	// 管理员和只读规则时，仅删除 RoleBindings
-	var firstErr error
+	var errs []error
 	if object.PType == 1 {
 		// 2. 删除 ClusterRole 自定义的类型需要删除
 		klog.Infof("deleting ClusterRole(%s)", name)
 		if err = clientSet.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
 			if !apierrors.IsNotFound(err) {
 				klog.Errorf("failed to delete ClusterRole(%s): %v", name, err)
-				firstErr = err
+				errs = append(errs, err)
 			}
 		}
 
@@ -507,9 +508,7 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 			if err = clientSet.RbacV1().RoleBindings(targetNamespace).Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
 				if !apierrors.IsNotFound(err) {
 					klog.Errorf("failed to delete RoleBindings(%s) in namespace(%s): %v", bindingName, targetNamespace, err)
-					if firstErr == nil {
-						firstErr = err
-					}
+					errs = append(errs, err)
 				}
 			}
 		}
@@ -519,12 +518,12 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 		if err = clientSet.RbacV1().ClusterRoleBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
 			if !apierrors.IsNotFound(err) {
 				klog.Errorf("failed to delete ClusterRoleBindings(%s) for ClusterRole(%s): %v", bindingName, object.ClusterRoleName, err)
-				firstErr = err
+				errs = append(errs, err)
 			}
 		}
 	}
 
-	return firstErr
+	return stderrors.Join(errs...)
 }
 
 func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
@@ -686,7 +685,7 @@ func createRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, 
 
 // ensurePixiuViewClusterRole 幂等确保目标集群存在 pixiu-view ClusterRole（只读授权复用，避免悬空绑定）。
 func ensurePixiuViewClusterRole(ctx context.Context, clientSet kubernetes.Interface) error {
-	name := "pixiu-view"
+	name := types.PixiuViewClusterRole
 	if _, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{}); err == nil {
 		return nil
 	} else if !apierrors.IsNotFound(err) {
