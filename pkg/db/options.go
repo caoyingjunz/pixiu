@@ -318,6 +318,24 @@ func WithClusterName(clusterName string) Options {
 	}
 }
 
+func WithCronHpaStatus(status model.CronHpaStatus) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if status == "" {
+			return tx
+		}
+		return tx.Where("status = ?", status)
+	}
+}
+
+func WithNamespace(namespace string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if namespace == "" {
+			return tx
+		}
+		return tx.Where("namespace = ?", namespace)
+	}
+}
+
 func WithDatasourceType(datasourceType model.DatasourceType) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("type = ?", datasourceType)

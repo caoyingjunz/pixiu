@@ -41,7 +41,6 @@ func Catalog() []Definition {
 	return []Definition{
 		{Code: "dashboard", Title: "仪表盘", Path: "/dashboard", Kind: KindDirectory},
 		{Code: "dashboard.console", ParentCode: "dashboard", Title: "工作台", Path: "/dashboard/console", Kind: KindMenu, AdminOnly: true},
-		{Code: "dashboard.analysis", ParentCode: "dashboard", Title: "分析页", Path: "/dashboard/analysis", Kind: KindMenu, AdminOnly: true},
 
 		{Code: "container", Title: "容器服务", Path: "/container", Kind: KindDirectory},
 		{Code: "container.cluster", ParentCode: "container", Title: "集群", Path: "/container/cluster", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/clusters"}},

@@ -132,6 +132,12 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	if o.ComponentConfig.AlertHistory.DaysReserved == 0 {
 		o.ComponentConfig.AlertHistory.DaysReserved = jobmanager.DefaultAlertHistoryDaysReserved
 	}
+	if o.ComponentConfig.CronHpaHistory.Schedule == "" {
+		o.ComponentConfig.CronHpaHistory.Schedule = jobmanager.DefaultCronHpaHistorySchedule
+	}
+	if o.ComponentConfig.CronHpaHistory.DaysReserved == 0 {
+		o.ComponentConfig.CronHpaHistory.DaysReserved = jobmanager.DefaultCronHpaHistoryDaysReserved
+	}
 	if len(o.ComponentConfig.Default.AdminUser) == 0 {
 		o.ComponentConfig.Default.AdminUser = defaultAdminUser
 	}
@@ -165,9 +171,11 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		&accessOpts,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
+		jobmanager.NewCronHpaHistoryCleaner(o.ComponentConfig.CronHpaHistory, o.Factory),
 		jobmanager.NewClusterSyncer(o.Factory, o.ComponentConfig.Default.Mode.InDebug()),
 		jobmanager.NewAgentSyncer(o.Factory),
 		jobmanager.NewTunnelSyncer(o.Factory),
+		jobmanager.NewCronHpaEvaluator(o.Controller.Extension().Autoscaling()),
 		o.AlertEvaluator,
 	)
 	return nil

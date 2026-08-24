@@ -336,9 +336,37 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	}
 
 	opts := []db.Options{
-		db.WithUserOrResourceIDs(listOption.UserId, authorizedDatasourceIDs),
 		db.WithNameLike(listOption.NameSelector),
-		db.WithClusterName(listOption.ClusterName),
+	}
+
+	// 集群数据源可见性：请求指定集群时，解析被授权集群（子集群）→ 主集群并校验集群访问权；
+	// 否则走通用过滤（用户所属 + datasource scope 授权）
+	if listOption.ClusterName != "" {
+		clusterObj, err := c.factory.Cluster().GetBy(ctx, db.WithName(listOption.ClusterName))
+		if err != nil {
+			klog.Errorf("failed to get cluster %s for datasource list: %v", listOption.ClusterName, err)
+			return nil, apierrors.ErrServerInternal
+		}
+		// 集群不存在或无访问权：返回空列表，避免泄露其他集群数据源
+		if clusterObj == nil {
+			return pageResult, nil
+		}
+		if err = controllerutil.CheckResourceAccess(ctx, c.factory, clusterObj.UserId, types.ResourceTypeCluster, clusterObj.Id); err != nil {
+			return pageResult, nil
+		}
+		// 被授权集群是主集群的子集群，其监控数据源挂在主集群名下
+		if clusterObj.OwnerReference != 0 {
+			master, err := c.factory.Cluster().Get(ctx, clusterObj.OwnerReference)
+			if err != nil || master == nil {
+				klog.Warningf("cluster %s: master cluster(%d) not found, skipping datasource",
+					listOption.ClusterName, clusterObj.OwnerReference)
+				return pageResult, nil
+			}
+			listOption.ClusterName = master.Name
+		}
+		opts = append(opts, db.WithClusterName(listOption.ClusterName))
+	} else {
+		opts = append(opts, db.WithUserOrResourceIDs(listOption.UserId, authorizedDatasourceIDs))
 	}
 	if listOption.DatasourceType != nil {
 		opts = append(opts, db.WithDatasourceType(*listOption.DatasourceType))
