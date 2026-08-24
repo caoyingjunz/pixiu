@@ -41,7 +41,6 @@ func Catalog() []Definition {
 	return []Definition{
 		{Code: "dashboard", Title: "仪表盘", Path: "/dashboard", Kind: KindDirectory},
 		{Code: "dashboard.console", ParentCode: "dashboard", Title: "工作台", Path: "/dashboard/console", Kind: KindMenu, AdminOnly: true},
-		{Code: "dashboard.analysis", ParentCode: "dashboard", Title: "分析页", Path: "/dashboard/analysis", Kind: KindMenu, AdminOnly: true},
 
 		{Code: "container", Title: "容器服务", Path: "/container", Kind: KindDirectory},
 		{Code: "container.cluster", ParentCode: "container", Title: "集群", Path: "/container/cluster", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/clusters"}},
@@ -50,6 +49,8 @@ func Catalog() []Definition {
 
 		{Code: "middleware", Title: "中间件", Path: "/middleware", Kind: KindDirectory},
 		{Code: "middleware.elasticsearch", ParentCode: "middleware", Title: "Elasticsearch", Path: "/middleware/elasticsearch", Kind: KindMenu, AdminOnly: true},
+		{Code: "middleware.redis", ParentCode: "middleware", Title: "Redis", Path: "/middleware/redis", Kind: KindMenu, AdminOnly: true},
+		{Code: "middleware.nacos", ParentCode: "middleware", Title: "Nacos", Path: "/middleware/nacos", Kind: KindMenu, AdminOnly: true},
 
 		{Code: "monitor", Title: "监控告警", Path: "/monitor", Kind: KindDirectory},
 		{Code: "monitor.realtime", ParentCode: "monitor", Title: "实时查询", Path: "/monitor/realtime-query", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/datasources"}},

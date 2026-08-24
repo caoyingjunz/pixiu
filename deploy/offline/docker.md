@@ -17,6 +17,7 @@ sudo cp docker/* /usr/bin/
 ```bash
 vim /etc/systemd/system/docker.service
 
+# 配置如下
 [Unit]
 Description=Docker
 

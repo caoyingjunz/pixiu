@@ -25,7 +25,7 @@ docker-compose up -d
 # docker-compose ps
 NAME                IMAGE                                                   COMMAND                  SERVICE             CREATED             STATUS              PORTS
 mysql               ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7             "docker-entrypoint.s…"   mysql               17 minutes ago      Up 17 minutes       3306/tcp, 33060/tcp
-pixiu               ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.5   "/docker-entrypoint.…"   pixiu               17 minutes ago      Up 17 minutes       0.0.0.0:8080->80/tcp, :::8080->80/tcp
+pixiu               ccr.ccs.tencentyun.com/pixiucloud/pixiu:v2.0.1-beta.6   "/docker-entrypoint.…"   pixiu               17 minutes ago      Up 17 minutes       0.0.0.0:8080->80/tcp, :::8080->80/tcp
 ```
 
 ## 登陆 pixiu

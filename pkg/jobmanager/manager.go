@@ -17,7 +17,11 @@ limitations under the License.
 package jobmanager
 
 import (
+	"sync"
+	"time"
+
 	"github.com/robfig/cron/v3"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/accesslog"
 )
@@ -41,18 +45,36 @@ type Manager struct {
 	cron *cron.Cron
 }
 
+// tracedJob 包装单个 job，提供每 job 独立的 SkipIfStillRunning 语义：
+// 上一次执行未结束时跳过本次节拍，并以 Warning 显式记录。
+// 注意：不能使用 cron.SkipIfStillRunning + cron.WithChain 的组合——
+// v3.0.0 的 SkipIfStillRunning 在 wrapper 外层创建令牌 channel，
+// 经 WithChain 应用后所有 job 共享同一令牌，任一 job 执行期间
+// 其他全部 job 的节拍都会被误跳过（定时扩缩容丢触发的根因）。
+func tracedJob(name string, lc *accesslog.Options, job Job) func() {
+	var mu sync.Mutex
+	return func() {
+		if !mu.TryLock() {
+			klog.Warningf("[JobTrace] job %s 上一次执行尚未结束，本次节拍被跳过", name)
+			return
+		}
+		defer mu.Unlock()
+		start := time.Now()
+		ctx := NewJobContext(name, lc)
+		ctx.Log(job.LogLevel(), job.Do(ctx))
+		if cost := time.Since(start); cost > 5*time.Second {
+			klog.Warningf("[JobTrace] job %s 执行耗时 %s，后续节拍可能被跳过", name, cost)
+		}
+	}
+}
+
 func NewManager(lc *accesslog.Options, jobs ...Job) *Manager {
 	logger := accesslog.CronLogger{}
 	c := cron.New(
 		cron.WithLogger(logger),
-		cron.WithChain(cron.SkipIfStillRunning(logger)),
 	)
 	for _, job := range jobs {
-		job := job
-		_, _ = c.AddFunc(job.CronSpec(), func() {
-			ctx := NewJobContext(job.Name(), lc)
-			ctx.Log(job.LogLevel(), job.Do(ctx))
-		})
+		_, _ = c.AddFunc(job.CronSpec(), tracedJob(job.Name(), lc, job))
 	}
 	return &Manager{c}
 }

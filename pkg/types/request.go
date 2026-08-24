@@ -327,6 +327,25 @@ type (
 		PrivateKey string
 	}
 
+	// NodeConnectivityRequest 节点 SSH 连通性检测请求（node_id>0 走库内认证；否则用 host+凭据直接检测）
+	NodeConnectivityRequest struct {
+		NodeId     int64  `json:"node_id"`
+		Host       string `json:"host"`
+		Port       int    `json:"port,omitempty"`
+		User       string `json:"user"`
+		Password   string `json:"password,omitempty"`
+		PrivateKey string `json:"private_key,omitempty"`
+	}
+
+	// NodeConnectivityResult 连通性检测结果
+	NodeConnectivityResult struct {
+		Connected bool   `json:"connected"`
+		Host      string `json:"host"`
+		Port      int    `json:"port"`
+		User      string `json:"user"`
+		Message   string `json:"message"`
+	}
+
 	ClusterWebRequest struct {
 		ClusterName string `form:"cluster_name" json:"cluster_name"`
 		ClusterId   int64  `form:"cluster_id" json:"cluster_id"`

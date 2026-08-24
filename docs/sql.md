@@ -169,3 +169,43 @@ CREATE TABLE `audits` (
   `resource_type` varchar(128) COLLATE utf8mb4_bin NOT NULL COMMENT '操作的资源类型'
 ) ENGINE=InnoDB AUTO_INCREMENT=3355 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin
 ```
+
+## 创建 `cron_hpas` 表
+```sql
+CREATE TABLE `cron_hpas` (
+  `id` bigint PRIMARY KEY NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `gmt_create` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `gmt_modified` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+  `resource_version` bigint NOT NULL DEFAULT 0 COMMENT '版本号',
+  `name` varchar(128) NOT NULL COMMENT '规则名称',
+  `cluster_name` varchar(128) NOT NULL COMMENT '集群名称',
+  `namespace` varchar(128) NOT NULL COMMENT '命名空间',
+  `target_kind` varchar(64) NOT NULL COMMENT '目标类型：Deployment/StatefulSet/HorizontalPodAutoscaler',
+  `target_name` varchar(128) NOT NULL COMMENT '目标名称',
+  `jobs` text COMMENT '定时任务列表（JSON 数组）',
+  `exclude_dates` text COMMENT '排除日期规则集合（JSON 数组，可选）',
+  `status` varchar(16) NOT NULL COMMENT '启停状态：active/paused',
+  `description` varchar(255) DEFAULT NULL COMMENT '描述',
+  `create_user` varchar(128) DEFAULT NULL COMMENT '创建人',
+  KEY `idx_cluster_name` (`cluster_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='定时自动扩缩容规则';
+```
+
+## 创建 `cron_hpa_histories` 表
+```sql
+CREATE TABLE `cron_hpa_histories` (
+  `id` bigint PRIMARY KEY NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `gmt_create` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `gmt_modified` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+  `resource_version` bigint NOT NULL DEFAULT 0 COMMENT '版本号',
+  `cron_hpa_id` bigint NOT NULL COMMENT '关联 cron_hpas.id',
+  `job_name` varchar(128) DEFAULT NULL COMMENT '定时任务名称',
+  `scheduled_time` datetime DEFAULT NULL COMMENT '计划时间',
+  `executed_at` datetime DEFAULT NULL COMMENT '实际执行时间',
+  `previous_replicas` int NOT NULL DEFAULT 0 COMMENT '变更前副本数',
+  `desired_replicas` int NOT NULL DEFAULT 0 COMMENT '目标副本数',
+  `result` varchar(16) NOT NULL COMMENT '执行结果：Succeed/Failed/Skipped',
+  `message` varchar(512) DEFAULT NULL COMMENT '执行信息',
+  KEY `idx_cron_hpa_id` (`cron_hpa_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='定时自动扩缩容执行历史';
+```

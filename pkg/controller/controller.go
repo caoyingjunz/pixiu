@@ -27,6 +27,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/distribution"
 	"github.com/caoyingjunz/pixiu/pkg/controller/email"
+	extensioncontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
@@ -54,11 +55,15 @@ type PixiuInterface interface {
 	assistant.Getter
 	alert.Getter
 	email.Getter
+	extensioncontroller.Getter
 }
 
 type pixiu struct {
 	cc      config.Config
 	factory db.ShareDaoFactory
+
+	// extension 扩展能力父接口，内部持有 redis 等子模块的单例 controller
+	extension extensioncontroller.Interface
 }
 
 func (p *pixiu) Cluster() cluster.Interface { return cluster.NewCluster(p.cc, p.factory) }
@@ -83,10 +88,14 @@ func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)
 }
 func (p *pixiu) Runner() runner.Interface { return runner.NewRunner(p.cc, p.factory) }
+func (p *pixiu) Extension() extensioncontroller.Interface {
+	return p.extension
+}
 
 func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
 	return &pixiu{
-		cc:      cfg,
-		factory: f,
+		cc:        cfg,
+		factory:   f,
+		extension: extensioncontroller.New(cfg, f),
 	}
 }

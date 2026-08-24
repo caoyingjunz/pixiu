@@ -30,12 +30,14 @@ type nodeMeta struct {
 func (n *nodeRouter) createNode(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var req types.CreateNodeRequest
-	if err := httputils.BindCreateRequest(c, &req); err != nil {
+	var (
+		req types.CreateNodeRequest
+		err error
+	)
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	var err error
 	if err = n.c.Node().Create(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -110,6 +112,24 @@ func (n *nodeRouter) listNodes(c *gin.Context) {
 		return
 	}
 	if r.Result, err = n.c.Node().List(c, listOption); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (n *nodeRouter) checkConnectivity(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.NodeConnectivityRequest
+		err error
+	)
+	if err = httputils.BindCreateRequest(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = n.c.Node().CheckConnectivity(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

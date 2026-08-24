@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -93,6 +94,9 @@ func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceR
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) error {
+	if err := validateRedisConstraint(req); err != nil {
+		return err
+	}
 	if err := c.preCreate(ctx, req); err != nil {
 		return err
 	}
@@ -105,7 +109,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	}
 
 	// 对配置进行简化，移除不必要的配置
-	req.Config.Clean(req.Type)
+	req.Config.Clean(req.Type, req.SubType)
 	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
@@ -130,6 +134,71 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	return nil
 }
 
+// validateRedisConstraint 校验 Redis 数据源的约束：
+// 1. type 与 sub_type 必须配对（redis 可搭配缓存/中间件类型）；2. 仅支持外部直连；3. 必须提供连接地址
+func validateRedisConstraint(req *types.CreateDatasourceRequest) error {
+	isRedisType := req.Type == model.DatasourceTypeRedis
+	isRedisSubType := req.SubType == model.DatasourceSubTypeRedis
+	// 缓存类型仅与 redis 配对
+	if isRedisType && !isRedisSubType {
+		return apierrors.NewError(
+			fmt.Errorf("cache datasource requires sub_type=%s", model.DatasourceSubTypeRedis),
+			http.StatusBadRequest,
+		)
+	}
+	// redis 允许搭配缓存（存量）或中间件类型
+	if isRedisSubType && !isRedisType && req.Type != model.DatasourceTypeMiddleware {
+		return apierrors.NewError(
+			fmt.Errorf("redis datasource requires type=%d or type=%d", model.DatasourceTypeRedis, model.DatasourceTypeMiddleware),
+			http.StatusBadRequest,
+		)
+	}
+	if !isRedisSubType {
+		return nil
+	}
+	if !req.External {
+		return apierrors.NewError(
+			fmt.Errorf("redis datasource only supports external direct connection, please enable external"),
+			http.StatusBadRequest,
+		)
+	}
+	if req.Config == nil || req.Config.Redis == nil {
+		return apierrors.NewError(
+			fmt.Errorf("redis datasource requires config.redis"),
+			http.StatusBadRequest,
+		)
+	}
+
+	redisCfg := req.Config.Redis
+	// 归一化模式并按模式校验连接配置
+	redisCfg.Mode = redisCfg.NormalizeMode()
+	switch redisCfg.Mode {
+	case types.RedisModeSentinel:
+		if strings.TrimSpace(redisCfg.MasterName) == "" || len(redisCfg.Addresses) == 0 {
+			return apierrors.NewError(
+				fmt.Errorf("redis sentinel mode requires master_name and addresses"),
+				http.StatusBadRequest,
+			)
+		}
+	case types.RedisModeCluster:
+		if len(redisCfg.Addresses) == 0 {
+			return apierrors.NewError(
+				fmt.Errorf("redis cluster mode requires addresses"),
+				http.StatusBadRequest,
+			)
+		}
+		redisCfg.DB = 0 // Redis Cluster 仅支持 db 0
+	default:
+		if strings.TrimSpace(redisCfg.Address) == "" {
+			return apierrors.NewError(
+				fmt.Errorf("redis standalone mode requires address (host:port)"),
+				http.StatusBadRequest,
+			)
+		}
+	}
+	return nil
+}
+
 // 更新前置检查：资源存在
 func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource, error) {
 	old, err := c.factory.Datasource().Get(ctx, id)
@@ -144,6 +213,9 @@ func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource
 }
 
 func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequest) error {
+	if err := validateRedisConstraint(&req.CreateDatasourceRequest); err != nil {
+		return err
+	}
 	old, err := c.preUpdate(ctx, req.Id)
 	if err != nil {
 		klog.Errorf("pre-update check failed for datasource(%d): %v", req.Id, err)
@@ -157,7 +229,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 
 	updates := make(map[string]interface{})
 
-	req.Config.Clean(req.Type)
+	req.Config.Clean(req.Type, req.SubType)
 	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return err
@@ -264,9 +336,37 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	}
 
 	opts := []db.Options{
-		db.WithUserOrResourceIDs(listOption.UserId, authorizedDatasourceIDs),
 		db.WithNameLike(listOption.NameSelector),
-		db.WithClusterName(listOption.ClusterName),
+	}
+
+	// 集群数据源可见性：请求指定集群时，解析被授权集群（子集群）→ 主集群并校验集群访问权；
+	// 否则走通用过滤（用户所属 + datasource scope 授权）
+	if listOption.ClusterName != "" {
+		clusterObj, err := c.factory.Cluster().GetBy(ctx, db.WithName(listOption.ClusterName))
+		if err != nil {
+			klog.Errorf("failed to get cluster %s for datasource list: %v", listOption.ClusterName, err)
+			return nil, apierrors.ErrServerInternal
+		}
+		// 集群不存在或无访问权：返回空列表，避免泄露其他集群数据源
+		if clusterObj == nil {
+			return pageResult, nil
+		}
+		if err = controllerutil.CheckResourceAccess(ctx, c.factory, clusterObj.UserId, types.ResourceTypeCluster, clusterObj.Id); err != nil {
+			return pageResult, nil
+		}
+		// 被授权集群是主集群的子集群，其监控数据源挂在主集群名下
+		if clusterObj.OwnerReference != 0 {
+			master, err := c.factory.Cluster().Get(ctx, clusterObj.OwnerReference)
+			if err != nil || master == nil {
+				klog.Warningf("cluster %s: master cluster(%d) not found, skipping datasource",
+					listOption.ClusterName, clusterObj.OwnerReference)
+				return pageResult, nil
+			}
+			listOption.ClusterName = master.Name
+		}
+		opts = append(opts, db.WithClusterName(listOption.ClusterName))
+	} else {
+		opts = append(opts, db.WithUserOrResourceIDs(listOption.UserId, authorizedDatasourceIDs))
 	}
 	if listOption.DatasourceType != nil {
 		opts = append(opts, db.WithDatasourceType(*listOption.DatasourceType))

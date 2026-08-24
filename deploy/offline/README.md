@@ -9,10 +9,12 @@
 以系统 v1.31.6为例，将下载的镜像上传到服务器目录
 #### 启动离线仓库
 ```
+# 本例中 builder 是在 /home 目录下
 chmod +x builder
 # 使用 systemctl 管理
-sudo vi /etc/systemd/system/pixiu_builder.service
+sudo vi /etc/systemd/system/pixiu-builder.service
 
+# 配置如下
 [Unit]
 Description=Pixiu builder
 After=network.target
@@ -30,9 +32,10 @@ WantedBy=multi-user.target
 
 # 配置完加载，并设置开机启动
 sudo systemctl daemon-reload
-sudo systemctl enable pixiu_builder
-sudo systemctl start pixiu_builder
+sudo systemctl enable pixiu-builder
+sudo systemctl start pixiu-builder
 ```
+
 ### 查看日志
 ```bash
 root@localhost:~# journalctl -u pixiu_builder -f
@@ -49,6 +52,7 @@ Registry:  10.206.32.17:5000
     docker pull 10.206.32.17:5000/<name>:<tag>
   Docker insecure-registries 需包含: "10.206.32.17:5000"
 ```
+
 ### 加载镜像，安装运行环境
 - [Ubuntu24.04](Ubuntu.md)
 - [KylinV10](KylinV10.md)
@@ -64,6 +68,7 @@ docker run -d --net host --restart=always --privileged=true --name mariadb -e MY
 ##### 创建配置文件夹 （文件夹路径不可修改）
 mkdir -p /etc/pixiu/
 vim /etc/pixiu/config.yaml 写入后端如下配置
+
 ##### 后端配置(host 根据实际情况调整)
 ```bash
 default:
@@ -83,7 +88,7 @@ mysql:
 
 #### 安装 pixiu-server
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.1-beta.5
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.1-beta.6
 ```
 ![img_4.png](img_4.png)
 

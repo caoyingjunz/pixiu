@@ -19,6 +19,7 @@ package types
 import (
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,6 +82,14 @@ type DatasourceConfig struct {
 	Headers []HTTPHeader       `json:"headers"`
 	Log     *LogSourceConfig   `json:"log,omitempty"`
 	Alert   *AlertSourceConfig `json:"alert,omitempty"`
+	Redis   *RedisSourceConfig `json:"redis,omitempty"`
+	Nacos   *NacosSourceConfig `json:"nacos,omitempty"`
+}
+
+// NacosSourceConfig Nacos 数据源附加配置
+// Version 取值 v2/v3：v2 使用 Nacos 2.x（v1 OpenAPI），v3 使用 Nacos 3.x（v3 Console API）
+type NacosSourceConfig struct {
+	Version string `json:"version,omitempty"`
 }
 
 type LogSourceConfig struct {
@@ -94,6 +103,48 @@ type AlertSourceConfig struct {
 
 	UserName string `json:"user_name,omitempty"`
 	Password string `json:"password,omitempty"`
+}
+
+// Redis 部署模式
+const (
+	RedisModeStandalone = "standalone" // 单机
+	RedisModeSentinel   = "sentinel"   // 哨兵
+	RedisModeCluster    = "cluster"    // 集群
+)
+
+// RedisSourceConfig Redis 数据源连接配置（仅外部直连）
+type RedisSourceConfig struct {
+	Mode             string   `json:"mode,omitempty"`              // standalone/sentinel/cluster，空视为 standalone（兼容存量数据）
+	Address          string   `json:"address,omitempty"`           // standalone 连接地址 host:port
+	Addresses        []string `json:"addresses,omitempty"`         // sentinel/cluster 节点地址列表
+	MasterName       string   `json:"master_name,omitempty"`       // sentinel master 名称
+	Password         string   `json:"password,omitempty"`          // 数据节点密码
+	SentinelPassword string   `json:"sentinel_password,omitempty"` // 哨兵节点密码（仅 sentinel）
+	DB               int      `json:"db,omitempty"`                // DB 编号（cluster 固定 0）
+}
+
+// NormalizeMode 归一化部署模式，未知/空值按 standalone 处理
+func (r *RedisSourceConfig) NormalizeMode() string {
+	switch r.Mode {
+	case RedisModeSentinel:
+		return RedisModeSentinel
+	case RedisModeCluster:
+		return RedisModeCluster
+	default:
+		return RedisModeStandalone
+	}
+}
+
+// DisplayAddress 用于日志/探测结果展示的连接摘要
+func (r *RedisSourceConfig) DisplayAddress() string {
+	switch r.NormalizeMode() {
+	case RedisModeSentinel:
+		return fmt.Sprintf("sentinel://%s@%s", r.MasterName, strings.Join(r.Addresses, ","))
+	case RedisModeCluster:
+		return "cluster://" + strings.Join(r.Addresses, ",")
+	default:
+		return r.Address
+	}
 }
 
 type KubeNode struct {
@@ -444,6 +495,11 @@ type PlanNodeAuth struct {
 
 const DefaultSSHPort = 22
 
+const (
+	PixiuViewClusterRole = "pixiu-view"
+	ClusterAdminRole     = "cluster-admin"
+)
+
 // SSHPort returns the configured SSH port, falling back to the standard port
 // for old node records and invalid values.
 func (a PlanNodeAuth) SSHPort() int {
@@ -760,10 +816,11 @@ type CreatePermissionRequest struct {
 	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
 	Rules []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
 
-	SAName          string `json:"sa_name"`
-	SANamespace     string `json:"sa_namespace"`
-	ClusterRoleName string `json:"cluster_role_name"`
-	RoleBindingName string `json:"role_binding_name"`
+	// SA/RBAC 对象名由服务端按用户生成，忽略客户端传入。
+	SAName          string `json:"-"`
+	SANamespace     string `json:"-"`
+	ClusterRoleName string `json:"-"`
+	RoleBindingName string `json:"-"`
 
 	TargetNamespaces []string `json:"target_namespaces"`
 }
@@ -786,26 +843,16 @@ func (o *CreatePermissionRequest) SetDefaultOptions() {
 		o.ExpirationSeconds = defaultExpirationSeconds
 	}
 
-	if len(o.SANamespace) == 0 {
-		o.SANamespace = defaultNamespace
-	}
-
-	if len(o.SAName) == 0 {
-		o.SAName = fmt.Sprintf("pixiu-sa-%d", o.UserId)
-	}
-
-	if len(o.ClusterRoleName) == 0 {
+	o.SANamespace = defaultNamespace
+	o.SAName = fmt.Sprintf("pixiu-sa-%d", o.UserId)
+	o.RoleBindingName = fmt.Sprintf("pixiu-rb-%d", o.UserId)
+	switch o.PType {
+	case 0:
+		o.ClusterRoleName = PixiuViewClusterRole
+	case 2:
+		o.ClusterRoleName = ClusterAdminRole
+	default:
 		o.ClusterRoleName = fmt.Sprintf("pixiu-cr-%d", o.UserId)
-	}
-	if o.PType == 0 {
-		o.ClusterRoleName = "pixiu-view"
-	}
-	if o.PType == 2 {
-		o.ClusterRoleName = "cluster-admin"
-	}
-
-	if len(o.RoleBindingName) == 0 {
-		o.RoleBindingName = fmt.Sprintf("pixiu-rb-%d", o.UserId)
 	}
 }
 

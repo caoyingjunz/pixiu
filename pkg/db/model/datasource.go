@@ -26,14 +26,18 @@ type DatasourceType int
 type DatasourceSubType string
 
 const (
-	DatasourceTypeLog   DatasourceType = 0
-	DatasourceTypeAlert DatasourceType = 1
+	DatasourceTypeLog        DatasourceType = 0
+	DatasourceTypeAlert      DatasourceType = 1
+	DatasourceTypeRedis      DatasourceType = 2
+	DatasourceTypeMiddleware DatasourceType = 3
 )
 
 const (
 	DatasourceSubTypeLoki       DatasourceSubType = "loki"
 	DatasourceSubTypeES         DatasourceSubType = "es"
 	DatasourceSubTypePrometheus DatasourceSubType = "prometheus"
+	DatasourceSubTypeRedis      DatasourceSubType = "redis"
+	DatasourceSubTypeNacos      DatasourceSubType = "nacos"
 )
 
 type Datasource struct {
