@@ -76,7 +76,7 @@ func (p *pixiu) User() user.Interface             { return user.NewUser(p.cc, p.
 func (p *pixiu) Plan() plan.Interface             { return plan.NewPlan(p.cc, p.factory) }
 func (p *pixiu) Node() node.Interface             { return node.NewNode(p.cc, p.factory) }
 func (p *pixiu) Audit() audit.Interface           { return audit.NewAudit(p.cc, p.factory) }
-func (p *pixiu) Helm() helm.Interface             { return helm.NewHelm(p.cc, p.factory) }
+func (p *pixiu) Helm() helm.Interface             { return helm.NewHelm(p.factory) }
 func (p *pixiu) Agent() agent.Interface           { return agent.NewAgent(p.cc, p.factory) }
 func (p *pixiu) Datasource() datasource.Interface { return datasource.New(p.cc, p.factory) }
 func (p *pixiu) Assistant() assistant.Interface   { return assistant.New(p.cc, p.factory) }
