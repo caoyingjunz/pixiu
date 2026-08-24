@@ -217,11 +217,17 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	if req.ConnectMode != model.ConnectModeTunnel {
 		if err = c.ensurePixiuSystemNamespace(ctx, cs); err != nil {
 			klog.Errorf("failed to ensure pixiu-system namespace %s: %v", req.Name, err)
-			_ = c.Delete(ctx, obj.Id, true)
+			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
+				klog.Errorf("failed to delete cluster %s after namespace failure: %v", req.Name, delErr)
+			}
+			return nil, err
 		}
 		if err = c.addPixiuClusterRole(ctx, req, cs); err != nil {
 			klog.Errorf("failed to add pixiu cluster role %s: %v", req.Name, err)
-			_ = c.Delete(ctx, obj.Id, true)
+			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
+				klog.Errorf("failed to delete cluster %s after role failure: %v", req.Name, delErr)
+			}
+			return nil, err
 		}
 	}
 
@@ -256,6 +262,31 @@ func (c *cluster) ensurePixiuSystemNamespace(ctx context.Context, cs *client.Clu
 	return nil
 }
 
+// buildPixiuViewClusterRole 构造 pixiu 内置只读 ClusterRole：拷贝内置 view 的规则，
+// 追加 pixiu 依赖的 metrics dashboard 与 nodes 规则。
+func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.ClusterRole {
+	rules := viewClusterRole.Rules
+	rules = append(rules, []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{"metrics.pixiu.io"},
+			Resources: []string{"api/dashboard"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"nodes"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+	}...)
+	return &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "pixiu-view",
+			Labels: map[string]string{"maintainer": "pixiu"},
+		},
+		Rules: rules,
+	}
+}
+
 // 创建内置的 ClusterRole
 func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClusterRequest, cs *client.ClusterSet) error {
 	// 如果是子集群，不需要添加，只有主集群需要新增权限
@@ -276,32 +307,9 @@ func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClus
 		return fmt.Errorf("获取内置 ClusterRoles 失败 %v", err)
 	}
 
-	rules := viewClusterRole.Rules
-	// 追加依赖rule
-	rules = append(rules, []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{"metrics.pixiu.io"},
-			Resources: []string{"api/dashboard"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{"nodes"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-	}...)
-
-	_, err = cs.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterRoleView,
-			Labels: map[string]string{
-				"maintainer": "pixiu",
-			},
-		},
-		Rules: rules,
-	}, metav1.CreateOptions{})
+	_, err = cs.Client.RbacV1().ClusterRoles().Create(ctx, buildPixiuViewClusterRole(viewClusterRole), metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("创建你内置 ClusterRole 失败: %v", err)
+		return fmt.Errorf("创建 pixiu 内置 ClusterRole 失败: %v", err)
 	}
 	return nil
 }
