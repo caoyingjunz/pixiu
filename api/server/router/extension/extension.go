@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package extension 扩展管理路由组，子模块（redis、mysql 等）注册到该组下
+// Package extension 扩展管理路由组，子模块（redis、mysql、autoscaling 等）注册到该组下
 package extension
 
 import (
 	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
+	autoscalingrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/autoscaling"
 	mysqlrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/mysql"
 	redisrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/redis"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -26,12 +27,13 @@ import (
 
 const extensionBaseURL = "/pixiu/extension"
 
-// NewRouter 扩展管理路由组，子模块（redis、mysql 等）注册到该组下
+// NewRouter 扩展管理路由组，子模块（redis、mysql、autoscaling 等）注册到该组下
 func NewRouter(o *options.Options) {
 	group := &apiregistry.Group{
 		Name:    "扩展管理",
 		BaseURL: extensionBaseURL,
 	}
+	autoscalingrouter.RegisterAutoscaling(o, group)
 	redisrouter.RegisterRedis(o, group)
 	mysqlrouter.RegisterMysql(o, group)
 	group.Register(o.HttpEngine.Group(extensionBaseURL), o.Controller.APIResource())
