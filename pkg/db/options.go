@@ -294,6 +294,16 @@ func WithOwnerCluster(clusterId int64) Options {
 	}
 }
 
+// WithOwnerClusterIDs 按主集群 id 过滤授权记录。空列表必须匹配 0 行，避免漏掉 WHERE 导致全表可见。
+func WithOwnerClusterIDs(ids []int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(ids) == 0 {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("owner_cluster_id IN ?", ids)
+	}
+}
+
 func WithPermissionID(pid int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("permission_id = ?", pid)
