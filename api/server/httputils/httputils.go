@@ -186,6 +186,18 @@ func GetUserIdFromContext(ctx context.Context) (int64, error) {
 	return user.Id, nil
 }
 
+// RequireRootUser 要求当前登录用户为超级管理员；未登录返回 GetUserFromContext 的错误，非超管返回 403。
+func RequireRootUser(ctx context.Context) (*model.User, error) {
+	user, err := GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if user.Role != model.RoleRoot {
+		return nil, errors.ErrForbidden
+	}
+	return user, nil
+}
+
 func SetUserToContext(c *gin.Context, user *model.User) {
 	c.Set(userKey, user)
 }

@@ -175,12 +175,8 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 
 func (c *cluster) GetPermission(ctx context.Context, permissionId int64) (*types.Permission, error) {
 	// 仅超级管理员可查看授权详情，避免 IDOR 越权读取他人授权
-	user, err := httputils.GetUserFromContext(ctx)
-	if err != nil {
+	if _, err := httputils.RequireRootUser(ctx); err != nil {
 		return nil, err
-	}
-	if user.Role != model.RoleRoot {
-		return nil, servererrors.ErrForbidden
 	}
 
 	object, err := c.factory.Permission().Get(ctx, permissionId)
@@ -196,12 +192,8 @@ func (c *cluster) GetPermission(ctx context.Context, permissionId int64) (*types
 
 func (c *cluster) ListPermissions(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
 	// 仅超级管理员可查看授权列表，避免越权读取他人授权
-	user, err := httputils.GetUserFromContext(ctx)
-	if err != nil {
+	if _, err := httputils.RequireRootUser(ctx); err != nil {
 		return nil, err
-	}
-	if user.Role != model.RoleRoot {
-		return nil, servererrors.ErrForbidden
 	}
 
 	listOption.SetDefaultPageOption()
@@ -217,6 +209,7 @@ func (c *cluster) ListPermissions(ctx context.Context, listOption types.ListOpti
 		db.WithNameLike(listOption.NameSelector),
 	}
 
+	var err error
 	pageResult.Total, err = c.factory.Permission().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count permissions: %v", err)
