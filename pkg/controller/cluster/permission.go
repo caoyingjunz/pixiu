@@ -351,23 +351,13 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 		return fmt.Errorf("清理旧 k8s 规则失败，已中止更新: %w", err)
 	}
 
-	// 最终生效的规则：未变更字段继承 oldP，避免前端缺字段 / Force 场景下规则被清空
-	finalNamespaces := req.TargetNamespaces
-	if _, changed := updates["target_namespaces"]; !changed {
-		finalNamespaces = decodeStringSlice(oldP.TargetNamespaces)
-	}
-	finalRules := req.Rules
-	if _, changed := updates["rules"]; !changed {
-		finalRules = decodeRules(oldP.Rules)
-	}
-
 	addRuleReq := &types.CreatePermissionRequest{
 		SANamespace:       oldP.SANamespace,
 		SAName:            oldP.SAName,
 		ClusterRoleName:   oldP.ClusterRoleName,
 		RoleBindingName:   oldP.RoleBindingName,
-		Rules:             finalRules,
-		TargetNamespaces:  finalNamespaces,
+		Rules:             req.Rules,
+		TargetNamespaces:  req.TargetNamespaces,
 		ExpirationSeconds: req.ExpirationSeconds,
 		PType:             int(oldP.PType),
 	}
