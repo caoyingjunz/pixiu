@@ -354,3 +354,23 @@ func (mr *mysqlRouter) backup(c *gin.Context) {
 	}
 	httputils.SetSuccess(c, r)
 }
+
+// exportTable 导出表数据为 CSV（流式响应）
+func (mr *mysqlRouter) exportTable(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		req types.MySQLTableExportRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	// CSV 响应体由 Controller 流式写出，成功时不再重复设置响应
+	if err = mr.c.Extension().Mysql().ExportTableStreaming(c, m.DatasourceId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+}

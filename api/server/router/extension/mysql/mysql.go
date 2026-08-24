@@ -50,5 +50,6 @@ func RegisterMysql(o *options.Options, group *apiregistry.Group) {
 		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/mysql/:datasourceId/sessions", Handler: mr.killSession, Description: "MySQL 终止会话"},
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/mysql/:datasourceId/slowqueries", Handler: mr.listSlowQueries, Description: "MySQL 慢查询列表"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/mysql/:datasourceId/backup", Handler: mr.backup, Description: "MySQL SQL 文本备份"},
+		apiregistry.RouteEntry{Method: "POST", RelativePath: "/mysql/:datasourceId/export/table/direct", Handler: mr.exportTable, Description: "MySQL 表数据 CSV 导出"},
 	)
 }

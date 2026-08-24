@@ -27,21 +27,26 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gin-gonic/gin"
+
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
-	maxSQLBytes        = 65536   // 控制台单条 SQL 长度上限
-	defaultQueryLimit  = 500     // SELECT 结果缺省行数上限
-	maxQueryLimit      = 10000   // SELECT 结果最大行数上限
-	maxCellValueRunes  = 4096    // 结果单元格最大显示长度（rune）
-	maxBackupRows      = 50000   // 备份单表最大行数
-	defaultBackupRows  = 10000   // 备份单表缺省行数
-	maxBackupBytes     = 8 << 20 // 备份 SQL 文本体积上限 8MB
-	maxBackupTables    = 200     // 单次备份表数量上限
-	maxSessionListSize = 1000    // PROCESSLIST 最大返回条数
-	maxBatchStatements = 50      // 批量执行单次最大语句条数
+	maxSQLBytes        = 65536     // 控制台单条 SQL 长度上限
+	defaultQueryLimit  = 500       // SELECT 结果缺省行数上限
+	maxQueryLimit      = 10000     // SELECT 结果最大行数上限
+	maxCellValueRunes  = 4096      // 结果单元格最大显示长度（rune）
+	maxBackupRows      = 1000000   // 备份单表最大行数
+	defaultBackupRows  = 10000     // 备份单表缺省行数
+	maxBackupBytes     = 128 << 20 // 备份 SQL 文本体积上限 128MB
+	maxBackupTables    = 200       // 单次备份表数量上限
+	maxSessionListSize = 1000      // PROCESSLIST 最大返回条数
+	maxBatchStatements = 50        // 批量执行单次最大语句条数
+	maxExportRows      = 100000    // 单表 CSV 导出最大行数
 )
 
 // readOnlyKeywords 只读语句关键字：控制台普通用户仅可执行这类语句
@@ -876,7 +881,7 @@ func (c *controller) Backup(ctx context.Context, datasourceId int64, req *types.
 	}
 
 	// 备份可能涉及大量读取，使用独立的长超时上下文
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	// 解析目标表：未指定时取整库全部表
@@ -1039,4 +1044,161 @@ func sqlLiteral(v interface{}) string {
 // quoteSQLString SQL 字符串字面量转义（反斜杠与单引号）
 func quoteSQLString(s string) string {
 	return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(s) + "'"
+}
+
+// ExportTableStreaming 流式导出表数据为 CSV（需要 gin.Context 参数以便写入响应）
+// 仅管理员可调用
+func (c *controller) ExportTableStreaming(ginCtx *gin.Context, datasourceId int64, req *types.MySQLTableExportRequest) error {
+	// 参数校验
+	if req == nil || strings.TrimSpace(req.Database) == "" {
+		return apierrors.NewError(fmt.Errorf("database is required"), http.StatusBadRequest)
+	}
+	if req.Table == "" {
+		return apierrors.NewError(fmt.Errorf("table is required"), http.StatusBadRequest)
+	}
+	if err := checkIdentifier("database", req.Database); err != nil {
+		return err
+	}
+	if err := checkIdentifier("table", req.Table); err != nil {
+		return err
+	}
+
+	// 获取用户信息从 Gin Context（认证中间件已设置）
+	user, err := httputils.GetUserFromContext(ginCtx)
+	if err != nil {
+		return err
+	}
+
+	// 权限检查：仅管理员可执行导出
+	if user.Role != model.RoleRoot && user.Role != model.RoleAdmin {
+		return apierrors.ErrForbidden
+	}
+
+	// 获取数据库连接池
+	dbConn, _, err := c.connFor(ginCtx, datasourceId)
+	if err != nil {
+		return err
+	}
+
+	queryCtx, cancel := queryContext(ginCtx)
+	defer cancel()
+
+	// 归一化导出行数上限：未指定或超限时使用上限值
+	limit := req.Limit
+	if limit <= 0 || limit > maxExportRows {
+		limit = maxExportRows
+	}
+
+	// 设置 CSV 响应头
+	fileName := fmt.Sprintf("%s_%d.csv", req.Table, time.Now().Unix())
+	ginCtx.Header("Content-Type", "text/csv; charset=utf-8")
+	ginCtx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+
+	// 获取列信息
+	colRows, err := dbConn.QueryContext(queryCtx,
+		"SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+		req.Database, req.Table)
+	if err != nil {
+		return wrapMySQLErr(err)
+	}
+	defer colRows.Close()
+
+	columns := make([]string, 0)
+	for colRows.Next() {
+		var colName string
+		if err := colRows.Scan(&colName); err != nil {
+			return wrapMySQLErr(err)
+		}
+		columns = append(columns, colName)
+	}
+	if err := colRows.Err(); err != nil {
+		return wrapMySQLErr(err)
+	}
+
+	// 写入 CSV 表头
+	writer := ginCtx.Writer
+	buf := make([]byte, 0, 4096)
+
+	for i, col := range columns {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, escapeCSVField(col)...)
+	}
+	buf = append(buf, '\r', '\n')
+	_, _ = writer.Write(buf)
+	buf = buf[:0]
+
+	// 构建查询并执行
+	fullName := quoteIdent(req.Database) + "." + quoteIdent(req.Table)
+	query := fmt.Sprintf("SELECT * FROM %s LIMIT %d", fullName, limit)
+
+	rows, err := dbConn.QueryContext(queryCtx, query)
+	if err != nil {
+		return wrapMySQLErr(err)
+	}
+	defer rows.Close()
+
+	// 逐行写入 CSV
+	rowCount := int64(0)
+	for rows.Next() {
+		if rowCount >= limit {
+			break
+		}
+
+		values := make([]interface{}, len(columns))
+		ptrs := make([]interface{}, len(columns))
+		for i := range values {
+			ptrs[i] = &values[i]
+		}
+		if err := rows.Scan(ptrs...); err != nil {
+			return wrapMySQLErr(err)
+		}
+
+		for i, val := range values {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = append(buf, formatCSVValue(val)...)
+		}
+		buf = append(buf, '\r', '\n')
+
+		// 每 500 行或缓冲区满 64KB 时刷新
+		if rowCount%500 == 0 && rowCount > 0 || len(buf) > 64*1024 {
+			_, _ = writer.Write(buf)
+			buf = buf[:0]
+		}
+
+		rowCount++
+	}
+
+	// 写入最后剩余的缓冲区
+	if len(buf) > 0 {
+		_, _ = writer.Write(buf)
+	}
+
+	return nil
+}
+
+// escapeCSVField 按 RFC 4180 转义：引号翻倍，含逗号/引号/换行时整体加引号
+func escapeCSVField(s string) string {
+	escaped := strings.ReplaceAll(s, `"`, `""`)
+	if strings.ContainsAny(escaped, ",\"\r\n") {
+		return `"` + escaped + `"`
+	}
+	return escaped
+}
+
+// formatCSVValue 将扫描值格式化为 CSV 字符串
+func formatCSVValue(v interface{}) string {
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return escapeCSVField(val)
+	case []byte:
+		return escapeCSVField(string(val))
+	default:
+		return escapeCSVField(fmt.Sprintf("%v", val))
+	}
 }

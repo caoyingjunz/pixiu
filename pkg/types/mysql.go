@@ -80,6 +80,9 @@ type MySQLColumn struct {
 type MySQLTableDetail struct {
 	Name    string        `json:"name"`
 	DDL     string        `json:"ddl"` // SHOW CREATE TABLE
+	Engine  string        `json:"engine"`
+	Rows    int64         `json:"rows"` // information_schema 估算行数
+	Comment string        `json:"comment"`
 	Columns []MySQLColumn `json:"columns"`
 	Indexes []MySQLIndex  `json:"indexes"`
 }
@@ -118,8 +121,8 @@ type MySQLExecuteBatchRequest struct {
 
 // MySQLExecuteBatchItem 单条语句的执行结果；ok=false 时 Error 携带错误信息
 type MySQLExecuteBatchItem struct {
-	Index     int               `json:"index"`               // 语句序号（从 1 开始）
-	StartLine int               `json:"start_line"`          // 语句在原始文本中的起始行（从 1 开始），供前端定位
+	Index     int               `json:"index"`      // 语句序号（从 1 开始）
+	StartLine int               `json:"start_line"` // 语句在原始文本中的起始行（从 1 开始），供前端定位
 	Ok        bool              `json:"ok"`
 	Error     string            `json:"error,omitempty"`
 	Result    *MySQLQueryResult `json:"result,omitempty"`
@@ -209,4 +212,11 @@ type MySQLBackupResult struct {
 	Truncated   bool   `json:"truncated,omitempty"` // 存在表因行数上限被截断
 	SizeBytes   int64  `json:"size_bytes"`
 	Content     string `json:"content"` // SQL 文本
+}
+
+// MySQLTableExportRequest 表数据导出请求
+type MySQLTableExportRequest struct {
+	Database string `json:"database" binding:"required"`
+	Table    string `json:"table" binding:"required"`
+	Limit    int64  `json:"limit,omitempty"` // 导出行数上限，缺省/超限时归一化
 }

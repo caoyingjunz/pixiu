@@ -56,6 +56,7 @@ func Authentication(o *options.Options) gin.HandlerFunc {
 				return
 			}
 			httputils.SetUserToContext(c, root)
+			c.Next()
 			return
 		}
 

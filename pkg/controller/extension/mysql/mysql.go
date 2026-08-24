@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"k8s.io/klog/v2"
 
@@ -86,6 +87,8 @@ type Interface interface {
 	ListSlowQueries(ctx context.Context, datasourceId, page, pageSize int64) (*types.MySQLSlowQueryList, error)
 	// Backup 生成库/表的 SQL 文本备份，仅管理员可调用
 	Backup(ctx context.Context, datasourceId int64, req *types.MySQLBackupRequest) (*types.MySQLBackupResult, error)
+	// ExportTableStreaming 流式导出表数据为 CSV，需要 gin.Context 以便直接写入响应体；仅管理员可调用
+	ExportTableStreaming(c *gin.Context, datasourceId int64, req *types.MySQLTableExportRequest) error
 }
 
 type controller struct {
@@ -578,6 +581,17 @@ func (c *controller) GetTableDetail(ctx context.Context, datasourceId int64, dat
 		return nil, wrapMySQLErr(err)
 	}
 	detail.DDL = ddl
+
+	// 表元信息（引擎/估算行数/注释），查询失败不影响主流程
+	var engine, comment string
+	var estRows int64
+	if err := dbConn.QueryRowContext(ctx,
+		"SELECT IFNULL(ENGINE, ''), IFNULL(TABLE_COMMENT, ''), IFNULL(TABLE_ROWS, 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?",
+		database, table).Scan(&engine, &comment, &estRows); err == nil {
+		detail.Engine = engine
+		detail.Comment = comment
+		detail.Rows = estRows
+	}
 
 	// 列元数据
 	colRows, err := dbConn.QueryContext(ctx, `
