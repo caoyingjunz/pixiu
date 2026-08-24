@@ -216,12 +216,18 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	// 隧道模式：Agent 未上线前不强制注入 ClusterRole，也无法通过隧道创建命名空间
 	if req.ConnectMode != model.ConnectModeTunnel {
 		if err = c.ensurePixiuSystemNamespace(ctx, cs); err != nil {
-			klog.Errorf("failed to ensure pixiu-system namespace %s: %v", req.Name, err)
-			_ = c.Delete(ctx, obj.Id, true)
+			klog.Errorf("cluster %s: create pixiu-system namespace failed, rolling back by deleting the cluster: %v", req.Name, err)
+			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
+				klog.Errorf("cluster %s: rollback delete failed after pixiu-system namespace creation failure: %v", req.Name, delErr)
+			}
+			return nil, err
 		}
 		if err = c.addPixiuClusterRole(ctx, req, cs); err != nil {
-			klog.Errorf("failed to add pixiu cluster role %s: %v", req.Name, err)
-			_ = c.Delete(ctx, obj.Id, true)
+			klog.Errorf("cluster %s: create pixiu cluster role failed, rolling back by deleting the cluster: %v", req.Name, err)
+			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
+				klog.Errorf("cluster %s: rollback delete failed after pixiu cluster role creation failure: %v", req.Name, delErr)
+			}
+			return nil, err
 		}
 	}
 
@@ -256,28 +262,10 @@ func (c *cluster) ensurePixiuSystemNamespace(ctx context.Context, cs *client.Clu
 	return nil
 }
 
-// 创建内置的 ClusterRole
-func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClusterRequest, cs *client.ClusterSet) error {
-	// 如果是子集群，不需要添加，只有主集群需要新增权限
-	if req.PermissionId != 0 {
-		return nil
-	}
-
-	clusterRoleView := "pixiu-view"
-	// 已存在则忽略
-	_, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleView, metav1.GetOptions{})
-	if err == nil {
-		return nil
-	}
-
-	clusterRoleSystemView := "view"
-	viewClusterRole, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleSystemView, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("获取内置 ClusterRoles 失败 %v", err)
-	}
-
+// buildPixiuViewClusterRole 构造 pixiu 内置只读 ClusterRole：拷贝内置 view 的规则，
+// 追加 pixiu 依赖的 metrics dashboard 与 nodes 规则。
+func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.ClusterRole {
 	rules := viewClusterRole.Rules
-	// 追加依赖rule
 	rules = append(rules, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{"metrics.pixiu.io"},
@@ -290,18 +278,38 @@ func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClus
 			Verbs:     []string{"get", "list", "watch"},
 		},
 	}...)
-
-	_, err = cs.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterRoleView,
-			Labels: map[string]string{
-				"maintainer": "pixiu",
-			},
+			Name:   types.PixiuViewClusterRole,
+			Labels: map[string]string{"maintainer": "pixiu"},
 		},
 		Rules: rules,
-	}, metav1.CreateOptions{})
+	}
+}
+
+// 创建内置的 ClusterRole
+func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClusterRequest, cs *client.ClusterSet) error {
+	// 如果是子集群，不需要添加，只有主集群需要新增权限
+	if req.PermissionId != 0 {
+		return nil
+	}
+
+	clusterRoleView := types.PixiuViewClusterRole
+	// 已存在则忽略
+	_, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleView, metav1.GetOptions{})
+	if err == nil {
+		return nil
+	}
+
+	clusterRoleSystemView := "view"
+	viewClusterRole, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleSystemView, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("创建你内置 ClusterRole 失败: %v", err)
+		return fmt.Errorf("获取内置 ClusterRoles 失败 %v", err)
+	}
+
+	_, err = cs.Client.RbacV1().ClusterRoles().Create(ctx, buildPixiuViewClusterRole(viewClusterRole), metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("创建 pixiu 内置 ClusterRole 失败: %v", err)
 	}
 	return nil
 }
@@ -442,7 +450,7 @@ func (c *cluster) deletePixiuClusterRole(ctx context.Context, cluster *model.Clu
 		return nil
 	}
 
-	clusterRoleView := "pixiu-view"
+	clusterRoleView := types.PixiuViewClusterRole
 	if err := cs.Client.RbacV1().ClusterRoles().Delete(ctx, clusterRoleView, metav1.DeleteOptions{}); err != nil {
 		klog.Errorf("failed to delete clusterRole(%s): %v", clusterRoleView, err)
 		return nil

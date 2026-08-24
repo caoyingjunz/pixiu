@@ -20,10 +20,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"time"
 
 	servererrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -62,13 +64,12 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 		klog.Errorf("failed to get effective user id: %v", err)
 		return errors.ErrInternal
 	}
-
 	// 用户 id 和授权集群 ID 必须存在
 	if uid == 0 || req.ClusterId == 0 {
 		return errors.ErrReqParams
 	}
 
-	if err := c.preCreatePermission(ctx, uid, req); err != nil {
+	if err = c.preCreatePermission(ctx, uid, req); err != nil {
 		return err
 	}
 
@@ -173,6 +174,11 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 }
 
 func (c *cluster) GetPermission(ctx context.Context, permissionId int64) (*types.Permission, error) {
+	// 仅超级管理员可查看授权详情，避免 IDOR 越权读取他人授权
+	if _, err := httputils.RequireRootUser(ctx); err != nil {
+		return nil, err
+	}
+
 	object, err := c.factory.Permission().Get(ctx, permissionId)
 	if err != nil {
 		klog.Errorf("failed to get permission(%d): %v", permissionId, err)
@@ -185,6 +191,11 @@ func (c *cluster) GetPermission(ctx context.Context, permissionId int64) (*types
 }
 
 func (c *cluster) ListPermissions(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	// 仅超级管理员可查看授权列表，避免越权读取他人授权
+	if _, err := httputils.RequireRootUser(ctx); err != nil {
+		return nil, err
+	}
+
 	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{
@@ -239,6 +250,22 @@ func (c *cluster) preUpdatePermission(ctx context.Context, permissionId int64) (
 		klog.Errorf("permission(%d) not found", permissionId)
 		return nil, errors.ErrPermissionNotFound
 	}
+
+	// 更新授权属于主集群所有者的权限，非主集群 owner 或超管一律 403
+	masterCluster, err := c.factory.Cluster().Get(ctx, oldP.OwnerClusterId)
+	if err != nil {
+		klog.Errorf("failed to get master cluster(%d): %v", oldP.OwnerClusterId, err)
+		return nil, err
+	}
+	if masterCluster == nil {
+		klog.Errorf("master cluster(%d) not found", oldP.OwnerClusterId)
+		return nil, servererrors.ErrClusterNotFound
+	}
+	if err = util.CheckResourceOwner(ctx, masterCluster.UserId); err != nil {
+		klog.Errorf("failed to check resource owner: %v", err)
+		return nil, err
+	}
+
 	return oldP, nil
 }
 
@@ -312,15 +339,16 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 		return nil
 	}
 
+	// 强制重刷
 	clusterSet, err := c.GetClusterSetByName(ctx, oldP.OwnerClusterName)
 	if err != nil {
 		return fmt.Errorf("获取集群 %s 配置失败: %w", oldP.OwnerClusterName, err)
 	}
 
-	// 移除k8s规则
+	// 先删后建：删除失败会残留同名 binding，直接中止更新并返回报错
 	if err = c.deleteKubernetesRule(ctx, oldP); err != nil {
-		// 存在报错忽略
-		klog.Errorf("failed to clean up k8s rules: %v", err)
+		klog.Errorf("failed to clean up k8s rules for permission(%d): %v", req.Id, err)
+		return fmt.Errorf("清理旧 k8s 规则失败，已中止更新: %w", err)
 	}
 
 	addRuleReq := &types.CreatePermissionRequest{
@@ -336,6 +364,7 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	// 重新下发新规则，请获取新的 kubeconfig
 	kubeConfig, err := c.addKubernetesRule(ctx, addRuleReq, clusterSet)
 	if err != nil {
+		klog.Errorf("failed to re-apply k8s rules for permission(%d): %v", req.Id, err)
 		return err
 	}
 
@@ -445,29 +474,39 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 
 	// 自定义规则时，删除 ClusterRoles 和 RoleBindings
 	// 管理员和只读规则时，仅删除 RoleBindings
+	var errs []error
 	if object.PType == 1 {
-		// 2. 删除 ClusterRoleBinding 自定义的类型需要删除
+		// 2. 删除 ClusterRole 自定义的类型需要删除
 		klog.Infof("deleting ClusterRole(%s)", name)
 		if err = clientSet.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-			klog.Errorf("failed to delete ClusterRole(%s): %v", name, err)
+			if !apierrors.IsNotFound(err) {
+				klog.Errorf("failed to delete ClusterRole(%s): %v", name, err)
+				errs = append(errs, err)
+			}
 		}
 
-		// 3. 删除各命名空间的 rRoleBinding
+		// 3. 删除各命名空间的 RoleBinding
 		for _, targetNamespace := range decodeStringSlice(object.TargetNamespaces) {
 			klog.Infof("deleting RoleBindings %s(%s)", targetNamespace, bindingName)
 			if err = clientSet.RbacV1().RoleBindings(targetNamespace).Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
-				klog.Errorf("failed to delete RoleBindings(%s) in namespace(%s): %v", bindingName, targetNamespace, err)
+				if !apierrors.IsNotFound(err) {
+					klog.Errorf("failed to delete RoleBindings(%s) in namespace(%s): %v", bindingName, targetNamespace, err)
+					errs = append(errs, err)
+				}
 			}
 		}
 	} else {
 		// 仅删除 ClusterRoleBinding
-		klog.Errorf("deleting ClusterRoleBindings(%s) for ClusterRole(%s)", bindingName, object.ClusterRoleName)
+		klog.Infof("deleting ClusterRoleBindings(%s) for ClusterRole(%s)", bindingName, object.ClusterRoleName)
 		if err = clientSet.RbacV1().ClusterRoleBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
-			klog.Errorf("failed to delete ClusterRoleBindings(%s) for ClusterRole(%s): %v", bindingName, object.ClusterRoleName, err)
+			if !apierrors.IsNotFound(err) {
+				klog.Errorf("failed to delete ClusterRoleBindings(%s) for ClusterRole(%s): %v", bindingName, object.ClusterRoleName, err)
+				errs = append(errs, err)
+			}
 		}
 	}
 
-	return nil
+	return stderrors.Join(errs...)
 }
 
 func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
@@ -541,7 +580,7 @@ func decodeStringSlice(raw string) []string {
 }
 
 // 创建 ClusterRoleBinding（将 ClusterRole 绑定到 ServiceAccount，集群级）
-func createClusterRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, clientSet *kubernetes.Clientset) error {
+func createClusterRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, clientSet kubernetes.Interface) error {
 	bindingName := req.RoleBindingName
 	clusterRoleName := req.ClusterRoleName
 	saName := req.SAName
@@ -553,6 +592,11 @@ func createClusterRoleBinding(ctx context.Context, req *types.CreatePermissionRe
 	}
 	if !apierrors.IsNotFound(err) {
 		return fmt.Errorf("检查 ClusterRoleBinding(%s) 失败: %v", clusterRoleName, err)
+	}
+
+	// 绑定前校验目标 ClusterRole 存在，避免悬空绑定导致授权用户全部 403
+	if _, err := clientSet.RbacV1().ClusterRoles().Get(ctx, clusterRoleName, metav1.GetOptions{}); err != nil {
+		return fmt.Errorf("目标 ClusterRole(%s) 不存在，无法绑定: %w", clusterRoleName, err)
 	}
 
 	// 关联不存在，进行关联
@@ -622,9 +666,37 @@ func createRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, 
 	return nil
 }
 
-// 创建 ClusterRole（如果已存在则跳过）
-func createClusterRole(ctx context.Context, req *types.CreatePermissionRequest, clientSet *kubernetes.Clientset) error {
-	// 自定义需要创建，只读和管理员直接复用原有cr
+// ensurePixiuViewClusterRole 幂等确保目标集群存在 pixiu-view ClusterRole（只读授权复用，避免悬空绑定）。
+func ensurePixiuViewClusterRole(ctx context.Context, clientSet kubernetes.Interface) error {
+	name := types.PixiuViewClusterRole
+	if _, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{}); err == nil {
+		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("检查 ClusterRole(%s) 失败: %w", name, err)
+	}
+
+	viewRole, err := clientSet.RbacV1().ClusterRoles().Get(ctx, "view", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("获取内置 ClusterRoles view 失败: %w", err)
+	}
+	if _, err = clientSet.RbacV1().ClusterRoles().Create(ctx, buildPixiuViewClusterRole(viewRole), metav1.CreateOptions{}); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return fmt.Errorf("创建 ClusterRole(%s) 失败: %w", name, err)
+	}
+	return nil
+}
+
+// 创建 ClusterRole
+// PType 0 只读：复用 pixiu-view，缺失时幂等补建
+// PType 1 自定义：用 req.Rules 创建
+// PType 2 管理员：复用内置 cluster-admin，无需创建
+func createClusterRole(ctx context.Context, req *types.CreatePermissionRequest, clientSet kubernetes.Interface) error {
+	if req.PType == 0 {
+		return ensurePixiuViewClusterRole(ctx, clientSet)
+	}
+	// 自定义需要创建，管理员直接复用内置 cluster-admin
 	if req.PType != 1 {
 		return nil
 	}

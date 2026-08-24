@@ -160,7 +160,7 @@ func (c Register) addPixiuClusterRole(ctx context.Context, kubeconfig string) er
 		return nil
 	}
 
-	clusterRoleView := "pixiu-view"
+	clusterRoleView := types.PixiuViewClusterRole
 	// 已存在则忽略
 	_, err = cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleView, metav1.GetOptions{})
 	if err == nil {
