@@ -190,7 +190,7 @@ func (c *cluster) GetPermission(ctx context.Context, permissionId int64) (*types
 	if object == nil {
 		return nil, errors.ErrPermissionNotFound
 	}
-	if err = c.authorizePermissionOwner(ctx, object); err != nil {
+	if err = c.authorizeGetPermission(ctx, object); err != nil {
 		return nil, err
 	}
 	return c.permissionModel2Type(object), nil
@@ -302,6 +302,20 @@ func (c *cluster) authorizePermissionOwner(ctx context.Context, object *model.Pe
 		return err
 	}
 	return nil
+}
+
+// authorizeGetPermission 校验查看授权的归属：被授权用户本人可查看自己的授权记录；
+// 其余场景（主集群 owner / 超管 / 他人）走 authorizePermissionOwner 的 owner 校验。
+func (c *cluster) authorizeGetPermission(ctx context.Context, object *model.Permission) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	// 被授权用户本人可查看自己的授权记录（GetPermission 读场景）
+	if user.Id == object.UserId {
+		return nil
+	}
+	return c.authorizePermissionOwner(ctx, object)
 }
 
 func (c *cluster) ownedMasterClusterIDs(ctx context.Context, userId int64) ([]int64, error) {
