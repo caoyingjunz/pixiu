@@ -143,7 +143,7 @@ func (d *distribution) UpdateDistribution(ctx context.Context, req *types.Update
 }
 
 func (d *distribution) DeleteDistribution(ctx context.Context, id int64) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	object, err := d.factory.Distribution().DeleteDistribution(ctx, id)

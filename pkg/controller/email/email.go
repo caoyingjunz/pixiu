@@ -32,6 +32,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -61,6 +62,9 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateEmailRequest) error {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil {
 		return apierrors.ErrUnauthorized
@@ -108,6 +112,9 @@ func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Email, err
 }
 
 func (c *controller) Update(ctx context.Context, req *types.UpdateEmailRequest) error {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	old, err := c.preUpdate(ctx, req.Id)
 	if err != nil {
 		klog.Errorf("pre-update check failed for email(%d): %v", req.Id, err)
@@ -174,6 +181,9 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateEmailRequest) 
 }
 
 func (c *controller) Delete(ctx context.Context, id int64) error {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	object, err := c.factory.Email().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get email(%d): %v", id, err)
@@ -190,6 +200,9 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 }
 
 func (c *controller) Get(ctx context.Context, id int64) (*types.Email, error) {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	object, err := c.factory.Email().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get email(%d): %v", id, err)
@@ -202,6 +215,9 @@ func (c *controller) Get(ctx context.Context, id int64) (*types.Email, error) {
 }
 
 func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{
@@ -247,6 +263,9 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 
 // TestSend 使用指定配置向目标邮箱发送测试邮件，验证 SMTP 配置是否可用。
 func (c *controller) TestSend(ctx context.Context, id int64, req *types.TestSendEmailRequest) error {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	object, err := c.factory.Email().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get email(%d): %v", id, err)

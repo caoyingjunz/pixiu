@@ -109,7 +109,7 @@ func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantR
 }
 
 func (t *tenant) Delete(ctx context.Context, tid int64) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	object, err := t.factory.Tenant().Delete(ctx, tid)
