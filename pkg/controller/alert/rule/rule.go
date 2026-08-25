@@ -56,6 +56,9 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateAlertRuleRequest) error {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
@@ -120,6 +123,9 @@ func (c *controller) preUpdate(ctx context.Context, ruleId int64) (*model.AlertR
 }
 
 func (c *controller) Update(ctx context.Context, ruleId int64, req *types.UpdateAlertRuleRequest) error {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	current, err := c.preUpdate(ctx, ruleId)
 	if err != nil {
 		klog.Errorf("pre-update check failed for alert rule(%d): %v", ruleId, err)
@@ -278,6 +284,9 @@ func (c *controller) cleanupOnDisable(ctx context.Context, ruleId int64) error {
 }
 
 func (c *controller) Delete(ctx context.Context, ruleId int64) error {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	if err := c.factory.Alert().Rule().Delete(ctx, ruleId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("alert rule not found"), http.StatusNotFound)
@@ -289,6 +298,9 @@ func (c *controller) Delete(ctx context.Context, ruleId int64) error {
 }
 
 func (c *controller) Get(ctx context.Context, ruleId int64) (*types.AlertRule, error) {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	object, err := c.factory.Alert().Rule().Get(ctx, ruleId)
 	if err != nil {
 		klog.Errorf("failed to get alert rule(%d): %v", ruleId, err)
@@ -301,6 +313,9 @@ func (c *controller) Get(ctx context.Context, ruleId int64) (*types.AlertRule, e
 }
 
 func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{
@@ -351,6 +366,9 @@ const (
 )
 
 func (c *controller) Export(ctx context.Context, ids []int64) ([]byte, error) {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	if len(ids) == 0 {
 		return nil, apierrors.NewError(fmt.Errorf("ids is required"), http.StatusBadRequest)
 	}
@@ -422,6 +440,9 @@ func (c *controller) Export(ctx context.Context, ids []int64) ([]byte, error) {
 }
 
 func (c *controller) Import(ctx context.Context, data []byte) (*types.ImportAlertRulesResult, error) {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	items, err := parseAlertRuleImportPayload(data)
 	if err != nil {
 		return nil, apierrors.NewError(err, http.StatusBadRequest)

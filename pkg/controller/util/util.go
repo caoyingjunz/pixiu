@@ -64,13 +64,25 @@ func CheckResourceOwner(ctx context.Context, resourceOwnerID int64) error {
 	return nil
 }
 
-// RequireRoot 仅允许超级管理员执行敏感变更（如角色 API / ACL 目录）。
-func RequireRoot(ctx context.Context) error {
+// CheckRoot 仅允许超级管理员执行敏感变更（如角色 API / ACL 目录）。
+func CheckRoot(ctx context.Context) error {
 	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil {
 		return err
 	}
 	if user.Role != model.RoleRoot {
+		return errors.ErrForbidden
+	}
+	return nil
+}
+
+// CheckAdmin 仅允许超级管理员或管理员执行操作（全局共享配置的告警/邮件管理等）。
+func CheckAdmin(ctx context.Context) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if user.Role != model.RoleRoot && user.Role != model.RoleAdmin {
 		return errors.ErrForbidden
 	}
 	return nil

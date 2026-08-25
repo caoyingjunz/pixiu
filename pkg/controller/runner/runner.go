@@ -118,7 +118,7 @@ func (r *runnerController) Update(ctx context.Context, req *types.UpdateRunnerRe
 }
 
 func (r *runnerController) Delete(ctx context.Context, runnerId int64) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	// 前置检查：资源存在
@@ -234,7 +234,7 @@ func (r *runnerController) Install(ctx context.Context, req types.InstallRunnerR
 }
 
 func (r *runnerController) UnInstall(ctx context.Context, req types.UninstallRunnerRequest) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	// 1. 查询现有 runner

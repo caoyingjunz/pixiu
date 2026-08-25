@@ -85,7 +85,7 @@ func (r *Repository) Create(ctx context.Context, repo *types.CreateRepository) e
 }
 
 func (r *Repository) Delete(ctx context.Context, id int64) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	// 前置检查：资源存在

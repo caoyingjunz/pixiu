@@ -118,7 +118,7 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 }
 
 func (c *controller) Delete(ctx context.Context, id int64) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	old, err := c.factory.Assistant().Provider().Get(ctx, id)
