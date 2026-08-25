@@ -114,7 +114,8 @@ type Interface interface {
 
 	// AuthorizeClusterAccess 校验用户是否可访问集群（root / owner / 角色 scope），不含主集群 kubeconfig 归属限制
 	AuthorizeClusterAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
-	// AuthorizeClusterAccessByName 按名鉴权，含禁止非 owner/root 加载主集群 admin kubeconfig（用户态代理/exec 等）
+	// AuthorizeClusterAccessByName 按名鉴权并返回实际凭证集群行：
+	// 禁止非 owner/root 加载主集群 admin kubeconfig；若请求主集群名且用户有授权子集群，则回落子集群 scoped kubeconfig
 	AuthorizeClusterAccessByName(ctx context.Context, user *model.User, clusterName string) (*model.Cluster, error)
 	// AuthorizeClusterKubeAccess 按 id 鉴权并禁止非 owner/root 加载主集群 admin kubeconfig（如签发 proxy-kubeconfig）
 	AuthorizeClusterKubeAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
@@ -327,7 +328,7 @@ func (c *cluster) ensurePixiuSystemNamespace(ctx context.Context, cs *client.Clu
 }
 
 // buildPixiuViewClusterRole 构造 pixiu 内置只读 ClusterRole：拷贝内置 view 的规则，
-// 追加 pixiu 依赖的 metrics dashboard 与 nodes 规则。
+// 追加 pixiu 依赖的 metrics dashboard、nodes，以及 Prometheus 等内部数据源所需的 services/proxy。
 func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.ClusterRole {
 	rules := viewClusterRole.Rules
 	rules = append(rules, []rbacv1.PolicyRule{
@@ -340,6 +341,12 @@ func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.Clus
 			APIGroups: []string{""},
 			Resources: []string{"nodes"},
 			Verbs:     []string{"get", "list", "watch"},
+		},
+		// 集群内 Prometheus/Loki 等经 apiserver service proxy 访问（GET 查询即可）
+		{
+			APIGroups: []string{""},
+			Resources: []string{"services/proxy"},
+			Verbs:     []string{"get"},
 		},
 	}...)
 	return &rbacv1.ClusterRole{
@@ -358,21 +365,8 @@ func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClus
 		return nil
 	}
 
-	clusterRoleView := types.PixiuViewClusterRole
-	// 已存在则忽略
-	_, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleView, metav1.GetOptions{})
-	if err == nil {
-		return nil
-	}
-
-	clusterRoleSystemView := "view"
-	viewClusterRole, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleSystemView, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("获取内置 ClusterRoles 失败 %v", err)
-	}
-
-	_, err = cs.Client.RbacV1().ClusterRoles().Create(ctx, buildPixiuViewClusterRole(viewClusterRole), metav1.CreateOptions{})
-	if err != nil {
+	// 主集群：幂等确保 pixiu-view 存在且含 services/proxy 等依赖规则
+	if err := ensurePixiuViewClusterRole(ctx, cs.Client); err != nil {
 		return fmt.Errorf("创建 pixiu 内置 ClusterRole 失败: %v", err)
 	}
 	return nil

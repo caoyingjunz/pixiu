@@ -54,7 +54,11 @@ func (c *cluster) AuthorizeClusterAccess(ctx context.Context, user *model.User, 
 }
 
 // AuthorizeClusterAccessByName 按集群名鉴权，供用户态加载 kubeconfig / 代理 / exec / 日志等路径使用。
-// 在 root/owner/scope 校验之外，禁止非 owner/root 使用主集群（PermissionId==0）admin kubeconfig。
+// 返回值是「实际用于加载 kubeconfig 的集群行」：
+//   - 直接有权访问且允许使用其 kubeconfig 时，返回该集群本身；
+//   - 请求名是主集群、但调用方不能使用主集群 admin kubeconfig 时，若其在该主集群下有授权子集群，
+//     则返回子集群行（scoped kubeconfig），从而可访问主集群上的数据源（如 Prometheus），
+//     又不会借主集群名拿到 admin 凭证。
 func (c *cluster) AuthorizeClusterAccessByName(ctx context.Context, user *model.User, clusterName string) (*model.Cluster, error) {
 	if user == nil {
 		return nil, errors.ErrUnauthorized
@@ -67,13 +71,45 @@ func (c *cluster) AuthorizeClusterAccessByName(ctx context.Context, user *model.
 	if obj == nil {
 		return nil, errors.ErrClusterNotFound
 	}
-	if err = c.ensureClusterAccess(ctx, user, obj); err != nil {
-		return nil, err
+
+	directErr := c.ensureClusterAccess(ctx, user, obj)
+	if directErr == nil {
+		if err = controllerutil.CheckMasterKubeconfigAccess(ctx, obj); err == nil {
+			return obj, nil
+		}
+		// 对主集群有 scope 等访问权但不能用 admin kubeconfig：尝试回落到本人的授权子集群
 	}
-	if err = controllerutil.CheckMasterKubeconfigAccess(ctx, obj); err != nil {
-		return nil, err
+
+	if obj.PermissionId == 0 {
+		child, findErr := c.findUserAuthorizedChild(ctx, user.Id, obj.Id)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if child != nil {
+			klog.V(2).Infof("proxy cluster %s: user(%d) resolved to authorized child %s", clusterName, user.Id, child.Name)
+			return child, nil
+		}
 	}
-	return obj, nil
+
+	if directErr != nil {
+		return nil, directErr
+	}
+	return nil, errors.ErrForbidden
+}
+
+// findUserAuthorizedChild 查找用户在指定主集群下的授权子集群（PermissionId!=0 且 OwnerReference=master）。
+func (c *cluster) findUserAuthorizedChild(ctx context.Context, userId, masterClusterId int64) (*model.Cluster, error) {
+	children, err := c.factory.Cluster().List(ctx, db.WithOwnerReference(masterClusterId), db.WithUser(userId))
+	if err != nil {
+		klog.Errorf("failed to list authorized children of master(%d) for user(%d): %v", masterClusterId, userId, err)
+		return nil, errors.ErrServerInternal
+	}
+	for i := range children {
+		if children[i].PermissionId != 0 {
+			return &children[i], nil
+		}
+	}
+	return nil, nil
 }
 
 // AuthorizeClusterKubeAccess 按 id 鉴权并禁止非 owner/root 加载主集群 admin kubeconfig。

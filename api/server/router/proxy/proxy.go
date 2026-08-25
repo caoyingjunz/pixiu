@@ -74,14 +74,16 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	// AuthorizeClusterAccessByName：封死被授权人借主集群名获得 admin 代理能力
-	if _, authErr := p.c.Cluster().AuthorizeClusterAccessByName(c, user, name); authErr != nil {
+	// 返回实际凭证集群：被授权人用主集群名访问时回落到其子集群 scoped kubeconfig，禁止 admin 凭证
+	credCluster, authErr := p.c.Cluster().AuthorizeClusterAccessByName(c, user, name)
+	if authErr != nil {
 		httputils.SetFailed(c, resp, authErr)
 		return
 	}
-	clusterSet, err := p.c.Cluster().GetClusterSetByName(context.TODO(), name)
+	credName := credCluster.Name
+	clusterSet, err := p.c.Cluster().GetClusterSetByName(context.TODO(), credName)
 	if err != nil {
-		httputils.SetFailed(c, resp, fmt.Errorf("failed to get cluster %q clusterSet %v", name, err))
+		httputils.SetFailed(c, resp, fmt.Errorf("failed to get cluster %q clusterSet %v", credName, err))
 		return
 	}
 
@@ -90,7 +92,7 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	if len(pixiuDatasourceId) != 0 {
 		klog.Infof("proxying with datasource %s", pixiuDatasourceId)
 		if upstreamAuth := p.resolveUpstreamAuth(c, pixiuDatasourceId); upstreamAuth != "" {
-			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, name, upstreamAuth)
+			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, credName, upstreamAuth)
 			if handled {
 				if proxyErr != nil {
 					httputils.SetFailed(c, resp, proxyErr)
@@ -105,7 +107,7 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	if err = p.forwardToCluster(c, name, target); err != nil {
+	if err = p.forwardToCluster(c, credName, target); err != nil {
 		httputils.SetFailed(c, resp, err)
 	}
 }
