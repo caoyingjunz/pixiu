@@ -375,7 +375,7 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	}
 
 	// 先删后建：删除失败会残留同名 binding，直接中止更新并返回报错
-	if err = c.deleteKubernetesRule(ctx, oldP); err != nil {
+	if err = c.deleteKubernetesRule(ctx, oldP, false); err != nil {
 		klog.Errorf("failed to clean up k8s rules for permission(%d): %v", req.Id, err)
 		return fmt.Errorf("清理旧 k8s 规则失败，已中止更新: %w", err)
 	}
@@ -430,7 +430,7 @@ func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) erro
 		return err
 	}
 
-	if err = c.deleteKubernetesRule(ctx, object); err != nil {
+	if err = c.deleteKubernetesRule(ctx, object, true); err != nil {
 		klog.Errorf("failed to clean up k8s rules: %v", err)
 		return fmt.Errorf("清理 k8s 规则失败，已中止删除: %w", err)
 	}
@@ -489,7 +489,7 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 	return kubeConfig, nil
 }
 
-func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permission) error {
+func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permission, removeSA bool) error {
 	// 调用主集群 client 进行清理
 	clusterSet, err := c.GetClusterSetByName(ctx, object.OwnerClusterName)
 	if err != nil {
@@ -503,10 +503,13 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 	bindingName := object.RoleBindingName
 
 	var errs []error
-	if err = clientSet.CoreV1().ServiceAccounts(saNamespace).Delete(ctx, saName, metav1.DeleteOptions{}); err != nil {
-		if !apierrors.IsNotFound(err) {
-			klog.Errorf("failed to delete ServiceAccount(%s/%s): %v", saNamespace, saName, err)
-			errs = append(errs, err)
+	// 仅删除授权时移除 SA；更新授权保留 SA，避免旧 token 立即失效与重建的 Terminating 竞争
+	if removeSA {
+		if err = clientSet.CoreV1().ServiceAccounts(saNamespace).Delete(ctx, saName, metav1.DeleteOptions{}); err != nil {
+			if !apierrors.IsNotFound(err) {
+				klog.Errorf("failed to delete ServiceAccount(%s/%s): %v", saNamespace, saName, err)
+				errs = append(errs, err)
+			}
 		}
 	}
 
@@ -759,6 +762,13 @@ func createClusterRole(ctx context.Context, req *types.CreatePermissionRequest, 
 	return nil
 }
 
+// ensureServiceAccount 确保目标集群存在被授权用户专属的 ServiceAccount。
+//
+// pixiu 授权模型：为每个被授权用户在主集群创建专属 SA（pixiu-sa-{userId}，位于 pixiu-system），
+// 通过 ClusterRoleBinding/RoleBinding 绑定只读/管理员/自定义角色，并以该 SA 的 token 签发 scoped kubeconfig。
+// 该 SA 是被授权用户在目标集群中的 k8s 身份标识（按 userId 命名，便于运维识别与回收），并非凭据本身——
+// 真正的凭据 token 不在此对象内，也不通过权限 API 暴露。
+// 已存在则复用：更新授权保留 SA（身份不变，仅重建绑定并重新签发 token），仅删除授权时才删除 SA。
 func ensureServiceAccount(ctx context.Context, req *types.CreatePermissionRequest, client kubernetes.Interface) error {
 	ns := req.SANamespace
 	name := req.SAName
@@ -766,7 +776,7 @@ func ensureServiceAccount(ctx context.Context, req *types.CreatePermissionReques
 	saClient := client.CoreV1().ServiceAccounts(ns)
 	_, err := saClient.Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
-		return fmt.Errorf("ServiceAccount(%s/%s) 已存在，拒绝复用", ns, name)
+		return nil // 已存在则复用（更新授权保留 SA 场景）
 	}
 	if !apierrors.IsNotFound(err) {
 		return err
