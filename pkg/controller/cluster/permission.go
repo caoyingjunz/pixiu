@@ -586,8 +586,8 @@ func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
 		ClusterId:        o.ClusterId,
 		ClusterName:      o.ClusterName,
 		ClusterAliasName: o.OwnerClusterAliasName,
-		TargetNamespaces:  decodeStringSlice(o.TargetNamespaces),
-		Description:       o.Description,
+		TargetNamespaces: decodeStringSlice(o.TargetNamespaces),
+		Description:      o.Description,
 	}
 }
 
