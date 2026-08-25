@@ -462,6 +462,11 @@ func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) erro
 
 func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermissionRequest, clusterSet client.ClusterSet) (string, error) {
 	kubeClient := clusterSet.Client
+	// 任意授权前先同步 pixiu-view（含 services/proxy），保证只读授权可访问集群内 Prometheus 代理
+	if err := ensurePixiuViewClusterRole(ctx, kubeClient); err != nil {
+		klog.Warningf("ensure pixiu-view ClusterRole: %v", err)
+	}
+
 	klog.V(2).Infof("creating ServiceAccount")
 	if err := ensureServiceAccount(ctx, req, kubeClient); err != nil {
 		return "", fmt.Errorf("创建 SA 失败: %w", err)
@@ -581,11 +586,13 @@ func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
 		Rules:             decodeRules(o.Rules),
 		SAName:            o.SAName,
 		SANamespace:       o.SANamespace,
-		ClusterId:         o.ClusterId,        // 对应生成的k8s集群ID
-		ClusterName:       o.OwnerClusterName, // 集群名称
-		ClusterAliasName:  o.OwnerClusterAliasName,
-		TargetNamespaces:  decodeStringSlice(o.TargetNamespaces),
-		Description:       o.Description,
+		// ClusterId/ClusterName 为授权生成的子集群（scoped kubeconfig），供被授权人代理使用；
+		// 不再回填 OwnerClusterName，避免泄露主集群名并诱导借主集群名拿到 admin 凭证。
+		ClusterId:        o.ClusterId,
+		ClusterName:      o.ClusterName,
+		ClusterAliasName: o.OwnerClusterAliasName,
+		TargetNamespaces: decodeStringSlice(o.TargetNamespaces),
+		Description:      o.Description,
 	}
 }
 
@@ -721,19 +728,28 @@ func createRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, 
 }
 
 // ensurePixiuViewClusterRole 幂等确保目标集群存在 pixiu-view ClusterRole（只读授权复用，避免悬空绑定）。
+// 已存在则覆盖为当前期望规则（含 services/proxy），保证存量授权也能访问监控代理。
 func ensurePixiuViewClusterRole(ctx context.Context, clientSet kubernetes.Interface) error {
 	name := types.PixiuViewClusterRole
-	if _, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{}); err == nil {
-		return nil
-	} else if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("检查 ClusterRole(%s) 失败: %w", name, err)
-	}
-
 	viewRole, err := clientSet.RbacV1().ClusterRoles().Get(ctx, "view", metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("获取内置 ClusterRoles view 失败: %w", err)
 	}
-	if _, err = clientSet.RbacV1().ClusterRoles().Create(ctx, buildPixiuViewClusterRole(viewRole), metav1.CreateOptions{}); err != nil {
+	desired := buildPixiuViewClusterRole(viewRole)
+
+	existing, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
+	if err == nil {
+		existing.Rules = desired.Rules
+		if _, err = clientSet.RbacV1().ClusterRoles().Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("更新 ClusterRole(%s) 失败: %w", name, err)
+		}
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("检查 ClusterRole(%s) 失败: %w", name, err)
+	}
+
+	if _, err = clientSet.RbacV1().ClusterRoles().Create(ctx, desired, metav1.CreateOptions{}); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
 		}

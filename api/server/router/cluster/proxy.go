@@ -39,6 +39,10 @@ func (cr *clusterRouter) ReRunJob(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = cr.authorizeClusterAccessByName(c, jobMeta.Cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	if err = cr.c.Cluster().ReRunJob(c, jobMeta.Cluster, jobMeta.Namespace, jobMeta.Name, action.ResourceVersion); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

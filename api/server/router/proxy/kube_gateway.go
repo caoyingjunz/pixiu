@@ -73,13 +73,14 @@ func (p *proxyRouter) kubeGatewayHandler(c *gin.Context) {
 		}
 	}
 
-	target, err := p.parseKubeGatewayTarget(*c.Request.URL, obj.Name)
+	// 路径按 URL 中的集群名剥离；凭证按鉴权解析后的集群加载（主集群名可回落到授权子集群）
+	target, err := p.parseKubeGatewayTarget(*c.Request.URL, cluster.Name)
 	if err != nil {
 		httputils.WriteKubeError(c, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
 		return
 	}
 
-	if err = p.forwardToCluster(c, cluster.Name, target); err != nil {
+	if err = p.forwardToCluster(c, obj.Name, target); err != nil {
 		httputils.WriteKubeError(c, http.StatusBadGateway, metav1.StatusReasonInternalError, err.Error())
 	}
 }
