@@ -259,6 +259,10 @@ func (cr *clusterRouter) aggregateEvents(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = cr.authorizeClusterAccessByName(c, optMeta.Cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	if r.Result, err = cr.c.Cluster().AggregateEvents(c, optMeta.Cluster, optMeta.Namespace, optMeta.Name, optMeta.Kind); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -277,6 +281,10 @@ func (cr *clusterRouter) getEventList(c *gin.Context) {
 		err      error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &opts, &eventOpt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = cr.authorizeClusterAccessByName(c, opts.Cluster); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -301,6 +309,10 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 		return
 	}
 	// websocket
+	if err = cr.authorizeClusterAccessByName(c, opts.Cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	if err = cr.c.Cluster().WatchPodLog(c, opts.Cluster, opts.Namespace, opts.Pod, logOpt.Container, logOpt.TailLines, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return

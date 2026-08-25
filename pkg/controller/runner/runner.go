@@ -62,6 +62,11 @@ func NewRunner(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (r *runnerController) Create(ctx context.Context, req *types.CreateRunnerRequest) error {
+	// 仅超级管理员可创建 runner
+	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return err
+	}
+
 	object := &model.Runner{
 		Name:        req.Name,
 		EngineImage: req.EngineImage,
@@ -90,6 +95,11 @@ func (r *runnerController) preUpdate(ctx context.Context, runnerId int64) error 
 }
 
 func (r *runnerController) Update(ctx context.Context, req *types.UpdateRunnerRequest) error {
+	// 仅超级管理员可更新 runner
+	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return err
+	}
+
 	runnerId := req.Id
 	if err := r.preUpdate(ctx, runnerId); err != nil {
 		klog.Errorf("pre-update check failed for runner(%d): %v", runnerId, err)
@@ -118,7 +128,7 @@ func (r *runnerController) Update(ctx context.Context, req *types.UpdateRunnerRe
 }
 
 func (r *runnerController) Delete(ctx context.Context, runnerId int64) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	// 前置检查：资源存在
@@ -145,6 +155,11 @@ func (r *runnerController) Delete(ctx context.Context, runnerId int64) error {
 }
 
 func (r *runnerController) Get(ctx context.Context, runnerId int64) (*types.Runner, error) {
+	// 仅超级管理员可查看 runner
+	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return nil, err
+	}
+
 	object, err := r.factory.Runner().Get(ctx, runnerId)
 	if err != nil {
 		klog.Errorf("failed to get runner %d: %v", runnerId, err)
@@ -157,6 +172,11 @@ func (r *runnerController) Get(ctx context.Context, runnerId int64) (*types.Runn
 }
 
 func (r *runnerController) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	// 仅超级管理员可查看 runner
+	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return nil, err
+	}
+
 	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{
@@ -201,6 +221,11 @@ func (r *runnerController) List(ctx context.Context, listOption types.ListOption
 }
 
 func (r *runnerController) Install(ctx context.Context, req types.InstallRunnerRequest) error {
+	// 仅超级管理员可触发安装
+	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return err
+	}
+
 	// 1. 查询现有 runner
 	obj, err := r.factory.Runner().Get(ctx, req.Id)
 	if err != nil || obj == nil {
@@ -234,7 +259,7 @@ func (r *runnerController) Install(ctx context.Context, req types.InstallRunnerR
 }
 
 func (r *runnerController) UnInstall(ctx context.Context, req types.UninstallRunnerRequest) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	// 1. 查询现有 runner

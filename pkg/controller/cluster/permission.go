@@ -190,7 +190,7 @@ func (c *cluster) GetPermission(ctx context.Context, permissionId int64) (*types
 	if object == nil {
 		return nil, errors.ErrPermissionNotFound
 	}
-	if err = c.authorizePermissionOwner(ctx, object); err != nil {
+	if err = c.authorizeGetPermission(ctx, object); err != nil {
 		return nil, err
 	}
 	return c.permissionModel2Type(object), nil
@@ -304,6 +304,20 @@ func (c *cluster) authorizePermissionOwner(ctx context.Context, object *model.Pe
 	return nil
 }
 
+// authorizeGetPermission 校验查看授权的归属：被授权用户本人可查看自己的授权记录；
+// 其余场景（主集群 owner / 超管 / 他人）走 authorizePermissionOwner 的 owner 校验。
+func (c *cluster) authorizeGetPermission(ctx context.Context, object *model.Permission) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	// 被授权用户本人可查看自己的授权记录（GetPermission 读场景）
+	if user.Id == object.UserId {
+		return nil
+	}
+	return c.authorizePermissionOwner(ctx, object)
+}
+
 func (c *cluster) ownedMasterClusterIDs(ctx context.Context, userId int64) ([]int64, error) {
 	clusters, err := c.factory.Cluster().List(ctx, db.WithUser(userId), db.WithPermissionID(0))
 	if err != nil {
@@ -375,7 +389,7 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	}
 
 	// 先删后建：删除失败会残留同名 binding，直接中止更新并返回报错
-	if err = c.deleteKubernetesRule(ctx, oldP); err != nil {
+	if err = c.deleteKubernetesRule(ctx, oldP, false); err != nil {
 		klog.Errorf("failed to clean up k8s rules for permission(%d): %v", req.Id, err)
 		return fmt.Errorf("清理旧 k8s 规则失败，已中止更新: %w", err)
 	}
@@ -430,7 +444,7 @@ func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) erro
 		return err
 	}
 
-	if err = c.deleteKubernetesRule(ctx, object); err != nil {
+	if err = c.deleteKubernetesRule(ctx, object, true); err != nil {
 		klog.Errorf("failed to clean up k8s rules: %v", err)
 		return fmt.Errorf("清理 k8s 规则失败，已中止删除: %w", err)
 	}
@@ -448,6 +462,11 @@ func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) erro
 
 func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermissionRequest, clusterSet client.ClusterSet) (string, error) {
 	kubeClient := clusterSet.Client
+	// 任意授权前先同步 pixiu-view（含 services/proxy），保证只读授权可访问集群内 Prometheus 代理
+	if err := ensurePixiuViewClusterRole(ctx, kubeClient); err != nil {
+		klog.Warningf("ensure pixiu-view ClusterRole: %v", err)
+	}
+
 	klog.V(2).Infof("creating ServiceAccount")
 	if err := ensureServiceAccount(ctx, req, kubeClient); err != nil {
 		return "", fmt.Errorf("创建 SA 失败: %w", err)
@@ -489,7 +508,7 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 	return kubeConfig, nil
 }
 
-func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permission) error {
+func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permission, removeSA bool) error {
 	// 调用主集群 client 进行清理
 	clusterSet, err := c.GetClusterSetByName(ctx, object.OwnerClusterName)
 	if err != nil {
@@ -503,10 +522,13 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 	bindingName := object.RoleBindingName
 
 	var errs []error
-	if err = clientSet.CoreV1().ServiceAccounts(saNamespace).Delete(ctx, saName, metav1.DeleteOptions{}); err != nil {
-		if !apierrors.IsNotFound(err) {
-			klog.Errorf("failed to delete ServiceAccount(%s/%s): %v", saNamespace, saName, err)
-			errs = append(errs, err)
+	// 仅删除授权时移除 SA；更新授权保留 SA，避免旧 token 立即失效与重建的 Terminating 竞争
+	if removeSA {
+		if err = clientSet.CoreV1().ServiceAccounts(saNamespace).Delete(ctx, saName, metav1.DeleteOptions{}); err != nil {
+			if !apierrors.IsNotFound(err) {
+				klog.Errorf("failed to delete ServiceAccount(%s/%s): %v", saNamespace, saName, err)
+				errs = append(errs, err)
+			}
 		}
 	}
 
@@ -564,11 +586,13 @@ func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
 		Rules:             decodeRules(o.Rules),
 		SAName:            o.SAName,
 		SANamespace:       o.SANamespace,
-		ClusterId:         o.ClusterId,        // 对应生成的k8s集群ID
-		ClusterName:       o.OwnerClusterName, // 集群名称
-		ClusterAliasName:  o.OwnerClusterAliasName,
-		TargetNamespaces:  decodeStringSlice(o.TargetNamespaces),
-		Description:       o.Description,
+		// ClusterId/ClusterName 为授权生成的子集群（scoped kubeconfig），供被授权人代理使用；
+		// 不再回填 OwnerClusterName，避免泄露主集群名并诱导借主集群名拿到 admin 凭证。
+		ClusterId:        o.ClusterId,
+		ClusterName:      o.ClusterName,
+		ClusterAliasName: o.OwnerClusterAliasName,
+		TargetNamespaces: decodeStringSlice(o.TargetNamespaces),
+		Description:      o.Description,
 	}
 }
 
@@ -704,19 +728,28 @@ func createRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, 
 }
 
 // ensurePixiuViewClusterRole 幂等确保目标集群存在 pixiu-view ClusterRole（只读授权复用，避免悬空绑定）。
+// 已存在则覆盖为当前期望规则（含 services/proxy），保证存量授权也能访问监控代理。
 func ensurePixiuViewClusterRole(ctx context.Context, clientSet kubernetes.Interface) error {
 	name := types.PixiuViewClusterRole
-	if _, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{}); err == nil {
-		return nil
-	} else if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("检查 ClusterRole(%s) 失败: %w", name, err)
-	}
-
 	viewRole, err := clientSet.RbacV1().ClusterRoles().Get(ctx, "view", metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("获取内置 ClusterRoles view 失败: %w", err)
 	}
-	if _, err = clientSet.RbacV1().ClusterRoles().Create(ctx, buildPixiuViewClusterRole(viewRole), metav1.CreateOptions{}); err != nil {
+	desired := buildPixiuViewClusterRole(viewRole)
+
+	existing, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
+	if err == nil {
+		existing.Rules = desired.Rules
+		if _, err = clientSet.RbacV1().ClusterRoles().Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("更新 ClusterRole(%s) 失败: %w", name, err)
+		}
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("检查 ClusterRole(%s) 失败: %w", name, err)
+	}
+
+	if _, err = clientSet.RbacV1().ClusterRoles().Create(ctx, desired, metav1.CreateOptions{}); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
 		}
@@ -759,6 +792,13 @@ func createClusterRole(ctx context.Context, req *types.CreatePermissionRequest, 
 	return nil
 }
 
+// ensureServiceAccount 确保目标集群存在被授权用户专属的 ServiceAccount。
+//
+// pixiu 授权模型：为每个被授权用户在主集群创建专属 SA（pixiu-sa-{userId}，位于 pixiu-system），
+// 通过 ClusterRoleBinding/RoleBinding 绑定只读/管理员/自定义角色，并以该 SA 的 token 签发 scoped kubeconfig。
+// 该 SA 是被授权用户在目标集群中的 k8s 身份标识（按 userId 命名，便于运维识别与回收），并非凭据本身——
+// 真正的凭据 token 不在此对象内，也不通过权限 API 暴露。
+// 已存在则复用：更新授权保留 SA（身份不变，仅重建绑定并重新签发 token），仅删除授权时才删除 SA。
 func ensureServiceAccount(ctx context.Context, req *types.CreatePermissionRequest, client kubernetes.Interface) error {
 	ns := req.SANamespace
 	name := req.SAName
@@ -766,7 +806,7 @@ func ensureServiceAccount(ctx context.Context, req *types.CreatePermissionReques
 	saClient := client.CoreV1().ServiceAccounts(ns)
 	_, err := saClient.Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
-		return fmt.Errorf("ServiceAccount(%s/%s) 已存在，拒绝复用", ns, name)
+		return nil // 已存在则复用（更新授权保留 SA 场景）
 	}
 	if !apierrors.IsNotFound(err) {
 		return err

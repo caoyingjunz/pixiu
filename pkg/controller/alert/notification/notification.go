@@ -25,6 +25,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -45,6 +46,9 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{
@@ -91,6 +95,9 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 }
 
 func (c *controller) Delete(ctx context.Context, notificationId int64) error {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	rows, err := c.factory.Alert().Notification().Delete(ctx, db.WithIDIn(notificationId))
 	if err != nil {
 		klog.Errorf("failed to delete alert notification(%d): %v", notificationId, err)

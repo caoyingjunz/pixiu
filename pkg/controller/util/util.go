@@ -49,6 +49,30 @@ func EffectiveUserID(ctx context.Context, reqUserID int64) (int64, error) {
 	return user.Id, nil
 }
 
+// CheckRoot 仅允许超级管理员执行敏感变更（如角色 API / ACL 目录）。
+func CheckRoot(ctx context.Context) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if user.Role != model.RoleRoot {
+		return errors.ErrForbidden
+	}
+	return nil
+}
+
+// CheckAdmin 仅允许超级管理员或管理员执行操作（全局共享配置的告警/邮件管理等）。
+func CheckAdmin(ctx context.Context) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if user.Role != model.RoleRoot && user.Role != model.RoleAdmin {
+		return errors.ErrForbidden
+	}
+	return nil
+}
+
 // CheckResourceOwner 校验当前用户是否有权操作该资源：非超级管理员必须为 owner。
 func CheckResourceOwner(ctx context.Context, resourceOwnerID int64) error {
 	user, err := httputils.GetUserFromContext(ctx)
@@ -64,16 +88,17 @@ func CheckResourceOwner(ctx context.Context, resourceOwnerID int64) error {
 	return nil
 }
 
-// RequireRoot 仅允许超级管理员执行敏感变更（如角色 API / ACL 目录）。
-func RequireRoot(ctx context.Context) error {
-	user, err := httputils.GetUserFromContext(ctx)
-	if err != nil {
-		return err
+// CheckMasterKubeconfigAccess 禁止非 owner/root 使用主集群（PermissionId==0）上的 admin kubeconfig。
+// 授权生成的子集群（PermissionId!=0）存的是 scoped kubeconfig，被授权人可作为该行 owner 使用。
+// 用于 proxy / kube-gateway / webshell / logs / AI 等用户态加载集群凭证的路径。
+func CheckMasterKubeconfigAccess(ctx context.Context, obj *model.Cluster) error {
+	if obj == nil {
+		return errors.ErrClusterNotFound
 	}
-	if user.Role != model.RoleRoot {
-		return errors.ErrForbidden
+	if obj.PermissionId != 0 {
+		return nil
 	}
-	return nil
+	return CheckResourceOwner(ctx, obj.UserId)
 }
 
 // CheckResourceAccess 校验当前用户是否有权访问 pixiu 资源：

@@ -354,7 +354,8 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		if err = controllerutil.CheckResourceAccess(ctx, c.factory, clusterObj.UserId, types.ResourceTypeCluster, clusterObj.Id); err != nil {
 			return pageResult, nil
 		}
-		// 被授权集群是主集群的子集群，其监控数据源挂在主集群名下
+		// 被授权集群是主集群的子集群，其监控数据源挂在主集群名下；列表仍返回主集群名（数据源归属真相）。
+		// 代理权限由 AuthorizeClusterAccessByName 在主集群名下回落到子集群 scoped kubeconfig 解决。
 		if clusterObj.OwnerReference != 0 {
 			master, err := c.factory.Cluster().Get(ctx, clusterObj.OwnerReference)
 			if err != nil || master == nil {

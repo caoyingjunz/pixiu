@@ -133,7 +133,7 @@ func (r *role) Create(ctx context.Context, req *types.CreateRoleRequest) error {
 
 // preUpdateRole 更新前置检查：资源存在 + 仅超管可改角色
 func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (*model.Role, error) {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return nil, err
 	}
 	object, err := factory.Role().Get(ctx, rid)
@@ -188,7 +188,7 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 }
 
 func (r *role) Delete(ctx context.Context, rid int64) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	object, err := r.factory.Role().Delete(ctx, rid)

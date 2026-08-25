@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 )
 
 func IsKubeProxyPath(c *gin.Context) bool {
@@ -28,4 +30,24 @@ func IsKubeProxyPath(c *gin.Context) bool {
 
 func IsHelmPath(c *gin.Context) bool {
 	return strings.HasPrefix(c.Request.URL.Path, helmBaseURL)
+}
+
+// authorizeClusterAccessByName 按集群名鉴权（含主集群 admin kubeconfig 归属限制），用于 proxy/exec/logs/files 等。
+func (cr *clusterRouter) authorizeClusterAccessByName(c *gin.Context, clusterName string) error {
+	user, err := httputils.GetUserFromContext(c)
+	if err != nil {
+		return err
+	}
+	_, err = cr.c.Cluster().AuthorizeClusterAccessByName(c, user, clusterName)
+	return err
+}
+
+// authorizeClusterAccess 按 id 做资源访问校验（不含主集群 kubeconfig 归属限制），用于 CloudShell 等。
+func (cr *clusterRouter) authorizeClusterAccess(c *gin.Context, clusterId int64) error {
+	user, err := httputils.GetUserFromContext(c)
+	if err != nil {
+		return err
+	}
+	_, err = cr.c.Cluster().AuthorizeClusterAccess(c, user, clusterId)
+	return err
 }

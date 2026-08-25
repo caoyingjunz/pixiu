@@ -123,7 +123,7 @@ func (a *apiResource) preUpdate(ctx context.Context, aid int64) (*model.API, err
 }
 
 func (a *apiResource) Update(ctx context.Context, aid int64, req *types.UpdateAPIRequest) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	object, err := a.preUpdate(ctx, aid)
@@ -180,7 +180,7 @@ func (a *apiResource) Update(ctx context.Context, aid int64, req *types.UpdateAP
 }
 
 func (a *apiResource) Delete(ctx context.Context, aid int64) error {
-	if err := controllerutil.RequireRoot(ctx); err != nil {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
 	object, err := a.factory.API().Delete(ctx, aid)
