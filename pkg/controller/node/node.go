@@ -68,10 +68,11 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 		return errors.ErrInvalidRequest
 	}
 	object := &model.Node{
-		Name:   req.Name,
-		UserId: req.UserId,
-		Ip:     req.Ip,
-		Auth:   authStr,
+		Name:    req.Name,
+		UserId:  req.UserId,
+		Ip:      req.Ip,
+		Cluster: req.Cluster,
+		Auth:    authStr,
 	}
 	if _, err = n.factory.Plan().CreateNode(ctx, object); err != nil {
 		klog.Errorf("failed to create node %s: %v", req.Name, err)
@@ -122,6 +123,9 @@ func (n *nodeController) Update(ctx context.Context, nodeId int64, req *types.Up
 	}
 	if req.Ip != nil {
 		updates["ip"] = *req.Ip
+	}
+	if req.Cluster != nil {
+		updates["cluster"] = *req.Cluster
 	}
 	if req.Auth != nil {
 		authStr, e := req.Auth.Marshal()
@@ -263,7 +267,7 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 
 	opts := []db.Options{
 		db.WithUserOrResourceIDs(listOption.UserId, authorizedNodeIDs),
-		db.WithNameLike(listOption.NameSelector),
+		db.WithNodeKeywordLike(listOption.NameSelector),
 	}
 
 	pageResult.Total, err = n.factory.Plan().CountNodes(ctx, opts...)
@@ -313,9 +317,10 @@ func model2Node(o *model.Node) *types.NodeResult {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Name:   o.Name,
-		UserId: o.UserId,
-		Ip:     o.Ip,
-		Auth:   auth,
+		Name:    o.Name,
+		UserId:  o.UserId,
+		Ip:      o.Ip,
+		Cluster: o.Cluster,
+		Auth:    auth,
 	}
 }

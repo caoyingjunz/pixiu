@@ -269,6 +269,8 @@ type (
 		CRI    model.CRI    `json:"cri"`
 		Ip     string       `json:"ip"`
 		Auth   PlanNodeAuth `json:"auth"`
+		// NodeID 可选：引用主机管理中已有主机的认证凭据，服务端从库内取认证，无需客户端传递明文凭据
+		NodeID int64 `json:"node_id,omitempty"`
 	}
 
 	CreatePlanConfigRequest struct {

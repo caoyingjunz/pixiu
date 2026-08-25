@@ -18,11 +18,13 @@ package plan
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
@@ -76,6 +78,25 @@ func (p *plan) buildNodeFromRequest(ctx context.Context, planId int64, req *type
 	auth, err := req.Auth.Marshal()
 	if err != nil {
 		return nil, err
+	}
+
+	// 引用已有主机：从主机管理节点取库内存储的认证凭据，避免客户端传递明文凭据
+	if req.NodeID > 0 {
+		srcNode, e := p.factory.Plan().GetNode(ctx, req.NodeID)
+		if e != nil {
+			if utilerrors.IsRecordNotFound(e) {
+				return nil, errors.ErrNodeNotFound
+			}
+			klog.Errorf("get referenced node %d: %v", req.NodeID, e)
+			return nil, e
+		}
+		if e = util.CheckResourceAccess(ctx, p.factory, srcNode.UserId, types.ResourceTypeNode, req.NodeID); e != nil {
+			return nil, e
+		}
+		if srcNode.Auth == "" {
+			return nil, fmt.Errorf("引用的主机 %s 未配置认证凭据", srcNode.Name)
+		}
+		auth = srcNode.Auth
 	}
 
 	return &model.Node{

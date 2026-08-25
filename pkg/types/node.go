@@ -27,18 +27,20 @@ type NodeResult struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
-	Name   string         `json:"name"`
-	UserId int64          `json:"user_id"`
-	Ip     string         `json:"ip"`
-	Auth   NodeAuthResult `json:"auth"`
+	Name    string         `json:"name"`
+	UserId  int64          `json:"user_id"`
+	Ip      string         `json:"ip"`
+	Cluster string         `json:"cluster"`
+	Auth    NodeAuthResult `json:"auth"`
 }
 
 // CreateNodeRequest POST /pixiu/nodes
 type CreateNodeRequest struct {
-	Name   string       `json:"name" binding:"required"`
-	UserId int64        `json:"user_id"`
-	Ip     string       `json:"ip" binding:"required"`
-	Auth   PlanNodeAuth `json:"auth" binding:"required"`
+	Name    string       `json:"name" binding:"required"`
+	UserId  int64        `json:"user_id"`
+	Ip      string       `json:"ip" binding:"required"`
+	Cluster string       `json:"cluster"`
+	Auth    PlanNodeAuth `json:"auth" binding:"required"`
 }
 
 // SetUserID 实现 UserIDSetter 接口。
@@ -50,7 +52,8 @@ func (r *CreateNodeRequest) SetUserID(id int64) { r.UserId = id }
 type UpdateNodeRequest struct {
 	ResourceVersion int64 `json:"resource_version"`
 
-	Name *string       `json:"name"`
-	Ip   *string       `json:"ip"`
-	Auth *PlanNodeAuth `json:"auth"`
+	Name    *string       `json:"name"`
+	Ip      *string       `json:"ip"`
+	Cluster *string       `json:"cluster"`
+	Auth    *PlanNodeAuth `json:"auth"`
 }

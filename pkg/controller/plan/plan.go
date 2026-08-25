@@ -144,6 +144,10 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	createdPlan, err := p.factory.Plan().Create(ctx, planModel, p.createPlanSubResources(ctx, req))
 	if err != nil {
 		klog.Errorf("failed to create plan %s: %v", req.Name, err)
+		// 保留 403/404 等类型化错误语义，其余兜底为 500
+		if _, ok := err.(errors.Error); ok {
+			return err
+		}
 		return errors.ErrServerInternal
 	}
 	planId := createdPlan.Id
@@ -312,6 +316,10 @@ func (p *plan) Update(ctx context.Context, planId int64, req *types.UpdatePlanRe
 	// 必要时更新部署计划 nodes
 	if err = p.updateNodesIfNeeded(ctx, planId, req); err != nil {
 		klog.Errorf("failed to update plan(%d) nodes: %v", planId, err)
+		// 保留 403/404 等类型化错误语义，其余兜底为 500
+		if _, ok := err.(errors.Error); ok {
+			return err
+		}
 		return errors.ErrServerInternal
 	}
 

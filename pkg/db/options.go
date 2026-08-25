@@ -91,6 +91,17 @@ func WithNameLike(name string) Options {
 	}
 }
 
+// WithNodeKeywordLike 主机关键字模糊搜索：匹配主机名称、IP、所属集群
+func WithNodeKeywordLike(keyword string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if keyword == "" {
+			return tx
+		}
+		like := "%" + keyword + "%"
+		return tx.Where("name like ? or ip like ? or cluster like ?", like, like, like)
+	}
+}
+
 func WithTitleLike(title string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if title == "" {
