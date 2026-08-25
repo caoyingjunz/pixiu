@@ -286,6 +286,17 @@ func (u *user) Delete(ctx context.Context, userId int64) error {
 }
 
 func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
+	curUser, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// 非管理员仅可读自身，防止水平用户枚举 / 详情泄露
+	if curUser.Id != userId {
+		if err = controllerutil.CheckAdmin(ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	object, err := u.factory.User().Get(ctx, userId)
 	if err != nil {
 		klog.Errorf("failed to get user(%d): %v", userId, err)
@@ -299,6 +310,11 @@ func (u *user) Get(ctx context.Context, userId int64) (*types.User, error) {
 }
 
 func (u *user) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	curUser, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{
@@ -317,8 +333,11 @@ func (u *user) List(ctx context.Context, listOption types.ListOptions) (interfac
 	if listOption.Status != nil {
 		opts = append(opts, db.WithUserStatus(*listOption.Status))
 	}
+	// 非管理员列表强制收敛到自身，避免枚举其他账号
+	if err = controllerutil.CheckAdmin(ctx); err != nil {
+		opts = append(opts, db.WithId(curUser.Id))
+	}
 
-	var err error
 	pageResult.Total, err = u.factory.User().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to get user counts: %v", err)
@@ -344,7 +363,15 @@ func (u *user) List(ctx context.Context, listOption types.ListOptions) (interfac
 }
 
 func (u *user) GetCount(ctx context.Context, opts types.ListOptions) (int64, error) {
-	userCount, err := u.factory.User().Count(ctx)
+	curUser, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+	countOpts := []db.Options{}
+	if err = controllerutil.CheckAdmin(ctx); err != nil {
+		countOpts = append(countOpts, db.WithId(curUser.Id))
+	}
+	userCount, err := u.factory.User().Count(ctx, countOpts...)
 	if err != nil {
 		klog.Errorf("failed to get user counts: %v", err)
 		return 0, errors.ErrServerInternal
