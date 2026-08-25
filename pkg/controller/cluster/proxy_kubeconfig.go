@@ -56,7 +56,7 @@ func (p *proxyKubeconfig) Create(ctx context.Context, req *types.CreateProxyKube
 	if err != nil {
 		return errors.ErrUnauthorized
 	}
-	obj, err := p.c.AuthorizeClusterAccess(ctx, user, req.ClusterId)
+	obj, err := p.c.AuthorizeClusterKubeAccess(ctx, user, req.ClusterId)
 	if err != nil {
 		return err
 	}

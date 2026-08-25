@@ -28,7 +28,6 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
-	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 )
 
 const (
@@ -75,18 +74,10 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	obj, authErr := p.c.Cluster().AuthorizeClusterAccessByName(c, user, name)
-	if authErr != nil {
+	// AuthorizeClusterAccessByName：封死被授权人借主集群名获得 admin 代理能力
+	if _, authErr := p.c.Cluster().AuthorizeClusterAccessByName(c, user, name); authErr != nil {
 		httputils.SetFailed(c, resp, authErr)
 		return
-	}
-	// 越权防护：授权生成的子集群（PermissionId!=0）其 KubeConfig 即 scoped kubeconfig，被授权用户可代理；
-	// 主集群（PermissionId==0）仅 root/owner 可代理，封死被授权用户借主集群名获得 admin 代理能力
-	if obj.PermissionId == 0 {
-		if err = controllerutil.CheckResourceOwner(c, obj.UserId); err != nil {
-			httputils.SetFailed(c, resp, err)
-			return
-		}
 	}
 	clusterSet, err := p.c.Cluster().GetClusterSetByName(context.TODO(), name)
 	if err != nil {

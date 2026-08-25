@@ -127,7 +127,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 
 	// 尝试去更新集群状态为部署中
 	if err := p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": model.ClusterStatusDeploy}); err != nil {
-		klog.Warningf("failed to update cluster status to %s, ignoring: %v", model.ClusterStatusDeploy, err)
+		klog.Warningf("failed to update cluster status to %v, ignoring: %v", model.ClusterStatusDeploy, err)
 	}
 
 	taskData, err := p.getTaskData(ctx, planId)

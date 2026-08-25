@@ -581,9 +581,11 @@ func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
 		Rules:             decodeRules(o.Rules),
 		SAName:            o.SAName,
 		SANamespace:       o.SANamespace,
-		ClusterId:         o.ClusterId,        // 对应生成的k8s集群ID
-		ClusterName:       o.OwnerClusterName, // 集群名称
-		ClusterAliasName:  o.OwnerClusterAliasName,
+		// ClusterId/ClusterName 为授权生成的子集群（scoped kubeconfig），供被授权人代理使用；
+		// 不再回填 OwnerClusterName，避免泄露主集群名并诱导借主集群名拿到 admin 凭证。
+		ClusterId:        o.ClusterId,
+		ClusterName:      o.ClusterName,
+		ClusterAliasName: o.OwnerClusterAliasName,
 		TargetNamespaces:  decodeStringSlice(o.TargetNamespaces),
 		Description:       o.Description,
 	}

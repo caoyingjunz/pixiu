@@ -32,7 +32,7 @@ func IsHelmPath(c *gin.Context) bool {
 	return strings.HasPrefix(c.Request.URL.Path, helmBaseURL)
 }
 
-// authorizeClusterAccessByName 取当前登录用户并校验其对指定集群（按名）的访问权限。
+// authorizeClusterAccessByName 按集群名鉴权（含主集群 admin kubeconfig 归属限制），用于 proxy/exec/logs/files 等。
 func (cr *clusterRouter) authorizeClusterAccessByName(c *gin.Context, clusterName string) error {
 	user, err := httputils.GetUserFromContext(c)
 	if err != nil {
@@ -42,7 +42,7 @@ func (cr *clusterRouter) authorizeClusterAccessByName(c *gin.Context, clusterNam
 	return err
 }
 
-// authorizeClusterAccess 取当前登录用户并校验其对指定集群（按 id）的访问权限。
+// authorizeClusterAccess 按 id 做资源访问校验（不含主集群 kubeconfig 归属限制），用于 CloudShell 等。
 func (cr *clusterRouter) authorizeClusterAccess(c *gin.Context, clusterId int64) error {
 	user, err := httputils.GetUserFromContext(c)
 	if err != nil {

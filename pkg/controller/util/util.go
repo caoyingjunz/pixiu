@@ -88,6 +88,19 @@ func CheckResourceOwner(ctx context.Context, resourceOwnerID int64) error {
 	return nil
 }
 
+// CheckMasterKubeconfigAccess 禁止非 owner/root 使用主集群（PermissionId==0）上的 admin kubeconfig。
+// 授权生成的子集群（PermissionId!=0）存的是 scoped kubeconfig，被授权人可作为该行 owner 使用。
+// 用于 proxy / kube-gateway / webshell / logs / AI 等用户态加载集群凭证的路径。
+func CheckMasterKubeconfigAccess(ctx context.Context, obj *model.Cluster) error {
+	if obj == nil {
+		return errors.ErrClusterNotFound
+	}
+	if obj.PermissionId != 0 {
+		return nil
+	}
+	return CheckResourceOwner(ctx, obj.UserId)
+}
+
 // CheckResourceAccess 校验当前用户是否有权访问 pixiu 资源：
 // 超管放行 → owner 放行 → 角色 scope 命中放行 → 否则 403
 func CheckResourceAccess(ctx context.Context, factory db.ShareDaoFactory, resourceOwnerID int64, resourceType string, resourceId int64) error {

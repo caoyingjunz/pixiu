@@ -112,9 +112,12 @@ type Interface interface {
 	// ProxyKubeconfig 代理 KubeConfig 管理（签发/获取/吊销/校验）
 	ProxyKubeconfig() ProxyKubeconfigInterface
 
-	// AuthorizeClusterAccess 校验用户是否可访问集群
+	// AuthorizeClusterAccess 校验用户是否可访问集群（root / owner / 角色 scope），不含主集群 kubeconfig 归属限制
 	AuthorizeClusterAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
+	// AuthorizeClusterAccessByName 按名鉴权，含禁止非 owner/root 加载主集群 admin kubeconfig（用户态代理/exec 等）
 	AuthorizeClusterAccessByName(ctx context.Context, user *model.User, clusterName string) (*model.Cluster, error)
+	// AuthorizeClusterKubeAccess 按 id 鉴权并禁止非 owner/root 加载主集群 admin kubeconfig（如签发 proxy-kubeconfig）
+	AuthorizeClusterKubeAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
 
 	// ListPodFiles 列出 Pod 容器内目录文件
 	ListPodFiles(ctx context.Context, cluster, namespace, pod, container, filePath string) (*types.PodFileListResult, error)
