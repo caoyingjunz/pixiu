@@ -26,6 +26,14 @@ type RedisPing struct {
 	DB        int    `json:"db,omitempty"`
 }
 
+// RedisKeyspaceDB INFO keyspace 段中单个 DB 的 key 分布
+type RedisKeyspaceDB struct {
+	DB      string `json:"db"`      // e.g. "db0"
+	Keys    int64  `json:"keys"`    // key 数量
+	Expires int64  `json:"expires"` // 设置了过期时间的 key 数量
+	AvgTTL  int64  `json:"avg_ttl"` // 平均 TTL（毫秒）
+}
+
 // RedisInfo Redis 实例概览（解析自 INFO 命令）
 type RedisInfo struct {
 	RedisVersion     string `json:"redis_version"`
@@ -38,6 +46,44 @@ type RedisInfo struct {
 	KeyspaceMisses   int64  `json:"keyspace_misses"`
 	TotalKeys        int64  `json:"total_keys"` // DBSIZE
 	Raw              string `json:"raw"`        // INFO 命令原始输出
+
+	// 内存详情
+	UsedMemory       int64   `json:"used_memory"`             // 字节
+	UsedMemoryRss    int64   `json:"used_memory_rss"`         // 字节
+	UsedMemoryPeak   int64   `json:"used_memory_peak"`        // 字节
+	UsedMemoryLua    int64   `json:"used_memory_lua"`         // 字节
+	MaxMemory        int64   `json:"max_memory"`              // 字节，0 表示未限制
+	MaxMemoryHuman   string  `json:"max_memory_human"`        // 可读格式
+	MaxMemoryPolicy  string  `json:"max_memory_policy"`       // 淘汰策略
+	MemFragmentation float64 `json:"mem_fragmentation_ratio"` // 内存碎片率
+
+	// 命令统计
+	TotalCommands    int64 `json:"total_commands_processed"`
+	InstantaneousOps int64 `json:"instantaneous_ops_per_sec"`
+
+	// 网络
+	NetInputBytes  int64 `json:"net_input_bytes_total"`
+	NetOutputBytes int64 `json:"net_output_bytes_total"`
+
+	// 键空间统计
+	EvictedKeys int64 `json:"evicted_keys"`
+	ExpiredKeys int64 `json:"expired_keys"`
+
+	// 连接
+	BlockedClients int64 `json:"blocked_clients"`
+	RejectedConns  int64 `json:"rejected_connections"`
+
+	// 持久化
+	RdbLastSaveStatus string `json:"rdb_last_bgsave_status"`
+	RdbLastSaveTime   int64  `json:"rdb_last_save_time"`
+	AofEnabled        int64  `json:"aof_enabled"`
+
+	// 复制
+	Role            string `json:"role"` // master/slave
+	ConnectedSlaves int64  `json:"connected_slaves"`
+
+	// Keyspace 各 DB 分布
+	KeyspaceDBs []RedisKeyspaceDB `json:"keyspace_dbs"`
 }
 
 // RedisKeyItem SCAN 扫描出的 key 概览（列表仅返回元数据，不含 value）
