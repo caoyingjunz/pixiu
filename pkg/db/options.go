@@ -26,6 +26,13 @@ import (
 
 type Options func(*gorm.DB) *gorm.DB
 
+// WithId 按主键 id 精确过滤（如非管理员用户列表仅查自身）。
+func WithId(id int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("id = ?", id)
+	}
+}
+
 func WithOrderByASC() Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Order("id ASC")
