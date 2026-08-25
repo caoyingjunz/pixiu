@@ -14,8 +14,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/caoyingjunz/pixiu/pkg/types"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 )
