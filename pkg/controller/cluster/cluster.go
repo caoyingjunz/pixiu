@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -38,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
@@ -151,10 +154,68 @@ type cluster struct {
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
-	// 实际创建前，先创建集群的连通性
-	//if err := c.Ping(ctx, req.KubeConfig); err != nil {
-	//	return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
-	//}
+	// 防 SSRF：拒绝 kubeconfig server 指向回环/链路本地/元数据/未指定/多播地址
+	if err := c.validateKubeconfigServer(req.KubeConfig); err != nil {
+		return err
+	}
+	// 连通性预检（隧道模式 Agent 上线前不可达，跳过）
+	if req.ConnectMode != model.ConnectModeTunnel {
+		if err := c.Ping(ctx, req.KubeConfig); err != nil {
+			return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
+		}
+	}
+	return nil
+}
+
+// validateKubeconfigServer 防 SSRF：校验 kubeconfig server 地址不指向回环、链路本地（含云元数据 169.254.169.254）、
+// 未指定、多播等危险地址。私网 IP（10/8、172.16/12、192.168/16）不拦截，pixiu 常部署在内网管理内网集群，
+// 拦截会误伤正常场景；如需拦截私网可后续增加配置开关。
+func (c *cluster) validateKubeconfigServer(kubeConfig string) error {
+	data, err := client.ParseKubeConfigBytes(kubeConfig)
+	if err != nil {
+		return fmt.Errorf("解析 kubeconfig 失败: %v", err)
+	}
+	cfg, err := clientcmd.RESTConfigFromKubeConfig(data)
+	if err != nil {
+		return fmt.Errorf("解析 kubeconfig 配置失败: %v", err)
+	}
+
+	u, err := url.Parse(cfg.Host)
+	if err != nil {
+		return fmt.Errorf("解析 kubeconfig server 地址失败: %v", err)
+	}
+	// 仅允许 http/https 协议
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("kubeconfig server 协议不支持: %s", u.Scheme)
+	}
+
+	hostname := u.Hostname()
+	// 任一命中回环/链路本地/未指定/多播即拒绝；169.254.169.254（云元数据）属于 IsLinkLocalUnicast 会被拦截
+	reject := func(ipStr string) bool {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return false
+		}
+		return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast()
+	}
+
+	// hostname 直接是 IP 则直接检查；否则为域名，解析出全部 IP 逐个检查
+	if ip := net.ParseIP(hostname); ip != nil {
+		if reject(hostname) {
+			return fmt.Errorf("kubeconfig server 地址 %s 不允许", hostname)
+		}
+		return nil
+	}
+
+	ips, err := net.LookupHost(hostname)
+	if err != nil {
+		return fmt.Errorf("kubeconfig server 域名 %s 解析失败: %v", hostname, err)
+	}
+	for _, ip := range ips {
+		if reject(ip) {
+			return fmt.Errorf("kubeconfig server 地址 %s 不允许", hostname)
+		}
+	}
 	return nil
 }
 

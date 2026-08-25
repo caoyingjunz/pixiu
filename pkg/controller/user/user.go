@@ -83,6 +83,11 @@ type user struct {
 }
 
 func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
+	// 仅超级管理员可创建用户
+	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return err
+	}
+
 	encrypt, err := util.EncryptUserPassword(req.Password)
 	if err != nil {
 		klog.Errorf("failed to encrypt user password: %v", err)

@@ -49,21 +49,6 @@ func EffectiveUserID(ctx context.Context, reqUserID int64) (int64, error) {
 	return user.Id, nil
 }
 
-// CheckResourceOwner 校验当前用户是否有权操作该资源：非超级管理员必须为 owner。
-func CheckResourceOwner(ctx context.Context, resourceOwnerID int64) error {
-	user, err := httputils.GetUserFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	if user.Role == model.RoleRoot {
-		return nil
-	}
-	if user.Id != resourceOwnerID {
-		return errors.ErrForbidden
-	}
-	return nil
-}
-
 // CheckRoot 仅允许超级管理员执行敏感变更（如角色 API / ACL 目录）。
 func CheckRoot(ctx context.Context) error {
 	user, err := httputils.GetUserFromContext(ctx)
@@ -83,6 +68,21 @@ func CheckAdmin(ctx context.Context) error {
 		return err
 	}
 	if user.Role != model.RoleRoot && user.Role != model.RoleAdmin {
+		return errors.ErrForbidden
+	}
+	return nil
+}
+
+// CheckResourceOwner 校验当前用户是否有权操作该资源：非超级管理员必须为 owner。
+func CheckResourceOwner(ctx context.Context, resourceOwnerID int64) error {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if user.Role == model.RoleRoot {
+		return nil
+	}
+	if user.Id != resourceOwnerID {
 		return errors.ErrForbidden
 	}
 	return nil
