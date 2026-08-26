@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/base64"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,6 +28,18 @@ import (
 )
 
 const upstreamDatasourceIDHeader = "X-Pixiu-Datasource-Id"
+
+// resolveServiceProxyUpstreamAuth 解析集群内 service proxy 的上游 Basic 认证。
+// K8s apiserver 的 service proxy 会剥离 Authorization，需经 port-forward 注入认证。
+// 优先 X-Pixiu-Datasource-Id（已保存数据源），否则读取 X-Pixiu-Proxy-Authorization（创建/测试前临时认证）。
+func (p *proxyRouter) resolveServiceProxyUpstreamAuth(c *gin.Context) string {
+	if dsID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader)); dsID != "" {
+		if auth := p.resolveUpstreamAuth(c, dsID); auth != "" {
+			return auth
+		}
+	}
+	return strings.TrimSpace(c.Request.Header.Get(externalProxyAuthorizationHeaderKey))
+}
 
 func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string {
 	if dsIDStr == "" {
