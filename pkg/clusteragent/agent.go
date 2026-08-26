@@ -110,7 +110,8 @@ func buildConnectURL(server, token string) (string, error) {
 func redactTokenQuery(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
-		return raw
+		// 解析失败时绝不返回原始串（原始串可能携带 token），改用安全占位，避免日志泄露。
+		return "invalid-url"
 	}
 	q := u.Query()
 	if q.Has("token") {
