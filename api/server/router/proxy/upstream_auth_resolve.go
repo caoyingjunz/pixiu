@@ -17,7 +17,6 @@ limitations under the License.
 package proxy
 
 import (
-	"context"
 	"encoding/base64"
 	"strconv"
 	"strings"
@@ -51,7 +50,7 @@ func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string
 	if err != nil || datasourceID <= 0 {
 		return ""
 	}
-	datasource, err := p.c.Datasource().Get(context.TODO(), datasourceID)
+	datasource, err := p.c.Datasource().Get(c, datasourceID)
 	if err != nil || datasource == nil {
 		return ""
 	}
@@ -72,6 +71,10 @@ func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string
 		username = datasource.Config.Alert.UserName
 		password = datasource.Config.Alert.Password
 	default:
+		return ""
+	}
+
+	if strings.TrimSpace(username) == "" && strings.TrimSpace(password) == "" {
 		return ""
 	}
 
