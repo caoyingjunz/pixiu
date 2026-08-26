@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/types"
 	pixiuutil "github.com/caoyingjunz/pixiu/pkg/util"
 	"k8s.io/klog/v2"
 )
@@ -288,7 +287,8 @@ func (o *Options) bootstrapRunners(ctx context.Context) error {
 			continue
 		}
 
-		if err = o.Controller.Runner().Create(ctx, &types.CreateRunnerRequest{
+		// 直接经 factory 入库，不经过 Controller.Runner().Create（其 CheckRoot 依赖请求上下文，启动阶段无 user 会报错）
+		if _, err = o.Factory.Runner().Create(ctx, &pixiuModel.Runner{
 			Name:        dr.name,
 			EngineImage: dr.engineImage,
 			Status:      pixiuModel.RunnerStatusUnstart,
