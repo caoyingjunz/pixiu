@@ -38,7 +38,7 @@ sudo systemctl start pixiu-builder
 
 ### 查看日志
 ```bash
-root@localhost:~# journalctl -u pixiu_builder -f
+root@localhost:~# journalctl -u pixiu-builder -f
 加载离线产物到 ./serve-data ...
   已加载 0 个 bundle（跳过 0 个）
   未发现 .rpm/.deb，跳过软件源
@@ -98,7 +98,7 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 ### 集群部署
 
 #### 创建部署
-指定 Kubernetes 镜像仓库 和 自定义源为私有地址
+指定 **Kubernetes 镜像仓库** 与 **自定义安装包源** 为私有地址。自定义源填写示例见 [自定义安装包仓库配置](../../docs/deploy/custom-repo.md)。
 
 #### ubuntu配置参考如下：
 

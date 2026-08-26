@@ -1,3 +1,5 @@
+> 部署计划「自定义源」填写示例见 [自定义安装包仓库配置](../../docs/deploy/custom-repo.md)。
+
 ### 将 3 个离线包移到 data目录里，进行自动加载
 ```bash
 root@VM-32-17-ubuntu:~# mv pixiu-images-amd64-v1.31.6.tar.gz  pixiu-packages-ubuntu-24.04-amd64-v1.31.6.tar.gz pixiu-server-images-amd64.tar.gz data/

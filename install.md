@@ -5,6 +5,9 @@
 ```
 [docker 快速安装](./deploy/offline/docker.md)
 
+# Kubernetes 集群部署（可选）
+若通过 Pixiu 页面部署 K8s 集群，且节点处于离线/内网环境，需配置自定义软件源，示例见 [自定义安装包仓库配置](./docs/deploy/custom-repo.md)。
+
 # 数据库
 ```bash
 # 选择1：直接提供可用数据库，初始化 pixiu 数据库（CREATE DATABASE pixiu;）
