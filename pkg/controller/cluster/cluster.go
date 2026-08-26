@@ -84,6 +84,9 @@ type Interface interface {
 	// AggregateEvents 聚合指定资源的 events
 	AggregateEvents(ctx context.Context, cluster string, namespace string, name string, kind string) (*v1.EventList, error)
 
+	// ListServicePods 列出 Service 关联的 Pod（Endpoints TargetRef，必要时回退 selector）
+	ListServicePods(ctx context.Context, cluster, namespace, name string, includeNotReady bool) (*v1.PodList, error)
+
 	// WsPodHandler pod 的 webShell
 	WsPodHandler(ctx context.Context, webShellOptions *types.WebShellOptions, w http.ResponseWriter, r *http.Request) error
 	// WsNodeHandler node 的 webShell

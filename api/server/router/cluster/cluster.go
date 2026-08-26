@@ -87,6 +87,7 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/pods/:pod/log", Handler: cr.watchPodLog, Description: "Pod日志"},
 			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events", Handler: cr.aggregateEvents, Description: "聚合事件"},
 			//{Method: "GET", RelativePath: "/clusters/:cluster/api/v1/events", Handler: cr.getEventList, Description: "事件列表"},
+			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/services/:name/pods", Handler: cr.listServicePods, Description: "Service关联Pod"},
 			{Method: "POST", RelativePath: "/clusters/:cluster/namespaces/:namespace/jobs/:name", Handler: cr.ReRunJob, Description: "重新执行Job"},
 			// ws 相关入口
 			{Method: "GET", RelativePath: "/pods/ws", Handler: cr.podWebShell, Description: "Pod WebShell"},
