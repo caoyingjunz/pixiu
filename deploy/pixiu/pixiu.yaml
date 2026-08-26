@@ -28,6 +28,11 @@ data:
       admin_user: admin
       admin_password: Pixiu123456!
 
+    # 审计历史清理
+    audit:
+      schedule: "0 1 * * *"
+      days_reserved: 7
+
     # 数据库地址信息，根据实际情况配置
     mysql:
       host: <mysql-host>

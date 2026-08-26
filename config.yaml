@@ -46,6 +46,13 @@ worker:
 #  cert_file: test.crt
 #  key_file: test.key
 
+# 审计历史清理（清理过期的 HTTP 审计记录）
+audit:
+  # cron 表达式，默认每天凌晨 1 点执行
+  schedule: "0 1 * * *"
+  # 保留天数，默认 7 天
+  days_reserved: 7
+
 # 告警历史清理（清理过期的告警通知记录）
 alert:
   # cron 表达式，默认每天凌晨 2 点执行
