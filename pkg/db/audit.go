@@ -84,8 +84,8 @@ func (a *audit) BatchDelete(ctx context.Context, opts ...Options) (int64, error)
 		tx = opt(tx)
 	}
 
-	err := tx.Delete(&model.Audit{}).Error
-	return tx.RowsAffected, err
+	result := tx.Delete(&model.Audit{})
+	return result.RowsAffected, result.Error
 }
 
 func (a *audit) Count(ctx context.Context, opts ...Options) (int64, error) {
