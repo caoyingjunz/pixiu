@@ -33,10 +33,17 @@ func (cr *clusterRouter) podWebShell(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.authorizeClusterAccessByName(c, opt.Cluster); err != nil {
+	user, err := httputils.GetUserFromContext(c)
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	credCluster, err := cr.c.Cluster().AuthorizeClusterAccessByName(c, user, opt.Cluster)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	opt.Cluster = credCluster.Name
 	if err = cr.c.Cluster().WsPodHandler(c, &opt, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
