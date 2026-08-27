@@ -262,7 +262,7 @@ type (
 	}
 
 	CreatePlanNodeRequest struct {
-		NodeId int64        `json:"node_id,omitempty"` // 关联主机库节点时使用，不传则新建
+		NodeId int64        `json:"node_id,omitempty"`        // 关联主机库节点时使用，不传则新建
 		Name   string       `json:"name" binding:"omitempty"` // required
 		UserId int64        `json:"user_id"`
 		PlanId int64        `json:"plan_id"`
