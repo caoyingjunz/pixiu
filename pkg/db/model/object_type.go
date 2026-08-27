@@ -20,12 +20,14 @@ package model
 type ObjectType string
 
 const (
-	ObjectUser    ObjectType = "users"
-	ObjectCluster ObjectType = "clusters"
-	ObjectTenant  ObjectType = "tenants"
-	ObjectPlan    ObjectType = "plans"
-	ObjectAuth    ObjectType = "auth"
-	ObjectAll     ObjectType = "*"
+	ObjectUser           ObjectType = "users"
+	ObjectCluster        ObjectType = "clusters"
+	ObjectTenant         ObjectType = "tenants"
+	ObjectPlan           ObjectType = "plans"
+	ObjectAuth           ObjectType = "auth"
+	ObjectContainerProxy ObjectType = "container_proxy"
+	ObjectExternalProxy  ObjectType = "external_proxy"
+	ObjectAll            ObjectType = "*"
 )
 
 func (o ObjectType) String() string {
@@ -33,10 +35,12 @@ func (o ObjectType) String() string {
 }
 
 var ObjectTypeMap = map[ObjectType]struct{}{
-	ObjectUser:    {},
-	ObjectCluster: {},
-	ObjectTenant:  {},
-	ObjectPlan:    {},
-	ObjectAuth:    {},
-	ObjectAll:     {},
+	ObjectUser:           {},
+	ObjectCluster:        {},
+	ObjectTenant:         {},
+	ObjectPlan:           {},
+	ObjectAuth:           {},
+	ObjectContainerProxy: {},
+	ObjectExternalProxy:  {},
+	ObjectAll:            {},
 }

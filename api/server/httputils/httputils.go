@@ -202,6 +202,29 @@ func SetUserToContext(c *gin.Context, user *model.User) {
 	c.Set(userKey, user)
 }
 
+const auditOperatorKey = "audit_operator"
+
+// SetAuditOperator 设置审计操作人（用于登录等未认证请求的场景）。
+func SetAuditOperator(c *gin.Context, name string) {
+	if name == "" {
+		return
+	}
+	c.Set(auditOperatorKey, name)
+}
+
+func GetAuditOperator(ctx context.Context) (string, error) {
+	val := ctx.Value(auditOperatorKey)
+	if val == nil {
+		return "", fmt.Errorf("get nil audit operator")
+	}
+
+	name, ok := val.(string)
+	if !ok || name == "" {
+		return "", fmt.Errorf("failed to assert audit operator")
+	}
+	return name, nil
+}
+
 const kubeAccessClusterKey = "kube_access_cluster"
 
 // SetKubeAccessClusterToContext 记录 Access Token 绑定的集群 name。

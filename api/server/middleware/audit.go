@@ -105,6 +105,8 @@ func buildAuditRecord(c *gin.Context, startTime time.Time) *model.Audit {
 	userName := "unknown"
 	if user, err := httputils.GetUserFromContext(c); err == nil && user != nil {
 		userName = user.Name
+	} else if operator, err := httputils.GetAuditOperator(c); err == nil && operator != "" {
+		userName = operator
 	}
 
 	cluster, resourceName, resourceNamespace := parseK8sProxyPath(c.Request.URL.Path)
@@ -174,6 +176,13 @@ func shouldAudit(c *gin.Context) bool {
 }
 
 func detectObjectType(c *gin.Context) model.ObjectType {
+	path := c.Request.URL.Path
+	if strings.HasPrefix(path, "/pixiu/proxy/") {
+		return model.ObjectContainerProxy
+	}
+	if strings.HasPrefix(path, "/pixiu/external/") {
+		return model.ObjectExternalProxy
+	}
 	obj, _, ok := httputils.GetObjectFromRequest(c)
 	if !ok {
 		return model.ObjectAll
