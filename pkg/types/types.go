@@ -656,6 +656,9 @@ type CustomMeta struct {
 
 	// agent
 	AgentStatus *model.AgentStatus `form:"agent_status" json:"agent_status"`
+
+	// node
+	PlanId *int64 `form:"plan_id" json:"plan_id"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {

@@ -218,6 +218,12 @@ func WithPlan(pid int64) Options {
 	}
 }
 
+func WithPlanIdEq(pid int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("plan_id = ?", pid)
+	}
+}
+
 func WithStatus(status model.AgentStatus) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)

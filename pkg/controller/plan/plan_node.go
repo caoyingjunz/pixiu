@@ -1,7 +1,7 @@
 /*
 Copyright 2021 The Pixiu Authors.
 
-Licensed under the Apache License, Version 2.0 (phe "License");
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -20,73 +20,124 @@ import (
 	"context"
 	"strings"
 
+	"gorm.io/gorm"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-// 删除多余的节点
-// 新增没有的节点
-// 更新已存在的节点
 func (p *plan) updateNodesIfNeeded(ctx context.Context, planId int64, req *types.UpdatePlanRequest) error {
+	return p.syncPlanNodes(ctx, planId, req.Nodes)
+}
+
+func (p *plan) syncPlanNodesInTx(ctx context.Context, planId int64, nodes []types.CreatePlanNodeRequest, tx *gorm.DB) error {
+	for i := range nodes {
+		if err := p.applyPlanNode(ctx, planId, &nodes[i], tx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *plan) syncPlanNodes(ctx context.Context, planId int64, nodes []types.CreatePlanNodeRequest) error {
 	oldNodes, err := p.factory.Plan().ListNodes(ctx, planId)
 	if err != nil {
 		return err
 	}
-	newNodes := req.Nodes
 
-	newMap := make(map[string]types.CreatePlanNodeRequest)
-	for _, newNode := range newNodes {
-		newMap[newNode.Name] = newNode
-	}
-
-	// 遍历寻找待删除节点然后执行删除
-	var delNodes []string
-	for _, oldNode := range oldNodes {
-		name := oldNode.Name
-		_, found := newMap[name]
-		if !found {
-			delNodes = append(delNodes, name)
+	keepIDs := make(map[int64]struct{}, len(nodes))
+	for i := range nodes {
+		if nodes[i].NodeId > 0 {
+			keepIDs[nodes[i].NodeId] = struct{}{}
 		}
 	}
-	if len(delNodes) != 0 {
-		if err = p.factory.Plan().DeleteNodesByNames(ctx, planId, delNodes); err != nil {
-			klog.Errorf("failed deleting nodes %v %v", delNodes, err)
+
+	for i := range oldNodes {
+		if _, ok := keepIDs[oldNodes[i].Id]; ok {
+			continue
+		}
+		if err := p.disassociateNode(ctx, &oldNodes[i]); err != nil {
 			return err
 		}
 	}
 
-	for _, newNode := range newNodes {
-		node, err := p.buildNodeFromRequest(ctx, planId, &newNode)
-		if err != nil {
-			return err
-		}
-		if err = p.CreateOrUpdateNode(ctx, node); err != nil {
+	for i := range nodes {
+		if err := p.applyPlanNode(ctx, planId, &nodes[i], nil); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
-func (p *plan) buildNodeFromRequest(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest) (*model.Node, error) {
-	auth, err := req.Auth.Marshal()
-	if err != nil {
-		return nil, err
+// applyPlanNode 有 node_id 则绑定/更新已有节点（plan_id/role/cri，不改 ip/auth）；无 node_id 则新建计划节点。
+func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest, tx *gorm.DB) error {
+	role := strings.Join(req.Role, ",")
+
+	if req.NodeId > 0 {
+		object, err := p.factory.Plan().GetNode(ctx, req.NodeId)
+		if err != nil {
+			if utilerrors.IsRecordNotFound(err) {
+				return errors.ErrNodeNotFound
+			}
+			klog.Errorf("get node %d: %v", req.NodeId, err)
+			return errors.ErrServerInternal
+		}
+		if err = util.CheckResourceAccess(ctx, p.factory, object.UserId, types.ResourceTypeNode, req.NodeId); err != nil {
+			return err
+		}
+		if object.PlanId != 0 && object.PlanId != planId {
+			return errors.ErrConflict
+		}
+
+		updates := map[string]interface{}{
+			"plan_id": planId,
+			"role":    role,
+			"cri":     req.CRI,
+		}
+		if tx != nil {
+			return p.factory.Plan().TxUpdateNode(ctx, tx, req.NodeId, object.ResourceVersion, updates)
+		}
+		return p.factory.Plan().UpdateNode(ctx, req.NodeId, object.ResourceVersion, updates)
 	}
 
-	return &model.Node{
+	auth, err := req.Auth.Marshal()
+	if err != nil {
+		return err
+	}
+	node := &model.Node{
 		Name:   req.Name,
 		UserId: req.UserId,
 		PlanId: planId,
-		Role:   strings.Join(req.Role, ","),
+		Role:   role,
 		CRI:    req.CRI,
 		Ip:     req.Ip,
 		Auth:   auth,
-	}, nil
+	}
+	if tx != nil {
+		return p.factory.Plan().TxCreateNode(ctx, tx, node)
+	}
+	_, err = p.factory.Plan().CreateNode(ctx, node)
+	return err
+}
+
+func (p *plan) disassociateNode(ctx context.Context, node *model.Node) error {
+	updates := map[string]interface{}{
+		"plan_id": int64(0),
+		"role":    "",
+		"cri":     "",
+	}
+	if err := p.factory.Plan().UpdateNode(ctx, node.Id, node.ResourceVersion, updates); err != nil {
+		if err == utilerrors.ErrRecordNotFound {
+			return nil
+		}
+		klog.Errorf("disassociate node %d from plan %d: %v", node.Id, node.PlanId, err)
+		return errors.ErrServerInternal
+	}
+	return nil
 }
 
 func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
@@ -105,33 +156,6 @@ func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, erro
 		nodes = append(nodes, *n)
 	}
 	return nodes, nil
-}
-
-// CreateOrUpdateNode
-// TODO: 优化
-func (p *plan) CreateOrUpdateNode(ctx context.Context, object *model.Node) error {
-	old, err := p.factory.Plan().GetNodeByName(ctx, object.PlanId, object.Name)
-	if err != nil {
-		if !utilerrors.IsRecordNotFound(err) {
-			return err
-		}
-		// 不存在则创建
-		klog.Infof("plan(%d) node(%s) not exist, try to create it.", object.PlanId, object.Name)
-		_, err = p.factory.Plan().CreateNode(ctx, object)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	klog.Infof("plan(%d) node(%s) already exist", object.PlanId, object.Name)
-	// 已存在尝试更新
-	updates := p.buildNodeUpdates(old, object)
-	if len(updates) == 0 {
-		return nil
-	}
-	klog.Infof("plan(%d) node(%s) already exist and need to update %v", object.PlanId, object.Name, updates)
-	return p.factory.Plan().UpdateNode(ctx, old.Id, old.ResourceVersion, updates)
 }
 
 func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
@@ -155,20 +179,6 @@ func (p *plan) modelNode2Type(o *model.Node) (*types.PlanNode, error) {
 		Role:   strings.Split(o.Role, ","),
 		Ip:     o.Ip,
 		Auth:   auth,
+		CRI:    o.CRI,
 	}, nil
-}
-
-func (p *plan) buildNodeUpdates(old, object *model.Node) map[string]interface{} {
-	updates := make(map[string]interface{})
-	if old.Ip != object.Ip {
-		updates["ip"] = object.Ip
-	}
-	if old.Role != object.Role {
-		updates["role"] = object.Role
-	}
-	if old.Auth != object.Auth {
-		updates["auth"] = object.Auth
-	}
-
-	return updates
 }

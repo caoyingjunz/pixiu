@@ -265,6 +265,9 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 		db.WithUserOrResourceIDs(listOption.UserId, authorizedNodeIDs),
 		db.WithNameLike(listOption.NameSelector),
 	}
+	if listOption.PlanId != nil {
+		opts = append(opts, db.WithPlanIdEq(*listOption.PlanId))
+	}
 
 	pageResult.Total, err = n.factory.Plan().CountNodes(ctx, opts...)
 	if err != nil {

@@ -199,17 +199,9 @@ func (p *plan) createPlanSubResources(ctx context.Context, req *types.CreatePlan
 			return nil, err
 		}
 
-		for i := range req.Nodes {
-			nodeReq := &req.Nodes[i]
-			node, err := p.buildNodeFromRequest(ctx, planModel.Id, nodeReq)
-			if err != nil {
-				klog.Errorf("failed to build plan(%d) node from request: %v", planModel.Id, err)
-				return nil, err
-			}
-			if err := p.factory.Plan().TxCreateNode(ctx, tx, node); err != nil {
-				klog.Errorf("failed to create node(%s): %v", nodeReq.Name, err)
-				return nil, err
-			}
+		if err := p.syncPlanNodesInTx(ctx, planModel.Id, req.Nodes, tx); err != nil {
+			klog.Errorf("failed to sync plan(%d) nodes: %v", planModel.Id, err)
+			return nil, err
 		}
 
 		return tx, nil
@@ -377,9 +369,9 @@ func (p *plan) Delete(ctx context.Context, planId int64) error {
 		klog.Errorf("failed to delete plan(%d) config: %v", planId, err)
 		return err
 	}
-	// 4. 删除关联nodes
-	if err = p.factory.Plan().DeleteNodesByPlan(ctx, planId); err != nil {
-		klog.Errorf("failed to delete plan(%d) nodes: %v", planId, err)
+	// 4. 解除关联 nodes（回到主机库，不物理删除）
+	if err = p.factory.Plan().ReleaseNodesByPlan(ctx, planId); err != nil {
+		klog.Errorf("failed to release plan(%d) nodes: %v", planId, err)
 		return err
 	}
 

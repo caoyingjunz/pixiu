@@ -38,6 +38,7 @@ type PlanInterface interface {
 	CreateNode(ctx context.Context, object *model.Node) (*model.Node, error)
 	TxCreateNode(ctx context.Context, tx *gorm.DB, object *model.Node) error
 	UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
+	TxUpdateNode(ctx context.Context, tx *gorm.DB, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNodeByIP(ctx context.Context, ip string) (*model.Node, error)
@@ -46,6 +47,7 @@ type PlanInterface interface {
 	CountNodes(ctx context.Context, opts ...Options) (int64, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
+	ReleaseNodesByPlan(ctx context.Context, planId int64) error
 	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
 
 	DeleteNodesByNames(ctx context.Context, planId int64, names []string) error
@@ -206,6 +208,20 @@ func (p *plan) UpdateNode(ctx context.Context, nodeId int64, resourceVersion int
 	return nil
 }
 
+func (p *plan) TxUpdateNode(ctx context.Context, tx *gorm.DB, nodeId int64, resourceVersion int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := tx.WithContext(ctx).Model(&model.Node{}).Where("id = ? and resource_version = ?", nodeId, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (p *plan) DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error) {
 	object, err := p.GetNode(ctx, nodeId)
 	if err != nil {
@@ -223,6 +239,25 @@ func (p *plan) DeleteNodesByPlan(ctx context.Context, planId int64) error {
 		return err
 	}
 
+	return nil
+}
+
+// ReleaseNodesByPlan 解除计划与节点的绑定，节点回到主机库（plan_id=0，清空 role/cri，保留 ip/auth）
+func (p *plan) ReleaseNodesByPlan(ctx context.Context, planId int64) error {
+	nodes, err := p.ListNodes(ctx, planId)
+	if err != nil {
+		return err
+	}
+	for i := range nodes {
+		updates := map[string]interface{}{
+			"plan_id": int64(0),
+			"role":    "",
+			"cri":     "",
+		}
+		if err := p.UpdateNode(ctx, nodes[i].Id, nodes[i].ResourceVersion, updates); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
