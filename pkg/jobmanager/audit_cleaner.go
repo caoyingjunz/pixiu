@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	DefaultSchedule     = "0 1 * * *" // 每天凌晨 1 点执行
-	DefaultDaysReserved = 7           // 保留 7 天的审计日志
-	auditDeleteBatchSize = 5000       // 分批删除，避免单次 DELETE 锁表过久
+	DefaultSchedule      = "0 1 * * *" // 每天凌晨 1 点执行
+	DefaultDaysReserved  = 7           // 保留 7 天的审计日志
+	auditDeleteBatchSize = 5000        // 分批删除，避免单次 DELETE 锁表过久
 )
 
 type AuditsCleaner struct {

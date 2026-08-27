@@ -18,6 +18,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Checkout pixiu-ui
+        uses: actions/checkout@v3
+        with:
+          repository: pixiu-io/pixiu-ui
+          ref: master
+          # GITHUB_TOKEN 无法访问其他私有仓库，需配置有 pixiu-ui 读权限的 PAT
+          token: ${{ secrets.PIXIU_UI_TOKEN }}
+          path: pixiu-ui
+
       - name: Get short commit hash
         run: |
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
@@ -55,6 +64,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Checkout pixiu-ui
+        uses: actions/checkout@v3
+        with:
+          repository: pixiu-io/pixiu-ui
+          ref: master
+          # GITHUB_TOKEN 无法访问其他私有仓库，需配置有 pixiu-ui 读权限的 PAT
+          token: ${{ secrets.PIXIU_UI_TOKEN }}
+          path: pixiu-ui
 
       - name: Get short commit hash
         run: |
