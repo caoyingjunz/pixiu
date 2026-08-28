@@ -184,44 +184,30 @@ func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 
 	probeCtx, cancel := context.WithTimeout(context.Background(), clusterProbeTimeout)
 	defer cancel()
+
 	// 只拉 1 个节点：用 RemainingItemCount 推算集群节点总数，并从该节点读取版本
-	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{
-		Limit: 1,
-	})
+	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{Limit: 1})
 	if err != nil {
 		return "", "", err
 	}
 
-	total := len(nodeList.Items)
-	if nodeList.RemainingItemCount != nil {
-		total += int(*nodeList.RemainingItemCount)
-	} else if nodeList.Continue != "" {
-		// 部分 apiserver 分页时不填 RemainingItemCount，回退全量 List 仅取数量
-		fullList, listErr := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{})
-		if listErr != nil {
-			return "", "", listErr
+	if len(nodeList.Items) == 0 {
+		nodeData, marshalErr := (&types.KubeNode{}).Marshal()
+		if marshalErr != nil {
+			return "", "", marshalErr
 		}
-		total = len(fullList.Items)
+		return nodeData, "", nil
 	}
 
-	kubeNode := &types.KubeNode{
-		Ready:    make([]string, 0),
-		NotReady: make([]string, 0),
-		Total:    total,
-	}
-	if len(nodeList.Items) > 0 {
-		kubeNode.Ready = []string{nodeList.Items[0].Name}
+	total := 1
+	if nodeList.RemainingItemCount != nil {
+		total = 1 + int(*nodeList.RemainingItemCount)
 	}
 
-	nodeData, err := kubeNode.Marshal()
+	nodeData, err := (&types.KubeNode{Total: total}).Marshal()
 	if err != nil {
 		return "", "", err
 	}
 
-	var kubernetesVersion string
-	if len(nodeList.Items) > 0 {
-		kubernetesVersion = nodeList.Items[0].Status.NodeInfo.KubeletVersion
-	}
-
-	return nodeData, kubernetesVersion, nil
+	return nodeData, nodeList.Items[0].Status.NodeInfo.KubeletVersion, nil
 }

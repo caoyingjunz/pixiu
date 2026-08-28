@@ -142,7 +142,7 @@ func (p *plan) Create(ctx context.Context, req *types.CreatePlanRequest) error {
 	planId := createdPlan.Id
 
 	// 如果启用pixiu注册功能，则创建容器服务
-	kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
+	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
 	obj := &model.Cluster{
 		Name:          uuid.NewRandName(8),

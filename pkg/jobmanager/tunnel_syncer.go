@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/caoyingjunz/pixiu/pkg/client"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
@@ -31,8 +30,6 @@ import (
 
 const (
 	defaultTunnelSyncInterval = "@every 30s"
-	// tunnelL7ProbeTimeout 经隧道探测 kube-apiserver 的 L7 请求超时。
-	tunnelL7ProbeTimeout = 10 * time.Second
 )
 
 // TunnelSyncer 定期探测集群 Agent 反向隧道连通性，并根据连通性状态更新集群状态。
@@ -115,7 +112,7 @@ func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manag
 		return nil
 	}
 
-	connected, reason, message := probeTunnelL7(ctx, tm, obj)
+	connected, reason, message, nodeData, kubernetesVersion := probeTunnelL7(ctx, tm, obj)
 	ts.backoff.markResult(obj.Name, connected, now)
 
 	prev := tm.AgentConnected(obj.Name)
@@ -133,6 +130,10 @@ func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manag
 	if desired != obj.ClusterStatus {
 		updates["status"] = desired
 	}
+	// 连通时同步节点数与版本（与直连 ClusterSyncer 一致）
+	if connected {
+		parseStatus(updates, desired, kubernetesVersion, nodeData, *obj)
+	}
 
 	if prev != connected {
 		klog.V(2).Infof("[TunnelSyncer] cluster %s agent_connected=%v", obj.Name, connected)
@@ -148,29 +149,17 @@ func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manag
 	return nil
 }
 
-// probeTunnelL7 经 Agent 隧道发送真实 kube API 请求（GET /version）探测控制面连通性。
-// 隧道模式 NewClusterSetWithOptions 会自动注入 ClusterDialContext（remotedialer），
-// 因此请求实际经隧道转发到下游 kube-apiserver。
-func probeTunnelL7(ctx context.Context, tm *tunnel.Manager, obj *model.Cluster) (connected bool, reason, message string) {
+// probeTunnelL7 经 Agent 隧道拨测控制面：List Nodes（Limit=1）同时得到连通性、节点数与版本。
+// 隧道模式 NewClusterSetWithOptions 会自动注入 ClusterDialContext（remotedialer）。
+func probeTunnelL7(ctx context.Context, tm *tunnel.Manager, obj *model.Cluster) (connected bool, reason, message, nodeData, version string) {
 	// session 已消失（但本进程曾见过，见 SeenSession 前置）：直接判定失联，避免空转拨测
 	if !tm.HasSession(obj.Name) {
-		return false, "AgentDisconnected", "agent 隧道未连接"
+		return false, "AgentDisconnected", "agent 隧道未连接", "", ""
 	}
 
-	cs, err := client.NewClusterSetWithOptions(obj.KubeConfig, client.ClusterSetOptions{
-		ClusterName: obj.Name,
-		ConnectMode: obj.ConnectMode,
-	})
+	nodeData, version, err := getNewestKubeStatus(*obj)
 	if err != nil {
-		return false, "KubeConfigInvalid", err.Error()
+		return false, "ProbeFailed", err.Error(), "", ""
 	}
-
-	probeCtx, cancel := context.WithTimeout(ctx, tunnelL7ProbeTimeout)
-	defer cancel()
-	// client-go v0.26 的 Discovery().ServerVersion() 内部使用 context.TODO()，
-	// 无法透传探测超时，因此改用 RESTClient 以真正受 probeCtx 约束。
-	if _, err = cs.Client.Discovery().RESTClient().Get().AbsPath("/version").Do(probeCtx).Raw(); err != nil {
-		return false, "ProbeFailed", err.Error()
-	}
-	return true, "Healthy", ""
+	return true, "Healthy", "", nodeData, version
 }
