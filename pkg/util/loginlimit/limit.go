@@ -34,8 +34,8 @@ const (
 	ipBurst = 3
 
 	// 密码连续失败达到阈值后锁定；锁定期间每分钟仅允许 1 次探测（给正确密码留机会）
-	maxFailures    = 8
-	lockDuration   = 2 * time.Minute
+	maxFailures      = 8
+	lockDuration     = 2 * time.Minute
 	lockedProbeRate  = rate.Limit(1.0 / 60.0)
 	lockedProbeBurst = 1
 
