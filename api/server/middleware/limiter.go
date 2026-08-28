@@ -41,6 +41,10 @@ func UserRateLimiter() gin.HandlerFunc {
 	cache := lru.NewLRUCache(cap)
 
 	return func(c *gin.Context) {
+		// 登录接口由 LoginRateLimiter 单独治理，避免与通用限流互相干扰
+		if c.Request.Method == http.MethodPost && c.Request.URL.Path == loginPath {
+			return
+		}
 		clientIP := c.ClientIP()
 		if !cache.Contains(clientIP) {
 			cache.Add(clientIP, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum))
@@ -67,6 +71,9 @@ func Limiter() gin.HandlerFunc {
 	limiter := rate.NewLimiter(1000, 1000)
 
 	return func(c *gin.Context) {
+		if c.Request.Method == http.MethodPost && c.Request.URL.Path == loginPath {
+			return
+		}
 		if !limiter.Allow() {
 			httputils.AbortFailedWithCode(c, http.StatusForbidden, errors.ErrBusySystem)
 		}

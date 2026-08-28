@@ -56,7 +56,12 @@ func Logger(cfg *config.LogOptions) gin.HandlerFunc {
 		}
 		if err != nil {
 			fields["error"] = err.Error()
-			accesslog.Emit(opts, "FAIL", "error", fields, err)
+			// 登录限流拒绝极多，降为 warn，避免刷屏淹没真实错误
+			tier := "error"
+			if httputils.GetResponseCode(c) == 429 && c.Request.URL.Path == loginPath {
+				tier = "warn"
+			}
+			accesslog.Emit(opts, "FAIL", tier, fields, err)
 			return
 		}
 		// HTTP 成功请求均为 info 档；log.level=debug 时与 info 行为一致（仍输出）。
