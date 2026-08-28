@@ -22,12 +22,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-	"k8s.io/klog/v2"
-
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -87,10 +85,10 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		return
 	}
 
-	// 根据 X-Pixiu-Datasource-Id 从数据源配置解析上游服务（如 ES、Loki）认证信息
+	// 已保存的数据源按 ID 读取凭证；新建数据源测试直接使用前端临时提交的认证头。
 	pixiuDatasourceId := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
-	if len(pixiuDatasourceId) != 0 {
-		klog.Infof("proxying with datasource %s", pixiuDatasourceId)
+	if pixiuDatasourceId != "" || c.Request.Header.Get(upstreamProxyAuthorizationHeader) != "" {
+		// resolveUpstreamAuth 会移除内部认证中转头，避免其被透传到 Kubernetes service proxy。
 		if upstreamAuth := p.resolveUpstreamAuth(c, pixiuDatasourceId); upstreamAuth != "" {
 			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, credName, upstreamAuth)
 			if handled {

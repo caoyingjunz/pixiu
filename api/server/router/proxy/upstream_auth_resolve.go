@@ -17,28 +17,35 @@ limitations under the License.
 package proxy
 
 import (
-	"context"
 	"encoding/base64"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-const upstreamDatasourceIDHeader = "X-Pixiu-Datasource-Id"
+const (
+	upstreamDatasourceIDHeader       = "X-Pixiu-Datasource-Id"
+	upstreamProxyAuthorizationHeader = "X-Pixiu-Proxy-Authorization"
+)
 
 func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string {
 	if dsIDStr == "" {
-		return ""
+		// New datasource tests run before the record has an ID. In that case
+		// use the credential explicitly supplied by the frontend.
+		return takeUpstreamProxyAuth(c)
 	}
-	c.Request.Header.Del(upstreamDatasourceIDHeader)
+	if auth := takeUpstreamProxyAuth(c); auth != "" {
+		return auth
+	}
 
 	datasourceID, err := strconv.ParseInt(dsIDStr, 10, 64)
 	if err != nil || datasourceID <= 0 {
 		return ""
 	}
-	datasource, err := p.c.Datasource().Get(context.TODO(), datasourceID)
+	datasource, err := p.c.Datasource().Get(c, datasourceID)
 	if err != nil || datasource == nil {
 		return ""
 	}
@@ -61,7 +68,20 @@ func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string
 	default:
 		return ""
 	}
+	if username == "" && password == "" {
+		return ""
+	}
 
 	token := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 	return "Basic " + token
+}
+
+func takeUpstreamProxyAuth(c *gin.Context) string {
+	auth := strings.TrimSpace(c.Request.Header.Get(upstreamProxyAuthorizationHeader))
+	c.Request.Header.Del(upstreamProxyAuthorizationHeader)
+	c.Request.Header.Del(upstreamDatasourceIDHeader)
+	if strings.HasPrefix(strings.ToLower(auth), "basic ") {
+		return auth
+	}
+	return ""
 }
