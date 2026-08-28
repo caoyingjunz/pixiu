@@ -38,6 +38,12 @@ func (cr *clusterRouter) listPodFiles(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	credName, err := cr.resolveCredClusterName(c, opts.Cluster)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	opts.Cluster = credName
 	if r.Result, err = cr.c.Cluster().ListPodFiles(c, opts.Cluster, opts.Namespace, opts.Pod, fileOpt.Container, fileOpt.Path); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -58,6 +64,13 @@ func (cr *clusterRouter) downloadPodFile(c *gin.Context) {
 		return
 	}
 
+	credName, err := cr.resolveCredClusterName(c, opts.Cluster)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	opts.Cluster = credName
+
 	if err = cr.c.Cluster().DownloadPodFile(c, opts.Cluster, opts.Namespace, opts.Pod, fileOpt.Container, fileOpt.Path, c.Writer); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -76,6 +89,14 @@ func (cr *clusterRouter) uploadPodFile(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
+	// 集群归属校验放在读取上传文件之前，避免未授权用户触发 multipart 解析
+	credName, err := cr.resolveCredClusterName(c, opts.Cluster)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	opts.Cluster = credName
 
 	// Cap request body to upload limit + multipart overhead.
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, types.PodFileMaxBytes+1024*1024)

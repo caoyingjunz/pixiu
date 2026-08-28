@@ -26,6 +26,13 @@ import (
 
 type Options func(*gorm.DB) *gorm.DB
 
+// WithId 按主键 id 精确过滤（如非管理员用户列表仅查自身）。
+func WithId(id int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("id = ?", id)
+	}
+}
+
 func WithOrderByASC() Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Order("id ASC")
@@ -211,6 +218,32 @@ func WithPlan(pid int64) Options {
 	}
 }
 
+func WithPlanIdEq(pid int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("plan_id = ?", pid)
+	}
+}
+
+// WithPlanIn 按 plan_id 集合过滤（plan_id = 0 的记录不匹配任何 IN 条件，天然排除）。
+func WithPlanIn(pids []int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(pids) == 0 {
+			return tx
+		}
+		return tx.Where("plan_id in ?", pids)
+	}
+}
+
+// WithIdIn 按主键 id 集合过滤。
+func WithIdIn(ids []int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(ids) == 0 {
+			return tx
+		}
+		return tx.Where("id in ?", ids)
+	}
+}
+
 func WithStatus(status model.AgentStatus) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)
@@ -291,6 +324,16 @@ func WithOwnerCluster(clusterId int64) Options {
 			return tx
 		}
 		return tx.Where("owner_cluster_id = ?", clusterId)
+	}
+}
+
+// WithOwnerClusterIDs 按主集群 id 过滤授权记录。空列表必须匹配 0 行，避免漏掉 WHERE 导致全表可见。
+func WithOwnerClusterIDs(ids []int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(ids) == 0 {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("owner_cluster_id IN ?", ids)
 	}
 }
 

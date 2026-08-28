@@ -25,6 +25,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -47,6 +48,9 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) Get(ctx context.Context, eventId int64) (*types.AlertEvent, error) {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	object, err := c.factory.Alert().Event().Get(ctx, eventId)
 	if err != nil {
 		klog.Errorf("failed to get alert event(%d): %v", eventId, err)
@@ -59,6 +63,9 @@ func (c *controller) Get(ctx context.Context, eventId int64) (*types.AlertEvent,
 }
 
 func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{
@@ -114,6 +121,9 @@ func (c *controller) preUpdate(ctx context.Context, eventId int64) error {
 }
 
 func (c *controller) UpdateStatus(ctx context.Context, eventId int64, req *types.UpdateAlertEventStatusRequest) error {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	if err := c.preUpdate(ctx, eventId); err != nil {
 		klog.Errorf("pre-update check failed for alert event(%d): %v", eventId, err)
 		return err

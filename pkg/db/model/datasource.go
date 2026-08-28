@@ -33,12 +33,14 @@ const (
 )
 
 const (
-	DatasourceSubTypeLoki       DatasourceSubType = "loki"
-	DatasourceSubTypeES         DatasourceSubType = "es"
-	DatasourceSubTypePrometheus DatasourceSubType = "prometheus"
-	DatasourceSubTypeRedis      DatasourceSubType = "redis"
-	DatasourceSubTypeNacos      DatasourceSubType = "nacos"
-	DatasourceSubTypeMySQL      DatasourceSubType = "mysql"
+	DatasourceSubTypeLoki         DatasourceSubType = "loki"
+	DatasourceSubTypeES           DatasourceSubType = "es"
+	DatasourceSubTypeVictoriaLogs DatasourceSubType = "vmlogs"
+	DatasourceSubTypePrometheus   DatasourceSubType = "prometheus"
+	DatasourceSubTypeRedis        DatasourceSubType = "redis"
+	DatasourceSubTypeNacos        DatasourceSubType = "nacos"
+  DatasourceSubTypeMySQL      DatasourceSubType = "mysql"
+
 )
 
 type Datasource struct {

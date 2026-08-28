@@ -33,6 +33,10 @@ func (hr *helmRouter) GetRelease(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = hr.authorizeClusterAccessByName(c, helmMeta.Cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
 	if r.Result, err = releaseAPI.Get(c, helmMeta.Name); err != nil {
@@ -49,6 +53,10 @@ func (hr *helmRouter) ListReleases(c *gin.Context) {
 		helmMeta types.PixiuObjectMeta
 	)
 	if err = c.ShouldBindUri(&helmMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = hr.authorizeClusterAccessByName(c, helmMeta.Cluster); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -72,6 +80,10 @@ func (hr *helmRouter) InstallRelease(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = hr.authorizeClusterAccessByName(c, helmMeta.Cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
 	if r.Result, err = releaseAPI.Install(c, &releaseOpt); err != nil {
@@ -88,6 +100,10 @@ func (hr *helmRouter) UninstallRelease(c *gin.Context) {
 		helmMeta types.PixiuObjectMeta
 	)
 	if err = c.ShouldBindUri(&helmMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = hr.authorizeClusterAccessByName(c, helmMeta.Cluster); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -111,6 +127,10 @@ func (hr *helmRouter) UpgradeRelease(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	if err = hr.authorizeClusterAccessByName(c, helmMeta.Cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 
 	releaseAPI := hr.c.Helm().Release(helmMeta.Cluster, helmMeta.Namespace)
 	if r.Result, err = releaseAPI.Upgrade(c, &releaseOpt); err != nil {
@@ -127,6 +147,10 @@ func (hr *helmRouter) GetReleaseHistory(c *gin.Context) {
 		helmMeta types.PixiuObjectMeta
 	)
 	if err = c.ShouldBindUri(&helmMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = hr.authorizeClusterAccessByName(c, helmMeta.Cluster); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -147,6 +171,10 @@ func (hr *helmRouter) RollbackRelease(c *gin.Context) {
 		reverionMeta types.ReleaseHistory
 	)
 	if err = httputils.ShouldBindAny(c, nil, &helmMeta, &reverionMeta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = hr.authorizeClusterAccessByName(c, helmMeta.Cluster); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

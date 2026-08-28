@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -38,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
@@ -109,9 +112,13 @@ type Interface interface {
 	// ProxyKubeconfig 代理 KubeConfig 管理（签发/获取/吊销/校验）
 	ProxyKubeconfig() ProxyKubeconfigInterface
 
-	// AuthorizeClusterAccess 校验用户是否可访问集群
+	// AuthorizeClusterAccess 校验用户是否可访问集群（root / owner / 角色 scope），不含主集群 kubeconfig 归属限制
 	AuthorizeClusterAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
+	// AuthorizeClusterAccessByName 按名鉴权并返回实际凭证集群行：
+	// 禁止非 owner/root 加载主集群 admin kubeconfig；若请求主集群名且用户有授权子集群，则回落子集群 scoped kubeconfig
 	AuthorizeClusterAccessByName(ctx context.Context, user *model.User, clusterName string) (*model.Cluster, error)
+	// AuthorizeClusterKubeAccess 按 id 鉴权并禁止非 owner/root 加载主集群 admin kubeconfig（如签发 proxy-kubeconfig）
+	AuthorizeClusterKubeAccess(ctx context.Context, user *model.User, clusterId int64) (*model.Cluster, error)
 
 	// ListPodFiles 列出 Pod 容器内目录文件
 	ListPodFiles(ctx context.Context, cluster, namespace, pod, container, filePath string) (*types.PodFileListResult, error)
@@ -151,10 +158,68 @@ type cluster struct {
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
-	// 实际创建前，先创建集群的连通性
-	//if err := c.Ping(ctx, req.KubeConfig); err != nil {
-	//	return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
-	//}
+	// 防 SSRF：拒绝 kubeconfig server 指向回环/链路本地/元数据/未指定/多播地址
+	if err := c.validateKubeconfigServer(req.KubeConfig); err != nil {
+		return err
+	}
+	// 连通性预检（隧道模式 Agent 上线前不可达，跳过）
+	if req.ConnectMode != model.ConnectModeTunnel {
+		if err := c.Ping(ctx, req.KubeConfig); err != nil {
+			return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
+		}
+	}
+	return nil
+}
+
+// validateKubeconfigServer 防 SSRF：校验 kubeconfig server 地址不指向回环、链路本地（含云元数据 169.254.169.254）、
+// 未指定、多播等危险地址。私网 IP（10/8、172.16/12、192.168/16）不拦截，pixiu 常部署在内网管理内网集群，
+// 拦截会误伤正常场景；如需拦截私网可后续增加配置开关。
+func (c *cluster) validateKubeconfigServer(kubeConfig string) error {
+	data, err := client.ParseKubeConfigBytes(kubeConfig)
+	if err != nil {
+		return fmt.Errorf("解析 kubeconfig 失败: %v", err)
+	}
+	cfg, err := clientcmd.RESTConfigFromKubeConfig(data)
+	if err != nil {
+		return fmt.Errorf("解析 kubeconfig 配置失败: %v", err)
+	}
+
+	u, err := url.Parse(cfg.Host)
+	if err != nil {
+		return fmt.Errorf("解析 kubeconfig server 地址失败: %v", err)
+	}
+	// 仅允许 http/https 协议
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("kubeconfig server 协议不支持: %s", u.Scheme)
+	}
+
+	hostname := u.Hostname()
+	// 任一命中回环/链路本地/未指定/多播即拒绝；169.254.169.254（云元数据）属于 IsLinkLocalUnicast 会被拦截
+	reject := func(ipStr string) bool {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return false
+		}
+		return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast()
+	}
+
+	// hostname 直接是 IP 则直接检查；否则为域名，解析出全部 IP 逐个检查
+	if ip := net.ParseIP(hostname); ip != nil {
+		if reject(hostname) {
+			return fmt.Errorf("kubeconfig server 地址 %s 不允许", hostname)
+		}
+		return nil
+	}
+
+	ips, err := net.LookupHost(hostname)
+	if err != nil {
+		return fmt.Errorf("kubeconfig server 域名 %s 解析失败: %v", hostname, err)
+	}
+	for _, ip := range ips {
+		if reject(ip) {
+			return fmt.Errorf("kubeconfig server 地址 %s 不允许", hostname)
+		}
+	}
 	return nil
 }
 
@@ -216,12 +281,18 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	// 隧道模式：Agent 未上线前不强制注入 ClusterRole，也无法通过隧道创建命名空间
 	if req.ConnectMode != model.ConnectModeTunnel {
 		if err = c.ensurePixiuSystemNamespace(ctx, cs); err != nil {
-			klog.Errorf("failed to ensure pixiu-system namespace %s: %v", req.Name, err)
-			_ = c.Delete(ctx, obj.Id, true)
+			klog.Errorf("cluster %s: create pixiu-system namespace failed, rolling back by deleting the cluster: %v", req.Name, err)
+			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
+				klog.Errorf("cluster %s: rollback delete failed after pixiu-system namespace creation failure: %v", req.Name, delErr)
+			}
+			return nil, err
 		}
 		if err = c.addPixiuClusterRole(ctx, req, cs); err != nil {
-			klog.Errorf("failed to add pixiu cluster role %s: %v", req.Name, err)
-			_ = c.Delete(ctx, obj.Id, true)
+			klog.Errorf("cluster %s: create pixiu cluster role failed, rolling back by deleting the cluster: %v", req.Name, err)
+			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
+				klog.Errorf("cluster %s: rollback delete failed after pixiu cluster role creation failure: %v", req.Name, delErr)
+			}
+			return nil, err
 		}
 	}
 
@@ -256,28 +327,10 @@ func (c *cluster) ensurePixiuSystemNamespace(ctx context.Context, cs *client.Clu
 	return nil
 }
 
-// 创建内置的 ClusterRole
-func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClusterRequest, cs *client.ClusterSet) error {
-	// 如果是子集群，不需要添加，只有主集群需要新增权限
-	if req.PermissionId != 0 {
-		return nil
-	}
-
-	clusterRoleView := "pixiu-view"
-	// 已存在则忽略
-	_, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleView, metav1.GetOptions{})
-	if err == nil {
-		return nil
-	}
-
-	clusterRoleSystemView := "view"
-	viewClusterRole, err := cs.Client.RbacV1().ClusterRoles().Get(ctx, clusterRoleSystemView, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("获取内置 ClusterRoles 失败 %v", err)
-	}
-
+// buildPixiuViewClusterRole 构造 pixiu 内置只读 ClusterRole：拷贝内置 view 的规则，
+// 追加 pixiu 依赖的 metrics dashboard、nodes，以及 Prometheus 等内部数据源所需的 services/proxy。
+func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.ClusterRole {
 	rules := viewClusterRole.Rules
-	// 追加依赖rule
 	rules = append(rules, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{"metrics.pixiu.io"},
@@ -289,19 +342,32 @@ func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClus
 			Resources: []string{"nodes"},
 			Verbs:     []string{"get", "list", "watch"},
 		},
+		// 集群内 Prometheus/Loki 等经 apiserver service proxy 访问（GET 查询即可）
+		{
+			APIGroups: []string{""},
+			Resources: []string{"services/proxy"},
+			Verbs:     []string{"get"},
+		},
 	}...)
-
-	_, err = cs.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterRoleView,
-			Labels: map[string]string{
-				"maintainer": "pixiu",
-			},
+			Name:   types.PixiuViewClusterRole,
+			Labels: map[string]string{"maintainer": "pixiu"},
 		},
 		Rules: rules,
-	}, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("创建你内置 ClusterRole 失败: %v", err)
+	}
+}
+
+// 创建内置的 ClusterRole
+func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClusterRequest, cs *client.ClusterSet) error {
+	// 如果是子集群，不需要添加，只有主集群需要新增权限
+	if req.PermissionId != 0 {
+		return nil
+	}
+
+	// 主集群：幂等确保 pixiu-view 存在且含 services/proxy 等依赖规则
+	if err := ensurePixiuViewClusterRole(ctx, cs.Client); err != nil {
+		return fmt.Errorf("创建 pixiu 内置 ClusterRole 失败: %v", err)
 	}
 	return nil
 }
@@ -442,7 +508,7 @@ func (c *cluster) deletePixiuClusterRole(ctx context.Context, cluster *model.Clu
 		return nil
 	}
 
-	clusterRoleView := "pixiu-view"
+	clusterRoleView := types.PixiuViewClusterRole
 	if err := cs.Client.RbacV1().ClusterRoles().Delete(ctx, clusterRoleView, metav1.DeleteOptions{}); err != nil {
 		klog.Errorf("failed to delete clusterRole(%s): %v", clusterRoleView, err)
 		return nil
@@ -578,6 +644,19 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 }
 
 func (c *cluster) Protect(ctx context.Context, cid int64, req *types.ProtectClusterRequest) error {
+	object, err := c.factory.Cluster().Get(ctx, cid)
+	if err != nil {
+		klog.Errorf("failed to get cluster(%d): %v", cid, err)
+		return errors.ErrServerInternal
+	}
+	if object == nil {
+		return errors.ErrClusterNotFound
+	}
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeCluster, cid); err != nil {
+		klog.Errorf("failed to check cluster access for protect(%d): %v", cid, err)
+		return err
+	}
+
 	if err := c.factory.Cluster().Update(ctx, cid, *req.ResourceVersion, map[string]interface{}{
 		"protected": req.Protected,
 	}); err != nil {
@@ -1072,7 +1151,7 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 }
 
 func (c *cluster) GetKubernetesMetaFromPlan(ctx context.Context, planId int64) (*types.KubernetesMeta, error) {
-	planConfig, err := c.factory.Plan().GetConfigByPlan(ctx, planId)
+	planConfig, err := c.factory.Plan().Config().GetByPlan(ctx, planId)
 	if err != nil {
 		return nil, err
 	}
@@ -1081,7 +1160,7 @@ func (c *cluster) GetKubernetesMetaFromPlan(ctx context.Context, planId int64) (
 		return nil, err
 	}
 
-	nodes, err := c.factory.Plan().ListNodes(ctx, planId)
+	nodes, err := c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
 	if err != nil {
 		return nil, err
 	}

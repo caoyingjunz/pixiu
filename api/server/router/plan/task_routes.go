@@ -37,7 +37,7 @@ func (t *planRouter) listTasks(c *gin.Context) {
 
 	// 不是长连接请求则直接返回
 	if !watch.Watch {
-		if r.Result, err = t.c.Plan().ListTasks(c, opt.PlanId); err != nil {
+		if r.Result, err = t.c.Plan().Task().List(c, opt.PlanId); err != nil {
 			httputils.SetFailed(c, r, err)
 			return
 		}
@@ -46,7 +46,7 @@ func (t *planRouter) listTasks(c *gin.Context) {
 	}
 
 	// 长连接请求
-	t.c.Plan().WatchTasks(c, opt.PlanId, c.Writer, c.Request)
+	t.c.Plan().Task().Watch(c, opt.PlanId, c.Writer, c.Request)
 }
 
 func (t *planRouter) watchTaskLog(c *gin.Context) {
@@ -61,7 +61,7 @@ func (t *planRouter) watchTaskLog(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().WatchTaskLog(c, opt.PlanId, opt.TaskId, c.Writer, c.Request); err != nil {
+	if err = t.c.Plan().Task().WatchLog(c, opt.PlanId, opt.TaskId, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -26,6 +26,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -117,6 +118,9 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateProviderReques
 }
 
 func (c *controller) Delete(ctx context.Context, id int64) error {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return err
+	}
 	old, err := c.factory.Assistant().Provider().Get(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to get assistant provider(%d): %v", id, err)

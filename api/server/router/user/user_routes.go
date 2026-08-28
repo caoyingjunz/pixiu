@@ -154,6 +154,7 @@ func (u *userRouter) login(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	httputils.SetAuditOperator(c, req.Name)
 	loginResp, err := u.c.User().Login(c, &req)
 	if err != nil {
 		httputils.SetFailed(c, r, err)

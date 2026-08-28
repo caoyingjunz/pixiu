@@ -50,6 +50,9 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateAlertSilenceRequest) error {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
@@ -91,6 +94,9 @@ func (c *controller) preUpdate(ctx context.Context, silenceId int64) error {
 }
 
 func (c *controller) Update(ctx context.Context, silenceId int64, req *types.UpdateAlertSilenceRequest) error {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	if err := c.preUpdate(ctx, silenceId); err != nil {
 		klog.Errorf("pre-update check failed for alert silence(%d): %v", silenceId, err)
 		return err
@@ -136,6 +142,9 @@ func (c *controller) Update(ctx context.Context, silenceId int64, req *types.Upd
 }
 
 func (c *controller) Delete(ctx context.Context, silenceId int64) error {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return err
+	}
 	if err := c.factory.Alert().Silence().Delete(ctx, silenceId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("alert silence not found"), http.StatusNotFound)
@@ -147,6 +156,9 @@ func (c *controller) Delete(ctx context.Context, silenceId int64) error {
 }
 
 func (c *controller) Get(ctx context.Context, silenceId int64) (*types.AlertSilence, error) {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	object, err := c.factory.Alert().Silence().Get(ctx, silenceId)
 	if err != nil {
 		klog.Errorf("failed to get alert silence(%d): %v", silenceId, err)
@@ -159,6 +171,9 @@ func (c *controller) Get(ctx context.Context, silenceId int64) (*types.AlertSile
 }
 
 func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {
+	if err := ctrlutil.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
 	listOption.SetDefaultPageOption()
 
 	pageResult := types.PageResult{

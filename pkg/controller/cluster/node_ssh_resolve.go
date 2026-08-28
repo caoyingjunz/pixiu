@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
@@ -21,11 +22,17 @@ import (
 
 // ResolveSSHConfigForHost 根据已注册节点的 IP 解析 SSH 连接参数（端口默认 22，账号与凭证来自节点 auth JSON）。
 func (c *cluster) ResolveSSHConfigForHost(ctx context.Context, host string) (*types.WebSSHRequest, error) {
-	n, err := c.factory.Plan().GetNodeByIP(ctx, host)
+	n, err := c.factory.Plan().Node().GetByIP(ctx, host)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil, utilerrors.ErrNodeNotFound
 		}
+		return nil, err
+	}
+
+	// 节点访问校验：允许 root/owner/角色 scope 授权访问，与节点管理模块保持一致，
+	// 避免被 scope 授权的 admin 能看到节点却无法 SSH。
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, n.UserId, types.ResourceTypeNode, n.Id); err != nil {
 		return nil, err
 	}
 

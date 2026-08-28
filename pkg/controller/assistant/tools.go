@@ -29,8 +29,10 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	clustercontroller "github.com/caoyingjunz/pixiu/pkg/controller/cluster"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -184,14 +186,6 @@ func (c *controller) runKubectlWithCluster(ctx context.Context, clusterName stri
 }
 
 func (c *controller) getClusterSetForAI(ctx context.Context, clusterName string) (client.ClusterSet, error) {
-	clusterSet, ok := clustercontroller.ClusterIndexer.Get(clusterName)
-	if ok {
-		if clusterSet.Config == nil {
-			return client.ClusterSet{}, fmt.Errorf("cluster %q has empty in-memory config", clusterName)
-		}
-		return clusterSet, nil
-	}
-
 	object, err := c.factory.Cluster().GetBy(ctx, db.WithName(clusterName))
 	if err != nil {
 		return client.ClusterSet{}, err
@@ -199,8 +193,21 @@ func (c *controller) getClusterSetForAI(ctx context.Context, clusterName string)
 	if object == nil {
 		return client.ClusterSet{}, fmt.Errorf("cluster %q not found", clusterName)
 	}
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeCluster, object.Id); err != nil {
+		return client.ClusterSet{}, err
+	}
+	if err = controllerutil.CheckMasterKubeconfigAccess(ctx, object); err != nil {
+		return client.ClusterSet{}, err
+	}
 	if strings.TrimSpace(object.KubeConfig) == "" {
 		return client.ClusterSet{}, fmt.Errorf("cluster %q kubeconfig is empty", clusterName)
+	}
+
+	if clusterSet, ok := clustercontroller.ClusterIndexer.Get(clusterName); ok {
+		if clusterSet.Config == nil {
+			return client.ClusterSet{}, fmt.Errorf("cluster %q has empty in-memory config", clusterName)
+		}
+		return clusterSet, nil
 	}
 
 	newClusterSet, err := client.NewClusterSet(object.KubeConfig)

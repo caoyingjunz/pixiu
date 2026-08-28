@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/types"
+	pixiuutil "github.com/caoyingjunz/pixiu/pkg/util"
 	"k8s.io/klog/v2"
 )
 
@@ -204,7 +204,8 @@ func (o *Options) bootstrapAIProviders(ctx context.Context) error {
 
 // bootstrapRootUser 启动时自动初始化超级管理员账户
 // 若超管已存在则跳过，若不存在则使用配置文件中的用户名和密码创建
-// 密码经由 Controller.User().Create() 内部调用 util.EncryptUserPassword() 加密后入库
+// 密码经由 pixiuutil.EncryptUserPassword() bcrypt 加密后直接经 factory 入库
+// （不经过 Controller.User().Create：其首行 CheckRoot 依赖请求上下文，启动阶段无 user 会报错）
 func (o *Options) bootstrapRootUser(ctx context.Context) error {
 	root, err := o.Factory.User().GetRoot(ctx)
 	if err != nil {
@@ -219,11 +220,19 @@ func (o *Options) bootstrapRootUser(ctx context.Context) error {
 	adminPassword := o.ComponentConfig.Default.AdminPassword
 	klog.Infof("initializing root user: %s", adminUser)
 
-	return o.Controller.User().Create(ctx, &types.CreateUserRequest{
+	encrypted, err := pixiuutil.EncryptUserPassword(adminPassword)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt admin password: %v", err)
+	}
+	if _, err = o.Factory.User().Create(ctx, &pixiuModel.User{
 		Name:     adminUser,
-		Password: adminPassword,
+		Password: encrypted,
+		Status:   pixiuModel.UserStatusNormal,
 		Role:     pixiuModel.RoleRoot,
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to create root user: %v", err)
+	}
+	return nil
 }
 
 func (o *Options) bootstrapDistributions(ctx context.Context) error {
@@ -278,7 +287,8 @@ func (o *Options) bootstrapRunners(ctx context.Context) error {
 			continue
 		}
 
-		if err = o.Controller.Runner().Create(ctx, &types.CreateRunnerRequest{
+		// 直接经 factory 入库，不经过 Controller.Runner().Create（其 CheckRoot 依赖请求上下文，启动阶段无 user 会报错）
+		if _, err = o.Factory.Runner().Create(ctx, &pixiuModel.Runner{
 			Name:        dr.name,
 			EngineImage: dr.engineImage,
 			Status:      pixiuModel.RunnerStatusUnstart,

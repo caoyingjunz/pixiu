@@ -521,6 +521,11 @@ type PlanNodeAuth struct {
 
 const DefaultSSHPort = 22
 
+const (
+	PixiuViewClusterRole = "pixiu-view"
+	ClusterAdminRole     = "cluster-admin"
+)
+
 // SSHPort returns the configured SSH port, falling back to the standard port
 // for old node records and invalid values.
 func (a PlanNodeAuth) SSHPort() int {
@@ -677,6 +682,9 @@ type CustomMeta struct {
 
 	// agent
 	AgentStatus *model.AgentStatus `form:"agent_status" json:"agent_status"`
+
+	// node
+	PlanId *int64 `form:"plan_id" json:"plan_id"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {
@@ -837,10 +845,11 @@ type CreatePermissionRequest struct {
 	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
 	Rules []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
 
-	SAName          string `json:"sa_name"`
-	SANamespace     string `json:"sa_namespace"`
-	ClusterRoleName string `json:"cluster_role_name"`
-	RoleBindingName string `json:"role_binding_name"`
+	// SA/RBAC 对象名由服务端按用户生成，忽略客户端传入。
+	SAName          string `json:"-"`
+	SANamespace     string `json:"-"`
+	ClusterRoleName string `json:"-"`
+	RoleBindingName string `json:"-"`
 
 	TargetNamespaces []string `json:"target_namespaces"`
 }
@@ -863,26 +872,16 @@ func (o *CreatePermissionRequest) SetDefaultOptions() {
 		o.ExpirationSeconds = defaultExpirationSeconds
 	}
 
-	if len(o.SANamespace) == 0 {
-		o.SANamespace = defaultNamespace
-	}
-
-	if len(o.SAName) == 0 {
-		o.SAName = fmt.Sprintf("pixiu-sa-%d", o.UserId)
-	}
-
-	if len(o.ClusterRoleName) == 0 {
+	o.SANamespace = defaultNamespace
+	o.SAName = fmt.Sprintf("pixiu-sa-%d", o.UserId)
+	o.RoleBindingName = fmt.Sprintf("pixiu-rb-%d", o.UserId)
+	switch o.PType {
+	case 0:
+		o.ClusterRoleName = PixiuViewClusterRole
+	case 2:
+		o.ClusterRoleName = ClusterAdminRole
+	default:
 		o.ClusterRoleName = fmt.Sprintf("pixiu-cr-%d", o.UserId)
-	}
-	if o.PType == 0 {
-		o.ClusterRoleName = "pixiu-view"
-	}
-	if o.PType == 2 {
-		o.ClusterRoleName = "cluster-admin"
-	}
-
-	if len(o.RoleBindingName) == 0 {
-		o.RoleBindingName = fmt.Sprintf("pixiu-rb-%d", o.UserId)
 	}
 }
 

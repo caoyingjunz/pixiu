@@ -97,11 +97,11 @@ func (p *plan) getTaskData(ctx context.Context, planId int64) (TaskData, error) 
 	if err != nil {
 		return TaskData{}, err
 	}
-	nodes, err := p.factory.Plan().ListNodes(ctx, planId)
+	nodes, err := p.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
 	if err != nil {
 		return TaskData{}, err
 	}
-	cfg, err := p.factory.Plan().GetConfigByPlan(ctx, planId)
+	cfg, err := p.factory.Plan().Config().GetByPlan(ctx, planId)
 	if err != nil {
 		return TaskData{}, err
 	}
@@ -127,7 +127,7 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 
 	// 尝试去更新集群状态为部署中
 	if err := p.factory.Cluster().UpdateByPlan(ctx, planId, map[string]interface{}{"status": model.ClusterStatusDeploy}); err != nil {
-		klog.Warningf("failed to update cluster status to %s, ignoring: %v", model.ClusterStatusDeploy, err)
+		klog.Warningf("failed to update cluster status to %v, ignoring: %v", model.ClusterStatusDeploy, err)
 	}
 
 	taskData, err := p.getTaskData(ctx, planId)
@@ -237,7 +237,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		name := task.Name()
 		step := task.Step()
 
-		_, err := p.factory.Plan().GetTaskByName(context.TODO(), planId, name)
+		_, err := p.factory.Plan().Task().GetByName(context.TODO(), planId, name)
 		// 存在则直接返回
 		if err == nil {
 			return nil
@@ -249,7 +249,7 @@ func (p *plan) createPlanTasksIfNotExist(tasks ...Handler) error {
 		}
 
 		// 不存在记录则新建
-		if _, err = p.factory.Plan().CreateTask(context.TODO(), &model.Task{
+		if _, err = p.factory.Plan().Task().Create(context.TODO(), &model.Task{
 			Name:   name,
 			PlanId: planId,
 			Step:   step,
@@ -289,7 +289,7 @@ func (p *plan) GetRunner(ctx context.Context, osImage string) (string, error) {
 // 任务启动时设置为运行中，结束时同步为结束状态(成功或者失败)
 // TODO: 后续优化，判断对应部署容器是否在运行，根据容器的运行结果同步状态
 func (p *plan) syncStatus(ctx context.Context, planId int64) error {
-	tasks, err := p.factory.Plan().ListTasks(ctx, planId)
+	tasks, err := p.factory.Plan().Task().List(ctx, planId)
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 		if task.Status != model.RunningPlanStatus {
 			continue
 		}
-		if _, err = p.factory.Plan().UpdateTask(ctx, planId, task.Name, map[string]interface{}{
+		if _, err = p.factory.Plan().Task().Update(ctx, planId, task.Name, map[string]interface{}{
 			"status": model.FailedPlanStatus, "step": model.FailedPlanStep, "message": "服务异常修正，请重新启动部署计划", "gmt_modified": time.Now(),
 		}); err != nil {
 			klog.Errorf("failed to update plan(%d) status: %v", planId, err)
@@ -308,12 +308,18 @@ func (p *plan) syncStatus(ctx context.Context, planId int64) error {
 		updated = true
 	}
 	if updated {
-		if err := p.factory.Plan().UpdateStatus(ctx, planId, model.FailedPlanStatus); err != nil {
+		if err := p.updateStatus(ctx, planId, model.FailedPlanStatus); err != nil {
 			klog.Errorf("failed to sync plan(%d) status after correcting running tasks: %v", planId, err)
 			return err
 		}
 	}
 	return nil
+}
+
+// updateStatus 部署状态机状态回写：worker 并发场景无 resource_version，走 UpdateBy 绕过乐观锁。
+// 后续如需校验非法状态迁移（如「运行中」→「未开始」），在此处扩展。
+func (p *plan) updateStatus(ctx context.Context, planId int64, status model.TaskStatus) error {
+	return p.factory.Plan().UpdateBy(ctx, map[string]interface{}{"status": status}, db.WithId(planId))
 }
 
 func (p *plan) syncTasks(tasks ...Handler) error {
@@ -327,7 +333,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 
 	// 重置 plan 状态为进行中
 	planId := tasks[0].GetPlanId()
-	if err := p.factory.Plan().UpdateStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
+	if err := p.updateStatus(context.TODO(), planId, model.RunningPlanStatus); err != nil {
 		klog.Errorf("failed to sync plan(%d) status to running: %v", planId, err)
 		return err
 	}
@@ -339,7 +345,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		klog.Infof("starting plan(%d) task(%s)", planId, name)
 
 		// TODO: 通过闭包方式优化
-		start, err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
+		start, err := p.factory.Plan().Task().Update(context.TODO(), planId, name, map[string]interface{}{
 			"status": model.RunningPlanStatus, "message": "", "gmt_create": time.Now(),
 		})
 		if err != nil {
@@ -361,7 +367,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		}
 
 		// 执行完成之后更新状态
-		end, err := p.factory.Plan().UpdateTask(context.TODO(), planId, name, map[string]interface{}{
+		end, err := p.factory.Plan().Task().Update(context.TODO(), planId, name, map[string]interface{}{
 			"status": status, "message": message, "step": step, "gmt_modified": time.Now(),
 		})
 		if err != nil {
@@ -371,7 +377,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 
 		// 中间步骤成功保持「运行中」；失败或最后一步成功再回写 plan.status
 		if status == model.FailedPlanStatus || (status == model.SuccessPlanStatus && i == len(tasks)-1) {
-			if err = p.factory.Plan().UpdateStatus(context.TODO(), planId, status); err != nil {
+			if err = p.updateStatus(context.TODO(), planId, status); err != nil {
 				klog.Errorf("failed to sync plan(%d) status after task(%s): %v", planId, name, err)
 				return err
 			}

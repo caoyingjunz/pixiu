@@ -41,6 +41,7 @@ type Interface interface {
 	Delete(ctx context.Context, nodeId int64) error
 	Get(ctx context.Context, nodeId int64) (*types.NodeResult, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+
 	CheckConnectivity(ctx context.Context, req *types.NodeConnectivityRequest) (*types.NodeConnectivityResult, error)
 }
 
@@ -73,7 +74,7 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 		Ip:     req.Ip,
 		Auth:   authStr,
 	}
-	if _, err = n.factory.Plan().CreateNode(ctx, object); err != nil {
+	if _, err = n.factory.Plan().Node().Create(ctx, nil, object); err != nil {
 		klog.Errorf("failed to create node %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
@@ -83,7 +84,7 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 
 // 创建前置检查：ip 全局唯一，不允许与已存在节点冲突
 func (n *nodeController) preCreate(ctx context.Context, req *types.CreateNodeRequest) error {
-	_, err := n.factory.Plan().GetNodeByIP(ctx, req.Ip)
+	_, err := n.factory.Plan().Node().GetByIP(ctx, req.Ip)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil
@@ -96,7 +97,7 @@ func (n *nodeController) preCreate(ctx context.Context, req *types.CreateNodeReq
 
 // 更新前置检查：资源存在 + 非超级管理员只能更新自己的节点
 func (n *nodeController) preUpdate(ctx context.Context, nodeId int64) error {
-	object, err := n.factory.Plan().GetNode(ctx, nodeId)
+	object, err := n.factory.Plan().Node().Get(ctx, nodeId)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.ErrNodeNotFound
@@ -135,7 +136,7 @@ func (n *nodeController) Update(ctx context.Context, nodeId int64, req *types.Up
 		return nil
 	}
 
-	if err := n.factory.Plan().UpdateNode(ctx, nodeId, req.ResourceVersion, updates); err != nil {
+	if err := n.factory.Plan().Node().Update(ctx, nil, nodeId, req.ResourceVersion, updates); err != nil {
 		if err == utilerrors.ErrRecordNotFound {
 			return errors.ErrNodeNotFound
 		}
@@ -147,7 +148,7 @@ func (n *nodeController) Update(ctx context.Context, nodeId int64, req *types.Up
 
 func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
 	// 非超级管理员只能删除自己的节点
-	object, err := n.factory.Plan().GetNode(ctx, nodeId)
+	object, err := n.factory.Plan().Node().Get(ctx, nodeId)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.ErrNodeNotFound
@@ -159,7 +160,7 @@ func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
 		return err
 	}
 
-	if _, err := n.factory.Plan().DeleteNode(ctx, nodeId); err != nil {
+	if _, err := n.factory.Plan().Node().Delete(ctx, nodeId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.ErrNodeNotFound
 		}
@@ -170,7 +171,7 @@ func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
 }
 
 func (n *nodeController) Get(ctx context.Context, nodeId int64) (*types.NodeResult, error) {
-	object, err := n.factory.Plan().GetNode(ctx, nodeId)
+	object, err := n.factory.Plan().Node().Get(ctx, nodeId)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil, errors.ErrNodeNotFound
@@ -195,7 +196,7 @@ func (n *nodeController) CheckConnectivity(ctx context.Context, req *types.NodeC
 	)
 	if req.NodeId > 0 {
 		// 模式A：从库取认证
-		object, e := n.factory.Plan().GetNode(ctx, req.NodeId)
+		object, e := n.factory.Plan().Node().Get(ctx, req.NodeId)
 		if e != nil {
 			if utilerrors.IsRecordNotFound(e) {
 				return nil, errors.ErrNodeNotFound
@@ -265,8 +266,11 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 		db.WithUserOrResourceIDs(listOption.UserId, authorizedNodeIDs),
 		db.WithNameLike(listOption.NameSelector),
 	}
+	if listOption.PlanId != nil {
+		opts = append(opts, db.WithPlanIdEq(*listOption.PlanId))
+	}
 
-	pageResult.Total, err = n.factory.Plan().CountNodes(ctx, opts...)
+	pageResult.Total, err = n.factory.Plan().Node().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("count nodes: %v", err)
 		pageResult.Message = err.Error()
@@ -280,7 +284,7 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 		db.WithLimit(listOption.Limit),
 	}...)
 
-	objects, err := n.factory.Plan().ListAllNodes(ctx, opts...)
+	objects, err := n.factory.Plan().Node().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("list nodes: %v", err)
 		pageResult.Message = err.Error()
@@ -291,9 +295,69 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 	for i := range objects {
 		items = append(items, *model2Node(&objects[i]))
 	}
+	// 填充所属集群名称（非核心数据，失败仅记录日志，不阻塞列表）
+	if err := n.fillClusterNames(ctx, items); err != nil {
+		klog.Errorf("fill node cluster names: %v", err)
+	}
 
 	pageResult.Items = items
 	return pageResult, nil
+}
+
+// fillClusterNames 按 plan_id 批量填充所属集群名称：
+// 优先自建集群 alias_name（plan 注册集群时 AliasName 即 plan 名称），无集群记录时回退 plan 名称。
+func (n *nodeController) fillClusterNames(ctx context.Context, items []types.NodeResult) error {
+	planIDs := make([]int64, 0, len(items))
+	seen := make(map[int64]struct{}, len(items))
+	for i := range items {
+		pid := items[i].PlanId
+		if pid == 0 {
+			continue
+		}
+		if _, ok := seen[pid]; ok {
+			continue
+		}
+		seen[pid] = struct{}{}
+		planIDs = append(planIDs, pid)
+	}
+	if len(planIDs) == 0 {
+		return nil
+	}
+
+	clusters, err := n.factory.Cluster().List(ctx, db.WithPlanIn(planIDs))
+	if err != nil {
+		return err
+	}
+	clusterNames := make(map[int64]string, len(clusters))
+	for i := range clusters {
+		name := clusters[i].AliasName
+		if name == "" {
+			name = clusters[i].Name
+		}
+		clusterNames[clusters[i].PlanId] = name
+	}
+
+	// 未注册集群的 plan，回退显示 plan 名称
+	fallbackIDs := make([]int64, 0, len(planIDs))
+	for _, pid := range planIDs {
+		if _, ok := clusterNames[pid]; !ok {
+			fallbackIDs = append(fallbackIDs, pid)
+		}
+	}
+	if len(fallbackIDs) > 0 {
+		plans, err := n.factory.Plan().List(ctx, db.WithIdIn(fallbackIDs))
+		if err != nil {
+			return err
+		}
+		for i := range plans {
+			clusterNames[plans[i].Id] = plans[i].Name
+		}
+	}
+
+	for i := range items {
+		items[i].ClusterName = clusterNames[items[i].PlanId]
+	}
+	return nil
 }
 
 func model2Node(o *model.Node) *types.NodeResult {
@@ -317,5 +381,6 @@ func model2Node(o *model.Node) *types.NodeResult {
 		UserId: o.UserId,
 		Ip:     o.Ip,
 		Auth:   auth,
+		PlanId: o.PlanId,
 	}
 }

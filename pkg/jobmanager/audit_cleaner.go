@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	DefaultSchedule     = "0 0 * * 6" // 每周六 0 点执行
-	DefaultDaysReserved = 30          // 保留 30 天的审计日志
+	DefaultSchedule      = "0 1 * * *" // 每天凌晨 1 点执行
+	DefaultDaysReserved  = 7           // 保留 7 天的审计日志
+	auditDeleteBatchSize = 5000        // 分批删除，避免单次 DELETE 锁表过久
 )
 
 type AuditsCleaner struct {
@@ -70,13 +71,23 @@ func (ac *AuditsCleaner) Do(ctx *JobContext) (err error) {
 		"days_reserved": resv,
 		"deadline":      before,
 	}
-	entries["records_deleted"], err = ac.dao.Audit().BatchDelete(ctx, db.WithCreatedBefore(before))
+	var totalDeleted int64
+	for {
+		var n int64
+		n, err = ac.dao.Audit().BatchDelete(ctx, db.WithCreatedBefore(before), db.WithLimit(auditDeleteBatchSize))
+		if err != nil {
+			return err
+		}
+		totalDeleted += n
+		if n < auditDeleteBatchSize {
+			break
+		}
+	}
+	entries["records_deleted"] = totalDeleted
 	ctx.WithLogFields(entries)
-
-	return
+	return nil
 }
 
 func (a *AuditOptions) Valid() error {
-	// TODO
 	return nil
 }

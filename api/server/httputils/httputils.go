@@ -186,8 +186,43 @@ func GetUserIdFromContext(ctx context.Context) (int64, error) {
 	return user.Id, nil
 }
 
+// CheckRootUser 要求当前登录用户为超级管理员；未登录返回 GetUserFromContext 的错误，非超管返回 403。
+func CheckRootUser(ctx context.Context) (*model.User, error) {
+	user, err := GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if user.Role != model.RoleRoot {
+		return nil, errors.ErrForbidden
+	}
+	return user, nil
+}
+
 func SetUserToContext(c *gin.Context, user *model.User) {
 	c.Set(userKey, user)
+}
+
+const auditOperatorKey = "audit_operator"
+
+// SetAuditOperator 设置审计操作人（用于登录等未认证请求的场景）。
+func SetAuditOperator(c *gin.Context, name string) {
+	if name == "" {
+		return
+	}
+	c.Set(auditOperatorKey, name)
+}
+
+func GetAuditOperator(ctx context.Context) (string, error) {
+	val := ctx.Value(auditOperatorKey)
+	if val == nil {
+		return "", fmt.Errorf("get nil audit operator")
+	}
+
+	name, ok := val.(string)
+	if !ok || name == "" {
+		return "", fmt.Errorf("failed to assert audit operator")
+	}
+	return name, nil
 }
 
 const kubeAccessClusterKey = "kube_access_cluster"

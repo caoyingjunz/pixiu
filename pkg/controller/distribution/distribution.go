@@ -23,6 +23,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -142,6 +143,9 @@ func (d *distribution) UpdateDistribution(ctx context.Context, req *types.Update
 }
 
 func (d *distribution) DeleteDistribution(ctx context.Context, id int64) error {
+	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return err
+	}
 	object, err := d.factory.Distribution().DeleteDistribution(ctx, id)
 	if err != nil {
 		klog.Errorf("failed to delete distribution %d: %v", id, err)

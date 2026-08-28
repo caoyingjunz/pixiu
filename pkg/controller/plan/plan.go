@@ -19,7 +19,6 @@ package plan
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
 
 	"gorm.io/gorm"
@@ -46,25 +45,19 @@ type Interface interface {
 	Create(ctx context.Context, req *types.CreatePlanRequest) error
 	Update(ctx context.Context, planID int64, req *types.UpdatePlanRequest) error
 	Delete(ctx context.Context, pid int64) error
+	// Get 校验存在性与 owner/scope 鉴权，返回完整视图（plan 主表 + config + nodes）
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
-
-	GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error)
 
 	// Start 启动部署任务
 	Start(ctx context.Context, pid int64) error
 	// Destroy 销毁k8s集群
 	Destroy(ctx context.Context, pid int64, restart bool) error
-
-	ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error)
-
 	// Run 启动 plan worker 处理协程
 	Run(ctx context.Context, workers int) error
 
-	ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error)
-	WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request)
-	WatchTaskLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error
-
+	// Task 任务子接口（任务列表 / SSE 实时推送 / 任务日志）
+	Task() TaskInterface
 	// Config 计划配置子接口
 	Config() ConfigInterface
 }
@@ -194,22 +187,15 @@ func (p *plan) createPlanSubResources(ctx context.Context, req *types.CreatePlan
 		}
 		planConfig.PlanId = planModel.Id
 
-		if err := p.factory.Plan().TxCreateConfig(ctx, tx, planConfig); err != nil {
+		// 创建配置
+		if err := p.factory.Plan().Config().Create(ctx, tx, planConfig); err != nil {
 			klog.Errorf("failed to create plan(%d) config: %v", planModel.Id, err)
 			return nil, err
 		}
-
-		for i := range req.Nodes {
-			nodeReq := &req.Nodes[i]
-			node, err := p.buildNodeFromRequest(ctx, planModel.Id, nodeReq)
-			if err != nil {
-				klog.Errorf("failed to build plan(%d) node from request: %v", planModel.Id, err)
-				return nil, err
-			}
-			if err := p.factory.Plan().TxCreateNode(ctx, tx, node); err != nil {
-				klog.Errorf("failed to create node(%s): %v", nodeReq.Name, err)
-				return nil, err
-			}
+		// 创建节点
+		if err := p.syncPlanNodesInTx(ctx, planModel.Id, req.Nodes, tx); err != nil {
+			klog.Errorf("failed to sync plan(%d) nodes: %v", planModel.Id, err)
+			return nil, err
 		}
 
 		return tx, nil
@@ -353,7 +339,7 @@ func (p *plan) preDelete(ctx context.Context, planId int64) error {
 // 1. 删除部署计划
 // 2. 删除关联任务
 // 3. 删除关联配置
-// 4. 删除关联节点
+// 4. 解除关联节点（未删除）
 func (p *plan) Delete(ctx context.Context, planId int64) error {
 	// 删除前校验：存在性 + owner + 运行中任务
 	if err := p.preDelete(ctx, planId); err != nil {
@@ -368,24 +354,40 @@ func (p *plan) Delete(ctx context.Context, planId int64) error {
 	}
 	// 删除 plan 关联资源
 	// 2. 删除部署计划后，同步删除任务，删除任务失败时，可直接忽略
-	if err = p.factory.Plan().DeleteTask(ctx, planId); err != nil {
+	if err = p.factory.Plan().Task().Delete(ctx, planId); err != nil {
 		klog.Errorf("failed to delete plan(%d) task: %v", planId, err)
 		return err
 	}
 	// 3. 删除关联配置
-	if err = p.factory.Plan().DeleteConfigByPlan(ctx, planId); err != nil {
+	if err = p.factory.Plan().Config().DeleteByPlan(ctx, planId); err != nil {
 		klog.Errorf("failed to delete plan(%d) config: %v", planId, err)
 		return err
 	}
-	// 4. 删除关联nodes
-	if err = p.factory.Plan().DeleteNodesByPlan(ctx, planId); err != nil {
-		klog.Errorf("failed to delete plan(%d) nodes: %v", planId, err)
+	// 4. 解除关联 nodes（回到主机库，不物理删除）
+	if err = p.releaseNodesToHostPool(ctx, planId); err != nil {
+		klog.Errorf("failed to release plan(%d) nodes: %v", planId, err)
 		return err
 	}
 
 	return nil
 }
 
+// releaseNodesToHostPool 解除计划与节点的绑定，节点回到主机库（plan_id=0，清空 role/cri，保留 ip/auth）
+func (p *plan) releaseNodesToHostPool(ctx context.Context, planId int64) error {
+	nodes, err := p.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
+	if err != nil {
+		return err
+	}
+	for i := range nodes {
+		if err := p.disassociateNode(ctx, &nodes[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Get 校验存在性与 owner/scope 鉴权，返回完整视图（plan 主表 + config + nodes）。
+// 免鉴权的机器身份调用方（agent 数据面）使用包级 AssemblePlanView。
 func (p *plan) Get(ctx context.Context, pid int64) (*types.Plan, error) {
 	object, err := p.factory.Plan().Get(ctx, pid)
 	if err != nil {
@@ -401,17 +403,16 @@ func (p *plan) Get(ctx context.Context, pid int64) (*types.Plan, error) {
 		return nil, err
 	}
 
-	return p.model2Type(object)
+	return AssemblePlanView(ctx, p.factory, pid)
 }
 
-// GetWithSubResources
-// 获取 plan
-// 获取 configs
-// 获取 nodes
-func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Plan, error) {
-	// 内部组装（免 owner 校验）：调用方 agent 已通过 agent token 鉴权，
-	// API 层入口 getPlanWithSubResources 已先经 Get 完成 owner 校验。
-	object, err := p.factory.Plan().Get(ctx, planId)
+// AssemblePlanView 组装 plan 完整视图（主表 + config + nodes），不做用户态鉴权。
+// 仅供机器身份调用方使用（如 agent 数据面：agent token 认证 + job 归属校验后拉取部署清单）；
+// HTTP 用户态一律走 Get。不属于 controller Interface，router 无法引用，避免误挂免鉴权路由。
+func AssemblePlanView(ctx context.Context, f db.ShareDaoFactory, planId int64) (*types.Plan, error) {
+	p := &plan{factory: f}
+
+	object, err := f.Plan().Get(ctx, planId)
 	if err != nil {
 		klog.Errorf("failed to get plan %d: %v", planId, err)
 		return nil, errors.ErrServerInternal
@@ -432,7 +433,7 @@ func (p *plan) GetWithSubResources(ctx context.Context, planId int64) (*types.Pl
 	result.Config = *cfg
 
 	// 追加节点
-	result.Nodes, err = p.ListNodes(ctx, planId)
+	result.Nodes, err = p.listNodes(ctx, planId)
 	if err != nil {
 		return nil, err
 	}
@@ -546,6 +547,17 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 // 3. 校验runner
 // 3. 运行任务
 func (p *plan) preStart(ctx context.Context, pid int64) error {
+	planObj, err := p.factory.Plan().Get(ctx, pid)
+	if err != nil {
+		return err
+	}
+	if planObj == nil {
+		return errors.ErrPlanNotFound
+	}
+	if err = util.CheckResourceAccess(ctx, p.factory, planObj.UserId, types.ResourceTypePlan, pid); err != nil {
+		return err
+	}
+
 	// 4. 校验运行任务
 	isRunning, err := p.IsRunning(ctx, pid)
 	if err != nil {
@@ -563,7 +575,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	// TODO: 根据具体情况对参数
 
 	// 2. 校验节点
-	nodes, err := p.ListNodes(ctx, pid)
+	nodes, err := p.listNodes(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("failed to get plan(%d) nodes %v", pid, err)
 	}
@@ -578,11 +590,7 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	}
 	klog.Infof("plan(%d) runner is %s", pid, runner)
 
-	planObj, err := p.factory.Plan().Get(ctx, pid)
-	if err != nil {
-		return err
-	}
-	if planObj != nil && planObj.ExecMode == model.PlanExecModeAgent {
+	if planObj.ExecMode == model.PlanExecModeAgent {
 		if planObj.DeployAgentId == 0 {
 			return fmt.Errorf("agent 模式未绑定执行 Agent")
 		}
