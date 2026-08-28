@@ -28,6 +28,7 @@ var (
 	ErrRecordNotFound       = gorm.ErrRecordNotFound
 	ErrRecordNotUpdate      = errors.New("record not updated")
 	ErrBusySystem           = errors.New("系统繁忙，请稍后再试")
+	ErrTooManyLoginAttempts = errors.New("登录尝试过于频繁，请稍后再试")
 	ErrReqParams            = errors.New("请求参数错误")
 	ErrCloudNotRegister     = errors.New("cloud 集群未注册")
 	ErrUserNotFound         = errors.New("用户不存在")

@@ -46,13 +46,14 @@ func allowCustomRequest(c *gin.Context) bool {
 }
 
 func InstallMiddlewares(o *options.Options) {
-	// 依次进行跨域，日志，单用户限速，总量限速，验证，鉴权和审计
+	// 依次进行跨域，日志，登录限流，单用户限速，总量限速，验证，鉴权和审计
 	o.HttpEngine.Use(
 		requestid.New(requestid.WithGenerator(func() string {
 			return util.GenerateRequestID()
 		})),
 		Cors(),
 		Logger(&o.ComponentConfig.Log),
+		LoginRateLimiter(),
 		UserRateLimiter(),
 		Limiter(),
 		Authentication(o),

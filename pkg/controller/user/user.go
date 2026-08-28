@@ -36,6 +36,7 @@ import (
 	menupkg "github.com/caoyingjunz/pixiu/pkg/rbac/menu"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
+	"github.com/caoyingjunz/pixiu/pkg/util/loginlimit"
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
@@ -401,6 +402,11 @@ func (u *user) GetStatus(ctx context.Context, uid int64) (int, error) {
 }
 
 func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error) {
+	// 按用户名全局限流：多 IP 打同一账号时，在 bcrypt 前直接拒绝
+	if !loginlimit.AllowUser(req.Name) {
+		return nil, errors.ErrTooManyLoginAttempts
+	}
+
 	object, err := u.factory.User().GetUserByName(ctx, req.Name)
 	if err != nil {
 		return nil, errors.ErrServerInternal
@@ -413,6 +419,13 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 	if object.Status == model.UserStatusForbidden {
 		return nil, fmt.Errorf("用户已被禁用")
 	}
+
+	// 限制并发 bcrypt，避免刷登录打满 CPU 导致正常用户无法登录
+	if !loginlimit.AcquireVerify() {
+		return nil, errors.ErrTooManyLoginAttempts
+	}
+	defer loginlimit.ReleaseVerify()
+
 	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
 		klog.Errorf("failed to verify user password: %v", err)
 		return nil, errors.ErrInvalidPassword

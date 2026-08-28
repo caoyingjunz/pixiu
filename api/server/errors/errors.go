@@ -71,6 +71,10 @@ var (
 		Code: http.StatusUnauthorized,
 		Err:  errors.ErrUserPassword,
 	}
+	ErrTooManyLoginAttempts = Error{
+		Code: http.StatusTooManyRequests,
+		Err:  errors.ErrTooManyLoginAttempts,
+	}
 	ErrDuplicatedPassword = Error{
 		Code: http.StatusConflict,
 		Err:  errors.ErrDuplicatedPassword,

@@ -81,9 +81,8 @@ func (r *auditRecorder) enqueue(record *model.Audit) {
 	select {
 	case r.queue <- record:
 	default:
-		// 队列满时降级同步写入，确保非 GET 请求都能落库
-		klog.Warningf("audit queue is full, fallback to direct write: %s", record.Path)
-		r.write(record)
+		// 队列满时直接丢弃，避免同步写库堵死请求路径（登录被刷时尤其危险）
+		klog.Warningf("audit queue is full, drop record: %s", record.Path)
 	}
 }
 
@@ -97,6 +96,10 @@ func Audit(o *options.Options) gin.HandlerFunc {
 
 		startTime := time.Now()
 		c.Next()
+		// 限流拒绝不写审计，减少刷登录时的队列压力
+		if httputils.GetResponseCode(c) == http.StatusTooManyRequests {
+			return
+		}
 		recorder.enqueue(buildAuditRecord(c, startTime))
 	}
 }
