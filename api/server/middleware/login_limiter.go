@@ -28,13 +28,13 @@ import (
 
 const loginPath = "/pixiu/users/login"
 
-// LoginRateLimiter 对登录接口按 IP 严格限流，在进入 handler / bcrypt 之前拦截刷登录。
+// LoginRateLimiter 对登录接口限流：全局 QPS + 每 IP，在 bcrypt 前拦截刷登录。
 func LoginRateLimiter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method != http.MethodPost || c.Request.URL.Path != loginPath {
 			return
 		}
-		if !loginlimit.AllowIP(c.ClientIP()) {
+		if !loginlimit.AllowRequest(c.ClientIP()) {
 			httputils.AbortFailedWithCode(c, http.StatusTooManyRequests, errors.ErrTooManyLoginAttempts)
 		}
 	}

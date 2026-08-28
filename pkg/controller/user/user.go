@@ -402,8 +402,8 @@ func (u *user) GetStatus(ctx context.Context, uid int64) (int, error) {
 }
 
 func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error) {
-	// 按用户名全局限流：多 IP 打同一账号时，在 bcrypt 前直接拒绝
-	if !loginlimit.AllowUser(req.Name) {
+	// 用户名锁定后仅允许低频探测，避免多 IP 持续打满 bcrypt
+	if !loginlimit.AllowUserAttempt(req.Name) {
 		return nil, errors.ErrTooManyLoginAttempts
 	}
 
@@ -427,9 +427,11 @@ func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.Login
 	defer loginlimit.ReleaseVerify()
 
 	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
+		loginlimit.RecordUserFailure(req.Name)
 		klog.Errorf("failed to verify user password: %v", err)
 		return nil, errors.ErrInvalidPassword
 	}
+	loginlimit.ClearUserFailures(req.Name)
 
 	// 生成登陆的 token 信息
 	key := u.GetTokenKey()
