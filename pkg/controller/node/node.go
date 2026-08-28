@@ -41,6 +41,7 @@ type Interface interface {
 	Delete(ctx context.Context, nodeId int64) error
 	Get(ctx context.Context, nodeId int64) (*types.NodeResult, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+
 	CheckConnectivity(ctx context.Context, req *types.NodeConnectivityRequest) (*types.NodeConnectivityResult, error)
 }
 
@@ -73,7 +74,7 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 		Ip:     req.Ip,
 		Auth:   authStr,
 	}
-	if _, err = n.factory.Plan().CreateNode(ctx, object); err != nil {
+	if _, err = n.factory.Plan().Node().Create(ctx, nil, object); err != nil {
 		klog.Errorf("failed to create node %s: %v", req.Name, err)
 		return errors.ErrServerInternal
 	}
@@ -83,7 +84,7 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 
 // 创建前置检查：ip 全局唯一，不允许与已存在节点冲突
 func (n *nodeController) preCreate(ctx context.Context, req *types.CreateNodeRequest) error {
-	_, err := n.factory.Plan().GetNodeByIP(ctx, req.Ip)
+	_, err := n.factory.Plan().Node().GetByIP(ctx, req.Ip)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil
@@ -96,7 +97,7 @@ func (n *nodeController) preCreate(ctx context.Context, req *types.CreateNodeReq
 
 // 更新前置检查：资源存在 + 非超级管理员只能更新自己的节点
 func (n *nodeController) preUpdate(ctx context.Context, nodeId int64) error {
-	object, err := n.factory.Plan().GetNode(ctx, nodeId)
+	object, err := n.factory.Plan().Node().Get(ctx, nodeId)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.ErrNodeNotFound
@@ -135,7 +136,7 @@ func (n *nodeController) Update(ctx context.Context, nodeId int64, req *types.Up
 		return nil
 	}
 
-	if err := n.factory.Plan().UpdateNode(ctx, nodeId, req.ResourceVersion, updates); err != nil {
+	if err := n.factory.Plan().Node().Update(ctx, nil, nodeId, req.ResourceVersion, updates); err != nil {
 		if err == utilerrors.ErrRecordNotFound {
 			return errors.ErrNodeNotFound
 		}
@@ -147,7 +148,7 @@ func (n *nodeController) Update(ctx context.Context, nodeId int64, req *types.Up
 
 func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
 	// 非超级管理员只能删除自己的节点
-	object, err := n.factory.Plan().GetNode(ctx, nodeId)
+	object, err := n.factory.Plan().Node().Get(ctx, nodeId)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.ErrNodeNotFound
@@ -159,7 +160,7 @@ func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
 		return err
 	}
 
-	if _, err := n.factory.Plan().DeleteNode(ctx, nodeId); err != nil {
+	if _, err := n.factory.Plan().Node().Delete(ctx, nodeId); err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return errors.ErrNodeNotFound
 		}
@@ -170,7 +171,7 @@ func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
 }
 
 func (n *nodeController) Get(ctx context.Context, nodeId int64) (*types.NodeResult, error) {
-	object, err := n.factory.Plan().GetNode(ctx, nodeId)
+	object, err := n.factory.Plan().Node().Get(ctx, nodeId)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil, errors.ErrNodeNotFound
@@ -195,7 +196,7 @@ func (n *nodeController) CheckConnectivity(ctx context.Context, req *types.NodeC
 	)
 	if req.NodeId > 0 {
 		// 模式A：从库取认证
-		object, e := n.factory.Plan().GetNode(ctx, req.NodeId)
+		object, e := n.factory.Plan().Node().Get(ctx, req.NodeId)
 		if e != nil {
 			if utilerrors.IsRecordNotFound(e) {
 				return nil, errors.ErrNodeNotFound
@@ -269,7 +270,7 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 		opts = append(opts, db.WithPlanIdEq(*listOption.PlanId))
 	}
 
-	pageResult.Total, err = n.factory.Plan().CountNodes(ctx, opts...)
+	pageResult.Total, err = n.factory.Plan().Node().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("count nodes: %v", err)
 		pageResult.Message = err.Error()
@@ -283,7 +284,7 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 		db.WithLimit(listOption.Limit),
 	}...)
 
-	objects, err := n.factory.Plan().ListAllNodes(ctx, opts...)
+	objects, err := n.factory.Plan().Node().List(ctx, opts...)
 	if err != nil {
 		klog.Errorf("list nodes: %v", err)
 		pageResult.Message = err.Error()

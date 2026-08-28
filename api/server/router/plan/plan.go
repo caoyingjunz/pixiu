@@ -36,15 +36,14 @@ func NewRouter(o *options.Options) {
 }
 
 func (t *planRouter) initRoutes(ginEngine *gin.Engine) {
-	persist := false
 	group := &apiregistry.Group{
 		Name:    "部署集群",
 		BaseURL: "/pixiu/plans",
 		Entries: []apiregistry.RouteEntry{
 			{Method: "POST", RelativePath: "", Handler: t.createPlan, Description: "创建部署"},
-			{Method: "PUT", RelativePath: "/:planId", Handler: t.updatePlan, Description: "更新部署", Persist: &persist},
+			{Method: "PUT", RelativePath: "/:planId", Handler: t.updatePlan, Description: "更新部署"},
 			{Method: "DELETE", RelativePath: "/:planId", Handler: t.deletePlan, Description: "删除部署"},
-			{Method: "GET", RelativePath: "/:planId", Handler: t.getPlan, Description: "获取部署详情"},
+			{Method: "GET", RelativePath: "/:planId", Handler: t.getPlan, Description: "部署详情"},
 			{Method: "GET", RelativePath: "", Handler: t.listPlans, Description: "部署列表"},
 
 			// 对任务的操作接口

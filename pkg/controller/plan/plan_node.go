@@ -25,6 +25,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
@@ -44,7 +45,7 @@ func (p *plan) syncPlanNodesInTx(ctx context.Context, planId int64, nodes []type
 }
 
 func (p *plan) syncPlanNodes(ctx context.Context, planId int64, nodes []types.CreatePlanNodeRequest) error {
-	oldNodes, err := p.factory.Plan().ListNodes(ctx, planId)
+	oldNodes, err := p.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.Creat
 
 	// 关联节点
 	if req.NodeId > 0 {
-		object, err := p.factory.Plan().GetNode(ctx, req.NodeId)
+		object, err := p.factory.Plan().Node().Get(ctx, req.NodeId)
 		if err != nil {
 			if utilerrors.IsRecordNotFound(err) {
 				return errors.ErrNodeNotFound
@@ -96,10 +97,7 @@ func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.Creat
 
 		updates := map[string]interface{}{"plan_id": planId, "role": role, "cri": req.CRI}
 
-		if tx != nil {
-			return p.factory.Plan().TxUpdateNode(ctx, tx, req.NodeId, object.ResourceVersion, updates)
-		}
-		return p.factory.Plan().UpdateNode(ctx, req.NodeId, object.ResourceVersion, updates)
+		return p.factory.Plan().Node().Update(ctx, tx, req.NodeId, object.ResourceVersion, updates)
 	}
 
 	// 创建节点
@@ -116,10 +114,7 @@ func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.Creat
 		Ip:     req.Ip,
 		Auth:   auth,
 	}
-	if tx != nil {
-		return p.factory.Plan().TxCreateNode(ctx, tx, node)
-	}
-	_, err = p.factory.Plan().CreateNode(ctx, node)
+	_, err = p.factory.Plan().Node().Create(ctx, tx, node)
 	return err
 }
 
@@ -129,7 +124,7 @@ func (p *plan) disassociateNode(ctx context.Context, node *model.Node) error {
 		"role":    "",
 		"cri":     "",
 	}
-	if err := p.factory.Plan().UpdateNode(ctx, node.Id, node.ResourceVersion, updates); err != nil {
+	if err := p.factory.Plan().Node().Update(ctx, nil, node.Id, node.ResourceVersion, updates); err != nil {
 		if err == utilerrors.ErrRecordNotFound {
 			return nil
 		}
@@ -139,8 +134,9 @@ func (p *plan) disassociateNode(ctx context.Context, node *model.Node) error {
 	return nil
 }
 
-func (p *plan) ListNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
-	objects, err := p.factory.Plan().ListNodes(ctx, pid)
+// listNodes 查询 plan 节点列表（包内私有：对外节点数据随 Get 完整视图返回，无独立路由）
+func (p *plan) listNodes(ctx context.Context, pid int64) ([]types.PlanNode, error) {
+	objects, err := p.factory.Plan().Node().List(ctx, db.WithPlanIdEq(pid))
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) nodes: %v", pid, err)
 		return nil, errors.ErrServerInternal

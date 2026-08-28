@@ -32,8 +32,25 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/container"
 )
 
-func (p *plan) ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, error) {
-	objects, err := p.factory.Plan().ListTasks(ctx, planId)
+// TaskInterface 计划任务子接口
+type TaskInterface interface {
+	List(ctx context.Context, planId int64) ([]types.PlanTask, error)
+	// Watch SSE 实时推送任务状态
+	Watch(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request)
+	// WatchLog SSE 实时推送任务容器日志
+	WatchLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error
+}
+
+type planTask struct {
+	p *plan
+}
+
+func (p *plan) Task() TaskInterface {
+	return &planTask{p: p}
+}
+
+func (t *planTask) List(ctx context.Context, planId int64) ([]types.PlanTask, error) {
+	objects, err := t.p.factory.Plan().Task().List(ctx, planId)
 	if err != nil {
 		klog.Errorf("failed to get plan(%d) tasks: %v", planId, err)
 		return nil, err
@@ -41,13 +58,13 @@ func (p *plan) ListTasks(ctx context.Context, planId int64) ([]types.PlanTask, e
 
 	var tasks []types.PlanTask
 	for _, object := range objects {
-		tasks = append(tasks, *p.modelTask2Type(&object))
+		tasks = append(tasks, *t.p.modelTask2Type(&object))
 	}
 
 	return tasks, nil
 }
 
-func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request) {
+func (t *planTask) Watch(ctx context.Context, planId int64, w http.ResponseWriter, r *http.Request) {
 	flush, _ := w.(http.Flusher)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -55,7 +72,7 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 
 	// 初始化 Lister
 	if taskC.Lister == nil {
-		taskC.SetLister(p.factory.Plan().ListTasks)
+		taskC.SetLister(t.p.factory.Plan().Task().List)
 	}
 	// 等待缓存同步
 	if err := taskC.WaitForCacheSync(planId); err != nil {
@@ -72,7 +89,7 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 			if ok {
 				var ts []types.PlanTask
 				for _, object := range tasks {
-					ts = append(ts, *p.modelTask2Type(&object))
+					ts = append(ts, *t.p.modelTask2Type(&object))
 				}
 				if err := json.NewEncoder(w).Encode(ts); err != nil {
 					klog.Errorf("failed to encode tasks: %v", err)
@@ -87,8 +104,8 @@ func (p *plan) WatchTasks(ctx context.Context, planId int64, w http.ResponseWrit
 	}
 }
 
-func (p *plan) WatchTaskLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error {
-	task, err := p.factory.Plan().GetTaskById(ctx, taskId)
+func (t *planTask) WatchLog(ctx context.Context, planId int64, taskId int64, w http.ResponseWriter, r *http.Request) error {
+	task, err := t.p.factory.Plan().Task().GetByID(ctx, taskId)
 	if err != nil {
 		klog.Errorf("failed to get tasks of plan %d: %v", planId, err)
 		return err
@@ -146,12 +163,4 @@ func (p *plan) modelTask2Type(o *model.Task) *types.PlanTask {
 		Status:  o.Status,
 		Message: o.Message,
 	}
-}
-
-func (p *plan) modelTask2TypeList(o []*model.Task) []types.PlanTask {
-	var tasks []types.PlanTask
-	for _, object := range o {
-		tasks = append(tasks, *p.modelTask2Type(object))
-	}
-	return tasks
 }
