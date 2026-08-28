@@ -39,6 +39,7 @@ const (
 	DatasourceSubTypePrometheus   DatasourceSubType = "prometheus"
 	DatasourceSubTypeRedis        DatasourceSubType = "redis"
 	DatasourceSubTypeNacos        DatasourceSubType = "nacos"
+    DatasourceSubTypeMySQL        DatasourceSubType = "mysql"
 )
 
 type Datasource struct {

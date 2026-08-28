@@ -84,6 +84,7 @@ type DatasourceConfig struct {
 	Alert   *AlertSourceConfig `json:"alert,omitempty"`
 	Redis   *RedisSourceConfig `json:"redis,omitempty"`
 	Nacos   *NacosSourceConfig `json:"nacos,omitempty"`
+	Mysql   *MySQLSourceConfig `json:"mysql,omitempty"`
 }
 
 // NacosSourceConfig Nacos 数据源附加配置
@@ -145,6 +146,31 @@ func (r *RedisSourceConfig) DisplayAddress() string {
 	default:
 		return r.Address
 	}
+}
+
+// MySQLSourceConfig MySQL 数据源连接配置（仅外部直连）
+type MySQLSourceConfig struct {
+	Host     string `json:"host,omitempty"`      // 连接地址
+	Port     int    `json:"port,omitempty"`      // 端口，缺省 3306
+	UserName string `json:"user_name,omitempty"` // 用户名
+	Password string `json:"password,omitempty"`  // 密码
+	Database string `json:"database,omitempty"`  // 默认库（可空，表示实例级连接）
+	Charset  string `json:"charset,omitempty"`   // 连接字符集，缺省 utf8mb4
+	Params   string `json:"params,omitempty"`    // 附加 DSN 参数（key=value&...），服务端白名单校验
+	Timeout  int    `json:"timeout,omitempty"`   // 连接超时秒数，缺省 5
+}
+
+// DisplayAddress 用于日志/探测结果展示的连接摘要（脱敏，不含密码）
+func (m *MySQLSourceConfig) DisplayAddress() string {
+	return fmt.Sprintf("%s:%d", m.Host, m.Port)
+}
+
+// NormalizePort 归一化端口，非法值回退默认 3306
+func (m *MySQLSourceConfig) NormalizePort() int {
+	if m.Port <= 0 || m.Port > 65535 {
+		return 3306
+	}
+	return m.Port
 }
 
 type KubeNode struct {

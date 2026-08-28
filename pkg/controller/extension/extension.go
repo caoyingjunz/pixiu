@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package extension 提供扩展能力父接口，redis、autoscaling 等子模块挂在下面
+// Package extension 提供扩展能力父接口，redis、mysql、autoscaling  等子模块挂在下面
 package extension
 
 import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	autoscalingcontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/autoscaling"
+	mysqlcontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/mysql"
 	rediscontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/redis"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
@@ -28,21 +29,24 @@ type Getter interface {
 	Extension() Interface
 }
 
-// Interface 扩展能力父接口，redis、autoscaling 等子模块挂在下面
+// Interface 扩展能力父接口，redis、mysql、autoscaling  等子模块挂在下面
 type Interface interface {
 	Redis() rediscontroller.Interface
 	Autoscaling() autoscalingcontroller.Interface
+	Mysql() mysqlcontroller.Interface
 }
 
 type controller struct {
 	redis       rediscontroller.Interface
 	autoscaling autoscalingcontroller.Interface
+	mysql       mysqlcontroller.Interface
 }
 
 func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{
 		redis:       rediscontroller.New(cfg, f),
 		autoscaling: autoscalingcontroller.New(cfg, f),
+		mysql:       mysqlcontroller.New(cfg, f),
 	}
 }
 
@@ -52,4 +56,8 @@ func (c *controller) Redis() rediscontroller.Interface {
 
 func (c *controller) Autoscaling() autoscalingcontroller.Interface {
 	return c.autoscaling
+}
+
+func (c *controller) Mysql() mysqlcontroller.Interface {
+	return c.mysql
 }
