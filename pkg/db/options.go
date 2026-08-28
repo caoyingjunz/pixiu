@@ -224,6 +224,26 @@ func WithPlanIdEq(pid int64) Options {
 	}
 }
 
+// WithPlanIn 按 plan_id 集合过滤（plan_id = 0 的记录不匹配任何 IN 条件，天然排除）。
+func WithPlanIn(pids []int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(pids) == 0 {
+			return tx
+		}
+		return tx.Where("plan_id in ?", pids)
+	}
+}
+
+// WithIdIn 按主键 id 集合过滤。
+func WithIdIn(ids []int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(ids) == 0 {
+			return tx
+		}
+		return tx.Where("id in ?", ids)
+	}
+}
+
 func WithStatus(status model.AgentStatus) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)

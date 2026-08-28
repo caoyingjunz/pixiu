@@ -294,9 +294,69 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 	for i := range objects {
 		items = append(items, *model2Node(&objects[i]))
 	}
+	// 填充所属集群名称（非核心数据，失败仅记录日志，不阻塞列表）
+	if err := n.fillClusterNames(ctx, items); err != nil {
+		klog.Errorf("fill node cluster names: %v", err)
+	}
 
 	pageResult.Items = items
 	return pageResult, nil
+}
+
+// fillClusterNames 按 plan_id 批量填充所属集群名称：
+// 优先自建集群 alias_name（plan 注册集群时 AliasName 即 plan 名称），无集群记录时回退 plan 名称。
+func (n *nodeController) fillClusterNames(ctx context.Context, items []types.NodeResult) error {
+	planIDs := make([]int64, 0, len(items))
+	seen := make(map[int64]struct{}, len(items))
+	for i := range items {
+		pid := items[i].PlanId
+		if pid == 0 {
+			continue
+		}
+		if _, ok := seen[pid]; ok {
+			continue
+		}
+		seen[pid] = struct{}{}
+		planIDs = append(planIDs, pid)
+	}
+	if len(planIDs) == 0 {
+		return nil
+	}
+
+	clusters, err := n.factory.Cluster().List(ctx, db.WithPlanIn(planIDs))
+	if err != nil {
+		return err
+	}
+	clusterNames := make(map[int64]string, len(clusters))
+	for i := range clusters {
+		name := clusters[i].AliasName
+		if name == "" {
+			name = clusters[i].Name
+		}
+		clusterNames[clusters[i].PlanId] = name
+	}
+
+	// 未注册集群的 plan，回退显示 plan 名称
+	fallbackIDs := make([]int64, 0, len(planIDs))
+	for _, pid := range planIDs {
+		if _, ok := clusterNames[pid]; !ok {
+			fallbackIDs = append(fallbackIDs, pid)
+		}
+	}
+	if len(fallbackIDs) > 0 {
+		plans, err := n.factory.Plan().List(ctx, db.WithIdIn(fallbackIDs))
+		if err != nil {
+			return err
+		}
+		for i := range plans {
+			clusterNames[plans[i].Id] = plans[i].Name
+		}
+	}
+
+	for i := range items {
+		items[i].ClusterName = clusterNames[items[i].PlanId]
+	}
+	return nil
 }
 
 func model2Node(o *model.Node) *types.NodeResult {
@@ -320,5 +380,6 @@ func model2Node(o *model.Node) *types.NodeResult {
 		UserId: o.UserId,
 		Ip:     o.Ip,
 		Auth:   auth,
+		PlanId: o.PlanId,
 	}
 }
