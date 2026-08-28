@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
@@ -185,22 +184,33 @@ func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 
 	probeCtx, cancel := context.WithTimeout(context.Background(), clusterProbeTimeout)
 	defer cancel()
-	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{})
+	// 只拉 1 个节点：用 RemainingItemCount 推算集群节点总数，并从该节点读取版本
+	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{
+		Limit: 1,
+	})
 	if err != nil {
 		return "", "", err
 	}
-	nodes := nodeList.Items
 
-	kubeNode := &types.KubeNode{Ready: make([]string, 0), NotReady: make([]string, 0)}
-	// 获取存储状态
-	for _, node := range nodes {
-		nodeStatus := parseKubeNodeStatus(&node)
-		switch nodeStatus {
-		case "Ready":
-			kubeNode.Ready = append(kubeNode.Ready, node.Name)
-		case "NotReady":
-			kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
+	total := len(nodeList.Items)
+	if nodeList.RemainingItemCount != nil {
+		total += int(*nodeList.RemainingItemCount)
+	} else if nodeList.Continue != "" {
+		// 部分 apiserver 分页时不填 RemainingItemCount，回退全量 List 仅取数量
+		fullList, listErr := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{})
+		if listErr != nil {
+			return "", "", listErr
 		}
+		total = len(fullList.Items)
+	}
+
+	kubeNode := &types.KubeNode{
+		Ready:    make([]string, 0),
+		NotReady: make([]string, 0),
+		Total:    total,
+	}
+	if len(nodeList.Items) > 0 {
+		kubeNode.Ready = []string{nodeList.Items[0].Name}
 	}
 
 	nodeData, err := kubeNode.Marshal()
@@ -209,23 +219,9 @@ func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 	}
 
 	var kubernetesVersion string
-	if len(nodes) != 0 {
-		kubernetesVersion = nodes[0].Status.NodeInfo.KubeletVersion
+	if len(nodeList.Items) > 0 {
+		kubernetesVersion = nodeList.Items[0].Status.NodeInfo.KubeletVersion
 	}
 
 	return nodeData, kubernetesVersion, nil
-}
-
-func parseKubeNodeStatus(node *v1.Node) string {
-	status := "Ready"
-	for _, condition := range node.Status.Conditions {
-		if condition.Type != v1.NodeReady {
-			continue
-		}
-		if condition.Status != "True" {
-			status = "NotReady"
-		}
-	}
-
-	return status
 }
