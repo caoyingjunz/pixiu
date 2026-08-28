@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
@@ -185,47 +184,30 @@ func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
 
 	probeCtx, cancel := context.WithTimeout(context.Background(), clusterProbeTimeout)
 	defer cancel()
-	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{})
-	if err != nil {
-		return "", "", err
-	}
-	nodes := nodeList.Items
 
-	kubeNode := &types.KubeNode{Ready: make([]string, 0), NotReady: make([]string, 0)}
-	// 获取存储状态
-	for _, node := range nodes {
-		nodeStatus := parseKubeNodeStatus(&node)
-		switch nodeStatus {
-		case "Ready":
-			kubeNode.Ready = append(kubeNode.Ready, node.Name)
-		case "NotReady":
-			kubeNode.NotReady = append(kubeNode.NotReady, node.Name)
-		}
-	}
-
-	nodeData, err := kubeNode.Marshal()
+	// 只拉 1 个节点：用 RemainingItemCount 推算集群节点总数，并从该节点读取版本
+	nodeList, err := clusterSet.Client.CoreV1().Nodes().List(probeCtx, metav1.ListOptions{Limit: 1})
 	if err != nil {
 		return "", "", err
 	}
 
-	var kubernetesVersion string
-	if len(nodes) != 0 {
-		kubernetesVersion = nodes[0].Status.NodeInfo.KubeletVersion
+	if len(nodeList.Items) == 0 {
+		nodeData, marshalErr := (&types.KubeNode{}).Marshal()
+		if marshalErr != nil {
+			return "", "", marshalErr
+		}
+		return nodeData, "", nil
 	}
 
-	return nodeData, kubernetesVersion, nil
-}
-
-func parseKubeNodeStatus(node *v1.Node) string {
-	status := "Ready"
-	for _, condition := range node.Status.Conditions {
-		if condition.Type != v1.NodeReady {
-			continue
-		}
-		if condition.Status != "True" {
-			status = "NotReady"
-		}
+	total := 1
+	if nodeList.RemainingItemCount != nil {
+		total = 1 + int(*nodeList.RemainingItemCount)
 	}
 
-	return status
+	nodeData, err := (&types.KubeNode{Total: total}).Marshal()
+	if err != nil {
+		return "", "", err
+	}
+
+	return nodeData, nodeList.Items[0].Status.NodeInfo.KubeletVersion, nil
 }

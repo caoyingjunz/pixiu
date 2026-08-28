@@ -102,7 +102,7 @@ func (c Register) finishWithKubeConfig(config64 string) error {
 
 	isAgentMode := c.data.Plan.ExecMode == model.PlanExecModeAgent
 	if len(objs) == 0 {
-		kubeNode := types.KubeNode{Ready: []string{}, NotReady: []string{}}
+		kubeNode := types.KubeNode{}
 		nodes, _ := kubeNode.Marshal()
 		clusterObj := &model.Cluster{
 			Name:          uuid.NewRandName(8),

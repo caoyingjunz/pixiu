@@ -174,8 +174,8 @@ func (m *MySQLSourceConfig) NormalizePort() int {
 }
 
 type KubeNode struct {
-	Ready    []string `json:"ready"`
-	NotReady []string `json:"not_ready"`
+	// Total 集群节点总数（拨测 Limit=1 + RemainingItemCount 回写）
+	Total int `json:"total"`
 }
 
 type Cluster struct {
