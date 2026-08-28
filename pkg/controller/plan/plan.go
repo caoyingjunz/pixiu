@@ -194,11 +194,12 @@ func (p *plan) createPlanSubResources(ctx context.Context, req *types.CreatePlan
 		}
 		planConfig.PlanId = planModel.Id
 
+		// 创建配置
 		if err := p.factory.Plan().TxCreateConfig(ctx, tx, planConfig); err != nil {
 			klog.Errorf("failed to create plan(%d) config: %v", planModel.Id, err)
 			return nil, err
 		}
-
+		// 创建节点
 		if err := p.syncPlanNodesInTx(ctx, planModel.Id, req.Nodes, tx); err != nil {
 			klog.Errorf("failed to sync plan(%d) nodes: %v", planModel.Id, err)
 			return nil, err
@@ -345,7 +346,7 @@ func (p *plan) preDelete(ctx context.Context, planId int64) error {
 // 1. 删除部署计划
 // 2. 删除关联任务
 // 3. 删除关联配置
-// 4. 删除关联节点
+// 4. 解除关联节点（未删除）
 func (p *plan) Delete(ctx context.Context, planId int64) error {
 	// 删除前校验：存在性 + owner + 运行中任务
 	if err := p.preDelete(ctx, planId); err != nil {
@@ -370,11 +371,25 @@ func (p *plan) Delete(ctx context.Context, planId int64) error {
 		return err
 	}
 	// 4. 解除关联 nodes（回到主机库，不物理删除）
-	if err = p.factory.Plan().ReleaseNodesByPlan(ctx, planId); err != nil {
+	if err = p.releaseNodesToHostPool(ctx, planId); err != nil {
 		klog.Errorf("failed to release plan(%d) nodes: %v", planId, err)
 		return err
 	}
 
+	return nil
+}
+
+// releaseNodesToHostPool 解除计划与节点的绑定，节点回到主机库（plan_id=0，清空 role/cri，保留 ip/auth）
+func (p *plan) releaseNodesToHostPool(ctx context.Context, planId int64) error {
+	nodes, err := p.factory.Plan().ListNodes(ctx, planId)
+	if err != nil {
+		return err
+	}
+	for i := range nodes {
+		if err := p.disassociateNode(ctx, &nodes[i]); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

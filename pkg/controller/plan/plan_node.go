@@ -77,6 +77,7 @@ func (p *plan) syncPlanNodes(ctx context.Context, planId int64, nodes []types.Cr
 func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest, tx *gorm.DB) error {
 	role := strings.Join(req.Role, ",")
 
+	// 关联节点
 	if req.NodeId > 0 {
 		object, err := p.factory.Plan().GetNode(ctx, req.NodeId)
 		if err != nil {
@@ -93,17 +94,15 @@ func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.Creat
 			return errors.ErrConflict
 		}
 
-		updates := map[string]interface{}{
-			"plan_id": planId,
-			"role":    role,
-			"cri":     req.CRI,
-		}
+		updates := map[string]interface{}{"plan_id": planId, "role": role, "cri": req.CRI}
+
 		if tx != nil {
 			return p.factory.Plan().TxUpdateNode(ctx, tx, req.NodeId, object.ResourceVersion, updates)
 		}
 		return p.factory.Plan().UpdateNode(ctx, req.NodeId, object.ResourceVersion, updates)
 	}
 
+	// 创建节点
 	auth, err := req.Auth.Marshal()
 	if err != nil {
 		return err

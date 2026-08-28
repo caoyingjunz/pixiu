@@ -47,7 +47,6 @@ type PlanInterface interface {
 	CountNodes(ctx context.Context, opts ...Options) (int64, error)
 
 	DeleteNodesByPlan(ctx context.Context, planId int64) error
-	ReleaseNodesByPlan(ctx context.Context, planId int64) error
 	GetNodeByName(ctx context.Context, planId int64, name string) (*model.Node, error)
 
 	DeleteNodesByNames(ctx context.Context, planId int64, names []string) error
@@ -239,25 +238,6 @@ func (p *plan) DeleteNodesByPlan(ctx context.Context, planId int64) error {
 		return err
 	}
 
-	return nil
-}
-
-// ReleaseNodesByPlan 解除计划与节点的绑定，节点回到主机库（plan_id=0，清空 role/cri，保留 ip/auth）
-func (p *plan) ReleaseNodesByPlan(ctx context.Context, planId int64) error {
-	nodes, err := p.ListNodes(ctx, planId)
-	if err != nil {
-		return err
-	}
-	for i := range nodes {
-		updates := map[string]interface{}{
-			"plan_id": int64(0),
-			"role":    "",
-			"cri":     "",
-		}
-		if err := p.UpdateNode(ctx, nodes[i].Id, nodes[i].ResourceVersion, updates); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
