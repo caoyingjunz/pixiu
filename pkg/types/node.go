@@ -31,6 +31,10 @@ type NodeResult struct {
 	UserId int64          `json:"user_id"`
 	Ip     string         `json:"ip"`
 	Auth   NodeAuthResult `json:"auth"`
+
+	// 所属部署计划；列表接口按 plan_id 冗余返回所属集群名称（自建集群 alias_name，回退 plan 名称）
+	PlanId      int64  `json:"plan_id"`
+	ClusterName string `json:"cluster_name,omitempty"`
 }
 
 // CreateNodeRequest POST /pixiu/nodes

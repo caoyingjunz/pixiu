@@ -38,6 +38,7 @@ type PlanInterface interface {
 	CreateNode(ctx context.Context, object *model.Node) (*model.Node, error)
 	TxCreateNode(ctx context.Context, tx *gorm.DB, object *model.Node) error
 	UpdateNode(ctx context.Context, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
+	TxUpdateNode(ctx context.Context, tx *gorm.DB, nodeId int64, resourceVersion int64, updates map[string]interface{}) error
 	DeleteNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNode(ctx context.Context, nodeId int64) (*model.Node, error)
 	GetNodeByIP(ctx context.Context, ip string) (*model.Node, error)
@@ -203,6 +204,20 @@ func (p *plan) UpdateNode(ctx context.Context, nodeId int64, resourceVersion int
 		return errors.ErrRecordNotFound
 	}
 
+	return nil
+}
+
+func (p *plan) TxUpdateNode(ctx context.Context, tx *gorm.DB, nodeId int64, resourceVersion int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+	updates["resource_version"] = resourceVersion + 1
+
+	f := tx.WithContext(ctx).Model(&model.Node{}).Where("id = ? and resource_version = ?", nodeId, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
 	return nil
 }
 
