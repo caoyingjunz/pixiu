@@ -22,7 +22,7 @@ import (
 
 // ResolveSSHConfigForHost 根据已注册节点的 IP 解析 SSH 连接参数（端口默认 22，账号与凭证来自节点 auth JSON）。
 func (c *cluster) ResolveSSHConfigForHost(ctx context.Context, host string) (*types.WebSSHRequest, error) {
-	n, err := c.factory.Plan().GetNodeByIP(ctx, host)
+	n, err := c.factory.Plan().Node().GetByIP(ctx, host)
 	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil, utilerrors.ErrNodeNotFound

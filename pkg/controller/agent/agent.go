@@ -298,8 +298,8 @@ func (a *agentController) GetPlan(ctx context.Context, agentToken string, jobId 
 		return nil, errors.NewError(fmt.Errorf("job not found"), http.StatusNotFound)
 	}
 
-	// 复用 plan 子资源组装逻辑，按 job 鉴权后返回完整 plan
-	return plan.NewPlan(a.cc, a.factory).GetWithSubResources(ctx, job.PlanId)
+	// 免用户态鉴权组装：agent 已通过 agent token 认证 + job 归属校验（上方 AgentId 比对）
+	return plan.AssemblePlanView(ctx, a.factory, job.PlanId)
 }
 
 // ── helpers ──

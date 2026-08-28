@@ -1151,7 +1151,7 @@ func (c *cluster) GetKubernetesMeta(ctx context.Context, clusterName string) (*t
 }
 
 func (c *cluster) GetKubernetesMetaFromPlan(ctx context.Context, planId int64) (*types.KubernetesMeta, error) {
-	planConfig, err := c.factory.Plan().GetConfigByPlan(ctx, planId)
+	planConfig, err := c.factory.Plan().Config().GetByPlan(ctx, planId)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,7 +1160,7 @@ func (c *cluster) GetKubernetesMetaFromPlan(ctx context.Context, planId int64) (
 		return nil, err
 	}
 
-	nodes, err := c.factory.Plan().ListNodes(ctx, planId)
+	nodes, err := c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
 	if err != nil {
 		return nil, err
 	}

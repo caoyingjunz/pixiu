@@ -112,13 +112,8 @@ func (t *planRouter) getPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	// API 层入口：先经 Get 完成 owner 校验，再组装子资源，
-	// TODO: agent controller（agent.go:302）调用。改变校验会破坏 agent 流程
-	if _, err = t.c.Plan().Get(c, opt.PlanId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if r.Result, err = t.c.Plan().GetWithSubResources(c, opt.PlanId); err != nil {
+	// Get 内部完成存在性 + owner/scope 校验，并返回完整视图（plan + config + nodes）
+	if r.Result, err = t.c.Plan().Get(c, opt.PlanId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
