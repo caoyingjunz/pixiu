@@ -4,6 +4,23 @@ set -eu
 PIXIU_CONFIG_PATH="/etc/pixiu/config.yaml"
 NGINX_HTTP_PORT=80
 NGINX_HTTPS_PORT=443
+NGINX_LOG_DIR="${NGINX_LOG_DIR:-/etc/pixiu/nginx}"
+
+# 限流默认值（可用环境变量覆盖）
+NGINX_LOGIN_RATE="${NGINX_LOGIN_RATE:-1r/s}"
+NGINX_LOGIN_BURST="${NGINX_LOGIN_BURST:-5}"
+NGINX_LOGIN_CONN="${NGINX_LOGIN_CONN:-10}"
+NGINX_API_RATE="${NGINX_API_RATE:-30r/s}"
+NGINX_API_BURST="${NGINX_API_BURST:-60}"
+NGINX_API_CONN="${NGINX_API_CONN:-50}"
+NGINX_REAL_IP_FROM="${NGINX_REAL_IP_FROM:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
+
+# IP 白名单：无开关。存在且非空的白名单文件则生效，否则不限制。
+# 默认路径：/etc/pixiu/nginx/ip-whitelist.txt（可用 NGINX_IP_WHITELIST_FILE 覆盖）
+# 格式：每行一个 IPv4 CIDR；生效时仍放行本机/RFC1918；/healthz 不受限。
+NGINX_IP_WHITELIST_FILE="${NGINX_IP_WHITELIST_FILE:-${NGINX_LOG_DIR}/ip-whitelist.txt}"
+# 由 prepare_ip_whitelist 根据文件是否存在设置：true/false
+NGINX_IP_WHITELIST_ON=false
 
 log() {
     echo "[docker-entrypoint] $*"
@@ -43,29 +60,151 @@ read_section_value() {
         in_section && $0 ~ "^[[:space:]]+" key ":[[:space:]]*" {
             sub("^[[:space:]]+" key ":[[:space:]]*", "", $0)
             sub(/[[:space:]]+#.*$/, "", $0)
-
-            # Trim spaces before removing quotes.
             gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
-
-            # Remove surrounding single or double quotes.
             gsub(/^["'"'"']|["'"'"']$/, "", $0)
-
-            # Trim again in case spaces were inside quotes or left after quote removal.
             gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
-
             print
             exit
         }
     ' "$file"
 }
 
-write_proxy_locations() {
-    cat <<'EOF'
-        root /usr/share/nginx/html;
-        index index.html;
+prepare_log_dir() {
+    mkdir -p "$NGINX_LOG_DIR"
+    # nginx worker 用户写入 access/error/client-ip 日志
+    if id nginx >/dev/null 2>&1; then
+        chown -R nginx:nginx "$NGINX_LOG_DIR" 2>/dev/null || true
+    fi
+    chmod 755 "$NGINX_LOG_DIR" 2>/dev/null || true
+    : >>"$NGINX_LOG_DIR/access.log"
+    : >>"$NGINX_LOG_DIR/client-ip.log"
+    : >>"$NGINX_LOG_DIR/error.log"
+    : >>"$NGINX_LOG_DIR/ip-whitelist.log"
+}
 
-        location /api/ {
-            proxy_pass http://127.0.0.1:8091;
+# 将白名单启用状态与生效 CIDR 写入 nginx 日志目录
+write_ip_whitelist_status_log() {
+    status_log="${NGINX_LOG_DIR}/ip-whitelist.log"
+    ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z')"
+    enabled="$1"
+
+    {
+        echo "-----"
+        echo "[${ts}] ip_whitelist_enabled=${enabled}"
+        echo "[${ts}] ip_whitelist_file=${NGINX_IP_WHITELIST_FILE}"
+        if [ "$enabled" = "true" ]; then
+            echo "[${ts}] always_allow=127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+            echo "[${ts}] effective_cidrs_count=${2:-0}"
+            echo "[${ts}] effective_cidrs_begin"
+            # geo 文件为 "CIDR 1;"，日志里只保留 CIDR
+            if [ -f "${NGINX_LOG_DIR}/ip-whitelist.geo" ]; then
+                awk '{ print $1 }' "${NGINX_LOG_DIR}/ip-whitelist.geo"
+            fi
+            echo "[${ts}] effective_cidrs_end"
+        else
+            echo "[${ts}] reason=file_missing_or_empty"
+            echo "[${ts}] effective_cidrs_count=0"
+        fi
+    } >>"$status_log"
+
+    # 同步一条摘要到 error.log，便于和 nginx 其它日志一起看
+    if [ "$enabled" = "true" ]; then
+        echo "[${ts}] [pixiu] ip whitelist enabled, cidrs=${2:-0}, file=${NGINX_IP_WHITELIST_FILE}" >>"${NGINX_LOG_DIR}/error.log"
+    else
+        echo "[${ts}] [pixiu] ip whitelist disabled (no file: ${NGINX_IP_WHITELIST_FILE})" >>"${NGINX_LOG_DIR}/error.log"
+    fi
+}
+
+# 生成 geo 片段：有白名单文件则启用，否则关闭
+prepare_ip_whitelist() {
+    geo_file="${NGINX_LOG_DIR}/ip-whitelist.geo"
+    NGINX_IP_WHITELIST_ON=false
+
+    if [ ! -f "$NGINX_IP_WHITELIST_FILE" ] || [ ! -s "$NGINX_IP_WHITELIST_FILE" ]; then
+        printf '# ip whitelist disabled (file missing)\n' >"$geo_file"
+        write_ip_whitelist_status_log false 0
+        log "IP 白名单未启用（文件不存在或为空）: ${NGINX_IP_WHITELIST_FILE}"
+        return 0
+    fi
+
+    log "使用 IP 白名单文件: ${NGINX_IP_WHITELIST_FILE}"
+    awk '
+        /^[[:space:]]*#/ { next }
+        /^[[:space:]]*$/ { next }
+        {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
+            if ($1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(\/[0-9]+)?$/) {
+                print $1, "1;"
+            }
+        }
+    ' "$NGINX_IP_WHITELIST_FILE" >"$geo_file"
+
+    lines="$(wc -l <"$geo_file" | tr -d ' ')"
+    if [ "${lines:-0}" -lt 1 ]; then
+        log "IP 白名单文件无有效 IPv4 CIDR: ${NGINX_IP_WHITELIST_FILE}"
+        exit 1
+    fi
+    NGINX_IP_WHITELIST_ON=true
+    write_ip_whitelist_status_log true "$lines"
+    log "IP 白名单已加载: ${geo_file} (${lines} 条)，详情见 ${NGINX_LOG_DIR}/ip-whitelist.log"
+}
+
+write_real_ip_directives() {
+    if [ -z "${NGINX_REAL_IP_FROM:-}" ]; then
+        return 0
+    fi
+    old_ifs="$IFS"
+    IFS=','
+    for cidr in $NGINX_REAL_IP_FROM; do
+        cidr="$(trim "$cidr")"
+        if [ -n "$cidr" ]; then
+            printf '    set_real_ip_from %s;\n' "$cidr"
+        fi
+    done
+    IFS="$old_ifs"
+    cat <<'EOF'
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
+EOF
+}
+
+write_geo_allow_block() {
+    if ! is_true "$NGINX_IP_WHITELIST_ON"; then
+        cat <<'EOF'
+    # 无 IP 白名单文件：不限制来源 IP
+    map $remote_addr $ip_whitelisted {
+        default 1;
+    }
+EOF
+        return 0
+    fi
+
+    cat <<EOF
+    # IP 白名单 + 本机/私网（集群探针）；业务 location 校验 \$ip_whitelisted
+    geo \$remote_addr \$ip_whitelisted {
+        default 0;
+        127.0.0.1/32 1;
+        ::1/128 1;
+        10.0.0.0/8 1;
+        172.16.0.0/12 1;
+        192.168.0.0/16 1;
+        include ${NGINX_LOG_DIR}/ip-whitelist.geo;
+    }
+EOF
+}
+
+write_ip_whitelist_guard() {
+    if is_true "$NGINX_IP_WHITELIST_ON"; then
+        cat <<'EOF'
+            if ($ip_whitelisted = 0) {
+                return 403;
+            }
+EOF
+    fi
+}
+
+write_proxy_headers() {
+    cat <<'EOF'
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -73,37 +212,66 @@ write_proxy_locations() {
             proxy_set_header X-Forwarded-Proto $scheme;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
+EOF
+}
+
+write_proxy_locations() {
+    cat <<EOF
+        root /usr/share/nginx/html;
+        index index.html;
+        client_max_body_size 32m;
+
+        # 访问日志：完整请求 + 真实客户端 IP（经 real_ip 后 \$remote_addr）
+        access_log ${NGINX_LOG_DIR}/access.log pixiu_access;
+        # 精简真实 IP 日志，便于排查/统计来源
+        access_log ${NGINX_LOG_DIR}/client-ip.log pixiu_client_ip;
+
+        location = /pixiu/users/login {
+$(write_ip_whitelist_guard)
+            limit_req zone=login_limit burst=${NGINX_LOGIN_BURST} nodelay;
+            limit_conn perip_conn ${NGINX_LOGIN_CONN};
+$(write_proxy_headers)
+            proxy_pass http://127.0.0.1:8091;
+        }
+
+        location /api/ {
+$(write_ip_whitelist_guard)
+            limit_req zone=api_limit burst=${NGINX_API_BURST} nodelay;
+            limit_conn perip_conn ${NGINX_API_CONN};
+$(write_proxy_headers)
+            proxy_pass http://127.0.0.1:8091;
         }
 
         location /pixiu/ {
+$(write_ip_whitelist_guard)
+            limit_req zone=api_limit burst=${NGINX_API_BURST} nodelay;
+            limit_conn perip_conn ${NGINX_API_CONN};
+$(write_proxy_headers)
             proxy_pass http://127.0.0.1:8091;
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $connection_upgrade;
         }
 
+        # 探针不走国内 IP 限制
         location = /healthz {
+            access_log off;
             proxy_pass http://127.0.0.1:8091;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
         }
 
         location /api-ref/ {
+$(write_ip_whitelist_guard)
             proxy_pass http://127.0.0.1:8091;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
         }
 
         location / {
-            try_files $uri $uri/ /index.html;
+$(write_ip_whitelist_guard)
+            try_files \$uri \$uri/ /index.html;
         }
 EOF
 }
@@ -145,6 +313,8 @@ validate_config() {
 generate_nginx_config() {
     cat > /etc/nginx/nginx.conf <<EOF
 worker_processes auto;
+error_log ${NGINX_LOG_DIR}/error.log warn;
+pid /var/run/nginx.pid;
 
 events {
     worker_connections 1024;
@@ -158,6 +328,21 @@ http {
     tcp_nopush on;
     tcp_nodelay on;
     keepalive_timeout 65;
+
+    # \$remote_addr 在 real_ip 生效后即为真实客户端 IP
+    log_format pixiu_access '\$remote_addr - [\$time_local] "\$request" '
+                            '\$status \$body_bytes_sent rt=\$request_time '
+                            'ua="\$http_user_agent" xff="\$http_x_forwarded_for"';
+    log_format pixiu_client_ip '\$time_iso8601\t\$remote_addr\t\$status\t\$request_method\t\$uri\txff=\$http_x_forwarded_for';
+
+    limit_req_zone \$binary_remote_addr zone=login_limit:10m rate=${NGINX_LOGIN_RATE};
+    limit_req_zone \$binary_remote_addr zone=api_limit:10m rate=${NGINX_API_RATE};
+    limit_conn_zone \$binary_remote_addr zone=perip_conn:10m;
+    limit_req_status 429;
+    limit_conn_status 429;
+
+$(write_real_ip_directives)
+$(write_geo_allow_block)
 
     map \$http_upgrade \$connection_upgrade {
         default upgrade;
@@ -246,13 +431,20 @@ fi
 
 load_config
 validate_config
+prepare_log_dir
+prepare_ip_whitelist
 generate_nginx_config
 nginx -t -c /etc/nginx/nginx.conf
 
+whitelist_flag="off"
+if is_true "$NGINX_IP_WHITELIST_ON"; then
+    whitelist_flag="on"
+fi
+
 if is_true "$NGINX_ENABLE_SSL"; then
-    log "starting services with http=${NGINX_HTTP_PORT}, https=${NGINX_HTTPS_PORT}"
+    log "starting services http=${NGINX_HTTP_PORT} https=${NGINX_HTTPS_PORT} login_rate=${NGINX_LOGIN_RATE} ip_whitelist=${whitelist_flag} log_dir=${NGINX_LOG_DIR}"
 else
-    log "starting services with http=${NGINX_HTTP_PORT}, https=disabled"
+    log "starting services http=${NGINX_HTTP_PORT} https=disabled login_rate=${NGINX_LOGIN_RATE} ip_whitelist=${whitelist_flag} log_dir=${NGINX_LOG_DIR}"
 fi
 
 start_services
