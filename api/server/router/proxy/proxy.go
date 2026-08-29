@@ -22,10 +22,12 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+	"k8s.io/klog/v2"
+
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
-	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -85,18 +87,18 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		return
 	}
 
-	// 已保存的数据源按 ID 读取凭证；新建数据源测试直接使用前端临时提交的认证头。
-	pixiuDatasourceId := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
-	if pixiuDatasourceId != "" || c.Request.Header.Get(upstreamProxyAuthorizationHeader) != "" {
-		// resolveUpstreamAuth 会移除内部认证中转头，避免其被透传到 Kubernetes service proxy。
-		if upstreamAuth := p.resolveUpstreamAuth(c, pixiuDatasourceId); upstreamAuth != "" {
-			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, credName, upstreamAuth)
-			if handled {
-				if proxyErr != nil {
-					httputils.SetFailed(c, resp, proxyErr)
-				}
-				return
+	// 上游 service proxy 需 Basic 认证时（数据源 ID 或 X-Pixiu-Proxy-Authorization），
+	// 绕过 apiserver proxy 经 Pod port-forward 注入 Authorization。
+	if upstreamAuth := p.resolveServiceProxyUpstreamAuth(c); upstreamAuth != "" {
+		if dsID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader)); dsID != "" {
+			klog.Infof("proxying with datasource %s", dsID)
+		}
+		handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, credName, upstreamAuth)
+		if handled {
+			if proxyErr != nil {
+				httputils.SetFailed(c, resp, proxyErr)
 			}
+			return
 		}
 	}
 
