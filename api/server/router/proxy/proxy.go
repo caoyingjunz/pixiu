@@ -87,18 +87,18 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		return
 	}
 
-	// 根据 X-Pixiu-Datasource-Id 从数据源配置解析上游服务（如 ES、Loki）认证信息
-	pixiuDatasourceId := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
-	if len(pixiuDatasourceId) != 0 {
-		klog.Infof("proxying with datasource %s", pixiuDatasourceId)
-		if upstreamAuth := p.resolveUpstreamAuth(c, pixiuDatasourceId); upstreamAuth != "" {
-			handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, credName, upstreamAuth)
-			if handled {
-				if proxyErr != nil {
-					httputils.SetFailed(c, resp, proxyErr)
-				}
-				return
+	// 上游 service proxy 需 Basic 认证时（数据源 ID 或 X-Pixiu-Proxy-Authorization），
+	// 绕过 apiserver proxy 经 Pod port-forward 注入 Authorization。
+	if upstreamAuth := p.resolveServiceProxyUpstreamAuth(c); upstreamAuth != "" {
+		if dsID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader)); dsID != "" {
+			klog.Infof("proxying with datasource %s", dsID)
+		}
+		handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, credName, upstreamAuth)
+		if handled {
+			if proxyErr != nil {
+				httputils.SetFailed(c, resp, proxyErr)
 			}
+			return
 		}
 	}
 
