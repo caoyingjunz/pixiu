@@ -105,10 +105,6 @@ func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kub
 	defer resp.Body.Close()
 
 	for key, values := range resp.Header {
-		// 剥离上游透传的 WWW-Authenticate（大小写不敏感），避免浏览器对 pixiu 域名弹出原生登录框
-		if strings.EqualFold(key, "WWW-Authenticate") {
-			continue
-		}
 		for _, value := range values {
 			c.Writer.Header().Add(key, value)
 		}

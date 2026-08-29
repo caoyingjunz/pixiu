@@ -53,23 +53,6 @@ func (p *proxyRouter) forwardToCluster(c *gin.Context, clusterName string, targe
 	klog.V(2).Infof("proxying cluster=%s path=%s", clusterName, c.Request.URL.Path)
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)
 	httpProxy.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(transport, transport)
-	httpProxy.ServeHTTP(&stripWWWAuthenticateWriter{ResponseWriter: c.Writer}, c.Request)
+	httpProxy.ServeHTTP(c.Writer, c.Request)
 	return nil
-}
-
-// stripWWWAuthenticateWriter 包装 gin.ResponseWriter，在 WriteHeader 前删除上游透传的
-// WWW-Authenticate 响应头，避免浏览器对 pixiu 代理地址弹出原生认证框。
-//
-// 选择包装 ResponseWriter 而非包装 Transport 的原因：UpgradeAwareHandler 非升级路径经
-// httputil.ReverseProxy 先 copyHeader 到 w.Header() 再调用 w.WriteHeader，此时删除头即可
-// 生效，能覆盖所有写入该响应的来源。注意升级协议（WebSocket 等）走 hijack 直写裸连接会
-// 绕过本包装，但该路径是 101 升级成功响应、不会携带 401 质询头，实际透传携带
-// WWW-Authenticate 的响应均能被本包装拦截。
-type stripWWWAuthenticateWriter struct {
-	gin.ResponseWriter
-}
-
-func (w *stripWWWAuthenticateWriter) WriteHeader(code int) {
-	w.Header().Del("WWW-Authenticate")
-	w.ResponseWriter.WriteHeader(code)
 }
