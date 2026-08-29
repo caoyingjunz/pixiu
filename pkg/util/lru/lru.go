@@ -91,3 +91,23 @@ func (c *LRUCache) Len() int {
 
 	return c.evictList.Len()
 }
+
+// GetOrAdd 原子获取；不存在时用 factory 创建并写入（避免并发双建）。
+func (c *LRUCache) GetOrAdd(key interface{}, factory func() interface{}) interface{} {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if ent, ok := c.items[key]; ok {
+		c.evictList.MoveToFront(ent)
+		return ent.Value.(*entry).value
+	}
+
+	value := factory()
+	c.items[key] = c.evictList.PushFront(&entry{key: key, value: value})
+	if c.evictList.Len() > c.cap {
+		lastElement := c.evictList.Back()
+		c.evictList.Remove(lastElement)
+		delete(c.items, lastElement.Value.(*entry).key)
+	}
+	return value
+}

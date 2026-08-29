@@ -32,32 +32,24 @@ import (
 const (
 	capacity = 100
 	quantum  = 20
-	cap      = 200
+	// 提高 IP 桶缓存容量，降低轮换 IP 导致的频繁淘汰
+	ipLimiterCacheCap = 4096
 )
 
-// UserRateLimiter 针对每个用户的请求进行限速
-// TODO 限速大小从配置中读取
+// UserRateLimiter 针对每个客户端 IP 的请求进行限速。
+// 每次请求（含首次）都扣减令牌；登录接口由 LoginRateLimiter 单独治理。
 func UserRateLimiter() gin.HandlerFunc {
-	cache := lru.NewLRUCache(cap)
+	cache := lru.NewLRUCache(ipLimiterCacheCap)
 
 	return func(c *gin.Context) {
-		// 登录接口由 LoginRateLimiter 单独治理，避免与通用限流互相干扰
 		if c.Request.Method == http.MethodPost && c.Request.URL.Path == loginPath {
 			return
 		}
 		clientIP := c.ClientIP()
-		if !cache.Contains(clientIP) {
-			cache.Add(clientIP, ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum))
-			return
-		}
-		// 通过 ClientIP 取出 bucket
-		val := cache.Get(clientIP)
-		if val == nil {
-			return
-		}
+		bucket := cache.GetOrAdd(clientIP, func() interface{} {
+			return ratelimit.NewBucketWithQuantum(time.Second, capacity, quantum)
+		}).(*ratelimit.Bucket)
 
-		// 判断是否还有可用的 bucket
-		bucket := val.(*ratelimit.Bucket)
 		if bucket.TakeAvailable(1) == 0 {
 			httputils.AbortFailedWithCode(c, http.StatusForbidden, errors.ErrBusySystem)
 		}
@@ -66,7 +58,6 @@ func UserRateLimiter() gin.HandlerFunc {
 
 func Limiter() gin.HandlerFunc {
 	// 初始化一个限速器，每秒产生 1000 个令牌，桶的大小为 1000 个
-	// 初始化状态桶是满的
 	// TODO: 限速的值从配置或者环境变量中获取
 	limiter := rate.NewLimiter(1000, 1000)
 

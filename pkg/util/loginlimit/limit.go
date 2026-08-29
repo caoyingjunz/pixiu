@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+
+	"github.com/caoyingjunz/pixiu/pkg/util/lru"
 )
 
 const (
@@ -33,63 +35,117 @@ const (
 	ipRate  = rate.Limit(5.0 / 60.0)
 	ipBurst = 3
 
-	// 密码连续失败达到阈值后锁定；锁定期间每分钟仅允许 1 次探测（给正确密码留机会）
+	// 密码连续失败达到阈值后锁定；锁定期间每分钟仅允许 1 次探测
 	maxFailures      = 8
 	lockDuration     = 2 * time.Minute
 	lockedProbeRate  = rate.Limit(1.0 / 60.0)
 	lockedProbeBurst = 1
 
-	// 同时进行的 bcrypt 校验上限，避免 CPU 被打满
+	// 同时进行的 bcrypt 校验上限
 	maxConcurrentVerify = 4
 	acquireWait         = 50 * time.Millisecond
+
+	// IP / 探测 limiter 与失败记录的容量与 TTL，防止内存膨胀
+	ipLimiterCap      = 8192
+	probeLimiterCap   = 4096
+	maxFailureEntries = 4096
+	entryTTL          = 30 * time.Minute
+	purgeInterval     = 5 * time.Minute
 )
 
 var (
-	limiters  sync.Map // map[string]*rate.Limiter
-	verifySem = make(chan struct{}, maxConcurrentVerify)
-
+	ipLimiters    = lru.NewLRUCache(ipLimiterCap)
+	probeLimiters = lru.NewLRUCache(probeLimiterCap)
+	verifySem     = make(chan struct{}, maxConcurrentVerify)
 	globalLimiter = rate.NewLimiter(globalRate, globalBurst)
 
 	failureMu sync.Mutex
 	failures  = map[string]*failureState{}
+
+	sweeperOnce sync.Once
 )
 
 type failureState struct {
 	count       int
 	lockedUntil time.Time
+	lastSeen    time.Time
 }
 
-func getLimiter(key string, limit rate.Limit, burst int) *rate.Limiter {
-	if v, ok := limiters.Load(key); ok {
-		return v.(*rate.Limiter)
+func ensureSweeper() {
+	sweeperOnce.Do(func() {
+		go func() {
+			t := time.NewTicker(purgeInterval)
+			defer t.Stop()
+			for range t.C {
+				purgeExpiredFailures(time.Now())
+			}
+		}()
+	})
+}
+
+func purgeExpiredFailures(now time.Time) {
+	failureMu.Lock()
+	defer failureMu.Unlock()
+	for name, st := range failures {
+		if now.Before(st.lockedUntil) {
+			continue
+		}
+		if now.Sub(st.lastSeen) > entryTTL {
+			delete(failures, name)
+		}
 	}
-	lim := rate.NewLimiter(limit, burst)
-	actual, _ := limiters.LoadOrStore(key, lim)
-	return actual.(*rate.Limiter)
+	// 仍超限时按 lastSeen 淘汰最旧条目
+	for len(failures) > maxFailureEntries {
+		var oldest string
+		var oldestTime time.Time
+		first := true
+		for name, st := range failures {
+			if now.Before(st.lockedUntil) {
+				continue
+			}
+			if first || st.lastSeen.Before(oldestTime) {
+				oldest = name
+				oldestTime = st.lastSeen
+				first = false
+			}
+		}
+		if oldest == "" {
+			break
+		}
+		delete(failures, oldest)
+	}
 }
 
 func normalizeUser(name string) string {
 	return strings.ToLower(strings.TrimSpace(name))
 }
 
+func getRateLimiter(cache *lru.LRUCache, key string, limit rate.Limit, burst int) *rate.Limiter {
+	return cache.GetOrAdd(key, func() interface{} {
+		return rate.NewLimiter(limit, burst)
+	}).(*rate.Limiter)
+}
+
 // AllowRequest 登录入口限流：先全局 QPS，再按 IP。
 func AllowRequest(ip string) bool {
+	ensureSweeper()
 	if !globalLimiter.Allow() {
 		return false
 	}
 	if ip == "" {
 		ip = "unknown"
 	}
-	return getLimiter("ip:"+ip, ipRate, ipBurst).Allow()
+	return getRateLimiter(ipLimiters, "ip:"+ip, ipRate, ipBurst).Allow()
 }
 
-// AllowIP 按客户端 IP 限流（兼容旧调用，等价于无全局限流时的 IP 检查）。
+// AllowIP 兼容旧调用。
 func AllowIP(ip string) bool {
 	return AllowRequest(ip)
 }
 
 // AllowUserAttempt 用户名维度：未锁定直接放行；锁定后每分钟仅 1 次 bcrypt 探测。
 func AllowUserAttempt(name string) bool {
+	ensureSweeper()
 	name = normalizeUser(name)
 	if name == "" {
 		return false
@@ -98,16 +154,20 @@ func AllowUserAttempt(name string) bool {
 	failureMu.Lock()
 	st := failures[name]
 	locked := st != nil && time.Now().Before(st.lockedUntil)
+	if st != nil {
+		st.lastSeen = time.Now()
+	}
 	failureMu.Unlock()
 
 	if !locked {
 		return true
 	}
-	return getLimiter("locked-probe:"+name, lockedProbeRate, lockedProbeBurst).Allow()
+	return getRateLimiter(probeLimiters, "locked-probe:"+name, lockedProbeRate, lockedProbeBurst).Allow()
 }
 
 // RecordUserFailure 记录密码错误；达到阈值则锁定一段时间。
 func RecordUserFailure(name string) {
+	ensureSweeper()
 	name = normalizeUser(name)
 	if name == "" {
 		return
@@ -123,10 +183,10 @@ func RecordUserFailure(name string) {
 		failures[name] = st
 	}
 	if now.After(st.lockedUntil) && st.count >= maxFailures {
-		// 锁已过期，重新计数
 		st.count = 0
 	}
 	st.count++
+	st.lastSeen = now
 	if st.count >= maxFailures {
 		st.lockedUntil = now.Add(lockDuration)
 	}
@@ -166,4 +226,11 @@ func ReleaseVerify() {
 	case <-verifySem:
 	default:
 	}
+}
+
+// FailureEntryCount 供测试读取失败表大小。
+func FailureEntryCount() int {
+	failureMu.Lock()
+	defer failureMu.Unlock()
+	return len(failures)
 }
