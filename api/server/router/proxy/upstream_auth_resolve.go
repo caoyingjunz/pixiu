@@ -26,20 +26,25 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-const (
-	upstreamDatasourceIDHeader       = "X-Pixiu-Datasource-Id"
-	upstreamProxyAuthorizationHeader = "X-Pixiu-Proxy-Authorization"
-)
+const upstreamDatasourceIDHeader = "X-Pixiu-Datasource-Id"
+
+// resolveServiceProxyUpstreamAuth 解析集群内 service proxy 的上游 Basic 认证。
+// K8s apiserver 的 service proxy 会剥离 Authorization，需经 port-forward 注入认证。
+// 优先 X-Pixiu-Datasource-Id（已保存数据源），否则读取 X-Pixiu-Proxy-Authorization（创建/测试前临时认证）。
+func (p *proxyRouter) resolveServiceProxyUpstreamAuth(c *gin.Context) string {
+	if dsID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader)); dsID != "" {
+		if auth := p.resolveUpstreamAuth(c, dsID); auth != "" {
+			return auth
+		}
+	}
+	return strings.TrimSpace(c.Request.Header.Get(externalProxyAuthorizationHeaderKey))
+}
 
 func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string {
 	if dsIDStr == "" {
-		// New datasource tests run before the record has an ID. In that case
-		// use the credential explicitly supplied by the frontend.
-		return takeUpstreamProxyAuth(c)
+		return ""
 	}
-	if auth := takeUpstreamProxyAuth(c); auth != "" {
-		return auth
-	}
+	c.Request.Header.Del(upstreamDatasourceIDHeader)
 
 	datasourceID, err := strconv.ParseInt(dsIDStr, 10, 64)
 	if err != nil || datasourceID <= 0 {
@@ -68,20 +73,11 @@ func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string
 	default:
 		return ""
 	}
-	if username == "" && password == "" {
+
+	if strings.TrimSpace(username) == "" && strings.TrimSpace(password) == "" {
 		return ""
 	}
 
 	token := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 	return "Basic " + token
-}
-
-func takeUpstreamProxyAuth(c *gin.Context) string {
-	auth := strings.TrimSpace(c.Request.Header.Get(upstreamProxyAuthorizationHeader))
-	c.Request.Header.Del(upstreamProxyAuthorizationHeader)
-	c.Request.Header.Del(upstreamDatasourceIDHeader)
-	if strings.HasPrefix(strings.ToLower(auth), "basic ") {
-		return auth
-	}
-	return ""
 }
