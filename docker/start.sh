@@ -36,6 +36,16 @@ NGINX_LOG_MAX_SIZE="${NGINX_LOG_MAX_SIZE:-100m}"
 NGINX_LOG_KEEP="${NGINX_LOG_KEEP:-2}"
 NGINX_LOG_ROTATE_CHECK_INTERVAL="${NGINX_LOG_ROTATE_CHECK_INTERVAL:-60}"
 
+# 登录爆破自动封禁：默认开启。扫 access.log 中 /pixiu/users/login 的 401/429，
+# 滑动窗口内达到阈值则写入 ip-blacklist.txt（/32），由现有热更新生效。
+# 关闭：NGINX_AUTO_BAN=false
+NGINX_AUTO_BAN="${NGINX_AUTO_BAN:-true}"
+NGINX_AUTO_BAN_WINDOW="${NGINX_AUTO_BAN_WINDOW:-300}"
+NGINX_AUTO_BAN_THRESHOLD="${NGINX_AUTO_BAN_THRESHOLD:-15}"
+NGINX_AUTO_BAN_TTL="${NGINX_AUTO_BAN_TTL:-86400}"
+NGINX_AUTO_BAN_SCAN_INTERVAL="${NGINX_AUTO_BAN_SCAN_INTERVAL:-10}"
+NGINX_AUTO_BAN_IGNORE="${NGINX_AUTO_BAN_IGNORE:-}"
+
 log() {
     echo "[docker-entrypoint] $*"
 }
@@ -635,6 +645,337 @@ watch_nginx_log_rotate() {
     done
 }
 
+# ---------- 登录自动封禁 ----------
+
+auto_ban_state_dir() {
+    printf '%s' "${NGINX_LOG_DIR}/.auto-ban"
+}
+
+# 本机 / RFC1918 永不自动封
+is_auto_ban_private_ip() {
+    ip="$1"
+    case "$ip" in
+        127.*|10.*|192.168.*)
+            return 0
+            ;;
+        172.1[6-9].*|172.2[0-9].*|172.3[0-1].*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# IPv4 是否落在 CIDR（支持 x.x.x.x 或 x.x.x.x/n）
+ipv4_in_cidr() {
+    ip="$1"
+    cidr="$2"
+    echo "$ip $cidr" | awk '
+        function ip2int(s, a, i, n) {
+            n = split(s, a, ".")
+            if (n != 4) return -1
+            for (i = 1; i <= 4; i++) {
+                if (a[i] !~ /^[0-9]+$/ || a[i]+0 > 255) return -1
+            }
+            return a[1]*16777216 + a[2]*65536 + a[3]*256 + a[4]
+        }
+        {
+            ip = $1
+            cidr = $2
+            bits = 32
+            base = cidr
+            if (index(cidr, "/") > 0) {
+                split(cidr, p, "/")
+                base = p[1]
+                bits = p[2] + 0
+            }
+            if (bits < 0 || bits > 32) exit 1
+            ipn = ip2int(ip)
+            bn = ip2int(base)
+            if (ipn < 0 || bn < 0) exit 1
+            if (bits == 0) exit 0
+            rem = 32 - bits
+            step = 1
+            while (rem > 0) { step = step * 2; rem-- }
+            if (int(ipn / step) == int(bn / step)) exit 0
+            exit 1
+        }
+    '
+}
+
+ip_in_ignore_list() {
+    ip="$1"
+    raw="$NGINX_AUTO_BAN_IGNORE"
+    [ -n "$raw" ] || return 1
+    old_ifs="$IFS"
+    IFS=','
+    # shellcheck disable=SC2086
+    set -- $raw
+    IFS="$old_ifs"
+    for item in "$@"; do
+        item="$(trim "$item")"
+        [ -n "$item" ] || continue
+        if ipv4_in_cidr "$ip" "$item"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# 名单文件中是否已有该 IP（裸 IP 或 /32）
+ip_in_list_file() {
+    ip="$1"
+    file="$2"
+    [ -f "$file" ] || return 1
+    awk -v ip="$ip" '
+        /^[[:space:]]*#/ { next }
+        /^[[:space:]]*$/ { next }
+        {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
+            cidr = $1
+            if (cidr == ip || cidr == (ip "/32")) exit 0
+        }
+        END { exit 1 }
+    ' "$file"
+}
+
+should_skip_auto_ban_ip() {
+    ip="$1"
+    case "$ip" in
+        ''|*[!0-9.]*)
+            return 0
+            ;;
+    esac
+    if is_auto_ban_private_ip "$ip"; then
+        return 0
+    fi
+    if ip_in_ignore_list "$ip"; then
+        return 0
+    fi
+    if ip_in_list_file "$ip" "$NGINX_IP_WHITELIST_FILE"; then
+        return 0
+    fi
+    if ip_in_list_file "$ip" "$NGINX_IP_BLACKLIST_FILE"; then
+        return 0
+    fi
+    return 1
+}
+
+# 从 access 增量中抽出登录 401/429 的客户端 IP
+extract_login_attack_ips() {
+    awk '
+        {
+            ip = $1
+            if (ip !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) next
+            n = split($0, parts, "\"")
+            if (n < 3) next
+            req = parts[2]
+            rest = parts[3]
+            sub(/^[[:space:]]+/, "", rest)
+            status = rest
+            sub(/[[:space:]].*$/, "", status)
+            if (req !~ /\/pixiu\/users\/login/) next
+            if (status != "401" && status != "429") next
+            print ip
+        }
+    '
+}
+
+record_attack_and_maybe_ban() {
+    ip="$1"
+    now="$2"
+    window="$3"
+    threshold="$4"
+    ttl="$5"
+    state_dir="$(auto_ban_state_dir)"
+    count_file="${state_dir}/count.${ip}"
+
+    if should_skip_auto_ban_ip "$ip"; then
+        return 0
+    fi
+
+    mkdir -p "$state_dir"
+    echo "$now" >>"$count_file"
+
+    # 滑动窗口：只保留 window 内时间戳
+    awk -v now="$now" -v w="$window" '$1 + 0 >= now - w { print $1 }' "$count_file" >"${count_file}.tmp" \
+        && mv -f "${count_file}.tmp" "$count_file"
+
+    cnt="$(wc -l <"$count_file" | tr -d ' ')"
+    case "$cnt" in
+        ''|*[!0-9]*)
+            return 0
+            ;;
+    esac
+    if [ "$cnt" -lt "$threshold" ]; then
+        return 0
+    fi
+
+    append_auto_ban_ip "$ip" "$cnt" "$window" "$ttl" "$now"
+    : >"$count_file"
+}
+
+append_auto_ban_ip() {
+    ip="$1"
+    cnt="$2"
+    window="$3"
+    ttl="$4"
+    now="$5"
+    file="$NGINX_IP_BLACKLIST_FILE"
+
+    # 再次确认（并发/竞态）
+    if ip_in_list_file "$ip" "$file"; then
+        return 0
+    fi
+    if should_skip_auto_ban_ip "$ip"; then
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$file")"
+    touch "$file"
+
+    if [ "$ttl" -eq 0 ]; then
+        meta="# auto-ban permanent ip=${ip} count=${cnt} window=${window}s reason=login_401_429 ts=${now}"
+    else
+        until=$((now + ttl))
+        meta="# auto-ban until=${until} ip=${ip} count=${cnt} window=${window}s reason=login_401_429 ts=${now}"
+    fi
+
+    lock="${file}.lock"
+    (
+        if command -v flock >/dev/null 2>&1; then
+            flock 9
+        fi
+        if ip_in_list_file "$ip" "$file"; then
+            exit 0
+        fi
+        printf '%s\n%s/32\n' "$meta" "$ip" >>"$file"
+    ) 9>"$lock"
+
+    ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z')"
+    echo "[${ts}] [pixiu] auto-ban ip=${ip} count=${cnt} window=${window}s ttl=${ttl}s" >>"${NGINX_LOG_DIR}/error.log"
+    echo "[${ts}] auto_ban ip=${ip} count=${cnt} window=${window}s ttl=${ttl}s" >>"${NGINX_LOG_DIR}/ip-blacklist.log"
+    log "auto-ban 已写入黑名单: ${ip}/32 (count=${cnt}, window=${window}s, ttl=${ttl}s)"
+}
+
+# 清理过期的 auto-ban 条目（不删人工行）
+expire_auto_bans() {
+    file="$NGINX_IP_BLACKLIST_FILE"
+    [ -f "$file" ] || return 0
+    now="$(date +%s)"
+    tmp="${file}.expire.tmp"
+    awk -v now="$now" '
+        /^# auto-ban / {
+            until = 0
+            for (i = 1; i <= NF; i++) {
+                if ($i ~ /^until=/) {
+                    split($i, a, "=")
+                    until = a[2] + 0
+                }
+            }
+            if (until > 0 && now >= until) {
+                skip_cidr = 1
+                next
+            }
+            print
+            next
+        }
+        skip_cidr && $1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(\/[0-9]+)?$/ {
+            skip_cidr = 0
+            next
+        }
+        {
+            skip_cidr = 0
+            print
+        }
+    ' "$file" >"$tmp"
+
+    if cmp -s "$file" "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 0
+    fi
+    mv -f "$tmp" "$file"
+    ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z')"
+    echo "[${ts}] [pixiu] auto-ban expired entries purged" >>"${NGINX_LOG_DIR}/error.log"
+    log "auto-ban 已清理过期黑名单条目"
+}
+
+scan_access_log_for_auto_ban() {
+    access_log="${NGINX_LOG_DIR}/access.log"
+    state_dir="$(auto_ban_state_dir)"
+    offset_file="${state_dir}/access.offset"
+    mkdir -p "$state_dir"
+
+    [ -f "$access_log" ] || return 0
+
+    size="$(wc -c <"$access_log" | tr -d ' ')"
+    case "$size" in
+        ''|*[!0-9]*)
+            return 0
+            ;;
+    esac
+
+    # 首次启动：从文件末尾开始，避免历史日志误封
+    if [ ! -f "$offset_file" ]; then
+        printf '%s\n' "$size" >"$offset_file"
+        return 0
+    fi
+
+    offset="$(cat "$offset_file" 2>/dev/null || echo 0)"
+    case "$offset" in
+        ''|*[!0-9]*)
+            offset=0
+            ;;
+    esac
+    # 日志切割后文件变小，重置偏移
+    if [ "$size" -lt "$offset" ]; then
+        offset=0
+    fi
+    if [ "$size" -eq "$offset" ]; then
+        return 0
+    fi
+
+    window="$NGINX_AUTO_BAN_WINDOW"
+    threshold="$NGINX_AUTO_BAN_THRESHOLD"
+    ttl="$NGINX_AUTO_BAN_TTL"
+    case "$window" in ''|*[!0-9]*) window=300 ;; esac
+    case "$threshold" in ''|*[!0-9]*) threshold=15 ;; esac
+    case "$ttl" in ''|*[!0-9]*) ttl=86400 ;; esac
+    if [ "$window" -lt 60 ]; then window=60; fi
+    if [ "$threshold" -lt 1 ]; then threshold=15; fi
+
+    now="$(date +%s)"
+    # 只读新增字节
+    dd if="$access_log" bs=1 skip="$offset" count="$((size - offset))" 2>/dev/null \
+        | extract_login_attack_ips \
+        | while IFS= read -r ip; do
+            [ -n "$ip" ] || continue
+            record_attack_and_maybe_ban "$ip" "$now" "$window" "$threshold" "$ttl"
+        done
+
+    printf '%s\n' "$size" >"$offset_file"
+}
+
+watch_auto_ban() {
+    interval="$NGINX_AUTO_BAN_SCAN_INTERVAL"
+    case "$interval" in
+        ''|*[!0-9]*)
+            interval=10
+            ;;
+    esac
+    if [ "$interval" -lt 5 ]; then
+        interval=5
+    fi
+
+    log "auto-ban 已开启，间隔 ${interval}s，窗口 ${NGINX_AUTO_BAN_WINDOW}s，阈值 ${NGINX_AUTO_BAN_THRESHOLD}，TTL ${NGINX_AUTO_BAN_TTL}s"
+    while true; do
+        sleep "$interval"
+        expire_auto_bans || true
+        scan_access_log_for_auto_ban || true
+    done
+}
+
 start_services() {
     /app --configfile "$PIXIU_CONFIG_PATH" &
     pixiu_pid=$!
@@ -648,9 +989,20 @@ start_services() {
     watch_nginx_log_rotate &
     log_rotate_pid=$!
 
+    auto_ban_pid=""
+    if is_true "$NGINX_AUTO_BAN"; then
+        watch_auto_ban &
+        auto_ban_pid=$!
+    fi
+
     cleanup() {
         trap - INT TERM EXIT
-        kill -TERM "$pixiu_pid" "$nginx_pid" "$watcher_pid" "$log_rotate_pid" 2>/dev/null || true
+        if [ -n "$auto_ban_pid" ]; then
+            kill -TERM "$pixiu_pid" "$nginx_pid" "$watcher_pid" "$log_rotate_pid" "$auto_ban_pid" 2>/dev/null || true
+            wait "$auto_ban_pid" 2>/dev/null || true
+        else
+            kill -TERM "$pixiu_pid" "$nginx_pid" "$watcher_pid" "$log_rotate_pid" 2>/dev/null || true
+        fi
         wait "$pixiu_pid" 2>/dev/null || true
         wait "$nginx_pid" 2>/dev/null || true
         wait "$watcher_pid" 2>/dev/null || true
@@ -701,17 +1053,21 @@ nginx -t -c /etc/nginx/nginx.conf
 
 whitelist_flag="off"
 blacklist_flag="off"
+auto_ban_flag="off"
 if is_true "$NGINX_IP_WHITELIST_ON"; then
     whitelist_flag="on"
 fi
 if is_true "$NGINX_IP_BLACKLIST_ON"; then
     blacklist_flag="on"
 fi
+if is_true "$NGINX_AUTO_BAN"; then
+    auto_ban_flag="on"
+fi
 
 if is_true "$NGINX_ENABLE_SSL"; then
-    log "starting services http=${NGINX_HTTP_PORT} https=${NGINX_HTTPS_PORT} login_rate=${NGINX_LOGIN_RATE} ip_whitelist=${whitelist_flag} ip_blacklist=${blacklist_flag} log_dir=${NGINX_LOG_DIR}"
+    log "starting services http=${NGINX_HTTP_PORT} https=${NGINX_HTTPS_PORT} login_rate=${NGINX_LOGIN_RATE} ip_whitelist=${whitelist_flag} ip_blacklist=${blacklist_flag} auto_ban=${auto_ban_flag} log_dir=${NGINX_LOG_DIR}"
 else
-    log "starting services http=${NGINX_HTTP_PORT} https=disabled login_rate=${NGINX_LOGIN_RATE} ip_whitelist=${whitelist_flag} ip_blacklist=${blacklist_flag} log_dir=${NGINX_LOG_DIR}"
+    log "starting services http=${NGINX_HTTP_PORT} https=disabled login_rate=${NGINX_LOGIN_RATE} ip_whitelist=${whitelist_flag} ip_blacklist=${blacklist_flag} auto_ban=${auto_ban_flag} log_dir=${NGINX_LOG_DIR}"
 fi
 
 start_services
