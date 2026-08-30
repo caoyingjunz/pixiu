@@ -157,7 +157,7 @@ func probeTunnelL7(ctx context.Context, tm *tunnel.Manager, obj *model.Cluster) 
 		return false, "AgentDisconnected", "agent 隧道未连接", "", ""
 	}
 
-	nodeData, version, err := getNewestKubeStatus(*obj)
+	nodeData, version, err := probeClusterMeta(*obj)
 	if err != nil {
 		return false, "ProbeFailed", err.Error(), "", ""
 	}
