@@ -138,9 +138,9 @@ func (cs *ClusterSyncer) doSync(cluster model.Cluster) error {
 	connected := true
 	probeReason := "Healthy"
 	probeMessage := ""
-	nodeData, kubernetesVersion, err = getNewestKubeStatus(cluster)
+	nodeData, kubernetesVersion, err = probeClusterMeta(cluster)
 	if err != nil {
-		klog.Errorf("[getNewestKubeStatus] %s failed: %v, cluster status will be marked as unavailable", cluster.AliasName, err)
+		klog.Errorf("[probeClusterMeta] %s failed: %v, cluster status will be marked as unavailable", cluster.AliasName, err)
 		status = model.ClusterStatusError
 		connected = false
 		probeReason = "ProbeFailed"
@@ -173,7 +173,7 @@ func parseStatus(update map[string]interface{}, status model.ClusterStatus, kube
 	}
 }
 
-func getNewestKubeStatus(cluster model.Cluster) (string, string, error) {
+func probeClusterMeta(cluster model.Cluster) (string, string, error) {
 	clusterSet, err := client.NewClusterSetWithOptions(cluster.KubeConfig, client.ClusterSetOptions{
 		ClusterName: cluster.Name,
 		ConnectMode: cluster.ConnectMode,
