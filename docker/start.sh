@@ -29,7 +29,12 @@ NGINX_IP_BLACKLIST_FILE="${NGINX_IP_BLACKLIST_FILE:-${NGINX_LOG_DIR}/ip-blacklis
 NGINX_IP_BLACKLIST_ON=false
 
 # 白/黑名单热更新轮询间隔（秒）；文件增删改后自动 reload nginx
-NGINX_IP_LIST_WATCH_INTERVAL="${NGINX_IP_LIST_WATCH_INTERVAL:-5}"
+NGINX_IP_LIST_WATCH_INTERVAL="${NGINX_IP_LIST_WATCH_INTERVAL:-2}"
+
+# nginx 日志按大小切割：默认单文件 100MB，保留 2 个历史；每 60s 检查一次
+NGINX_LOG_MAX_SIZE="${NGINX_LOG_MAX_SIZE:-100m}"
+NGINX_LOG_KEEP="${NGINX_LOG_KEEP:-2}"
+NGINX_LOG_ROTATE_CHECK_INTERVAL="${NGINX_LOG_ROTATE_CHECK_INTERVAL:-60}"
 
 log() {
     echo "[docker-entrypoint] $*"
@@ -491,11 +496,11 @@ watch_ip_lists() {
     interval="$NGINX_IP_LIST_WATCH_INTERVAL"
     case "$interval" in
         ''|*[!0-9]*)
-            interval=5
+            interval=2
             ;;
     esac
     if [ "$interval" -lt 1 ]; then
-        interval=5
+        interval=2
     fi
 
     last="$(ip_list_fingerprint)"
@@ -513,6 +518,123 @@ watch_ip_lists() {
     done
 }
 
+# 解析大小：支持 100、100k、100m、100g（大小写均可）
+parse_size_bytes() {
+    raw="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d ' ')"
+    case "$raw" in
+        ''|*[!0-9kmg]*)
+            printf '%s' "104857600"
+            return 0
+            ;;
+    esac
+    num="$raw"
+    mul=1
+    case "$raw" in
+        *k)
+            num="${raw%k}"
+            mul=1024
+            ;;
+        *m)
+            num="${raw%m}"
+            mul=1048576
+            ;;
+        *g)
+            num="${raw%g}"
+            mul=1073741824
+            ;;
+    esac
+    case "$num" in
+        ''|*[!0-9]*)
+            printf '%s' "104857600"
+            return 0
+            ;;
+    esac
+    printf '%s' "$((num * mul))"
+}
+
+# 单文件按大小轮转，保留 keep 个历史：file.1 ... file.N
+rotate_one_log_file() {
+    file="$1"
+    max_bytes="$2"
+    keep="$3"
+
+    if [ ! -f "$file" ]; then
+        return 1
+    fi
+    size="$(wc -c <"$file" | tr -d ' ')"
+    case "$size" in
+        ''|*[!0-9]*)
+            return 1
+            ;;
+    esac
+    if [ "$size" -lt "$max_bytes" ]; then
+        return 1
+    fi
+
+    i="$keep"
+    while [ "$i" -gt 1 ]; do
+        prev=$((i - 1))
+        if [ -f "${file}.${prev}" ]; then
+            mv -f "${file}.${prev}" "${file}.${i}"
+        fi
+        i="$prev"
+    done
+    mv -f "$file" "${file}.1"
+    : >"$file"
+    if id nginx >/dev/null 2>&1; then
+        chown nginx:nginx "$file" 2>/dev/null || true
+    fi
+    return 0
+}
+
+rotate_nginx_logs_if_needed() {
+    max_bytes="$(parse_size_bytes "$NGINX_LOG_MAX_SIZE")"
+    keep="$NGINX_LOG_KEEP"
+    case "$keep" in
+        ''|*[!0-9]*)
+            keep=2
+            ;;
+    esac
+    if [ "$keep" -lt 1 ]; then
+        keep=2
+    fi
+
+    rotated=0
+    for name in access.log client-ip.log error.log ip-whitelist.log ip-blacklist.log; do
+        if rotate_one_log_file "${NGINX_LOG_DIR}/${name}" "$max_bytes" "$keep"; then
+            rotated=1
+            log "nginx 日志已切割: ${name} (max=${NGINX_LOG_MAX_SIZE}, keep=${keep})"
+        fi
+    done
+
+    if [ "$rotated" -eq 1 ]; then
+        # 让 nginx 重新打开日志文件句柄
+        if ! nginx -s reopen >/dev/null 2>&1; then
+            log "nginx -s reopen 失败，尝试 reload"
+            nginx -s reload >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
+# 后台按大小切割 nginx 日志
+watch_nginx_log_rotate() {
+    interval="$NGINX_LOG_ROTATE_CHECK_INTERVAL"
+    case "$interval" in
+        ''|*[!0-9]*)
+            interval=60
+            ;;
+    esac
+    if [ "$interval" -lt 10 ]; then
+        interval=10
+    fi
+
+    log "nginx 日志切割已开启，检测间隔 ${interval}s，单文件上限 ${NGINX_LOG_MAX_SIZE}，保留 ${NGINX_LOG_KEEP} 个"
+    while true; do
+        sleep "$interval"
+        rotate_nginx_logs_if_needed
+    done
+}
+
 start_services() {
     /app --configfile "$PIXIU_CONFIG_PATH" &
     pixiu_pid=$!
@@ -523,12 +645,16 @@ start_services() {
     watch_ip_lists &
     watcher_pid=$!
 
+    watch_nginx_log_rotate &
+    log_rotate_pid=$!
+
     cleanup() {
         trap - INT TERM EXIT
-        kill -TERM "$pixiu_pid" "$nginx_pid" "$watcher_pid" 2>/dev/null || true
+        kill -TERM "$pixiu_pid" "$nginx_pid" "$watcher_pid" "$log_rotate_pid" 2>/dev/null || true
         wait "$pixiu_pid" 2>/dev/null || true
         wait "$nginx_pid" 2>/dev/null || true
         wait "$watcher_pid" 2>/dev/null || true
+        wait "$log_rotate_pid" 2>/dev/null || true
     }
 
     trap cleanup INT TERM EXIT
