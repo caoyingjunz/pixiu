@@ -60,6 +60,9 @@ func (p *proxyRouter) initRoutes(ginEngine *gin.Engine) {
 func (p *proxyRouter) proxyHandler(c *gin.Context) {
 	resp := httputils.NewResponse()
 
+	// 剥离上游 401 认证挑战头，避免浏览器弹出原生 Basic Auth 登录框
+	c.Writer = &challengeStrippingResponseWriter{ResponseWriter: c.Writer}
+
 	var cluster struct {
 		Name string `uri:"clusterName" binding:"required"`
 	}
