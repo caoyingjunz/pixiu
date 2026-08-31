@@ -36,10 +36,10 @@ NGINX_LOG_MAX_SIZE="${NGINX_LOG_MAX_SIZE:-100m}"
 NGINX_LOG_KEEP="${NGINX_LOG_KEEP:-2}"
 NGINX_LOG_ROTATE_CHECK_INTERVAL="${NGINX_LOG_ROTATE_CHECK_INTERVAL:-60}"
 
-# 登录爆破自动封禁：默认开启。扫 access.log 中 /pixiu/users/login 的 401/429，
+# 登录爆破自动封禁：默认关闭，需显式开启（NGINX_AUTO_BAN=true）。
+# 开启后扫 access.log 中 /pixiu/users/login 的 401/429，
 # 滑动窗口内达到阈值则写入 ip-blacklist.txt（/32），由现有热更新生效。
-# 关闭：NGINX_AUTO_BAN=false
-NGINX_AUTO_BAN="${NGINX_AUTO_BAN:-true}"
+NGINX_AUTO_BAN="${NGINX_AUTO_BAN:-false}"
 NGINX_AUTO_BAN_WINDOW="${NGINX_AUTO_BAN_WINDOW:-300}"
 NGINX_AUTO_BAN_THRESHOLD="${NGINX_AUTO_BAN_THRESHOLD:-15}"
 NGINX_AUTO_BAN_TTL="${NGINX_AUTO_BAN_TTL:-86400}"
