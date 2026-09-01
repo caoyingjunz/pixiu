@@ -335,16 +335,59 @@ type Resources struct {
 type User struct {
 	PixiuMeta `json:",inline"`
 
-	Name        string           `json:"name"`                                 // 用户名称
-	Password    string           `json:"password" binding:"required,password"` // 用户密码
-	Status      model.UserStatus `json:"status"`                               // 用户状态标识
-	Role        model.UserLevel  `json:"role"`                                 // 用户角色，目前只实现管理员，0: 普通用户 1: 管理员 2: 超级管理员
-	Email       string           `json:"email"`                                // 用户注册邮件
-	Phone       string           `json:"phone"`                                // 用户手机号
-	Description string           `json:"description"`                          // 用户描述信息
+	Name          string           `json:"name"`                                 // 用户名称
+	Password      string           `json:"password" binding:"required,password"` // 用户密码
+	Status        model.UserStatus `json:"status"`                               // 用户状态标识
+	Role          model.UserLevel  `json:"role"`                                 // 用户角色，目前只实现管理员，0: 普通用户 1: 管理员 2: 超级管理员
+	Email         string           `json:"email"`                                // 用户注册邮件
+	Phone         string           `json:"phone"`                                // 用户手机号
+	FeishuOpenID  string           `json:"feishu_open_id,omitempty"`
+	FeishuUnionID string           `json:"feishu_union_id,omitempty"`
+	FeishuUserID  string           `json:"feishu_user_id,omitempty"`
+	AvatarURL     string           `json:"avatar_url,omitempty"`
+	Source        string           `json:"source,omitempty"`
+	Description   string           `json:"description"` // 用户描述信息
 
 	TimeMeta `json:",inline"`
 }
+
+type OAuthProviderConfig struct {
+	PixiuMeta `json:",inline"`
+	TimeMeta  `json:",inline"`
+
+	Provider       string          `json:"provider"`
+	Name           string          `json:"name"`
+	LoginType      string          `json:"login_type"`
+	ButtonText     string          `json:"button_text"`
+	Enabled        bool            `json:"enabled"`
+	AppID          string          `json:"app_id"`
+	AppSecretSet   bool            `json:"app_secret_set"`
+	RedirectURI    string          `json:"redirect_uri"`
+	Scopes         string          `json:"scopes"`
+	ConfigJSON     string          `json:"config_json,omitempty"`
+	AutoCreateUser bool            `json:"auto_create_user"`
+	DefaultRole    model.UserLevel `json:"default_role"`
+	MatchEmail     bool            `json:"match_email"`
+	Description    string          `json:"description"`
+}
+
+type OAuthProviderSummary struct {
+	Provider   string `json:"provider"`
+	Name       string `json:"name"`
+	LoginType  string `json:"login_type"`
+	ButtonText string `json:"button_text"`
+	Enabled    bool   `json:"enabled"`
+}
+
+type OAuthLoginURLResponse struct {
+	Provider string `json:"provider"`
+	Enabled  bool   `json:"enabled"`
+	URL      string `json:"url"`
+	State    string `json:"state"`
+}
+
+type FeishuOAuthConfig = OAuthProviderConfig
+type FeishuLoginURLResponse = OAuthLoginURLResponse
 
 type Tenant struct {
 	PixiuMeta `json:",inline"`

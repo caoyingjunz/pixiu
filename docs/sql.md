@@ -51,6 +51,45 @@ CREATE TABLE `users` (
 insert into users(name, password) values ('pixiu', '$2a$10$SamcBWw.aPMDv5QadDr7f.2rDBWiwfTwnbh5sEEhaTkWfVwO96PfW');
 ```
 
+### 第三方登录用户字段
+```sql
+ALTER TABLE `users`
+  ADD COLUMN `feishu_open_id` varchar(128) DEFAULT '' COMMENT '飞书 open_id',
+  ADD COLUMN `feishu_union_id` varchar(128) DEFAULT '' COMMENT '飞书 union_id',
+  ADD COLUMN `feishu_user_id` varchar(128) DEFAULT '' COMMENT '飞书 user_id',
+  ADD COLUMN `avatar_url` varchar(512) DEFAULT '' COMMENT '头像地址',
+  ADD COLUMN `source` varchar(32) DEFAULT '' COMMENT '用户来源，如 feishu';
+
+CREATE INDEX `idx_feishu_open_id` ON `users` (`feishu_open_id`);
+CREATE INDEX `idx_feishu_union_id` ON `users` (`feishu_union_id`);
+CREATE INDEX `idx_feishu_user_id` ON `users` (`feishu_user_id`);
+```
+
+## 创建 `oauth_providers` 表
+```sql
+CREATE TABLE `oauth_providers` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `gmt_create` datetime DEFAULT NULL COMMENT '创建时间',
+  `gmt_modified` datetime DEFAULT NULL COMMENT '修改时间',
+  `resource_version` bigint DEFAULT 0 COMMENT '资源版本',
+  `provider` varchar(32) NOT NULL COMMENT '登录源标识，如 feishu/wechat_work/dingtalk/ldap',
+  `name` varchar(64) DEFAULT '' COMMENT '登录源显示名称',
+  `login_type` varchar(32) DEFAULT '' COMMENT '登录类型，如 redirect/password',
+  `enabled` boolean DEFAULT false COMMENT '是否启用',
+  `app_id` varchar(128) DEFAULT '' COMMENT 'App ID / Client ID',
+  `app_secret` varchar(256) DEFAULT '' COMMENT 'App Secret / Client Secret',
+  `redirect_uri` varchar(512) DEFAULT '' COMMENT 'OAuth 回调地址',
+  `scopes` varchar(512) DEFAULT '' COMMENT 'OAuth 授权范围',
+  `config_json` text COMMENT '平台差异化配置，LDAP 等非 OAuth 参数可放这里',
+  `auto_create_user` boolean DEFAULT true COMMENT '登录成功且未匹配用户时是否自动创建',
+  `default_role` bigint DEFAULT 2 COMMENT '自动创建用户默认角色，1=管理员，2=普通用户',
+  `match_email` boolean DEFAULT true COMMENT '是否按邮箱匹配已有 Pixiu 用户',
+  `description` text COMMENT '说明',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_oauth_provider` (`provider`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
 ## 创建 `tenants` 表
 ```sql
 CREATE TABLE `tenants` (

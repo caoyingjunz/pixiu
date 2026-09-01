@@ -165,6 +165,138 @@ func (u *userRouter) login(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (u *userRouter) getFeishuOAuthConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = u.c.User().GetFeishuOAuthConfig(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) listOAuthProviders(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	enabledOnly := c.Query("enabled_only") == "true"
+	var err error
+	if r.Result, err = u.c.User().ListOAuthProviders(c, enabledOnly); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getOAuthProviderConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = u.c.User().GetOAuthProviderConfig(c, c.Param("provider")); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) updateOAuthProviderConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.UpdateOAuthProviderConfigRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = u.c.User().UpdateOAuthProviderConfig(c, c.Param("provider"), &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getOAuthProviderLoginURL(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = u.c.User().GetOAuthProviderLoginURL(c, c.Param("provider")); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) loginWithOAuthProvider(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.OAuthLoginRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	loginResp, err := u.c.User().LoginWithOAuthProvider(c, c.Param("provider"), &req)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = loginResp
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) updateFeishuOAuthConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.UpdateFeishuOAuthConfigRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = u.c.User().UpdateFeishuOAuthConfig(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) getFeishuLoginURL(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = u.c.User().GetFeishuLoginURL(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) loginWithFeishu(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.FeishuLoginRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	loginResp, err := u.c.User().LoginWithFeishu(c, &req)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = loginResp
+	httputils.SetSuccess(c, r)
+}
+
 func (u *userRouter) logout(c *gin.Context) {
 	r := httputils.NewResponse()
 

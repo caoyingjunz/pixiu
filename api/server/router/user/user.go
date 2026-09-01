@@ -52,6 +52,15 @@ func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
 			// 登录相关APIs
 			{Method: "POST", RelativePath: "/:userId/logout", Handler: u.logout, Description: "登出"},
 			{Method: "POST", RelativePath: "/login", Handler: u.login, Description: "登录"},
+			{Method: "GET", RelativePath: "/oauth/providers", Handler: u.listOAuthProviders, Description: "查看第三方登录源"},
+			{Method: "GET", RelativePath: "/oauth/providers/:provider/config", Handler: u.getOAuthProviderConfig, Description: "查看第三方登录配置"},
+			{Method: "PUT", RelativePath: "/oauth/providers/:provider/config", Handler: u.updateOAuthProviderConfig, Description: "更新第三方登录配置"},
+			{Method: "GET", RelativePath: "/oauth/providers/:provider/login-url", Handler: u.getOAuthProviderLoginURL, Description: "获取第三方登录地址"},
+			{Method: "POST", RelativePath: "/oauth/providers/:provider/login", Handler: u.loginWithOAuthProvider, Description: "第三方登录"},
+			{Method: "GET", RelativePath: "/feishu/config", Handler: u.getFeishuOAuthConfig, Description: "查看飞书登录配置"},
+			{Method: "PUT", RelativePath: "/feishu/config", Handler: u.updateFeishuOAuthConfig, Description: "更新飞书登录配置"},
+			{Method: "GET", RelativePath: "/feishu/login-url", Handler: u.getFeishuLoginURL, Description: "获取飞书登录地址"},
+			{Method: "POST", RelativePath: "/feishu/login", Handler: u.loginWithFeishu, Description: "飞书登录"},
 			{Method: "GET", RelativePath: "/permissions", Handler: u.getCurrentUserPermissions, Description: "获取当前用户权限"},
 		},
 	}

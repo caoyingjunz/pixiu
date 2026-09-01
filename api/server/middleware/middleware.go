@@ -30,12 +30,22 @@ import (
 var alwaysAllowPath sets.String
 
 func init() {
-	alwaysAllowPath = sets.NewString("/pixiu/users/login", "/pixiu/connect")
+	alwaysAllowPath = sets.NewString(
+		"/pixiu/users/login",
+		"/pixiu/users/oauth/providers",
+		"/pixiu/users/feishu/login-url",
+		"/pixiu/users/feishu/login",
+		"/pixiu/connect",
+	)
 }
 
 // 允许特定请求不经过 JWT 验证（由业务侧 Token 鉴权）
 func allowCustomRequest(c *gin.Context) bool {
 	path := c.Request.URL.Path
+	if strings.HasPrefix(path, "/pixiu/users/oauth/providers/") &&
+		(strings.HasSuffix(path, "/login-url") || strings.HasSuffix(path, "/login")) {
+		return true
+	}
 	// Agent 任务 API（deploy-agent heartbeat / claim / logs / result / plan）
 	if strings.HasPrefix(path, "/pixiu/agents/heartbeat") ||
 		strings.HasPrefix(path, "/pixiu/agents/claim") ||

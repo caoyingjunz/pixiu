@@ -26,6 +26,7 @@ testbin/*
 
 # output
 dist
+config.local.yaml
 
 # licensefmt
 hack/tools/licfmt/licfmt
