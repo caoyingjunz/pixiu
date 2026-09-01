@@ -40,6 +40,7 @@ const (
 	DatasourceSubTypeRedis        DatasourceSubType = "redis"
 	DatasourceSubTypeNacos        DatasourceSubType = "nacos"
 	DatasourceSubTypeMySQL        DatasourceSubType = "mysql"
+	DatasourceSubTypeRabbitMQ     DatasourceSubType = "rabbitmq"
 )
 
 type Datasource struct {
