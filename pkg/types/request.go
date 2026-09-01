@@ -55,9 +55,6 @@ type (
 		Description    string          `json:"description" binding:"omitempty"`
 	}
 
-	FeishuLoginRequest             = OAuthLoginRequest
-	UpdateFeishuOAuthConfigRequest = UpdateOAuthProviderConfigRequest
-
 	CreateUserRequest struct {
 		Name        string           `json:"name" binding:"required"`              // required
 		Password    string           `json:"password" binding:"required,password"` // required

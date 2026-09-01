@@ -54,15 +54,14 @@ insert into users(name, password) values ('pixiu', '$2a$10$SamcBWw.aPMDv5QadDr7f
 ### 第三方登录用户字段
 ```sql
 ALTER TABLE `users`
-  ADD COLUMN `feishu_open_id` varchar(128) DEFAULT '' COMMENT '飞书 open_id',
-  ADD COLUMN `feishu_union_id` varchar(128) DEFAULT '' COMMENT '飞书 union_id',
-  ADD COLUMN `feishu_user_id` varchar(128) DEFAULT '' COMMENT '飞书 user_id',
-  ADD COLUMN `avatar_url` varchar(512) DEFAULT '' COMMENT '头像地址',
-  ADD COLUMN `source` varchar(32) DEFAULT '' COMMENT '用户来源，如 feishu';
+  ADD COLUMN `oauth_provider` varchar(32) DEFAULT '' COMMENT '第三方登录源标识',
+  ADD COLUMN `oauth_open_id` varchar(128) DEFAULT '' COMMENT '第三方 open_id',
+  ADD COLUMN `oauth_union_id` varchar(128) DEFAULT '' COMMENT '第三方 union_id',
+  ADD COLUMN `oauth_user_id` varchar(128) DEFAULT '' COMMENT '第三方 user_id',
+  ADD COLUMN `avatar_url` varchar(512) DEFAULT '' COMMENT '头像地址';
 
-CREATE INDEX `idx_feishu_open_id` ON `users` (`feishu_open_id`);
-CREATE INDEX `idx_feishu_union_id` ON `users` (`feishu_union_id`);
-CREATE INDEX `idx_feishu_user_id` ON `users` (`feishu_user_id`);
+CREATE INDEX `idx_oauth_provider_open_id` ON `users` (`oauth_provider`, `oauth_open_id`);
+CREATE INDEX `idx_oauth_provider_union_id` ON `users` (`oauth_provider`, `oauth_union_id`);
 ```
 
 ## 创建 `oauth_providers` 表

@@ -341,11 +341,11 @@ type User struct {
 	Role          model.UserLevel  `json:"role"`                                 // 用户角色，目前只实现管理员，0: 普通用户 1: 管理员 2: 超级管理员
 	Email         string           `json:"email"`                                // 用户注册邮件
 	Phone         string           `json:"phone"`                                // 用户手机号
-	FeishuOpenID  string           `json:"feishu_open_id,omitempty"`
-	FeishuUnionID string           `json:"feishu_union_id,omitempty"`
-	FeishuUserID  string           `json:"feishu_user_id,omitempty"`
+	OAuthProvider string           `json:"oauth_provider,omitempty"`
+	OAuthOpenID   string           `json:"oauth_open_id,omitempty"`
+	OAuthUnionID  string           `json:"oauth_union_id,omitempty"`
+	OAuthUserID   string           `json:"oauth_user_id,omitempty"`
 	AvatarURL     string           `json:"avatar_url,omitempty"`
-	Source        string           `json:"source,omitempty"`
 	Description   string           `json:"description"` // 用户描述信息
 
 	TimeMeta `json:",inline"`
@@ -385,9 +385,6 @@ type OAuthLoginURLResponse struct {
 	URL      string `json:"url"`
 	State    string `json:"state"`
 }
-
-type FeishuOAuthConfig = OAuthProviderConfig
-type FeishuLoginURLResponse = OAuthLoginURLResponse
 
 type Tenant struct {
 	PixiuMeta `json:",inline"`

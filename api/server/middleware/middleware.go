@@ -33,8 +33,6 @@ func init() {
 	alwaysAllowPath = sets.NewString(
 		"/pixiu/users/login",
 		"/pixiu/users/oauth/providers",
-		"/pixiu/users/feishu/login-url",
-		"/pixiu/users/feishu/login",
 		"/pixiu/connect",
 	)
 }

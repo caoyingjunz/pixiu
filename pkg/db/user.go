@@ -36,10 +36,8 @@ type UserInterface interface {
 	Count(ctx context.Context, opts ...Options) (int64, error)
 
 	GetRoot(ctx context.Context) (*model.User, error)
+	GetBy(ctx context.Context, opts ...Options) (*model.User, error)
 	GetUserByName(ctx context.Context, userName string) (*model.User, error)
-	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
-	GetUserByFeishuOpenID(ctx context.Context, openID string) (*model.User, error)
-	GetUserByFeishuUnionID(ctx context.Context, unionID string) (*model.User, error)
 }
 
 type user struct {
@@ -112,6 +110,22 @@ func (u *user) GetRoot(ctx context.Context) (*model.User, error) {
 	return &object, nil
 }
 
+func (u *user) GetBy(ctx context.Context, opts ...Options) (*model.User, error) {
+	var object model.User
+	tx := u.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &object, nil
+}
+
 // List 获取用户列表
 // TODO: 暂时不做分页考虑
 func (u *user) List(ctx context.Context, opts ...Options) ([]model.User, error) {
@@ -143,51 +157,6 @@ func (u *user) Count(ctx context.Context, opts ...Options) (int64, error) {
 func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User, error) {
 	var object model.User
 	if err := u.db.WithContext(ctx).Where("name = ?", userName).First(&object).Error; err != nil {
-		if errors.IsRecordNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &object, nil
-}
-
-func (u *user) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
-	if email == "" {
-		return nil, nil
-	}
-	var object model.User
-	if err := u.db.WithContext(ctx).Where("email = ?", email).First(&object).Error; err != nil {
-		if errors.IsRecordNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &object, nil
-}
-
-func (u *user) GetUserByFeishuOpenID(ctx context.Context, openID string) (*model.User, error) {
-	if openID == "" {
-		return nil, nil
-	}
-	var object model.User
-	if err := u.db.WithContext(ctx).Where("feishu_open_id = ?", openID).First(&object).Error; err != nil {
-		if errors.IsRecordNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &object, nil
-}
-
-func (u *user) GetUserByFeishuUnionID(ctx context.Context, unionID string) (*model.User, error) {
-	if unionID == "" {
-		return nil, nil
-	}
-	var object model.User
-	if err := u.db.WithContext(ctx).Where("feishu_union_id = ?", unionID).First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}

@@ -26,15 +26,6 @@ GET  /pixiu/users/oauth/providers/:provider/login-url
 POST /pixiu/users/oauth/providers/:provider/login
 ```
 
-飞书兼容接口仍保留：
-
-```text
-GET  /pixiu/users/feishu/config
-PUT  /pixiu/users/feishu/config
-GET  /pixiu/users/feishu/login-url
-POST /pixiu/users/feishu/login
-```
-
 ## 表结构
 
 项目开启 `default.auto_migrate=true` 时，GORM 会根据 model 自动迁移表结构。手动维护数据库时，可参考下面的 SQL。
@@ -69,15 +60,14 @@ CREATE TABLE `oauth_providers` (
 
 ```sql
 ALTER TABLE `users`
-  ADD COLUMN `feishu_open_id` varchar(128) DEFAULT '' COMMENT '飞书 open_id',
-  ADD COLUMN `feishu_union_id` varchar(128) DEFAULT '' COMMENT '飞书 union_id',
-  ADD COLUMN `feishu_user_id` varchar(128) DEFAULT '' COMMENT '飞书 user_id',
-  ADD COLUMN `avatar_url` varchar(512) DEFAULT '' COMMENT '头像地址',
-  ADD COLUMN `source` varchar(32) DEFAULT '' COMMENT '用户来源，如 feishu';
+  ADD COLUMN `oauth_provider` varchar(32) DEFAULT '' COMMENT '第三方登录源标识',
+  ADD COLUMN `oauth_open_id` varchar(128) DEFAULT '' COMMENT '第三方 open_id',
+  ADD COLUMN `oauth_union_id` varchar(128) DEFAULT '' COMMENT '第三方 union_id',
+  ADD COLUMN `oauth_user_id` varchar(128) DEFAULT '' COMMENT '第三方 user_id',
+  ADD COLUMN `avatar_url` varchar(512) DEFAULT '' COMMENT '头像地址';
 
-CREATE INDEX `idx_feishu_open_id` ON `users` (`feishu_open_id`);
-CREATE INDEX `idx_feishu_union_id` ON `users` (`feishu_union_id`);
-CREATE INDEX `idx_feishu_user_id` ON `users` (`feishu_user_id`);
+CREATE INDEX `idx_oauth_provider_open_id` ON `users` (`oauth_provider`, `oauth_open_id`);
+CREATE INDEX `idx_oauth_provider_union_id` ON `users` (`oauth_provider`, `oauth_union_id`);
 ```
 
 ## 飞书应用创建

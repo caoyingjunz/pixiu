@@ -155,6 +155,33 @@ func WithEmailLike(email string) Options {
 	}
 }
 
+func WithEmail(email string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if email == "" {
+			return tx
+		}
+		return tx.Where("email = ?", email)
+	}
+}
+
+func WithOAuthOpenID(provider, openID string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if provider == "" || openID == "" {
+			return tx
+		}
+		return tx.Where("oauth_provider = ? and oauth_open_id = ?", provider, openID)
+	}
+}
+
+func WithOAuthUnionID(provider, unionID string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if provider == "" || unionID == "" {
+			return tx
+		}
+		return tx.Where("oauth_provider = ? and oauth_union_id = ?", provider, unionID)
+	}
+}
+
 func WithUserStatus(status int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)
