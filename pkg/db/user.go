@@ -36,6 +36,7 @@ type UserInterface interface {
 	Count(ctx context.Context, opts ...Options) (int64, error)
 
 	GetRoot(ctx context.Context) (*model.User, error)
+	GetBy(ctx context.Context, opts ...Options) (*model.User, error)
 	GetUserByName(ctx context.Context, userName string) (*model.User, error)
 }
 
@@ -100,6 +101,22 @@ func (u *user) Get(ctx context.Context, uid int64) (*model.User, error) {
 func (u *user) GetRoot(ctx context.Context) (*model.User, error) {
 	var object model.User
 	if err := u.db.WithContext(ctx).Where("role = ?", model.RoleRoot).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+func (u *user) GetBy(ctx context.Context, opts ...Options) (*model.User, error) {
+	var object model.User
+	tx := u.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object).Error; err != nil {
 		if errors.IsRecordNotFound(err) {
 			return nil, nil
 		}

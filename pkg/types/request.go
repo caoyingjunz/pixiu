@@ -35,6 +35,26 @@ type (
 		Password string `json:"password" binding:"required"` // required
 	}
 
+	OAuthLoginRequest struct {
+		Code  string `json:"code" binding:"required"`
+		State string `json:"state" binding:"omitempty"`
+	}
+
+	UpdateOAuthProviderConfigRequest struct {
+		Name           string          `json:"name" binding:"omitempty"`
+		LoginType      string          `json:"login_type" binding:"omitempty"`
+		Enabled        bool            `json:"enabled"`
+		AppID          string          `json:"app_id" binding:"omitempty"`
+		AppSecret      string          `json:"app_secret" binding:"omitempty"`
+		RedirectURI    string          `json:"redirect_uri" binding:"omitempty"`
+		Scopes         string          `json:"scopes" binding:"omitempty"`
+		ConfigJSON     string          `json:"config_json" binding:"omitempty"`
+		AutoCreateUser bool            `json:"auto_create_user"`
+		DefaultRole    model.UserLevel `json:"default_role" binding:"omitempty"`
+		MatchEmail     bool            `json:"match_email"`
+		Description    string          `json:"description" binding:"omitempty"`
+	}
+
 	CreateUserRequest struct {
 		Name        string           `json:"name" binding:"required"`              // required
 		Password    string           `json:"password" binding:"required,password"` // required

@@ -24,6 +24,7 @@ type ShareDaoFactory interface {
 	Cluster() ClusterInterface
 	Tenant() TenantInterface
 	Role() RoleInterface
+	OAuthProvider() OAuthProviderInterface
 	API() APIResourceInterface
 	User() UserInterface
 	Plan() PlanInterface
@@ -44,23 +45,24 @@ type shareDaoFactory struct {
 	db *gorm.DB
 }
 
-func (f *shareDaoFactory) Cluster() ClusterInterface           { return newCluster(f.db) }
-func (f *shareDaoFactory) Tenant() TenantInterface             { return newTenant(f.db) }
-func (f *shareDaoFactory) Role() RoleInterface                 { return newRole(f.db) }
-func (f *shareDaoFactory) API() APIResourceInterface           { return newAPIs(f.db) }
-func (f *shareDaoFactory) User() UserInterface                 { return newUser(f.db) }
-func (f *shareDaoFactory) Plan() PlanInterface                 { return newPlan(f.db) }
-func (f *shareDaoFactory) Distribution() DistributionInterface { return newDistribution(f.db) }
-func (f *shareDaoFactory) Audit() AuditInterface               { return newAudit(f.db) }
-func (f *shareDaoFactory) Repository() RepositoryInterface     { return newRepository(f.db) }
-func (f *shareDaoFactory) Agent() AgentInterface               { return newAgent(f.db) }
-func (f *shareDaoFactory) Permission() PermissionInterface     { return newPermission(f.db) }
-func (f *shareDaoFactory) Datasource() DatasourceInterface     { return newDatasource(f.db) }
-func (f *shareDaoFactory) Runner() RunnerInterface             { return newRunner(f.db) }
-func (f *shareDaoFactory) Assistant() AssistantInterface       { return newAssistant(f.db) }
-func (f *shareDaoFactory) Alert() AlertInterface               { return newAlert(f.db) }
-func (f *shareDaoFactory) Email() EmailInterface               { return newEmail(f.db) }
-func (f *shareDaoFactory) CronHpa() CronHpaInterface           { return newCronHpa(f.db) }
+func (f *shareDaoFactory) Cluster() ClusterInterface             { return newCluster(f.db) }
+func (f *shareDaoFactory) Tenant() TenantInterface               { return newTenant(f.db) }
+func (f *shareDaoFactory) Role() RoleInterface                   { return newRole(f.db) }
+func (f *shareDaoFactory) OAuthProvider() OAuthProviderInterface { return newOAuthProvider(f.db) }
+func (f *shareDaoFactory) API() APIResourceInterface             { return newAPIs(f.db) }
+func (f *shareDaoFactory) User() UserInterface                   { return newUser(f.db) }
+func (f *shareDaoFactory) Plan() PlanInterface                   { return newPlan(f.db) }
+func (f *shareDaoFactory) Distribution() DistributionInterface   { return newDistribution(f.db) }
+func (f *shareDaoFactory) Audit() AuditInterface                 { return newAudit(f.db) }
+func (f *shareDaoFactory) Repository() RepositoryInterface       { return newRepository(f.db) }
+func (f *shareDaoFactory) Agent() AgentInterface                 { return newAgent(f.db) }
+func (f *shareDaoFactory) Permission() PermissionInterface       { return newPermission(f.db) }
+func (f *shareDaoFactory) Datasource() DatasourceInterface       { return newDatasource(f.db) }
+func (f *shareDaoFactory) Runner() RunnerInterface               { return newRunner(f.db) }
+func (f *shareDaoFactory) Assistant() AssistantInterface         { return newAssistant(f.db) }
+func (f *shareDaoFactory) Alert() AlertInterface                 { return newAlert(f.db) }
+func (f *shareDaoFactory) Email() EmailInterface                 { return newEmail(f.db) }
+func (f *shareDaoFactory) CronHpa() CronHpaInterface             { return newCronHpa(f.db) }
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
 	if migrate {

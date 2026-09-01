@@ -14,3 +14,6 @@ go run cmd/pixiuserver.go --configfile ./config.yaml
 ```shell
 curl http://127.0.0.1:8090/api-ref/index.html
 ```
+
+### 第三方登录
+- [飞书扫码登录与第三方登录配置](oauth-login.md)
