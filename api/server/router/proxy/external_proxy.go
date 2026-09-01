@@ -84,7 +84,10 @@ func (p *proxyRouter) externalProxyHandler(c *gin.Context) {
 		return
 	}
 
-	target, err := resolveExternalProxyTarget(c, req.Act)
+	// gin 路由参数会解码转义字符（如 %2F → /），导致 RabbitMQ 默认 vhost 路径失真，
+	// 因此转发路径改用原始转义形式重建，解码形式仅用于校验。
+	escapedAct := escapedProxyAct(c)
+	target, err := resolveExternalProxyTarget(c, req.Act, escapedAct)
 	if err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
@@ -92,7 +95,7 @@ func (p *proxyRouter) externalProxyHandler(c *gin.Context) {
 	p.forwardExternalRequest(c, resp, target, c.Request)
 }
 
-func resolveExternalProxyTarget(c *gin.Context, act string) (*url.URL, error) {
+func resolveExternalProxyTarget(c *gin.Context, act, escapedAct string) (*url.URL, error) {
 	raw := strings.TrimSpace(c.Query(externalProxyTargetQueryKey))
 	if raw == "" {
 		return nil, fmt.Errorf("missing %s query parameter", externalProxyTargetQueryKey)
@@ -111,7 +114,7 @@ func resolveExternalProxyTarget(c *gin.Context, act string) (*url.URL, error) {
 
 	targetURL := *baseURL
 	targetURL.Path = joinUpstreamProxyPath(baseURL.Path, act)
-	targetURL.RawPath = targetURL.Path
+	targetURL.RawPath = joinUpstreamProxyPath(baseURL.EscapedPath(), escapedAct)
 
 	query := c.Request.URL.Query()
 	query.Del(externalProxyTargetQueryKey)
@@ -213,6 +216,16 @@ func (m *maxBytesReadCloser) Read(p []byte) (int, error) {
 
 func (m *maxBytesReadCloser) Close() error {
 	return m.rc.Close()
+}
+
+// escapedProxyAct 返回外部代理路由的原始转义上游路径（保留 %2F 等转义字符）。
+// gin 的 *act 路由参数已被解码，不能直接用于转发。
+func escapedProxyAct(c *gin.Context) string {
+	escaped := strings.TrimPrefix(c.Request.URL.EscapedPath(), externalProxyBaseURL)
+	if escaped == "" {
+		escaped = "/"
+	}
+	return escaped
 }
 
 func joinUpstreamProxyPath(basePath string, act string) string {

@@ -85,7 +85,17 @@ func parseServiceProxyPath(k8sPath string) (*serviceProxyTarget, bool) {
 // apiserver 的 service proxy 会剥离 Authorization，导致 ES 等上游服务返回 401。
 // 实现方式：选取 Service 后端的一个 Pod，通过 apiserver port-forward 隧道转发请求。
 func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kubernetes.Interface, config *rest.Config, clusterName string, upstreamAuth string) (handled bool, err error) {
-	k8sPath := c.Request.URL.Path[len(proxyBaseURL+"/"+clusterName):]
+	// 使用原始转义路径（保留 %2F 等），避免 RabbitMQ 默认 vhost 等路径段被解码失真；
+	// gin 按解码后的 Path 路由，原始转义形式仅在 URL.RawPath/EscapedPath 中可用。
+	escapedPath := c.Request.URL.EscapedPath()
+	prefix := proxyBaseURL + "/" + clusterName
+	k8sPath := escapedPath
+	if strings.HasPrefix(escapedPath, prefix) {
+		k8sPath = escapedPath[len(prefix):]
+	}
+	if k8sPath == "" {
+		k8sPath = "/"
+	}
 	target, ok := parseServiceProxyPath(k8sPath)
 	if !ok {
 		klog.V(4).Infof("skip authenticated upstream proxy, path not service proxy: %q", k8sPath)
