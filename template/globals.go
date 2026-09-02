@@ -60,7 +60,7 @@ app_image_repository: "{{ .Kubernetes.ImageRepository }}"
 
 {{- if and .Component.MetricServer .Component.MetricServer.Enable }}
 enable_metrics_server: "yes"
-enable_metrics_scraper: "yes"
+enable_metrics_scraper: "no"
 {{- else }}
 enable_metrics_server: "no"
 enable_metrics_scraper: "no"
