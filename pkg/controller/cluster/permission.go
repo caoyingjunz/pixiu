@@ -72,6 +72,10 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	if uid == 0 || req.ClusterId == 0 {
 		return errors.ErrReqParams
 	}
+	userObj, err := c.validateBuiltinUserGrant(ctx, uid, req.PType)
+	if err != nil {
+		return err
+	}
 
 	if err = types.ValidatePermissionGrant(user.Role == model.RoleRoot, req.PType, req.Rules, req.TargetNamespaces); err != nil {
 		return err
@@ -111,12 +115,6 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 		return err
 	}
 	nsJSON, err := encodeStringSlice(req.TargetNamespaces)
-	if err != nil {
-		return err
-	}
-
-	// 查询用户信息
-	userObj, err := c.factory.User().Get(ctx, uid)
 	if err != nil {
 		return err
 	}
@@ -348,6 +346,9 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	if err != nil {
 		return err
 	}
+	if _, err = c.validateBuiltinUserGrant(ctx, oldP.UserId, int(oldP.PType)); err != nil {
+		return err
+	}
 	if err = types.ValidatePermissionGrant(user.Role == model.RoleRoot, int(oldP.PType), req.Rules, req.TargetNamespaces); err != nil {
 		return err
 	}
@@ -431,6 +432,30 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	}
 
 	return nil
+}
+
+func (c *cluster) validateBuiltinUserGrant(ctx context.Context, userID int64, pType int) (*model.User, error) {
+	user, err := c.factory.User().Get(ctx, userID)
+	if err != nil {
+		return nil, errors.ErrInternal
+	}
+	if user == nil {
+		return nil, servererrors.ErrUserNotFound
+	}
+	if user.Role == model.RoleRoot {
+		return user, nil
+	}
+	role, err := c.factory.Role().Get(ctx, int64(user.Role))
+	if err != nil {
+		return nil, errors.ErrInternal
+	}
+	if role == nil {
+		return nil, servererrors.ErrRoleNotFound
+	}
+	if role.Builtin && pType != int(model.PermissionPTypeReadonly) {
+		return nil, servererrors.ErrForbidden
+	}
+	return user, nil
 }
 
 // DeletePermission

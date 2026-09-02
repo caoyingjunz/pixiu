@@ -19,6 +19,10 @@ package user
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -116,8 +120,13 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 			return errors.ErrRootAlreadyExists
 		}
 	}
+	tenantID, err := u.tenantIDForRole(ctx, req.Role)
+	if err != nil {
+		return err
+	}
 
 	if _, err = u.factory.User().Create(ctx, &model.User{
+		TenantId:    tenantID,
 		Name:        req.Name,
 		Password:    encrypt,
 		Status:      req.Status,
@@ -169,7 +178,12 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 	}
 	// 非超管不允许修改角色（垂直越权防护）；req.Role 是值类型，前端不传时零值=RoleRoot(0)，故非超管一律强制保持旧角色
 	if curUser.Role == model.RoleRoot {
+		tenantID, resolveErr := u.tenantIDForRole(ctx, req.Role)
+		if resolveErr != nil {
+			return resolveErr
+		}
 		updates["role"] = req.Role
+		updates["tenant_id"] = tenantID
 	} else {
 		updates["role"] = old.Role
 	}
@@ -181,6 +195,24 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 
 	userIndexer.Set(uid, int(req.Status))
 	return nil
+}
+
+func (u *user) tenantIDForRole(ctx context.Context, roleID model.UserLevel) (int64, error) {
+	if roleID == model.RoleRoot {
+		return 0, nil
+	}
+	role, err := u.factory.Role().Get(ctx, int64(roleID))
+	if err != nil {
+		klog.Errorf("failed to get role(%d): %v", roleID, err)
+		return 0, errors.ErrServerInternal
+	}
+	if role == nil {
+		return 0, errors.ErrRoleNotFound
+	}
+	if role.TenantId <= 0 {
+		return 0, errors.ErrInvalidRequest
+	}
+	return role.TenantId, nil
 }
 
 func (u *user) preResetPassword(ctx context.Context, userId int64, operatorId int64, req *types.UpdateUserPasswordRequest) error {
@@ -587,8 +619,99 @@ func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
 	if roleId == 0 {
 		return nil
 	}
-	// k8s 资源授权由 Permission（scoped kubeconfig）/ 集群 Authorize 兜底，proxy 请求不再按 scope 校验
+	role, err := u.factory.Role().Get(ctx, roleId)
+	if err != nil {
+		return errors.ErrServerInternal
+	}
+	if role == nil {
+		return errors.ErrForbidden
+	}
+	if !role.Builtin {
+		return nil
+	}
+	if !isReadonlyProxyRequest(ctx) {
+		return errors.ErrForbidden
+	}
+	if ctx.FullPath() == "/pixiu/external/*act" {
+		return u.validateExternalDatasourceProxy(ctx, roleId)
+	}
+	// 集群访问仍由 Permission 的 scoped kubeconfig 和集群归属校验兜底。
 	return nil
+}
+
+func isReadonlyProxyRequest(ctx *gin.Context) bool {
+	switch ctx.Request.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+	default:
+		return false
+	}
+	if strings.EqualFold(ctx.GetHeader("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.ToLower(ctx.Request.URL.Path)
+	for _, subresource := range []string{"/exec", "/attach", "/portforward"} {
+		if strings.Contains(path, subresource) {
+			return false
+		}
+	}
+	return true
+}
+
+func (u *user) validateExternalDatasourceProxy(ctx *gin.Context, roleID int64) error {
+	datasourceID, err := strconv.ParseInt(strings.TrimSpace(ctx.GetHeader("X-Pixiu-Datasource-Id")), 10, 64)
+	if err != nil || datasourceID <= 0 {
+		return errors.ErrForbidden
+	}
+	datasource, err := u.factory.Datasource().Get(ctx, datasourceID)
+	if err != nil {
+		return errors.ErrServerInternal
+	}
+	if datasource == nil || !datasource.External {
+		return errors.ErrForbidden
+	}
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if err = controllerutil.CheckResourceAccess(ctx, u.factory, datasource.UserId, types.ResourceTypeDatasource, datasource.Id); err != nil {
+		return err
+	}
+	if int64(user.Role) != roleID {
+		return errors.ErrForbidden
+	}
+
+	var cfg types.DatasourceConfig
+	if err = cfg.Unmarshal(datasource.Config); err != nil {
+		return errors.ErrServerInternal
+	}
+	requested := strings.TrimSpace(ctx.Query("url"))
+	configuredURLs := make([]string, 0, 2)
+	if cfg.Log != nil {
+		configuredURLs = append(configuredURLs, cfg.Log.URL)
+	}
+	if cfg.Alert != nil {
+		configuredURLs = append(configuredURLs, cfg.Alert.URL)
+	}
+	for _, configured := range configuredURLs {
+		if sameProxyBaseURL(requested, configured) {
+			return nil
+		}
+	}
+	return errors.ErrForbidden
+}
+
+func sameProxyBaseURL(requested, configured string) bool {
+	requestedURL, err := url.Parse(strings.TrimRight(strings.TrimSpace(requested), "/"))
+	if err != nil || requestedURL.Scheme == "" || requestedURL.Host == "" {
+		return false
+	}
+	configuredURL, err := url.Parse(strings.TrimRight(strings.TrimSpace(configured), "/"))
+	if err != nil || configuredURL.Scheme == "" || configuredURL.Host == "" {
+		return false
+	}
+	return strings.EqualFold(requestedURL.Scheme, configuredURL.Scheme) &&
+		strings.EqualFold(requestedURL.Host, configuredURL.Host) &&
+		requestedURL.EscapedPath() == configuredURL.EscapedPath()
 }
 
 func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {

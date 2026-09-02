@@ -378,6 +378,7 @@ type Tenant struct {
 
 	Name        string `json:"name"`        // 用户名称
 	Description string `json:"description"` // 用户描述信息
+	Builtin     bool   `json:"builtin"`
 }
 
 type Role struct {
@@ -387,6 +388,7 @@ type Role struct {
 	TenantId    int64  `json:"tenant_id"` // 0 表示系统全局角色
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Builtin     bool   `json:"builtin"`
 }
 
 type APIResource struct {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
 	pixiuutil "github.com/caoyingjunz/pixiu/pkg/util"
 	"k8s.io/klog/v2"
@@ -174,6 +175,10 @@ var defaultRunners = []struct {
 func (o *Options) bootstrapDatabase() error {
 	ctx := context.Background()
 
+	// API 资源要等路由安装后才会入库；此处只初始化内置只读租户和角色。
+	if err := o.bootstrapBuiltinReadonlyResources(ctx); err != nil {
+		return err
+	}
 	// 初始化超级管理员
 	if err := o.bootstrapRootUser(ctx); err != nil {
 		return err
@@ -188,6 +193,91 @@ func (o *Options) bootstrapDatabase() error {
 	// 初始化 Runner
 	if err := o.bootstrapRunners(ctx); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (o *Options) bootstrapBuiltinReadonlyResources(ctx context.Context) error {
+	tenant := &pixiuModel.Tenant{
+		Name:        pixiuModel.BuiltinReadonlyTenantName,
+		Description: "内置普通用户使用的租户",
+		Builtin:     true,
+	}
+	if err := o.Factory.Tenant().EnsureBuiltin(ctx, tenant); err != nil {
+		return fmt.Errorf("failed to initialize builtin readonly tenant: %v", err)
+	}
+
+	role := &pixiuModel.Role{
+		TenantId:    tenant.Id,
+		Name:        pixiuModel.BuiltinReadonlyRoleName,
+		Description: "内置普通用户使用的只读角色",
+		Builtin:     true,
+	}
+	if err := o.Factory.Role().EnsureBuiltin(ctx, role); err != nil {
+		return fmt.Errorf("failed to initialize builtin readonly role: %v", err)
+	}
+	return nil
+}
+
+type readonlyAPI struct {
+	method string
+	path   string
+}
+
+var builtinReadonlyAPIs = []readonlyAPI{
+	{method: "GET", path: "/pixiu/clusters"},
+	{method: "GET", path: "/pixiu/clusters/:clusterId"},
+	{method: "GET", path: "/pixiu/clusters/permissions/:permissionId"},
+	{method: "GET", path: "/pixiu/datasources"},
+	{method: "GET", path: "/pixiu/datasources/:datasourceId"},
+	{method: "GET", path: "/pixiu/alerts/rules"},
+	{method: "GET", path: "/pixiu/alerts/rules/:ruleId"},
+	{method: "GET", path: "/pixiu/alerts/events"},
+	{method: "GET", path: "/pixiu/alerts/events/:eventId"},
+	{method: "GET", path: "/pixiu/alerts/channels"},
+	{method: "GET", path: "/pixiu/alerts/channels/:channelId"},
+	{method: "GET", path: "/pixiu/alerts/notifications"},
+	{method: "GET", path: "/pixiu/alerts/silences"},
+	{method: "GET", path: "/pixiu/alerts/silences/:silenceId"},
+	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/pods/:pod/log"},
+	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events"},
+	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/pods/:pod/files"},
+	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/pods/:pod/files/download"},
+}
+
+var builtinReadonlyMenus = []string{
+	"container.cluster",
+	"monitor.realtime",
+	"monitor.logs",
+	"monitor.alert",
+	"monitor.datasource",
+	"system.user-center",
+}
+
+// SyncBuiltinReadonlyRolePermissions runs after route installation, when all persisted APIs exist.
+func (o *Options) SyncBuiltinReadonlyRolePermissions(ctx context.Context) error {
+	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.BuiltinReadonlyTenantName)
+	if err != nil || tenant == nil || !tenant.Builtin {
+		return fmt.Errorf("failed to resolve builtin readonly tenant: %v", err)
+	}
+	role, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.BuiltinReadonlyRoleName))
+	if err != nil || role == nil || !role.Builtin {
+		return fmt.Errorf("failed to resolve builtin readonly role: %v", err)
+	}
+
+	apiIDs := make([]int64, 0, len(builtinReadonlyAPIs))
+	for _, endpoint := range builtinReadonlyAPIs {
+		api, getErr := o.Factory.API().GetByMethodAndPath(ctx, endpoint.method, endpoint.path)
+		if getErr != nil || api == nil {
+			return fmt.Errorf("failed to resolve builtin readonly api %s %s: %v", endpoint.method, endpoint.path, getErr)
+		}
+		apiIDs = append(apiIDs, api.Id)
+	}
+	if err = o.Factory.Role().API().ReplaceByRoleId(ctx, role.Id, apiIDs); err != nil {
+		return fmt.Errorf("failed to sync builtin readonly apis: %v", err)
+	}
+	if err = o.Factory.Role().Menu().ReplaceByRoleId(ctx, role.Id, builtinReadonlyMenus); err != nil {
+		return fmt.Errorf("failed to sync builtin readonly menus: %v", err)
 	}
 	return nil
 }

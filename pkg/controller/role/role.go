@@ -144,6 +144,9 @@ func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (
 	if object == nil {
 		return nil, errors.ErrRoleNotFound
 	}
+	if object.Builtin {
+		return nil, errors.ErrForbidden
+	}
 	return object, nil
 }
 
@@ -188,7 +191,7 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 }
 
 func (r *role) Delete(ctx context.Context, rid int64) error {
-	if err := controllerutil.CheckRoot(ctx); err != nil {
+	if _, err := preUpdateRole(ctx, r.factory, rid); err != nil {
 		return err
 	}
 	object, err := r.factory.Role().Delete(ctx, rid)
@@ -272,6 +275,7 @@ func (r *role) model2Type(o *model.Role) *types.Role {
 		TenantId:    o.TenantId,
 		Name:        o.Name,
 		Description: o.Description,
+		Builtin:     o.Builtin,
 	}
 }
 

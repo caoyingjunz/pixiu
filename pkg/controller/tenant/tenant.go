@@ -72,20 +72,23 @@ func (t *tenant) Create(ctx context.Context, req *types.CreateTenantRequest) err
 }
 
 // 更新前置检查：资源存在
-func (t *tenant) preUpdate(ctx context.Context, tid int64) error {
+func (t *tenant) preUpdate(ctx context.Context, tid int64) (*model.Tenant, error) {
 	object, err := t.factory.Tenant().Get(ctx, tid)
 	if err != nil {
 		klog.Errorf("failed to get tenant(%d): %v", tid, err)
-		return errors.ErrServerInternal
+		return nil, errors.ErrServerInternal
 	}
 	if object == nil {
-		return errors.ErrTenantNotFound
+		return nil, errors.ErrTenantNotFound
 	}
-	return nil
+	if object.Builtin {
+		return nil, errors.ErrForbidden
+	}
+	return object, nil
 }
 
 func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error {
-	if err := t.preUpdate(ctx, tid); err != nil {
+	if _, err := t.preUpdate(ctx, tid); err != nil {
 		klog.Errorf("pre-update check failed for tenant(%d): %v", tid, err)
 		return err
 	}
@@ -110,6 +113,9 @@ func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantR
 
 func (t *tenant) Delete(ctx context.Context, tid int64) error {
 	if err := controllerutil.CheckRoot(ctx); err != nil {
+		return err
+	}
+	if _, err := t.preUpdate(ctx, tid); err != nil {
 		return err
 	}
 	object, err := t.factory.Tenant().Delete(ctx, tid)
@@ -188,6 +194,7 @@ func (t *tenant) model2Type(o *model.Tenant) *types.Tenant {
 		},
 		Name:        o.Name,
 		Description: o.Description,
+		Builtin:     o.Builtin,
 	}
 }
 

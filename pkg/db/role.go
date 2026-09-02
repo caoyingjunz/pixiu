@@ -36,11 +36,43 @@ type RoleInterface interface {
 
 	// GetBy 按自定义条件过滤查询
 	GetBy(ctx context.Context, opts ...Options) (*model.Role, error)
+	EnsureBuiltin(ctx context.Context, object *model.Role) error
 
 	// API 子角色接口
 	API() APIInterface
 	Scope() ScopeInterface
 	Menu() MenuInterface
+}
+
+// EnsureBuiltin creates the built-in role or adopts an existing role in the same tenant.
+func (r *role) EnsureBuiltin(ctx context.Context, object *model.Role) error {
+	existing, err := r.GetBy(ctx, WithTenantId(object.TenantId), WithName(object.Name))
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		object.Builtin = true
+		_, err = r.Create(ctx, object)
+		return err
+	}
+
+	updates := make(map[string]interface{})
+	if !existing.Builtin {
+		updates["builtin"] = true
+	}
+	if existing.Description != object.Description {
+		updates["description"] = object.Description
+	}
+	if len(updates) > 0 {
+		if err = r.Update(ctx, existing.Id, existing.ResourceVersion, updates); err != nil {
+			return err
+		}
+		existing.Builtin = object.Builtin
+		existing.Description = object.Description
+		existing.ResourceVersion++
+	}
+	*object = *existing
+	return nil
 }
 
 type role struct {

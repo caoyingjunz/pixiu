@@ -98,6 +98,9 @@ func Run(opt *options.Options) error {
 
 	// 安装 http 路由
 	router.InstallRouters(opt)
+	if err := opt.SyncBuiltinReadonlyRolePermissions(context.Background()); err != nil {
+		return err
+	}
 
 	var tlsSrv *http.Server
 	if opt.ComponentConfig.TLS.IsEnabled() {
