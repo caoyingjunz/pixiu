@@ -175,7 +175,7 @@ var defaultRunners = []struct {
 func (o *Options) bootstrapDatabase() error {
 	ctx := context.Background()
 
-	// API 资源要等路由安装后才会入库；此处只初始化内置只读租户和角色。
+	// API 资源要等路由安装后才会入库；此处只初始化内置租户与唯一内置角色。
 	if err := o.bootstrapTenant(ctx); err != nil {
 		return err
 	}
@@ -200,60 +200,60 @@ func (o *Options) bootstrapDatabase() error {
 	return nil
 }
 
-// bootstrapTenant 启动时初始化内置租户；已存在则跳过，不存在则创建。
+// bootstrapTenant 启动时经 DB 初始化内置租户；已存在则跳过。
 func (o *Options) bootstrapTenant(ctx context.Context) error {
 	existing, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
 	if err != nil {
-		return fmt.Errorf("failed to check builtin tenant: %v", err)
+		return fmt.Errorf("failed to check default tenant: %v", err)
 	}
 	if existing != nil {
-		klog.Info("builtin tenant already exists, skipping")
+		klog.Info("default tenant already exists, skipping")
 		return nil
 	}
 
-	klog.Infof("initializing builtin tenant: %s", pixiuModel.DefaultTenantName)
+	klog.Infof("initializing default tenant: %s", pixiuModel.DefaultTenantName)
 	if _, err = o.Factory.Tenant().Create(ctx, &pixiuModel.Tenant{
 		Name:        pixiuModel.DefaultTenantName,
 		Description: "内置普通用户使用的租户",
 	}); err != nil {
-		return fmt.Errorf("failed to create builtin tenant: %v", err)
+		return fmt.Errorf("failed to create default tenant: %v", err)
 	}
 	return nil
 }
 
-// bootstrapRole 启动时初始化内置只读角色；已存在则跳过，不存在则创建。
+// bootstrapRole 启动时经 DB 初始化唯一内置角色「普通用户」；已存在则跳过。
 func (o *Options) bootstrapRole(ctx context.Context) error {
 	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
 	if err != nil || tenant == nil {
-		return fmt.Errorf("failed to resolve builtin tenant for role init: %v", err)
+		return fmt.Errorf("failed to resolve default tenant for role init: %v", err)
 	}
 
-	existing, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.BuiltinReadonlyRoleName))
+	existing, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.DefaultRoleName))
 	if err != nil {
-		return fmt.Errorf("failed to check builtin role: %v", err)
+		return fmt.Errorf("failed to check default role: %v", err)
 	}
 	if existing != nil {
-		klog.Info("builtin role already exists, skipping")
+		klog.Info("default role already exists, skipping")
 		return nil
 	}
 
-	klog.Infof("initializing builtin role: %s", pixiuModel.BuiltinReadonlyRoleName)
+	klog.Infof("initializing default role: %s", pixiuModel.DefaultRoleName)
 	if _, err = o.Factory.Role().Create(ctx, &pixiuModel.Role{
 		TenantId:    tenant.Id,
-		Name:        pixiuModel.BuiltinReadonlyRoleName,
-		Description: "内置普通用户使用的只读角色",
+		Name:        pixiuModel.DefaultRoleName,
+		Description: "内置普通用户角色",
 	}); err != nil {
-		return fmt.Errorf("failed to create builtin role: %v", err)
+		return fmt.Errorf("failed to create default role: %v", err)
 	}
 	return nil
 }
 
-type readonlyAPI struct {
+type roleAPIEndpoint struct {
 	method string
 	path   string
 }
 
-var builtinReadonlyAPIs = []readonlyAPI{
+var defaultRoleAPIs = []roleAPIEndpoint{
 	{method: "GET", path: "/pixiu/clusters"},
 	{method: "GET", path: "/pixiu/clusters/:clusterId"},
 	{method: "GET", path: "/pixiu/clusters/permissions/:permissionId"},
@@ -274,7 +274,7 @@ var builtinReadonlyAPIs = []readonlyAPI{
 	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/pods/:pod/files/download"},
 }
 
-var builtinReadonlyMenus = []string{
+var defaultRoleMenus = []string{
 	"container.cluster",
 	"monitor.realtime",
 	"monitor.logs",
@@ -283,30 +283,30 @@ var builtinReadonlyMenus = []string{
 	"system.user-center",
 }
 
-// SyncBuiltinReadonlyRolePermissions runs after route installation, when all persisted APIs exist.
-func (o *Options) SyncBuiltinReadonlyRolePermissions(ctx context.Context) error {
+// SyncDefaultRolePermissions 在路由安装后，经 DB 写入内置「普通用户」角色的 API/菜单权限。
+func (o *Options) SyncDefaultRolePermissions(ctx context.Context) error {
 	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
 	if err != nil || tenant == nil {
-		return fmt.Errorf("failed to resolve builtin readonly tenant: %v", err)
+		return fmt.Errorf("failed to resolve default tenant: %v", err)
 	}
-	role, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.BuiltinReadonlyRoleName))
+	role, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.DefaultRoleName))
 	if err != nil || role == nil {
-		return fmt.Errorf("failed to resolve builtin readonly role: %v", err)
+		return fmt.Errorf("failed to resolve default role: %v", err)
 	}
 
-	apiIDs := make([]int64, 0, len(builtinReadonlyAPIs))
-	for _, endpoint := range builtinReadonlyAPIs {
+	apiIDs := make([]int64, 0, len(defaultRoleAPIs))
+	for _, endpoint := range defaultRoleAPIs {
 		api, getErr := o.Factory.API().GetByMethodAndPath(ctx, endpoint.method, endpoint.path)
 		if getErr != nil || api == nil {
-			return fmt.Errorf("failed to resolve builtin readonly api %s %s: %v", endpoint.method, endpoint.path, getErr)
+			return fmt.Errorf("failed to resolve default role api %s %s: %v", endpoint.method, endpoint.path, getErr)
 		}
 		apiIDs = append(apiIDs, api.Id)
 	}
 	if err = o.Factory.Role().API().ReplaceByRoleId(ctx, role.Id, apiIDs); err != nil {
-		return fmt.Errorf("failed to sync builtin readonly apis: %v", err)
+		return fmt.Errorf("failed to sync default role apis: %v", err)
 	}
-	if err = o.Factory.Role().Menu().ReplaceByRoleId(ctx, role.Id, builtinReadonlyMenus); err != nil {
-		return fmt.Errorf("failed to sync builtin readonly menus: %v", err)
+	if err = o.Factory.Role().Menu().ReplaceByRoleId(ctx, role.Id, defaultRoleMenus); err != nil {
+		return fmt.Errorf("failed to sync default role menus: %v", err)
 	}
 	return nil
 }

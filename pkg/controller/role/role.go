@@ -144,8 +144,8 @@ func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (
 	if object == nil {
 		return nil, errors.ErrRoleNotFound
 	}
-	// 内置只读角色（内置租户下的"普通用户"角色）禁止修改/删除。
-	if object.Name == model.BuiltinReadonlyRoleName {
+	// 内置「普通用户」角色（default 租户下）禁止修改/删除。
+	if object.Name == model.DefaultRoleName {
 		tenant, err := factory.Tenant().Get(ctx, object.TenantId)
 		if err == nil && tenant != nil && tenant.Name == model.DefaultTenantName {
 			return nil, errors.ErrForbidden

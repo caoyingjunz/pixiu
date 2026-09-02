@@ -621,7 +621,7 @@ func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
 		return errors.ErrServerInternal
 	}
 	// 历史 UserLevel 枚举(1/2)查不到角色记录：维持旧版直接放行，由 k8s Permission/集群归属兜底。
-	if role == nil || role.Name != model.BuiltinReadonlyRoleName {
+	if role == nil || role.Name != model.DefaultRoleName {
 		return nil
 	}
 	if !isReadonlyProxyRequest(ctx) {

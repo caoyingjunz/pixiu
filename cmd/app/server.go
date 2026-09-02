@@ -98,7 +98,7 @@ func Run(opt *options.Options) error {
 
 	// 安装 http 路由
 	router.InstallRouters(opt)
-	if err := opt.SyncBuiltinReadonlyRolePermissions(context.Background()); err != nil {
+	if err := opt.SyncDefaultRolePermissions(context.Background()); err != nil {
 		return err
 	}
 

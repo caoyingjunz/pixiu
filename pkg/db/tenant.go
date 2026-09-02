@@ -35,7 +35,6 @@ type TenantInterface interface {
 	Count(ctx context.Context, opts ...Options) (int64, error)
 
 	GetTenantByName(ctx context.Context, name string) (*model.Tenant, error)
-	EnsureBuiltin(ctx context.Context, object *model.Tenant) error
 }
 
 type tenant struct {
@@ -133,20 +132,6 @@ func (t *tenant) GetTenantByName(ctx context.Context, name string) (*model.Tenan
 	}
 
 	return &object, nil
-}
-
-// EnsureBuiltin 确保内置租户存在；已存在同名租户时直接复用，不覆盖其配置。
-func (t *tenant) EnsureBuiltin(ctx context.Context, object *model.Tenant) error {
-	existing, err := t.GetTenantByName(ctx, object.Name)
-	if err != nil {
-		return err
-	}
-	if existing == nil {
-		_, err = t.Create(ctx, object)
-		return err
-	}
-	*object = *existing
-	return nil
 }
 
 func newTenant(db *gorm.DB) *tenant {

@@ -112,7 +112,7 @@ func (c *cluster) ensureBuiltinReadonlyCredential(ctx context.Context, user *mod
 		return errors.ErrServerInternal
 	}
 	// 历史 UserLevel 枚举(1/2)查不到角色记录：视为非内置角色，走原有集群归属/权限校验。
-	if role == nil || role.Name != model.BuiltinReadonlyRoleName {
+	if role == nil || role.Name != model.DefaultRoleName {
 		return nil
 	}
 	if cluster.PermissionId == 0 {

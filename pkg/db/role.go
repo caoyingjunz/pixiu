@@ -36,26 +36,11 @@ type RoleInterface interface {
 
 	// GetBy 按自定义条件过滤查询
 	GetBy(ctx context.Context, opts ...Options) (*model.Role, error)
-	EnsureBuiltin(ctx context.Context, object *model.Role) error
 
 	// API 子角色接口
 	API() APIInterface
 	Scope() ScopeInterface
 	Menu() MenuInterface
-}
-
-// EnsureBuiltin 确保内置角色存在；已存在同名角色时直接复用，不覆盖其配置。
-func (r *role) EnsureBuiltin(ctx context.Context, object *model.Role) error {
-	existing, err := r.GetBy(ctx, WithTenantId(object.TenantId), WithName(object.Name))
-	if err != nil {
-		return err
-	}
-	if existing == nil {
-		_, err = r.Create(ctx, object)
-		return err
-	}
-	*object = *existing
-	return nil
 }
 
 type role struct {

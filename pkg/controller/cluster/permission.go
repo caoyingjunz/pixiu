@@ -453,7 +453,7 @@ func (c *cluster) validateBuiltinUserGrant(ctx context.Context, userID int64, pT
 	if role == nil {
 		return user, nil
 	}
-	if role.Name == model.BuiltinReadonlyRoleName && pType != int(model.PermissionPTypeReadonly) {
+	if role.Name == model.DefaultRoleName && pType != int(model.PermissionPTypeReadonly) {
 		return nil, servererrors.ErrForbidden
 	}
 	return user, nil
