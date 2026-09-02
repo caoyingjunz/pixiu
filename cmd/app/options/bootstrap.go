@@ -283,7 +283,7 @@ var defaultRoleMenus = []string{
 	"system.user-center",
 }
 
-// BootstrapDefaultPermissions 须在 InstallRouters 之后调用：经 DB 写入内置「普通用户」角色的 API/菜单权限。
+// BootstrapDefaultPermissions 须在 InstallRouters 之后调用：仅在权限为空时写入默认 API/菜单，已有记录则跳过。
 func (o *Options) BootstrapDefaultPermissions(ctx context.Context) error {
 	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
 	if err != nil || tenant == nil {
@@ -294,20 +294,39 @@ func (o *Options) BootstrapDefaultPermissions(ctx context.Context) error {
 		return fmt.Errorf("failed to resolve default role: %v", err)
 	}
 
-	apiIDs := make([]int64, 0, len(defaultRoleAPIs))
-	for _, endpoint := range defaultRoleAPIs {
-		api, getErr := o.Factory.API().GetByMethodAndPath(ctx, endpoint.method, endpoint.path)
-		if getErr != nil || api == nil {
-			return fmt.Errorf("failed to resolve default role api %s %s: %v", endpoint.method, endpoint.path, getErr)
-		}
-		apiIDs = append(apiIDs, api.Id)
+	existingAPIs, err := o.Factory.Role().API().ListAPIIdsByRoleId(ctx, role.Id)
+	if err != nil {
+		return fmt.Errorf("failed to list default role apis: %v", err)
 	}
-	if err = o.Factory.Role().API().ReplaceByRoleId(ctx, role.Id, apiIDs); err != nil {
-		return fmt.Errorf("failed to sync default role apis: %v", err)
+	if len(existingAPIs) > 0 {
+		klog.Info("default role apis already exist, skipping")
+	} else {
+		apiIDs := make([]int64, 0, len(defaultRoleAPIs))
+		for _, endpoint := range defaultRoleAPIs {
+			api, getErr := o.Factory.API().GetByMethodAndPath(ctx, endpoint.method, endpoint.path)
+			if getErr != nil || api == nil {
+				return fmt.Errorf("failed to resolve default role api %s %s: %v", endpoint.method, endpoint.path, getErr)
+			}
+			apiIDs = append(apiIDs, api.Id)
+		}
+		if err = o.Factory.Role().API().ReplaceByRoleId(ctx, role.Id, apiIDs); err != nil {
+			return fmt.Errorf("failed to init default role apis: %v", err)
+		}
+		klog.Info("default role apis initialized")
+	}
+
+	existingMenus, err := o.Factory.Role().Menu().ListMenuCodesByRoleId(ctx, role.Id)
+	if err != nil {
+		return fmt.Errorf("failed to list default role menus: %v", err)
+	}
+	if len(existingMenus) > 0 {
+		klog.Info("default role menus already exist, skipping")
+		return nil
 	}
 	if err = o.Factory.Role().Menu().ReplaceByRoleId(ctx, role.Id, defaultRoleMenus); err != nil {
-		return fmt.Errorf("failed to sync default role menus: %v", err)
+		return fmt.Errorf("failed to init default role menus: %v", err)
 	}
+	klog.Info("default role menus initialized")
 	return nil
 }
 
