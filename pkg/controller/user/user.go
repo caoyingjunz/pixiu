@@ -116,8 +116,13 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 			return errors.ErrRootAlreadyExists
 		}
 	}
+	tenantID, err := u.getTenantIDByRole(ctx, req.Role)
+	if err != nil {
+		return err
+	}
 
 	if _, err = u.factory.User().Create(ctx, &model.User{
+		TenantId:    tenantID,
 		Name:        req.Name,
 		Password:    encrypt,
 		Status:      req.Status,
@@ -169,7 +174,12 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 	}
 	// 非超管不允许修改角色（垂直越权防护）；req.Role 是值类型，前端不传时零值=RoleRoot(0)，故非超管一律强制保持旧角色
 	if curUser.Role == model.RoleRoot {
+		tenantID, resolveErr := u.getTenantIDByRole(ctx, req.Role)
+		if resolveErr != nil {
+			return resolveErr
+		}
 		updates["role"] = req.Role
+		updates["tenant_id"] = tenantID
 	} else {
 		updates["role"] = old.Role
 	}
@@ -181,6 +191,23 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 
 	userIndexer.Set(uid, int(req.Status))
 	return nil
+}
+
+func (u *user) getTenantIDByRole(ctx context.Context, roleID model.UserLevel) (int64, error) {
+	if roleID == model.RoleRoot {
+		return 0, nil
+	}
+	role, err := u.factory.Role().Get(ctx, int64(roleID))
+	if err != nil {
+		klog.Errorf("failed to get role(%d): %v", roleID, err)
+		return 0, errors.ErrServerInternal
+	}
+	// User.Role 为历史 UserLevel 枚举(1=admin 2=user)，roles 表不存在 1/2 记录；
+	// 仅当角色真实存在且归属租户时才按角色租户分配，否则回退全局租户(0)，兼容存量用户创建/更新。
+	if role == nil || role.TenantId <= 0 {
+		return 0, nil
+	}
+	return role.TenantId, nil
 }
 
 func (u *user) preResetPassword(ctx context.Context, userId int64, operatorId int64, req *types.UpdateUserPasswordRequest) error {
@@ -583,11 +610,7 @@ func toAPIResource(o *model.API) *types.APIResource {
 }
 
 func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
-	// 超管已在 ValidAccess 放行；此处防御性跳过
-	if roleId == 0 {
-		return nil
-	}
-	// k8s 资源授权由 Permission（scoped kubeconfig）/ 集群 Authorize 兜底，proxy 请求不再按 scope 校验
+	// 代理鉴权由集群 Permission / kubeconfig 归属校验兜底；角色 HTTP 权限由 role_apis 控制。
 	return nil
 }
 

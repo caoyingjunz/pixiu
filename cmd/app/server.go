@@ -96,8 +96,12 @@ func Run(opt *options.Options) error {
 		}
 	}
 
-	// 安装 http 路由
+	// 安装 http 路由（同时将 API 持久化入库）
 	router.InstallRouters(opt)
+	// 初始化「普通用户」角色绑定 API/菜单，必须在路由安装后，依赖路由内的 api 初始化
+	if err := opt.BootstrapDefaultPermissions(context.Background()); err != nil {
+		return err
+	}
 
 	var tlsSrv *http.Server
 	if opt.ComponentConfig.TLS.IsEnabled() {

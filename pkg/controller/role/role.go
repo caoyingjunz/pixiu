@@ -147,11 +147,23 @@ func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (
 	return object, nil
 }
 
+func isDefaultRole(ctx context.Context, factory db.ShareDaoFactory, object *model.Role) bool {
+	if object == nil || object.Name != model.DefaultRoleName {
+		return false
+	}
+	tenant, err := factory.Tenant().Get(ctx, object.TenantId)
+	return err == nil && tenant != nil && tenant.Name == model.DefaultTenantName
+}
+
 func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleRequest) error {
 	object, err := preUpdateRole(ctx, r.factory, rid)
 	if err != nil {
 		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
 		return err
+	}
+	// 内置「普通用户」允许改描述与权限，禁止改名
+	if isDefaultRole(ctx, r.factory, object) && req.Name != nil && *req.Name != object.Name {
+		return errors.ErrForbidden
 	}
 
 	updates := make(map[string]interface{})
@@ -188,10 +200,14 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 }
 
 func (r *role) Delete(ctx context.Context, rid int64) error {
-	if err := controllerutil.CheckRoot(ctx); err != nil {
+	object, err := preUpdateRole(ctx, r.factory, rid)
+	if err != nil {
 		return err
 	}
-	object, err := r.factory.Role().Delete(ctx, rid)
+	if isDefaultRole(ctx, r.factory, object) {
+		return errors.ErrForbidden
+	}
+	object, err = r.factory.Role().Delete(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to delete role %d: %v", rid, err)
 		return errors.ErrServerInternal

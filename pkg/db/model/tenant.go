@@ -18,6 +18,11 @@ package model
 
 import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
+const (
+	DefaultTenantName = "default"
+	DefaultRoleName   = "普通用户" // 系统唯一内置角色
+)
+
 func init() {
 	register(&Tenant{}, &Role{}, &UserRole{}, &API{}, &RoleAPI{})
 }

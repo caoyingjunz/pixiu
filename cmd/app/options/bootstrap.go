@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	pixiuModel "github.com/caoyingjunz/pixiu/pkg/db/model"
 	pixiuutil "github.com/caoyingjunz/pixiu/pkg/util"
 	"k8s.io/klog/v2"
@@ -174,6 +175,13 @@ var defaultRunners = []struct {
 func (o *Options) bootstrapDatabase() error {
 	ctx := context.Background()
 
+	// API 资源要等路由安装后才会入库；此处只初始化内置租户与唯一内置角色。
+	if err := o.bootstrapTenant(ctx); err != nil {
+		return err
+	}
+	if err := o.bootstrapRole(ctx); err != nil {
+		return err
+	}
 	// 初始化超级管理员
 	if err := o.bootstrapRootUser(ctx); err != nil {
 		return err
@@ -189,6 +197,136 @@ func (o *Options) bootstrapDatabase() error {
 	if err := o.bootstrapRunners(ctx); err != nil {
 		return err
 	}
+	return nil
+}
+
+// bootstrapTenant 启动时经 DB 初始化内置租户；已存在则跳过。
+func (o *Options) bootstrapTenant(ctx context.Context) error {
+	existing, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
+	if err != nil {
+		return fmt.Errorf("failed to check default tenant: %v", err)
+	}
+	if existing != nil {
+		klog.Info("default tenant already exists, skipping")
+		return nil
+	}
+
+	klog.Infof("initializing default tenant: %s", pixiuModel.DefaultTenantName)
+	if _, err = o.Factory.Tenant().Create(ctx, &pixiuModel.Tenant{
+		Name:        pixiuModel.DefaultTenantName,
+		Description: "默认租户",
+	}); err != nil {
+		return fmt.Errorf("failed to create default tenant: %v", err)
+	}
+	return nil
+}
+
+// bootstrapRole 启动时经 DB 初始化唯一内置角色「普通用户」；已存在则跳过。
+func (o *Options) bootstrapRole(ctx context.Context) error {
+	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
+	if err != nil || tenant == nil {
+		return fmt.Errorf("failed to resolve default tenant for role init: %v", err)
+	}
+
+	existing, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.DefaultRoleName))
+	if err != nil {
+		return fmt.Errorf("failed to check default role: %v", err)
+	}
+	if existing != nil {
+		klog.Info("default role already exists, skipping")
+		return nil
+	}
+
+	klog.Infof("initializing default role: %s", pixiuModel.DefaultRoleName)
+	if _, err = o.Factory.Role().Create(ctx, &pixiuModel.Role{
+		TenantId:    tenant.Id,
+		Name:        pixiuModel.DefaultRoleName,
+		Description: "普通角色",
+	}); err != nil {
+		return fmt.Errorf("failed to create default role: %v", err)
+	}
+	return nil
+}
+
+type roleAPIEndpoint struct {
+	method string
+	path   string
+}
+
+var defaultRoleAPIs = []roleAPIEndpoint{
+	{method: "GET", path: "/pixiu/clusters"},
+	{method: "GET", path: "/pixiu/clusters/:clusterId"},
+	{method: "GET", path: "/pixiu/clusters/permissions/:permissionId"},
+	{method: "GET", path: "/pixiu/datasources"},
+	{method: "GET", path: "/pixiu/datasources/:datasourceId"},
+	{method: "GET", path: "/pixiu/alerts/rules"},
+	{method: "GET", path: "/pixiu/alerts/rules/:ruleId"},
+	{method: "GET", path: "/pixiu/alerts/events"},
+	{method: "GET", path: "/pixiu/alerts/events/:eventId"},
+	{method: "GET", path: "/pixiu/alerts/channels"},
+	{method: "GET", path: "/pixiu/alerts/channels/:channelId"},
+	{method: "GET", path: "/pixiu/alerts/notifications"},
+	{method: "GET", path: "/pixiu/alerts/silences"},
+	{method: "GET", path: "/pixiu/alerts/silences/:silenceId"},
+	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/pods/:pod/log"},
+	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/name/:name/kind/:kind/events"},
+	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/pods/:pod/files"},
+	{method: "GET", path: "/pixiu/kubeproxy/clusters/:cluster/namespaces/:namespace/pods/:pod/files/download"},
+}
+
+var defaultRoleMenus = []string{
+	"container.cluster",
+	"monitor.realtime",
+	"monitor.logs",
+	"monitor.alert",
+	"monitor.datasource",
+	"system.user-center",
+}
+
+// BootstrapDefaultPermissions 须在 InstallRouters 之后调用：仅在权限为空时写入默认 API/菜单，已有记录则跳过。
+func (o *Options) BootstrapDefaultPermissions(ctx context.Context) error {
+	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
+	if err != nil || tenant == nil {
+		return fmt.Errorf("failed to resolve default tenant: %v", err)
+	}
+	role, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.DefaultRoleName))
+	if err != nil || role == nil {
+		return fmt.Errorf("failed to resolve default role: %v", err)
+	}
+
+	existingAPIs, err := o.Factory.Role().API().ListAPIIdsByRoleId(ctx, role.Id)
+	if err != nil {
+		return fmt.Errorf("failed to list default role apis: %v", err)
+	}
+	if len(existingAPIs) > 0 {
+		klog.Info("default role apis already exist, skipping")
+	} else {
+		apiIDs := make([]int64, 0, len(defaultRoleAPIs))
+		for _, endpoint := range defaultRoleAPIs {
+			api, getErr := o.Factory.API().GetByMethodAndPath(ctx, endpoint.method, endpoint.path)
+			if getErr != nil || api == nil {
+				return fmt.Errorf("failed to resolve default role api %s %s: %v", endpoint.method, endpoint.path, getErr)
+			}
+			apiIDs = append(apiIDs, api.Id)
+		}
+		if err = o.Factory.Role().API().ReplaceByRoleId(ctx, role.Id, apiIDs); err != nil {
+			return fmt.Errorf("failed to init default role apis: %v", err)
+		}
+		klog.Info("default role apis initialized")
+	}
+
+	existingMenus, err := o.Factory.Role().Menu().ListMenuCodesByRoleId(ctx, role.Id)
+	if err != nil {
+		return fmt.Errorf("failed to list default role menus: %v", err)
+	}
+	if len(existingMenus) > 0 {
+		klog.Info("default role menus already exist, skipping")
+		return nil
+	}
+	if err = o.Factory.Role().Menu().ReplaceByRoleId(ctx, role.Id, defaultRoleMenus); err != nil {
+		return fmt.Errorf("failed to init default role menus: %v", err)
+	}
+	klog.Info("default role menus initialized")
 	return nil
 }
 

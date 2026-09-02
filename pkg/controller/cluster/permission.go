@@ -72,6 +72,15 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	if uid == 0 || req.ClusterId == 0 {
 		return errors.ErrReqParams
 	}
+	userObj, err := c.factory.User().Get(ctx, uid)
+	if err != nil {
+		klog.Errorf("failed to get user(%d) for permission grant: %v", uid, err)
+		return errors.ErrInternal
+	}
+	if userObj == nil {
+		klog.Errorf("user(%d) not found for permission grant", uid)
+		return servererrors.ErrUserNotFound
+	}
 
 	if err = types.ValidatePermissionGrant(user.Role == model.RoleRoot, req.PType, req.Rules, req.TargetNamespaces); err != nil {
 		return err
@@ -111,12 +120,6 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 		return err
 	}
 	nsJSON, err := encodeStringSlice(req.TargetNamespaces)
-	if err != nil {
-		return err
-	}
-
-	// 查询用户信息
-	userObj, err := c.factory.User().Get(ctx, uid)
 	if err != nil {
 		return err
 	}
