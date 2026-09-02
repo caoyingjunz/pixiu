@@ -176,7 +176,10 @@ func (o *Options) bootstrapDatabase() error {
 	ctx := context.Background()
 
 	// API 资源要等路由安装后才会入库；此处只初始化内置只读租户和角色。
-	if err := o.bootstrapBuiltinReadonlyResources(ctx); err != nil {
+	if err := o.bootstrapTenant(ctx); err != nil {
+		return err
+	}
+	if err := o.bootstrapRole(ctx); err != nil {
 		return err
 	}
 	// 初始化超级管理员
@@ -197,22 +200,50 @@ func (o *Options) bootstrapDatabase() error {
 	return nil
 }
 
-func (o *Options) bootstrapBuiltinReadonlyResources(ctx context.Context) error {
-	tenant := &pixiuModel.Tenant{
-		Name:        pixiuModel.DefaultTenantName,
-		Description: "内置普通用户使用的租户",
+// bootstrapTenant 启动时初始化内置租户；已存在则跳过，不存在则创建。
+func (o *Options) bootstrapTenant(ctx context.Context) error {
+	existing, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
+	if err != nil {
+		return fmt.Errorf("failed to check builtin tenant: %v", err)
 	}
-	if err := o.Factory.Tenant().EnsureBuiltin(ctx, tenant); err != nil {
-		return fmt.Errorf("failed to initialize builtin readonly tenant: %v", err)
+	if existing != nil {
+		klog.Info("builtin tenant already exists, skipping")
+		return nil
 	}
 
-	role := &pixiuModel.Role{
+	klog.Infof("initializing builtin tenant: %s", pixiuModel.DefaultTenantName)
+	if _, err = o.Factory.Tenant().Create(ctx, &pixiuModel.Tenant{
+		Name:        pixiuModel.DefaultTenantName,
+		Description: "内置普通用户使用的租户",
+	}); err != nil {
+		return fmt.Errorf("failed to create builtin tenant: %v", err)
+	}
+	return nil
+}
+
+// bootstrapRole 启动时初始化内置只读角色；已存在则跳过，不存在则创建。
+func (o *Options) bootstrapRole(ctx context.Context) error {
+	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
+	if err != nil || tenant == nil {
+		return fmt.Errorf("failed to resolve builtin tenant for role init: %v", err)
+	}
+
+	existing, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.BuiltinReadonlyRoleName))
+	if err != nil {
+		return fmt.Errorf("failed to check builtin role: %v", err)
+	}
+	if existing != nil {
+		klog.Info("builtin role already exists, skipping")
+		return nil
+	}
+
+	klog.Infof("initializing builtin role: %s", pixiuModel.BuiltinReadonlyRoleName)
+	if _, err = o.Factory.Role().Create(ctx, &pixiuModel.Role{
 		TenantId:    tenant.Id,
 		Name:        pixiuModel.BuiltinReadonlyRoleName,
 		Description: "内置普通用户使用的只读角色",
-	}
-	if err := o.Factory.Role().EnsureBuiltin(ctx, role); err != nil {
-		return fmt.Errorf("failed to initialize builtin readonly role: %v", err)
+	}); err != nil {
+		return fmt.Errorf("failed to create builtin role: %v", err)
 	}
 	return nil
 }
