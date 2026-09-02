@@ -19,8 +19,6 @@ package user
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -612,41 +610,8 @@ func toAPIResource(o *model.API) *types.APIResource {
 }
 
 func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
-	// 超管已在 ValidAccess 放行；此处防御性跳过
-	if roleId == 0 {
-		return nil
-	}
-	role, err := u.factory.Role().Get(ctx, roleId)
-	if err != nil {
-		return errors.ErrServerInternal
-	}
-	// 历史 UserLevel 枚举(1/2)查不到角色记录：维持旧版直接放行，由 k8s Permission/集群归属兜底。
-	if role == nil || role.Name != model.DefaultRoleName {
-		return nil
-	}
-	if !isReadonlyProxyRequest(ctx) {
-		return errors.ErrForbidden
-	}
-	// 集群访问仍由 Permission 的 scoped kubeconfig 和集群归属校验兜底。
+	// 代理鉴权由集群 Permission / kubeconfig 归属校验兜底；角色 HTTP 权限由 role_apis 控制。
 	return nil
-}
-
-func isReadonlyProxyRequest(ctx *gin.Context) bool {
-	switch ctx.Request.Method {
-	case http.MethodGet, http.MethodHead, http.MethodOptions:
-	default:
-		return false
-	}
-	if strings.EqualFold(ctx.GetHeader("Upgrade"), "websocket") {
-		return false
-	}
-	path := strings.ToLower(ctx.Request.URL.Path)
-	for _, subresource := range []string{"/exec", "/attach", "/portforward"} {
-		if strings.Contains(path, subresource) {
-			return false
-		}
-	}
-	return true
 }
 
 func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {

@@ -72,9 +72,12 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	if uid == 0 || req.ClusterId == 0 {
 		return errors.ErrReqParams
 	}
-	userObj, err := c.validateBuiltinUserGrant(ctx, uid, req.PType)
+	userObj, err := c.factory.User().Get(ctx, uid)
 	if err != nil {
-		return err
+		return errors.ErrInternal
+	}
+	if userObj == nil {
+		return servererrors.ErrUserNotFound
 	}
 
 	if err = types.ValidatePermissionGrant(user.Role == model.RoleRoot, req.PType, req.Rules, req.TargetNamespaces); err != nil {
@@ -346,9 +349,6 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	if err != nil {
 		return err
 	}
-	if _, err = c.validateBuiltinUserGrant(ctx, oldP.UserId, int(oldP.PType)); err != nil {
-		return err
-	}
 	if err = types.ValidatePermissionGrant(user.Role == model.RoleRoot, int(oldP.PType), req.Rules, req.TargetNamespaces); err != nil {
 		return err
 	}
@@ -432,31 +432,6 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	}
 
 	return nil
-}
-
-func (c *cluster) validateBuiltinUserGrant(ctx context.Context, userID int64, pType int) (*model.User, error) {
-	user, err := c.factory.User().Get(ctx, userID)
-	if err != nil {
-		return nil, errors.ErrInternal
-	}
-	if user == nil {
-		return nil, servererrors.ErrUserNotFound
-	}
-	if user.Role == model.RoleRoot {
-		return user, nil
-	}
-	role, err := c.factory.Role().Get(ctx, int64(user.Role))
-	if err != nil {
-		return nil, errors.ErrInternal
-	}
-	// 历史 UserLevel 枚举(1/2)查不到角色记录：非内置角色，允许授权（维持旧版行为）。
-	if role == nil {
-		return user, nil
-	}
-	if role.Name == model.DefaultRoleName && pType != int(model.PermissionPTypeReadonly) {
-		return nil, servererrors.ErrForbidden
-	}
-	return user, nil
 }
 
 // DeletePermission

@@ -144,14 +144,15 @@ func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (
 	if object == nil {
 		return nil, errors.ErrRoleNotFound
 	}
-	// 内置「普通用户」角色（default 租户下）禁止修改/删除。
-	if object.Name == model.DefaultRoleName {
-		tenant, err := factory.Tenant().Get(ctx, object.TenantId)
-		if err == nil && tenant != nil && tenant.Name == model.DefaultTenantName {
-			return nil, errors.ErrForbidden
-		}
-	}
 	return object, nil
+}
+
+func isDefaultRole(ctx context.Context, factory db.ShareDaoFactory, object *model.Role) bool {
+	if object == nil || object.Name != model.DefaultRoleName {
+		return false
+	}
+	tenant, err := factory.Tenant().Get(ctx, object.TenantId)
+	return err == nil && tenant != nil && tenant.Name == model.DefaultTenantName
 }
 
 func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleRequest) error {
@@ -159,6 +160,10 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 	if err != nil {
 		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
 		return err
+	}
+	// 内置「普通用户」允许改描述与权限，禁止改名
+	if isDefaultRole(ctx, r.factory, object) && req.Name != nil && *req.Name != object.Name {
+		return errors.ErrForbidden
 	}
 
 	updates := make(map[string]interface{})
@@ -195,10 +200,14 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 }
 
 func (r *role) Delete(ctx context.Context, rid int64) error {
-	if _, err := preUpdateRole(ctx, r.factory, rid); err != nil {
+	object, err := preUpdateRole(ctx, r.factory, rid)
+	if err != nil {
 		return err
 	}
-	object, err := r.factory.Role().Delete(ctx, rid)
+	if isDefaultRole(ctx, r.factory, object) {
+		return errors.ErrForbidden
+	}
+	object, err = r.factory.Role().Delete(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to delete role %d: %v", rid, err)
 		return errors.ErrServerInternal

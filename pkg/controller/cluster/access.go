@@ -75,9 +75,6 @@ func (c *cluster) AuthorizeClusterAccessByName(ctx context.Context, user *model.
 	directErr := c.ensureClusterAccess(ctx, user, obj)
 	if directErr == nil {
 		if err = controllerutil.CheckMasterKubeconfigAccess(ctx, obj); err == nil {
-			if err = c.ensureBuiltinReadonlyCredential(ctx, user, obj); err != nil {
-				return nil, err
-			}
 			return obj, nil
 		}
 		// 对主集群有 scope 等访问权但不能用 admin kubeconfig：尝试回落到本人的授权子集群
@@ -89,9 +86,6 @@ func (c *cluster) AuthorizeClusterAccessByName(ctx context.Context, user *model.
 			return nil, findErr
 		}
 		if child != nil {
-			if err = c.ensureBuiltinReadonlyCredential(ctx, user, child); err != nil {
-				return nil, err
-			}
 			klog.V(2).Infof("proxy cluster %s: user(%d) resolved to authorized child %s", clusterName, user.Id, child.Name)
 			return child, nil
 		}
@@ -101,31 +95,6 @@ func (c *cluster) AuthorizeClusterAccessByName(ctx context.Context, user *model.
 		return nil, directErr
 	}
 	return nil, errors.ErrForbidden
-}
-
-func (c *cluster) ensureBuiltinReadonlyCredential(ctx context.Context, user *model.User, cluster *model.Cluster) error {
-	if user.Role == model.RoleRoot {
-		return nil
-	}
-	role, err := c.factory.Role().Get(ctx, int64(user.Role))
-	if err != nil {
-		return errors.ErrServerInternal
-	}
-	// 历史 UserLevel 枚举(1/2)查不到角色记录：视为非内置角色，走原有集群归属/权限校验。
-	if role == nil || role.Name != model.DefaultRoleName {
-		return nil
-	}
-	if cluster.PermissionId == 0 {
-		return errors.ErrForbidden
-	}
-	permission, err := c.factory.Permission().Get(ctx, cluster.PermissionId)
-	if err != nil {
-		return errors.ErrServerInternal
-	}
-	if permission == nil || permission.UserId != user.Id || permission.PType != model.PermissionPTypeReadonly {
-		return errors.ErrForbidden
-	}
-	return nil
 }
 
 // findUserAuthorizedChild 查找用户在指定主集群下的授权子集群（PermissionId!=0 且 OwnerReference=master）。
@@ -152,9 +121,6 @@ func (c *cluster) AuthorizeClusterKubeAccess(ctx context.Context, user *model.Us
 		return nil, err
 	}
 	if err = controllerutil.CheckMasterKubeconfigAccess(ctx, obj); err != nil {
-		return nil, err
-	}
-	if err = c.ensureBuiltinReadonlyCredential(ctx, user, obj); err != nil {
 		return nil, err
 	}
 	return obj, nil
