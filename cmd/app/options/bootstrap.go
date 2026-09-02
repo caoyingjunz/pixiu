@@ -214,7 +214,7 @@ func (o *Options) bootstrapTenant(ctx context.Context) error {
 	klog.Infof("initializing default tenant: %s", pixiuModel.DefaultTenantName)
 	if _, err = o.Factory.Tenant().Create(ctx, &pixiuModel.Tenant{
 		Name:        pixiuModel.DefaultTenantName,
-		Description: "内置普通用户使用的租户",
+		Description: "默认租户",
 	}); err != nil {
 		return fmt.Errorf("failed to create default tenant: %v", err)
 	}
@@ -241,7 +241,7 @@ func (o *Options) bootstrapRole(ctx context.Context) error {
 	if _, err = o.Factory.Role().Create(ctx, &pixiuModel.Role{
 		TenantId:    tenant.Id,
 		Name:        pixiuModel.DefaultRoleName,
-		Description: "内置普通用户角色",
+		Description: "普通角色",
 	}); err != nil {
 		return fmt.Errorf("failed to create default role: %v", err)
 	}
@@ -283,8 +283,8 @@ var defaultRoleMenus = []string{
 	"system.user-center",
 }
 
-// SyncDefaultRolePermissions 在路由安装后，经 DB 写入内置「普通用户」角色的 API/菜单权限。
-func (o *Options) SyncDefaultRolePermissions(ctx context.Context) error {
+// BootstrapDefaultPermissions 须在 InstallRouters 之后调用：经 DB 写入内置「普通用户」角色的 API/菜单权限。
+func (o *Options) BootstrapDefaultPermissions(ctx context.Context) error {
 	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
 	if err != nil || tenant == nil {
 		return fmt.Errorf("failed to resolve default tenant: %v", err)
