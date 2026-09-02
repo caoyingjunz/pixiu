@@ -449,10 +449,11 @@ func (c *cluster) validateBuiltinUserGrant(ctx context.Context, userID int64, pT
 	if err != nil {
 		return nil, errors.ErrInternal
 	}
+	// 历史 UserLevel 枚举(1/2)查不到角色记录：非内置角色，允许授权（维持旧版行为）。
 	if role == nil {
-		return nil, servererrors.ErrRoleNotFound
+		return user, nil
 	}
-	if role.Builtin && pType != int(model.PermissionPTypeReadonly) {
+	if role.Name == model.BuiltinReadonlyRoleName && pType != int(model.PermissionPTypeReadonly) {
 		return nil, servererrors.ErrForbidden
 	}
 	return user, nil

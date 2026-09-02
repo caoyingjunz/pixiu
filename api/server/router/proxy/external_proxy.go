@@ -141,9 +141,7 @@ func (p *proxyRouter) forwardExternalRequest(c *gin.Context, resp *httputils.Res
 		r.Header = make(http.Header)
 		for key, values := range upstreamReq.Header {
 			lowerKey := strings.ToLower(strings.TrimSpace(key))
-			if lowerKey == "authorization" || lowerKey == "cookie" ||
-				lowerKey == strings.ToLower(externalProxyAuthorizationHeaderKey) ||
-				lowerKey == strings.ToLower(upstreamDatasourceIDHeader) {
+			if lowerKey == "authorization" || lowerKey == "cookie" || lowerKey == strings.ToLower(externalProxyAuthorizationHeaderKey) {
 				continue
 			}
 			for _, value := range values {

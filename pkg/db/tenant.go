@@ -135,32 +135,15 @@ func (t *tenant) GetTenantByName(ctx context.Context, name string) (*model.Tenan
 	return &object, nil
 }
 
-// EnsureBuiltin creates the built-in tenant or adopts an existing tenant with the same name.
+// EnsureBuiltin 确保内置租户存在；已存在同名租户时直接复用，不覆盖其配置。
 func (t *tenant) EnsureBuiltin(ctx context.Context, object *model.Tenant) error {
 	existing, err := t.GetTenantByName(ctx, object.Name)
 	if err != nil {
 		return err
 	}
 	if existing == nil {
-		object.Builtin = true
 		_, err = t.Create(ctx, object)
 		return err
-	}
-
-	updates := make(map[string]interface{})
-	if !existing.Builtin {
-		updates["builtin"] = true
-	}
-	if existing.Description != object.Description {
-		updates["description"] = object.Description
-	}
-	if len(updates) > 0 {
-		if err = t.Update(ctx, existing.Id, existing.ResourceVersion, updates); err != nil {
-			return err
-		}
-		existing.Builtin = object.Builtin
-		existing.Description = object.Description
-		existing.ResourceVersion++
 	}
 	*object = *existing
 	return nil

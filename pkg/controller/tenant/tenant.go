@@ -81,7 +81,8 @@ func (t *tenant) preUpdate(ctx context.Context, tid int64) (*model.Tenant, error
 	if object == nil {
 		return nil, errors.ErrTenantNotFound
 	}
-	if object.Builtin {
+	// 内置租户禁止修改/删除。
+	if object.Name == model.DefaultTenantName {
 		return nil, errors.ErrForbidden
 	}
 	return object, nil
@@ -194,7 +195,6 @@ func (t *tenant) model2Type(o *model.Tenant) *types.Tenant {
 		},
 		Name:        o.Name,
 		Description: o.Description,
-		Builtin:     o.Builtin,
 	}
 }
 

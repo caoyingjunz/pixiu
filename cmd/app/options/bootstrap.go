@@ -199,9 +199,8 @@ func (o *Options) bootstrapDatabase() error {
 
 func (o *Options) bootstrapBuiltinReadonlyResources(ctx context.Context) error {
 	tenant := &pixiuModel.Tenant{
-		Name:        pixiuModel.BuiltinReadonlyTenantName,
+		Name:        pixiuModel.DefaultTenantName,
 		Description: "内置普通用户使用的租户",
-		Builtin:     true,
 	}
 	if err := o.Factory.Tenant().EnsureBuiltin(ctx, tenant); err != nil {
 		return fmt.Errorf("failed to initialize builtin readonly tenant: %v", err)
@@ -211,7 +210,6 @@ func (o *Options) bootstrapBuiltinReadonlyResources(ctx context.Context) error {
 		TenantId:    tenant.Id,
 		Name:        pixiuModel.BuiltinReadonlyRoleName,
 		Description: "内置普通用户使用的只读角色",
-		Builtin:     true,
 	}
 	if err := o.Factory.Role().EnsureBuiltin(ctx, role); err != nil {
 		return fmt.Errorf("failed to initialize builtin readonly role: %v", err)
@@ -256,12 +254,12 @@ var builtinReadonlyMenus = []string{
 
 // SyncBuiltinReadonlyRolePermissions runs after route installation, when all persisted APIs exist.
 func (o *Options) SyncBuiltinReadonlyRolePermissions(ctx context.Context) error {
-	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.BuiltinReadonlyTenantName)
-	if err != nil || tenant == nil || !tenant.Builtin {
+	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
+	if err != nil || tenant == nil {
 		return fmt.Errorf("failed to resolve builtin readonly tenant: %v", err)
 	}
 	role, err := o.Factory.Role().GetBy(ctx, db.WithTenantId(tenant.Id), db.WithName(pixiuModel.BuiltinReadonlyRoleName))
-	if err != nil || role == nil || !role.Builtin {
+	if err != nil || role == nil {
 		return fmt.Errorf("failed to resolve builtin readonly role: %v", err)
 	}
 

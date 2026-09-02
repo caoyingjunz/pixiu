@@ -19,7 +19,7 @@ package model
 import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
 
 const (
-	BuiltinReadonlyTenantName = "普通用户租户"
+	DefaultTenantName         = "default"
 	BuiltinReadonlyRoleName   = "普通用户"
 )
 
@@ -33,7 +33,6 @@ type Tenant struct {
 	Name        string `gorm:"index:idx_name,unique" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
 	Extension   string `gorm:"type:text" json:"extension,omitempty"`
-	Builtin     bool   `gorm:"column:builtin;not null;default:false" json:"builtin"`
 }
 
 func (tenant *Tenant) TableName() string {
@@ -46,7 +45,6 @@ type Role struct {
 	TenantId    int64  `gorm:"default:null;uniqueIndex:uk_tenant_role" json:"tenant_id"` // NULL 表示系统全局角色
 	Name        string `gorm:"type:varchar(100);not null;uniqueIndex:uk_tenant_role" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
-	Builtin     bool   `gorm:"column:builtin;not null;default:false" json:"builtin"`
 }
 
 func (role *Role) TableName() string {

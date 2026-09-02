@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -206,11 +204,10 @@ func (u *user) tenantIDForRole(ctx context.Context, roleID model.UserLevel) (int
 		klog.Errorf("failed to get role(%d): %v", roleID, err)
 		return 0, errors.ErrServerInternal
 	}
-	if role == nil {
-		return 0, errors.ErrRoleNotFound
-	}
-	if role.TenantId <= 0 {
-		return 0, errors.ErrInvalidRequest
+	// User.Role 为历史 UserLevel 枚举(1=admin 2=user)，roles 表不存在 1/2 记录；
+	// 仅当角色真实存在且归属租户时才按角色租户分配，否则回退全局租户(0)，兼容存量用户创建/更新。
+	if role == nil || role.TenantId <= 0 {
+		return 0, nil
 	}
 	return role.TenantId, nil
 }
@@ -623,17 +620,12 @@ func (u *user) ValidProxy(ctx *gin.Context, roleId int64) error {
 	if err != nil {
 		return errors.ErrServerInternal
 	}
-	if role == nil {
-		return errors.ErrForbidden
-	}
-	if !role.Builtin {
+	// 历史 UserLevel 枚举(1/2)查不到角色记录：维持旧版直接放行，由 k8s Permission/集群归属兜底。
+	if role == nil || role.Name != model.BuiltinReadonlyRoleName {
 		return nil
 	}
 	if !isReadonlyProxyRequest(ctx) {
 		return errors.ErrForbidden
-	}
-	if ctx.FullPath() == "/pixiu/external/*act" {
-		return u.validateExternalDatasourceProxy(ctx, roleId)
 	}
 	// 集群访问仍由 Permission 的 scoped kubeconfig 和集群归属校验兜底。
 	return nil
@@ -655,63 +647,6 @@ func isReadonlyProxyRequest(ctx *gin.Context) bool {
 		}
 	}
 	return true
-}
-
-func (u *user) validateExternalDatasourceProxy(ctx *gin.Context, roleID int64) error {
-	datasourceID, err := strconv.ParseInt(strings.TrimSpace(ctx.GetHeader("X-Pixiu-Datasource-Id")), 10, 64)
-	if err != nil || datasourceID <= 0 {
-		return errors.ErrForbidden
-	}
-	datasource, err := u.factory.Datasource().Get(ctx, datasourceID)
-	if err != nil {
-		return errors.ErrServerInternal
-	}
-	if datasource == nil || !datasource.External {
-		return errors.ErrForbidden
-	}
-	user, err := httputils.GetUserFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	if err = controllerutil.CheckResourceAccess(ctx, u.factory, datasource.UserId, types.ResourceTypeDatasource, datasource.Id); err != nil {
-		return err
-	}
-	if int64(user.Role) != roleID {
-		return errors.ErrForbidden
-	}
-
-	var cfg types.DatasourceConfig
-	if err = cfg.Unmarshal(datasource.Config); err != nil {
-		return errors.ErrServerInternal
-	}
-	requested := strings.TrimSpace(ctx.Query("url"))
-	configuredURLs := make([]string, 0, 2)
-	if cfg.Log != nil {
-		configuredURLs = append(configuredURLs, cfg.Log.URL)
-	}
-	if cfg.Alert != nil {
-		configuredURLs = append(configuredURLs, cfg.Alert.URL)
-	}
-	for _, configured := range configuredURLs {
-		if sameProxyBaseURL(requested, configured) {
-			return nil
-		}
-	}
-	return errors.ErrForbidden
-}
-
-func sameProxyBaseURL(requested, configured string) bool {
-	requestedURL, err := url.Parse(strings.TrimRight(strings.TrimSpace(requested), "/"))
-	if err != nil || requestedURL.Scheme == "" || requestedURL.Host == "" {
-		return false
-	}
-	configuredURL, err := url.Parse(strings.TrimRight(strings.TrimSpace(configured), "/"))
-	if err != nil || configuredURL.Scheme == "" || configuredURL.Host == "" {
-		return false
-	}
-	return strings.EqualFold(requestedURL.Scheme, configuredURL.Scheme) &&
-		strings.EqualFold(requestedURL.Host, configuredURL.Host) &&
-		requestedURL.EscapedPath() == configuredURL.EscapedPath()
 }
 
 func (u *user) ValidAccess(ctx *gin.Context, roleId int64) error {
