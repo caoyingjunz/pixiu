@@ -74,9 +74,11 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 	}
 	userObj, err := c.factory.User().Get(ctx, uid)
 	if err != nil {
+		klog.Errorf("failed to get user(%d) for permission grant: %v", uid, err)
 		return errors.ErrInternal
 	}
 	if userObj == nil {
+		klog.Errorf("user(%d) not found for permission grant", uid)
 		return servererrors.ErrUserNotFound
 	}
 

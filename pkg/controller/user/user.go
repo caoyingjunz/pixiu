@@ -116,7 +116,7 @@ func (u *user) Create(ctx context.Context, req *types.CreateUserRequest) error {
 			return errors.ErrRootAlreadyExists
 		}
 	}
-	tenantID, err := u.tenantIDForRole(ctx, req.Role)
+	tenantID, err := u.getTenantIDByRole(ctx, req.Role)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 	}
 	// 非超管不允许修改角色（垂直越权防护）；req.Role 是值类型，前端不传时零值=RoleRoot(0)，故非超管一律强制保持旧角色
 	if curUser.Role == model.RoleRoot {
-		tenantID, resolveErr := u.tenantIDForRole(ctx, req.Role)
+		tenantID, resolveErr := u.getTenantIDByRole(ctx, req.Role)
 		if resolveErr != nil {
 			return resolveErr
 		}
@@ -193,7 +193,7 @@ func (u *user) Update(ctx context.Context, uid int64, req *types.UpdateUserReque
 	return nil
 }
 
-func (u *user) tenantIDForRole(ctx context.Context, roleID model.UserLevel) (int64, error) {
+func (u *user) getTenantIDByRole(ctx context.Context, roleID model.UserLevel) (int64, error) {
 	if roleID == model.RoleRoot {
 		return 0, nil
 	}
