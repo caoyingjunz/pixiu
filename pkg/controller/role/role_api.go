@@ -70,9 +70,9 @@ func (r *roleAPI) GetAPIs(ctx context.Context, rid int64) (*types.RoleAPIsRespon
 }
 
 // 更新前置检查：资源存在
-// role.Update 与 role.UpdateAPIs 共用 role.go 的 preUpdateRole，role.Update 需要旧值做名称查重，故返回 (*model.Role, error)
+// role.Update 与 role.UpdateAPIs 共用 role.go 的 preMutateRole，role.Update 需要旧值做名称查重，故返回 (*model.Role, error)
 func (r *roleAPI) UpdateAPIs(ctx context.Context, rid int64, req *types.UpdateRoleAPIsRequest) error {
-	if _, err := preUpdateRole(ctx, r.factory, rid); err != nil {
+	if _, err := preMutateRole(ctx, r.factory, rid); err != nil {
 		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
 		return err
 	}

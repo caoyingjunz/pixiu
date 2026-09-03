@@ -72,7 +72,7 @@ func (r *roleMenu) GetMenus(ctx context.Context, rid int64) (*types.RoleMenusRes
 }
 
 func (r *roleMenu) UpdateMenus(ctx context.Context, rid int64, req *types.UpdateRoleMenusRequest) error {
-	if _, err := preUpdateRole(ctx, r.factory, rid); err != nil {
+	if _, err := preMutateRole(ctx, r.factory, rid); err != nil {
 		klog.Errorf("pre-update check failed for role(%d) menus: %v", rid, err)
 		return err
 	}
