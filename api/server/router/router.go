@@ -30,6 +30,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/middleware"
 	"github.com/caoyingjunz/pixiu/api/server/router/agent"
 	"github.com/caoyingjunz/pixiu/api/server/router/apiresource"
+	authrouter "github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/distribution"
@@ -61,6 +62,7 @@ func InstallRouters(o *options.Options) {
 		tenant.NewRouter,
 		role.NewRouter,
 		apiresource.NewRouter,
+		authrouter.NewRouter,
 		user.NewRouter,
 		distribution.NewRouter,
 		plan.NewRouter,

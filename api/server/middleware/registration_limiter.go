@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	registrationCodePath = "/pixiu/users/registration-codes"
-	registrationPath     = "/pixiu/users/register"
+	verificationCodePath = "/pixiu/auth/verification-codes"
+	registrationPath     = "/pixiu/auth/register"
 	registrationIPCap    = 8192
 )
 
@@ -46,7 +46,7 @@ func RegistrationRateLimiter() gin.HandlerFunc {
 			return
 		}
 		path := c.Request.URL.Path
-		if path != registrationCodePath && path != registrationPath {
+		if path != verificationCodePath && path != registrationPath {
 			return
 		}
 
@@ -54,7 +54,7 @@ func RegistrationRateLimiter() gin.HandlerFunc {
 		ipRate := rate.Limit(30.0 / 60.0)
 		burst := 10
 		keyPrefix := "register:"
-		if path == registrationCodePath {
+		if path == verificationCodePath {
 			global = registrationCodeGlobal
 			ipRate = rate.Limit(10.0 / 3600.0)
 			burst = 3

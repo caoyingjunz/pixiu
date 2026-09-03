@@ -27,38 +27,6 @@ type IdMeta struct {
 	UserId int64 `uri:"userId" binding:"required"`
 }
 
-func (u *userRouter) sendRegistrationCode(c *gin.Context) {
-	r := httputils.NewResponse()
-	var req types.SendRegistrationCodeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetAuditOperator(c, req.Email)
-	result, err := u.c.Registration().SendCode(c, &req, c.ClientIP())
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result = result
-	httputils.SetSuccess(c, r)
-}
-
-func (u *userRouter) registerUser(c *gin.Context) {
-	r := httputils.NewResponse()
-	var req types.RegisterUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetAuditOperator(c, req.Name)
-	if err := u.c.Registration().Register(c, &req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetSuccess(c, r)
-}
-
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -175,6 +143,10 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// login 用户登录。
+// TODO: 注册/验证码已迁至 POST /pixiu/auth/*；login 可择机迁至 POST /pixiu/auth/login，
+// 与 auth 路由组统一。迁移时需保留 POST /pixiu/users/login 作为兼容 alias，并同步
+// pixiu-ui、dashboard、nginx 限流及 security/baseline 等引用。
 func (u *userRouter) login(c *gin.Context) {
 	r := httputils.NewResponse()
 

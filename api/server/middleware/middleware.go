@@ -32,8 +32,8 @@ var alwaysAllowPath sets.String
 func init() {
 	alwaysAllowPath = sets.NewString(
 		"/pixiu/users/login",
-		"/pixiu/users/registration-codes",
-		"/pixiu/users/register",
+		"/pixiu/auth/verification-codes",
+		"/pixiu/auth/register",
 		"/pixiu/connect",
 	)
 }
