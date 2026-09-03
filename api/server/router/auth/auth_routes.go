@@ -31,7 +31,7 @@ func (a *authRouter) sendVerificationCode(c *gin.Context) {
 		return
 	}
 	httputils.SetAuditOperator(c, req.Email)
-	result, err := a.c.Registration().SendCode(c, &req, c.ClientIP())
+	result, err := a.c.Auth().SendCode(c, &req, c.ClientIP())
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -48,7 +48,7 @@ func (a *authRouter) registerUser(c *gin.Context) {
 		return
 	}
 	httputils.SetAuditOperator(c, req.Name)
-	if err := a.c.Registration().Register(c, &req); err != nil {
+	if err := a.c.Auth().Register(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

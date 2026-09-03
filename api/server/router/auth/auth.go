@@ -28,6 +28,10 @@ type authRouter struct {
 	c controller.PixiuInterface
 }
 
+const (
+	authBaseURL = "/pixiu/auth"
+)
+
 var persistPublicAuthAPI = false
 
 func NewRouter(o *options.Options) {
@@ -40,11 +44,11 @@ func NewRouter(o *options.Options) {
 func (a *authRouter) initRoutes(httpEngine *gin.Engine) {
 	authGroup := &apiregistry.Group{
 		Name:    "认证",
-		BaseURL: "/pixiu/auth",
+		BaseURL: authBaseURL,
 		Entries: []apiregistry.RouteEntry{
 			{Method: "POST", RelativePath: "/verification-codes", Handler: a.sendVerificationCode, Description: "发送注册验证码", Persist: &persistPublicAuthAPI},
-			{Method: "POST", RelativePath: "/register", Handler: a.registerUser, Description: "注册普通用户", Persist: &persistPublicAuthAPI},
+			{Method: "POST", RelativePath: "/register", Handler: a.registerUser, Description: "注册用户", Persist: &persistPublicAuthAPI},
 		},
 	}
-	authGroup.Register(httpEngine.Group("/pixiu/auth"), a.c.APIResource())
+	authGroup.Register(httpEngine.Group(authBaseURL), a.c.APIResource())
 }

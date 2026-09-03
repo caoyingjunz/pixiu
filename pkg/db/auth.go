@@ -43,17 +43,17 @@ var (
 
 const registrationRoleName = "普通用户"
 
-type RegistrationInterface interface {
+type AuthInterface interface {
 	StoreCode(ctx context.Context, object *model.RegistrationCode, cooldown time.Duration) error
 	InvalidateCode(ctx context.Context, email, codeHash string) error
 	Register(ctx context.Context, email, codeHash string, maxAttempts int, user *model.User) error
 }
 
-type registration struct {
+type authStore struct {
 	db *gorm.DB
 }
 
-func (r *registration) StoreCode(ctx context.Context, object *model.RegistrationCode, cooldown time.Duration) error {
+func (r *authStore) StoreCode(ctx context.Context, object *model.RegistrationCode, cooldown time.Duration) error {
 	now := object.SentAt
 	if now.IsZero() {
 		now = time.Now()
@@ -92,7 +92,7 @@ func (r *registration) StoreCode(ctx context.Context, object *model.Registration
 }
 
 // InvalidateCode 仅失效本次发送的验证码，避免并发发送时误伤更新后的验证码。
-func (r *registration) InvalidateCode(ctx context.Context, email, codeHash string) error {
+func (r *authStore) InvalidateCode(ctx context.Context, email, codeHash string) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).Model(&model.RegistrationCode{}).
 		Where("email = ? AND code_hash = ?", email, codeHash).
@@ -106,7 +106,7 @@ func (r *registration) InvalidateCode(ctx context.Context, email, codeHash strin
 }
 
 // Register 在同一事务中校验并消费验证码、检查账号冲突、创建普通用户。
-func (r *registration) Register(ctx context.Context, email, codeHash string, maxAttempts int, user *model.User) error {
+func (r *authStore) Register(ctx context.Context, email, codeHash string, maxAttempts int, user *model.User) error {
 	var businessErr error
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
@@ -209,6 +209,6 @@ func (r *registration) Register(ctx context.Context, email, codeHash string, max
 	return businessErr
 }
 
-func newRegistration(db *gorm.DB) *registration {
-	return &registration{db: db}
+func newAuth(db *gorm.DB) *authStore {
+	return &authStore{db: db}
 }

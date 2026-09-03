@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package registration
+package auth
 
 import (
 	"context"
@@ -50,7 +50,7 @@ const (
 )
 
 type Getter interface {
-	Registration() Interface
+	Auth() Interface
 }
 
 type Interface interface {
@@ -89,7 +89,7 @@ func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCo
 		SentAt:         now,
 		RequestIP:      requestIP,
 	}
-	if err = c.factory.Registration().StoreCode(ctx, object, codeCooldown); err != nil {
+	if err = c.factory.Auth().StoreCode(ctx, object, codeCooldown); err != nil {
 		if goerrors.Is(err, db.ErrRegistrationCodeTooFrequent) {
 			return nil, apierrors.ErrRegistrationCodeTooFrequent
 		}
@@ -100,7 +100,7 @@ func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCo
 	subject := "Pixiu 注册验证码"
 	body := fmt.Sprintf("您正在注册 Pixiu 账号。\n\n验证码：%s\n\n验证码 %d 分钟内有效，请勿转发给他人。", code, int(codeTTL/time.Minute))
 	if err = emailcontroller.New(c.cc, c.factory).Send(ctx, email, subject, body); err != nil {
-		if invalidateErr := c.factory.Registration().InvalidateCode(ctx, email, codeHash); invalidateErr != nil {
+		if invalidateErr := c.factory.Auth().InvalidateCode(ctx, email, codeHash); invalidateErr != nil {
 			klog.Errorf("failed to invalidate unsent registration code for %s: %v", email, invalidateErr)
 		}
 		klog.Errorf("failed to send registration code to %s: %v", email, err)
@@ -132,7 +132,7 @@ func (c *controller) Register(ctx context.Context, req *types.RegisterUserReques
 		Status:   model.UserStatusNormal,
 		Email:    email,
 	}
-	if err = c.factory.Registration().Register(ctx, email, c.codeHash(email, code), maxCodeAttempts, user); err != nil {
+	if err = c.factory.Auth().Register(ctx, email, c.codeHash(email, code), maxCodeAttempts, user); err != nil {
 		switch {
 		case goerrors.Is(err, db.ErrRegistrationCodeInvalid):
 			return apierrors.ErrRegistrationCodeInvalid

@@ -37,7 +37,7 @@ type ShareDaoFactory interface {
 	Assistant() AssistantInterface
 	Alert() AlertInterface
 	Email() EmailInterface
-	Registration() RegistrationInterface
+	Auth() AuthInterface
 	CronHpa() CronHpaInterface
 }
 
@@ -61,7 +61,7 @@ func (f *shareDaoFactory) Runner() RunnerInterface             { return newRunne
 func (f *shareDaoFactory) Assistant() AssistantInterface       { return newAssistant(f.db) }
 func (f *shareDaoFactory) Alert() AlertInterface               { return newAlert(f.db) }
 func (f *shareDaoFactory) Email() EmailInterface               { return newEmail(f.db) }
-func (f *shareDaoFactory) Registration() RegistrationInterface { return newRegistration(f.db) }
+func (f *shareDaoFactory) Auth() AuthInterface { return newAuth(f.db) }
 func (f *shareDaoFactory) CronHpa() CronHpaInterface           { return newCronHpa(f.db) }
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {

@@ -401,6 +401,8 @@ func (u *user) GetStatus(ctx context.Context, uid int64) (int, error) {
 	return int(object.Status), nil
 }
 
+// Login 校验用户名密码并签发 token。
+// TODO: 后续迁入 pkg/controller/auth，与注册、验证码统一由 Auth 模块承载。
 func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error) {
 	// 用户名锁定后仅允许低频探测，避免多 IP 持续打满 bcrypt
 	if !loginlimit.AllowUserAttempt(req.Name) {
