@@ -161,7 +161,8 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	// 初始化 Agent 反向隧道（必须在路由注册前）
 	tunnel.Init(tunnel.FactoryLookup{Factory: o.Factory})
 
-	if err := o.bootstrapDatabase(); err != nil {
+	// 启动阶段一初始化：内置租户/角色/root 与目录类数据（路由安装前）
+	if err := o.BootstrapPreRouter(); err != nil {
 		return err
 	}
 

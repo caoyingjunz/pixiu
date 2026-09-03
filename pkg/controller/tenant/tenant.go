@@ -71,8 +71,8 @@ func (t *tenant) Create(ctx context.Context, req *types.CreateTenantRequest) err
 	return nil
 }
 
-// 更新前置检查：资源存在
-func (t *tenant) preUpdate(ctx context.Context, tid int64) (*model.Tenant, error) {
+// preMutate 变更（更新/删除）前置检查：资源存在
+func (t *tenant) preMutate(ctx context.Context, tid int64) (*model.Tenant, error) {
 	object, err := t.factory.Tenant().Get(ctx, tid)
 	if err != nil {
 		klog.Errorf("failed to get tenant(%d): %v", tid, err)
@@ -89,7 +89,7 @@ func (t *tenant) preUpdate(ctx context.Context, tid int64) (*model.Tenant, error
 }
 
 func (t *tenant) Update(ctx context.Context, tid int64, req *types.UpdateTenantRequest) error {
-	if _, err := t.preUpdate(ctx, tid); err != nil {
+	if _, err := t.preMutate(ctx, tid); err != nil {
 		klog.Errorf("pre-update check failed for tenant(%d): %v", tid, err)
 		return err
 	}
@@ -116,7 +116,7 @@ func (t *tenant) Delete(ctx context.Context, tid int64) error {
 	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return err
 	}
-	if _, err := t.preUpdate(ctx, tid); err != nil {
+	if _, err := t.preMutate(ctx, tid); err != nil {
 		return err
 	}
 	object, err := t.factory.Tenant().Delete(ctx, tid)

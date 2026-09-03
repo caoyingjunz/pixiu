@@ -56,8 +56,9 @@ func Catalog() []Definition {
 		{Code: "monitor", Title: "监控告警", Path: "/monitor", Kind: KindDirectory},
 		{Code: "monitor.realtime", ParentCode: "monitor", Title: "实时查询", Path: "/monitor/realtime-query", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/datasources"}},
 		{Code: "monitor.logs", ParentCode: "monitor", Title: "日志", Path: "/monitor/logs", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/datasources"}},
-		{Code: "monitor.alert", ParentCode: "monitor", Title: "配置告警", Path: "/monitor/alert-config", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/alerts/rules"}},
-		{Code: "monitor.datasource", ParentCode: "monitor", Title: "数据源", Path: "/monitor/datasource", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/datasources"}},
+		{Code: "monitor.alert", ParentCode: "monitor", Title: "告警中心", Path: "/monitor/alert-config", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/alerts/rules"}},
+		// 数据源独立为顶级菜单，与「监控告警」同级；菜单码保持不变，兼容既有 role_menus 绑定
+		{Code: "monitor.datasource", Title: "数据源", Path: "/datasource", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/datasources"}},
 
 		{Code: "ai", Title: "智能助手", Path: "/ai", Kind: KindDirectory},
 		{Code: "ai.account", ParentCode: "ai", Title: "AI 账号", Path: "/ai/ai-account", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/assistant/accounts"}},

@@ -172,7 +172,9 @@ var defaultRunners = []struct {
 }
 
 // bootstrapDatabase 启动时集中初始化所有数据库相关资源
-func (o *Options) bootstrapDatabase() error {
+// BootstrapPreRouter 阶段一初始化：路由安装前的全部启动数据装配（内置租户/角色/root/目录类数据）。
+// 由 Options.Complete 调用；API 资源要等路由安装后才会入库，默认角色权限绑定见 BootstrapPostRouter。
+func (o *Options) BootstrapPreRouter() error {
 	ctx := context.Background()
 
 	// API 资源要等路由安装后才会入库；此处只初始化内置租户与唯一内置角色。
@@ -283,8 +285,9 @@ var defaultRoleMenus = []string{
 	"system.user-center",
 }
 
-// BootstrapDefaultPermissions 须在 InstallRouters 之后调用：仅在权限为空时写入默认 API/菜单，已有记录则跳过。
-func (o *Options) BootstrapDefaultPermissions(ctx context.Context) error {
+// BootstrapPostRouter 阶段二初始化：路由安装后，初始化「普通用户」角色绑定 API/菜单。
+// 须在 InstallRouters 之后调用（API 经路由注册入库，此处依赖 apis 表）；仅在权限为空时写入，已有记录则跳过。
+func (o *Options) BootstrapPostRouter(ctx context.Context) error {
 	tenant, err := o.Factory.Tenant().GetTenantByName(ctx, pixiuModel.DefaultTenantName)
 	if err != nil || tenant == nil {
 		return fmt.Errorf("failed to resolve default tenant: %v", err)
