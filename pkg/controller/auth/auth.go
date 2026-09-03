@@ -22,7 +22,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	goerrors "errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -65,7 +64,7 @@ type controller struct {
 
 func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCodeRequest, requestIP string) (*types.RegistrationCodeResponse, error) {
 	email := normalizeEmail(req.Email)
-	existing, err := c.factory.User().GetUserByEmail(ctx, email)
+	existing, err := c.factory.User().GetBy(ctx, db.WithEmail(email))
 	if err != nil {
 		klog.Errorf("failed to check registration email: %v", err)
 		return nil, apierrors.ErrServerInternal
@@ -79,6 +78,7 @@ func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCo
 		klog.Errorf("failed to generate registration code: %v", err)
 		return nil, apierrors.ErrServerInternal
 	}
+
 	now := time.Now()
 	codeHash := c.codeHash(email, code)
 	object := &model.RegistrationCode{
@@ -89,9 +89,12 @@ func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCo
 		SentAt:         now,
 		RequestIP:      requestIP,
 	}
-	if err = c.factory.Auth().StoreCode(ctx, object, codeCooldown); err != nil {
-		if goerrors.Is(err, db.ErrRegistrationCodeTooFrequent) {
-			return nil, apierrors.ErrRegistrationCodeTooFrequent
+	err = c.factory.Transaction(ctx, func(factory db.ShareDaoFactory) error {
+		return c.storeRegistrationCode(ctx, factory, object, codeCooldown)
+	})
+	if err != nil {
+		if mapped := mapRegistrationError(err); mapped != err {
+			return nil, mapped
 		}
 		klog.Errorf("failed to store registration code for %s: %v", email, err)
 		return nil, apierrors.ErrServerInternal
@@ -132,28 +135,15 @@ func (c *controller) Register(ctx context.Context, req *types.RegisterUserReques
 		Status:   model.UserStatusNormal,
 		Email:    email,
 	}
-	if err = c.factory.Auth().Register(ctx, email, c.codeHash(email, code), maxCodeAttempts, user); err != nil {
-		switch {
-		case goerrors.Is(err, db.ErrRegistrationCodeInvalid):
-			return apierrors.ErrRegistrationCodeInvalid
-		case goerrors.Is(err, db.ErrRegistrationCodeExpired):
-			return apierrors.ErrRegistrationCodeExpired
-		case goerrors.Is(err, db.ErrRegistrationCodeUsed):
-			return apierrors.ErrRegistrationCodeUsed
-		case goerrors.Is(err, db.ErrRegistrationCodeAttempts):
-			return apierrors.ErrRegistrationCodeAttempts
-		case goerrors.Is(err, db.ErrRegistrationEmailExists):
-			return apierrors.ErrEmailExists
-		case goerrors.Is(err, db.ErrRegistrationUserExists):
-			return apierrors.ErrUserExists
-		case goerrors.Is(err, db.ErrRegistrationRoleUnavailable):
-			return apierrors.ErrRegistrationRoleUnavailable
-		case goerrors.Is(err, db.ErrRegistrationRoleConflict):
-			return apierrors.ErrRegistrationRoleConflict
-		default:
-			klog.Errorf("failed to register user %s: %v", name, err)
-			return apierrors.ErrServerInternal
+	err = c.factory.Transaction(ctx, func(factory db.ShareDaoFactory) error {
+		return c.registerUser(ctx, factory, email, c.codeHash(email, code), user)
+	})
+	if err != nil {
+		if mapped := mapRegistrationError(err); mapped != err {
+			return mapped
 		}
+		klog.Errorf("failed to register user %s: %v", name, err)
+		return apierrors.ErrServerInternal
 	}
 	return nil
 }

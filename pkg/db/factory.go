@@ -17,6 +17,8 @@ limitations under the License.
 package db
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 )
 
@@ -39,6 +41,9 @@ type ShareDaoFactory interface {
 	Email() EmailInterface
 	Auth() AuthInterface
 	CronHpa() CronHpaInterface
+
+	// Transaction 在单库事务中执行 fn，fn 内应使用传入的 factory 访问 DAO。
+	Transaction(ctx context.Context, fn func(ShareDaoFactory) error) error
 }
 
 type shareDaoFactory struct {
@@ -63,6 +68,12 @@ func (f *shareDaoFactory) Alert() AlertInterface               { return newAlert
 func (f *shareDaoFactory) Email() EmailInterface               { return newEmail(f.db) }
 func (f *shareDaoFactory) Auth() AuthInterface { return newAuth(f.db) }
 func (f *shareDaoFactory) CronHpa() CronHpaInterface           { return newCronHpa(f.db) }
+
+func (f *shareDaoFactory) Transaction(ctx context.Context, fn func(ShareDaoFactory) error) error {
+	return f.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(&shareDaoFactory{db: tx})
+	})
+}
 
 func NewDaoFactory(db *gorm.DB, migrate bool) (ShareDaoFactory, error) {
 	if migrate {

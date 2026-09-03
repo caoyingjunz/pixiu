@@ -155,6 +155,15 @@ func WithEmailLike(email string) Options {
 	}
 }
 
+func WithEmail(email string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if email == "" {
+			return tx
+		}
+		return tx.Where("LOWER(email) = ?", email)
+	}
+}
+
 func WithUserStatus(status int) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("status = ?", status)

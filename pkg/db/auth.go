@@ -18,8 +18,6 @@ package db
 
 import (
 	"context"
-	"crypto/subtle"
-	goerrors "errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -29,69 +27,55 @@ import (
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-var (
-	ErrRegistrationCodeTooFrequent = goerrors.New("registration code sent too frequently")
-	ErrRegistrationCodeInvalid     = goerrors.New("invalid registration code")
-	ErrRegistrationCodeExpired     = goerrors.New("registration code expired")
-	ErrRegistrationCodeUsed        = goerrors.New("registration code already used")
-	ErrRegistrationCodeAttempts    = goerrors.New("too many registration code attempts")
-	ErrRegistrationEmailExists     = goerrors.New("registration email already exists")
-	ErrRegistrationUserExists      = goerrors.New("registration user already exists")
-	ErrRegistrationRoleUnavailable = goerrors.New("registration role unavailable")
-	ErrRegistrationRoleConflict    = goerrors.New("multiple registration roles found")
-)
-
-const registrationRoleName = "普通用户"
-
+// AuthInterface 注册验证码持久化接口（不含业务编排）。
 type AuthInterface interface {
-	StoreCode(ctx context.Context, object *model.RegistrationCode, cooldown time.Duration) error
+	GetCodeByEmailForUpdate(ctx context.Context, email string) (*model.RegistrationCode, error)
+	CreateCode(ctx context.Context, object *model.RegistrationCode) error
+	UpdateCode(ctx context.Context, id int64, updates map[string]interface{}) error
 	InvalidateCode(ctx context.Context, email, codeHash string) error
-	Register(ctx context.Context, email, codeHash string, maxAttempts int, user *model.User) error
+	MarkCodeUsed(ctx context.Context, id int64) error
 }
 
 type authStore struct {
 	db *gorm.DB
 }
 
-func (r *authStore) StoreCode(ctx context.Context, object *model.RegistrationCode, cooldown time.Duration) error {
-	now := object.SentAt
-	if now.IsZero() {
-		now = time.Now()
+func (r *authStore) GetCodeByEmailForUpdate(ctx context.Context, email string) (*model.RegistrationCode, error) {
+	var object model.RegistrationCode
+	err := r.db.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("email = ?", email).
+		First(&object).Error
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &object, nil
+}
+
+func (r *authStore) CreateCode(ctx context.Context, object *model.RegistrationCode) error {
+	now := time.Now()
+	if object.SentAt.IsZero() {
 		object.SentAt = now
 	}
 	object.GmtCreate = now
 	object.GmtModified = now
-
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var current model.RegistrationCode
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("email = ?", object.Email).First(&current).Error
-		if err != nil && !utilerrors.IsRecordNotFound(err) {
-			return err
-		}
-		if err == nil {
-			if current.SentAt.Add(cooldown).After(now) {
-				return ErrRegistrationCodeTooFrequent
-			}
-			return tx.Model(&model.RegistrationCode{}).Where("id = ?", current.Id).Updates(map[string]interface{}{
-				"code_hash":        object.CodeHash,
-				"expires_at":       object.ExpiresAt,
-				"used_at":          nil,
-				"failed_attempts":  0,
-				"sent_at":          object.SentAt,
-				"request_ip":       object.RequestIP,
-				"gmt_modified":     now,
-				"resource_version": gorm.Expr("resource_version + 1"),
-			}).Error
-		}
-		return tx.Create(object).Error
-	})
-	if utilerrors.IsUniqueConstraintError(err) {
-		return ErrRegistrationCodeTooFrequent
-	}
-	return err
+	return r.db.WithContext(ctx).Create(object).Error
 }
 
-// InvalidateCode 仅失效本次发送的验证码，避免并发发送时误伤更新后的验证码。
+func (r *authStore) UpdateCode(ctx context.Context, id int64, updates map[string]interface{}) error {
+	now := time.Now()
+	updates["gmt_modified"] = now
+	updates["resource_version"] = gorm.Expr("resource_version + 1")
+	return r.db.WithContext(ctx).
+		Model(&model.RegistrationCode{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
+// InvalidateCode 按 email 与 code_hash 精确失效，避免并发发送时误伤新验证码。
 func (r *authStore) InvalidateCode(ctx context.Context, email, codeHash string) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).Model(&model.RegistrationCode{}).
@@ -105,108 +89,22 @@ func (r *authStore) InvalidateCode(ctx context.Context, email, codeHash string) 
 		}).Error
 }
 
-// Register 在同一事务中校验并消费验证码、检查账号冲突、创建普通用户。
-func (r *authStore) Register(ctx context.Context, email, codeHash string, maxAttempts int, user *model.User) error {
-	var businessErr error
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		now := time.Now()
-		var code model.RegistrationCode
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("email = ?", email).First(&code).Error; err != nil {
-			if utilerrors.IsRecordNotFound(err) {
-				businessErr = ErrRegistrationCodeInvalid
-				return nil
-			}
-			return err
-		}
-		if code.UsedAt != nil {
-			businessErr = ErrRegistrationCodeUsed
-			return nil
-		}
-		if !now.Before(code.ExpiresAt) {
-			businessErr = ErrRegistrationCodeExpired
-			return nil
-		}
-		if code.FailedAttempts >= maxAttempts {
-			businessErr = ErrRegistrationCodeAttempts
-			return nil
-		}
-		if subtle.ConstantTimeCompare([]byte(code.CodeHash), []byte(codeHash)) != 1 {
-			attempts := code.FailedAttempts + 1
-			if err := tx.Model(&model.RegistrationCode{}).Where("id = ?", code.Id).Updates(map[string]interface{}{
-				"failed_attempts":  attempts,
-				"gmt_modified":     now,
-				"resource_version": gorm.Expr("resource_version + 1"),
-			}).Error; err != nil {
-				return err
-			}
-			if attempts >= maxAttempts {
-				businessErr = ErrRegistrationCodeAttempts
-			} else {
-				businessErr = ErrRegistrationCodeInvalid
-			}
-			return nil
-		}
-
-		var roles []model.Role
-		if err := tx.Where("name = ?", registrationRoleName).Limit(2).Find(&roles).Error; err != nil {
-			return err
-		}
-		switch len(roles) {
-		case 0:
-			businessErr = ErrRegistrationRoleUnavailable
-			return nil
-		case 1:
-			user.TenantId = roles[0].TenantId
-			user.Role = model.UserLevel(roles[0].Id)
-		default:
-			businessErr = ErrRegistrationRoleConflict
-			return nil
-		}
-
-		var count int64
-		if err := tx.Model(&model.User{}).Where("name = ?", user.Name).Count(&count).Error; err != nil {
-			return err
-		}
-		if count > 0 {
-			businessErr = ErrRegistrationUserExists
-			return nil
-		}
-		if err := tx.Model(&model.User{}).Where("LOWER(email) = ?", email).Count(&count).Error; err != nil {
-			return err
-		}
-		if count > 0 {
-			businessErr = ErrRegistrationEmailExists
-			return nil
-		}
-
-		user.GmtCreate = now
-		user.GmtModified = now
-		if err := tx.Create(user).Error; err != nil {
-			if utilerrors.IsUniqueConstraintError(err) {
-				businessErr = ErrRegistrationUserExists
-				return nil
-			}
-			return err
-		}
-		result := tx.Model(&model.RegistrationCode{}).
-			Where("id = ? AND used_at IS NULL", code.Id).
-			Updates(map[string]interface{}{
-				"used_at":          now,
-				"gmt_modified":     now,
-				"resource_version": gorm.Expr("resource_version + 1"),
-			})
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected != 1 {
-			return ErrRegistrationCodeUsed
-		}
-		return nil
-	})
-	if err != nil {
-		return err
+func (r *authStore) MarkCodeUsed(ctx context.Context, id int64) error {
+	now := time.Now()
+	result := r.db.WithContext(ctx).Model(&model.RegistrationCode{}).
+		Where("id = ? AND used_at IS NULL", id).
+		Updates(map[string]interface{}{
+			"used_at":          now,
+			"gmt_modified":     now,
+			"resource_version": gorm.Expr("resource_version + 1"),
+		})
+	if result.Error != nil {
+		return result.Error
 	}
-	return businessErr
+	if result.RowsAffected != 1 {
+		return ErrRegistrationCodeNotMarked
+	}
+	return nil
 }
 
 func newAuth(db *gorm.DB) *authStore {
