@@ -103,7 +103,7 @@ func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCo
 	subject := "Pixiu 注册验证码"
 	body := fmt.Sprintf("您正在注册 Pixiu 账号。\n\n验证码：%s\n\n验证码 %d 分钟内有效，请勿转发给他人。", code, int(codeTTL/time.Minute))
 	if err = emailcontroller.New(c.cc, c.factory).Send(ctx, email, subject, body); err != nil {
-		if invalidateErr := c.factory.Auth().InvalidateCode(ctx, email, codeHash); invalidateErr != nil {
+		if invalidateErr := c.invalidateRegistrationCode(ctx, c.factory, email, codeHash); invalidateErr != nil {
 			klog.Errorf("failed to invalidate unsent registration code for %s: %v", email, invalidateErr)
 		}
 		klog.Errorf("failed to send registration code to %s: %v", email, err)

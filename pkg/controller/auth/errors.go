@@ -19,13 +19,13 @@ package auth
 import goerrors "errors"
 
 var (
-	errCodeTooFrequent     = goerrors.New("registration code sent too frequently")
-	errCodeInvalid         = goerrors.New("invalid registration code")
-	errCodeExpired         = goerrors.New("registration code expired")
-	errCodeUsed            = goerrors.New("registration code already used")
-	errCodeAttempts        = goerrors.New("too many registration code attempts")
-	errEmailExists         = goerrors.New("registration email already exists")
-	errUserExists          = goerrors.New("registration user already exists")
-	errRoleUnavailable     = goerrors.New("registration role unavailable")
-	errRoleConflict        = goerrors.New("multiple registration roles found")
+	errCodeTooFrequent = goerrors.New("registration code sent too frequently")
+	errCodeInvalid     = goerrors.New("invalid registration code")
+	errCodeExpired     = goerrors.New("registration code expired")
+	errCodeUsed        = goerrors.New("registration code already used")
+	errCodeAttempts    = goerrors.New("too many registration code attempts")
+	errEmailExists     = goerrors.New("registration email already exists")
+	errUserExists      = goerrors.New("registration user already exists")
+	errRoleUnavailable = goerrors.New("registration role unavailable")
+	errRoleConflict    = goerrors.New("multiple registration roles found")
 )

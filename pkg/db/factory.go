@@ -39,7 +39,7 @@ type ShareDaoFactory interface {
 	Assistant() AssistantInterface
 	Alert() AlertInterface
 	Email() EmailInterface
-	Auth() AuthInterface
+	RegistrationCode() RegistrationCodeInterface
 	CronHpa() CronHpaInterface
 
 	// Transaction 在单库事务中执行 fn，fn 内应使用传入的 factory 访问 DAO。
@@ -66,7 +66,7 @@ func (f *shareDaoFactory) Runner() RunnerInterface             { return newRunne
 func (f *shareDaoFactory) Assistant() AssistantInterface       { return newAssistant(f.db) }
 func (f *shareDaoFactory) Alert() AlertInterface               { return newAlert(f.db) }
 func (f *shareDaoFactory) Email() EmailInterface               { return newEmail(f.db) }
-func (f *shareDaoFactory) Auth() AuthInterface { return newAuth(f.db) }
+func (f *shareDaoFactory) RegistrationCode() RegistrationCodeInterface { return newRegistrationCode(f.db) }
 func (f *shareDaoFactory) CronHpa() CronHpaInterface           { return newCronHpa(f.db) }
 
 func (f *shareDaoFactory) Transaction(ctx context.Context, fn func(ShareDaoFactory) error) error {

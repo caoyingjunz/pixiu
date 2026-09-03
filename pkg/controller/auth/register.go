@@ -30,6 +30,10 @@ import (
 
 const registrationRoleName = "普通用户"
 
+func registrationCodeLockOpts(email string) []db.Options {
+	return []db.Options{db.WithEmail(email), db.WithForUpdate()}
+}
+
 func (c *controller) storeRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, object *model.RegistrationCode, cooldown time.Duration) error {
 	now := object.SentAt
 	if now.IsZero() {
@@ -37,7 +41,7 @@ func (c *controller) storeRegistrationCode(ctx context.Context, factory db.Share
 		object.SentAt = now
 	}
 
-	current, err := factory.Auth().GetCodeByEmailForUpdate(ctx, object.Email)
+	current, err := factory.RegistrationCode().GetBy(ctx, registrationCodeLockOpts(object.Email)...)
 	if err != nil {
 		return err
 	}
@@ -45,7 +49,7 @@ func (c *controller) storeRegistrationCode(ctx context.Context, factory db.Share
 		if current.SentAt.Add(cooldown).After(now) {
 			return errCodeTooFrequent
 		}
-		return factory.Auth().UpdateCode(ctx, current.Id, map[string]interface{}{
+		return factory.RegistrationCode().Update(ctx, current.Id, map[string]interface{}{
 			"code_hash":       object.CodeHash,
 			"expires_at":      object.ExpiresAt,
 			"used_at":         nil,
@@ -55,7 +59,7 @@ func (c *controller) storeRegistrationCode(ctx context.Context, factory db.Share
 		})
 	}
 
-	if err = factory.Auth().CreateCode(ctx, object); err != nil {
+	if err = factory.RegistrationCode().Create(ctx, object); err != nil {
 		if utilerrors.IsUniqueConstraintError(err) {
 			return errCodeTooFrequent
 		}
@@ -64,10 +68,23 @@ func (c *controller) storeRegistrationCode(ctx context.Context, factory db.Share
 	return nil
 }
 
+func (c *controller) invalidateRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, email, codeHash string) error {
+	now := time.Now()
+	_, err := factory.RegistrationCode().UpdateBy(ctx, []db.Options{
+		db.WithEmail(email),
+		db.WithCodeHash(codeHash),
+	}, map[string]interface{}{
+		"expires_at": now,
+		"used_at":    now,
+		"sent_at":    now.Add(-time.Hour),
+	})
+	return err
+}
+
 func (c *controller) registerUser(ctx context.Context, factory db.ShareDaoFactory, email, codeHash string, user *model.User) error {
 	now := time.Now()
 
-	code, err := factory.Auth().GetCodeByEmailForUpdate(ctx, email)
+	code, err := factory.RegistrationCode().GetBy(ctx, registrationCodeLockOpts(email)...)
 	if err != nil {
 		return err
 	}
@@ -85,7 +102,7 @@ func (c *controller) registerUser(ctx context.Context, factory db.ShareDaoFactor
 	}
 	if subtle.ConstantTimeCompare([]byte(code.CodeHash), []byte(codeHash)) != 1 {
 		attempts := code.FailedAttempts + 1
-		if err = factory.Auth().UpdateCode(ctx, code.Id, map[string]interface{}{
+		if err = factory.RegistrationCode().Update(ctx, code.Id, map[string]interface{}{
 			"failed_attempts": attempts,
 		}); err != nil {
 			return err
@@ -122,11 +139,18 @@ func (c *controller) registerUser(ctx context.Context, factory db.ShareDaoFactor
 		}
 		return err
 	}
-	if err = factory.Auth().MarkCodeUsed(ctx, code.Id); err != nil {
-		if goerrors.Is(err, db.ErrRegistrationCodeNotMarked) {
-			return errCodeUsed
-		}
+
+	rows, err := factory.RegistrationCode().UpdateBy(ctx, []db.Options{
+		db.WithId(code.Id),
+		db.WithNullUsedAt(),
+	}, map[string]interface{}{
+		"used_at": now,
+	})
+	if err != nil {
 		return err
+	}
+	if rows != 1 {
+		return errCodeUsed
 	}
 	return nil
 }

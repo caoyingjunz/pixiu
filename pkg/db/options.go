@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
@@ -161,6 +162,27 @@ func WithEmail(email string) Options {
 			return tx
 		}
 		return tx.Where("LOWER(email) = ?", email)
+	}
+}
+
+func WithCodeHash(codeHash string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if codeHash == "" {
+			return tx
+		}
+		return tx.Where("code_hash = ?", codeHash)
+	}
+}
+
+func WithNullUsedAt() Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("used_at IS NULL")
+	}
+}
+
+func WithForUpdate() Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Clauses(clause.Locking{Strength: "UPDATE"})
 	}
 }
 
