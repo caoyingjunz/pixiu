@@ -31,6 +31,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
+	"github.com/caoyingjunz/pixiu/pkg/controller/registration"
 	"github.com/caoyingjunz/pixiu/pkg/controller/role"
 	"github.com/caoyingjunz/pixiu/pkg/controller/runner"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
@@ -55,6 +56,7 @@ type PixiuInterface interface {
 	assistant.Getter
 	alert.Getter
 	email.Getter
+	registration.Getter
 	extensioncontroller.Getter
 }
 
@@ -83,6 +85,9 @@ func (p *pixiu) Assistant() assistant.Interface   { return assistant.New(p.cc, p
 func (p *pixiu) Alert() alert.Interface           { return alert.New(p.cc, p.factory) }
 func (p *pixiu) Email() email.Interface {
 	return email.New(p.cc, p.factory)
+}
+func (p *pixiu) Registration() registration.Interface {
+	return registration.New(p.cc, p.factory)
 }
 func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)

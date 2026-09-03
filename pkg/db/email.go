@@ -31,6 +31,7 @@ type EmailInterface interface {
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) (*model.Email, error)
 	Get(ctx context.Context, id int64) (*model.Email, error)
+	GetDefaultEnabled(ctx context.Context) (*model.Email, error)
 	List(ctx context.Context, opts ...Options) ([]model.Email, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
 	// ClearDefaultExcept 将除指定 id 外的所有配置 is_default 置为 false（用于默认配置唯一性）
@@ -83,6 +84,17 @@ func (e *email) Delete(ctx context.Context, id int64) (*model.Email, error) {
 func (e *email) Get(ctx context.Context, id int64) (*model.Email, error) {
 	var object model.Email
 	if err := e.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &object, nil
+}
+
+func (e *email) GetDefaultEnabled(ctx context.Context) (*model.Email, error) {
+	var object model.Email
+	if err := e.db.WithContext(ctx).Where("enabled = ? AND is_default = ?", true, true).Order("id DESC").First(&object).Error; err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil, nil
 		}

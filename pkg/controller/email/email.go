@@ -26,6 +26,7 @@ import (
 	"net/smtp"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -50,6 +51,7 @@ type Interface interface {
 	Get(ctx context.Context, id int64) (*types.Email, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 	TestSend(ctx context.Context, id int64, req *types.TestSendEmailRequest) error
+	Send(ctx context.Context, to, subject, body string) error
 }
 
 type controller struct {
@@ -282,6 +284,18 @@ func (c *controller) TestSend(ctx context.Context, id int64, req *types.TestSend
 	return nil
 }
 
+// Send 使用启用的默认系统邮件配置发送平台邮件。
+func (c *controller) Send(ctx context.Context, to, subject, body string) error {
+	object, err := c.factory.Email().GetDefaultEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if object == nil {
+		return fmt.Errorf("default email configuration not found")
+	}
+	return sendMessage(object, object.Password, to, buildTextMessage(object, to, subject, body))
+}
+
 func modelToType(object *model.Email) *types.Email {
 	return &types.Email{
 		PixiuMeta: types.PixiuMeta{
@@ -311,8 +325,11 @@ func modelToType(object *model.Email) *types.Email {
 // encryption 取值约定：ssl/tls 隐式 TLS（465）；starttls 先明文握手再升级 TLS；
 // none 或空值走明文（587/25）。
 func sendEmail(cfg *model.Email, password, to string) error {
+	return sendMessage(cfg, password, to, buildTestMessage(cfg, to))
+}
+
+func sendMessage(cfg *model.Email, password, to string, msg []byte) error {
 	addr := net.JoinHostPort(cfg.SmtpHost, strconv.Itoa(cfg.SmtpPort))
-	msg := buildTestMessage(cfg, to)
 
 	switch strings.ToLower(cfg.Encryption) {
 	case "ssl", "tls":
@@ -325,31 +342,51 @@ func sendEmail(cfg *model.Email, password, to string) error {
 }
 
 func buildTestMessage(cfg *model.Email, to string) []byte {
-	from := cfg.FromEmail
-	if cfg.FromName != "" {
-		from = fmt.Sprintf("%s <%s>", cfg.FromName, cfg.FromEmail)
-	}
-	subject := "=?UTF-8?B?" + base64.StdEncoding.EncodeToString([]byte("Pixiu 邮件配置测试")) + "?="
 	body := "Pixiu 平台邮件服务配置测试：\r\n\r\n如果收到本邮件，说明 SMTP 配置正确可用。"
+	return buildTextMessage(cfg, to, "Pixiu 邮件配置测试", body)
+}
+
+func buildTextMessage(cfg *model.Email, to, subject, body string) []byte {
+	from := cfg.FromEmail
+	fromName := strings.NewReplacer("\r", "", "\n", "").Replace(cfg.FromName)
+	if fromName != "" {
+		from = fmt.Sprintf("%s <%s>", fromName, cfg.FromEmail)
+	}
+	subject = strings.NewReplacer("\r", "", "\n", "").Replace(subject)
+	encodedSubject := "=?UTF-8?B?" + base64.StdEncoding.EncodeToString([]byte(subject)) + "?="
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
-		from, to, subject, body)
+		from, to, encodedSubject, body)
 	return []byte(msg)
 }
 
 func sendPlain(cfg *model.Email, password, to, addr string, msg []byte) error {
-	var auth smtp.Auth
-	if cfg.Username != "" {
-		auth = smtp.PlainAuth("", cfg.Username, password, cfg.SmtpHost)
-	}
-	return smtp.SendMail(addr, auth, cfg.FromEmail, []string{to}, msg)
-}
-
-func sendImplicitTLS(cfg *model.Email, password, to, addr string, msg []byte) error {
-	conn, err := tls.Dial("tcp", addr, &tls.Config{ServerName: cfg.SmtpHost})
+	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
+	client, err := smtp.NewClient(conn, cfg.SmtpHost)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	if cfg.Username != "" {
+		if err = client.Auth(smtp.PlainAuth("", cfg.Username, password, cfg.SmtpHost)); err != nil {
+			return err
+		}
+	}
+	return deliverMail(client, cfg.FromEmail, to, msg)
+}
+
+func sendImplicitTLS(cfg *model.Email, password, to, addr string, msg []byte) error {
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	conn, err := tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{ServerName: cfg.SmtpHost, MinVersion: tls.VersionTLS12})
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
 
 	client, err := smtp.NewClient(conn, cfg.SmtpHost)
 	if err != nil {
@@ -366,11 +403,12 @@ func sendImplicitTLS(cfg *model.Email, password, to, addr string, msg []byte) er
 }
 
 func sendStartTLS(cfg *model.Email, password, to, addr string, msg []byte) error {
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
 
 	client, err := smtp.NewClient(conn, cfg.SmtpHost)
 	if err != nil {
@@ -378,7 +416,7 @@ func sendStartTLS(cfg *model.Email, password, to, addr string, msg []byte) error
 	}
 	defer client.Close()
 
-	if err = client.StartTLS(&tls.Config{ServerName: cfg.SmtpHost}); err != nil {
+	if err = client.StartTLS(&tls.Config{ServerName: cfg.SmtpHost, MinVersion: tls.VersionTLS12}); err != nil {
 		return err
 	}
 	if cfg.Username != "" {

@@ -27,6 +27,38 @@ type IdMeta struct {
 	UserId int64 `uri:"userId" binding:"required"`
 }
 
+func (u *userRouter) sendRegistrationCode(c *gin.Context) {
+	r := httputils.NewResponse()
+	var req types.SendRegistrationCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetAuditOperator(c, req.Email)
+	result, err := u.c.Registration().SendCode(c, &req, c.ClientIP())
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = result
+	httputils.SetSuccess(c, r)
+}
+
+func (u *userRouter) registerUser(c *gin.Context) {
+	r := httputils.NewResponse()
+	var req types.RegisterUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetAuditOperator(c, req.Name)
+	if err := u.c.Registration().Register(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
 func (u *userRouter) createUser(c *gin.Context) {
 	r := httputils.NewResponse()
 

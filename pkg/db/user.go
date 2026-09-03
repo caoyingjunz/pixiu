@@ -37,6 +37,7 @@ type UserInterface interface {
 
 	GetRoot(ctx context.Context) (*model.User, error)
 	GetUserByName(ctx context.Context, userName string) (*model.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
 }
 
 type user struct {
@@ -146,6 +147,17 @@ func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User,
 		return nil, err
 	}
 
+	return &object, nil
+}
+
+func (u *user) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	var object model.User
+	if err := u.db.WithContext(ctx).Where("LOWER(email) = ?", email).First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
 	return &object, nil
 }
 

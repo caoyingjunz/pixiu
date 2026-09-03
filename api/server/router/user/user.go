@@ -28,6 +28,8 @@ type userRouter struct {
 	c controller.PixiuInterface
 }
 
+var persistPublicRegistrationAPI = false
+
 func NewRouter(o *options.Options) {
 	router := &userRouter{
 		c: o.Controller,
@@ -40,6 +42,8 @@ func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
 		Name:    "用户管理",
 		BaseURL: "/pixiu/users",
 		Entries: []apiregistry.RouteEntry{
+			{Method: "POST", RelativePath: "/registration-codes", Handler: u.sendRegistrationCode, Description: "发送注册验证码", Persist: &persistPublicRegistrationAPI},
+			{Method: "POST", RelativePath: "/register", Handler: u.registerUser, Description: "注册普通用户", Persist: &persistPublicRegistrationAPI},
 			{Method: "POST", RelativePath: "", Handler: u.createUser, Description: "创建用户"},
 			{Method: "GET", RelativePath: "", Handler: u.listUsers, Description: "查看列表"},
 			{Method: "PUT", RelativePath: "/:userId", Handler: u.updateUser, Description: "更新用户"},

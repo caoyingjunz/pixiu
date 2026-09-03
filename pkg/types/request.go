@@ -35,6 +35,17 @@ type (
 		Password string `json:"password" binding:"required"` // required
 	}
 
+	SendRegistrationCodeRequest struct {
+		Email string `json:"email" binding:"required,email,max=128"`
+	}
+
+	RegisterUserRequest struct {
+		Name     string `json:"name" binding:"required,min=3,max=20"`
+		Password string `json:"password" binding:"required,password"`
+		Email    string `json:"email" binding:"required,email,max=128"`
+		Code     string `json:"code" binding:"required,len=6,numeric"`
+	}
+
 	CreateUserRequest struct {
 		Name        string           `json:"name" binding:"required"`              // required
 		Password    string           `json:"password" binding:"required,password"` // required
@@ -373,6 +384,11 @@ type (
 		Token       string          `json:"token"`
 		Role        model.UserLevel `json:"role"`
 		*model.User `json:"-"`
+	}
+
+	RegistrationCodeResponse struct {
+		ExpiresIn  int `json:"expires_in"`
+		RetryAfter int `json:"retry_after"`
 	}
 
 	// PageResponse 分页查询返回值
