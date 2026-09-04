@@ -28,8 +28,6 @@ import (
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-const registrationRoleName = "普通用户"
-
 func registrationCodeLockOpts(email string) []db.Options {
 	return []db.Options{db.WithEmail(email), db.WithForUpdate()}
 }
@@ -157,7 +155,7 @@ func (c *controller) registerUser(ctx context.Context, factory db.ShareDaoFactor
 }
 
 func resolveRegistrationRole(ctx context.Context, factory db.ShareDaoFactory) (*model.Role, error) {
-	roles, err := factory.Role().List(ctx, db.WithName(registrationRoleName))
+	roles, err := factory.Role().List(ctx, db.WithName(model.DefaultRoleName))
 	if err != nil {
 		return nil, err
 	}

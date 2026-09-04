@@ -119,8 +119,8 @@ func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCo
 		return nil, apierrors.ErrServerInternal
 	}
 
-	subject := "Pixiu账号激活"
-	body := fmt.Sprintf("【Pixiu】亲爱的用户，您的注册验证码为：%s，有效期为 %d 分钟，如非本人操作请忽略。", code, int(codeTTL/time.Minute))
+	subject := "PixiuCloud账号激活"
+	body := fmt.Sprintf("【PixiuCloud】亲爱的用户，您的注册验证码为：%s，有效期为 %d 分钟，如非本人操作请忽略。", code, int(codeTTL/time.Minute))
 	if err = emailcontroller.New(c.cc, c.factory).Send(ctx, email, subject, body); err != nil {
 		if expireErr := c.expireUnsentRegistrationCode(ctx, c.factory, email, codeHash); expireErr != nil {
 			klog.Errorf("failed to expire unsent registration code for %s: %v", email, expireErr)
