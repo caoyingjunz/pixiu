@@ -37,6 +37,9 @@ type UserInterface interface {
 
 	GetRoot(ctx context.Context) (*model.User, error)
 	GetUserByName(ctx context.Context, userName string) (*model.User, error)
+
+	// GetBy 按自定义条件过滤查询
+	GetBy(ctx context.Context, opts ...Options) (*model.User, error)
 }
 
 type user struct {
@@ -146,6 +149,21 @@ func (u *user) GetUserByName(ctx context.Context, userName string) (*model.User,
 		return nil, err
 	}
 
+	return &object, nil
+}
+
+func (u *user) GetBy(ctx context.Context, opts ...Options) (*model.User, error) {
+	var object model.User
+	tx := u.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
 	return &object, nil
 }
 

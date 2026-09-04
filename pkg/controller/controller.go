@@ -23,6 +23,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/apiresource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/assistant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
+	"github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/distribution"
@@ -55,6 +56,7 @@ type PixiuInterface interface {
 	assistant.Getter
 	alert.Getter
 	email.Getter
+	auth.Getter
 	extensioncontroller.Getter
 }
 
@@ -83,6 +85,9 @@ func (p *pixiu) Assistant() assistant.Interface   { return assistant.New(p.cc, p
 func (p *pixiu) Alert() alert.Interface           { return alert.New(p.cc, p.factory) }
 func (p *pixiu) Email() email.Interface {
 	return email.New(p.cc, p.factory)
+}
+func (p *pixiu) Auth() auth.Interface {
+	return auth.New(p.cc, p.factory)
 }
 func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)

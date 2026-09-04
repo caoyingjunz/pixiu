@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
@@ -152,6 +153,36 @@ func WithEmailLike(email string) Options {
 			return tx
 		}
 		return tx.Where("email like ?", "%"+email+"%")
+	}
+}
+
+func WithEmail(email string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if email == "" {
+			return tx
+		}
+		return tx.Where("LOWER(email) = ?", email)
+	}
+}
+
+func WithCodeHash(codeHash string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if codeHash == "" {
+			return tx
+		}
+		return tx.Where("code_hash = ?", codeHash)
+	}
+}
+
+func WithNullUsedAt() Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("used_at IS NULL")
+	}
+}
+
+func WithForUpdate() Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Clauses(clause.Locking{Strength: "UPDATE"})
 	}
 }
 
@@ -394,10 +425,16 @@ func WithDatasourceSubType(subType model.DatasourceSubType) Options {
 	}
 }
 
-func WithDatasourceIsDefault(isDefault bool) Options {
+// WithIsDefault 按 is_default 布尔标志过滤（通用，datasource/email 等均可复用）。
+func WithIsDefault(isDefault bool) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("is_default = ?", isDefault)
 	}
+}
+
+// WithDatasourceIsDefault 按 is_default 过滤数据源，兼容历史调用，委托通用 WithIsDefault。
+func WithDatasourceIsDefault(isDefault bool) Options {
+	return WithIsDefault(isDefault)
 }
 
 func WithProvider(provider string) Options {

@@ -143,6 +143,9 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// login 用户登录。
+// TODO: 登录实现后续迁入 pkg/controller/auth（PixiuInterface.Auth），路由迁至 POST /pixiu/auth/login。
+// 迁移时需保留 POST /pixiu/users/login 作为兼容 alias，并同步 pixiu-ui、dashboard、nginx 限流及 security/baseline 等引用。
 func (u *userRouter) login(c *gin.Context) {
 	r := httputils.NewResponse()
 

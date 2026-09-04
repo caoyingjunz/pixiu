@@ -30,7 +30,12 @@ import (
 var alwaysAllowPath sets.String
 
 func init() {
-	alwaysAllowPath = sets.NewString("/pixiu/users/login", "/pixiu/connect")
+	alwaysAllowPath = sets.NewString(
+		"/pixiu/users/login",
+		"/pixiu/auth/verification-codes",
+		"/pixiu/auth/register",
+		"/pixiu/connect",
+	)
 }
 
 // 允许特定请求不经过 JWT 验证（由业务侧 Token 鉴权）
@@ -54,6 +59,7 @@ func InstallMiddlewares(o *options.Options) {
 		Cors(),
 		Logger(&o.ComponentConfig.Log),
 		LoginRateLimiter(),
+		RegistrationRateLimiter(),
 		UserRateLimiter(),
 		Limiter(),
 		Authentication(o),

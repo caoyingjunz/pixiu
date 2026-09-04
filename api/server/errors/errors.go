@@ -75,6 +75,50 @@ var (
 		Code: http.StatusTooManyRequests,
 		Err:  errors.ErrTooManyLoginAttempts,
 	}
+	ErrTooManyRegistrationAttempts = Error{
+		Code: http.StatusTooManyRequests,
+		Err:  errors.ErrTooManyRegistrationAttempts,
+	}
+	ErrEmailExists = Error{
+		Code: http.StatusConflict,
+		Err:  errors.EmailExistError,
+	}
+	ErrRegistrationCodeInvalid = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.RegistrationCodeInvalidError,
+	}
+	ErrRegistrationCodeExpired = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.RegistrationCodeExpiredError,
+	}
+	ErrRegistrationCodeUsed = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.RegistrationCodeUsedError,
+	}
+	ErrRegistrationCodeAttempts = Error{
+		Code: http.StatusTooManyRequests,
+		Err:  errors.RegistrationCodeAttemptsError,
+	}
+	ErrRegistrationCodeTooFrequent = Error{
+		Code: http.StatusTooManyRequests,
+		Err:  errors.RegistrationCodeFrequentError,
+	}
+	ErrEmailNotConfigured = Error{
+		Code: http.StatusServiceUnavailable,
+		Err:  errors.RegistrationEmailNotConfigured,
+	}
+	ErrRegistrationEmailUnavailable = Error{
+		Code: http.StatusServiceUnavailable,
+		Err:  errors.RegistrationEmailUnavailable,
+	}
+	ErrRegistrationRoleUnavailable = Error{
+		Code: http.StatusServiceUnavailable,
+		Err:  errors.RegistrationRoleUnavailable,
+	}
+	ErrRegistrationRoleConflict = Error{
+		Code: http.StatusConflict,
+		Err:  errors.RegistrationRoleConflict,
+	}
 	ErrDuplicatedPassword = Error{
 		Code: http.StatusConflict,
 		Err:  errors.ErrDuplicatedPassword,
