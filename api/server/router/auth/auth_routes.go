@@ -48,15 +48,20 @@ func (a *authRouter) sendVerificationCode(c *gin.Context) {
 
 func (a *authRouter) registerUser(c *gin.Context) {
 	r := httputils.NewResponse()
-	var req types.RegisterUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+
+	var (
+		req types.RegisterUserRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 	httputils.SetAuditOperator(c, req.Name)
-	if err := a.c.Auth().Register(c, &req); err != nil {
+	if err = a.c.Auth().Register(c, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+
 	httputils.SetSuccess(c, r)
 }
