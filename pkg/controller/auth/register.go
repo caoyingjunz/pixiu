@@ -34,7 +34,7 @@ func registrationCodeLockOpts(email string) []db.Options {
 	return []db.Options{db.WithEmail(email), db.WithForUpdate()}
 }
 
-func (c *controller) storeRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, object *model.RegistrationCode, cooldown time.Duration) error {
+func (c *controller) issueRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, object *model.RegistrationCode, cooldown time.Duration) error {
 	now := object.SentAt
 	if now.IsZero() {
 		now = time.Now()
@@ -68,7 +68,9 @@ func (c *controller) storeRegistrationCode(ctx context.Context, factory db.Share
 	return nil
 }
 
-func (c *controller) invalidateRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, email, codeHash string) error {
+// expireUnsentRegistrationCode 作废未发送成功的验证码：置为已过期/已使用并回拨发送时间，
+// 既杜绝该验证码被使用，也释放冷却窗口允许用户立即重试。
+func (c *controller) expireUnsentRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, email, codeHash string) error {
 	now := time.Now()
 	_, err := factory.RegistrationCode().UpdateBy(ctx, []db.Options{
 		db.WithEmail(email),
@@ -102,9 +104,7 @@ func (c *controller) registerUser(ctx context.Context, factory db.ShareDaoFactor
 	}
 	if subtle.ConstantTimeCompare([]byte(code.CodeHash), []byte(codeHash)) != 1 {
 		attempts := code.FailedAttempts + 1
-		if err = factory.RegistrationCode().Update(ctx, code.Id, map[string]interface{}{
-			"failed_attempts": attempts,
-		}); err != nil {
+		if err = factory.RegistrationCode().Update(ctx, code.Id, map[string]interface{}{"failed_attempts": attempts}); err != nil {
 			return err
 		}
 		if attempts >= maxCodeAttempts {
@@ -113,24 +113,25 @@ func (c *controller) registerUser(ctx context.Context, factory db.ShareDaoFactor
 		return errCodeInvalid
 	}
 
-	role, err := resolveRegistrationRole(ctx, factory)
-	if err != nil {
-		return err
-	}
-	user.TenantId = role.TenantId
-	user.Role = model.UserLevel(role.Id)
-
-	if existing, err := factory.User().GetUserByName(ctx, user.Name); err != nil {
+	if existing, err := factory.User().GetBy(ctx, db.WithName(user.Name)); err != nil {
 		return err
 	} else if existing != nil {
 		return errUserExists
 	}
+
 	if existing, err := factory.User().GetBy(ctx, db.WithEmail(email)); err != nil {
 		return err
 	} else if existing != nil {
 		return errEmailExists
 	}
 
+	role, err := resolveRegistrationRole(ctx, factory)
+	if err != nil {
+		return err
+	}
+
+	user.TenantId = role.TenantId
+	user.Role = model.UserLevel(role.Id)
 	user.GmtCreate = now
 	user.GmtModified = now
 	if _, err = factory.User().Create(ctx, user); err != nil {

@@ -425,10 +425,16 @@ func WithDatasourceSubType(subType model.DatasourceSubType) Options {
 	}
 }
 
-func WithDatasourceIsDefault(isDefault bool) Options {
+// WithIsDefault 按 is_default 布尔标志过滤（通用，datasource/email 等均可复用）。
+func WithIsDefault(isDefault bool) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("is_default = ?", isDefault)
 	}
+}
+
+// WithDatasourceIsDefault 按 is_default 过滤数据源，兼容历史调用，委托通用 WithIsDefault。
+func WithDatasourceIsDefault(isDefault bool) Options {
+	return WithIsDefault(isDefault)
 }
 
 func WithProvider(provider string) Options {

@@ -28,9 +28,10 @@ import (
 
 type RegistrationCodeInterface interface {
 	Get(ctx context.Context, id int64) (*model.RegistrationCode, error)
-	GetBy(ctx context.Context, opts ...Options) (*model.RegistrationCode, error)
 	Create(ctx context.Context, object *model.RegistrationCode) error
 	Update(ctx context.Context, id int64, updates map[string]interface{}) error
+
+	GetBy(ctx context.Context, opts ...Options) (*model.RegistrationCode, error)
 	UpdateBy(ctx context.Context, opts []Options, updates map[string]interface{}) (int64, error)
 }
 

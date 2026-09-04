@@ -25,18 +25,24 @@ import (
 
 func (a *authRouter) sendVerificationCode(c *gin.Context) {
 	r := httputils.NewResponse()
-	var req types.SendRegistrationCodeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+
+	var (
+		req types.SendRegistrationCodeRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	// 发码为未认证公开接口，审计 Operator 默认记为 unknown；此处将目标邮箱作为操作者留痕，
+	// 便于审计中按邮箱检索发码记录、排查邮件轰炸等滥用行为（审计记录同时含来源 IP）。
 	httputils.SetAuditOperator(c, req.Email)
-	result, err := a.c.Auth().SendCode(c, &req, c.ClientIP())
+	r.Result, err = a.c.Auth().SendCode(c, &req, c.ClientIP())
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = result
+
 	httputils.SetSuccess(c, r)
 }
 

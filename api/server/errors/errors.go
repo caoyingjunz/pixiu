@@ -103,6 +103,10 @@ var (
 		Code: http.StatusTooManyRequests,
 		Err:  errors.RegistrationCodeFrequentError,
 	}
+	ErrEmailNotConfigured = Error{
+		Code: http.StatusServiceUnavailable,
+		Err:  errors.RegistrationEmailNotConfigured,
+	}
 	ErrRegistrationEmailUnavailable = Error{
 		Code: http.StatusServiceUnavailable,
 		Err:  errors.RegistrationEmailUnavailable,

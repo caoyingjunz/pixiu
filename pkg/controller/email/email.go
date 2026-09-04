@@ -50,6 +50,7 @@ type Interface interface {
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*types.Email, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+
 	TestSend(ctx context.Context, id int64, req *types.TestSendEmailRequest) error
 	Send(ctx context.Context, to, subject, body string) error
 }
@@ -286,7 +287,8 @@ func (c *controller) TestSend(ctx context.Context, id int64, req *types.TestSend
 
 // Send 使用启用的默认系统邮件配置发送平台邮件。
 func (c *controller) Send(ctx context.Context, to, subject, body string) error {
-	object, err := c.factory.Email().GetDefaultEnabled(ctx)
+	object, err := c.factory.Email().GetBy(ctx,
+		db.WithEnabled(true), db.WithIsDefault(true), db.WithOrderByDesc())
 	if err != nil {
 		return err
 	}

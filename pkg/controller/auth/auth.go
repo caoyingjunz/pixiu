@@ -62,7 +62,26 @@ type controller struct {
 	factory db.ShareDaoFactory
 }
 
+// preSendCode 发码前置检查：未配置默认启用系统邮箱时直接失败（fail fast），
+// 避免白生成验证码并落库后再作废。
+func (c *controller) preSendCode(ctx context.Context) error {
+	defaultEmail, err := c.factory.Email().GetBy(ctx,
+		db.WithEnabled(true), db.WithIsDefault(true), db.WithOrderByDesc())
+	if err != nil {
+		klog.Errorf("failed to check default email config: %v", err)
+		return apierrors.ErrServerInternal
+	}
+	if defaultEmail == nil {
+		return apierrors.ErrEmailNotConfigured
+	}
+	return nil
+}
+
 func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCodeRequest, requestIP string) (*types.RegistrationCodeResponse, error) {
+	if err := c.preSendCode(ctx); err != nil {
+		return nil, err
+	}
+
 	email := normalizeEmail(req.Email)
 	existing, err := c.factory.User().GetBy(ctx, db.WithEmail(email))
 	if err != nil {
@@ -90,7 +109,7 @@ func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCo
 		RequestIP:      requestIP,
 	}
 	err = c.factory.Transaction(ctx, func(factory db.ShareDaoFactory) error {
-		return c.storeRegistrationCode(ctx, factory, object, codeCooldown)
+		return c.issueRegistrationCode(ctx, factory, object, codeCooldown)
 	})
 	if err != nil {
 		if mapped := mapRegistrationError(err); mapped != err {
@@ -100,20 +119,17 @@ func (c *controller) SendCode(ctx context.Context, req *types.SendRegistrationCo
 		return nil, apierrors.ErrServerInternal
 	}
 
-	subject := "Pixiu 注册验证码"
-	body := fmt.Sprintf("您正在注册 Pixiu 账号。\n\n验证码：%s\n\n验证码 %d 分钟内有效，请勿转发给他人。", code, int(codeTTL/time.Minute))
+	subject := "Pixiu账号激活"
+	body := fmt.Sprintf("【Pixiu】亲爱的用户，您的注册验证码为：%s，有效期为 %d 分钟，如非本人操作请忽略。", code, int(codeTTL/time.Minute))
 	if err = emailcontroller.New(c.cc, c.factory).Send(ctx, email, subject, body); err != nil {
-		if invalidateErr := c.invalidateRegistrationCode(ctx, c.factory, email, codeHash); invalidateErr != nil {
-			klog.Errorf("failed to invalidate unsent registration code for %s: %v", email, invalidateErr)
+		if expireErr := c.expireUnsentRegistrationCode(ctx, c.factory, email, codeHash); expireErr != nil {
+			klog.Errorf("failed to expire unsent registration code for %s: %v", email, expireErr)
 		}
 		klog.Errorf("failed to send registration code to %s: %v", email, err)
 		return nil, apierrors.ErrRegistrationEmailUnavailable
 	}
 
-	return &types.RegistrationCodeResponse{
-		ExpiresIn:  int(codeTTL / time.Second),
-		RetryAfter: int(codeCooldown / time.Second),
-	}, nil
+	return &types.RegistrationCodeResponse{ExpiresIn: int(codeTTL / time.Second), RetryAfter: int(codeCooldown / time.Second)}, nil
 }
 
 func (c *controller) Register(ctx context.Context, req *types.RegisterUserRequest) error {
