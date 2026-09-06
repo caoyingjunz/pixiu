@@ -21,8 +21,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home # builder所在目录
-ExecStart=/home/builder serve --dir data
+WorkingDirectory=/home
+ExecStart=/home/builder serve --dir /home/data
 Restart=always
 RestartSec=5
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
