@@ -52,6 +52,7 @@ type Interface interface {
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	TestSend(ctx context.Context, id int64, req *types.TestSendEmailRequest) error
+	TestSendDirect(ctx context.Context, req *types.TestSendEmailDirectRequest) error
 	Send(ctx context.Context, to, subject, body string) error
 }
 
@@ -280,6 +281,27 @@ func (c *controller) TestSend(ctx context.Context, id int64, req *types.TestSend
 
 	if err = sendEmail(object, object.Password, req.To); err != nil {
 		klog.Errorf("failed to send test email via email(%d) to %s: %v", id, req.To, err)
+		return apierrors.NewError(fmt.Errorf("test send email failed: %v", err), http.StatusBadRequest)
+	}
+	return nil
+}
+
+// TestSendDirect 使用请求内联配置直接发送测试邮件（不落库），用于新建配置前验证 SMTP 可用性。
+func (c *controller) TestSendDirect(ctx context.Context, req *types.TestSendEmailDirectRequest) error {
+	if err := util.CheckAdmin(ctx); err != nil {
+		return err
+	}
+	cfg := &model.Email{
+		SmtpHost:   req.SmtpHost,
+		SmtpPort:   req.SmtpPort,
+		Username:   req.Username,
+		Password:   req.Password,
+		FromEmail:  req.FromEmail,
+		FromName:   req.FromName,
+		Encryption: req.Encryption,
+	}
+	if err := sendEmail(cfg, cfg.Password, req.To); err != nil {
+		klog.Errorf("failed to send direct test email to %s: %v", req.To, err)
 		return apierrors.NewError(fmt.Errorf("test send email failed: %v", err), http.StatusBadRequest)
 	}
 	return nil

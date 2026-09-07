@@ -46,6 +46,11 @@ func (a *authRouter) initRoutes(httpEngine *gin.Engine) {
 		Name:    "认证",
 		BaseURL: authBaseURL,
 		Entries: []apiregistry.RouteEntry{
+			// 登录相关APIs
+			{Method: "POST", RelativePath: "/login", Handler: a.login, Description: "登录"},
+			{Method: "POST", RelativePath: "/logout", Handler: a.logout, Description: "登出"},
+			{Method: "POST", RelativePath: "/refresh", Handler: a.refresh, Description: "刷新登录token（暂未实现）"},
+
 			{Method: "POST", RelativePath: "/verification-codes", Handler: a.sendVerificationCode, Description: "发送注册验证码", Persist: &persistPublicAuthAPI},
 			{Method: "POST", RelativePath: "/register", Handler: a.registerUser, Description: "注册用户", Persist: &persistPublicAuthAPI},
 		},

@@ -23,6 +23,52 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
+func (a *authRouter) login(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.LoginRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetAuditOperator(c, req.Name)
+	loginResp, err := a.c.Auth().Login(c, &req)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = loginResp
+
+	httputils.SetSuccess(c, r)
+}
+
+// logout 无 idMeta：当前用户由中间件写入的上下文取得
+func (a *authRouter) logout(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	if err := a.c.Auth().Logout(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+// refresh 认证由中间件保证，刷新逻辑暂未实现
+func (a *authRouter) refresh(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	if err := a.c.Auth().Refresh(c); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
 func (a *authRouter) sendVerificationCode(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -37,7 +83,7 @@ func (a *authRouter) sendVerificationCode(c *gin.Context) {
 	// 发码为未认证公开接口，审计 Operator 默认记为 unknown；此处将目标邮箱作为操作者留痕，
 	// 便于审计中按邮箱检索发码记录、排查邮件轰炸等滥用行为（审计记录同时含来源 IP）。
 	httputils.SetAuditOperator(c, req.Email)
-	r.Result, err = a.c.Auth().SendCode(c, &req, c.ClientIP())
+	r.Result, err = a.c.Auth().SendVerificationCode(c, &req, c.ClientIP())
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

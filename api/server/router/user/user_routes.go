@@ -143,49 +143,7 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// login 用户登录。
-// TODO: 登录实现后续迁入 pkg/controller/auth（PixiuInterface.Auth），路由迁至 POST /pixiu/auth/login。
-// 迁移时需保留 POST /pixiu/users/login 作为兼容 alias，并同步 pixiu-ui、dashboard、nginx 限流及 security/baseline 等引用。
-func (u *userRouter) login(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		req types.LoginRequest
-		err error
-	)
-	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetAuditOperator(c, req.Name)
-	loginResp, err := u.c.User().Login(c, &req)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result = loginResp
-
-	httputils.SetSuccess(c, r)
-}
-
-func (u *userRouter) logout(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		idMeta IdMeta
-		err    error
-	)
-	if err = httputils.ShouldBindAny(c, nil, &idMeta, nil); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = u.c.User().Logout(c, idMeta.UserId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
+// login/logout 已迁至 pkg/controller/auth，路由移至 POST /pixiu/auth/login 与 POST /pixiu/auth/logout。
 
 func (u *userRouter) getCurrentUserPermissions(c *gin.Context) {
 	r := httputils.NewResponse()

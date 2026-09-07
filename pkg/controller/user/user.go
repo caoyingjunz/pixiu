@@ -28,6 +28,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	authctl "github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -36,18 +37,12 @@ import (
 	menupkg "github.com/caoyingjunz/pixiu/pkg/rbac/menu"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
-	"github.com/caoyingjunz/pixiu/pkg/util/loginlimit"
-	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
 )
 
-var (
-	userIndexer  client.UserCache
-	tokenIndexer client.TokenCache
-)
+var userIndexer client.UserCache
 
 func init() {
 	userIndexer = *client.NewUserCache()
-	tokenIndexer = *client.NewTokenCache()
 }
 
 type UserGetter interface {
@@ -68,14 +63,9 @@ type Interface interface {
 	// GetStatus 获取用户状态，优先从缓存获取，如果没有则从库里获取，然后同步到缓存
 	GetStatus(ctx context.Context, uid int64) (int, error)
 
-	Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error)
-	Logout(ctx *gin.Context, userId int64) error
-
 	GetCurrentUserPermissions(ctx context.Context) (*types.CurrentUserPermissionsResponse, error)
 
-	GetLoginToken(ctx context.Context, userId int64) (string, error)
 	ValidAccess(ctx *gin.Context, roleId int64) error
-	ValidateLoginToken(ctx context.Context, userId int64, token string) (bool, error)
 }
 
 type user struct {
@@ -286,7 +276,8 @@ func (u *user) UpdatePassword(ctx context.Context, userId int64, req *types.Upda
 		return errors.ErrServerInternal
 	}
 
-	tokenIndexer.Delete(userId)
+	// 修改密码后撤销全部登录会话，强制重新登录
+	authctl.RevokeUserTokens(userId)
 	return nil
 }
 
@@ -309,7 +300,8 @@ func (u *user) Delete(ctx context.Context, userId int64) error {
 	}
 
 	userIndexer.Delete(userId)
-	tokenIndexer.Delete(userId)
+	// 删除用户后撤销其全部登录会话
+	authctl.RevokeUserTokens(userId)
 	return nil
 }
 
@@ -426,103 +418,6 @@ func (u *user) GetStatus(ctx context.Context, uid int64) (int, error) {
 
 	userIndexer.Set(uid, int(object.Status))
 	return int(object.Status), nil
-}
-
-// Login 校验用户名密码并签发 token。
-// TODO: 后续迁入 pkg/controller/auth，与注册、验证码统一由 Auth 模块承载。
-func (u *user) Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error) {
-	// 用户名锁定后仅允许低频探测，避免多 IP 持续打满 bcrypt
-	if !loginlimit.AllowUserAttempt(req.Name) {
-		return nil, errors.ErrTooManyLoginAttempts
-	}
-
-	object, err := u.factory.User().GetUserByName(ctx, req.Name)
-	if err != nil {
-		return nil, errors.ErrServerInternal
-	}
-	if object == nil {
-		return nil, errors.ErrUserNotFound
-	}
-
-	// 如果用户已被禁用，则不允许登陆
-	if object.Status == model.UserStatusForbidden {
-		return nil, fmt.Errorf("用户已被禁用")
-	}
-
-	// 限制并发 bcrypt，避免刷登录打满 CPU 导致正常用户无法登录
-	if !loginlimit.AcquireVerify() {
-		return nil, errors.ErrTooManyLoginAttempts
-	}
-	defer loginlimit.ReleaseVerify()
-
-	if err = util.ValidateUserPassword(object.Password, req.Password); err != nil {
-		loginlimit.RecordUserFailure(req.Name)
-		klog.Errorf("failed to verify user password: %v", err)
-		return nil, errors.ErrInvalidPassword
-	}
-	loginlimit.ClearUserFailures(req.Name)
-
-	// 生成登陆的 token 信息
-	key := u.GetTokenKey()
-	token, err := tokenutil.GenerateToken(object.Id, object.Name, object.TenantId, key)
-	if err != nil {
-		return nil, fmt.Errorf("生成用户 token 失败: %v", err)
-	}
-
-	if u.cc.Default.SingleLogin {
-		tokenIndexer.Set(object.Id, token)
-	} else {
-		tokenIndexer.Add(object.Id, token)
-	}
-	return &types.LoginResponse{
-		UserId:   object.Id,
-		UserName: object.Name,
-		Token:    token,
-		Role:     object.Role,
-	}, nil
-}
-
-// Logout
-// 允许用户登出登陆状态
-func (u *user) Logout(ctx *gin.Context, userId int64) error {
-	if err := controllerutil.CheckResourceOwner(ctx, userId); err != nil {
-		return err
-	}
-	if u.cc.Default.SingleLogin {
-		tokenIndexer.Delete(userId)
-		return nil
-	}
-
-	token, err := tokenutil.ExtractToken(ctx, false)
-	if err != nil {
-		return err
-	}
-	tokenIndexer.DeleteToken(userId, token)
-	return nil
-}
-
-func (u *user) ValidateLoginToken(ctx context.Context, userId int64, token string) (bool, error) {
-	if u.cc.Default.SingleLogin {
-		existToken, err := u.GetLoginToken(ctx, userId)
-		if err != nil {
-			return false, err
-		}
-		return token == existToken, nil
-	}
-
-	if !tokenIndexer.Exists(userId, token) {
-		return false, fmt.Errorf("invalid empty token")
-	}
-	return true, nil
-}
-
-func (u *user) GetLoginToken(ctx context.Context, userId int64) (string, error) {
-	t, exists := tokenIndexer.Get(userId)
-	if !exists {
-		return "", fmt.Errorf("invalid empty token")
-	}
-
-	return t, nil
 }
 
 func (u *user) GetCurrentUserPermissions(ctx context.Context) (*types.CurrentUserPermissionsResponse, error) {
@@ -654,11 +549,6 @@ func (u *user) FormatAPIsForRole(ctx context.Context, roleId int64) (map[string]
 		eps = append(eps, rbacapi.Endpoint{Method: apis[i].Method, Path: apis[i].Path})
 	}
 	return rbacapi.BuildSet(eps), nil
-}
-
-func (u *user) GetTokenKey() []byte {
-	k := u.cc.Default.JWTKey
-	return []byte(k)
 }
 
 // 将 model user 转换成 types（不含 Password，避免通过 API 泄露哈希）

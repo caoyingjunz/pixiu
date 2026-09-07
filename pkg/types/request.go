@@ -159,6 +159,19 @@ type (
 		To string `json:"to" binding:"required,email"`
 	}
 
+	// TestSendEmailDirectRequest 使用请求内联 SMTP 配置直接发送测试邮件（不落库），
+	// 用于新建邮件配置前验证 SMTP 可用性。
+	TestSendEmailDirectRequest struct {
+		To         string `json:"to" binding:"required,email"`
+		SmtpHost   string `json:"smtp_host" binding:"required"`
+		SmtpPort   int    `json:"smtp_port" binding:"required"`
+		Username   string `json:"username"`
+		Password   string `json:"password"`
+		FromEmail  string `json:"from_email" binding:"required,email"`
+		FromName   string `json:"from_name"`
+		Encryption string `json:"encryption"`
+	}
+
 	CreateProviderRequest struct {
 		Name        string `json:"name" binding:"required"`
 		BaseURL     string `json:"base_url" binding:"required,url"`

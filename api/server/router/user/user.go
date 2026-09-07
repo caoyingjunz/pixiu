@@ -49,9 +49,7 @@ func (u *userRouter) initRoutes(httpEngine *gin.Engine) {
 			// 修改密码
 			{Method: "PUT", RelativePath: "/:userId/password", Handler: u.updatePassword, Description: "修改密码"},
 
-			// 登录相关APIs
-			{Method: "POST", RelativePath: "/:userId/logout", Handler: u.logout, Description: "登出"},
-			{Method: "POST", RelativePath: "/login", Handler: u.login, Description: "登录"},
+			// 获取当前用户权限
 			{Method: "GET", RelativePath: "/permissions", Handler: u.getCurrentUserPermissions, Description: "获取当前用户权限"},
 		},
 	}

@@ -37,7 +37,7 @@ NGINX_LOG_KEEP="${NGINX_LOG_KEEP:-2}"
 NGINX_LOG_ROTATE_CHECK_INTERVAL="${NGINX_LOG_ROTATE_CHECK_INTERVAL:-60}"
 
 # 登录爆破自动封禁：默认关闭，需显式开启（NGINX_AUTO_BAN=true）。
-# 开启后扫 access.log 中 /pixiu/users/login 的 401/429，
+# 开启后扫 access.log 中 /pixiu/auth/login 的 401/429，
 # 滑动窗口内达到阈值则写入 ip-blacklist.txt（/32），由现有热更新生效。
 NGINX_AUTO_BAN="${NGINX_AUTO_BAN:-false}"
 NGINX_AUTO_BAN_WINDOW="${NGINX_AUTO_BAN_WINDOW:-300}"
@@ -311,7 +311,7 @@ write_proxy_locations() {
         # 仅记录真实客户端 IP
         access_log ${NGINX_LOG_DIR}/client-ip.log pixiu_client_ip;
 
-        location = /pixiu/users/login {
+        location = /pixiu/auth/login {
 $(write_ip_access_guard)
             limit_req zone=login_limit burst=${NGINX_LOGIN_BURST} nodelay;
             limit_conn perip_conn ${NGINX_LOGIN_CONN};
@@ -775,7 +775,7 @@ extract_login_attack_ips() {
             sub(/^[[:space:]]+/, "", rest)
             status = rest
             sub(/[[:space:]].*$/, "", status)
-            if (req !~ /\/pixiu\/users\/login/) next
+            if (req !~ /\/pixiu\/auth\/login/) next
             if (status != "401" && status != "429") next
             print ip
         }
