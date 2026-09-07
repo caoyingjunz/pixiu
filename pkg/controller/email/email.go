@@ -52,7 +52,7 @@ type Interface interface {
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
 	TestSend(ctx context.Context, id int64, req *types.TestSendEmailRequest) error
-	TestSendDirect(ctx context.Context, req *types.TestSendEmailDirectRequest) error
+	TestSendDirect(ctx context.Context, req *types.TestSendEmailRequest) error
 	Send(ctx context.Context, to, subject, body string) error
 }
 
@@ -287,9 +287,12 @@ func (c *controller) TestSend(ctx context.Context, id int64, req *types.TestSend
 }
 
 // TestSendDirect 使用请求内联配置直接发送测试邮件（不落库），用于新建配置前验证 SMTP 可用性。
-func (c *controller) TestSendDirect(ctx context.Context, req *types.TestSendEmailDirectRequest) error {
+func (c *controller) TestSendDirect(ctx context.Context, req *types.TestSendEmailRequest) error {
 	if err := util.CheckAdmin(ctx); err != nil {
 		return err
+	}
+	if req.SmtpHost == "" || req.SmtpPort == 0 || req.FromEmail == "" {
+		return apierrors.NewError(fmt.Errorf("smtp_host, smtp_port and from_email are required for direct test"), http.StatusBadRequest)
 	}
 	cfg := &model.Email{
 		SmtpHost:   req.SmtpHost,

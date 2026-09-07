@@ -171,7 +171,7 @@ func (r *emailRouter) testSendEmail(c *gin.Context) {
 func (r *emailRouter) testSendEmailDirect(c *gin.Context) {
 	resp := httputils.NewResponse()
 
-	var req types.TestSendEmailDirectRequest
+	var req types.TestSendEmailRequest
 	if err := httputils.BindCreateRequest(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return

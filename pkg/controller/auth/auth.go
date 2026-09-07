@@ -28,8 +28,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/gin-gonic/gin"
 	"k8s.io/klog/v2"
+
+	"github.com/gin-gonic/gin"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
@@ -54,16 +55,13 @@ type Getter interface {
 }
 
 type Interface interface {
+	SendVerificationCode(ctx context.Context, req *types.SendRegistrationCodeRequest, requestIP string) (*types.RegistrationCodeResponse, error)
+	Register(ctx context.Context, req *types.RegisterUserRequest) error
 	Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error)
 	Logout(ctx *gin.Context) error
-	// Refresh 刷新登录 token（滑动续期占位，暂未实现）
 	Refresh(ctx context.Context) error
-	// Register 用户注册
-	Register(ctx context.Context, req *types.RegisterUserRequest) error
-
 	ValidateLoginToken(ctx context.Context, userId int64, token string) (bool, error)
 	GetLoginToken(ctx context.Context, userId int64) (string, error)
-	SendVerificationCode(ctx context.Context, req *types.SendRegistrationCodeRequest, requestIP string) (*types.RegistrationCodeResponse, error)
 }
 
 type controller struct {
