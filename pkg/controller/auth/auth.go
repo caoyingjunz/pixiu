@@ -58,6 +58,11 @@ type Interface interface {
 	SendVerificationCode(ctx context.Context, req *types.SendRegistrationCodeRequest, requestIP string) (*types.RegistrationCodeResponse, error)
 	Register(ctx context.Context, req *types.RegisterUserRequest) error
 	Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error)
+	ListOAuthProviders(ctx context.Context, enabledOnly bool) ([]*types.OAuthProviderSummary, error)
+	GetOAuthProviderConfig(ctx context.Context, provider string) (*types.OAuthProviderConfig, error)
+	UpdateOAuthProviderConfig(ctx context.Context, provider string, req *types.UpdateOAuthProviderConfigRequest) (*types.OAuthProviderConfig, error)
+	GetOAuthProviderLoginURL(ctx context.Context, provider string) (*types.OAuthLoginURLResponse, error)
+	LoginWithOAuthProvider(ctx context.Context, provider string, req *types.OAuthLoginRequest) (*types.LoginResponse, error)
 	Logout(ctx *gin.Context) error
 	Refresh(ctx context.Context) error
 	ValidateLoginToken(ctx context.Context, userId int64, token string) (bool, error)

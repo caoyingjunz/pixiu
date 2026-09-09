@@ -111,3 +111,75 @@ func (a *authRouter) registerUser(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (a *authRouter) listOAuthProviders(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	enabledOnly := c.Query("enabled_only") == "true"
+	var err error
+	if r.Result, err = a.c.Auth().ListOAuthProviders(c, enabledOnly); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) getOAuthProviderConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = a.c.Auth().GetOAuthProviderConfig(c, c.Param("provider")); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) updateOAuthProviderConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.UpdateOAuthProviderConfigRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = a.c.Auth().UpdateOAuthProviderConfig(c, c.Param("provider"), &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) getOAuthProviderLoginURL(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = a.c.Auth().GetOAuthProviderLoginURL(c, c.Param("provider")); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) loginWithOAuthProvider(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.OAuthLoginRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	loginResp, err := a.c.Auth().LoginWithOAuthProvider(c, c.Param("provider"), &req)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = loginResp
+	httputils.SetSuccess(c, r)
+}

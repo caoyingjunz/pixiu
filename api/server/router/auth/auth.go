@@ -53,6 +53,11 @@ func (a *authRouter) initRoutes(httpEngine *gin.Engine) {
 
 			{Method: "POST", RelativePath: "/verification-codes", Handler: a.sendVerificationCode, Description: "发送注册验证码", Persist: &persistPublicAuthAPI},
 			{Method: "POST", RelativePath: "/register", Handler: a.registerUser, Description: "注册用户", Persist: &persistPublicAuthAPI},
+			{Method: "GET", RelativePath: "/oauth/providers", Handler: a.listOAuthProviders, Description: "查看第三方登录源"},
+			{Method: "GET", RelativePath: "/oauth/providers/:provider/config", Handler: a.getOAuthProviderConfig, Description: "查看第三方登录配置"},
+			{Method: "PUT", RelativePath: "/oauth/providers/:provider/config", Handler: a.updateOAuthProviderConfig, Description: "更新第三方登录配置"},
+			{Method: "GET", RelativePath: "/oauth/providers/:provider/login-url", Handler: a.getOAuthProviderLoginURL, Description: "获取第三方登录地址"},
+			{Method: "POST", RelativePath: "/oauth/providers/:provider/login", Handler: a.loginWithOAuthProvider, Description: "第三方登录"},
 		},
 	}
 	authGroup.Register(httpEngine.Group(authBaseURL), a.c.APIResource())
