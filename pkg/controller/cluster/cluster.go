@@ -72,7 +72,7 @@ type Interface interface {
 	// GetKubeConfig 获取集群的 kubeconfig
 	GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error)
 
-	// Ping 检查和 k8s 集群的连通性
+	// Ping 检查主集群 kubeconfig 连通性（List namespaces）
 	Ping(ctx context.Context, kubeConfig string) error
 
 	// Protect 设置集群的保护策略
@@ -164,7 +164,15 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 	}
 	// 连通性预检（隧道模式 Agent 上线前不可达，跳过）
 	if req.ConnectMode != model.ConnectModeTunnel {
-		if err := c.Ping(ctx, req.KubeConfig); err != nil {
+		var err error
+		// 授权子集群使用 scoped kubeconfig：只读/自定义往往无集群级 list namespaces，
+		// 改用 /version 只验证连通与认证；主集群接入仍用 Namespaces().List。
+		if req.PermissionId != 0 {
+			err = c.pingAuthConnectivity(ctx, req.KubeConfig)
+		} else {
+			err = c.Ping(ctx, req.KubeConfig)
+		}
+		if err != nil {
 			return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
 		}
 	}
@@ -621,8 +629,8 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 	return pageResult, nil
 }
 
-// Ping 检查和 k8s 集群的连通性
-// 如果能获取到 k8s 接口的正常返回，则返回 nil，否则返回具体 error
+// Ping 检查和 k8s 集群的连通性（主集群接入用）
+// 通过 List namespaces 验证；要求 kubeconfig 具备集群级 list namespaces 权限。
 // kubeConfig 为 k8s 证书的 base64 字符串
 func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 	clientSet, err := client.NewClientSetFromString(kubeConfig)
@@ -640,6 +648,21 @@ func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
 		return fmt.Errorf("kubernetes 集群连接测试失败")
 	}
 
+	return nil
+}
+
+// pingAuthConnectivity 仅验证 API 连通与认证（GET /version），不要求 list namespaces。
+// 用于授权子集群的 scoped kubeconfig（只读/自定义无集群级 NS 权限时仍可通过）。
+func (c *cluster) pingAuthConnectivity(_ context.Context, kubeConfig string) error {
+	clientSet, err := client.NewClientSetFromString(kubeConfig)
+	if err != nil {
+		return err
+	}
+
+	if _, err = clientSet.Discovery().ServerVersion(); err != nil {
+		klog.Errorf("failed to ping kubernetes via /version: %v", err)
+		return fmt.Errorf("kubernetes 集群连接测试失败")
+	}
 	return nil
 }
 
