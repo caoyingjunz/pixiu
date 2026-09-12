@@ -52,6 +52,7 @@ func Catalog() []Definition {
 		{Code: "middleware.redis", ParentCode: "middleware", Title: "Redis", Path: "/middleware/redis", Kind: KindMenu, AdminOnly: true},
 		{Code: "middleware.nacos", ParentCode: "middleware", Title: "Nacos", Path: "/middleware/nacos", Kind: KindMenu, AdminOnly: true},
 		{Code: "middleware.mysql", ParentCode: "middleware", Title: "MySQL", Path: "/middleware/mysql", Kind: KindMenu, AdminOnly: true},
+		{Code: "middleware.rabbitmq", ParentCode: "middleware", Title: "RabbitMQ", Path: "/middleware/rabbitmq", Kind: KindMenu, AdminOnly: true},
 
 		{Code: "monitor", Title: "监控告警", Path: "/monitor", Kind: KindDirectory},
 		{Code: "monitor.realtime", ParentCode: "monitor", Title: "实时查询", Path: "/monitor/realtime-query", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/datasources"}},
