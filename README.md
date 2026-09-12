@@ -1,77 +1,86 @@
-# Pixiu Overview
+# Pixiu
 
-Pixiu is an open source container platform for cloud-native application management.
+旨在提供一站式容器解决方案， 致力于为中小型企业打造私有环境的公有云丝滑体验。
 
 ![Build Status][build-url]
 [![Release][release-image]][release-url]
 [![License][license-image]][license-url]
 
-## 安装手册
+## 体验账号
+```bash
+https://console.cloud.pixiuio.com
+readonly / Pixiu123!
+```
+
+## 高级特性
+
+- 厂商无关 / 通用的 Kubernetes 管理界面
+- 支持集群内部署，也支持本地手动 / docker-compose 部署
+- 多集群管理
+- 通过部署计划以页面"点点点"的方式创建 Kubernetes 集群
+- 集群概览：CPU / 内存 / 网络 / 集群服务等监控信息
+- 工作负载管理：Deployment、Pod 等
+- 中间件管理：MySQL、PostgreSQL、Redis、Nacos、Elasticsearch
+- 界面操作随用户角色收敛（无权限则不展示 / 禁止相应操作）
+- 审计功能
+- 增强代理：DeployAgent / ClusterAgent 支持网络隔离环境
+- 简洁现代的 UI
+
+## 功能展示
+
+<table>
+  <tr>
+    <th width="50%">首页</th>
+    <th width="50%">多集群管理</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./docs/images/dashboard.png" width="100%" alt="首页"></td>
+    <td width="50%"><img src="./docs/images/clusters.png" width="100%" alt="多集群管理"></td>
+  </tr>
+  <tr>
+    <th width="50%">集群基本信息</th>
+    <th width="50%">集群监控</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./docs/images/cluster-info.png" width="100%" alt="集群基本信息"></td>
+    <td width="50%"><img src="./docs/images/cluster-monitor.png" width="100%" alt="集群监控"></td>
+  </tr>
+  <tr>
+    <th width="50%">MySQL 中间件</th>
+    <th width="50%">监控告警</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./docs/images/mysql.png" width="100%" alt="MySQL 中间件"></td>
+    <td width="50%"><img src="./docs/images/alert.png" width="100%" alt="监控告警"></td>
+  </tr>
+</table>
+
+## 快速开始
+
+### 安装手册
 - [手动安装](install.md)
 - [kubernetes安装](deploy/pixiu/README.md)
 - [docker-compose安装](deploy/docker-compose/README.md)
 
-## 升级手册
+### 升级手册
 - [手动升级](deploy/upgrade/README.md)
 
-## 离线安装
+### 离线安装
 - [离线安装](deploy/offline/README.md)
 
 ## 增强代理
-- [DeployAgent](deploy/deploy-agent/README.md) 边缘节点在网络隔离的情况下通过驱动完成 Kubernetes 集群部署。
-- [ClusterAgent](deploy/cluster-agent/README.md) 通过轻量 Sidecar 使控制面能够访问网络隔离环境下的集群 kube-apiserver。
 
-## 页面展示
-### 首页
-![image](./image/overview.png)
-
-### 部署集群
-- 创建部署
-    ```text
-    通过新建部署计划,可以实现通过页面 `点点点` 的方式创建 `kubernetes` 集群, 如同各大云厂商一样
-    ```
-    ![image](./image/deploy.png)
-
-- 新建节点
-    ```text
-    1. 添加各个节点的信息，节点的角色，用户名，密码等
-    2. 各大组件支持高度的自定义，例如：calico，fannel
-    2. kubernetes 版本自主选择
-    ```
-    ![image](./image/deploy2.png)
-
-- 部署详情
-    ```text
-    可以看到部署计划在每个部署的运行状态，以及详细日志
-    ```
-    ![image](./image/deploy3.png)
-
-### 集群管理
-- 集群概览
-    ```text
-    cpu状态，内存状态，集群的基本信息，网络信息，集群服务
-    ```
-    ![image](./image/monitor.png)
-
-- 集群管理
-![image](./image/cluster.png)
-
-- 集群工作负载deployment
-![image](./image/workload.png)
-
-- 集群工作负载pod
-![image](./image/pod.png)
-
-### 审计功能
-- 审计管理
-![image](./image/audit.png)
-
-## 学习分享
-- [go-learning](https://github.com/caoyingjunz/go-learning)
+- [DeployAgent](deploy/deploy-agent/README.md)：边缘节点在网络隔离的情况下通过驱动完成 Kubernetes 集群部署。
+- [ClusterAgent](deploy/cluster-agent/README.md)：通过轻量 Sidecar 使控制面能够访问网络隔离环境下的集群 kube-apiserver。
 
 ## 沟通交流
-- 搜索微信号 `yingjuncz`, 备注（pixiu）, 验证通过会加入群聊
-- [bilibili](https://space.bilibili.com/3493104248162809?spm_id_from=333.1007.0.0) 技术分享
+
+- 搜索微信号 `yingjuncz`，备注（pixiu），验证通过会加入群聊
+- [bilibili](https://space.bilibili.com/3493104248162809?spm_id_from=333.1007.0.0)：技术分享
+
+## 许可证
+
+Pixiu 基于 Apache 2.0 许可证发布。
 
 Copyright 2019 caoyingjun (cao.yingjunz@gmail.com) Apache License 2.0
 
