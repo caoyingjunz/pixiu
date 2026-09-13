@@ -75,7 +75,7 @@ readonly / Pixiu123!
 
 ## FAQ
 
-[常见问题](faq/README.md)
+[常见问题](docs/faq/README.md)
 
 ## 沟通交流
 

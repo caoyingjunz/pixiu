@@ -118,7 +118,7 @@ contexts:
 current-context: eks
 ```
 
-说明：Kuboard 等产品常提供单独「Token」输入框；Pixiu 当前需上传 **完整 kubeconfig**，认证方式相同。
+说明：Pixiu 当前需上传 **完整 kubeconfig**，认证方式相同。
 
 ### 方案 B：私网 EKS + 隧道
 
