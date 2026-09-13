@@ -49,8 +49,9 @@ type Register struct {
 	factory db.ShareDaoFactory
 }
 
-func (c Register) Name() string      { return "集群注册" }
-func (c Register) GetAction() string { return "register" }
+func (c Register) Name() string         { return "集群注册" }
+func (c Register) GetAction() string    { return "register" }
+func (c Register) Step() model.PlanStep { return model.CompletedPlanStep }
 func (c Register) Run() error {
 	ks := &types.KubernetesSpec{}
 	if err := ks.Unmarshal(c.data.Config.Kubernetes); err != nil {

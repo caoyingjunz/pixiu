@@ -99,7 +99,7 @@ type DeployChart struct {
 
 func (b DeployChart) Name() string         { return "部署基础组件" }
 func (b DeployChart) GetAction() string    { return "apply" }
-func (b DeployChart) Step() model.PlanStep { return model.CompletedPlanStep }
+func (b DeployChart) Step() model.PlanStep { return model.RunningPlanStep }
 func (b DeployChart) Run() error {
 	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
 	if err != nil {
