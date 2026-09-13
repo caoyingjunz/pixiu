@@ -110,6 +110,12 @@ certificate_validity_period: {{ .Component.CertificatePeriod.CertificateValidity
 ca_certificate_validity_period: {{ .Component.CertificatePeriod.CaCertificateValidityPeriod }}h
 {{- end }}
 
+{{- range .Component.CustomConfigs }}
+{{- if and (ne .Key "") (ne .Value "") }}
+{{ .Key }}: {{ printf "%q" .Value }}
+{{- end }}
+{{- end }}
+
 # 组件默认开关
 enable_prometheus: "no"
 enable_prometheus_adapter: "no"

@@ -781,7 +781,14 @@ type ComponentSpec struct {
 	NFS          *NFS          `json:"nfs,omitempty"`
 
 	CustomRepo        *CustomRepo        `json:"custom_repo,omitempty"`
+	CustomConfigs     []CustomConfigItem `json:"custom_configs,omitempty"`     // 用户自定义 globals 键值对
 	CertificatePeriod *CertificatePeriod `json:"certificate_period,omitempty"` // 证书有效期
+}
+
+// CustomConfigItem 部署计划自定义配置项，渲染到 globals.yml「# 组件默认开关」上方
+type CustomConfigItem struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type Helm struct {
