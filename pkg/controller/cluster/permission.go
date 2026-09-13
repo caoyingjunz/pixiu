@@ -164,6 +164,8 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 		KubeConfig:     kubeConfig,
 		PermissionId:   p.Id,
 		OwnerReference: old.Id,
+		// 继承主集群连接模式：隧道集群的授权子集群须走主集群 Agent 会话拨号
+		ConnectMode: old.ConnectMode,
 	})
 	if err != nil {
 		_ = c.DeletePermission(ctx, p.Id)
@@ -572,6 +574,12 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 }
 
 func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
+	// 展示用别名：优先主集群 AliasName；为空时回退主集群 Name，便于授权管理页解析所属主集群。
+	// ClusterName 仍为子集群名（scoped），避免被误当成可下载 admin kubeconfig 的主集群。
+	alias := o.OwnerClusterAliasName
+	if alias == "" {
+		alias = o.OwnerClusterName
+	}
 	return &types.Permission{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
@@ -589,13 +597,11 @@ func (c *cluster) permissionModel2Type(o *model.Permission) *types.Permission {
 		Rules:             decodeRules(o.Rules),
 		SAName:            o.SAName,
 		SANamespace:       o.SANamespace,
-		// ClusterId/ClusterName 为授权生成的子集群（scoped kubeconfig），供被授权人代理使用；
-		// 不再回填 OwnerClusterName，避免泄露主集群名并诱导借主集群名拿到 admin 凭证。
-		ClusterId:        o.ClusterId,
-		ClusterName:      o.ClusterName,
-		ClusterAliasName: o.OwnerClusterAliasName,
-		TargetNamespaces: decodeStringSlice(o.TargetNamespaces),
-		Description:      o.Description,
+		ClusterId:         o.ClusterId,
+		ClusterName:       o.ClusterName,
+		ClusterAliasName:  alias,
+		TargetNamespaces:  decodeStringSlice(o.TargetNamespaces),
+		Description:       o.Description,
 	}
 }
 
