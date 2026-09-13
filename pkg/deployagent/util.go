@@ -17,17 +17,17 @@ limitations under the License.
 package deployagent
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/caoyingjunz/pixiu/pkg/planrender"
@@ -92,8 +92,9 @@ func sshGetAdminConf(ip, authJSON string) ([]byte, error) {
 		return nil, err
 	}
 	var (
-		user       string
-		authMethod ssh.AuthMethod
+		user         string
+		sudoPassword string
+		authMethod   ssh.AuthMethod
 	)
 	switch auth.Type {
 	case types.PasswordAuth:
@@ -101,6 +102,7 @@ func sshGetAdminConf(ip, authJSON string) ([]byte, error) {
 			return nil, fmt.Errorf("password auth missing")
 		}
 		user = auth.Password.User
+		sudoPassword = auth.Password.Password
 		authMethod = ssh.Password(auth.Password.Password)
 	case types.KeyAuth:
 		if auth.Key == nil {
@@ -125,15 +127,35 @@ func sshGetAdminConf(ip, authJSON string) ([]byte, error) {
 		return nil, err
 	}
 	defer sshClient.Close()
-	sftpClient, err := sftp.NewClient(sshClient)
+
+	session, err := sshClient.NewSession()
 	if err != nil {
 		return nil, err
 	}
-	defer sftpClient.Close()
-	f, err := sftpClient.Open("/etc/kubernetes/admin.conf")
-	if err != nil {
-		return nil, err
+	defer session.Close()
+
+	const kubeConfigFile = "/etc/kubernetes/admin.conf"
+	cmd := "cat " + kubeConfigFile
+	if user != "" && user != "root" {
+		cmd = "sudo -S -p '' cat " + kubeConfigFile
+		if sudoPassword != "" {
+			session.Stdin = strings.NewReader(sudoPassword + "\n")
+		}
 	}
-	defer f.Close()
-	return io.ReadAll(f)
+
+	var stdout, stderr bytes.Buffer
+	session.Stdout = &stdout
+	session.Stderr = &stderr
+	if err = session.Run(cmd); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("read %s as %s: %s", kubeConfigFile, user, msg)
+	}
+	data := bytes.TrimSpace(stdout.Bytes())
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty kubeconfig from %s", kubeConfigFile)
+	}
+	return data, nil
 }

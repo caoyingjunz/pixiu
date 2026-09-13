@@ -17,17 +17,16 @@ limitations under the License.
 package plan
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
-	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -203,57 +202,90 @@ func (c Register) addPixiuClusterRole(ctx context.Context, kubeconfig string) er
 	return nil
 }
 
-func getKubeConfigFromMasterNode(maserNode model.Node) ([]byte, error) {
-	sftpClient, err := newSftpClient(maserNode)
+func getKubeConfigFromMasterNode(masterNode model.Node) ([]byte, error) {
+	sshClient, user, sudoPassword, err := dialSSHClient(masterNode)
 	if err != nil {
 		return nil, err
 	}
-	defer sftpClient.Close()
+	defer sshClient.Close()
 
-	srcFile, err := sftpClient.Open(KubeConfigFile)
-	if err != nil {
-		return nil, err
-	}
-	defer srcFile.Close()
-
-	buf, err := io.ReadAll(srcFile)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf, nil
+	return readAdminConfOverSSH(sshClient, user, sudoPassword)
 }
 
-func newSftpClient(node model.Node) (*sftp.Client, error) {
-	nodeAuth := types.PlanNodeAuth{}
-	if err := nodeAuth.Unmarshal(node.Auth); err != nil {
+// readAdminConfOverSSH 读取 /etc/kubernetes/admin.conf。
+// root 直接 cat；非 root 走 sudo（与部署 Ansible become 一致），密码认证时把登录密码作 become 密码。
+func readAdminConfOverSSH(sshClient *ssh.Client, user, sudoPassword string) ([]byte, error) {
+	session, err := sshClient.NewSession()
+	if err != nil {
 		return nil, err
 	}
+	defer session.Close()
 
-	var clientConfig *ssh.ClientConfig
+	cmd := "cat " + KubeConfigFile
+	if user != "" && user != "root" {
+		// -S：从 stdin 读密码；-p ''：关闭提示，避免污染 stdout
+		cmd = "sudo -S -p '' cat " + KubeConfigFile
+		if sudoPassword != "" {
+			session.Stdin = strings.NewReader(sudoPassword + "\n")
+		}
+	}
+
+	var stdout, stderr bytes.Buffer
+	session.Stdout = &stdout
+	session.Stderr = &stderr
+	if err = session.Run(cmd); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("read %s as %s: %s", KubeConfigFile, user, msg)
+	}
+	data := bytes.TrimSpace(stdout.Bytes())
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty kubeconfig from %s", KubeConfigFile)
+	}
+	return data, nil
+}
+
+func dialSSHClient(node model.Node) (*ssh.Client, string, string, error) {
+	nodeAuth := types.PlanNodeAuth{}
+	if err := nodeAuth.Unmarshal(node.Auth); err != nil {
+		return nil, "", "", err
+	}
+
+	var (
+		user         string
+		sudoPassword string
+		clientConfig *ssh.ClientConfig
+	)
 
 	switch nodeAuth.Type {
 	case types.PasswordAuth:
-		// 1. 使用密码
+		if nodeAuth.Password == nil {
+			return nil, "", "", fmt.Errorf("password auth missing")
+		}
+		user = nodeAuth.Password.User
+		sudoPassword = nodeAuth.Password.Password
 		clientConfig = &ssh.ClientConfig{
-			User: nodeAuth.Password.User,
+			User: user,
 			Auth: []ssh.AuthMethod{
 				ssh.Password(nodeAuth.Password.Password),
 			},
-			Timeout: 30 * time.Second,
-			HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-				return nil
-			},
+			Timeout:         30 * time.Second,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		}
 	case types.KeyAuth:
-		//2. 使用秘钥
+		if nodeAuth.Key == nil {
+			return nil, "", "", fmt.Errorf("key auth missing")
+		}
 		key := []byte(nodeAuth.Key.Data)
 		signer, err := ssh.ParsePrivateKey(key)
 		if err != nil {
-			return nil, err
+			return nil, "", "", err
 		}
+		user = "root" // 秘钥登陆时，默认 root
 		clientConfig = &ssh.ClientConfig{
-			User: "root", // 秘钥登陆时，默认 root
+			User: user,
 			Auth: []ssh.AuthMethod{
 				ssh.PublicKeys(signer),
 			},
@@ -261,14 +293,13 @@ func newSftpClient(node model.Node) (*sftp.Client, error) {
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		}
 	default:
-		return nil, fmt.Errorf("unsupported ssh auth type: %s", nodeAuth.Type)
+		return nil, "", "", fmt.Errorf("unsupported ssh auth type: %s", nodeAuth.Type)
 	}
 
 	addr := net.JoinHostPort(node.Ip, strconv.Itoa(nodeAuth.SSHPort()))
 	sshClient, err := ssh.Dial("tcp", addr, clientConfig)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
-
-	return sftp.NewClient(sshClient)
+	return sshClient, user, sudoPassword, nil
 }
