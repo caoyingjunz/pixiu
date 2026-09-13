@@ -72,7 +72,7 @@ type Interface interface {
 	// GetKubeConfig 获取集群的 kubeconfig
 	GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error)
 
-	// Ping 检查主集群 kubeconfig 连通性（List namespaces）
+	// Ping 检查 kubeconfig 连通性与认证（GET /version）
 	Ping(ctx context.Context, kubeConfig string) error
 
 	// Protect 设置集群的保护策略
@@ -164,15 +164,7 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 	}
 	// 连通性预检（隧道模式 Agent 上线前不可达，跳过）
 	if req.ConnectMode != model.ConnectModeTunnel {
-		var err error
-		// 授权子集群使用 scoped kubeconfig：只读/自定义往往无集群级 list namespaces，
-		// 改用 /version 只验证连通与认证；主集群接入仍用 Namespaces().List。
-		if req.PermissionId != 0 {
-			err = c.pingAuthConnectivity(ctx, req.KubeConfig)
-		} else {
-			err = c.Ping(ctx, req.KubeConfig)
-		}
-		if err != nil {
+		if err := c.Ping(ctx, req.KubeConfig); err != nil {
 			return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
 		}
 	}
@@ -629,31 +621,10 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 	return pageResult, nil
 }
 
-// Ping 检查和 k8s 集群的连通性（主集群接入用）
-// 通过 List namespaces 验证；要求 kubeconfig 具备集群级 list namespaces 权限。
-// kubeConfig 为 k8s 证书的 base64 字符串
-func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
-	clientSet, err := client.NewClientSetFromString(kubeConfig)
-	if err != nil {
-		return err
-	}
-
-	// 调用 ns 资源，确保连通
-	var timeout int64 = 1
-	if _, err = clientSet.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-		TimeoutSeconds: &timeout,
-	}); err != nil {
-		klog.Errorf("failed to ping kubernetes: %v", err)
-		// 处理原始报错信息，仅返回连接不通的信息
-		return fmt.Errorf("kubernetes 集群连接测试失败")
-	}
-
-	return nil
-}
-
-// pingAuthConnectivity 仅验证 API 连通与认证（GET /version），不要求 list namespaces。
-// 用于授权子集群的 scoped kubeconfig（只读/自定义无集群级 NS 权限时仍可通过）。
-func (c *cluster) pingAuthConnectivity(_ context.Context, kubeConfig string) error {
+// Ping 检查 kubeconfig 与 API Server 的连通性及认证是否有效。
+// 使用 GET /version（Discovery.ServerVersion），不依赖 list namespaces 等业务权限。
+// kubeConfig 为 kubeconfig 的 base64 字符串。
+func (c *cluster) Ping(_ context.Context, kubeConfig string) error {
 	clientSet, err := client.NewClientSetFromString(kubeConfig)
 	if err != nil {
 		return err
