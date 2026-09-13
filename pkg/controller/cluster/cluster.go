@@ -72,7 +72,7 @@ type Interface interface {
 	// GetKubeConfig 获取集群的 kubeconfig
 	GetKubeConfig(ctx context.Context, cid int64) (*types.KubeConfigResponse, error)
 
-	// Ping 检查和 k8s 集群的连通性
+	// Ping 检查 kubeconfig 连通性与认证（GET /version）
 	Ping(ctx context.Context, kubeConfig string) error
 
 	// Protect 设置集群的保护策略
@@ -237,23 +237,31 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 
 	agentToken := ""
 	if req.ConnectMode == model.ConnectModeTunnel {
-		if req.AgentToken != "" {
-			agentToken = req.AgentToken
-		} else {
-			token, err := generateAgentToken()
-			if err != nil {
-				return nil, errors.ErrServerInternal
+		// 授权子集群复用主集群 Agent 隧道，不单独签发 token
+		if req.PermissionId == 0 {
+			if req.AgentToken != "" {
+				agentToken = req.AgentToken
+			} else {
+				token, err := generateAgentToken()
+				if err != nil {
+					return nil, errors.ErrServerInternal
+				}
+				agentToken = token
 			}
-			agentToken = token
 		}
 	}
 
 	var cs *client.ClusterSet
 	var txFunc = func(cluster *model.Cluster) (err error) {
-		cs, err = client.NewClusterSetWithOptions(req.KubeConfig, client.ClusterSetOptions{
-			ClusterName: cluster.Name,
-			ConnectMode: req.ConnectMode,
-		})
+		opts := c.resolveClusterSetOptions(ctx, cluster)
+		// Create 尚未落库完整关联时，用请求里的 OwnerReference / PermissionId 补齐隧道拨号名
+		if req.PermissionId != 0 && req.OwnerReference != 0 {
+			if master, mErr := c.factory.Cluster().Get(ctx, req.OwnerReference); mErr == nil && master != nil && master.ConnectMode == model.ConnectModeTunnel {
+				opts.ConnectMode = model.ConnectModeTunnel
+				opts.ClusterName = master.Name
+			}
+		}
+		cs, err = client.NewClusterSetWithOptions(req.KubeConfig, opts)
 		return
 	}
 
@@ -279,7 +287,9 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	}
 
 	// 隧道模式：Agent 未上线前不强制注入 ClusterRole，也无法通过隧道创建命名空间
-	if req.ConnectMode != model.ConnectModeTunnel {
+	// 授权子集群：kubeconfig 为 scoped SA，无 namespaces 权限；pixiu-system / 内置 Role
+	// 已由主集群侧 addKubernetesRule 处理，此处跳过。
+	if req.ConnectMode != model.ConnectModeTunnel && req.PermissionId == 0 {
 		if err = c.ensurePixiuSystemNamespace(ctx, cs); err != nil {
 			klog.Errorf("cluster %s: create pixiu-system namespace failed, rolling back by deleting the cluster: %v", req.Name, err)
 			if delErr := c.Delete(ctx, obj.Id, true); delErr != nil {
@@ -621,25 +631,19 @@ func (c *cluster) List(ctx context.Context, listOption types.ListOptions) (inter
 	return pageResult, nil
 }
 
-// Ping 检查和 k8s 集群的连通性
-// 如果能获取到 k8s 接口的正常返回，则返回 nil，否则返回具体 error
-// kubeConfig 为 k8s 证书的 base64 字符串
-func (c *cluster) Ping(ctx context.Context, kubeConfig string) error {
+// Ping 检查 kubeconfig 与 API Server 的连通性及认证是否有效。
+// 使用 GET /version（Discovery.ServerVersion），不依赖 list namespaces 等业务权限。
+// kubeConfig 为 kubeconfig 的 base64 字符串。
+func (c *cluster) Ping(_ context.Context, kubeConfig string) error {
 	clientSet, err := client.NewClientSetFromString(kubeConfig)
 	if err != nil {
 		return err
 	}
 
-	// 调用 ns 资源，确保连通
-	var timeout int64 = 1
-	if _, err = clientSet.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-		TimeoutSeconds: &timeout,
-	}); err != nil {
-		klog.Errorf("failed to ping kubernetes: %v", err)
-		// 处理原始报错信息，仅返回连接不通的信息
+	if _, err = clientSet.Discovery().ServerVersion(); err != nil {
+		klog.Errorf("failed to ping kubernetes via /version: %v", err)
 		return fmt.Errorf("kubernetes 集群连接测试失败")
 	}
-
 	return nil
 }
 
@@ -1084,16 +1088,29 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 	return cs.Config, nil
 }
 
+// resolveClusterSetOptions 构造 ClusterSet 拨号选项。
+// 授权子集群的 Agent 隧道挂在主集群名下，须用主集群 Name + Tunnel 模式拨号，否则会 502。
+func (c *cluster) resolveClusterSetOptions(ctx context.Context, object *model.Cluster) client.ClusterSetOptions {
+	opts := client.ClusterSetOptions{
+		ClusterName: object.Name,
+		ConnectMode: object.ConnectMode,
+	}
+	if object.PermissionId == 0 || object.OwnerReference == 0 {
+		return opts
+	}
+	master, err := c.factory.Cluster().Get(ctx, object.OwnerReference)
+	if err != nil || master == nil {
+		return opts
+	}
+	if master.ConnectMode == model.ConnectModeTunnel {
+		opts.ConnectMode = model.ConnectModeTunnel
+		opts.ClusterName = master.Name
+	}
+	return opts
+}
+
 // GetClusterSetByName 获取 ClusterSet， 缓存中不存在时，构建缓存再返回
 func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.ClusterSet, error) {
-	cs, ok := ClusterIndexer.Get(name)
-	if ok {
-		klog.V(2).Infof("Get %s clusterSet from cache", name)
-		return cs, nil
-	}
-
-	klog.Infof("building clusterSet for %s", name)
-	// 缓存中不存在，则新建并重写回缓存
 	object, err := c.factory.Cluster().GetBy(ctx, db.WithName(name))
 	if err != nil {
 		return client.ClusterSet{}, err
@@ -1101,10 +1118,18 @@ func (c *cluster) GetClusterSetByName(ctx context.Context, name string) (client.
 	if object == nil {
 		return client.ClusterSet{}, errors.ErrClusterNotFound
 	}
-	newClusterSet, err := client.NewClusterSetWithOptions(object.KubeConfig, client.ClusterSetOptions{
-		ClusterName: object.Name,
-		ConnectMode: object.ConnectMode,
-	})
+
+	// 授权子集群可能曾以错误 ConnectMode 入缓存（未走主集群隧道），跳过缓存强制重建
+	if object.PermissionId == 0 {
+		if cs, ok := ClusterIndexer.Get(name); ok {
+			klog.V(2).Infof("Get %s clusterSet from cache", name)
+			return cs, nil
+		}
+	}
+
+	klog.Infof("building clusterSet for %s", name)
+	opts := c.resolveClusterSetOptions(ctx, object)
+	newClusterSet, err := client.NewClusterSetWithOptions(object.KubeConfig, opts)
 	if err != nil {
 		return client.ClusterSet{}, err
 	}
