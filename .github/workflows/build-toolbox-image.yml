@@ -41,12 +41,10 @@ jobs:
           file: ./docker/Dockerfile-toolbox
           platforms: linux/amd64,linux/arm64
           build-args: |
-            K8S_VERSION=v1.23.6
+            K8S_VERSION=v1.36.2
             HELM_VERSION=v3.7.1
           push: true
           provenance: false
           sbom: false
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-toolbox:latest
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-toolbox:v2.0.1-beta.6
-        # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-toolbox:${{ env.COMMIT_HASH }}
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-toolbox:v2.0.1
