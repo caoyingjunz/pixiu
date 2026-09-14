@@ -8,8 +8,10 @@ on:
       - 'docs/**'
       - 'cmd/cluster-agent/**'
       - 'docker/Dockerfile-cluster-agent'
+      - 'docker/Dockerfile-toolbox'
       - 'deploy/agent/**'
       - '.github/workflows/build-cluster-agent-image.yml'
+      - '.github/workflows/build-toolbox-image.yml'
 
 jobs:
   build-amd64:
