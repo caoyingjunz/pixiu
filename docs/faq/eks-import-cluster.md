@@ -50,7 +50,7 @@ curl -vk --connect-timeout 5 https://<eks-api-endpoint>/version
 
 ## 解决方案
 
-### 方案 A：ServiceAccount Token kubeconfig（推荐，与 Kuboard 同类）
+### 方案 A：ServiceAccount Token kubeconfig（推荐）
 
 在 EKS 上创建管理用 SA，签发长期 token，再拼成 **无 exec** 的 kubeconfig 导入 Pixiu（公网用直连；私网用隧道且 `server` 填 Agent 可达的私网 API 地址）。
 
@@ -95,6 +95,15 @@ EOF
 TOKEN=$(kubectl -n pixiu-system get secret pixiu-admin-token -o jsonpath='{.data.token}' | base64 -d)
 # 从现有 kubeconfig 取 server / CA，或从 AWS 控制台获取后填入下方
 ```
+
+`certificate-authority-data` 获取方式（从本机已有 kubeconfig 提取，需先执行过 `aws eks update-kubeconfig`）：
+
+```bash
+kubectl config view --raw --minify --flatten \
+  -o jsonpath='{.clusters[0].cluster.certificate-authority-data}'
+```
+
+> 输出已是 base64 编码，**原样粘贴即可，勿二次编码**；`--minify` 只保留 current-context 对应集群，避免多集群 kubeconfig 取错 CA。
 
 导入用 kubeconfig 形态（**不要**再带 `exec`）：
 
