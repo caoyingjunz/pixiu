@@ -73,6 +73,10 @@ readonly / Pixiu123!
 - [DeployAgent](deploy/deploy-agent/README.md)：边缘节点在网络隔离的情况下通过驱动完成 Kubernetes 集群部署。
 - [ClusterAgent](deploy/cluster-agent/README.md)：通过轻量 Sidecar 使控制面能够访问网络隔离环境下的集群 kube-apiserver。
 
+## FAQ
+
+[常见问题](docs/faq/README.md)
+
 ## 沟通交流
 
 - 搜索微信号 `yingjuncz`，备注（pixiu），验证通过会加入群聊
