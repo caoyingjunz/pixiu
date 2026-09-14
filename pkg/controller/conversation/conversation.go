@@ -20,18 +20,24 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"gorm.io/gorm"
 )
 
 type Interface interface {
+	Executions(ctx context.Context, id int64, opts types.ListOptions) (interface{}, error)
+	Current(ctx context.Context) (*types.Conversation, error)
+	Select(ctx context.Context, id int64) error
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*types.Conversation, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
@@ -52,7 +58,7 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 		klog.Errorf("failed to get conversation(%d): %v", id, err)
 		return apierrors.ErrServerInternal
 	}
-	if old == nil {
+	if !owned(ctx, old) {
 		return apierrors.NewError(fmt.Errorf("conversation not found"), http.StatusNotFound)
 	}
 
@@ -72,7 +78,7 @@ func (c *controller) Get(ctx context.Context, id int64) (*types.Conversation, er
 		klog.Errorf("failed to get conversation(%d): %v", id, err)
 		return nil, apierrors.ErrServerInternal
 	}
-	if object == nil {
+	if !owned(ctx, object) {
 		return nil, apierrors.NewError(fmt.Errorf("conversation not found"), http.StatusNotFound)
 	}
 	return modelToType(object), nil
@@ -88,11 +94,18 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		},
 	}
 
+	userID, err := httputils.GetUserIdFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	opts := []db.Options{
+		func(tx *gorm.DB) *gorm.DB { return tx.Where("user_id = ?", userID) },
 		db.WithProvider(listOption.Provider),
 	}
 
-	var err error
+	if title := strings.TrimSpace(listOption.ConversationTitle); title != "" {
+		opts = append(opts, func(tx *gorm.DB) *gorm.DB { return tx.Where("LOCATE(?, title) > 0", title) })
+	}
 	pageResult.Total, err = c.factory.Assistant().Conversation().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count conversations: %v", err)
@@ -101,9 +114,10 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 
 	offset := (listOption.Page - 1) * listOption.Limit
 	opts = append(opts,
-		db.WithModifyOrderByDesc(),
+		func(tx *gorm.DB) *gorm.DB { return tx.Order("last_message_at DESC").Order("id DESC") },
 		db.WithOffset(offset),
 		db.WithLimit(listOption.Limit),
+		func(tx *gorm.DB) *gorm.DB { return tx.Omit("history") },
 	)
 
 	objects, err := c.factory.Assistant().Conversation().List(ctx, opts...)
@@ -138,4 +152,57 @@ func modelToType(object *model.Conversation) *types.Conversation {
 		PreviousResponseId: object.PreviousResponseId,
 		History:            object.History,
 	}
+}
+
+func owned(ctx context.Context, object *model.Conversation) bool {
+	userID, err := httputils.GetUserIdFromContext(ctx)
+	return err == nil && object != nil && object.UserId != nil && *object.UserId == userID
+}
+
+func (c *controller) Current(ctx context.Context) (*types.Conversation, error) {
+	userID, err := httputils.GetUserIdFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	object, err := c.factory.Assistant().Conversation().Current(ctx, userID)
+	if err != nil {
+		return nil, apierrors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, nil
+	}
+	return modelToType(object), nil
+}
+
+func (c *controller) Select(ctx context.Context, id int64) error {
+	userID, err := httputils.GetUserIdFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if id < 0 {
+		return apierrors.NewError(fmt.Errorf("invalid conversation id"), http.StatusBadRequest)
+	}
+	err = c.factory.Assistant().Conversation().Select(ctx, userID, id)
+	if utilerrors.IsRecordNotFound(err) {
+		return apierrors.NewError(fmt.Errorf("conversation not found"), http.StatusNotFound)
+	}
+	if err != nil {
+		return apierrors.ErrServerInternal
+	}
+	return nil
+}
+
+func (c *controller) Executions(ctx context.Context, id int64, opts types.ListOptions) (interface{}, error) {
+	if _, err := c.Get(ctx, id); err != nil {
+		return nil, err
+	}
+	opts.SetDefaultPageOption()
+	if opts.Limit > 100 {
+		opts.Limit = 100
+	}
+	items, total, err := c.factory.Assistant().Execution().List(ctx, id, opts.Page, opts.Limit)
+	if err != nil {
+		return nil, apierrors.ErrServerInternal
+	}
+	return &types.PageResult{PageRequest: types.PageRequest{Page: opts.Page, Limit: opts.Limit}, Total: total, Items: items}, nil
 }

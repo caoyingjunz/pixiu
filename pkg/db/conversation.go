@@ -21,12 +21,15 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
 type ConversationInterface interface {
+	Select(ctx context.Context, userID, id int64) error
+	Current(ctx context.Context, userID int64) (*model.Conversation, error)
 	Create(ctx context.Context, object *model.Conversation) (*model.Conversation, error)
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) error
@@ -68,14 +71,19 @@ func (a *conversation) Update(ctx context.Context, id int64, resourceVersion int
 }
 
 func (a *conversation) Delete(ctx context.Context, id int64) error {
-	f := a.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Conversation{})
-	if f.Error != nil {
-		return f.Error
-	}
-	if f.RowsAffected == 0 {
-		return errors.ErrRecordNotFound
-	}
-	return nil
+	return a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("last_conversation_id = ?", id).Update("last_conversation_id", nil).Error; err != nil {
+			return err
+		}
+		f := tx.Where("id = ?", id).Delete(&model.Conversation{})
+		if f.Error != nil {
+			return f.Error
+		}
+		if f.RowsAffected == 0 {
+			return errors.ErrRecordNotFound
+		}
+		return nil
+	})
 }
 
 func (a *conversation) Get(ctx context.Context, id int64) (*model.Conversation, error) {
@@ -111,4 +119,35 @@ func (a *conversation) Count(ctx context.Context, opts ...Options) (int64, error
 		return 0, err
 	}
 	return total, nil
+}
+
+// Select validates ownership and saves the selection atomically. Zero selects a blank conversation.
+func (a *conversation) Select(ctx context.Context, userID, id int64) error {
+	return a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user model.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, userID).Error; err != nil {
+			return err
+		}
+		var selected *int64
+		if id != 0 {
+			var object model.Conversation
+			if err := tx.Where("id = ? AND user_id = ?", id, userID).First(&object).Error; err != nil {
+				return err
+			}
+			selected = &id
+		}
+		return tx.Model(&user).Update("last_conversation_id", selected).Error
+	})
+}
+
+func (a *conversation) Current(ctx context.Context, userID int64) (*model.Conversation, error) {
+	var object model.Conversation
+	err := a.db.WithContext(ctx).Where("user_id = ? AND id = (SELECT last_conversation_id FROM users WHERE id = ?)", userID, userID).Limit(1).Find(&object).Error
+	if err == nil && object.Id == 0 {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &object, nil
 }

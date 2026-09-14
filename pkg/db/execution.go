@@ -26,6 +26,7 @@ import (
 )
 
 type ExecutionInterface interface {
+	List(ctx context.Context, conversationID int64, page, limit int) ([]model.Execution, int64, error)
 	Create(ctx context.Context, object *model.Execution) (*model.Execution, error)
 }
 
@@ -45,4 +46,15 @@ func (a *execution) Create(ctx context.Context, object *model.Execution) (*model
 		return nil, err
 	}
 	return object, nil
+}
+
+func (a *execution) List(ctx context.Context, conversationID int64, page, limit int) ([]model.Execution, int64, error) {
+	var items []model.Execution
+	var total int64
+	tx := a.db.WithContext(ctx).Model(&model.Execution{}).Where("conversation_id = ?", conversationID)
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := tx.Order("id ASC").Offset((page - 1) * limit).Limit(limit).Find(&items).Error
+	return items, total, err
 }
