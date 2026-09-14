@@ -24,7 +24,7 @@ default:
 #  public_url: https://console.cloud.pixiuio.com
 
   # CloudShell/工具容器镜像
-#  toolbox: ccr.ccs.tencentyun.com/pixiucloud/helm-toolbox:v3.9.0
+#  toolbox: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-toolbox:v2.0.1
 
 # 数据库地址信息
 mysql:
