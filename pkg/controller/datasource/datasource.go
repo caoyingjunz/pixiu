@@ -97,6 +97,9 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	if err := validateRedisConstraint(req); err != nil {
 		return err
 	}
+	if err := validateStorageConstraint(req); err != nil {
+		return err
+	}
 	if err := c.preCreate(ctx, req); err != nil {
 		return err
 	}
@@ -199,6 +202,33 @@ func validateRedisConstraint(req *types.CreateDatasourceRequest) error {
 	return nil
 }
 
+// validateStorageConstraint 校验对象存储数据源只能通过外部 HTTP 地址访问。
+// 对象存储服务不对应 Pixiu 集群内的 Service，因此不支持内部数据源模式。
+func validateStorageConstraint(req *types.CreateDatasourceRequest) error {
+	if req.SubType != model.DatasourceSubTypeStorage {
+		return nil
+	}
+	if req.Type != model.DatasourceTypeMiddleware {
+		return apierrors.NewError(
+			fmt.Errorf("storage datasource requires type=%d", model.DatasourceTypeMiddleware),
+			http.StatusBadRequest,
+		)
+	}
+	if !req.External {
+		return apierrors.NewError(
+			fmt.Errorf("storage datasource only supports external direct connection, please enable external"),
+			http.StatusBadRequest,
+		)
+	}
+	if req.Config == nil || req.Config.Storage == nil {
+		return apierrors.NewError(
+			fmt.Errorf("storage datasource requires config.storage"),
+			http.StatusBadRequest,
+		)
+	}
+	return nil
+}
+
 // 更新前置检查：资源存在
 func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource, error) {
 	old, err := c.factory.Datasource().Get(ctx, id)
@@ -214,6 +244,9 @@ func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource
 
 func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequest) error {
 	if err := validateRedisConstraint(&req.CreateDatasourceRequest); err != nil {
+		return err
+	}
+	if err := validateStorageConstraint(&req.CreateDatasourceRequest); err != nil {
 		return err
 	}
 	old, err := c.preUpdate(ctx, req.Id)

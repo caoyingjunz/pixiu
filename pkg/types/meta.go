@@ -453,6 +453,7 @@ func (c *DatasourceConfig) Clean(t model.DatasourceType, subType model.Datasourc
 			c.Log = nil
 		}
 		c.Nacos = nil
+		c.Storage = nil
 	}
 	if t == model.DatasourceTypeLog {
 		if c.Alert != nil {
@@ -469,7 +470,11 @@ func (c *DatasourceConfig) Clean(t model.DatasourceType, subType model.Datasourc
 		c.Alert = nil
 		c.Headers = nil
 		c.Nacos = nil
+		c.Storage = nil
 	} else {
 		c.Redis = nil
+	}
+	if subType != model.DatasourceSubTypeStorage {
+		c.Storage = nil
 	}
 }
