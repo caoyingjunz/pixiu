@@ -74,6 +74,9 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 		Name:    "智能助手",
 		BaseURL: conversationBaseURL,
 		Entries: []apiregistry.RouteEntry{
+			{Method: "GET", RelativePath: "/:conversationId/executions", Handler: r.listConversationExecutions, Description: "List conversation executions"},
+			{Method: "GET", RelativePath: "/current", Handler: r.currentConversation, Description: "Get current conversation"},
+			{Method: "PUT", RelativePath: "/current", Handler: r.selectConversation, Description: "Select current conversation"},
 			{Method: "DELETE", RelativePath: "/:conversationId", Handler: r.deleteConversation, Description: "Delete conversation"},
 			{Method: "GET", RelativePath: "", Handler: r.listConversations, Description: "List conversations"},
 			{Method: "GET", RelativePath: "/:conversationId", Handler: r.getConversation, Description: "Get conversation"},

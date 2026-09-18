@@ -49,6 +49,8 @@ type User struct {
 	Phone       string     `gorm:"column:phone;type:varchar(32)" json:"phone"`
 	Description string     `gorm:"type:text" json:"description"`
 	Extension   string     `gorm:"type:text" json:"extension,omitempty"`
+	// Persist the selected conversation across logins and devices. Nil means no selection.
+	LastConversationId *int64 `gorm:"column:last_conversation_id;index:idx_users_last_conversation_id" json:"-"`
 }
 
 func (user *User) TableName() string {

@@ -34,6 +34,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -79,6 +80,33 @@ func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, em
 		return nil, apierrors.ErrServerInternal
 	}
 
+	if conversation == nil {
+		userID, err := httputils.GetUserIdFromContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		title := req.Input
+		if i := strings.LastIndex(title, "用户问题: "); i >= 0 {
+			title = title[i+len("用户问题: "):]
+		}
+		runes := []rune(strings.TrimSpace(title))
+		if len(runes) > 120 {
+			runes = runes[:120]
+		}
+		err = c.factory.Transaction(ctx, func(f db.ShareDaoFactory) error {
+			var createErr error
+			conversation, createErr = f.Assistant().Conversation().Create(ctx, &model.Conversation{UserId: &userID, ProviderId: provider.Id, Provider: provider.Name, ModelName: modelName, Title: string(runes), History: "[]", LastMessageAt: &startTime})
+			if createErr != nil {
+				return createErr
+			}
+			return f.Assistant().Conversation().Select(ctx, userID, conversation.Id)
+		})
+		if err != nil {
+			return nil, apierrors.ErrServerInternal
+		}
+		req.ConversationId = conversation.Id
+	}
+
 	var (
 		authorization string
 		cookies       []*http.Cookie
@@ -99,10 +127,11 @@ func (c *controller) Stream(ctx context.Context, req *types.AIRespondRequest, em
 	})
 
 	_ = emit(&types.AIStreamEvent{
-		Type:    "status",
-		Stage:   "started",
-		Message: "已发起 AI 分析请求",
-		Model:   modelName,
+		Type:           "status",
+		Stage:          "started",
+		ConversationId: conversation.Id,
+		Message:        "已发起 AI 分析请求",
+		Model:          modelName,
 	})
 
 	endpoint, err := resolveAIEndpoint(provider)
@@ -197,8 +226,8 @@ func (c *controller) recordResponseExecution(
 		Provider:        provider.Name,
 		ModelName:       modelName,
 		ResponseId:      responseID,
-		InputText:       truncateAuditText(inputText),
-		OutputText:      truncateAuditText(outputText),
+		InputText:       inputText,
+		OutputText:      outputText,
 		Success:         runErr == nil,
 		Duration:        duration.Milliseconds(),
 		InputTokens:     usage.InputTokens,
@@ -341,7 +370,7 @@ func (c *controller) callResponsesAPIStream(
 	raw, text, err := parseSSEResponseStream(resp.Body, emit)
 	if err != nil {
 		klog.Errorf("failed to parse ai response stream: %v", err)
-		return nil, "", apierrors.NewError(fmt.Errorf("invalid ai response"), http.StatusBadGateway)
+		return nil, "", apierrors.NewError(fmt.Errorf("AI response stream failed: %w", err), http.StatusBadGateway)
 	}
 	return raw, text, nil
 }
@@ -427,13 +456,29 @@ func (c *controller) getConversation(ctx context.Context, conversationId int64) 
 		klog.Errorf("failed to get ai conversation(%d): %v", conversationId, err)
 		return nil, apierrors.ErrServerInternal
 	}
-	if object == nil {
+	userID, authErr := httputils.GetUserIdFromContext(ctx)
+	if authErr != nil {
+		return nil, authErr
+	}
+	if object == nil || object.UserId == nil || *object.UserId != userID {
 		return nil, apierrors.NewError(fmt.Errorf("ai conversation not found"), http.StatusNotFound)
 	}
 	return object, nil
 }
 
-func (c *controller) persistConversation(
+func (c *controller) persistConversation(ctx context.Context, provider *model.AIProvider, conversation *model.Conversation, modelName, input, outputText, responseID string) (int64, error) {
+	var id int64
+	err := c.factory.Transaction(ctx, func(factory db.ShareDaoFactory) error {
+		scoped := *c
+		scoped.factory = factory
+		var err error
+		id, err = scoped.persistConversationInTransaction(ctx, provider, conversation, modelName, input, outputText, responseID)
+		return err
+	})
+	return id, err
+}
+
+func (c *controller) persistConversationInTransaction(
 	ctx context.Context,
 	provider *model.AIProvider,
 	conversation *model.Conversation,
@@ -442,17 +487,28 @@ func (c *controller) persistConversation(
 	outputText string,
 	responseID string,
 ) (int64, error) {
+	userID, err := httputils.GetUserIdFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+	now := time.Now()
 	history, err := appendConversationHistory(conversation, input, outputText)
 	if err != nil {
 		return 0, apierrors.ErrServerInternal
 	}
 
 	if conversation == nil {
-		title := strings.TrimSpace(input)
-		if len(title) > 120 {
-			title = title[:120]
+		titleRunes := []rune(strings.TrimSpace(input))
+		if i := strings.LastIndex(input, "用户问题: "); i >= 0 {
+			titleRunes = []rune(strings.TrimSpace(input[i+len("用户问题: "):]))
 		}
+		if len(titleRunes) > 120 {
+			titleRunes = titleRunes[:120]
+		}
+		title := string(titleRunes)
 		object, err := c.factory.Assistant().Conversation().Create(ctx, &model.Conversation{
+			UserId:             &userID,
+			LastMessageAt:      &now,
 			ProviderId:         provider.Id,
 			Provider:           provider.Name,
 			ModelName:          modelName,
@@ -464,6 +520,9 @@ func (c *controller) persistConversation(
 			klog.Errorf("failed to create ai conversation: %v", err)
 			return 0, apierrors.ErrServerInternal
 		}
+		if err := c.factory.Assistant().Conversation().Select(ctx, userID, object.Id); err != nil {
+			return object.Id, err
+		}
 		return object.Id, nil
 	}
 
@@ -473,6 +532,7 @@ func (c *controller) persistConversation(
 		"model":                modelName,
 		"previous_response_id": responseID,
 		"history":              history,
+		"last_message_at":      now,
 	}
 	if err := c.factory.Assistant().Conversation().Update(ctx, conversation.Id, conversation.ResourceVersion, updates); err != nil {
 		klog.Errorf("failed to update ai conversation(%d): %v", conversation.Id, err)
@@ -702,13 +762,17 @@ func parseSSEResponseStream(reader io.Reader, emit func(*types.AIStreamEvent) er
 		outputItems  []interface{}
 	)
 
+responseLoop:
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || !strings.HasPrefix(line, "data:") {
 			continue
 		}
 		payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if payload == "" || payload == "[DONE]" {
+		if payload == "[DONE]" {
+			break responseLoop
+		}
+		if payload == "" {
 			continue
 		}
 
@@ -746,12 +810,9 @@ func parseSSEResponseStream(reader io.Reader, emit func(*types.AIStreamEvent) er
 			if response, ok := event["response"].(map[string]interface{}); ok {
 				baseResponse = response
 			}
-		case "response.failed", "error":
-			message := "AI 请求失败"
-			if msg, _ := event["message"].(string); msg != "" {
-				message = msg
-			}
-			return nil, "", errors.New(message)
+			break responseLoop
+		case "response.failed", "response.incomplete", "error":
+			return nil, "", errors.New(upstreamStreamError(event))
 		}
 	}
 	if err := scanner.Err(); err != nil {

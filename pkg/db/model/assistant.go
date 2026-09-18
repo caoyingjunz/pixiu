@@ -16,7 +16,11 @@ limitations under the License.
 
 package model
 
-import "github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
+import (
+	"time"
+
+	"github.com/caoyingjunz/pixiu/pkg/db/model/pixiu"
+)
 
 func init() {
 	register(&AIProvider{}, &AIAccount{}, &Conversation{}, &Message{}, &Execution{})
@@ -58,12 +62,15 @@ func (AIAccount) TableName() string {
 type Conversation struct {
 	pixiu.Model
 
-	ProviderId         int64  `gorm:"column:provider_id;not null;index:idx_conversations_provider_id" json:"provider_id"`
-	Provider           string `gorm:"type:varchar(64);not null" json:"provider"`
-	ModelName          string `gorm:"column:model;type:varchar(128)" json:"model"`
-	Title              string `gorm:"type:varchar(256)" json:"title"`
-	PreviousResponseId string `gorm:"column:previous_response_id;type:varchar(256)" json:"previous_response_id"`
-	History            string `gorm:"type:longtext" json:"history"`
+	// Legacy conversations have no known owner; do not expose them as user history.
+	UserId             *int64     `gorm:"column:user_id;index:idx_conversations_user_last_message,priority:1" json:"user_id"`
+	LastMessageAt      *time.Time `gorm:"column:last_message_at;type:datetime;index:idx_conversations_user_last_message,priority:2" json:"last_message_at"`
+	ProviderId         int64      `gorm:"column:provider_id;not null;index:idx_conversations_provider_id" json:"provider_id"`
+	Provider           string     `gorm:"type:varchar(64);not null" json:"provider"`
+	ModelName          string     `gorm:"column:model;type:varchar(128)" json:"model"`
+	Title              string     `gorm:"type:varchar(256)" json:"title"`
+	PreviousResponseId string     `gorm:"column:previous_response_id;type:varchar(256)" json:"previous_response_id"`
+	History            string     `gorm:"type:longtext" json:"history"`
 }
 
 func (Conversation) TableName() string {

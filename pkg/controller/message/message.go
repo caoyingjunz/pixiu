@@ -24,11 +24,13 @@ import (
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"gorm.io/gorm"
 )
 
 type Interface interface {
@@ -52,7 +54,7 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 		klog.Errorf("failed to get message(%d): %v", id, err)
 		return apierrors.ErrServerInternal
 	}
-	if old == nil {
+	if old == nil || !c.owned(ctx, old.ConversationId) {
 		return apierrors.NewError(fmt.Errorf("message not found"), http.StatusNotFound)
 	}
 
@@ -72,7 +74,7 @@ func (c *controller) Get(ctx context.Context, id int64) (*types.Message, error) 
 		klog.Errorf("failed to get message(%d): %v", id, err)
 		return nil, apierrors.ErrServerInternal
 	}
-	if object == nil {
+	if object == nil || !c.owned(ctx, object.ConversationId) {
 		return nil, apierrors.NewError(fmt.Errorf("message not found"), http.StatusNotFound)
 	}
 	return modelToType(object), nil
@@ -88,12 +90,18 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		},
 	}
 
+	userID, err := httputils.GetUserIdFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	opts := []db.Options{
+		func(tx *gorm.DB) *gorm.DB {
+			return tx.Where("conversation_id IN (SELECT id FROM conversations WHERE user_id = ?)", userID)
+		},
 		db.WithProvider(listOption.Provider),
 		db.WithConversationId(listOption.ConversationId),
 	}
 
-	var err error
 	pageResult.Total, err = c.factory.Assistant().Message().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count messages: %v", err)
@@ -149,4 +157,13 @@ func modelToType(object *model.Message) *types.Message {
 		CachedTokens:    object.CachedTokens,
 		ReasoningTokens: object.ReasoningTokens,
 	}
+}
+
+func (c *controller) owned(ctx context.Context, id int64) bool {
+	userID, err := httputils.GetUserIdFromContext(ctx)
+	if err != nil {
+		return false
+	}
+	object, err := c.factory.Assistant().Conversation().Get(ctx, id)
+	return err == nil && object != nil && object.UserId != nil && *object.UserId == userID
 }

@@ -80,3 +80,49 @@ func (r *router) listConversations(c *gin.Context) {
 	}
 	httputils.SetSuccess(c, resp)
 }
+
+func (r *router) currentConversation(c *gin.Context) {
+	resp := httputils.NewResponse()
+	var err error
+	if resp.Result, err = r.c.Assistant().Conversation().Current(c); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) selectConversation(c *gin.Context) {
+	resp := httputils.NewResponse()
+	var req struct {
+		ConversationId int64 `json:"conversation_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err := r.c.Assistant().Conversation().Select(c, req.ConversationId); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) listConversationExecutions(c *gin.Context) {
+	resp := httputils.NewResponse()
+	var meta conversationMeta
+	var opts types.ListOptions
+	if err := c.ShouldBindUri(&meta); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err := httputils.BindListOptionsWithUser(c, &opts); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	var err error
+	if resp.Result, err = r.c.Assistant().Conversation().Executions(c, meta.ConversationId, opts); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}

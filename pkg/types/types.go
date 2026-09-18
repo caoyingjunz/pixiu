@@ -640,8 +640,9 @@ type ListOptions struct {
 }
 
 type CustomMeta struct {
-	Status *int   `form:"status" json:"status"`
-	Step   string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
+	ConversationTitle string `form:"conversation_title" json:"conversation_title"`
+	Status            *int   `form:"status" json:"status"`
+	Step              string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
 
 	ClusterName    string                  `form:"cluster_name" json:"cluster_name"`
 	DatasourceType *model.DatasourceType   `form:"datasource_type" json:"datasource_type"`

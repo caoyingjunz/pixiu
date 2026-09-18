@@ -62,6 +62,7 @@ func Catalog() []Definition {
 
 		{Code: "ai", Title: "智能助手", Path: "/ai", Kind: KindDirectory},
 		{Code: "ai.account", ParentCode: "ai", Title: "AI 账号", Path: "/ai/ai-account", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/assistant/accounts"}},
+		{Code: "ai.conversations", ParentCode: "ai", Title: "对话记录", Path: "/ai/conversations", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/assistant/conversations"}},
 
 		{Code: "safeguard", Title: "运维管理", Path: "/safeguard", Kind: KindDirectory},
 		{Code: "safeguard.runner", ParentCode: "safeguard", Title: "Runner", Path: "/safeguard/runner", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/runners"}},

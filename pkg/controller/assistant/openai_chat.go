@@ -133,7 +133,7 @@ func (c *controller) callChatCompletionsStream(
 	result, err := parseChatCompletionsSSE(resp.Body, emit)
 	if err != nil {
 		klog.Errorf("failed to parse chat completions stream: %v", err)
-		return nil, apierrors.NewError(fmt.Errorf("invalid ai response"), http.StatusBadGateway)
+		return nil, apierrors.NewError(fmt.Errorf("AI response stream failed: %w", err), http.StatusBadGateway)
 	}
 	return result, nil
 }
@@ -153,7 +153,10 @@ func parseChatCompletionsSSE(reader io.Reader, emit func(*types.AIStreamEvent) e
 			continue
 		}
 		payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if payload == "" || payload == "[DONE]" {
+		if payload == "[DONE]" {
+			break
+		}
+		if payload == "" {
 			continue
 		}
 		var event map[string]interface{}
