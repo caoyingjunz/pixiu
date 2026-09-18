@@ -79,12 +79,400 @@ type HTTPHeader struct {
 }
 
 type DatasourceConfig struct {
-	Headers []HTTPHeader       `json:"headers"`
-	Log     *LogSourceConfig   `json:"log,omitempty"`
-	Alert   *AlertSourceConfig `json:"alert,omitempty"`
-	Redis   *RedisSourceConfig `json:"redis,omitempty"`
-	Nacos   *NacosSourceConfig `json:"nacos,omitempty"`
-	Mysql   *MySQLSourceConfig `json:"mysql,omitempty"`
+	Headers []HTTPHeader         `json:"headers"`
+	Log     *LogSourceConfig     `json:"log,omitempty"`
+	Alert   *AlertSourceConfig   `json:"alert,omitempty"`
+	Redis   *RedisSourceConfig   `json:"redis,omitempty"`
+	Nacos   *NacosSourceConfig   `json:"nacos,omitempty"`
+	Mysql   *MySQLSourceConfig   `json:"mysql,omitempty"`
+	Storage *StorageSourceConfig `json:"storage,omitempty"`
+}
+
+// StorageSourceConfig 对象存储连接配置，含 AccessKeyID / SecretAccessKey / SessionToken。
+// 落库时同时写入 config.log.{url,user_name,password} 作兜底（clientFor 有回退读取）；
+// 读接口统一经 DatasourceConfig.MaskSensitiveFields 脱敏，不回传凭据明文。
+//
+// SignatureVersion / AddressingStyle 已被 storage.clientFor 真正消费
+// （分别映射 minio-go 的静态凭据版本与 BucketLookup 寻址方式）。
+// 前端表单已移除「寻址方式」输入（默认 auto 对 MinIO/OSS/COS/AWS 都能自动选对），
+// 字段保留仅为兼容存量 JSON 与直连 API 调用。
+type StorageSourceConfig struct {
+	Provider         string `json:"provider,omitempty"`
+	Endpoint         string `json:"endpoint,omitempty"`
+	Region           string `json:"region,omitempty"`
+	Bucket           string `json:"bucket,omitempty"`
+	AccessKeyID      string `json:"access_key_id,omitempty"`
+	SecretAccessKey  string `json:"secret_access_key,omitempty"`
+	SessionToken     string `json:"session_token,omitempty"`
+	SignatureVersion string `json:"signature_version,omitempty"`
+	AddressingStyle  string `json:"addressing_style,omitempty"`
+}
+
+type StorageBucket struct {
+	Name         string    `json:"name"`
+	CreationDate time.Time `json:"creation_date,omitempty"`
+}
+
+type StorageObject struct {
+	Key          string     `json:"key"`
+	Size         int64      `json:"size"`
+	LastModified *time.Time `json:"last_modified,omitempty"`
+	ETag         string     `json:"etag,omitempty"`
+	IsDir        bool       `json:"is_dir,omitempty"`
+}
+
+// StorageObjectPage 对象分页列举结果，NextToken 为空表示已列举完毕
+// 目录模式下 Token 为 ListObjectsV2 的 continuation token，搜索模式下为marker（上一个命中的 key）
+type StorageObjectPage struct {
+	Items     []StorageObject `json:"items"`
+	NextToken string          `json:"next_token,omitempty"`
+	Truncated bool            `json:"truncated"`
+}
+
+// StorageObjectVersion 对象历史版本（Bucket 开启多版本后由服务端生成）
+// IsDeleteMarker 为 true 表示这是一个「删除标记」版本，对应对象处于已删除状态
+type StorageObjectVersion struct {
+	Key            string     `json:"key"`
+	VersionID      string     `json:"version_id"`
+	IsLatest       bool       `json:"is_latest"`
+	IsDeleteMarker bool       `json:"is_delete_marker"`
+	Size           int64      `json:"size"`
+	LastModified   *time.Time `json:"last_modified,omitempty"`
+	ETag           string     `json:"etag,omitempty"`
+	StorageClass   string     `json:"storage_class,omitempty"`
+}
+
+// StorageObjectVersionList 历史版本列举结果
+// S3 的 ListObjectVersions 无法从指定版本续读（minio-go 未暴露 version-id-marker），
+// 因此这里按上限一次性返回，Truncated 为 true 表示还有更多版本未展开
+type StorageObjectVersionList struct {
+	Items     []StorageObjectVersion `json:"items"`
+	Truncated bool                   `json:"truncated"`
+	// VersioningEnabled 表示 Bucket 是否开启了版本控制。
+	// 未开启时删除对象不会产生删除标记（即没有回收站），删除是永久的。
+	VersioningEnabled bool `json:"versioning_enabled"`
+	// VersioningState 为三态：enabled/disabled/unknown。
+	// unknown 表示状态查询失败，前端应提示「状态获取失败」而不是断言「未开启」。
+	VersioningState string `json:"versioning_state,omitempty"`
+}
+
+// StorageMultipartUpload 未完成的分片上传（碎片），占用存储空间但不属于任何对象
+type StorageMultipartUpload struct {
+	Key       string     `json:"key"`
+	UploadID  string     `json:"upload_id"`
+	Initiated *time.Time `json:"initiated,omitempty"`
+	Size      int64      `json:"size"`
+}
+
+// StorageMultipartUploadList 碎片列举结果，Truncated 为 true 表示超出上限未全部展开
+type StorageMultipartUploadList struct {
+	Items     []StorageMultipartUpload `json:"items"`
+	TotalSize int64                    `json:"total_size"`
+	Truncated bool                     `json:"truncated"`
+}
+
+// StorageAbortUploadResult 碎片清理结果明细。部分失败也返回 200，仅参数/连接类错误才走 error。
+type StorageAbortUploadResult struct {
+	Succeeded  int      `json:"succeeded"`
+	Failed     int      `json:"failed"`
+	FailedKeys []string `json:"failed_keys,omitempty"`
+}
+
+// ---------- 大文件分片上传（S3 Multipart Upload）----------
+
+// StorageMultipartInit 初始化分片上传请求
+type StorageMultipartInit struct {
+	Bucket       string `json:"bucket" binding:"required"`
+	Key          string `json:"key" binding:"required"`
+	ContentType  string `json:"content_type,omitempty"`
+	StorageClass string `json:"storage_class,omitempty"`
+}
+
+// StorageMultipartSession 初始化结果。PartSize 由服务端下发，前端按此切分；
+// S3 限制单次分片上传最多 10000 片，且单片不得小于 5MiB（最后一片除外）。
+type StorageMultipartSession struct {
+	UploadID string `json:"upload_id"`
+	PartSize int64  `json:"part_size"`
+	MaxParts int    `json:"max_parts"`
+}
+
+// StorageMultipartPart 已上传的分片（用于断点续传与完成校验）
+type StorageMultipartPart struct {
+	PartNumber   int        `json:"part_number"`
+	ETag         string     `json:"etag"`
+	Size         int64      `json:"size"`
+	LastModified *time.Time `json:"last_modified,omitempty"`
+}
+
+// StorageMultipartCompletePart 完成分片上传时提交的分片清单
+type StorageMultipartCompletePart struct {
+	PartNumber int    `json:"part_number"`
+	ETag       string `json:"etag"`
+}
+
+// StorageMultipartComplete 完成分片上传请求
+type StorageMultipartComplete struct {
+	Bucket   string                         `json:"bucket" binding:"required"`
+	Key      string                         `json:"key" binding:"required"`
+	UploadID string                         `json:"upload_id" binding:"required"`
+	Parts    []StorageMultipartCompletePart `json:"parts" binding:"required"`
+}
+
+// StorageMultipartTarget 分片上传的目标（完成/中止/列举分片共用）
+type StorageMultipartTarget struct {
+	Bucket   string `json:"bucket" binding:"required"`
+	Key      string `json:"key" binding:"required"`
+	UploadID string `json:"upload_id" binding:"required"`
+}
+
+// StorageMultipartResult 完成分片上传后的对象信息
+type StorageMultipartResult struct {
+	Key  string `json:"key"`
+	ETag string `json:"etag"`
+	Size int64  `json:"size"`
+}
+
+// ---------- Bucket Policy 原始策略编辑 ----------
+
+// StorageBucketPolicy Bucket 策略原始 JSON。
+// 相较 StorageBucketConfig.ACL 的三档归类，这里是完整策略文本，
+// 支持精细到前缀/动作的授权（Exists 为 false 表示当前无策略）。
+type StorageBucketPolicy struct {
+	Policy string `json:"policy"`
+	Exists bool   `json:"exists"`
+	ACL    string `json:"acl,omitempty"`
+}
+
+// StorageBucketPolicyUpdate 策略更新请求；Policy 为空串表示删除策略
+type StorageBucketPolicyUpdate struct {
+	Policy string `json:"policy"`
+}
+
+// ---------- 跨桶复制 / 移动 ----------
+
+// StorageTransferRequest 跨桶复制或移动对象请求。
+// Keys 中的目录（以 / 结尾）会被递归展开；Move 为 true 时复制成功后删除源对象。
+type StorageTransferRequest struct {
+	Bucket    string   `json:"bucket" binding:"required"`
+	Keys      []string `json:"keys" binding:"required"`
+	DstBucket string   `json:"dst_bucket" binding:"required"`
+	DstPrefix string   `json:"dst_prefix"`
+	Move      bool     `json:"move"`
+}
+
+// StorageTransferResult 传输结果明细：部分失败也返回 200，由前端提示成功/失败数
+type StorageTransferResult struct {
+	Succeeded   int      `json:"succeeded"`
+	Failed      int      `json:"failed"`
+	FailedItems []string `json:"failed_items,omitempty"`
+	Total       int      `json:"total"`
+}
+
+// StorageObjectTag 对象标签键值对
+type StorageObjectTag struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// StorageObjectDetail 对象详情与元数据（以 StatObject 为准，跨厂商通用）
+type StorageObjectDetail struct {
+	Key             string             `json:"key"`
+	VersionID       string             `json:"version_id,omitempty"`
+	Size            int64              `json:"size"`
+	ETag            string             `json:"etag,omitempty"`
+	ContentType     string             `json:"content_type,omitempty"`
+	ContentEncoding string             `json:"content_encoding,omitempty"`
+	CacheControl    string             `json:"cache_control,omitempty"`
+	LastModified    *time.Time         `json:"last_modified,omitempty"`
+	StorageClass    string             `json:"storage_class,omitempty"`
+	ACL             string             `json:"acl,omitempty"`
+	UserMetadata    map[string]string  `json:"user_metadata,omitempty"`
+	Tags            []StorageObjectTag `json:"tags,omitempty"`
+}
+
+// StorageObjectMetaUpdate 对象元数据更新请求，仅更新显式传入的字段
+// 未传入的字段保持对象当前值（后端会先读取现状再合并写回）
+type StorageObjectMetaUpdate struct {
+	ContentType     *string            `json:"content_type,omitempty"`
+	ContentEncoding *string            `json:"content_encoding,omitempty"`
+	CacheControl    *string            `json:"cache_control,omitempty"`
+	UserMetadata    *map[string]string `json:"user_metadata,omitempty"`
+}
+
+// StorageBucketConfig Bucket 配置（对齐阿里云 OSS / 腾讯云 COS / 华为云 OBS 的通用配置项）
+// ACL: private / public-read / public-read-write；Versioning: Enabled / Suspended，空表示未开启
+type StorageBucketConfig struct {
+	ACL        string            `json:"acl,omitempty"`
+	Versioning string            `json:"versioning,omitempty"`
+	Encryption bool              `json:"encryption"`
+	Tags       map[string]string `json:"tags,omitempty"`
+}
+
+// StorageBucketConfigUpdate 仅更新显式传入的字段
+type StorageBucketConfigUpdate struct {
+	ACL        *string           `json:"acl,omitempty"`
+	Versioning *string           `json:"versioning,omitempty"`
+	Encryption *bool             `json:"encryption,omitempty"`
+	Tags       map[string]string `json:"tags,omitempty"`
+}
+
+// StorageLifecycleRule Bucket 生命周期规则：匹配前缀的对象过期自动删除，并清理未完成的分片上传
+// Status: Enabled / Disabled
+type StorageLifecycleRule struct {
+	ID                 string `json:"id,omitempty"`
+	Status             string `json:"status"`
+	Prefix             string `json:"prefix,omitempty"`
+	ExpirationDays     int    `json:"expiration_days,omitempty"`
+	AbortMultipartDays int    `json:"abort_multipart_days,omitempty"`
+}
+
+// StorageCorsRule Bucket 跨域资源共享规则
+type StorageCorsRule struct {
+	ID             string   `json:"id,omitempty"`
+	AllowedOrigins []string `json:"allowed_origins"`
+	AllowedMethods []string `json:"allowed_methods"`
+	AllowedHeaders []string `json:"allowed_headers,omitempty"`
+	ExposeHeaders  []string `json:"expose_headers,omitempty"`
+	MaxAgeSeconds  int      `json:"max_age_seconds,omitempty"`
+}
+
+type StorageUser struct {
+	AccessKey string `json:"access_key"`
+	Status    string `json:"status,omitempty"`
+	Policy    string `json:"policy,omitempty"`
+}
+
+type StorageUserCreate struct {
+	AccessKey string `json:"access_key"`
+	SecretKey string `json:"secret_key"`
+	Policy    string `json:"policy,omitempty"`
+}
+
+type StorageBucketUsage struct {
+	Name             string `json:"name"`
+	Objects          uint64 `json:"objects"`
+	Bytes            uint64 `json:"bytes"`
+	VersionsCount    uint64 `json:"versions_count,omitempty"`
+	DeleteMarkersCnt uint64 `json:"delete_markers_count,omitempty"`
+}
+
+// StorageHistogramBin is one bucket of the object-size distribution.
+type StorageHistogramBin struct {
+	Label string `json:"label"`
+	Count uint64 `json:"count"`
+}
+
+// StorageBackendInfo describes the MinIO storage backend (FS / erasure / gateway).
+type StorageBackendInfo struct {
+	Type         string `json:"type,omitempty"`
+	Sets         int    `json:"sets,omitempty"`
+	DrivesPerSet int    `json:"drives_per_set,omitempty"`
+	StdData      int    `json:"std_data,omitempty"`
+	StdParity    int    `json:"std_parity,omitempty"`
+}
+
+// StorageDiskInfo describes a single storage drive of a MinIO server.
+type StorageDiskInfo struct {
+	Path            string  `json:"path,omitempty"`
+	State           string  `json:"state,omitempty"`
+	Model           string  `json:"model,omitempty"`
+	TotalSpace      uint64  `json:"total_space"`
+	UsedSpace       uint64  `json:"used_space"`
+	AvailableSpace  uint64  `json:"available_space,omitempty"`
+	ReadThroughput  float64 `json:"read_throughput,omitempty"`
+	WriteThroughput float64 `json:"write_throughput,omitempty"`
+	ReadLatency     float64 `json:"read_latency,omitempty"`
+	WriteLatency    float64 `json:"write_latency,omitempty"`
+	Utilization     float64 `json:"utilization,omitempty"`
+	UsedInodes      uint64  `json:"used_inodes,omitempty"`
+	FreeInodes      uint64  `json:"free_inodes,omitempty"`
+	Healing         bool    `json:"healing,omitempty"`
+	Scanning        bool    `json:"scanning,omitempty"`
+	RootDisk        bool    `json:"root_disk,omitempty"`
+}
+
+// StorageServerInfo describes one MinIO server node and its drives.
+type StorageServerInfo struct {
+	Endpoint       string            `json:"endpoint,omitempty"`
+	State          string            `json:"state,omitempty"`
+	Version        string            `json:"version,omitempty"`
+	Uptime         int64             `json:"uptime"`
+	MemAlloc       uint64            `json:"mem_alloc,omitempty"`
+	HeapAlloc      uint64            `json:"heap_alloc,omitempty"`
+	NumCPU         int               `json:"num_cpu,omitempty"`
+	RuntimeVersion string            `json:"runtime_version,omitempty"`
+	PoolNumbers    []int             `json:"pool_numbers,omitempty"`
+	Disks          []StorageDiskInfo `json:"disks,omitempty"`
+}
+
+// StorageErasureSetInfo describes one erasure set inside a server pool.
+type StorageErasureSetInfo struct {
+	Pool        int    `json:"pool"`
+	SetID       int    `json:"set_id"`
+	Usage       uint64 `json:"usage"`
+	RawCapacity uint64 `json:"raw_capacity"`
+	Objects     uint64 `json:"objects"`
+	HealDisks   int    `json:"heal_disks"`
+}
+
+// StorageTierStats holds per remote-tier (ILM transition) statistics.
+type StorageTierStats struct {
+	Name        string `json:"name"`
+	TotalSize   uint64 `json:"total_size"`
+	NumObjects  int    `json:"num_objects"`
+	NumVersions int    `json:"num_versions"`
+}
+
+// StorageReplicationInfo aggregates cross-site replication backlog metrics.
+type StorageReplicationInfo struct {
+	PendingCount   uint64 `json:"pending_count"`
+	FailedCount    uint64 `json:"failed_count"`
+	PendingSize    uint64 `json:"pending_size"`
+	FailedSize     uint64 `json:"failed_size"`
+	ReplicatedSize uint64 `json:"replicated_size"`
+	ReplicaSize    uint64 `json:"replica_size"`
+}
+
+type StorageOverview struct {
+	Provider         string                  `json:"provider"`
+	Minio            bool                    `json:"minio"`
+	Version          string                  `json:"version,omitempty"`
+	Mode             string                  `json:"mode,omitempty"`
+	Region           string                  `json:"region,omitempty"`
+	Uptime           int64                   `json:"uptime"`
+	Buckets          int                     `json:"buckets"`
+	Objects          uint64                  `json:"objects"`
+	UsedBytes        uint64                  `json:"used_bytes"`
+	TotalBytes       uint64                  `json:"total_bytes"`
+	FreeBytes        uint64                  `json:"free_bytes"`
+	OnlineDisks      int                     `json:"online_disks"`
+	OfflineDisks     int                     `json:"offline_disks"`
+	UpdatedAt        string                  `json:"updated_at,omitempty"`
+	BucketUsage      []StorageBucketUsage    `json:"bucket_usage,omitempty"`
+	Servers          []StorageServerInfo     `json:"servers,omitempty"`
+	Backend          *StorageBackendInfo     `json:"backend,omitempty"`
+	ObjectHistogram  []StorageHistogramBin   `json:"object_histogram,omitempty"`
+	DeploymentID     string                  `json:"deployment_id,omitempty"`
+	Domains          []string                `json:"domains,omitempty"`
+	Edition          string                  `json:"edition,omitempty"`
+	VersionsCount    uint64                  `json:"versions_count,omitempty"`
+	DeleteMarkersCnt uint64                  `json:"delete_markers_count,omitempty"`
+	Encryption       string                  `json:"encryption,omitempty"`
+	Replication      *StorageReplicationInfo `json:"replication,omitempty"`
+	Tiers            []StorageTierStats      `json:"tiers,omitempty"`
+	ErasureSets      []StorageErasureSetInfo `json:"erasure_sets,omitempty"`
+}
+
+type StoragePing struct {
+	Connected bool   `json:"connected"`
+	Provider  string `json:"provider,omitempty"`
+}
+
+// StoragePresignedObject 临时下载地址。
+// Expires 是后端夹取后的**生效**有效期（秒），不是请求值——请求 0 或超过上限时会被改成默认 900。
+type StoragePresignedObject struct {
+	URL     string `json:"url"`
+	Expires int    `json:"expires"`
 }
 
 // NacosSourceConfig Nacos 数据源附加配置

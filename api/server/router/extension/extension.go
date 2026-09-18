@@ -22,6 +22,7 @@ import (
 	autoscalingrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/autoscaling"
 	mysqlrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/mysql"
 	redisrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/redis"
+	storagerouter "github.com/caoyingjunz/pixiu/api/server/router/extension/storage"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
 
@@ -36,5 +37,6 @@ func NewRouter(o *options.Options) {
 	autoscalingrouter.RegisterAutoscaling(o, group)
 	redisrouter.RegisterRedis(o, group)
 	mysqlrouter.RegisterMysql(o, group)
+	storagerouter.RegisterStorage(o, group)
 	group.Register(o.HttpEngine.Group(extensionBaseURL), o.Controller.APIResource())
 }
