@@ -55,6 +55,7 @@ func (r *emailRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/:id", Handler: r.deleteEmail, Description: "删除邮件"},
 			{Method: "GET", RelativePath: "/:id", Handler: r.getEmail, Description: "查看邮件详情"},
 			{Method: "GET", RelativePath: "", Handler: r.listEmails, Description: "查看邮件列表"},
+			{Method: "POST", RelativePath: "/test", Handler: r.testSendEmailDirect, Description: "测试邮件发送(直接传参)"},
 			{Method: "POST", RelativePath: "/:id/test", Handler: r.testSendEmail, Description: "测试邮件发送"},
 		},
 	}
@@ -161,6 +162,21 @@ func (r *emailRouter) testSendEmail(c *gin.Context) {
 		return
 	}
 	if err := r.c.Email().TestSend(c, meta.EmailId, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *emailRouter) testSendEmailDirect(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var req types.TestSendEmailRequest
+	if err := httputils.BindCreateRequest(c, &req); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err := r.c.Email().TestSendDirect(c, &req); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

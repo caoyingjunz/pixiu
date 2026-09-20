@@ -37,7 +37,8 @@ const (
 
 const (
 	pathUserPermissions = "/pixiu/users/permissions"
-	pathUserLogout      = "/pixiu/users/:userId/logout"
+	pathAuthLogout      = "/pixiu/auth/logout"
+	pathAuthRefresh     = "/pixiu/auth/refresh"
 	pathProxy           = "/pixiu/proxy/:clusterName/*act"
 	pathExternal        = "/pixiu/external/*act"
 )
@@ -52,8 +53,12 @@ func Classify(roleId int64, method, fullPath string) Decision {
 	if method == http.MethodGet && fullPath == pathUserPermissions {
 		return Allow
 	}
-	// 任意已登录用户可登出自身（handler 内仍校验 userId 归属）
-	if method == http.MethodPost && fullPath == pathUserLogout {
+	// 任意已登录用户可登出自身（handler 内按上下文用户撤销对应会话）
+	if method == http.MethodPost && fullPath == pathAuthLogout {
+		return Allow
+	}
+	// 任意已登录用户可刷新自身 token（同 logout，避免普通角色未分配该 API 权限时被 403）
+	if method == http.MethodPost && fullPath == pathAuthRefresh {
 		return Allow
 	}
 	if fullPath == pathProxy || fullPath == pathExternal {

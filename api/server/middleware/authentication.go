@@ -106,7 +106,7 @@ func parseRoleAndValidClaim(c *gin.Context, o *options.Options, keyBytes []byte)
 		return nil, err
 	}
 
-	ok, err := o.Controller.User().ValidateLoginToken(c, claim.Id, token)
+	ok, err := o.Controller.Auth().ValidateLoginToken(c, claim.Id, token)
 	if err != nil {
 		return nil, fmt.Errorf("未登陆或者密码被修改，请重新登陆")
 	}

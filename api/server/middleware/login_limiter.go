@@ -26,7 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/util/loginlimit"
 )
 
-const loginPath = "/pixiu/users/login"
+const loginPath = "/pixiu/auth/login"
 
 // LoginRateLimiter 对登录接口限流：全局 QPS + 每 IP，在 bcrypt 前拦截刷登录。
 func LoginRateLimiter() gin.HandlerFunc {

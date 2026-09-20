@@ -131,8 +131,8 @@ func (r *role) Create(ctx context.Context, req *types.CreateRoleRequest) error {
 	return nil
 }
 
-// preUpdateRole 更新前置检查：资源存在 + 仅超管可改角色
-func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (*model.Role, error) {
+// preMutateRole 变更（更新/删除）前置检查：资源存在 + 仅超管可改角色
+func preMutateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (*model.Role, error) {
 	if err := controllerutil.CheckRoot(ctx); err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func preUpdateRole(ctx context.Context, factory db.ShareDaoFactory, rid int64) (
 }
 
 func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleRequest) error {
-	object, err := preUpdateRole(ctx, r.factory, rid)
+	object, err := preMutateRole(ctx, r.factory, rid)
 	if err != nil {
 		klog.Errorf("pre-update check failed for role(%d): %v", rid, err)
 		return err
@@ -188,10 +188,11 @@ func (r *role) Update(ctx context.Context, rid int64, req *types.UpdateRoleReque
 }
 
 func (r *role) Delete(ctx context.Context, rid int64) error {
-	if err := controllerutil.CheckRoot(ctx); err != nil {
+	object, err := preMutateRole(ctx, r.factory, rid)
+	if err != nil {
 		return err
 	}
-	object, err := r.factory.Role().Delete(ctx, rid)
+	object, err = r.factory.Role().Delete(ctx, rid)
 	if err != nil {
 		klog.Errorf("failed to delete role %d: %v", rid, err)
 		return errors.ErrServerInternal

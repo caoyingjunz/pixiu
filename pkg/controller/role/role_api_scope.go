@@ -69,7 +69,7 @@ func (r *roleAPIScope) GetAPIScopes(ctx context.Context, rid int64) (*types.Role
 }
 
 func (r *roleAPIScope) UpdateAPIScopes(ctx context.Context, rid int64, req *types.UpdateRoleAPIScopesRequest) error {
-	if _, err := preUpdateRole(ctx, r.factory, rid); err != nil {
+	if _, err := preMutateRole(ctx, r.factory, rid); err != nil {
 		klog.Errorf("pre-update check failed for role %d: %v", rid, err)
 		return err
 	}

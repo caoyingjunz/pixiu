@@ -21,6 +21,7 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	autoscalingcontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/autoscaling"
 	mysqlcontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/mysql"
+	postgrescontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/postgres"
 	rediscontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/redis"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
@@ -34,12 +35,14 @@ type Interface interface {
 	Redis() rediscontroller.Interface
 	Autoscaling() autoscalingcontroller.Interface
 	Mysql() mysqlcontroller.Interface
+	Postgres() postgrescontroller.Interface
 }
 
 type controller struct {
 	redis       rediscontroller.Interface
 	autoscaling autoscalingcontroller.Interface
 	mysql       mysqlcontroller.Interface
+	postgres    postgrescontroller.Interface
 }
 
 func New(cfg config.Config, f db.ShareDaoFactory) Interface {
@@ -47,6 +50,7 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 		redis:       rediscontroller.New(cfg, f),
 		autoscaling: autoscalingcontroller.New(cfg, f),
 		mysql:       mysqlcontroller.New(cfg, f),
+		postgres:    postgrescontroller.New(cfg, f),
 	}
 }
 
@@ -61,3 +65,5 @@ func (c *controller) Autoscaling() autoscalingcontroller.Interface {
 func (c *controller) Mysql() mysqlcontroller.Interface {
 	return c.mysql
 }
+
+func (c *controller) Postgres() postgrescontroller.Interface { return c.postgres }

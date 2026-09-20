@@ -60,7 +60,7 @@ app_image_repository: "{{ .Kubernetes.ImageRepository }}"
 
 {{- if and .Component.MetricServer .Component.MetricServer.Enable }}
 enable_metrics_server: "yes"
-enable_metrics_scraper: "yes"
+enable_metrics_scraper: "no"
 {{- else }}
 enable_metrics_server: "no"
 enable_metrics_scraper: "no"
@@ -108,6 +108,12 @@ enable_custom_repo: "yes"
 enable_certificate_period: "yes"
 certificate_validity_period: {{ .Component.CertificatePeriod.CertificateValidityPeriod }}h
 ca_certificate_validity_period: {{ .Component.CertificatePeriod.CaCertificateValidityPeriod }}h
+{{- end }}
+
+{{- range .Component.CustomConfigs }}
+{{- if and (ne .Key "") (ne .Value "") }}
+{{ .Key }}: {{ printf "%q" .Value }}
+{{- end }}
 {{- end }}
 
 # 组件默认开关

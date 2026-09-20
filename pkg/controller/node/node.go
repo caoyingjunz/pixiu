@@ -71,6 +71,7 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 	object := &model.Node{
 		Name:   req.Name,
 		UserId: req.UserId,
+		PlanId: req.PlanId,
 		Ip:     req.Ip,
 		Auth:   authStr,
 	}

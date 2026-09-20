@@ -97,6 +97,9 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	if err := validateRedisConstraint(req); err != nil {
 		return err
 	}
+	if err := validatePostgresConstraint(req); err != nil {
+		return err
+	}
 	if err := c.preCreate(ctx, req); err != nil {
 		return err
 	}
@@ -199,6 +202,32 @@ func validateRedisConstraint(req *types.CreateDatasourceRequest) error {
 	return nil
 }
 
+func validatePostgresConstraint(req *types.CreateDatasourceRequest) error {
+	if req.SubType != model.DatasourceSubTypePostgres {
+		return nil
+	}
+	if req.Type != model.DatasourceTypeMiddleware || !req.External {
+		return apierrors.NewError(fmt.Errorf("postgres datasource requires middleware type and external direct connection"), http.StatusBadRequest)
+	}
+	if req.Config == nil || req.Config.Postgres == nil {
+		return apierrors.NewError(fmt.Errorf("postgres datasource requires config.postgres"), http.StatusBadRequest)
+	}
+	cfg := req.Config.Postgres
+	if strings.TrimSpace(cfg.Host) == "" || strings.TrimSpace(cfg.UserName) == "" {
+		return apierrors.NewError(fmt.Errorf("postgres datasource requires host and user_name"), http.StatusBadRequest)
+	}
+	if cfg.Port <= 0 {
+		cfg.Port = 5432
+	}
+	if strings.TrimSpace(cfg.Database) == "" {
+		cfg.Database = "postgres"
+	}
+	if strings.TrimSpace(cfg.SSLMode) == "" {
+		cfg.SSLMode = "prefer"
+	}
+	return nil
+}
+
 // 更新前置检查：资源存在
 func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource, error) {
 	old, err := c.factory.Datasource().Get(ctx, id)
@@ -214,6 +243,9 @@ func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource
 
 func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequest) error {
 	if err := validateRedisConstraint(&req.CreateDatasourceRequest); err != nil {
+		return err
+	}
+	if err := validatePostgresConstraint(&req.CreateDatasourceRequest); err != nil {
 		return err
 	}
 	old, err := c.preUpdate(ctx, req.Id)

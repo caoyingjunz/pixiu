@@ -8,8 +8,10 @@ on:
       - 'docs/**'
       - 'cmd/cluster-agent/**'
       - 'docker/Dockerfile-cluster-agent'
+      - 'docker/Dockerfile-toolbox'
       - 'deploy/agent/**'
       - '.github/workflows/build-cluster-agent-image.yml'
+      - '.github/workflows/build-toolbox-image.yml'
 
 jobs:
   build-amd64:
@@ -56,7 +58,7 @@ jobs:
           sbom: false
           tags: |
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1-beta.6
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
         # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.COMMIT_HASH }}
 
   build-arm64:
@@ -101,4 +103,4 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1-beta.6-arm64
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1-arm64

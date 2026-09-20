@@ -21,8 +21,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home # builder所在目录
-ExecStart=/home/builder serve --dir data
+WorkingDirectory=/home
+ExecStart=/home/builder serve --dir /home/data
 Restart=always
 RestartSec=5
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -88,7 +88,7 @@ mysql:
 
 #### 安装 pixiu-server
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.1-beta.6
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1
 ```
 ![img_4.png](img_4.png)
 

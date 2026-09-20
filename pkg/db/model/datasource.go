@@ -41,6 +41,7 @@ const (
 	DatasourceSubTypeNacos        DatasourceSubType = "nacos"
 	DatasourceSubTypeMySQL        DatasourceSubType = "mysql"
 	DatasourceSubTypeRabbitMQ     DatasourceSubType = "rabbitmq"
+	DatasourceSubTypePostgres     DatasourceSubType = "postgres"
 )
 
 type Datasource struct {

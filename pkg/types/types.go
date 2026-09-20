@@ -79,12 +79,13 @@ type HTTPHeader struct {
 }
 
 type DatasourceConfig struct {
-	Headers []HTTPHeader       `json:"headers"`
-	Log     *LogSourceConfig   `json:"log,omitempty"`
-	Alert   *AlertSourceConfig `json:"alert,omitempty"`
-	Redis   *RedisSourceConfig `json:"redis,omitempty"`
-	Nacos   *NacosSourceConfig `json:"nacos,omitempty"`
-	Mysql   *MySQLSourceConfig `json:"mysql,omitempty"`
+	Headers  []HTTPHeader          `json:"headers"`
+	Log      *LogSourceConfig      `json:"log,omitempty"`
+	Alert    *AlertSourceConfig    `json:"alert,omitempty"`
+	Redis    *RedisSourceConfig    `json:"redis,omitempty"`
+	Nacos    *NacosSourceConfig    `json:"nacos,omitempty"`
+	Mysql    *MySQLSourceConfig    `json:"mysql,omitempty"`
+	Postgres *PostgresSourceConfig `json:"postgres,omitempty"`
 }
 
 // NacosSourceConfig Nacos 数据源附加配置
@@ -158,6 +159,26 @@ type MySQLSourceConfig struct {
 	Charset  string `json:"charset,omitempty"`   // 连接字符集，缺省 utf8mb4
 	Params   string `json:"params,omitempty"`    // 附加 DSN 参数（key=value&...），服务端白名单校验
 	Timeout  int    `json:"timeout,omitempty"`   // 连接超时秒数，缺省 5
+}
+
+// PostgresSourceConfig PostgreSQL 数据源连接配置（仅外部直连）
+type PostgresSourceConfig struct {
+	Host            string `json:"host,omitempty"`
+	Port            int    `json:"port,omitempty"`
+	UserName        string `json:"user_name,omitempty"`
+	Password        string `json:"password,omitempty"`
+	Database        string `json:"database,omitempty"`
+	SSLMode         string `json:"ssl_mode,omitempty"`
+	ConnectTimeout  int    `json:"connect_timeout,omitempty"`
+	ApplicationName string `json:"application_name,omitempty"`
+}
+
+func (p *PostgresSourceConfig) DisplayAddress() string { return fmt.Sprintf("%s:%d", p.Host, p.Port) }
+func (p *PostgresSourceConfig) NormalizePort() int {
+	if p.Port <= 0 || p.Port > 65535 {
+		return 5432
+	}
+	return p.Port
 }
 
 // DisplayAddress 用于日志/探测结果展示的连接摘要（脱敏，不含密码）
@@ -781,7 +802,14 @@ type ComponentSpec struct {
 	NFS          *NFS          `json:"nfs,omitempty"`
 
 	CustomRepo        *CustomRepo        `json:"custom_repo,omitempty"`
+	CustomConfigs     []CustomConfigItem `json:"custom_configs,omitempty"`     // 用户自定义 globals 键值对
 	CertificatePeriod *CertificatePeriod `json:"certificate_period,omitempty"` // 证书有效期
+}
+
+// CustomConfigItem 部署计划自定义配置项，渲染到 globals.yml「# 组件默认开关」上方
+type CustomConfigItem struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type Helm struct {

@@ -170,8 +170,8 @@ func (p *plan) buildLocalHandlers(task handlerTask, runner string) []Handler {
 		BootStrap{handlerTask: task, dir: dir, runner: runner},
 		DeployMaster{handlerTask: task, dir: dir, runner: runner},
 		DeployNode{handlerTask: task, dir: dir, runner: runner},
-		Register{handlerTask: task, factory: p.factory},
 		DeployChart{handlerTask: task, dir: dir, runner: runner},
+		Register{handlerTask: task, factory: p.factory},
 	}
 }
 
@@ -215,18 +215,18 @@ func (p *plan) buildAgentHandlers(task handlerTask, runner string, data TaskData
 		},
 		AgentJob{
 			handlerTask: task, factory: p.factory, agentId: agentId,
-			stepName: "集群注册", step: model.RunningPlanStep,
+			stepName: "部署基础组件", step: model.RunningPlanStep,
+			kind: model.JobRunContainer, action: "apply", image: runner,
+			timeout: 60 * time.Minute,
+		},
+		AgentJob{
+			handlerTask: task, factory: p.factory, agentId: agentId,
+			stepName: "集群注册", step: model.CompletedPlanStep,
 			kind: model.JobFetchKubeconfig, action: "register", payload: payload,
 			timeout: 15 * time.Minute,
 			onSuccess: func(result string) error {
 				return reg.finishWithKubeConfig(result)
 			},
-		},
-		AgentJob{
-			handlerTask: task, factory: p.factory, agentId: agentId,
-			stepName: "部署基础组件", step: model.CompletedPlanStep,
-			kind: model.JobRunContainer, action: "apply", image: runner,
-			timeout: 60 * time.Minute,
 		},
 	}
 }

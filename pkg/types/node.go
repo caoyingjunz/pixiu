@@ -43,6 +43,7 @@ type CreateNodeRequest struct {
 	UserId int64        `json:"user_id"`
 	Ip     string       `json:"ip" binding:"required"`
 	Auth   PlanNodeAuth `json:"auth" binding:"required"`
+	PlanId int64        `json:"plan_id"`
 }
 
 // SetUserID 实现 UserIDSetter 接口。

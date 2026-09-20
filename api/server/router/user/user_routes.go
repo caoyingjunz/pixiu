@@ -143,46 +143,7 @@ func (u *userRouter) listUsers(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (u *userRouter) login(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		req types.LoginRequest
-		err error
-	)
-	if err = c.ShouldBindJSON(&req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetAuditOperator(c, req.Name)
-	loginResp, err := u.c.User().Login(c, &req)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result = loginResp
-
-	httputils.SetSuccess(c, r)
-}
-
-func (u *userRouter) logout(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		idMeta IdMeta
-		err    error
-	)
-	if err = httputils.ShouldBindAny(c, nil, &idMeta, nil); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = u.c.User().Logout(c, idMeta.UserId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
+// login/logout 已迁至 pkg/controller/auth，路由移至 POST /pixiu/auth/login 与 POST /pixiu/auth/logout。
 
 func (u *userRouter) getCurrentUserPermissions(c *gin.Context) {
 	r := httputils.NewResponse()

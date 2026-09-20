@@ -33,6 +33,9 @@ type EmailInterface interface {
 	Get(ctx context.Context, id int64) (*model.Email, error)
 	List(ctx context.Context, opts ...Options) ([]model.Email, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
+
+	// GetBy 按自定义条件过滤查询
+	GetBy(ctx context.Context, opts ...Options) (*model.Email, error)
 	// ClearDefaultExcept 将除指定 id 外的所有配置 is_default 置为 false（用于默认配置唯一性）
 	ClearDefaultExcept(ctx context.Context, exceptID int64) error
 }
@@ -83,6 +86,22 @@ func (e *email) Delete(ctx context.Context, id int64) (*model.Email, error) {
 func (e *email) Get(ctx context.Context, id int64) (*model.Email, error) {
 	var object model.Email
 	if err := e.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &object, nil
+}
+
+// GetBy 按自定义条件过滤查询；未命中返回 (nil, nil)。
+func (e *email) GetBy(ctx context.Context, opts ...Options) (*model.Email, error) {
+	var object model.Email
+	tx := e.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	if err := tx.First(&object).Error; err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return nil, nil
 		}
