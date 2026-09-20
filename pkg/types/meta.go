@@ -472,4 +472,10 @@ func (c *DatasourceConfig) Clean(t model.DatasourceType, subType model.Datasourc
 	} else {
 		c.Redis = nil
 	}
+	if subType != model.DatasourceSubTypeMySQL {
+		c.Mysql = nil
+	}
+	if subType != model.DatasourceSubTypePostgres {
+		c.Postgres = nil
+	}
 }
