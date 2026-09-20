@@ -82,7 +82,7 @@ CREATE TABLE `oauth_providers` (
   `config_json` text COMMENT '平台差异化配置，LDAP 等非 OAuth 参数可放这里',
   `auto_create_user` boolean DEFAULT true COMMENT '登录成功且未匹配用户时是否自动创建',
   `default_role` bigint DEFAULT 2 COMMENT '自动创建用户默认角色，1=管理员，2=普通用户',
-  `match_email` boolean DEFAULT true COMMENT '是否按邮箱匹配已有 Pixiu 用户',
+  `match_email` boolean DEFAULT false COMMENT '是否按邮箱匹配已有 Pixiu 用户',
   `description` text COMMENT '说明',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_oauth_provider` (`provider`)

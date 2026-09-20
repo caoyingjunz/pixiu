@@ -17,9 +17,13 @@ limitations under the License.
 package auth
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	authcontroller "github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -156,9 +160,23 @@ func (a *authRouter) updateOAuthProviderConfig(c *gin.Context) {
 func (a *authRouter) getOAuthProviderLoginURL(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var err error
-	if r.Result, err = a.c.Auth().GetOAuthProviderLoginURL(c, c.Param("provider")); err != nil {
-		httputils.SetFailed(c, r, err)
+	sessionID, err := c.Cookie(authcontroller.OAuthSessionCookieName)
+	if err != nil || strings.TrimSpace(sessionID) == "" {
+		sessionID = authcontroller.NewOAuthSessionID()
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     authcontroller.OAuthSessionCookieName,
+		Value:    sessionID,
+		Path:     "/pixiu/auth/oauth",
+		MaxAge:   authcontroller.OAuthStateCookieMaxAge,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	var callErr error
+	ctx := authcontroller.WithOAuthSessionID(c, sessionID)
+	if r.Result, callErr = a.c.Auth().GetOAuthProviderLoginURL(ctx, c.Param("provider")); callErr != nil {
+		httputils.SetFailed(c, r, callErr)
 		return
 	}
 	httputils.SetSuccess(c, r)
@@ -175,7 +193,9 @@ func (a *authRouter) loginWithOAuthProvider(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	loginResp, err := a.c.Auth().LoginWithOAuthProvider(c, c.Param("provider"), &req)
+	sessionID, _ := c.Cookie(authcontroller.OAuthSessionCookieName)
+	ctx := authcontroller.WithOAuthSessionID(c, sessionID)
+	loginResp, err := a.c.Auth().LoginWithOAuthProvider(ctx, c.Param("provider"), &req)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return

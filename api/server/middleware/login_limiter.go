@@ -18,6 +18,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -31,11 +32,16 @@ const loginPath = "/pixiu/auth/login"
 // LoginRateLimiter 对登录接口限流：全局 QPS + 每 IP，在 bcrypt 前拦截刷登录。
 func LoginRateLimiter() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.Method != http.MethodPost || c.Request.URL.Path != loginPath {
+		if c.Request.Method != http.MethodPost || !isLoginPath(c.Request.URL.Path) {
 			return
 		}
 		if !loginlimit.AllowRequest(c.ClientIP()) {
 			httputils.AbortFailedWithCode(c, http.StatusTooManyRequests, errors.ErrTooManyLoginAttempts)
 		}
 	}
+}
+
+func isLoginPath(path string) bool {
+	return path == loginPath ||
+		(strings.HasPrefix(path, "/pixiu/auth/oauth/providers/") && strings.HasSuffix(path, "/login"))
 }

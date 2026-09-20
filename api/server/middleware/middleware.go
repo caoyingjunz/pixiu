@@ -34,7 +34,6 @@ func init() {
 		"/pixiu/auth/login",
 		"/pixiu/auth/verification-codes",
 		"/pixiu/auth/register",
-		"/pixiu/auth/oauth/providers",
 		"/pixiu/connect",
 	)
 }
@@ -42,6 +41,9 @@ func init() {
 // 允许特定请求不经过 JWT 验证（由业务侧 Token 鉴权）
 func allowCustomRequest(c *gin.Context) bool {
 	path := c.Request.URL.Path
+	if path == "/pixiu/auth/oauth/providers" && c.Query("enabled_only") == "true" {
+		return true
+	}
 	if strings.HasPrefix(path, "/pixiu/auth/oauth/providers/") &&
 		(strings.HasSuffix(path, "/login-url") || strings.HasSuffix(path, "/login")) {
 		return true

@@ -19,18 +19,15 @@ package auth
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -44,9 +41,22 @@ import (
 )
 
 const (
-	feishuProvider = "feishu"
-	oauthStateTTL  = 5 * time.Minute
+	feishuProvider          = "feishu"
+	oauthStateTTL           = 5 * time.Minute
+	OAuthSessionCookieName  = "pixiu_oauth_session"
+	OAuthStateCookieMaxAge  = int(oauthStateTTL / time.Second)
+	feishuAppTokenCacheSkew = 30 * time.Second
 )
+
+type oauthSessionIDContextKey struct{}
+
+func WithOAuthSessionID(ctx context.Context, sessionID string) context.Context {
+	return context.WithValue(ctx, oauthSessionIDContextKey{}, strings.TrimSpace(sessionID))
+}
+
+func NewOAuthSessionID() string {
+	return randomHex(24)
+}
 
 type oauthProviderSpec struct {
 	Provider   string
@@ -106,6 +116,27 @@ type oauthUserProfile struct {
 }
 
 type feishuOAuthClient struct{}
+
+type oauthStateRecord struct {
+	Provider  string
+	SessionID string
+	ExpireAt  time.Time
+}
+
+type oauthProviderExtraConfig struct {
+	EmailDomains []string `json:"email_domains"`
+}
+
+type cachedFeishuAppToken struct {
+	Token    string
+	ExpireAt time.Time
+}
+
+var (
+	oauthStates          sync.Map
+	oauthIdentityLocks   sync.Map
+	feishuAppTokenCaches sync.Map
+)
 
 type feishuAppTokenResponse struct {
 	Code           int    `json:"code"`
@@ -220,6 +251,9 @@ func (c *controller) UpdateOAuthProviderConfig(ctx context.Context, provider str
 	if req.Enabled && (strings.TrimSpace(req.AppID) == "" || appSecret == "" || strings.TrimSpace(req.RedirectURI) == "") {
 		return nil, fmt.Errorf("启用%s登录时 App ID、App Secret、Redirect URL 不能为空", spec.Name)
 	}
+	if req.Enabled && !validOAuthRedirectURI(req.RedirectURI) {
+		return nil, fmt.Errorf("%s登录 Redirect URL 不合法", spec.Name)
+	}
 
 	saved, err := c.factory.OAuthProvider().Save(ctx, &model.OAuthProvider{
 		Provider:       spec.Provider,
@@ -263,7 +297,10 @@ func (c *controller) GetOAuthProviderLoginURL(ctx context.Context, provider stri
 	if !ok {
 		return nil, fmt.Errorf("%s登录暂未实现", spec.Name)
 	}
-	state := c.oauthState(spec.Provider)
+	state, err := c.oauthState(ctx, spec.Provider)
+	if err != nil {
+		return nil, err
+	}
 	loginURL, err := providerClient.LoginURL(cfg, state)
 	if err != nil {
 		return nil, err
@@ -289,7 +326,7 @@ func (c *controller) LoginWithOAuthProvider(ctx context.Context, provider string
 	if cfg == nil || !cfg.Enabled {
 		return nil, fmt.Errorf("%s登录未启用", spec.Name)
 	}
-	if !c.validateOAuthState(spec.Provider, req.State) {
+	if !c.validateOAuthState(ctx, spec.Provider, req.State) {
 		return nil, fmt.Errorf("第三方登录状态校验失败，请重新登录")
 	}
 	providerClient, ok := oauthProviderClients[spec.Provider]
@@ -332,7 +369,7 @@ func oauthProvider2Type(spec oauthProviderSpec, o *model.OAuthProvider) *types.O
 			ButtonText:     spec.ButtonText,
 			AutoCreateUser: true,
 			DefaultRole:    model.RoleUser,
-			MatchEmail:     true,
+			MatchEmail:     false,
 		}
 	}
 	return &types.OAuthProviderConfig{
@@ -428,6 +465,15 @@ func (feishuOAuthClient) ExchangeUser(ctx context.Context, cfg *model.OAuthProvi
 }
 
 func requestFeishuAppAccessToken(ctx context.Context, client *http.Client, cfg *model.OAuthProvider) (string, error) {
+	cacheKey := cfg.AppID + ":" + cfg.AppSecret
+	if cached, ok := feishuAppTokenCaches.Load(cacheKey); ok {
+		item := cached.(cachedFeishuAppToken)
+		if item.Token != "" && time.Now().Add(feishuAppTokenCacheSkew).Before(item.ExpireAt) {
+			return item.Token, nil
+		}
+		feishuAppTokenCaches.Delete(cacheKey)
+	}
+
 	body := map[string]string{"app_id": cfg.AppID, "app_secret": cfg.AppSecret}
 	var out feishuAppTokenResponse
 	if err := postFeishuJSON(ctx, client, "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal", "", body, &out); err != nil {
@@ -436,6 +482,14 @@ func requestFeishuAppAccessToken(ctx context.Context, client *http.Client, cfg *
 	if out.Code != 0 || out.AppAccessToken == "" {
 		return "", fmt.Errorf("获取飞书 app_access_token 失败: %s", firstNonEmpty(out.Msg, fmt.Sprintf("code=%d", out.Code)))
 	}
+	expire := time.Duration(out.Expire) * time.Second
+	if expire <= 0 {
+		expire = 2 * time.Hour
+	}
+	feishuAppTokenCaches.Store(cacheKey, cachedFeishuAppToken{
+		Token:    out.AppAccessToken,
+		ExpireAt: time.Now().Add(expire),
+	})
 	return out.AppAccessToken, nil
 }
 
@@ -501,6 +555,16 @@ func postFeishuJSON(ctx context.Context, client *http.Client, endpoint, bearer s
 
 func (c *controller) findOrCreateOAuthUser(ctx context.Context, cfg *model.OAuthProvider, profile *oauthUserProfile) (*model.User, error) {
 	provider := firstNonEmpty(profile.Provider, cfg.Provider)
+	lockKey := oauthIdentityLockKey(provider, profile)
+	if lockKey != "" {
+		lock := getOAuthIdentityLock(lockKey)
+		lock.Lock()
+		defer lock.Unlock()
+	}
+	return c.findOrCreateOAuthUserLocked(ctx, cfg, provider, profile)
+}
+
+func (c *controller) findOrCreateOAuthUserLocked(ctx context.Context, cfg *model.OAuthProvider, provider string, profile *oauthUserProfile) (*model.User, error) {
 	var object *model.User
 	var err error
 	if profile.UnionID != "" {
@@ -516,13 +580,18 @@ func (c *controller) findOrCreateOAuthUser(ctx context.Context, cfg *model.OAuth
 		}
 	}
 	email := firstNonEmpty(profile.EnterpriseEmail, profile.Email)
-	if object == nil && cfg.MatchEmail && email != "" {
+	matchedByEmail := false
+	if object == nil && cfg.MatchEmail && email != "" && emailAllowedByOAuthConfig(cfg, email) {
 		object, err = c.factory.User().GetBy(ctx, db.WithEmail(normalizeEmail(email)))
 		if err != nil {
 			return nil, apierrors.ErrServerInternal
 		}
+		matchedByEmail = object != nil
 	}
 	if object != nil {
+		if matchedByEmail && (object.Role == model.RoleRoot || object.Role == model.RoleAdmin) {
+			return nil, fmt.Errorf("管理员账号不允许通过邮箱自动绑定第三方登录")
+		}
 		return c.bindOAuthProfile(ctx, object, provider, profile)
 	}
 	if !cfg.AutoCreateUser {
@@ -631,42 +700,6 @@ func randomHex(n int) string {
 	return hex.EncodeToString(buf)
 }
 
-func (c *controller) oauthState(provider string) string {
-	issuedAt := strconv.FormatInt(time.Now().Unix(), 10)
-	nonce := randomHex(16)
-	payload := strings.Join([]string{provider, issuedAt, nonce}, ":")
-	signature := c.signOAuthState(payload)
-	return base64.RawURLEncoding.EncodeToString([]byte(payload + ":" + signature))
-}
-
-func (c *controller) validateOAuthState(provider, state string) bool {
-	raw, err := base64.RawURLEncoding.DecodeString(state)
-	if err != nil {
-		return false
-	}
-	parts := strings.Split(string(raw), ":")
-	if len(parts) != 4 || parts[0] != provider {
-		return false
-	}
-	issuedAt, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil {
-		return false
-	}
-	issuedTime := time.Unix(issuedAt, 0)
-	if time.Since(issuedTime) < 0 || time.Since(issuedTime) > oauthStateTTL {
-		return false
-	}
-	payload := strings.Join(parts[:3], ":")
-	expected := c.signOAuthState(payload)
-	return hmac.Equal([]byte(parts[3]), []byte(expected))
-}
-
-func (c *controller) signOAuthState(payload string) string {
-	mac := hmac.New(sha256.New, c.GetTokenKey())
-	_, _ = mac.Write([]byte(payload))
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-}
-
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		if strings.TrimSpace(v) != "" {
@@ -674,4 +707,104 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func (c *controller) oauthState(ctx context.Context, provider string) (string, error) {
+	sessionID := oauthSessionID(ctx)
+	if sessionID == "" {
+		return "", fmt.Errorf("第三方登录会话初始化失败，请刷新页面后重试")
+	}
+	state := randomHex(32)
+	oauthStates.Store(state, oauthStateRecord{
+		Provider:  provider,
+		SessionID: sessionID,
+		ExpireAt:  time.Now().Add(oauthStateTTL),
+	})
+	purgeExpiredOAuthStates()
+	return state, nil
+}
+
+func (c *controller) validateOAuthState(ctx context.Context, provider, state string) bool {
+	sessionID := oauthSessionID(ctx)
+	if sessionID == "" || strings.TrimSpace(state) == "" {
+		return false
+	}
+	value, ok := oauthStates.LoadAndDelete(state)
+	if !ok {
+		return false
+	}
+	record := value.(oauthStateRecord)
+	return record.Provider == provider &&
+		record.SessionID == sessionID &&
+		time.Now().Before(record.ExpireAt)
+}
+
+func oauthSessionID(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	sessionID, _ := ctx.Value(oauthSessionIDContextKey{}).(string)
+	return strings.TrimSpace(sessionID)
+}
+
+func purgeExpiredOAuthStates() {
+	now := time.Now()
+	oauthStates.Range(func(key, value interface{}) bool {
+		record := value.(oauthStateRecord)
+		if now.After(record.ExpireAt) {
+			oauthStates.Delete(key)
+		}
+		return true
+	})
+}
+
+func oauthIdentityLockKey(provider string, profile *oauthUserProfile) string {
+	if profile == nil {
+		return ""
+	}
+	if profile.UnionID != "" {
+		return provider + ":union:" + profile.UnionID
+	}
+	if profile.OpenID != "" {
+		return provider + ":open:" + profile.OpenID
+	}
+	return ""
+}
+
+func getOAuthIdentityLock(key string) *sync.Mutex {
+	lock, _ := oauthIdentityLocks.LoadOrStore(key, &sync.Mutex{})
+	return lock.(*sync.Mutex)
+}
+
+func emailAllowedByOAuthConfig(cfg *model.OAuthProvider, email string) bool {
+	domain := emailDomain(email)
+	if cfg == nil || domain == "" || strings.TrimSpace(cfg.ConfigJSON) == "" {
+		return false
+	}
+	var extra oauthProviderExtraConfig
+	if err := json.Unmarshal([]byte(cfg.ConfigJSON), &extra); err != nil {
+		return false
+	}
+	for _, allowed := range extra.EmailDomains {
+		if strings.EqualFold(strings.TrimSpace(allowed), domain) {
+			return true
+		}
+	}
+	return false
+}
+
+func emailDomain(email string) string {
+	parts := strings.Split(normalizeEmail(email), "@")
+	if len(parts) != 2 {
+		return ""
+	}
+	return strings.TrimSpace(parts[1])
+}
+
+func validOAuthRedirectURI(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return false
+	}
+	return (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }

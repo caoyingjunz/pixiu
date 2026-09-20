@@ -34,9 +34,9 @@ type OAuthProvider struct {
 	RedirectURI    string    `gorm:"column:redirect_uri;type:varchar(512)" json:"redirect_uri"`
 	Scopes         string    `gorm:"type:varchar(512)" json:"scopes"`
 	ConfigJSON     string    `gorm:"column:config_json;type:text" json:"config_json"`
-	AutoCreateUser bool      `gorm:"column:auto_create_user" json:"auto_create_user"`
+	AutoCreateUser bool      `gorm:"column:auto_create_user;default:true" json:"auto_create_user"`
 	DefaultRole    UserLevel `gorm:"column:default_role" json:"default_role"`
-	MatchEmail     bool      `gorm:"column:match_email" json:"match_email"`
+	MatchEmail     bool      `gorm:"column:match_email;default:false" json:"match_email"`
 	Description    string    `gorm:"type:text" json:"description"`
 }
 

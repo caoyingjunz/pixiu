@@ -46,10 +46,10 @@ CREATE TABLE `oauth_providers` (
   `app_secret` varchar(256) DEFAULT '' COMMENT 'App Secret / Client Secret',
   `redirect_uri` varchar(512) DEFAULT '' COMMENT 'OAuth 回调地址',
   `scopes` varchar(512) DEFAULT '' COMMENT 'OAuth 授权范围',
-  `config_json` text COMMENT '平台差异化配置，LDAP 等非 OAuth 参数可放这里',
+  `config_json` text COMMENT '平台差异化配置，如邮箱域名白名单、LDAP 参数等',
   `auto_create_user` boolean DEFAULT true COMMENT '登录成功且未匹配用户时是否自动创建',
   `default_role` bigint DEFAULT 2 COMMENT '自动创建用户默认角色，1=管理员，2=普通用户',
-  `match_email` boolean DEFAULT true COMMENT '是否按邮箱匹配已有 Pixiu 用户',
+  `match_email` boolean DEFAULT false COMMENT '是否按邮箱匹配已有 Pixiu 用户',
   `description` text COMMENT '说明',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_oauth_provider` (`provider`)
@@ -126,7 +126,8 @@ App Secret: 飞书应用的 App Secret
 Redirect URL: http://localhost:3006/auth/oauth/feishu/callback
 自动创建用户: 按需开启
 默认角色: 建议选择普通用户
-邮箱匹配绑定: 建议开启
+邮箱匹配绑定: 默认关闭；如需开启，请在 Config JSON 配置可信邮箱域名白名单
+Config JSON: {"email_domains":["example.com"]}
 ```
 
 保存后，登录页会自动显示「飞书扫码登录」按钮。
@@ -137,10 +138,10 @@ Redirect URL: http://localhost:3006/auth/oauth/feishu/callback
 
 1. 通过飞书 `union_id` 匹配已有用户。
 2. 通过飞书 `open_id` 匹配已有用户。
-3. 如果开启「邮箱匹配绑定」，使用飞书邮箱匹配已有 Pixiu 用户。
+3. 如果开启「邮箱匹配绑定」且邮箱域名命中 `config_json.email_domains` 白名单，使用飞书邮箱匹配已有 Pixiu 普通用户。
 4. 如果仍未匹配且开启「自动创建用户」，按配置的「默认角色」创建 Pixiu 用户。
 
-自动创建用户建议使用普通用户角色，不建议默认管理员。
+自动创建用户建议使用普通用户角色，不建议默认管理员。邮箱匹配不会自动绑定 root 或管理员账号。
 
 本地开发时如果 `config.yaml` 中 `default.mode=debug`，后端会把请求按 root 用户处理，看到的权限会比真实权限更大。验证真实权限时请使用：
 
