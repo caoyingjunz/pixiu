@@ -42,7 +42,7 @@ type Permission struct {
 	UserName string `gorm:"column:user_name;not null;index:idx_user_name,priority:1" json:"user_name"`
 
 	// 目标集群名称（全局唯一集群名）
-	ClusterId   int64  `gorm:"column:cluster_id;type:varchar(128);not null;index:idx_user_cluster,priority:2;uniqueIndex:uk_user_cluster_name,priority:2" json:"cluster_name"`
+	ClusterId   int64  `gorm:"column:cluster_id;type:varchar(128);not null;index:idx_user_cluster,priority:2;uniqueIndex:uk_user_cluster_name,priority:2" json:"cluster_id"`
 	ClusterName string `json:"cluster_name"`
 
 	// 所属主集群
