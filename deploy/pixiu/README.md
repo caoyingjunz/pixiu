@@ -5,7 +5,11 @@
 - 可用的 Kubernetes 集群与 `kubectl`
 - 可用的 MySQL（需先建库 `pixiu`）
 - 能拉取镜像（或已提前导入）：
+<<<<<<< HEAD
   - `crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1`
+=======
+  - `crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1`
+>>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131
 
 ## 1. 准备 MySQL
 

@@ -58,7 +58,11 @@ jobs:
           sbom: false
           tags: |
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest
+<<<<<<< HEAD
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1
+=======
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
+>>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131
         # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.COMMIT_HASH }}
 
   build-arm64:
@@ -103,4 +107,8 @@ jobs:
           provenance: false
           sbom: false
           tags: |
+<<<<<<< HEAD
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1-arm64
+=======
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1-arm64
+>>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131

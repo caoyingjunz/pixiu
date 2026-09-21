@@ -12,7 +12,11 @@ services:
       - ./mysql/data:/var/lib/mysql
 
   pixiu:
+<<<<<<< HEAD
     image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1
+=======
+    image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
+>>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131
     container_name: pixiu
     restart: always
     ports:
