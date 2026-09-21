@@ -2,11 +2,7 @@
 
 根据当初的安装方式选择对应步骤。升级只替换 pixiu 容器，mysql 和 `/etc/pixiu` 配置保持不动。
 
-<<<<<<< HEAD
-将下文中的镜像标签换成目标版本（当前示例为 `v2.0.1`）。
-=======
 将下文中的镜像标签换成目标版本（当前示例为 `v2.0.2-beta.1`）。
->>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131
 
 ## 基于 docker-compose 安装
 
@@ -23,11 +19,7 @@ vim docker-compose.yaml
 
 ```bash
 # pixiu
-<<<<<<< HEAD
-docker pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1
-=======
 docker pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
->>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131
 ```
 
 重建 pixiu
@@ -50,11 +42,7 @@ docker-compose ps
 
 ```bash
 # pixiu
-<<<<<<< HEAD
-docker pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1
-=======
 docker pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
->>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131
 ```
 
 替换容器
@@ -68,9 +56,5 @@ docker run -d --net host --restart=always --privileged=true \
   -v /etc/pixiu:/etc/pixiu \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --name pixiu \
-<<<<<<< HEAD
-  crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.1
-=======
   crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
->>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131
 ```

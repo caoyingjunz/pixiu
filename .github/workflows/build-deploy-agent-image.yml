@@ -51,9 +51,5 @@ jobs:
           sbom: false
           tags: |
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-deploy-agent:latest
-<<<<<<< HEAD
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-deploy-agent:v2.0.1
-=======
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-deploy-agent:v2.0.2-beta.1
->>>>>>> 6fc7e03813457c6b86f45d318578c5a87f68d131
         # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-deploy-agent:${{ env.COMMIT_HASH }}
