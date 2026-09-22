@@ -37,6 +37,8 @@ mysql:
 worker:
   # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
   #work_dir: /etc/pixiu
+  # 本地部署任务容器等待超时秒数，默认 900 秒
+  #deploy_timeout: 900
 
 # 配置 http 和 https， 默认 http，
 # 启用https的时候 cert_file 和 key_file 为必填

@@ -163,14 +163,16 @@ func (p *plan) syncHandler(ctx context.Context, planId int64) {
 func (p *plan) buildLocalHandlers(task handlerTask, runner string) []Handler {
 	// Runner的工作目录
 	dir := p.WorkDir()
+	// 部署容器等待超时，来自 worker.deploy_timeout 配置(秒)
+	waitTimeout := time.Duration(p.cc.Worker.DeployTimeout) * time.Second
 	return []Handler{
 		Runner{handlerTask: task, image: runner, factory: p.factory},
 		Render{handlerTask: task, dir: dir},
 		Check{handlerTask: task},
-		BootStrap{handlerTask: task, dir: dir, runner: runner},
-		DeployMaster{handlerTask: task, dir: dir, runner: runner},
-		DeployNode{handlerTask: task, dir: dir, runner: runner},
-		DeployChart{handlerTask: task, dir: dir, runner: runner},
+		BootStrap{handlerTask: task, dir: dir, runner: runner, waitTimeout: waitTimeout},
+		DeployMaster{handlerTask: task, dir: dir, runner: runner, waitTimeout: waitTimeout},
+		DeployNode{handlerTask: task, dir: dir, runner: runner, waitTimeout: waitTimeout},
+		DeployChart{handlerTask: task, dir: dir, runner: runner, waitTimeout: waitTimeout},
 		Register{handlerTask: task, factory: p.factory},
 	}
 }
