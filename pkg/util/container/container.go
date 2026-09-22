@@ -55,7 +55,8 @@ func NewContainer(action string, planId int64, dir string) (*Container, error) {
 }
 
 // StartAndWaitForContainer 创建，启动容器，并等待容器退出
-func (c *Container) StartAndWaitForContainer(ctx context.Context, image string) error {
+// waitTimeout 为等待容器退出的最长时长，按 5s 一轮换算为轮询次数
+func (c *Container) StartAndWaitForContainer(ctx context.Context, image string, waitTimeout time.Duration) error {
 	// 已经存在，则先删除运行的容器
 	if err := c.ClearContainer(ctx); err != nil {
 		return err
@@ -84,7 +85,11 @@ func (c *Container) StartAndWaitForContainer(ctx context.Context, image string) 
 		return err
 	}
 	// 等待容器运行完成退出
-	return c.WaitContainer(ctx, resp.ID, 180)
+	times := int(waitTimeout / (5 * time.Second))
+	if times < 1 {
+		times = 1
+	}
+	return c.WaitContainer(ctx, resp.ID, times)
 }
 
 func (c *Container) Close() error {
@@ -169,8 +174,12 @@ func (c *Container) WaitContainer(ctx context.Context, containerId string, times
 					// 正常退出
 					return nil
 				}
-				// 异常退出返回错误信息
-				return fmt.Errorf("%s", state.Error)
+				// 异常退出：以 exit code 为主信息，避免 state.Error 为空时 message 为空
+				msg := fmt.Sprintf("任务(%s)异常退出(exit code %d)", containerId, state.ExitCode)
+				if state.Error != "" {
+					msg = fmt.Sprintf("%s: %s", msg, state.Error)
+				}
+				return fmt.Errorf("%s", msg)
 			}
 
 			// 其他状态，继续等待

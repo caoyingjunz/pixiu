@@ -145,6 +145,8 @@ func (o MysqlOptions) Valid() error {
 type WorkerOptions struct {
 	WorkDir string   `yaml:"work_dir"`
 	Engines []Engine `yaml:"engines"`
+	// DeployTimeout 本地部署任务容器等待超时秒数，默认 900 秒（等待循环每 5 秒轮询一次容器状态）
+	DeployTimeout int `yaml:"deploy_timeout"`
 }
 
 type Engine struct {

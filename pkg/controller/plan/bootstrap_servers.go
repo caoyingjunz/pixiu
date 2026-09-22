@@ -26,8 +26,9 @@ import (
 type BootStrap struct {
 	handlerTask
 
-	dir    string
-	runner string
+	dir         string
+	runner      string
+	waitTimeout time.Duration
 }
 
 func (b BootStrap) Name() string      { return "初始化部署环境" }
@@ -40,11 +41,12 @@ func (b BootStrap) Run() error {
 	}
 	defer cli.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1800*time.Second) // 半小时超时
+	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错
+	ctx, cancel := context.WithTimeout(context.Background(), b.waitTimeout+60*time.Second)
 	defer cancel()
 
 	// 启动执行容器
-	if err = cli.StartAndWaitForContainer(ctx, b.runner); err != nil {
+	if err = cli.StartAndWaitForContainer(ctx, b.runner, b.waitTimeout); err != nil {
 		return err
 	}
 

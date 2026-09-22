@@ -27,8 +27,9 @@ import (
 type DeployMaster struct {
 	handlerTask
 
-	dir    string
-	runner string
+	dir         string
+	runner      string
+	waitTimeout time.Duration
 }
 
 func (b DeployMaster) Name() string      { return "部署Master" }
@@ -40,11 +41,12 @@ func (b DeployMaster) Run() error {
 	}
 	defer cli.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错
+	ctx, cancel := context.WithTimeout(context.Background(), b.waitTimeout+60*time.Second)
 	defer cancel()
 
 	// 启动执行容器
-	return cli.StartAndWaitForContainer(ctx, b.runner)
+	return cli.StartAndWaitForContainer(ctx, b.runner, b.waitTimeout)
 }
 
 type AddMaster struct {
@@ -60,8 +62,9 @@ func (b AddMaster) Run() error {
 type DeployNode struct {
 	handlerTask
 
-	dir    string
-	runner string
+	dir         string
+	runner      string
+	waitTimeout time.Duration
 }
 
 func (b DeployNode) Name() string      { return "部署Node" }
@@ -73,11 +76,12 @@ func (b DeployNode) Run() error {
 	}
 	defer cli.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错
+	ctx, cancel := context.WithTimeout(context.Background(), b.waitTimeout+60*time.Second)
 	defer cancel()
 
 	// 启动执行容器
-	return cli.StartAndWaitForContainer(ctx, b.runner)
+	return cli.StartAndWaitForContainer(ctx, b.runner, b.waitTimeout)
 }
 
 type AddNode struct {
@@ -93,8 +97,9 @@ func (b AddNode) Run() error {
 type DeployChart struct {
 	handlerTask
 
-	dir    string
-	runner string
+	dir         string
+	runner      string
+	waitTimeout time.Duration
 }
 
 func (b DeployChart) Name() string         { return "部署基础组件" }
@@ -107,9 +112,10 @@ func (b DeployChart) Run() error {
 	}
 	defer cli.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错
+	ctx, cancel := context.WithTimeout(context.Background(), b.waitTimeout+60*time.Second)
 	defer cancel()
 
 	// 启动执行容器
-	return cli.StartAndWaitForContainer(ctx, b.runner)
+	return cli.StartAndWaitForContainer(ctx, b.runner, b.waitTimeout)
 }
