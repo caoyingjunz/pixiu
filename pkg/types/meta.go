@@ -41,6 +41,10 @@ const (
 
 	MsgData   = '1'
 	MsgResize = '2'
+
+	// WebSocket 保活 ping 的发送间隔与单次写入超时
+	wsHeartbeatInterval = 30 * time.Second
+	wsHeartbeatTimeout  = 10 * time.Second
 )
 
 func (c *Cluster) SetId(i int64) {
@@ -157,6 +161,37 @@ func (t *TerminalSession) Done() {
 // Close 用于关闭websocket连接
 func (t *TerminalSession) Close() error {
 	return t.wsConn.Close()
+}
+
+// StartHeartbeat 启动 WebSocket 保活心跳，返回幂等的停止函数。
+// 由服务端周期下发 ping，避免空闲时被 nginx 的 proxy_read_timeout 断开。
+func (t *TerminalSession) StartHeartbeat() func() {
+	done := make(chan struct{})
+	var once sync.Once
+
+	go func() {
+		ticker := time.NewTicker(wsHeartbeatInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if err := t.wsConn.WriteControl(websocket.PingMessage, nil, time.Now().Add(wsHeartbeatTimeout)); err != nil {
+					// 连接已不可写，无需继续心跳，退出即可
+					klog.Errorf("failed to send websocket heartbeat ping: %v", err)
+					return
+				}
+			}
+		}
+	}()
+
+	return func() {
+		once.Do(func() {
+			close(done)
+		})
+	}
 }
 
 // Next 获取web端是否resize,以及是否退出终端
@@ -306,6 +341,24 @@ func (t *Turn) StartSessionWait(wg *sync.WaitGroup) {
 	err := t.sessionWait()
 	if err != nil {
 		klog.Errorf("SessionWait exit, err:%s", err)
+	}
+}
+
+// StartHeartbeat 与 TerminalSession.StartHeartbeat 同义，用于 Node / 集群 SSH 会话。
+func (t *Turn) StartHeartbeat(ctx context.Context) {
+	ticker := time.NewTicker(wsHeartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := t.WsConn.WriteControl(websocket.PingMessage, nil, time.Now().Add(wsHeartbeatTimeout)); err != nil {
+				klog.Errorf("failed to send websocket heartbeat ping: %v", err)
+				return
+			}
+		}
 	}
 }
 
