@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/docker/docker/pkg/stdcopy"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -128,20 +129,28 @@ func (t *planTask) WatchLog(ctx context.Context, planId int64, taskId int64, w h
 	}
 	defer readCloser.Close()
 
-	// 读取日志
-	scanner := bufio.NewScanner(readCloser)
+	// Docker 同时拉取 stdout/stderr 时是带 8 字节头的复用流，
+	// 按行直接切掉前 8 字节会在短行上 panic，这里先解复用再按行推送。
+	pr, pw := io.Pipe()
+	go func() {
+		_, copyErr := stdcopy.StdCopy(pw, pw, readCloser)
+		_ = pw.CloseWithError(copyErr)
+	}()
+
+	scanner := bufio.NewScanner(pr)
 	flush, _ := w.(http.Flusher)
 	for scanner.Scan() {
-		line := append(scanner.Bytes(), byte('\n'))
-		// 去掉前8不可见字符
-		_, err = w.Write(line[8:])
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+		line := append(scanner.Bytes(), '\n')
+		if _, err = w.Write(line); err != nil {
+			if err == io.EOF {
+				break
+			}
 			return err
 		}
 		flush.Flush()
+	}
+	if err = scanner.Err(); err != nil && err != io.EOF {
+		return err
 	}
 
 	return nil

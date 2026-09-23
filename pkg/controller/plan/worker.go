@@ -386,7 +386,7 @@ func (p *plan) syncTasks(tasks ...Handler) error {
 		}
 		taskC.SetByTask(planId, *end)
 		if runErr != nil {
-			klog.Errorf("run plan(%d) task(%s) failed %v", planId, name, err)
+			klog.Errorf("run plan(%d) task(%s) failed: %v", planId, name, runErr)
 			return runErr
 		}
 		klog.Infof("completed plan(%d) task(%s)", planId, name)
