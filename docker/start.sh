@@ -300,6 +300,14 @@ write_proxy_headers() {
 EOF
 }
 
+write_proxy_ws_keepalive() {
+    cat <<'EOF'
+            proxy_read_timeout 3600s;
+            proxy_send_timeout 3600s;
+            proxy_buffering off;
+EOF
+}
+
 write_proxy_locations() {
     cat <<EOF
         root /usr/share/nginx/html;
@@ -333,6 +341,7 @@ $(write_ip_access_guard)
             limit_conn perip_conn ${NGINX_API_CONN};
 $(write_proxy_headers)
             proxy_pass http://127.0.0.1:8091;
+$(write_proxy_ws_keepalive)
         }
 
         # 探针不走 IP 黑白名单
