@@ -174,12 +174,8 @@ func (c *Container) WaitContainer(ctx context.Context, containerId string, times
 					// 正常退出
 					return nil
 				}
-				// 异常退出：以 exit code 为主信息，避免 state.Error 为空时 message 为空
-				msg := fmt.Sprintf("任务(%s)异常退出(exit code %d)", containerId, state.ExitCode)
-				if state.Error != "" {
-					msg = fmt.Sprintf("%s: %s", msg, state.Error)
-				}
-				return fmt.Errorf("%s", msg)
+				// 异常退出返回错误信息
+				return fmt.Errorf("%s", state.Error)
 			}
 
 			// 其他状态，继续等待
