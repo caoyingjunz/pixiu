@@ -319,7 +319,7 @@ func (cr *clusterRouter) watchPodLog(c *gin.Context) {
 		return
 	}
 	opts.Cluster = credName
-	if err = cr.c.Cluster().WatchPodLog(c, opts.Cluster, opts.Namespace, opts.Pod, logOpt.Container, logOpt.TailLines, c.Writer, c.Request); err != nil {
+	if err = cr.c.Cluster().WatchPodLog(c, opts.Cluster, opts.Namespace, opts.Pod, logOpt.Container, logOpt.TailLines, logOpt.SinceTime, logOpt.Timestamps, c.Writer, c.Request); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
