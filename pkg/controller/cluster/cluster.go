@@ -738,15 +738,20 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 	}
 	defer conn.Close()
 
+	buf := make([]byte, 32*1024)
 	for {
-		buf := make([]byte, 1024)
-		n, err := reader.Read(buf)
-		if err != nil && err != io.EOF {
+		n, readErr := reader.Read(buf)
+		if n > 0 {
+			if err = conn.WriteMessage(websocket.TextMessage, buf[:n]); err != nil {
+				klog.Errorf("failed to write message: %v, this websocket connection will be closed", err)
+				break
+			}
+		}
+		if readErr == io.EOF {
 			break
 		}
-		err = conn.WriteMessage(websocket.TextMessage, buf[0:n])
-		if err != nil {
-			klog.Errorf("failed to write message: %v ,this websocket connection will be closed", err)
+		if readErr != nil {
+			klog.Errorf("failed to read pod log stream: %v", readErr)
 			break
 		}
 	}
