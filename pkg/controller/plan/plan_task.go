@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -29,7 +28,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util/container"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 // TaskInterface 计划任务子接口
@@ -118,11 +117,7 @@ func (t *planTask) WatchLog(ctx context.Context, planId int64, taskId int64, w h
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	cli, err := container.NewContainer("", planId, "")
-	if err != nil {
-		return err
-	}
-	readCloser, err := cli.WatchContainerLog(ctx, fmt.Sprintf("%s-%d", task.Action, planId), "")
+	readCloser, err := runtime.Default().Logs(ctx, fmt.Sprintf("%s-%d", task.Action, planId), true)
 	if err != nil {
 		return err
 	}
@@ -133,12 +128,7 @@ func (t *planTask) WatchLog(ctx context.Context, planId int64, taskId int64, w h
 	flush, _ := w.(http.Flusher)
 	for scanner.Scan() {
 		line := append(scanner.Bytes(), byte('\n'))
-		// 去掉前8不可见字符
-		_, err = w.Write(line[8:])
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+		if _, err = w.Write(line); err != nil {
 			return err
 		}
 		flush.Flush()

@@ -18,10 +18,11 @@ package plan
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/util/container"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 type DeployMaster struct {
@@ -31,20 +32,28 @@ type DeployMaster struct {
 	runner string
 }
 
+// runRunnerContainer 以宿主容器运行时拉起 runner 任务容器并等待退出。
+// 日志路径由运行时按容器名自行决定（log_dir/<name>.log），调用方不再传入。
+func runRunnerContainer(ctx context.Context, action string, planId int64, dir, image string) error {
+	name := fmt.Sprintf("%s-%d", action, planId)
+	return runtime.Default().RunContainer(ctx, &runtime.ContainerSpec{
+		Name:        name,
+		Image:       image,
+		Env:         []string{fmt.Sprintf("COMMAND=%s", action)},
+		Binds:       []string{fmt.Sprintf("%s/%d:/configs", dir, planId)},
+		NetworkHost: true,
+		Labels:      map[string]string{"author": "caoyingjunz", "pixiuName": name},
+	})
+}
+
 func (b DeployMaster) Name() string      { return "部署Master" }
 func (b DeployMaster) GetAction() string { return "deploy-master" }
 func (b DeployMaster) Run() error {
-	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
 
 	// 启动执行容器
-	return cli.StartAndWaitForContainer(ctx, b.runner)
+	return runRunnerContainer(ctx, b.GetAction(), b.GetPlanId(), b.dir, b.runner)
 }
 
 type AddMaster struct {
@@ -67,17 +76,11 @@ type DeployNode struct {
 func (b DeployNode) Name() string      { return "部署Node" }
 func (b DeployNode) GetAction() string { return "deploy-node" }
 func (b DeployNode) Run() error {
-	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
 
 	// 启动执行容器
-	return cli.StartAndWaitForContainer(ctx, b.runner)
+	return runRunnerContainer(ctx, b.GetAction(), b.GetPlanId(), b.dir, b.runner)
 }
 
 type AddNode struct {
@@ -101,15 +104,9 @@ func (b DeployChart) Name() string         { return "部署基础组件" }
 func (b DeployChart) GetAction() string    { return "apply" }
 func (b DeployChart) Step() model.PlanStep { return model.RunningPlanStep }
 func (b DeployChart) Run() error {
-	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
 
 	// 启动执行容器
-	return cli.StartAndWaitForContainer(ctx, b.runner)
+	return runRunnerContainer(ctx, b.GetAction(), b.GetPlanId(), b.dir, b.runner)
 }

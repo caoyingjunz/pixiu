@@ -17,6 +17,9 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
+	"path/filepath"
+
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 )
 
@@ -39,6 +42,7 @@ type Config struct {
 	Log         LogOptions              `yaml:"log"`
 	TLS         TLSOptions              `yaml:"tls"`
 	KubeGateway KubeGatewayOptions      `yaml:"kube_gateway"`
+	Runtime     RuntimeOptions          `yaml:"runtime"`
 
 	AlertHistory jobmanager.AlertHistoryOptions `yaml:"alert"`
 	// CronHpaHistory 定时扩缩容执行历史清理配置
@@ -158,6 +162,57 @@ func (w WorkerOptions) Valid() error {
 	return nil
 }
 
+// RuntimeOptions 宿主容器运行时配置（pixiu 调用本机运行时拉起 runner 容器）。
+// 注意：这是宿主运行时，与被部署集群的 CRI（plan.Config.CRI）不是一回事。
+type RuntimeOptions struct {
+	CRI        string                   `yaml:"cri"` // docker | containerd，默认 containerd
+	Docker     DockerRuntimeOptions     `yaml:"docker"`
+	Containerd ContainerdRuntimeOptions `yaml:"containerd"`
+	// LogDir runner 容器日志根目录，容器日志固定落 <LogDir>/<容器名>.log。
+	// 路径只由「容器名 + 本配置」决定：SSE 日志接口、重启后的进程、另一实例都只有容器名，
+	// 靠该约定才能定位到同一个日志文件，因此不允许按调用方自定义。
+	// 留空时由 pkg/util/runtime.DefaultLogDir 兜底。
+	LogDir string `yaml:"log_dir"`
+}
+
+type DockerRuntimeOptions struct {
+	Host string `yaml:"host"` // 留空沿用 docker 环境变量/默认 socket
+}
+
+type ContainerdRuntimeOptions struct {
+	Address   string `yaml:"address"`   // 默认 /run/containerd/containerd.sock
+	Namespace string `yaml:"namespace"` // 默认 default；禁止 k8s.io
+}
+
+func (o *RuntimeOptions) SetDefaults() {
+	if o.CRI == "" {
+		o.CRI = "containerd"
+	}
+	if o.Containerd.Address == "" {
+		o.Containerd.Address = "/run/containerd/containerd.sock"
+	}
+	if o.Containerd.Namespace == "" {
+		o.Containerd.Namespace = "default"
+	}
+	// LogDir 空值不在此兜底：pkg/util/runtime 的 setLogDir 对空值 no-op，默认值只剩 DefaultLogDir 一处
+}
+
+func (o RuntimeOptions) Valid() error {
+	if o.CRI != "docker" && o.CRI != "containerd" {
+		return fmt.Errorf("runtime.cri 取值非法(%s)，可选值: docker, containerd", o.CRI)
+	}
+	// k8s.io 命名空间是 kubelet 的工作区，在其中创建容器会污染 kubelet 视图，禁止使用
+	if o.CRI == "containerd" && o.Containerd.Namespace == "k8s.io" {
+		return fmt.Errorf("runtime.containerd.namespace 禁止使用 k8s.io，会污染 kubelet 视图")
+	}
+	// 相对路径会随进程工作目录变化，导致读取方（重启后的同进程/另一实例）定位不到日志
+	if o.LogDir != "" && !filepath.IsAbs(o.LogDir) {
+		return fmt.Errorf("runtime.log_dir 必须是绝对路径(%s)", o.LogDir)
+	}
+
+	return nil
+}
+
 func (c *Config) Valid() (err error) {
 	if err = c.Default.Valid(); err != nil {
 		return
@@ -176,6 +231,10 @@ func (c *Config) Valid() (err error) {
 		return
 	}
 	c.TLS.SetDefaults()
+	c.Runtime.SetDefaults()
+	if err = c.Runtime.Valid(); err != nil {
+		return
+	}
 
 	return
 }

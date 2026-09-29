@@ -49,8 +49,6 @@ var (
 	DistributionExistError         = errors.New("操作系统发行版已存在")
 	ErrDistributionNotFound        = errors.New("操作系统发行版不存在")
 
-	ErrContainerNotFound = errors.New("容器不存在")
-
 	ParamsError                    = errors.New("参数错误")
 	OperateFailed                  = errors.New("操作失败")
 	NoPermission                   = errors.New("无权限")

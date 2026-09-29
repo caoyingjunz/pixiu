@@ -28,6 +28,21 @@ data:
       admin_user: admin
       admin_password: Pixiu123456!
 
+    # 宿主容器运行时配置（pixiu 调用本机运行时拉起部署 runner 容器）
+    # 注意：这是宿主运行时，与「被部署集群的 CRI」不是一回事
+    runtime:
+      # 运行时类型：docker / containerd，默认 containerd；本清单显式配置 docker
+      cri: docker
+      # log_dir: /var/lib/pixiu/runner-logs  # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
+      #docker:                # 仅当 cri: docker 时生效
+      #  # 留空沿用 docker 环境变量/默认 socket
+      #  host: ""
+      #containerd:            # cri: containerd 时的可选项，整段不写即用下列默认值
+      #  # containerd gRPC socket 地址
+      #  address: /run/containerd/containerd.sock
+      #  # 命名空间，默认 default；禁止使用 k8s.io（kubelet 工作区，会被拒绝）
+      #  namespace: default
+
     # 数据库地址信息，根据实际情况配置
     mysql:
       host: <mysql-host>
@@ -57,6 +72,11 @@ spec:
         app.kubernetes.io/name: pixiu
         app.kubernetes.io/component: server
     spec:
+      # 说明：本清单未挂载宿主容器运行时 socket（docker.sock / containerd.sock），
+      # 因此该形态不支持「本地执行模式」，即不支持由 pixiu 在本机拉起部署 runner 容器。
+      # 需要本地执行时，请使用 Plan 的 agent 执行模式（由目标节点上的 deploy-agent 执行）；
+      # 确需本地执行则自行在此挂载运行时 socket（containerd 形态为 /run/containerd/containerd.sock）
+      # 并补足权限——注意挂载运行时 socket 等同于把节点控制权交给 Pod，请先评估安全影响。
       containers:
         - name: pixiu
           image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1

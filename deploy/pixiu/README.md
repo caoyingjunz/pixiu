@@ -40,6 +40,25 @@ docker run -d --net host --restart=always --privileged=true \
 kubectl apply -f deploy/pixiu/pixiu.yaml
 ```
 
+## 已知限制：无法由 pixiu 在本机拉起部署 runner
+
+本清单只在容器内挂载 `/etc/pixiu` 配置卷，**未挂载任何宿主容器运行时 socket**（`/var/run/docker.sock` 或 `/run/containerd/containerd.sock`），因此：
+
+- 该形态下 pixiu 不支持「本地执行模式」（由 pixiu 自身在本机拉起 runner 容器执行部署）。
+- 需要本地执行时，请使用 Plan 的 **agent 执行模式**：由目标节点上运行的 deploy-agent 执行部署流程。
+- 确需本地执行模式时，可自行在 Deployment 中挂载宿主运行时 socket（containerd 形态为 `/run/containerd/containerd.sock`）并补足相应权限；注意挂载运行时 socket 等同于把节点控制权交给 Pod，请先评估安全影响。
+
+## 服务端 runtime 配置
+
+ConfigMap 中的 `runtime` 段决定 pixiu「在本机拉起部署 runner 容器」时使用哪种宿主运行时（与被部署集群的 CRI 不是一回事）：
+
+- `runtime.cri`：`docker` / `containerd`，**默认 containerd**，不配置即使用 containerd
+- `runtime.docker.host`：docker 地址，留空沿用 docker 默认/环境变量
+- `runtime.containerd.address`：containerd socket 地址，默认 `/run/containerd/containerd.sock`
+- `runtime.containerd.namespace`：containerd 命名空间，默认 `default`；禁止使用 `k8s.io`（会污染 kubelet 视图）
+
+本清单显式配置 `cri: docker`。宿主直接用 containerd 部署 pixiu 本身的完整步骤见 [deploy/containerd/README.md](../containerd/README.md)。
+
 ## 访问
 
 ```bash

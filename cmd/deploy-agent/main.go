@@ -29,6 +29,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/deployagent"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 func main() {
@@ -40,7 +41,18 @@ func main() {
 	if err != nil {
 		klog.Fatalf("Failed to load config: %v", err)
 	}
-	server, token, workRoot := cfg.Resolve()
+	server, token, workRoot, rtOpts := cfg.Resolve()
+	rtOpts.SetDefaults()
+	// 校验运行时配置（与主服务一致：拒绝 containerd + k8s.io 命名空间等非法取值）
+	if err = rtOpts.Valid(); err != nil {
+		klog.Fatalf("Failed to validate container runtime config: %v", err)
+	}
+
+	// 构造宿主容器运行时，注入 Agent（deploy-agent 为独立二进制，不走全局单例）
+	rt, err := runtime.New(rtOpts)
+	if err != nil {
+		klog.Fatalf("Failed to init container runtime: %v", err)
+	}
 
 	server = strings.TrimRight(strings.TrimSpace(server), "/")
 	token = strings.TrimSpace(token)
@@ -58,7 +70,7 @@ func main() {
 	if err != nil {
 		klog.Fatalf("Failed to get hostname: %v", err)
 	}
-	ag := deployagent.New(server, token)
+	ag := deployagent.New(server, token, rt)
 
 	klog.Infof("pixiu-deploy-agent %s starting, server=%s", deployagent.Version, server)
 	ticker := time.NewTicker(5 * time.Second)

@@ -20,6 +20,8 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
 )
 
 // Config 为 deploy-agent 的配置文件结构。
@@ -30,9 +32,10 @@ type Config struct {
 
 // DefaultConfig 为配置文件中的 default 段。
 type DefaultConfig struct {
-	Server  string `yaml:"server"`
-	Token   string `yaml:"token"`
-	WorkDir string `yaml:"work_dir"`
+	Server  string                `yaml:"server"`
+	Token   string                `yaml:"token"`
+	WorkDir string                `yaml:"work_dir"`
+	Runtime config.RuntimeOptions `yaml:"runtime"`
 }
 
 // LoadConfig 从 YAML 文件读取配置。文件不存在时返回空配置。
@@ -52,13 +55,16 @@ func LoadConfig(path string) (Config, error) {
 }
 
 // Resolve 返回最终配置，配置文件优先，环境变量作为回退。
-func (c Config) Resolve() (server, token, workDir string) {
+func (c Config) Resolve() (server, token, workDir string, rt config.RuntimeOptions) {
 	server = firstNonEmpty(c.Default.Server, os.Getenv("PIXIU_SERVER"))
 	token = firstNonEmpty(c.Default.Token, os.Getenv("PIXIU_DEPLOY_TOKEN"))
 	workDir = firstNonEmpty(c.Default.WorkDir, os.Getenv("PIXIU_AGENT_WORKDIR"))
 	if workDir == "" {
 		workDir = "/etc/pixiu"
 	}
+	// 仅 CRI 支持环境变量回退，docker/containerd 子项走配置文件
+	rt = c.Default.Runtime
+	rt.CRI = firstNonEmpty(rt.CRI, os.Getenv("PIXIU_RUNTIME_CRI"))
 	return
 }
 
