@@ -49,6 +49,9 @@ const (
 	defaultWorkDir    = "/etc/pixiu"
 	defaultStaticDir  = "/static"
 
+	// defaultDeployTimeout 本地部署任务容器等待超时(秒)
+	defaultDeployTimeout = 900
+
 	defaultAdminUser     = "admin"
 	defaultAdminPassword = "Pixiu123456!"
 	defaultSingleLogin   = false
@@ -117,6 +120,9 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 	if o.ComponentConfig.Worker.WorkDir == "" {
 		o.ComponentConfig.Worker.WorkDir = defaultWorkDir
+	}
+	if o.ComponentConfig.Worker.DeployTimeout <= 0 {
+		o.ComponentConfig.Worker.DeployTimeout = defaultDeployTimeout
 	}
 	if len(o.ComponentConfig.Default.StaticFiles) == 0 {
 		o.ComponentConfig.Default.StaticFiles = defaultStaticDir

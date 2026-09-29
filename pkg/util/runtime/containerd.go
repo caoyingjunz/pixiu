@@ -40,7 +40,8 @@ import (
 )
 
 const (
-	// containerdRunTimeout runner 容器单次执行的最长等待时间，与 docker 实现（180 次 × 5s）对齐
+	// containerdRunTimeout runner 容器单次执行的最长等待时间兜底上限（未指定 ContainerSpec.WaitTimeout 时生效），
+	// 与 docker 实现未指定时的默认值（180 次 × 5s）对齐
 	containerdRunTimeout = 900 * time.Second
 	// containerdStopGrace 优雅停止（SIGTERM）后等待进程退出的时间，超时强杀，对齐 docker Stop(5s)
 	containerdStopGrace = 5 * time.Second
@@ -181,10 +182,16 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 		return err
 	}
 
-	// 实际等待时长取「调用方 ctx 剩余时间」与内置上限的较小值：调用方 ctx 通常更短
-	// （plan 的部署任务为 600s），先触发的往往是它，因此超时文案必须按实际生效时长输出，
-	// 否则会把人误导到错误的方向（曾写死 900s，与真实触发的 600s 不符）。
+	// 等待上限：优先取调用方配置（worker.deploy_timeout，经 ContainerSpec.WaitTimeout 传入），
+	// 未配置(<=0，如 Agent 侧调用)时回落到内置默认；最后再与调用方 ctx 剩余时间取较小值，
+	// 保证不超过调用方允许的时长（plan 侧 ctx 为 waitTimeout+60s，是余量而非上限，正常不会触发）。
+	// 顺序不可颠倒：若先取较小值再用配置覆盖，ctx 会先到期，超时文案将按未真正生效的配置值输出
+	// （如配置 1800s、ctx 仅 960s 时打印「已等待 1800 秒」而实际只等了 960s）。
+	// 超时文案必须按实际生效时长输出，否则会把人误导到错误的方向。
 	waitTimeout := containerdRunTimeout
+	if spec.WaitTimeout > 0 {
+		waitTimeout = spec.WaitTimeout
+	}
 	if deadline, ok := ctx.Deadline(); ok {
 		if remaining := time.Until(deadline); remaining > 0 && remaining < waitTimeout {
 			waitTimeout = remaining

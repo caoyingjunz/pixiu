@@ -60,6 +60,9 @@ func (c *cluster) WsPodHandler(ctx context.Context, opt *types.WebShellOptions, 
 	defer func() {
 		_ = session.Close()
 	}()
+	// 保活心跳：注册在关闭之后，由 defer LIFO 保证先停心跳再关连接
+	stopHeartbeat := session.StartHeartbeat()
+	defer stopHeartbeat()
 	klog.Infof("connecting to %s/%s,", opt.Namespace, opt.Pod)
 
 	cmd := opt.Command
@@ -168,6 +171,8 @@ func handler(turn *types.Turn) {
 
 	go turn.StartLoopRead(ctx, wg, logBuff)
 	go turn.StartSessionWait(wg)
+	// 保活心跳：口径与 Pod WebShell 一致
+	go turn.StartHeartbeat(ctx)
 
 	wg.Wait()
 }

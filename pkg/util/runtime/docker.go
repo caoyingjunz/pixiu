@@ -87,8 +87,16 @@ func (d *dockerRuntime) RunContainer(ctx context.Context, spec *ContainerSpec) e
 	if err = d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return err
 	}
-	// 等待容器运行完成退出
-	return d.waitContainer(ctx, resp.ID, 180)
+	// 等待容器运行完成退出；waitTimeout 未配置(<=0)时回落到 180 次(900s)，
+	// 换算值不足 1 次时取 1 次（至少检查一轮）
+	times := 180
+	if spec.WaitTimeout > 0 {
+		times = int(spec.WaitTimeout / (5 * time.Second))
+		if times < 1 {
+			times = 1
+		}
+	}
+	return d.waitContainer(ctx, resp.ID, times)
 }
 
 // waitContainer 等待容器运行退出

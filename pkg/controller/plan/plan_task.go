@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -123,15 +124,22 @@ func (t *planTask) WatchLog(ctx context.Context, planId int64, taskId int64, w h
 	}
 	defer readCloser.Close()
 
-	// 读取日志
+	// 解复用已归运行时实现（docker.go 内部用 StdCopy 解复用；containerd 读纯文本落盘日志），
+	// 调用点二次解复用会得到空流，此为 #1061 panic 修复在抽象层的等价承接。
 	scanner := bufio.NewScanner(readCloser)
 	flush, _ := w.(http.Flusher)
 	for scanner.Scan() {
-		line := append(scanner.Bytes(), byte('\n'))
+		line := append(scanner.Bytes(), '\n')
 		if _, err = w.Write(line); err != nil {
+			if err == io.EOF {
+				break
+			}
 			return err
 		}
 		flush.Flush()
+	}
+	if err = scanner.Err(); err != nil && err != io.EOF {
+		return err
 	}
 
 	return nil

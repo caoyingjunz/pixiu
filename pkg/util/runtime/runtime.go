@@ -22,6 +22,7 @@ import (
 	"io"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 )
@@ -71,6 +72,9 @@ type ContainerSpec struct {
 	Binds       []string // host:container，如 /etc/pixiu/plan/12:/configs
 	NetworkHost bool     // 是否使用宿主网络
 	Labels      map[string]string
+	// WaitTimeout 等待容器退出的最长时长，来自 worker.deploy_timeout；
+	// <=0 时各实现回落到自身的默认上限
+	WaitTimeout time.Duration
 }
 
 // Runtime 是宿主容器运行时的抽象。

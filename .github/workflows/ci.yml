@@ -46,5 +46,13 @@ jobs:
     - name: Build the pixiu binariy
       run: go build -v ./...
 
+    - name: Run go vet
+      run: go vet ./...
+
     - name: Run pixiu unit test
       run: go test -v ./...
+
+    # - name: Run govulncheck（依赖漏洞扫描）
+    #   run: |
+    #     go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+    #     govulncheck ./...
