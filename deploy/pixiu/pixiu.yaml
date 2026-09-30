@@ -33,7 +33,6 @@ data:
     runtime:
       # 运行时类型：docker / containerd，默认 containerd；本清单显式配置 docker
       cri: docker
-      # log_dir: /var/lib/pixiu/runner-logs  # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
       #docker:                # 仅当 cri: docker 时生效
       #  # 留空沿用 docker 环境变量/默认 socket
       #  host: ""

@@ -87,9 +87,9 @@ func (d *dockerRuntime) RunContainer(ctx context.Context, spec *ContainerSpec) e
 	if err = d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return err
 	}
-	// 等待容器运行完成退出；waitTimeout 未配置(<=0)时回落到 180 次(900s)，
-	// 换算值不足 1 次时取 1 次（至少检查一轮）
-	times := 180
+	// 等待容器运行完成退出。times<=0 表示不设内部上限（对应 ContainerSpec.WaitTimeout<=0），
+	// 等待至容器退出或 ctx 结束；>0 时按 5s 一轮换算，至少检查一轮。
+	times := 0
 	if spec.WaitTimeout > 0 {
 		times = int(spec.WaitTimeout / (5 * time.Second))
 		if times < 1 {
@@ -103,14 +103,28 @@ func (d *dockerRuntime) RunContainer(ctx context.Context, spec *ContainerSpec) e
 // 官方的客户端实现有问题，先通过探针的方式规避，后续优化
 // 循环检查容器状态，直到出现异常或符合预期
 func (d *dockerRuntime) waitContainer(ctx context.Context, containerId string, times int) error {
-	klog.Infof("等待任务(%s)执行完成(最长等待时间 %d 秒)", containerId, times*5)
-	for i := 0; i < times; i++ {
+	if times > 0 {
+		klog.Infof("等待任务(%s)执行完成(最长等待时间 %d 秒)", containerId, times*5)
+	} else {
+		klog.Infof("等待任务(%s)执行完成(不限制等待时长)", containerId)
+	}
+	for i := 0; times <= 0 || i < times; i++ {
+		// 上层 ctx 取消（如 agent 收到 SIGTERM）时尽快退出等待，报文与 containerd 实现口径一致
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("任务(%s)被取消: %v", containerId, ctx.Err())
+		default:
+		}
+
 		// 先等待 5s 再执行，开始等待符合业务场景，且后续的逻辑处理不受影响
 		time.Sleep(5 * time.Second)
 
 		// 实际开始检查
 		containerInfo, err := d.client.ContainerInspect(ctx, containerId)
 		if err != nil {
+			if ctx.Err() != nil {
+				return fmt.Errorf("任务(%s)被取消: %v", containerId, ctx.Err())
+			}
 			return err
 		}
 		if containerInfo.State != nil {
@@ -237,22 +251,16 @@ func (d *dockerRuntime) RemoveImage(ctx context.Context, ref string) error {
 	return err
 }
 
-// resolveContainerId 按名解析容器 ID
+// resolveContainerId 按名解析容器 ID（Inspect 支持容器名），避免全量列举容器
 func (d *dockerRuntime) resolveContainerId(ctx context.Context, name string) (string, bool, error) {
-	containers, err := d.client.ContainerList(ctx, container.ListOptions{All: true})
+	info, err := d.client.ContainerInspect(ctx, name)
 	if err != nil {
+		if client.IsErrNotFound(err) {
+			return "", false, nil
+		}
 		return "", false, err
 	}
-
-	for _, item := range containers {
-		for _, containerName := range item.Names {
-			if containerName == "/"+name {
-				return item.ID, true, nil
-			}
-		}
-	}
-
-	return "", false, nil
+	return info.ID, true, nil
 }
 
 var _ Runtime = (*dockerRuntime)(nil)

@@ -21,7 +21,6 @@ default:
     # 运行时类型：docker / containerd，默认 containerd
     # 也可用环境变量 PIXIU_RUNTIME_CRI 指定；docker.host、containerd 子项仅走配置文件
     cri: containerd
-    # log_dir: /var/lib/pixiu/runner-logs  # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
     #docker:                # 仅当 cri: docker 时生效
     #  # 留空沿用 docker 环境变量/默认 socket
     #  host: ""

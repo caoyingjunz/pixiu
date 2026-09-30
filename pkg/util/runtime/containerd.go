@@ -18,6 +18,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/cio"
+	"github.com/containerd/containerd/defaults"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
@@ -40,9 +42,6 @@ import (
 )
 
 const (
-	// containerdRunTimeout runner 容器单次执行的最长等待时间兜底上限（未指定 ContainerSpec.WaitTimeout 时生效），
-	// 与 docker 实现未指定时的默认值（180 次 × 5s）对齐
-	containerdRunTimeout = 900 * time.Second
 	// containerdStopGrace 优雅停止（SIGTERM）后等待进程退出的时间，超时强杀，对齐 docker Stop(5s)
 	containerdStopGrace = 5 * time.Second
 	// containerdCleanupTimeout 清理阶段（强杀任务 + 删除容器 + 回收 snapshot）的独立超时。
@@ -56,7 +55,7 @@ const (
 var containerNameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
 
 // 日志路径约定（containerd 没有原生日志流，日志由 RunContainer 落盘到文件）：
-//  1. 路径恒为 logPath(name) = <log_dir>/<name>.log，不接受调用方指定；
+//  1. 路径恒为 logPath(name) = <DefaultLogDir>/<name>.log（根目录固定不可配置），不接受调用方指定；
 //  2. RunContainer 把该路径与 done 通道登记到 containerLogs，供同进程的 Logs 走快路径；
 //  3. done 在 RunContainer 返回（日志文件已关闭）时关闭，follow 读取端据此及时 EOF，
 //     避免容器退出后 SSE 流一直悬挂到客户端断开；
@@ -129,13 +128,15 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 		return err
 	}
 
-	// 日志路径只由容器名 + runtime.log_dir 决定，不接受调用方指定（见 logPath）
+	// 日志路径只由容器名决定（根目录固定 DefaultLogDir），不接受调用方指定（见 logPath）
 	path := logPath(spec.Name)
 	entry := &logEntry{path: path, done: make(chan struct{})}
 	containerLogs.Store(spec.Name, entry)
 	// 登记表的注销必须覆盖本函数的所有返回路径：提前 return 若漏掉，follow 读取端会永远
 	// 等不到 done，登记表也会随运行次数单调增长。
-	// 顺序重要：先关日志文件（容器已停止写入）→ 再关 done 通知读取端收尾 → 最后注销登记。
+	// 顺序重要：先关日志文件 → 再关 done 通知读取端收尾 → 最后注销登记。
+	// 注：正常/超时路径返回前已删除任务与容器，cio 拷贝 goroutine 随之收尾；取消路径容器
+	// 可能仍在运行，关闭日志文件会让拷贝 goroutine 在下一次写入失败后自行退出（见 canceled 分支）。
 	var logFile *os.File
 	defer func() {
 		if logFile != nil {
@@ -147,7 +148,7 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 
 	logFile, err = openLogFile(path)
 	if err != nil {
-		return fmt.Errorf("打开日志文件(%s)失败: %v", path, err)
+		return fmt.Errorf("打开日志文件(%s)失败: %v；请确认日志目录可写（如 /var/lib/pixiu 已挂载进 pixiu 容器）", path, err)
 	}
 
 	img, err := c.client.GetImage(ctx, imageRef)
@@ -173,7 +174,23 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 
 	container, err := c.client.NewContainer(ctx, spec.Name, containerOpts...)
 	if err != nil {
-		return err
+		if !errdefs.IsAlreadyExists(err) {
+			return err
+		}
+		// 仅当容器记录确不存在（纯 snapshot 残留）才自愈；记录仍在属并发同名等场景，
+		// 此时 snapshot 为在用状态，贸然删除会破坏对方容器，直接返回原错误。
+		if _, loadErr := c.client.LoadContainer(ctx, spec.Name); !errdefs.IsNotFound(loadErr) {
+			return err
+		}
+		// 罕见场景：容器记录已删除但 snapshot 残留（如异常终止），同名 snapshot 会让该任务此后
+		// 永远无法创建；此处按与库内一致的解析顺序定位 snapshotter，清掉残留后重试一次。
+		if cleanErr := c.removeOrphanSnapshot(ctx, spec.Name); cleanErr != nil {
+			klog.Warningf("清理残留 snapshot(%s)失败: %v", spec.Name, cleanErr)
+		}
+		container, err = c.client.NewContainer(ctx, spec.Name, containerOpts...)
+		if err != nil {
+			return err
+		}
 	}
 
 	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStreams(nil, logFile, logFile)))
@@ -182,35 +199,35 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 		return err
 	}
 
-	// 等待上限：优先取调用方配置（worker.deploy_timeout，经 ContainerSpec.WaitTimeout 传入），
-	// 未配置(<=0，如 Agent 侧调用)时回落到内置默认；最后再与调用方 ctx 剩余时间取较小值，
-	// 保证不超过调用方允许的时长（plan 侧 ctx 为 waitTimeout+60s，是余量而非上限，正常不会触发）。
-	// 顺序不可颠倒：若先取较小值再用配置覆盖，ctx 会先到期，超时文案将按未真正生效的配置值输出
-	// （如配置 1800s、ctx 仅 960s 时打印「已等待 1800 秒」而实际只等了 960s）。
-	// 超时文案必须按实际生效时长输出，否则会把人误导到错误的方向。
-	waitTimeout := containerdRunTimeout
-	if spec.WaitTimeout > 0 {
-		waitTimeout = spec.WaitTimeout
-	}
+	// 等待上限：>0 取调用方配置（worker.deploy_timeout，经 ContainerSpec.WaitTimeout 传入），
+	// 到点即判定超时；<=0 表示不设内部上限（等待容器退出或 ctx 结束）。
+	// 若调用方 ctx 自带更早的截止时间，则取其剩余时长，保证不超时。
+	waitTimeout := spec.WaitTimeout
 	if deadline, ok := ctx.Deadline(); ok {
-		if remaining := time.Until(deadline); remaining > 0 && remaining < waitTimeout {
+		if remaining := time.Until(deadline); remaining > 0 && (waitTimeout <= 0 || remaining < waitTimeout) {
 			waitTimeout = remaining
 		}
 	}
-	waitSeconds := int(waitTimeout.Seconds())
+
+	waitCtx := ctx
+	cancel := func() {}
+	if waitTimeout > 0 {
+		waitCtx, cancel = context.WithTimeout(ctx, waitTimeout)
+		klog.Infof("等待任务(%s)执行完成(最长等待时间 %d 秒)", spec.Name, int(waitTimeout.Seconds()))
+	} else {
+		klog.Infof("等待任务(%s)执行完成(不限制等待时长)", spec.Name)
+	}
+	defer cancel()
 
 	// Wait 必须在 Start 之前注册，否则可能错过退出事件。
 	// 注意：containerd 1.7 的 task.Wait 返回 (<-chan ExitStatus, error)，
 	// 通道内的事件在等待出错时会带上 err（含 ctx 超时导致的 RPC 取消），退出码不可直接采信
-	waitCtx, cancel := context.WithTimeout(ctx, waitTimeout)
-	defer cancel()
 	statusC, err := task.Wait(waitCtx)
 	if err != nil {
 		c.cleanupTaskAndContainer(spec.Name, task, container, true)
 		return err
 	}
 
-	klog.Infof("等待任务(%s)执行完成(最长等待时间 %d 秒)", spec.Name, waitSeconds)
 	if err = task.Start(waitCtx); err != nil {
 		c.cleanupTaskAndContainer(spec.Name, task, container, true)
 		return err
@@ -220,13 +237,19 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 		waitErr  error
 		exitCode uint32
 		exited   bool
+		canceled bool
 	)
 	select {
 	case status := <-statusC:
 		if err := status.Error(); err != nil {
-			if waitCtx.Err() != nil {
-				waitErr = fmt.Errorf("已等待 %d 秒，任务(%s)执行超时", waitSeconds, spec.Name)
-			} else {
+			switch {
+			case errors.Is(waitCtx.Err(), context.DeadlineExceeded):
+				waitErr = fmt.Errorf("已等待 %d 秒，任务(%s)执行超时", int(waitTimeout.Seconds()), spec.Name)
+			case waitCtx.Err() != nil:
+				// 上层 ctx 被取消（如 agent 进程收到 SIGTERM），并非等待超时
+				canceled = true
+				waitErr = fmt.Errorf("任务(%s)被取消: %v", spec.Name, waitCtx.Err())
+			default:
 				waitErr = err
 			}
 		} else {
@@ -234,7 +257,18 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 			exitCode = status.ExitCode()
 		}
 	case <-waitCtx.Done():
-		waitErr = fmt.Errorf("已等待 %d 秒，任务(%s)执行超时", waitSeconds, spec.Name)
+		if errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
+			waitErr = fmt.Errorf("已等待 %d 秒，任务(%s)执行超时", int(waitTimeout.Seconds()), spec.Name)
+		} else {
+			canceled = true
+			waitErr = fmt.Errorf("任务(%s)被取消: %v", spec.Name, waitCtx.Err())
+		}
+	}
+
+	if canceled {
+		// 取消（非超时）不杀容器：与升级前 agent 行为一致，runner 容器可继续完成部署，
+		// 残留的容器记录由下一次同名任务的 RemoveContainer 回收。
+		return waitErr
 	}
 
 	// 无论成功失败都要删除任务与容器；必须用独立清理上下文（此刻调用方 ctx 可能已超时/取消），
@@ -248,6 +282,16 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 		return fmt.Errorf("容器(%s)执行失败，退出码 %d", spec.Name, exitCode)
 	}
 	return nil
+}
+
+// removeOrphanSnapshot 删除与容器名同 key 的残留 snapshot（不含容器记录的场景）。
+// snapshotter 名称解析顺序与 containerd 客户端内部一致：命名空间 label 优先，其次内置默认。
+func (c *containerdRuntime) removeOrphanSnapshot(ctx context.Context, key string) error {
+	snapshotter := containerd.DefaultSnapshotter
+	if label, err := c.client.GetLabel(ctx, defaults.DefaultSnapshotterNSLabel); err == nil && label != "" {
+		snapshotter = label
+	}
+	return c.client.SnapshotService(snapshotter).Remove(ctx, key)
 }
 
 // cleanupTaskAndContainer 删除任务与容器记录（含 snapshot）。
@@ -348,9 +392,12 @@ func (c *containerdRuntime) Logs(ctx context.Context, name string, follow bool) 
 
 // goneChecker 返回「容器记录是否已被删除」的探测函数，作为 follow 读取在未命中登记表
 // （done 为 nil）时的结束判据。
-// 依赖 RunContainer 的不变式：无论成功、失败还是超时，退出前一定会删除容器记录
-// （cleanupTaskAndContainer）。因此容器记录消失即可判定日志已写完。
-// ⚠️ 若将来让 RunContainer 保留容器记录（例如为排障保留现场），必须同步修改这里，
+// RunContainer 除「上层 ctx 被取消」外的所有退出路径都会删除容器记录
+// （cleanupTaskAndContainer），因此容器记录消失即可判定日志已写完。
+// 取消路径有意保留容器记录（容器可能仍在运行，由下一次同名任务回收），此时未命中登记表的
+// follow 无法靠 goneChecker 自然收尾，只能等客户端断开或 ctx 结束；该场景在服务端本地模式
+// 不会出现（本地 ctx 只有截止时间、无取消源），agent 侧不使用 follow。
+// ⚠️ 若将来让 RunContainer 在其他场景也保留容器记录（例如为排障保留现场），必须同步修改这里，
 // 否则日志流只能等到客户端断开或 ctx 结束，SSE 会一直挂着。
 func (c *containerdRuntime) goneChecker(name string) func(context.Context) (bool, error) {
 	return func(ctx context.Context) (bool, error) {
@@ -529,7 +576,15 @@ func newFileFollower(ctx context.Context, path string, done <-chan struct{}, f *
 	return l
 }
 
+// pump 独占 file 字段：打开、读取、关闭全部在本 goroutine 内完成，
+// 其他 goroutine（尤其 Close）不得触碰 l.file，避免数据竞争。
 func (l *fileFollower) pump() {
+	// 关闭顺序：先关管道读端侧（通知调用方结束），再关文件
+	defer func() {
+		if l.file != nil {
+			_ = l.file.Close()
+		}
+	}()
 	defer l.pipeW.Close()
 
 	ticker := time.NewTicker(logPollInterval)
@@ -568,26 +623,25 @@ func (l *fileFollower) pump() {
 	}
 }
 
-// wait 阻塞直到「可能有新内容可读」或「应结束日志流」。
-// 返回 true 表示可以继续读取，false 表示应结束。
+// wait 阻塞直到「轮询间隔到点，可能有新内容可读」或「应结束日志流」。
+// 返回 true 表示可以继续读取（pump 将重试打开文件或读取新增内容），false 表示应结束。
 func (l *fileFollower) wait(ticker *time.Ticker) bool {
-	for {
-		select {
-		case <-l.ctx.Done():
-			return false
-		case <-l.closed:
-			return false
-		case <-l.done: // done 为 nil（未命中登记表）时该分支永不触发
-			return false
-		case <-ticker.C:
-			if l.containerGone == nil {
-				continue
-			}
+	select {
+	case <-l.ctx.Done():
+		return false
+	case <-l.closed:
+		return false
+	case <-l.done: // done 为 nil（未命中登记表）时该分支永不触发
+		return false
+	case <-ticker.C:
+		if l.containerGone != nil {
 			// 探测失败（网络/权限等）时保守地继续跟随，交由 ctx 兜底
 			if gone, err := l.containerGone(l.ctx); err == nil && gone {
 				return false
 			}
 		}
+		// 轮询到点：文件可能刚落盘或已有新增内容，回到 pump 重试读取
+		return true
 	}
 }
 
@@ -595,13 +649,12 @@ func (l *fileFollower) Read(p []byte) (int, error) {
 	return l.pipeR.Read(p)
 }
 
+// Close 只负责信号与屏障：通知 pump 结束并关闭读端；file 由 pump 自行关闭（见 pump），
+// 本方法刻意不触碰 l.file，否则会与 pump 并发读写该字段。
 func (l *fileFollower) Close() error {
 	l.once.Do(func() {
 		close(l.closed)
 		_ = l.pipeR.Close()
-		if l.file != nil {
-			_ = l.file.Close()
-		}
 	})
 	return nil
 }

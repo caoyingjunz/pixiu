@@ -31,7 +31,6 @@ default:
 runtime:
   # 运行时类型：docker / containerd，默认 containerd
   cri: containerd
-  # log_dir: /var/lib/pixiu/runner-logs  # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
   #docker:                # 仅当 cri: docker 时生效
   #  # 留空沿用 docker 环境变量/默认 socket
   #  host: ""
@@ -54,7 +53,7 @@ worker:
   #work_dir: /etc/pixiu
   # 本地部署任务容器等待超时秒数，默认 900 秒；适用于「初始化部署环境/部署Master/部署Node/部署基础组件」四个步骤，
   # 超时即任务失败：containerd 运行时会强杀 runner 容器，docker 运行时不会（容器残留并继续执行）。
-  # 初始化部署环境（bootstrap）旧版本写死 1800 秒，现同样受此配置约束，耗时较长的 bootstrap 请调大该值。
+  # 初始化部署环境（bootstrap）旧版本由运行时隐式封顶约 900 秒，现与其他步骤一样统一受本配置约束。
   #deploy_timeout: 900
 
 # 配置 http 和 https， 默认 http，

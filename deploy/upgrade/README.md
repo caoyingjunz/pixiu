@@ -4,6 +4,12 @@
 
 将下文中的镜像标签换成目标版本（当前示例为 `v2.0.2-beta.1`）。
 
+> **存量升级注意：运行时缺省值变更**
+>
+> 本版本起 `runtime.cri` 缺省为 containerd，且 pixiu 启动时连不上该运行时将直接报错退出。
+> **docker 部署的存量环境**（docker-compose 与手动 `docker run`）升级前，请先在 `/etc/pixiu/config.yaml` 增加 `runtime.cri: docker`，否则 pixiu 会因连不上 containerd 启动失败（报错信息会提示）。
+> 宿主本就使用 containerd 的部署无需改动。
+
 ## 基于 docker-compose 安装
 
 进入部署目录，先改 `docker-compose.yaml` 里 pixiu 的 image 标签，再拉镜像并重建容器：

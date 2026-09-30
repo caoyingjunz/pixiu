@@ -62,7 +62,6 @@ default:
   runtime:
     # 运行时类型：docker / containerd，默认 containerd
     cri: containerd
-    # log_dir: /var/lib/pixiu/runner-logs  # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
     #docker:                # 仅当 cri: docker 时生效
     #  # 留空沿用 docker 环境变量/默认 socket
     #  host: ""
@@ -79,6 +78,8 @@ EOF
 # 运行时类型也可用 PIXIU_RUNTIME_CRI 指定；docker.host、containerd.address/namespace
 # 等子项仅走配置文件，环境变量不生效
 ```
+
+> **存量节点升级注意**：历史 `agent.yaml` 若无 runtime 段，新版默认按 containerd 启动；docker 节点请先在 `agent.yaml` 写 `cri: docker`，否则 agent 会因连不上 containerd 启动失败。
 
 ### 4. 注册 systemd 服务
 

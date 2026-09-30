@@ -18,7 +18,6 @@ package config
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 )
@@ -170,11 +169,6 @@ type RuntimeOptions struct {
 	CRI        string                   `yaml:"cri"` // docker | containerd，默认 containerd
 	Docker     DockerRuntimeOptions     `yaml:"docker"`
 	Containerd ContainerdRuntimeOptions `yaml:"containerd"`
-	// LogDir runner 容器日志根目录，容器日志固定落 <LogDir>/<容器名>.log。
-	// 路径只由「容器名 + 本配置」决定：SSE 日志接口、重启后的进程、另一实例都只有容器名，
-	// 靠该约定才能定位到同一个日志文件，因此不允许按调用方自定义。
-	// 留空时由 pkg/util/runtime.DefaultLogDir 兜底。
-	LogDir string `yaml:"log_dir"`
 }
 
 type DockerRuntimeOptions struct {
@@ -196,7 +190,6 @@ func (o *RuntimeOptions) SetDefaults() {
 	if o.Containerd.Namespace == "" {
 		o.Containerd.Namespace = "default"
 	}
-	// LogDir 空值不在此兜底：pkg/util/runtime 的 setLogDir 对空值 no-op，默认值只剩 DefaultLogDir 一处
 }
 
 func (o RuntimeOptions) Valid() error {
@@ -206,10 +199,6 @@ func (o RuntimeOptions) Valid() error {
 	// k8s.io 命名空间是 kubelet 的工作区，在其中创建容器会污染 kubelet 视图，禁止使用
 	if o.CRI == "containerd" && o.Containerd.Namespace == "k8s.io" {
 		return fmt.Errorf("runtime.containerd.namespace 禁止使用 k8s.io，会污染 kubelet 视图")
-	}
-	// 相对路径会随进程工作目录变化，导致读取方（重启后的同进程/另一实例）定位不到日志
-	if o.LogDir != "" && !filepath.IsAbs(o.LogDir) {
-		return fmt.Errorf("runtime.log_dir 必须是绝对路径(%s)", o.LogDir)
 	}
 
 	return nil

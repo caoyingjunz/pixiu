@@ -36,7 +36,7 @@
 2. `nerdctl` 已安装（v2.x）且在 `PATH` 中；容器操作需要 root（或使用 sudo）。
 3. 若使用桥接网络（`NET_MODE` 非 host），需 `/opt/cni/bin` 下存在 CNI 插件；默认 host 网络无需 CNI。
 4. 已按 [install.md](../../install.md) 创建 `/etc/pixiu/config.yaml`（含数据库连接信息）。
-5. 宿主 `/var/lib/pixiu` 目录可用（runner 容器日志落盘点，见第 4 节 `log_dir`）。
+5. 宿主 `/var/lib/pixiu` 目录可用（runner 容器日志固定落盘 `/var/lib/pixiu/runner-logs`，见第 4 节）。
 6. 需要 pixiu 在本机创建部署 runner 容器时，宿主还需具备 containerd 运行容器所需的 snapshotter 与网络配置（kubez-ansible 相关镜像已就绪）。
 
 ## 4. 配置 pixiu：runtime 段
@@ -47,7 +47,6 @@
 runtime:
   # 宿主容器运行时类型：docker / containerd，默认 containerd
   cri: containerd
-  log_dir: /var/lib/pixiu/runner-logs     # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
   docker:
     host: ""                              # 留空沿用 docker 默认/环境变量
   containerd:
@@ -60,7 +59,7 @@ runtime:
 - `cri` 只影响 **pixiu 拉起部署 runner 容器**时使用哪种运行时；pixiu 自身跑在 docker 还是 containerd 上与此无关。
 - `containerd.address` 必须与 `run.sh` 的 `CONTAINERD_SOCK` 指向同一路径，并且该路径要挂载进 pixiu 容器（见第 5 节）。
 - `containerd.namespace` 不要用 `k8s.io`。pixiu 的 runner 镜像必须存在于该命名空间下（containerd 的镜像存储按命名空间隔离）。
-- `log_dir` 是 runner 容器日志的落盘目录（默认 `/var/lib/pixiu/runner-logs`）。containerd 没有原生日志流，pixiu 会把 runner 容器的 stdout/stderr 写到这里，因此**必须把该目录所在路径挂载进 pixiu 容器**，否则日志只写在容器可写层、容器重建即丢。`run.sh` 默认挂载 `/var/lib/pixiu`（即 `log_dir` 的父目录，覆盖其默认值 `/var/lib/pixiu/runner-logs`）；可用 `LOG_DIR` 覆盖，但需保证该路径包含 `log_dir`。
+- containerd 没有原生日志流，pixiu 会把 runner 容器的 stdout/stderr 写到固定目录 `/var/lib/pixiu/runner-logs`（不可配置），因此**必须把 `/var/lib/pixiu` 挂载进 pixiu 容器**，否则日志只写在容器可写层、容器重建即丢。`run.sh` 已默认挂载该路径。
 
 ## 5. 部署
 
@@ -181,7 +180,7 @@ pixiu 服务端在「创建部署」时，需要在本机拉起 runner 容器（
 - 仅当**显式**配置 `cri: docker` 时，pixiu 才会去调用宿主 docker（宿主没有 docker 则 runner 创建失败）。
 - 用 containerd 时，pixiu 通过 `containerd.address` 连 socket、在 `containerd.namespace` 中创建 runner 容器；**该 socket 必须被挂载进 pixiu 容器**（run.sh 已包含），否则容器内 `/run/containerd/containerd.sock` 不存在，创建失败。
 - runner 镜像（如 kubez-ansible）需要预先存在于 `containerd.namespace` 指定的命名空间下；若宿主同时运行 Kubernetes，kubelet 使用的 `k8s.io` 命名空间中的镜像**不会**被 pixiu 直接复用，需另外导入（见 [deploy/offline/README.md](../offline/README.md)）。
-- runner 容器日志写入 `runtime.log_dir`（默认 `/var/lib/pixiu/runner-logs`），该目录需由 `/var/lib/pixiu` 卷持久化（run.sh 已包含），否则 pixiu 重启/容器重建后日志丢失。
+- runner 容器日志固定写入 `/var/lib/pixiu/runner-logs`，该目录需由 `/var/lib/pixiu` 卷持久化（run.sh 已包含），否则 pixiu 重启/容器重建后日志丢失。
 
 ## 9. 常见问题
 
@@ -195,7 +194,7 @@ pixiu 服务端在「创建部署」时，需要在本机拉起 runner 容器（
 | 桥接网络启动失败（CNI 相关报错） | 宿主缺少 `/opt/cni/bin` 插件；或直接使用默认 host 网络 |
 | 容器退出后没有自动拉起 | 确认启动时带了 `--restart=always`（`nerdctl -n default inspect <name> \| grep -i restart`）；被 `nerdctl stop` 显式停止的容器不会自动拉起 |
 | 创建部署时报无 runtime | `config.yaml` 显式写了 `cri: docker`，或 containerd socket 未挂载进 pixiu 容器 |
-| pixiu 重启/容器重建后查不到 runner 日志 | 未挂载 `/var/lib/pixiu` 卷（日志只写在容器可写层）；按第 4 节确认 `LOG_DIR` 与 `runtime.log_dir` 同目录 |
+| pixiu 重启/容器重建后查不到 runner 日志 | 未挂载 `/var/lib/pixiu` 卷（日志只写在容器可写层）；按第 4 节确认 `/var/lib/pixiu` 已挂载（日志固定写在其下 runner-logs 目录） |
 
 ## 10. 参考
 

@@ -144,7 +144,6 @@ sudo PIXIU_IMAGE=10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1 \
 ```yaml
 runtime:
   cri: containerd
-  log_dir: /var/lib/pixiu/runner-logs           # runner 容器日志目录，默认 /var/lib/pixiu/runner-logs
   containerd:
     address: /run/containerd/containerd.sock   # 与 run.sh 的 CONTAINERD_SOCK、容器内挂载路径三者一致
     namespace: default                          # 与 nerdctl -n 一致；禁止写 k8s.io

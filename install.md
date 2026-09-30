@@ -55,7 +55,6 @@ runtime:
   # 宿主容器运行时类型：docker / containerd，默认 containerd
   # 本文是 docker 部署方式，故显式写 docker；宿主改用 containerd 时删掉本行（缺省即 containerd）
   cri: docker
-  # log_dir: /var/lib/pixiu/runner-logs   # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
   #docker:                                # 仅当 cri: docker 时生效
   #  host: ""                              # 留空沿用 docker 默认/环境变量
   #containerd:                            # cri: containerd 时的可选项，整段不写即用下列默认值
@@ -101,5 +100,5 @@ sudo bash deploy/containerd/run.sh --with-mysql
 
 - `-n default` 是 nerdctl 的 containerd 命名空间，必须与 `/etc/pixiu/config.yaml` 中 `runtime.containerd.namespace` 一致，且**不要写 k8s.io**。
 - 配置文件中的 `runtime.cri` 保持默认 `containerd`（见上方「容器运行时配置」，缺省即 containerd），pixiu 才会用 containerd 拉起部署 runner 容器。
-- `-v /var/lib/pixiu:/var/lib/pixiu` 持久化 runner 容器日志（`runtime.log_dir` 默认 `/var/lib/pixiu/runner-logs`）；改了 `log_dir` 时请同步改这里的挂载路径。
+- `-v /var/lib/pixiu:/var/lib/pixiu` 用于持久化 runner 容器日志（固定写入 `/var/lib/pixiu/runner-logs`），请保持该挂载。
 - 验证与卸载命令见 [deploy/containerd/README.md](./deploy/containerd/README.md)。

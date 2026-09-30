@@ -26,7 +26,6 @@
 #   PIXIU_NAME           pixiu 容器名（默认 pixiu）
 #   MYSQL_NAME           mariadb 容器名（默认 mariadb）
 #   CONFIG_DIR           配置目录（默认 /etc/pixiu）
-#   LOG_DIR              runner 日志宿主目录（默认 /var/lib/pixiu，应包含 config 的 runtime.log_dir）
 #   CONTAINERD_SOCK      containerd socket（默认 /run/containerd/containerd.sock）
 #   CONTAINERD_NS        containerd 命名空间（默认 default；禁止 k8s.io）
 #   RESTART_POLICY       重启策略（默认 always，可选 no|always|on-failure:n|unless-stopped）
@@ -44,7 +43,6 @@ MYSQL_IMAGE="${MYSQL_IMAGE:-ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7}"
 PIXIU_NAME="${PIXIU_NAME:-pixiu}"
 MYSQL_NAME="${MYSQL_NAME:-mariadb}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/pixiu}"
-LOG_DIR="${LOG_DIR:-/var/lib/pixiu}"
 CONTAINERD_SOCK="${CONTAINERD_SOCK:-/run/containerd/containerd.sock}"
 CONTAINERD_NS="${CONTAINERD_NS:-default}"
 RESTART_POLICY="${RESTART_POLICY:-always}"
@@ -165,7 +163,7 @@ log "启动 pixiu 容器 ${PIXIU_NAME}（镜像 ${PIXIU_IMAGE}，namespace ${CON
   --name "${PIXIU_NAME}" \
   -v "${CONFIG_DIR}:${CONFIG_DIR}" \
   -v "${CONTAINERD_SOCK}:${CONTAINERD_SOCK}" \
-  -v "${LOG_DIR}:${LOG_DIR}" \
+  -v /var/lib/pixiu:/var/lib/pixiu \
   "${PIXIU_IMAGE}"
 
 log "启动完成。查看状态与日志："
