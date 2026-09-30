@@ -67,6 +67,8 @@ type Interface interface {
 	Ping(ctx context.Context, datasourceId int64) (*types.MySQLPing, error)
 	// PingAdhoc 临时探测（不落库、不缓存连接），用于创建数据源前的连通性验证；仅管理员可调用
 	PingAdhoc(ctx context.Context, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error)
+	// PingAdhocWithDatasource 使用当前表单配置，并在密码为空时补齐已保存密码。
+	PingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error)
 	Info(ctx context.Context, datasourceId int64) (*types.MySQLServerInfo, error)
 	ListDatabases(ctx context.Context, datasourceId int64) ([]types.MySQLDatabase, error)
 	ListTables(ctx context.Context, datasourceId int64, database string) ([]types.MySQLTable, error)
@@ -347,6 +349,36 @@ func (c *controller) PingAdhoc(ctx context.Context, cfg *types.MySQLSourceConfig
 	}
 	defer func() { _ = dbConn.Close() }()
 	return pingMySQL(ctx, dbConn, cfg)
+}
+
+func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
+	if datasourceId <= 0 {
+		return c.PingAdhoc(ctx, cfg)
+	}
+	if err := requireMySQLAdmin(ctx); err != nil {
+		return nil, err
+	}
+	object, err := c.factory.Datasource().Get(ctx, datasourceId)
+	if err != nil || object == nil {
+		if err != nil {
+			return nil, apierrors.ErrServerInternal
+		}
+		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
+	}
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
+		return nil, err
+	}
+	var saved types.DatasourceConfig
+	if err = saved.Unmarshal(object.Config); err != nil || saved.Mysql == nil {
+		return nil, apierrors.NewError(fmt.Errorf("invalid MySQL datasource config"), http.StatusBadRequest)
+	}
+	if cfg == nil {
+		cfg = &types.MySQLSourceConfig{}
+	}
+	if cfg.Password == "" {
+		cfg.Password = saved.Mysql.Password
+	}
+	return c.PingAdhoc(ctx, cfg)
 }
 
 // pingMySQL 执行 PING + 顺带取版本（失败不影响探测结果）

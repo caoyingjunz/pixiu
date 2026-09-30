@@ -261,6 +261,10 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 
 	updates := make(map[string]interface{})
 
+	if err = preserveDatasourcePasswords(req.Config, old.Config); err != nil {
+		klog.Errorf("failed to preserve datasource(%d) credentials: %v", req.Id, err)
+		return apierrors.ErrServerInternal
+	}
 	req.Config.Clean(req.Type, req.SubType)
 	cfg, err := req.Config.Marshal()
 	if err != nil {
@@ -446,6 +450,7 @@ func modelToType(object *model.Datasource) (*types.Datasource, error) {
 	if err := cfg.Unmarshal(object.Config); err != nil {
 		return nil, err
 	}
+	redactDatasourceConfig(&cfg)
 	return &types.Datasource{
 		PixiuMeta: types.PixiuMeta{
 			Id:              object.Id,
@@ -465,4 +470,61 @@ func modelToType(object *model.Datasource) (*types.Datasource, error) {
 		External:    object.External,
 		Description: object.Description,
 	}, nil
+}
+
+// redactDatasourceConfig removes credentials before a datasource is returned by an API.
+// The database keeps the original configuration for connection and update workflows.
+func redactDatasourceConfig(cfg *types.DatasourceConfig) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Log != nil {
+		cfg.Log.Password = ""
+	}
+	if cfg.Alert != nil {
+		cfg.Alert.Password = ""
+	}
+	if cfg.Redis != nil {
+		cfg.Redis.Password = ""
+		cfg.Redis.SentinelPassword = ""
+	}
+	if cfg.Mysql != nil {
+		cfg.Mysql.Password = ""
+	}
+	if cfg.Postgres != nil {
+		cfg.Postgres.Password = ""
+	}
+}
+
+// preserveDatasourcePasswords keeps existing credentials when an update omits them.
+// Datasource API responses redact secrets, so an unchanged frontend form submits empty values.
+func preserveDatasourcePasswords(cfg *types.DatasourceConfig, oldConfig string) error {
+	if cfg == nil {
+		return nil
+	}
+	var old types.DatasourceConfig
+	if err := old.Unmarshal(oldConfig); err != nil {
+		return err
+	}
+	if cfg.Log != nil && old.Log != nil && cfg.Log.Password == "" {
+		cfg.Log.Password = old.Log.Password
+	}
+	if cfg.Alert != nil && old.Alert != nil && cfg.Alert.Password == "" {
+		cfg.Alert.Password = old.Alert.Password
+	}
+	if cfg.Redis != nil && old.Redis != nil {
+		if cfg.Redis.Password == "" {
+			cfg.Redis.Password = old.Redis.Password
+		}
+		if cfg.Redis.SentinelPassword == "" {
+			cfg.Redis.SentinelPassword = old.Redis.SentinelPassword
+		}
+	}
+	if cfg.Mysql != nil && old.Mysql != nil && cfg.Mysql.Password == "" {
+		cfg.Mysql.Password = old.Mysql.Password
+	}
+	if cfg.Postgres != nil && old.Postgres != nil && cfg.Postgres.Password == "" {
+		cfg.Postgres.Password = old.Postgres.Password
+	}
+	return nil
 }
