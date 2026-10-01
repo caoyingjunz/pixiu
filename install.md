@@ -58,12 +58,9 @@ runtime:
   # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
   # 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket
   #socket: /run/containerd/containerd.sock
-  #containerd:                            # cri: containerd 时的可选项，整段不写即用下列默认值
-  #  # 命名空间，默认 default；禁止写 k8s.io（会污染 kubelet 视图）
-  #  namespace: default
 ```
 
-说明：宿主用 docker 部署 pixiu 时须显式写 `cri: docker`（缺省值已改为 containerd）；宿主用 containerd 时保持 `cri: containerd`（默认值，可整段不写），此时的 socket 路径、命名空间与日志目录挂载要求见 [deploy/containerd/README.md](./deploy/containerd/README.md)。
+说明：宿主用 docker 部署 pixiu 时须显式写 `cri: docker`（缺省值已改为 containerd）；宿主用 containerd 时保持 `cri: containerd`（默认值，可整段不写），此时的 socket 路径与日志目录挂载要求见文末「使用 containerd 部署」。
 
 ## 启动 pixiu
 ```bash
@@ -81,7 +78,7 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 
 宿主已运行 containerd（未安装 docker，或希望 pixiu 与 k8s 共用 containerd）时，用 nerdctl 替代 docker，参数与上方 docker 章节一一对应，**唯一差异是把 `/var/run/docker.sock` 换成 `/run/containerd/containerd.sock`**。
 
-前置条件详见 [deploy/containerd/README.md](./deploy/containerd/README.md)：containerd 运行中、nerdctl（v2.x）已安装、操作需 root。
+前置条件：宿主已安装并运行 containerd，且已安装 nerdctl（v2.x）并在 PATH 中；容器操作需 root。
 
 ```bash
 # 数据库（可选，与 docker 版参数一致）
@@ -91,15 +88,9 @@ nerdctl -n default run -d --restart=always --net host --privileged=true --name m
 nerdctl -n default run -d --restart=always --net host --privileged=true -v /etc/pixiu:/etc/pixiu -v /run/containerd/containerd.sock:/run/containerd/containerd.sock -v /var/lib/pixiu:/var/lib/pixiu --name pixiu crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
 ```
 
-也可直接使用一键脚本（含前置检查、幂等处理、`--with-mysql` 可选起库）：
-
-```bash
-sudo bash deploy/containerd/run.sh --with-mysql
-```
-
 注意：
 
-- `-n default` 是 nerdctl 的 containerd 命名空间，必须与 `/etc/pixiu/config.yaml` 中 `runtime.containerd.namespace` 一致，且**不要写 k8s.io**。
+- `-n default` 是 nerdctl 的 containerd 命名空间；pixiu 侧不再提供 namespace 配置，统一使用 containerd 默认命名空间 `default`（与 nerdctl 默认一致）。
 - 配置文件中的 `runtime.cri` 保持默认 `containerd`（见上方「容器运行时配置」，缺省即 containerd），pixiu 才会用 containerd 拉起部署 runner 容器。
 - `-v /var/lib/pixiu:/var/lib/pixiu` 用于持久化 runner 容器日志（固定写入 `/var/lib/pixiu/runner-logs`），请保持该挂载。
-- 验证与卸载命令见 [deploy/containerd/README.md](./deploy/containerd/README.md)。
+- 验证：`nerdctl -n default ps -a`、`nerdctl -n default logs -f pixiu`；卸载：`nerdctl -n default rm -f pixiu mariadb`。
