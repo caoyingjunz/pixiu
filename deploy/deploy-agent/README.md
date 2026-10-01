@@ -30,7 +30,7 @@
 ### 0. 容器运行时准备
 
 - 用 containerd：宿主需已安装并运行 containerd 与 nerdctl（Agent 只用到 containerd，不依赖 nerdctl）。
-- 用 docker：[Docker极速安装](../offline/docker.md)。
+- 用 docker：[Docker极速安装](../../docs/offline-docker.md)。
 
 ### 1. 获取 Token
 

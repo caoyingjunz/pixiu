@@ -57,7 +57,7 @@ docker pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-pub
 docker stop pixiu
 docker rm pixiu
 
-# 参数与 install.md 保持一致，仅替换镜像版本
+# 参数与 README.md 保持一致，仅替换镜像版本
 docker run -d --net host --restart=always --privileged=true \
   -v /etc/pixiu:/etc/pixiu \
   -v /var/run/docker.sock:/var/run/docker.sock \

@@ -10,7 +10,7 @@ metadata:
   labels:
     app.kubernetes.io/name: pixiu
 ---
-# 对应 install.md 中 /etc/pixiu/config.yaml
+# 对应 README.md 中 /etc/pixiu/config.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -44,7 +44,7 @@ data:
       port: 3306
       name: pixiu
 ---
-# 对应 install.md「启动 pixiu 服务端」
+# 对应 README.md「启动 pixiu 服务端」
 apiVersion: apps/v1
 kind: Deployment
 metadata:

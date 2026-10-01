@@ -1,4 +1,4 @@
-# Docker 快速安装
+# Docker 离线安装
 
 ### 获取安装包
 - Docker 安装包 获取 [Docker 基础包](https://github.com/offline-hub/repo/releases/tag/download)
