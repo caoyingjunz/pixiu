@@ -84,7 +84,7 @@ func newContainerdRuntime(opts config.RuntimeOptions) (*containerdRuntime, error
 	// 即 namespaces.Default（"default"，与 nerdctl/ctr 默认命名空间一致）
 	cli, err := containerd.New(address, containerd.WithDefaultNamespace(namespaces.Default))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("连接 containerd 失败（%s）：%v；请确认 containerd 正在运行、socket 已挂载进 pixiu 容器，或将 runtime.cri 显式配置为 docker", address, err)
 	}
 
 	return &containerdRuntime{client: cli}, nil

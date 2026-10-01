@@ -18,6 +18,8 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -243,8 +245,30 @@ func (d *dockerRuntime) PullImage(ctx context.Context, ref string) error {
 	}
 	defer reader.Close()
 
-	_, err = io.Copy(io.Discard, reader)
-	return err
+	// docker 拉取错误以 JSON 行内嵌在 200 响应流中（errorDetail，如 unauthorized、
+	// manifest unknown），只吞字节数会把失败当成功，到 ContainerCreate 才暴露
+	dec := json.NewDecoder(reader)
+	for {
+		var msg struct {
+			Error       string `json:"error"`
+			ErrorDetail struct {
+				Message string `json:"message"`
+			} `json:"errorDetail"`
+		}
+		if err := dec.Decode(&msg); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		if msg.ErrorDetail.Message != "" || msg.Error != "" {
+			m := msg.ErrorDetail.Message
+			if m == "" {
+				m = msg.Error
+			}
+			return fmt.Errorf("拉取镜像(%s)失败: %s", ref, m)
+		}
+	}
 }
 
 func (d *dockerRuntime) RemoveImage(ctx context.Context, ref string) error {
