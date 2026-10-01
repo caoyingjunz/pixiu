@@ -164,7 +164,6 @@ func (w WorkerOptions) Valid() error {
 }
 
 // RuntimeOptions 宿主容器运行时配置（pixiu 调用本机运行时拉起 runner 容器）。
-// 注意：这是宿主运行时，与被部署集群的 CRI（plan.Config.CRI）不是一回事。
 type RuntimeOptions struct {
 	CRI        string                   `yaml:"cri"` // docker | containerd，默认 containerd
 	Docker     DockerRuntimeOptions     `yaml:"docker"`
