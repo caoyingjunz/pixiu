@@ -5,6 +5,7 @@
 
 # 安装 Pixiu
 [基于 containerd 安装](containerd-install.md)
+
 [基于 docker 安装](docker-install.md)
 
 ## 登陆 pixiu
