@@ -2,8 +2,6 @@ name: Publish pixiu-server image
 
 on:
   push:
-    branches:
-      - "master"
     paths-ignore:
       - 'docs/**'
       - 'cmd/cluster-agent/**'
