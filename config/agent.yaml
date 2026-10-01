@@ -19,11 +19,13 @@ default:
   # 缺省 containerd，不配置即使用 containerd；仅当本机只有 docker 时才改为 cri: docker
   runtime:
     # 运行时类型：docker / containerd，默认 containerd
-    # 也可用环境变量 PIXIU_RUNTIME_CRI 指定；socket、containerd.namespace 仅走配置文件
+    # 也可用环境变量 PIXIU_RUNTIME_CRI 指定；docker.host、containerd 子项仅走配置文件
     cri: containerd
-    # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
-    # 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket
-    #socket: /run/containerd/containerd.sock
+    #docker:                # 仅当 cri: docker 时生效
+    #  # 留空沿用 docker 环境变量/默认 socket
+    #  host: ""
     #containerd:            # cri: containerd 时的可选项，整段不写即用下列默认值
+    #  # containerd gRPC socket 地址
+    #  address: /run/containerd/containerd.sock
     #  # 命名空间，默认 default；禁止使用 k8s.io（kubelet 工作区，会被拒绝）
     #  namespace: default

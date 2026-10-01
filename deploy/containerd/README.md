@@ -47,17 +47,17 @@
 runtime:
   # 宿主容器运行时类型：docker / containerd，默认 containerd
   cri: containerd
-  # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
-  # 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket
-  socket: /run/containerd/containerd.sock
+  docker:
+    host: ""                              # 留空沿用 docker 默认/环境变量
   containerd:
+    address: /run/containerd/containerd.sock
     namespace: default                    # 默认 default；禁止写 k8s.io（会污染 kubelet 视图）
 ```
 
 要点：
 
 - `cri` 只影响 **pixiu 拉起部署 runner 容器**时使用哪种运行时；pixiu 自身跑在 docker 还是 containerd 上与此无关。
-- `runtime.socket` 必须与 `run.sh` 的 `CONTAINERD_SOCK` 指向同一路径（均为裸路径，不要写 unix:// 前缀），并且该路径要挂载进 pixiu 容器（见第 5 节）。
+- `containerd.address` 必须与 `run.sh` 的 `CONTAINERD_SOCK` 指向同一路径，并且该路径要挂载进 pixiu 容器（见第 5 节）。
 - `containerd.namespace` 不要用 `k8s.io`。pixiu 的 runner 镜像必须存在于该命名空间下（containerd 的镜像存储按命名空间隔离）。
 - containerd 没有原生日志流，pixiu 会把 runner 容器的 stdout/stderr 写到固定目录 `/var/lib/pixiu/runner-logs`（不可配置），因此**必须把 `/var/lib/pixiu` 挂载进 pixiu 容器**，否则日志只写在容器可写层、容器重建即丢。`run.sh` 已默认挂载该路径。
 
@@ -178,7 +178,7 @@ pixiu 服务端在「创建部署」时，需要在本机拉起 runner 容器（
 
 - `runtime.cri` 缺省即 `containerd`，所以**不写 runtime 段（或只写 `cri: containerd`）时，pixiu 就会用 containerd 拉起 runner**。
 - 仅当**显式**配置 `cri: docker` 时，pixiu 才会去调用宿主 docker（宿主没有 docker 则 runner 创建失败）。
-- 用 containerd 时，pixiu 通过 `runtime.socket` 连 socket、在 `containerd.namespace` 中创建 runner 容器；**该 socket 必须被挂载进 pixiu 容器**（run.sh 已包含），否则容器内 `/run/containerd/containerd.sock` 不存在，创建失败。
+- 用 containerd 时，pixiu 通过 `containerd.address` 连 socket、在 `containerd.namespace` 中创建 runner 容器；**该 socket 必须被挂载进 pixiu 容器**（run.sh 已包含），否则容器内 `/run/containerd/containerd.sock` 不存在，创建失败。
 - runner 镜像（如 kubez-ansible）需要预先存在于 `containerd.namespace` 指定的命名空间下；若宿主同时运行 Kubernetes，kubelet 使用的 `k8s.io` 命名空间中的镜像**不会**被 pixiu 直接复用，需另外导入（见 [deploy/offline/README.md](../offline/README.md)）。
 - runner 容器日志固定写入 `/var/lib/pixiu/runner-logs`，该目录需由 `/var/lib/pixiu` 卷持久化（run.sh 已包含），否则 pixiu 重启/容器重建后日志丢失。
 
