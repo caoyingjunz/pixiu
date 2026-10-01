@@ -739,8 +739,10 @@ type EventOptions struct {
 }
 
 type PodLogOptions struct {
-	Container string `form:"container"`
-	TailLines int64  `form:"tailLines"`
+	Container  string `form:"container"`
+	TailLines  int64  `form:"tailLines"`
+	SinceTime  string `form:"sinceTime"`
+	Timestamps bool   `form:"timestamps"`
 }
 
 // PodFileOptions query for pod file browse APIs.
