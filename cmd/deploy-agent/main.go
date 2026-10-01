@@ -44,7 +44,7 @@ func main() {
 	}
 	server, token, workRoot, rtOpts := cfg.Resolve()
 	rtOpts.SetDefaults()
-	// 校验运行时配置（与主服务一致：拒绝 containerd + k8s.io 命名空间等非法取值）
+	// 校验运行时配置（与主服务一致：拒绝非法 CRI、带协议前缀或非绝对路径的 socket）
 	if err = rtOpts.Valid(); err != nil {
 		klog.Fatalf("Failed to validate container runtime config: %v", err)
 	}

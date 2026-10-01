@@ -69,8 +69,7 @@ type logEntry struct {
 var containerLogs sync.Map // 容器名 -> *logEntry
 
 type containerdRuntime struct {
-	client    *containerd.Client
-	namespace string
+	client *containerd.Client
 }
 
 func newContainerdRuntime(opts config.RuntimeOptions) (*containerdRuntime, error) {
@@ -78,24 +77,17 @@ func newContainerdRuntime(opts config.RuntimeOptions) (*containerdRuntime, error
 	if address == "" {
 		return nil, fmt.Errorf("containerd 运行时缺少 socket 路径配置(runtime.socket)")
 	}
-	namespace := opts.Containerd.Namespace
-	if namespace == "" {
-		return nil, fmt.Errorf("containerd 运行时缺少 namespace 配置")
-	}
 
 	// containerd.New 内部用 grpc.WithBlock + 10s 超时同步拨号（containerd v1.7 client.go），
 	// socket 不可用时这里就会返回错误，因此本函数（进而 Init）确实是 fail-fast
-	cli, err := containerd.New(address, containerd.WithDefaultNamespace(namespace))
+	// namespace 不再暴露为配置：统一交给 containerd 客户端的默认机制落位，
+	// 即 namespaces.Default（"default"，与 nerdctl/ctr 默认命名空间一致）
+	cli, err := containerd.New(address, containerd.WithDefaultNamespace(namespaces.Default))
 	if err != nil {
 		return nil, err
 	}
 
-	return &containerdRuntime{client: cli, namespace: namespace}, nil
-}
-
-// nsCtx 每个方法入口显式注入 namespace，不依赖 WithDefaultNamespace 的隐式兜底，避免语义混用
-func (c *containerdRuntime) nsCtx(ctx context.Context) context.Context {
-	return namespaces.WithNamespace(ctx, c.namespace)
+	return &containerdRuntime{client: cli}, nil
 }
 
 func (c *containerdRuntime) Kind() Kind {
@@ -120,8 +112,6 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 	if err != nil {
 		return fmt.Errorf("非法的镜像名(%s): %v", spec.Image, err)
 	}
-
-	ctx = c.nsCtx(ctx)
 
 	// 已经存在，则先删除运行的容器
 	if err := c.RemoveContainer(ctx, spec.Name); err != nil {
@@ -301,7 +291,6 @@ func (c *containerdRuntime) removeOrphanSnapshot(ctx context.Context, key string
 func (c *containerdRuntime) cleanupTaskAndContainer(name string, task containerd.Task, container containerd.Container, running bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), containerdCleanupTimeout)
 	defer cancel()
-	ctx = c.nsCtx(ctx)
 
 	if task != nil {
 		if err := deleteTask(ctx, task, running); err != nil {
@@ -315,8 +304,6 @@ func (c *containerdRuntime) cleanupTaskAndContainer(name string, task containerd
 
 // RemoveContainer 停止并删除同名容器；容器不存在时返回 nil
 func (c *containerdRuntime) RemoveContainer(ctx context.Context, name string) error {
-	ctx = c.nsCtx(ctx)
-
 	container, err := c.client.LoadContainer(ctx, name)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
@@ -401,7 +388,7 @@ func (c *containerdRuntime) Logs(ctx context.Context, name string, follow bool) 
 // 否则日志流只能等到客户端断开或 ctx 结束，SSE 会一直挂着。
 func (c *containerdRuntime) goneChecker(name string) func(context.Context) (bool, error) {
 	return func(ctx context.Context) (bool, error) {
-		if _, err := c.client.LoadContainer(c.nsCtx(ctx), name); err != nil {
+		if _, err := c.client.LoadContainer(ctx, name); err != nil {
 			if errdefs.IsNotFound(err) {
 				return true, nil
 			}
@@ -416,7 +403,6 @@ func (c *containerdRuntime) ImageExists(ctx context.Context, ref string) (bool, 
 	if err != nil {
 		return false, err
 	}
-	ctx = c.nsCtx(ctx)
 
 	if _, err := c.client.GetImage(ctx, imageRef); err != nil {
 		if errdefs.IsNotFound(err) {
@@ -432,7 +418,6 @@ func (c *containerdRuntime) PullImage(ctx context.Context, ref string) error {
 	if err != nil {
 		return err
 	}
-	ctx = c.nsCtx(ctx)
 
 	// WithPullUnpack 必须带：不解包则后续 WithNewSnapshot 无法创建 snapshot
 	img, err := c.client.Pull(ctx, imageRef, containerd.WithPullUnpack)
@@ -449,7 +434,6 @@ func (c *containerdRuntime) RemoveImage(ctx context.Context, ref string) error {
 	if err != nil {
 		return err
 	}
-	ctx = c.nsCtx(ctx)
 
 	return c.client.ImageService().Delete(ctx, imageRef)
 }

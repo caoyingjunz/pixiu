@@ -170,12 +170,7 @@ type RuntimeOptions struct {
 	CRI string `yaml:"cri"` // docker | containerd，默认 containerd
 	// Socket 宿主运行时 socket 文件路径（裸路径，如 /run/containerd/containerd.sock）。
 	// 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket。
-	Socket     string                   `yaml:"socket"`
-	Containerd ContainerdRuntimeOptions `yaml:"containerd"`
-}
-
-type ContainerdRuntimeOptions struct {
-	Namespace string `yaml:"namespace"` // 默认 default；禁止 k8s.io
+	Socket string `yaml:"socket"`
 }
 
 // defaultContainerdSocket containerd 的默认 socket 路径（runtime.socket 留空且 CRI 为 containerd 时使用）
@@ -189,18 +184,11 @@ func (o *RuntimeOptions) SetDefaults() {
 	if o.Socket == "" && o.CRI == "containerd" {
 		o.Socket = defaultContainerdSocket
 	}
-	if o.Containerd.Namespace == "" {
-		o.Containerd.Namespace = "default"
-	}
 }
 
 func (o RuntimeOptions) Valid() error {
 	if o.CRI != "docker" && o.CRI != "containerd" {
 		return fmt.Errorf("runtime.cri 取值非法(%s)，可选值: docker, containerd", o.CRI)
-	}
-	// k8s.io 命名空间是 kubelet 的工作区，在其中创建容器会污染 kubelet 视图，禁止使用
-	if o.CRI == "containerd" && o.Containerd.Namespace == "k8s.io" {
-		return fmt.Errorf("runtime.containerd.namespace 禁止使用 k8s.io，会污染 kubelet 视图")
 	}
 	if o.Socket != "" {
 		if strings.Contains(o.Socket, "://") {
