@@ -77,6 +77,12 @@ default:
   admin_user: admin
   admin_password: Pixiu123456!
 
+runtime:
+  # 宿主容器运行时类型：docker / containerd，默认 containerd；docker 部署须显式写 docker
+  cri: docker
+  # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
+  #socket: /run/containerd/containerd.sock
+
 # 数据库地址信息, 根据实际情况配置
 mysql:
   host: 10.206.32.8
@@ -94,7 +100,7 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 
 #### containerd 环境差异（宿主使用 containerd 而非 docker 时）
 
-前置：宿主需已安装并运行 `containerd`，且已安装 `nerdctl`（v2.x，解压官方发布包后放到 `/usr/local/bin`，`nerdctl version` 自检），容器操作需 root。命令与 docker 版逐条对应，差异集中在**镜像导入的命名空间**与**socket 挂载**两点，完整说明见 [deploy/containerd/README.md](../containerd/README.md)。
+前置：宿主需已安装并运行 `containerd`，且已安装 `nerdctl`（v2.x，解压官方发布包后放到 `/usr/local/bin`，`nerdctl version` 自检），容器操作需 root。命令与 docker 版逐条对应，差异集中在**镜像导入的命名空间**、**socket 挂载**与**配置中的 `runtime.cri`** 三点（见下文第 3 步）。
 
 1）导出/导入镜像：containerd 的镜像存储按命名空间隔离，导出与导入都要指定同一命名空间。
 
@@ -120,7 +126,7 @@ sudo nerdctl -n default images                        # 确认已导入
 - 给 kubelet 用的 k8s 集群运行时镜像走另一条路：`sudo ctr -n k8s.io images import`（如 `zcat images-export/images/*.tar.gz | sudo ctr -n k8s.io images import -`）。它与 pixiu 容器所用的 `default` 命名空间不是一回事，不要混用，也不要指望 pixiu 复用 k8s.io 里的镜像。
 - 私有仓库为 HTTP/自签证书时，nerdctl 需加全局 `--insecure-registry`（如 `sudo nerdctl --insecure-registry pull 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1`）。
 
-2）启动：把 `/var/run/docker.sock` 换成 `/run/containerd/containerd.sock`，`--restart=always` 等参数不变；额外加一个 `/var/lib/pixiu` 卷持久化 runner 容器日志（containerd 无原生日志流，见 [deploy/containerd/README.md](../containerd/README.md) 第 4 节）。
+2）启动：把 `/var/run/docker.sock` 换成 `/run/containerd/containerd.sock`，`--restart=always` 等参数不变；额外加一个 `/var/lib/pixiu` 卷持久化 runner 容器日志（containerd 无原生日志流，pixiu 会把 runner 容器日志固定写到 `/var/lib/pixiu/runner-logs`，不挂载则容器重建后丢失）。
 
 ```bash
 # 数据库
@@ -130,23 +136,12 @@ sudo nerdctl -n default run -d --restart=always --net host --privileged=true --n
 sudo nerdctl -n default run -d --restart=always --net host --privileged=true -v /etc/pixiu:/etc/pixiu -v /run/containerd/containerd.sock:/run/containerd/containerd.sock -v /var/lib/pixiu:/var/lib/pixiu --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1
 ```
 
-也可用一键脚本并覆盖为离线私仓地址：
-
-```bash
-sudo PIXIU_IMAGE=10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1 \
-     MYSQL_IMAGE=10.206.32.8:5000/pixiu/mysql:5.7 \
-     INSECURE_REGISTRY=1 \
-     bash deploy/containerd/run.sh --with-mysql
-```
-
 3）配置：`/etc/pixiu/config.yaml` 中把运行时指向 containerd，pixiu 才会用 containerd 拉起部署 runner 容器（默认 containerd，不配置即使用 containerd）。
 
 ```yaml
 runtime:
   cri: containerd
-  containerd:
-    address: /run/containerd/containerd.sock   # 与 run.sh 的 CONTAINERD_SOCK、容器内挂载路径三者一致
-    namespace: default                          # 与 nerdctl -n 一致；禁止写 k8s.io
+  #socket: /run/containerd/containerd.sock   # 与上方 run 命令中挂载的 socket 路径一致；留空即默认此路径
 ```
 
 4）验证与卸载：

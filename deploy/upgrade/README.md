@@ -6,8 +6,8 @@
 
 > **存量升级注意：运行时缺省值变更**
 >
-> 本版本起 `runtime.cri` 缺省为 containerd，且 pixiu 启动时连不上该运行时将直接报错退出。
-> **docker 部署的存量环境**（docker-compose 与手动 `docker run`）升级前，请先在 `/etc/pixiu/config.yaml` 增加 `runtime.cri: docker`，否则 pixiu 会因连不上 containerd 启动失败（报错信息会提示）。
+> 本版本起 `runtime.cri` 缺省为 containerd，且 pixiu 启动时会连接宿主 containerd，连不上即**启动报错退出**（报错信息会提示检查 socket 路径或改配 `cri: docker`）；docker 运行时为懒连接，首次执行部署才报错。
+> **docker 部署的存量环境**（docker-compose 与手动 `docker run`）升级前，请先在 `/etc/pixiu/config.yaml` 增加 `runtime.cri: docker`，否则 pixiu 会因连不上 containerd 启动失败。
 > 宿主本就使用 containerd 的部署无需改动。
 
 ## 基于 docker-compose 安装
@@ -67,7 +67,7 @@ docker run -d --net host --restart=always --privileged=true \
 
 ## 基于 containerd 安装（nerdctl）
 
-若宿主当初是用 `deploy/containerd/run.sh`（nerdctl/containerd）部署的，升级步骤同理，只是把 `docker` 换成 `nerdctl`、`docker.sock` 换成 `containerd.sock`，并保留 runner 日志卷 `/var/lib/pixiu`：
+若宿主当初是用 nerdctl/containerd 手工部署的，升级步骤同理，只是把 `docker` 换成 `nerdctl`、`docker.sock` 换成 `containerd.sock`，并保留 runner 日志卷 `/var/lib/pixiu`：
 
 ```bash
 # 1) 拉取新版本镜像（tag 换成目标版本）
@@ -76,7 +76,7 @@ sudo nerdctl -n default pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyu
 # 2) 删除旧容器
 sudo nerdctl -n default rm -f pixiu
 
-# 3) 按原参数重建（参数与 deploy/containerd/README.md 第 5 节一致，仅替换镜像 tag）
+# 3) 按原参数重建（参数与当初 nerdctl 手工部署时一致，仅替换镜像 tag）
 sudo nerdctl -n default run -d --restart=always --net host --privileged \
   -v /etc/pixiu:/etc/pixiu \
   -v /run/containerd/containerd.sock:/run/containerd/containerd.sock \
@@ -85,11 +85,4 @@ sudo nerdctl -n default run -d --restart=always --net host --privileged \
   crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
 ```
 
-也可直接用脚本重建（脚本默认镜像 tag 见 `deploy/containerd/run.sh` 头部，或用 `PIXIU_IMAGE` 覆盖）：
-
-```bash
-sudo PIXIU_IMAGE=crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1 \
-     bash deploy/containerd/run.sh --recreate
-```
-
-说明：`/etc/pixiu`（含 `runtime.cri` 等配置）与数据库数据不受影响；沿用旧配置即可，无需为本步改动运行时配置。
+说明：`/etc/pixiu` 配置目录与数据库数据不受影响；沿用旧配置即可，无需为本步改动运行时配置。

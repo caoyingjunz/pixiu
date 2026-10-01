@@ -38,6 +38,12 @@ default:
   admin_user: admin
   admin_password: Pixiu123456!
 
+runtime:
+  # 宿主容器运行时类型：docker / containerd，默认 containerd；docker 部署须显式写 docker
+  cri: docker
+  # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
+  #socket: /run/containerd/containerd.sock
+
 # 数据库地址信息, 根据实际情况配置
 mysql:
   host: pixiu # 数据库的ip
@@ -47,20 +53,12 @@ mysql:
   name: pixiu
 ```
 
-### 容器运行时配置（可选）
-pixiu 会在部署节点上拉起 runner 容器（kubez-ansible），其使用的容器运行时由以下配置决定；**默认 containerd，不配置即使用 containerd**：
+### 容器运行时配置说明
+pixiu 会在部署节点上拉起 runner 容器（kubez-ansible），其使用的容器运行时由主配置样例中的 `runtime` 段决定：**默认 containerd，不配置即使用 containerd**。
 
-```yaml
-runtime:
-  # 宿主容器运行时类型：docker / containerd，默认 containerd
-  # 本文是 docker 部署方式，故显式写 docker；宿主改用 containerd 时删掉本行（缺省即 containerd）
-  cri: docker
-  # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
-  # 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket
-  #socket: /run/containerd/containerd.sock
-```
-
-说明：宿主用 docker 部署 pixiu 时须显式写 `cri: docker`（缺省值已改为 containerd）；宿主用 containerd 时保持 `cri: containerd`（默认值，可整段不写），此时的 socket 路径与日志目录挂载要求见文末「使用 containerd 部署」。
+- 本文是 docker 部署方式，样例中已显式写 `runtime.cri: docker`；宿主改用 containerd 时将其改为 `containerd`（或删除该行，使用缺省值）。
+- `runtime.socket` 只支持裸路径（不要写 `unix://` 前缀）：留空时 containerd 使用 `/run/containerd/containerd.sock`，docker 沿用 `DOCKER_HOST`/默认 socket。
+- 宿主用 containerd 时的 socket 路径与日志目录挂载要求见文末「使用 containerd 部署」。
 
 ## 启动 pixiu
 ```bash
@@ -76,7 +74,7 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 
 # 使用 containerd 部署（可选）
 
-宿主已运行 containerd（未安装 docker，或希望 pixiu 与 k8s 共用 containerd）时，用 nerdctl 替代 docker，参数与上方 docker 章节一一对应，**唯一差异是把 `/var/run/docker.sock` 换成 `/run/containerd/containerd.sock`**。
+宿主已运行 containerd（未安装 docker，或希望 pixiu 与 k8s 共用 containerd）时，用 nerdctl 替代 docker，参数与上方 docker 章节一一对应，**差异两点：一是 socket 挂载把 `/var/run/docker.sock` 换成 `/run/containerd/containerd.sock`，二是配置中 `runtime.cri` 不能是 docker**（保持默认 `containerd`，见下方注意）。
 
 前置条件：宿主已安装并运行 containerd，且已安装 nerdctl（v2.x）并在 PATH 中；容器操作需 root。
 
@@ -91,6 +89,6 @@ nerdctl -n default run -d --restart=always --net host --privileged=true -v /etc/
 注意：
 
 - `-n default` 是 nerdctl 的 containerd 命名空间；pixiu 侧不再提供 namespace 配置，统一使用 containerd 默认命名空间 `default`（与 nerdctl 默认一致）。
-- 配置文件中的 `runtime.cri` 保持默认 `containerd`（见上方「容器运行时配置」，缺省即 containerd），pixiu 才会用 containerd 拉起部署 runner 容器。
+- 配置文件中的 `runtime.cri` 保持默认 `containerd`（见上方「容器运行时配置说明」，缺省即 containerd），pixiu 才会用 containerd 拉起部署 runner 容器。
 - `-v /var/lib/pixiu:/var/lib/pixiu` 用于持久化 runner 容器日志（固定写入 `/var/lib/pixiu/runner-logs`），请保持该挂载。
 - 验证：`nerdctl -n default ps -a`、`nerdctl -n default logs -f pixiu`；卸载：`nerdctl -n default rm -f pixiu mariadb`。
