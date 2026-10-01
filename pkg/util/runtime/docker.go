@@ -38,9 +38,10 @@ type dockerRuntime struct {
 
 func newDockerRuntime(opts config.RuntimeOptions) (*dockerRuntime, error) {
 	clientOpts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
-	// 显式配置了 Host 时覆盖环境变量/默认 socket
-	if opts.Docker.Host != "" {
-		clientOpts = append(clientOpts, client.WithHost(opts.Docker.Host))
+	// 配置层统一裸 socket 路径；docker SDK 的 host 需要 unix:// URL，这里补前缀。
+	// 留空时不覆盖，沿用 DOCKER_HOST 环境变量/默认 socket。
+	if opts.Socket != "" {
+		clientOpts = append(clientOpts, client.WithHost("unix://"+opts.Socket))
 	}
 
 	cli, err := client.NewClientWithOpts(clientOpts...)

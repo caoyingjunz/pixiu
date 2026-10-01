@@ -55,11 +55,12 @@ runtime:
   # 宿主容器运行时类型：docker / containerd，默认 containerd
   # 本文是 docker 部署方式，故显式写 docker；宿主改用 containerd 时删掉本行（缺省即 containerd）
   cri: docker
-  #docker:                                # 仅当 cri: docker 时生效
-  #  host: ""                              # 留空沿用 docker 默认/环境变量
+  # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
+  # 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket
+  #socket: /run/containerd/containerd.sock
   #containerd:                            # cri: containerd 时的可选项，整段不写即用下列默认值
-  #  address: /run/containerd/containerd.sock
-  #  namespace: default                    # 默认 default；禁止写 k8s.io（会污染 kubelet 视图）
+  #  # 命名空间，默认 default；禁止写 k8s.io（会污染 kubelet 视图）
+  #  namespace: default
 ```
 
 说明：宿主用 docker 部署 pixiu 时须显式写 `cri: docker`（缺省值已改为 containerd）；宿主用 containerd 时保持 `cri: containerd`（默认值，可整段不写），此时的 socket 路径、命名空间与日志目录挂载要求见 [deploy/containerd/README.md](./deploy/containerd/README.md)。

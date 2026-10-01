@@ -74,9 +74,9 @@ type containerdRuntime struct {
 }
 
 func newContainerdRuntime(opts config.RuntimeOptions) (*containerdRuntime, error) {
-	address := opts.Containerd.Address
+	address := opts.Socket
 	if address == "" {
-		return nil, fmt.Errorf("containerd 运行时缺少 address 配置")
+		return nil, fmt.Errorf("containerd 运行时缺少 socket 路径配置(runtime.socket)")
 	}
 	namespace := opts.Containerd.Namespace
 	if namespace == "" {

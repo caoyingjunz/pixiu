@@ -18,6 +18,8 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 )
@@ -165,26 +167,27 @@ func (w WorkerOptions) Valid() error {
 
 // RuntimeOptions 宿主容器运行时配置（pixiu 调用本机运行时拉起 runner 容器）。
 type RuntimeOptions struct {
-	CRI        string                   `yaml:"cri"` // docker | containerd，默认 containerd
-	Docker     DockerRuntimeOptions     `yaml:"docker"`
+	CRI string `yaml:"cri"` // docker | containerd，默认 containerd
+	// Socket 宿主运行时 socket 文件路径（裸路径，如 /run/containerd/containerd.sock）。
+	// 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket。
+	Socket     string                   `yaml:"socket"`
 	Containerd ContainerdRuntimeOptions `yaml:"containerd"`
 }
 
-type DockerRuntimeOptions struct {
-	Host string `yaml:"host"` // 留空沿用 docker 环境变量/默认 socket
-}
-
 type ContainerdRuntimeOptions struct {
-	Address   string `yaml:"address"`   // 默认 /run/containerd/containerd.sock
 	Namespace string `yaml:"namespace"` // 默认 default；禁止 k8s.io
 }
+
+// defaultContainerdSocket containerd 的默认 socket 路径（runtime.socket 留空且 CRI 为 containerd 时使用）
+const defaultContainerdSocket = "/run/containerd/containerd.sock"
 
 func (o *RuntimeOptions) SetDefaults() {
 	if o.CRI == "" {
 		o.CRI = "containerd"
 	}
-	if o.Containerd.Address == "" {
-		o.Containerd.Address = "/run/containerd/containerd.sock"
+	// socket 默认值仅 containerd 有固定路径；docker 留空表示沿用 DOCKER_HOST/默认 socket
+	if o.Socket == "" && o.CRI == "containerd" {
+		o.Socket = defaultContainerdSocket
 	}
 	if o.Containerd.Namespace == "" {
 		o.Containerd.Namespace = "default"
@@ -198,6 +201,14 @@ func (o RuntimeOptions) Valid() error {
 	// k8s.io 命名空间是 kubelet 的工作区，在其中创建容器会污染 kubelet 视图，禁止使用
 	if o.CRI == "containerd" && o.Containerd.Namespace == "k8s.io" {
 		return fmt.Errorf("runtime.containerd.namespace 禁止使用 k8s.io，会污染 kubelet 视图")
+	}
+	if o.Socket != "" {
+		if strings.Contains(o.Socket, "://") {
+			return fmt.Errorf("runtime.socket 只支持裸 socket 路径(%s)，请去掉 unix:// 等协议前缀", o.Socket)
+		}
+		if !filepath.IsAbs(o.Socket) {
+			return fmt.Errorf("runtime.socket 必须是绝对路径(%s)", o.Socket)
+		}
 	}
 
 	return nil

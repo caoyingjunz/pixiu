@@ -116,8 +116,8 @@ if grep -Eq '^[[:space:]]*cri:[[:space:]]*"?docker"?([[:space:]]|$)' "${CONFIG_F
   log "      如需在本机使用 containerd 拉起 runner，请将该配置改为 containerd（或删除该行使用默认值）后重启 pixiu："
   log "        runtime:"
   log "          cri: containerd"
+  log "          socket: ${CONTAINERD_SOCK}"
   log "          containerd:"
-  log "            address: ${CONTAINERD_SOCK}"
   log "            namespace: ${CONTAINERD_NS}"
 else
   log "配置检查: runtime.cri=containerd（显式配置或默认值）"
