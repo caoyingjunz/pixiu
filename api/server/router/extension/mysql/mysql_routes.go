@@ -31,6 +31,11 @@ type databaseOptions struct {
 	Database string `form:"database" binding:"required"`
 }
 
+type pingMySQLRequest struct {
+	DatasourceId int64 `json:"datasource_id"`
+	types.MySQLSourceConfig
+}
+
 type tableOptions struct {
 	Database string `form:"database" binding:"required"`
 	Table    string `form:"table" binding:"required"`
@@ -55,14 +60,14 @@ func (mr *mysqlRouter) pingMySQLAdhoc(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		req types.MySQLSourceConfig
+		req pingMySQLRequest
 		err error
 	)
 	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = mr.c.Extension().Mysql().PingAdhoc(c, &req); err != nil {
+	if r.Result, err = mr.c.Extension().Mysql().PingAdhocWithDatasource(c, req.DatasourceId, &req.MySQLSourceConfig); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
