@@ -17,6 +17,10 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
+	"path/filepath"
+	"strings"
+
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 )
 
@@ -39,6 +43,7 @@ type Config struct {
 	Log         LogOptions              `yaml:"log"`
 	TLS         TLSOptions              `yaml:"tls"`
 	KubeGateway KubeGatewayOptions      `yaml:"kube_gateway"`
+	Runtime     RuntimeOptions          `yaml:"runtime"`
 
 	AlertHistory jobmanager.AlertHistoryOptions `yaml:"alert"`
 	// CronHpaHistory 定时扩缩容执行历史清理配置
@@ -160,6 +165,43 @@ func (w WorkerOptions) Valid() error {
 	return nil
 }
 
+// RuntimeOptions 宿主容器运行时配置（pixiu 调用本机运行时拉起 runner 容器）。
+type RuntimeOptions struct {
+	CRI string `yaml:"cri"` // docker | containerd，默认 containerd
+	// Socket 宿主运行时 socket 文件路径（裸路径，如 /run/containerd/containerd.sock）。
+	// 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket。
+	Socket string `yaml:"socket"`
+}
+
+// defaultContainerdSocket containerd 的默认 socket 路径（runtime.socket 留空且 CRI 为 containerd 时使用）
+const defaultContainerdSocket = "/run/containerd/containerd.sock"
+
+func (o *RuntimeOptions) SetDefaults() {
+	if o.CRI == "" {
+		o.CRI = "containerd"
+	}
+	// socket 默认值仅 containerd 有固定路径；docker 留空表示沿用 DOCKER_HOST/默认 socket
+	if o.Socket == "" && o.CRI == "containerd" {
+		o.Socket = defaultContainerdSocket
+	}
+}
+
+func (o RuntimeOptions) Valid() error {
+	if o.CRI != "docker" && o.CRI != "containerd" {
+		return fmt.Errorf("runtime.cri 取值非法(%s)，可选值: docker, containerd", o.CRI)
+	}
+	if o.Socket != "" {
+		if strings.Contains(o.Socket, "://") {
+			return fmt.Errorf("runtime.socket 只支持裸 socket 路径(%s)，请去掉 unix:// 等协议前缀", o.Socket)
+		}
+		if !filepath.IsAbs(o.Socket) {
+			return fmt.Errorf("runtime.socket 必须是绝对路径(%s)", o.Socket)
+		}
+	}
+
+	return nil
+}
+
 func (c *Config) Valid() (err error) {
 	if err = c.Default.Valid(); err != nil {
 		return
@@ -178,6 +220,10 @@ func (c *Config) Valid() (err error) {
 		return
 	}
 	c.TLS.SetDefaults()
+	c.Runtime.SetDefaults()
+	if err = c.Runtime.Valid(); err != nil {
+		return
+	}
 
 	return
 }

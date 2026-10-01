@@ -19,8 +19,6 @@ package plan
 import (
 	"context"
 	"time"
-
-	"github.com/caoyingjunz/pixiu/pkg/util/container"
 )
 
 type BootStrap struct {
@@ -35,20 +33,10 @@ func (b BootStrap) Name() string      { return "初始化部署环境" }
 func (b BootStrap) GetAction() string { return "bootstrap-servers" } // action 和底层 kubez-ansible 保持一致 https://github.com/pixiu-io/kubez-ansible/blob/master/tools/kubez-ansible#L260
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b BootStrap) Run() error {
-	cli, err := container.NewContainer(b.GetAction(), b.GetPlanId(), b.dir)
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-
 	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错
 	ctx, cancel := context.WithTimeout(context.Background(), b.waitTimeout+60*time.Second)
 	defer cancel()
 
 	// 启动执行容器
-	if err = cli.StartAndWaitForContainer(ctx, b.runner, b.waitTimeout); err != nil {
-		return err
-	}
-
-	return nil
+	return runRunnerContainer(ctx, b.GetAction(), b.GetPlanId(), b.dir, b.runner, b.waitTimeout)
 }

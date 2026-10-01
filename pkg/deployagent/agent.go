@@ -30,6 +30,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/agent"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 const Version = "v0.1.0"
@@ -39,14 +40,18 @@ type Agent struct {
 	server string
 	token  string
 
+	// Runtime 宿主容器运行时，由启动入口构造并注入
+	Runtime runtime.Runtime
+
 	client *http.Client
 }
 
-func New(server, token string) *Agent {
+func New(server, token string, rt runtime.Runtime) *Agent {
 	return &Agent{
-		server: server,
-		token:  token,
-		client: &http.Client{Timeout: 5 * time.Minute},
+		server:  server,
+		token:   token,
+		Runtime: rt,
+		client:  &http.Client{Timeout: 5 * time.Minute},
 	}
 }
 

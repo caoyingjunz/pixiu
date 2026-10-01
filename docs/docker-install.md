@@ -1,9 +1,12 @@
-# 前置准备
+# 安装 docker
+
+1. [离线安装](offline-docker.md)
+2. [在线安装](online-docker.md)
+
 ```bash
-确保 docker 已经安装
-注意: pixiu 和 kubernetes 集群复用节点的时候, 在ubuntu系统上通过 apt 的方式直接安装 docker. 安装方式推荐如下:
+# 验证 docker 安装完成
+docker ps -a 
 ```
-[docker 快速安装](./deploy/offline/docker.md)
 
 # 数据库
 ```bash
@@ -15,11 +18,11 @@ docker run -d --net host --restart=always --privileged=true --name mariadb -e MY
 
 # 获取部署驱动镜像（可选，如果没有部署k8s需求，或者可联网可跳过，pixiu 部署时会自行同步 runner）
 ```shell
-docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
-docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.4
+docker pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/kubez-ansible:v3.0.4
 ```
 
 # 启动 pixiu 服务端
+
 ## 配置 pixiu
 ```bash
 # 创建配置文件夹
@@ -36,6 +39,12 @@ default:
   admin_user: admin
   admin_password: Pixiu123456!
 
+runtime:
+  # 宿主容器运行时类型：docker / containerd，默认 containerd；docker 部署须显式写 docker
+  cri: docker
+  # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
+  #socket: /run/containerd/containerd.sock
+
 # 数据库地址信息, 根据实际情况配置
 mysql:
   host: pixiu # 数据库的ip
@@ -44,6 +53,13 @@ mysql:
   port: 3306
   name: pixiu
 ```
+
+### 容器运行时配置说明
+pixiu 会在部署节点上拉起 runner 容器（kubez-ansible），其使用的容器运行时由主配置样例中的 `runtime` 段决定：**默认 containerd，不配置即使用 containerd**。
+
+- 本文是 docker 部署方式，样例中已显式写 `runtime.cri: docker`；宿主改用 containerd 时将其改为 `containerd`（或删除该行，使用缺省值）。
+- `runtime.socket` 只支持裸路径（不要写 `unix://` 前缀）：留空时 containerd 使用 `/run/containerd/containerd.sock`，docker 沿用 `DOCKER_HOST`/默认 socket。
+- 宿主用 containerd 时的 socket 路径与日志目录挂载要求见 [基于 containerd 安装](containerd-install.md)。
 
 ## 启动 pixiu
 ```bash

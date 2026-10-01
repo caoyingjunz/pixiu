@@ -33,6 +33,7 @@ import (
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
+	pixiuruntime "github.com/caoyingjunz/pixiu/pkg/util/runtime"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
 
@@ -152,6 +153,11 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 
 	if err := o.ComponentConfig.Valid(); err != nil {
+		return err
+	}
+
+	// 初始化宿主容器运行时（fail-fast：运行时不可用则启动失败）
+	if err := pixiuruntime.Init(o.ComponentConfig.Runtime); err != nil {
 		return err
 	}
 
