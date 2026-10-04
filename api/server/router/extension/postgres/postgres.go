@@ -42,6 +42,11 @@ type slowQueryOpts struct {
 	OrderDir string `form:"orderDir"`
 }
 
+type pingPostgresRequest struct {
+	DatasourceId int64 `json:"datasource_id"`
+	types.PostgresSourceConfig
+}
+
 func RegisterPostgres(o *options.Options, g *apiregistry.Group) {
 	r := &router{c: o.Controller}
 	g.Entries = append(g.Entries,
@@ -69,13 +74,13 @@ func RegisterPostgres(o *options.Options, g *apiregistry.Group) {
 }
 
 func (r *router) pingAdhoc(c *gin.Context) {
-	var q types.PostgresSourceConfig
+	var q pingPostgresRequest
 	res := httputils.NewResponse()
 	if e := c.ShouldBindJSON(&q); e != nil {
 		httputils.SetFailed(c, res, e)
 		return
 	}
-	result, e := r.c.Extension().Postgres().PingAdhoc(c, &q)
+	result, e := r.c.Extension().Postgres().PingAdhocWithDatasource(c, q.DatasourceId, &q.PostgresSourceConfig)
 	if e != nil {
 		httputils.SetFailed(c, res, e)
 		return
