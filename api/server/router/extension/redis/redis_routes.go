@@ -43,19 +43,24 @@ type dbOptions struct {
 	DB *int `form:"db"`
 }
 
+type pingRedisRequest struct {
+	DatasourceId int64 `json:"datasource_id"`
+	types.RedisSourceConfig
+}
+
 // pingRedisAdhoc 临时探测：请求体直接传连接配置，不依赖已保存的数据源
 func (rr *redisRouter) pingRedisAdhoc(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
-		req types.RedisSourceConfig
+		req pingRedisRequest
 		err error
 	)
 	if err = c.ShouldBindJSON(&req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = rr.c.Extension().Redis().PingAdhoc(c, &req); err != nil {
+	if r.Result, err = rr.c.Extension().Redis().PingAdhocWithDatasource(c, req.DatasourceId, &req.RedisSourceConfig); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
