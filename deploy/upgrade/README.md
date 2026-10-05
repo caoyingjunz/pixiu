@@ -65,28 +65,24 @@ docker run -d --net host --restart=always --privileged=true \
   crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
 ```
 
-## 基于 containerd（ctr）
+## 基于 containerd 安装（nerdctl）
 
-若宿主当初是用 containerd 手工部署的（`ctr` 命令式启动），升级步骤同理：拉新镜像 → 删除旧 pixiu 容器 → 按原参数重建；containerd 状态路径（`/run/containerd` 与 `/var/lib/containerd`）需整目录挂载，runner 日志已随 `/etc/pixiu` 持久化，无需独立日志卷：
+若宿主当初是用 nerdctl/containerd 手工部署的，升级步骤同理，只是把 `docker` 换成 `nerdctl`，socket 挂载换成 containerd 状态目录（`-v /run/containerd:/run/containerd` 与 `-v /var/lib/containerd:/var/lib/containerd`，整目录共享；runner 日志已随 `/etc/pixiu` 持久化，无需独立日志卷）：
 
 ```bash
 # 1) 拉取新版本镜像（tag 换成目标版本）
-sudo ctr -n default images pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
+sudo nerdctl -n default pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
 
-# 2) 删除旧 pixiu 容器（旧容器已不存在时，命令报错可忽略）
-sudo ctr -n default task kill -s SIGKILL pixiu
-sudo ctr -n default task delete -f pixiu
-sudo ctr -n default containers rm pixiu
+# 2) 删除旧容器
+sudo nerdctl -n default rm -f pixiu
 
-# 3) 按下方参数重建（containerd 状态路径需整目录挂载；仅替换镜像 tag）
-sudo ctr -n default run -d \
-  --privileged \
-  --net-host \
-  --mount type=bind,src=/etc/pixiu,dst=/etc/pixiu,options=rbind:rw \
-  --mount type=bind,src=/run/containerd,dst=/run/containerd,options=rbind:rw \
-  --mount type=bind,src=/var/lib/containerd,dst=/var/lib/containerd,options=rbind:rw \
-  crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1 \
-  pixiu
+# 3) 按下方参数重建（containerd 状态路径需以整目录共享；仅替换镜像 tag）
+sudo nerdctl -n default run -d --restart=always --net host --privileged \
+  -v /etc/pixiu:/etc/pixiu \
+  -v /run/containerd:/run/containerd \
+  -v /var/lib/containerd:/var/lib/containerd \
+  --name pixiu \
+  crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
 ```
 
-说明：`/etc/pixiu` 配置目录与数据库数据不受影响（mariadb 容器无需处理）；沿用旧配置即可，无需为本步改动运行时配置。runner 日志新位置为 `/etc/pixiu/runner-logs`；历史日志如需保留，可一次性拷贝 `cp -a /var/lib/pixiu/runner-logs /etc/pixiu/runner-logs`（不拷贝则旧日志不再被读取）。
+说明：`/etc/pixiu` 配置目录与数据库数据不受影响；沿用旧配置即可，无需为本步改动运行时配置。runner 日志新位置为 `/etc/pixiu/runner-logs`；历史日志如需保留，可一次性拷贝 `cp -a /var/lib/pixiu/runner-logs /etc/pixiu/runner-logs`（不拷贝则旧日志不再被读取）。
