@@ -62,7 +62,8 @@ type ContainerSpec struct {
 // 注意：与本仓库 types.RuntimeSpec（被部署集群的 CRI）不是一回事，不要混用。
 type Runtime interface {
 	Kind() Kind
-	// RunContainer 清理同名旧容器 → 创建 → 启动 → 等待退出；退出码非 0 返回错误
+	// RunContainer 清理同名旧容器 → 创建 → 启动 → 等待退出；退出码非 0 返回错误。
+	// 执行结束后容器与任务保留（对齐 docker 语义），同名容器在下一次执行开始时由实现统一清理。
 	RunContainer(ctx context.Context, spec *ContainerSpec) error
 	// RemoveContainer 停止并删除同名容器；容器不存在时返回 nil
 	RemoveContainer(ctx context.Context, name string) error

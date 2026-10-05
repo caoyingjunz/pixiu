@@ -44,9 +44,6 @@ import (
 const (
 	// containerdStopGrace 优雅停止（SIGTERM）后等待进程退出的时间，超时强杀，对齐 docker Stop(5s)
 	containerdStopGrace = 5 * time.Second
-	// containerdCleanupTimeout 清理阶段（强杀任务 + 删除容器 + 回收 snapshot）的独立超时。
-	// 清理不能复用调用方 ctx：调用方 ctx 超时/取消正是最需要清理的场景。
-	containerdCleanupTimeout = 30 * time.Second
 	// logPollInterval 跟随日志时的轮询间隔，避免忙等
 	logPollInterval = 300 * time.Millisecond
 )
@@ -60,7 +57,7 @@ var containerNameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
 //  3. done 在 RunContainer 返回（日志文件已关闭）时关闭，follow 读取端据此及时 EOF，
 //     避免容器退出后 SSE 流一直悬挂到客户端断开；
 //  4. 登记表在 RunContainer 返回时注销。未命中登记表（pixiu 重启后/多实例）时，
-//     Logs 直接用日志路径读取，follow 的收尾靠 goneChecker（见其注释）。
+//     Logs 直接用日志路径读取，follow 的收尾靠 runFinishedChecker（见其注释）。
 type logEntry struct {
 	path string
 	done chan struct{}
@@ -126,8 +123,8 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 	// 登记表的注销必须覆盖本函数的所有返回路径：提前 return 若漏掉，follow 读取端会永远
 	// 等不到 done，登记表也会随运行次数单调增长。
 	// 顺序重要：先关日志文件 → 再关 done 通知读取端收尾 → 最后注销登记。
-	// 注：正常/超时路径返回前已删除任务与容器，cio 拷贝 goroutine 随之收尾；取消路径容器
-	// 可能仍在运行，关闭日志文件会让拷贝 goroutine 在下一次写入失败后自行退出（见 canceled 分支）。
+	// 注：执行结束后容器与任务保留（见下方「保留容器」注释），关闭日志文件后，
+	// cio 拷贝 goroutine 会在下一次写盘失败时自行退出。
 	var logFile *os.File
 	defer func() {
 		if logFile != nil {
@@ -186,7 +183,6 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 
 	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStreams(nil, logFile, logFile)))
 	if err != nil {
-		c.cleanupTaskAndContainer(spec.Name, nil, container, false)
 		return err
 	}
 
@@ -215,20 +211,16 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 	// 通道内的事件在等待出错时会带上 err（含 ctx 超时导致的 RPC 取消），退出码不可直接采信
 	statusC, err := task.Wait(waitCtx)
 	if err != nil {
-		c.cleanupTaskAndContainer(spec.Name, task, container, true)
 		return err
 	}
 
 	if err = task.Start(waitCtx); err != nil {
-		c.cleanupTaskAndContainer(spec.Name, task, container, true)
 		return err
 	}
 
 	var (
 		waitErr  error
 		exitCode uint32
-		exited   bool
-		canceled bool
 	)
 	select {
 	case status := <-statusC:
@@ -238,33 +230,25 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 				waitErr = fmt.Errorf("已等待 %d 秒，任务(%s)执行超时", int(waitTimeout.Seconds()), spec.Name)
 			case waitCtx.Err() != nil:
 				// 上层 ctx 被取消（如 agent 进程收到 SIGTERM），并非等待超时
-				canceled = true
 				waitErr = fmt.Errorf("任务(%s)被取消: %v", spec.Name, waitCtx.Err())
 			default:
 				waitErr = err
 			}
 		} else {
-			exited = true
 			exitCode = status.ExitCode()
 		}
 	case <-waitCtx.Done():
 		if errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
 			waitErr = fmt.Errorf("已等待 %d 秒，任务(%s)执行超时", int(waitTimeout.Seconds()), spec.Name)
 		} else {
-			canceled = true
 			waitErr = fmt.Errorf("任务(%s)被取消: %v", spec.Name, waitCtx.Err())
 		}
 	}
 
-	if canceled {
-		// 取消（非超时）不杀容器：与升级前 agent 行为一致，runner 容器可继续完成部署，
-		// 残留的容器记录由下一次同名任务的 RemoveContainer 回收。
-		return waitErr
-	}
-
-	// 无论成功失败都要删除任务与容器；必须用独立清理上下文（此刻调用方 ctx 可能已超时/取消），
-	// WithSnapshotCleanup 必须带，否则 snapshot 残留会持续占用宿主磁盘
-	c.cleanupTaskAndContainer(spec.Name, task, container, !exited)
+	// 执行结束后保留容器与任务（原清理逻辑已移除），与 docker 语义对齐：
+	// docker 的 waitContainer 只等待与报错，从不删除容器，超时也不杀容器进程。
+	// 失败/超时现场可继续用 `nerdctl ps -a` / `exec` / `inspect` 排查；
+	// 同名容器由下一次执行的 RemoveContainer 统一清理（连同任务与 snapshot 回收）。
 
 	if waitErr != nil {
 		return waitErr
@@ -283,24 +267,6 @@ func (c *containerdRuntime) removeOrphanSnapshot(ctx context.Context, key string
 		snapshotter = label
 	}
 	return c.client.SnapshotService(snapshotter).Remove(ctx, key)
-}
-
-// cleanupTaskAndContainer 删除任务与容器记录（含 snapshot）。
-// 刻意切到独立的 background 上下文：执行超时/被取消时调用方 ctx 已失效，复用它会让
-// Kill/Delete 全部失败，留下仍在运行的容器与被占用的 snapshot（下一次同名任务虽能自愈，
-// 但容器不落日志地一直跑本身就是事故）。
-func (c *containerdRuntime) cleanupTaskAndContainer(name string, task containerd.Task, container containerd.Container, running bool) {
-	ctx, cancel := context.WithTimeout(context.Background(), containerdCleanupTimeout)
-	defer cancel()
-
-	if task != nil {
-		if err := deleteTask(ctx, task, running); err != nil {
-			klog.Warningf("清理任务(%s)失败: %v", name, err)
-		}
-	}
-	if err := container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
-		klog.Warningf("清理容器(%s)失败: %v", name, err)
-	}
 }
 
 // RemoveContainer 停止并删除同名容器；容器不存在时返回 nil
@@ -353,11 +319,11 @@ func (c *containerdRuntime) Logs(ctx context.Context, name string, follow bool) 
 		entry := v.(*logEntry)
 		path, done = entry.path, entry.done
 	}
-	// 只有未命中登记表时才需要「容器消失」这条兜底判据：命中时 done 已足够收尾，
+	// 只有未命中登记表时才需要「运行是否已结束」这条兜底判据：命中时 done 已足够收尾，
 	// 挂上探测反而会给每个正常日志流带来无谓的 gRPC 轮询
-	var gone func(context.Context) (bool, error)
+	var finished func(context.Context) (bool, error)
 	if done == nil {
-		gone = c.goneChecker(name)
+		finished = c.runFinishedChecker(name)
 	}
 
 	f, err := os.Open(path)
@@ -369,33 +335,55 @@ func (c *containerdRuntime) Logs(ctx context.Context, name string, follow bool) 
 			return nil, fmt.Errorf("容器(%s)不存在或日志(%s)尚未生成", name, path)
 		}
 		// follow 场景下文件可能尚未落盘（容器刚创建），交给 follower 轮询等待
-		return newFileFollower(ctx, path, done, nil, gone), nil
+		return newFileFollower(ctx, path, done, nil, finished), nil
 	}
 
 	if !follow {
 		return f, nil
 	}
-	return newFileFollower(ctx, path, done, f, gone), nil
+	return newFileFollower(ctx, path, done, f, finished), nil
 }
 
-// goneChecker 返回「容器记录是否已被删除」的探测函数，作为 follow 读取在未命中登记表
+// runFinishedChecker 返回「运行是否已结束」的探测函数，作为 follow 读取在未命中登记表
 // （done 为 nil）时的结束判据。
-// RunContainer 除「上层 ctx 被取消」外的所有退出路径都会删除容器记录
-// （cleanupTaskAndContainer），因此容器记录消失即可判定日志已写完。
-// 取消路径有意保留容器记录（容器可能仍在运行，由下一次同名任务回收），此时未命中登记表的
-// follow 无法靠 goneChecker 自然收尾，只能等客户端断开或 ctx 结束；该场景在服务端本地模式
-// 不会出现（本地 ctx 只有截止时间、无取消源），agent 侧不使用 follow。
-// ⚠️ 若将来让 RunContainer 在其他场景也保留容器记录（例如为排障保留现场），必须同步修改这里，
-// 否则日志流只能等到客户端断开或 ctx 结束，SSE 会一直挂着。
-func (c *containerdRuntime) goneChecker(name string) func(context.Context) (bool, error) {
+// RunContainer 执行结束后保留容器与任务（对齐 docker 语义），容器记录不再随执行结束消失，
+// 因此判据取任务状态而非容器存在性：
+//   - 容器记录被清理（NotFound）→ 已结束（如被下一次同名执行的 RemoveContainer 回收）；
+//   - 任务已停止（Stopped）或任务记录已被删除（NotFound）→ 已结束，日志已写完；
+//   - 容器刚创建、任务尚未创建（Task 返回 NotFound）→ 未结束，继续跟随（避免误收尾）；
+//   - 其余状态（Running/Paused/Created）→ 未结束。
+//
+// 探测出错时保守返回 (false, err)，交由 ctx 兜底（与改版前语义一致）。
+// ⚠️ 对偶提醒：若将来改回「执行结束后删除容器」，本判据的容器缺失分支将重新成为主判据，
+// 必须同步复核此处，避免日志流悬挂到客户端断开。
+func (c *containerdRuntime) runFinishedChecker(name string) func(context.Context) (bool, error) {
 	return func(ctx context.Context) (bool, error) {
-		if _, err := c.client.LoadContainer(ctx, name); err != nil {
+		container, err := c.client.LoadContainer(ctx, name)
+		if err != nil {
 			if errdefs.IsNotFound(err) {
 				return true, nil
 			}
 			return false, err
 		}
-		return false, nil
+
+		task, err := container.Task(ctx, nil)
+		if err != nil {
+			if errdefs.IsNotFound(err) {
+				// 容器刚创建、任务尚未创建：继续跟随
+				return false, nil
+			}
+			return false, err
+		}
+
+		status, err := task.Status(ctx)
+		if err != nil {
+			if errdefs.IsNotFound(err) {
+				// 任务记录已被删除：执行已结束
+				return true, nil
+			}
+			return false, err
+		}
+		return status.Status == containerd.Stopped, nil
 	}
 }
 
@@ -508,28 +496,10 @@ func parseBinds(binds []string) ([]specs.Mount, error) {
 	return mounts, nil
 }
 
-// deleteTask 删除任务记录；任务仍在运行时先强杀，否则 Delete 会失败导致任务残留
-func deleteTask(ctx context.Context, task containerd.Task, running bool) error {
-	if running {
-		// 先注册 Wait 再 Kill，避免错过退出事件
-		statusC, _ := task.Wait(ctx)
-		_ = task.Kill(ctx, syscall.SIGKILL)
-		select {
-		case <-statusC:
-		case <-time.After(containerdStopGrace):
-		case <-ctx.Done():
-		}
-	}
-	if _, err := task.Delete(ctx); err != nil && !errdefs.IsNotFound(err) {
-		return err
-	}
-	return nil
-}
-
 // fileFollower 以轮询方式跟随仍在增长的日志文件。
 // 与 docker 原生 follow 不同，这里只能靠外部信号判断结束，有两条判据：
 //  1. done（RunContainer 返回、日志文件已关闭时关闭）——同进程快路径；
-//  2. containerGone（容器记录已被删除）——未命中登记表时的兜底，见 goneChecker。
+//  2. runFinished（运行已结束：任务已停止或容器记录被清理）——未命中登记表时的兜底，见 runFinishedChecker。
 //
 // 两者都不可用时（理论上不会发生）只能等 ctx 结束。
 type fileFollower struct {
@@ -541,21 +511,21 @@ type fileFollower struct {
 	pipeW  *io.PipeWriter
 	closed chan struct{}
 	once   sync.Once
-	// containerGone 探测容器记录是否已消失；done 为 nil 时的收尾判据
-	containerGone func(context.Context) (bool, error)
+	// runFinished 探测运行是否已结束；done 为 nil 时的收尾判据
+	runFinished func(context.Context) (bool, error)
 }
 
-func newFileFollower(ctx context.Context, path string, done <-chan struct{}, f *os.File, gone func(context.Context) (bool, error)) *fileFollower {
+func newFileFollower(ctx context.Context, path string, done <-chan struct{}, f *os.File, finished func(context.Context) (bool, error)) *fileFollower {
 	pipeR, pipeW := io.Pipe()
 	l := &fileFollower{
-		ctx:           ctx,
-		path:          path,
-		done:          done,
-		file:          f,
-		pipeR:         pipeR,
-		pipeW:         pipeW,
-		closed:        make(chan struct{}),
-		containerGone: gone,
+		ctx:         ctx,
+		path:        path,
+		done:        done,
+		file:        f,
+		pipeR:       pipeR,
+		pipeW:       pipeW,
+		closed:      make(chan struct{}),
+		runFinished: finished,
 	}
 	go l.pump()
 	return l
@@ -619,9 +589,9 @@ func (l *fileFollower) wait(ticker *time.Ticker) bool {
 	case <-l.done: // done 为 nil（未命中登记表）时该分支永不触发
 		return false
 	case <-ticker.C:
-		if l.containerGone != nil {
+		if l.runFinished != nil {
 			// 探测失败（网络/权限等）时保守地继续跟随，交由 ctx 兜底
-			if gone, err := l.containerGone(l.ctx); err == nil && gone {
+			if finished, err := l.runFinished(l.ctx); err == nil && finished {
 				return false
 			}
 		}
