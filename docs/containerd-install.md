@@ -12,37 +12,13 @@ sudo ctr version
 # 数据库
 ```bash
 # 快速启动数据库，并初始化 pixiu 数据库（生产环境自行部署或者使用高可用数据库）
-sudo mkdir -p /var/lib/pixiu-mariadb
-sudo tee /etc/systemd/system/pixiu-mariadb.service > /dev/null <<'EOF'
-[Unit]
-Description=pixiu mariadb (containerd runtime)
-After=containerd.service network-online.target
-Requires=containerd.service
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStartPre=-/usr/bin/ctr -n default task kill -s SIGKILL mariadb
-ExecStartPre=-/usr/bin/ctr -n default task delete -f mariadb
-ExecStartPre=-/usr/bin/ctr -n default containers rm mariadb
-ExecStart=/usr/bin/ctr -n default run \
+sudo ctr -n default run -d \
   --privileged \
   --net-host \
-  --mount type=bind,src=/var/lib/pixiu-mariadb,dst=/var/lib/mysql,options=rbind:rw \
   --env MYSQL_ROOT_PASSWORD=Pixiu868686 \
   --env MYSQL_DATABASE=pixiu \
   ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7 \
   mariadb
-ExecStop=-/usr/bin/ctr -n default task kill -s SIGTERM mariadb
-Restart=always
-RestartSec=5
-TimeoutStopSec=60
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now pixiu-mariadb
 ```
 
 # 获取部署驱动镜像
@@ -80,19 +56,7 @@ mysql:
 
 ## 启动 pixiu
 ```bash
-sudo tee /etc/systemd/system/pixiu.service > /dev/null <<'EOF'
-[Unit]
-Description=pixiu server (containerd runtime)
-After=containerd.service network-online.target
-Requires=containerd.service
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStartPre=-/usr/bin/ctr -n default task kill -s SIGKILL pixiu
-ExecStartPre=-/usr/bin/ctr -n default task delete -f pixiu
-ExecStartPre=-/usr/bin/ctr -n default containers rm pixiu
-ExecStart=/usr/bin/ctr -n default run \
+sudo ctr -n default run -d \
   --privileged \
   --net-host \
   --mount type=bind,src=/etc/pixiu,dst=/etc/pixiu,options=rbind:rw \
@@ -100,23 +64,12 @@ ExecStart=/usr/bin/ctr -n default run \
   --mount type=bind,src=/var/lib/containerd,dst=/var/lib/containerd,options=rbind:rw \
   crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1 \
   pixiu
-ExecStop=-/usr/bin/ctr -n default task kill -s SIGTERM pixiu
-Restart=always
-RestartSec=5
-TimeoutStopSec=30
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now pixiu
 ```
 
-unit 中 `/run/containerd` 与 `/var/lib/containerd` 为宿主 containerd 状态路径，必须整目录挂载——pixiu 会在容器内创建 fifo、执行镜像解包挂载，请勿精简该挂载。
+命令中 `/run/containerd` 与 `/var/lib/containerd` 为宿主 containerd 状态路径，必须整目录挂载——pixiu 会在容器内创建 fifo、执行镜像解包挂载，请勿精简该挂载。
 
 ## 验证
 ```bash
-sudo ctr -n default containers ls
-systemctl is-active pixiu pixiu-mariadb
-sudo journalctl -u pixiu --no-pager | tail -5
+sudo ctr -n default containers ls   # 应看到 mariadb 与 pixiu
+sudo ctr -n default tasks ls        # 两者应为 RUNNING
 ```

@@ -100,7 +100,7 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 
 #### containerd 环境差异（宿主使用 containerd 而非 docker 时）
 
-前置：宿主需已安装并运行 `containerd`，容器操作统一使用 containerd 自带的 `ctr`，需要 root 权限。命令与 docker 版逐条对应，差异集中在**镜像导入的命名空间**、**改用 systemd unit 托管（含 containerd 状态路径的整目录挂载）**与**配置中的 `runtime.cri`** 三点（见下文第 3 步）。
+前置：宿主需已安装并运行 `containerd`，容器操作统一使用 containerd 自带的 `ctr`，需要 root 权限。命令与 docker 版逐条对应，差异集中在**镜像导入的命名空间**、**containerd 状态路径的整目录挂载**与**配置中的 `runtime.cri`** 三点（见下文第 3 步）。
 
 1）导出/导入镜像：containerd 的镜像存储按命名空间隔离，导出与导入都要指定同一命名空间。
 
@@ -124,56 +124,20 @@ sudo ctr -n default images ls                         # 确认已导入
 - 给 kubelet 用的 k8s 集群运行时镜像走另一条路：`sudo ctr -n k8s.io images import`（如 `zcat images-export/images/*.tar.gz | sudo ctr -n k8s.io images import -`）。它与 pixiu 容器所用的 `default` 命名空间不是一回事，不要混用，也不要指望 pixiu 复用 k8s.io 里的镜像。
 - 私有仓库为 HTTP/自签证书时，`ctr -n default images pull` 需加对应标志（HTTP 仓库用 `--plain-http`，自签 HTTPS 用 `-k`/`--skip-verify`；如 `sudo ctr -n default images pull --plain-http 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1`）。
 
-2）启动：用 systemd unit 方式启动（前台 `ctr` 运行、systemd 负责重启与开机自启；日志见 `journalctl -u pixiu`）。unit 中 `/run/containerd` 与 `/var/lib/containerd` 为宿主 containerd 状态路径，必须整目录挂载——pixiu 会在容器内创建 fifo、执行镜像解包挂载，请勿精简该挂载；runner 容器日志固定写到 `/etc/pixiu/runner-logs`（随 `/etc/pixiu` 卷持久化，无需额外挂载）。
+2）启动：用 `ctr` 命令式拉起容器（容器名放在镜像之后），docker 版的 socket 挂载相应换成 containerd 状态路径。命令中 `/run/containerd` 与 `/var/lib/containerd` 为宿主 containerd 状态路径，必须整目录挂载——pixiu 会在容器内创建 fifo、执行镜像解包挂载，请勿精简该挂载；runner 容器日志固定写到 `/etc/pixiu/runner-logs`（随 `/etc/pixiu` 卷持久化，无需额外挂载）。
 
 ```bash
 # 数据库
-sudo mkdir -p /var/lib/pixiu-mariadb
-sudo tee /etc/systemd/system/pixiu-mariadb.service > /dev/null <<'EOF'
-[Unit]
-Description=pixiu mariadb (containerd runtime)
-After=containerd.service network-online.target
-Requires=containerd.service
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStartPre=-/usr/bin/ctr -n default task kill -s SIGKILL mariadb
-ExecStartPre=-/usr/bin/ctr -n default task delete -f mariadb
-ExecStartPre=-/usr/bin/ctr -n default containers rm mariadb
-ExecStart=/usr/bin/ctr -n default run \
+sudo ctr -n default run -d \
   --privileged \
   --net-host \
-  --mount type=bind,src=/var/lib/pixiu-mariadb,dst=/var/lib/mysql,options=rbind:rw \
   --env MYSQL_ROOT_PASSWORD=Pixiu868686 \
   --env MYSQL_DATABASE=pixiu \
   10.206.32.8:5000/pixiu/mysql:5.7 \
   mariadb
-ExecStop=-/usr/bin/ctr -n default task kill -s SIGTERM mariadb
-Restart=always
-RestartSec=5
-TimeoutStopSec=60
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now pixiu-mariadb
 
 # pixiu
-sudo tee /etc/systemd/system/pixiu.service > /dev/null <<'EOF'
-[Unit]
-Description=pixiu server (containerd runtime)
-After=containerd.service network-online.target
-Requires=containerd.service
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStartPre=-/usr/bin/ctr -n default task kill -s SIGKILL pixiu
-ExecStartPre=-/usr/bin/ctr -n default task delete -f pixiu
-ExecStartPre=-/usr/bin/ctr -n default containers rm pixiu
-ExecStart=/usr/bin/ctr -n default run \
+sudo ctr -n default run -d \
   --privileged \
   --net-host \
   --mount type=bind,src=/etc/pixiu,dst=/etc/pixiu,options=rbind:rw \
@@ -181,16 +145,6 @@ ExecStart=/usr/bin/ctr -n default run \
   --mount type=bind,src=/var/lib/containerd,dst=/var/lib/containerd,options=rbind:rw \
   10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1 \
   pixiu
-ExecStop=-/usr/bin/ctr -n default task kill -s SIGTERM pixiu
-Restart=always
-RestartSec=5
-TimeoutStopSec=30
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now pixiu
 ```
 
 3）配置：`/etc/pixiu/config.yaml` 中把运行时指向 containerd，pixiu 才会用 containerd 拉起部署 runner 容器（默认 containerd，不配置即使用 containerd）。
@@ -198,21 +152,19 @@ sudo systemctl enable --now pixiu
 ```yaml
 runtime:
   cri: containerd
-  #socket: /run/containerd/containerd.sock   # 与 unit 中整目录挂载的 containerd 状态路径一致；留空即默认此路径
+  #socket: /run/containerd/containerd.sock   # 与上方 run 命令中挂载的 socket 路径一致；留空即默认此路径
 ```
 
 4）验证与卸载：
 
 ```bash
 sudo ctr -n default containers ls          # 验证：应能看到 pixiu 与 mariadb
-sudo journalctl -u pixiu -f                # 查看 pixiu 日志（systemd 托管，日志进 journal）
-# 卸载（按需）：停用并停止服务，再清理容器
-sudo systemctl disable --now pixiu pixiu-mariadb
+sudo ctr -n default tasks ls               # 两者应为 RUNNING
+# 卸载（按需）：先停任务，再清理容器
+sudo ctr -n default task kill -s SIGKILL pixiu mariadb
 sudo ctr -n default task delete -f pixiu mariadb
 sudo ctr -n default containers rm pixiu mariadb
 ```
-
-> 旧「命令式启动」部署切换到本形态（systemd unit）的迁移步骤与数据注意事项，见 [升级说明](../upgrade/README.md) 的迁移提醒。
 
 #### 页面验证
 ![img_5.png](img_5.png)
