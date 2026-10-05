@@ -10,7 +10,7 @@ WORKDIR /build
 COPY pixiu-ui .
 RUN npm install --ignore-scripts && npx vite build --mode docker
 
-FROM nginx:1.30.1-alpine AS runner
+FROM nginx:1.31.6-alpine AS runner
 LABEL MAINTAINER="PIXIU"
 
 COPY --from=builder /app/pixiu /app
