@@ -14,8 +14,9 @@ nerdctl -n default ps -a
 nerdctl -n default run -d --restart=always --net host --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" -e MYSQL_DATABASE="pixiu" ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7
 ```
 
-# 获取部署驱动镜像（可选，如果没有部署k8s需求，或者可联网可跳过，pixiu 部署时会自行同步 runner）
+# 获取部署驱动镜像
 ```shell
+# 可选，如果没有部署k8s需求，或者可联网可跳过，pixiu 部署时会自行同步 runner
 nerdctl -n default pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/kubez-ansible:v3.0.4
 ```
 
@@ -37,12 +38,6 @@ default:
   admin_user: admin
   admin_password: Pixiu123456!
 
-runtime:
-  # 宿主容器运行时类型：docker / containerd，默认 containerd
-  cri: containerd
-  # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
-  #socket: /run/containerd/containerd.sock
-
 # 数据库地址信息, 根据实际情况配置
 mysql:
   host: pixiu # 数据库的ip
@@ -58,3 +53,10 @@ mysql:
 nerdctl -n default run -d --restart=always --net host --privileged=true -v /etc/pixiu:/etc/pixiu -v /run/containerd/containerd.sock:/run/containerd/containerd.sock -v /var/lib/pixiu:/var/lib/pixiu --name pixiu crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
 ```
 
+## 验证
+```bash
+root@VM-0-11-ubuntu:~# nerdctl ps
+CONTAINER ID    IMAGE                                                                                          COMMAND                   CREATED          STATUS    PORTS    NAMES
+672a3cbb360d    crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1    "/docker-entrypoint.…"    5 seconds ago    Up                 pixiu
+827b5b7ed697    ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7                                                    "docker-entrypoint.s…"    8 minutes ago    Up                 mariadb
+```
