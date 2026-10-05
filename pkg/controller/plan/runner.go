@@ -57,7 +57,10 @@ func (r Runner) Run() error {
 		klog.Warningf("get runner by %s: %v", imageName, runnerErr)
 	}
 
-	rt := runtime.Default()
+	rt, err := runtime.Default()
+	if err != nil {
+		return err
+	}
 	exists, err := rt.ImageExists(ctx, imageName)
 	if err != nil {
 		return fmt.Errorf("inspect image %s: %w", imageName, err)

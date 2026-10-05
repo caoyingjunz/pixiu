@@ -39,7 +39,11 @@ type DeployMaster struct {
 // 日志路径由运行时按容器名自行决定（固定 /var/lib/pixiu/runner-logs/<name>.log），调用方不再传入。
 func runRunnerContainer(ctx context.Context, action string, planId int64, dir, image string, waitTimeout time.Duration) error {
 	name := fmt.Sprintf("%s-%d", action, planId)
-	return runtime.Default().RunContainer(ctx, &runtime.ContainerSpec{
+	rt, err := runtime.Default()
+	if err != nil {
+		return err
+	}
+	return rt.RunContainer(ctx, &runtime.ContainerSpec{
 		Name:        name,
 		Image:       image,
 		Env:         []string{fmt.Sprintf("COMMAND=%s", action)},

@@ -296,7 +296,11 @@ func (r *runnerController) updateStatus(ctx context.Context, runnerId int64, sta
 
 // 拉取 runner 镜像
 func (r *runnerController) pullImage(ctx context.Context, imageName string) error {
-	if err := runtime.Default().PullImage(ctx, imageName); err != nil {
+	rt, err := runtime.Default()
+	if err != nil {
+		return err
+	}
+	if err := rt.PullImage(ctx, imageName); err != nil {
 		klog.Errorf("failed to pull image %s: %v", imageName, err)
 		return fmt.Errorf("%s: %w", imageName, err)
 	}
@@ -307,7 +311,11 @@ func (r *runnerController) pullImage(ctx context.Context, imageName string) erro
 
 // 移除 runner 镜像
 func (r *runnerController) removeImage(ctx context.Context, imageName string) error {
-	if err := runtime.Default().RemoveImage(ctx, imageName); err != nil {
+	rt, err := runtime.Default()
+	if err != nil {
+		return err
+	}
+	if err := rt.RemoveImage(ctx, imageName); err != nil {
 		klog.Errorf("failed to remove image %s: %v", imageName, err)
 		return fmt.Errorf("%s: %w", imageName, err)
 	}

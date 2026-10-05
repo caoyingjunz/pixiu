@@ -156,10 +156,9 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		return err
 	}
 
-	// 初始化宿主容器运行时（fail-fast：运行时不可用则启动失败）
-	if err := pixiuruntime.Init(o.ComponentConfig.Runtime); err != nil {
-		return err
-	}
+	// 登记宿主容器运行时配置（懒加载：启动不连接 CRI socket，
+	// 首次部署/日志等实际使用时才建立连接，连接失败只影响当次调用，不阻断启动）
+	pixiuruntime.Init(o.ComponentConfig.Runtime)
 
 	o.ComponentConfig.Log.Init(isCLIVerbositySet(cmd))
 

@@ -79,7 +79,8 @@ func newContainerdRuntime(opts config.RuntimeOptions) (*containerdRuntime, error
 	}
 
 	// containerd.New 内部用 grpc.WithBlock + 10s 超时同步拨号（containerd v1.7 client.go），
-	// socket 不可用时这里就会返回错误，因此本函数（进而 Init）确实是 fail-fast
+	// socket 不可用时这里就会返回错误；懒加载下该错误只在首次实际使用（runtime.Default）时报出，
+	// 不再阻断 pixiu 启动
 	// namespace 不再暴露为配置：统一交给 containerd 客户端的默认机制落位，
 	// 即 namespaces.Default（"default"，与 nerdctl/ctr 默认命名空间一致）
 	cli, err := containerd.New(address, containerd.WithDefaultNamespace(namespaces.Default))

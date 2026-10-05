@@ -118,7 +118,11 @@ func (t *planTask) WatchLog(ctx context.Context, planId int64, taskId int64, w h
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	readCloser, err := runtime.Default().Logs(ctx, fmt.Sprintf("%s-%d", task.Action, planId), true)
+	rt, err := runtime.Default()
+	if err != nil {
+		return err
+	}
+	readCloser, err := rt.Logs(ctx, fmt.Sprintf("%s-%d", task.Action, planId), true)
 	if err != nil {
 		return err
 	}

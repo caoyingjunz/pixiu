@@ -89,24 +89,41 @@ func New(opts config.RuntimeOptions) (Runtime, error) {
 
 var (
 	defaultRuntime   Runtime
-	defaultRuntimeMu sync.RWMutex
+	defaultRuntimeMu sync.Mutex
+	// 懒加载：Init 仅登记配置，Default 首次实际使用时才建立连接。
+	// 连接成功后缓存到 defaultRuntime；失败不缓存——后续调用会重试，
+	// containerd 后启动的场景无需重启 pixiu。
+	defaultOptions config.RuntimeOptions
+	inited         bool
 )
 
-// Init 进程启动时初始化全局运行时，fail-fast。
-func Init(opts config.RuntimeOptions) error {
-	r, err := New(opts)
-	if err != nil {
-		return err
-	}
+// Init 登记宿主容器运行时配置，不做任何连接（懒加载）。
+// 配置合法性（CRI 取值、socket 路径）由启动链路 Config.Valid 校验，此处不再 fail-fast；
+// 连接失败只在实际使用（Default）时报错，不阻断 pixiu 启动。
+func Init(opts config.RuntimeOptions) {
 	defaultRuntimeMu.Lock()
 	defer defaultRuntimeMu.Unlock()
-	defaultRuntime = r
-	return nil
+	defaultOptions = opts
+	inited = true
 }
 
-// Default 返回全局运行时实例；未 Init 时返回 nil，调用方需自行判空或由 Init 保证。
-func Default() Runtime {
-	defaultRuntimeMu.RLock()
-	defer defaultRuntimeMu.RUnlock()
-	return defaultRuntime
+// Default 返回全局运行时实例；首次调用时按 Init 登记的配置建立连接（懒加载）。
+// 未初始化或连接失败时返回错误；失败不缓存，后续调用会重试。
+func Default() (Runtime, error) {
+	defaultRuntimeMu.Lock()
+	defer defaultRuntimeMu.Unlock()
+
+	if defaultRuntime != nil {
+		return defaultRuntime, nil
+	}
+	if !inited {
+		return nil, fmt.Errorf("宿主容器运行时未初始化")
+	}
+
+	r, err := New(defaultOptions)
+	if err != nil {
+		return nil, err
+	}
+	defaultRuntime = r
+	return r, nil
 }
