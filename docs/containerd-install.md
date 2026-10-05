@@ -49,8 +49,15 @@ mysql:
 
 ## 启动 pixiu
 ```bash
-# 启动 pixiu（-v /var/lib/pixiu 用于持久化 runner 容器日志，避免容器重建后丢失）
-nerdctl -n default run -d --restart=always --net host --privileged=true -v /etc/pixiu:/etc/pixiu -v /run/containerd/containerd.sock:/run/containerd/containerd.sock -v /var/lib/pixiu:/var/lib/pixiu --name pixiu crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
+# 启动 pixiu（/run/containerd 与 /var/lib/containerd 为宿主 containerd 状态路径，必须整目录共享：
+# pixiu 作为 containerd 本地客户端会在容器内创建 fifo、执行镜像解包挂载，路径须与宿主 daemon/shim 一致；
+# -v /var/lib/pixiu 用于持久化 runner 容器日志，避免容器重建后丢失）
+nerdctl -n default run -d --restart=always --net host --privileged=true \
+  -v /etc/pixiu:/etc/pixiu \
+  -v /run/containerd:/run/containerd \
+  -v /var/lib/containerd:/var/lib/containerd \
+  -v /var/lib/pixiu:/var/lib/pixiu \
+  --name pixiu crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
 ```
 
 ## 验证

@@ -126,14 +126,19 @@ sudo nerdctl -n default images                        # 确认已导入
 - 给 kubelet 用的 k8s 集群运行时镜像走另一条路：`sudo ctr -n k8s.io images import`（如 `zcat images-export/images/*.tar.gz | sudo ctr -n k8s.io images import -`）。它与 pixiu 容器所用的 `default` 命名空间不是一回事，不要混用，也不要指望 pixiu 复用 k8s.io 里的镜像。
 - 私有仓库为 HTTP/自签证书时，nerdctl 需加全局 `--insecure-registry`（如 `sudo nerdctl --insecure-registry pull 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1`）。
 
-2）启动：把 `/var/run/docker.sock` 换成 `/run/containerd/containerd.sock`，`--restart=always` 等参数不变；额外加一个 `/var/lib/pixiu` 卷持久化 runner 容器日志（containerd 无原生日志流，pixiu 会把 runner 容器日志固定写到 `/var/lib/pixiu/runner-logs`，不挂载则容器重建后丢失）。
+2）启动：把 docker 的 socket 挂载换成 containerd 状态路径——`-v /run/containerd:/run/containerd`（整目录共享，含 socket）与 `-v /var/lib/containerd:/var/lib/containerd`（pixiu 作为 containerd 本地客户端会在容器内创建 fifo、执行镜像解包挂载，两棵路径须与宿主 daemon/shim 一致）；`--restart=always` 等参数不变；额外加一个 `/var/lib/pixiu` 卷持久化 runner 容器日志（containerd 无原生日志流，pixiu 会把 runner 容器日志固定写到 `/var/lib/pixiu/runner-logs`，不挂载则容器重建后丢失）。
 
 ```bash
 # 数据库
 sudo nerdctl -n default run -d --restart=always --net host --privileged=true --name mariadb -e MYSQL_ROOT_PASSWORD="Pixiu868686" -e MYSQL_DATABASE="pixiu" 10.206.32.8:5000/pixiu/mysql:5.7
 
 # pixiu
-sudo nerdctl -n default run -d --restart=always --net host --privileged=true -v /etc/pixiu:/etc/pixiu -v /run/containerd/containerd.sock:/run/containerd/containerd.sock -v /var/lib/pixiu:/var/lib/pixiu --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1
+sudo nerdctl -n default run -d --restart=always --net host --privileged=true \
+  -v /etc/pixiu:/etc/pixiu \
+  -v /run/containerd:/run/containerd \
+  -v /var/lib/containerd:/var/lib/containerd \
+  -v /var/lib/pixiu:/var/lib/pixiu \
+  --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1
 ```
 
 3）配置：`/etc/pixiu/config.yaml` 中把运行时指向 containerd，pixiu 才会用 containerd 拉起部署 runner 容器（默认 containerd，不配置即使用 containerd）。

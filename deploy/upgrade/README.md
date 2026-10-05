@@ -67,7 +67,7 @@ docker run -d --net host --restart=always --privileged=true \
 
 ## 基于 containerd 安装（nerdctl）
 
-若宿主当初是用 nerdctl/containerd 手工部署的，升级步骤同理，只是把 `docker` 换成 `nerdctl`、`docker.sock` 换成 `containerd.sock`，并保留 runner 日志卷 `/var/lib/pixiu`：
+若宿主当初是用 nerdctl/containerd 手工部署的，升级步骤同理，只是把 `docker` 换成 `nerdctl`，socket 挂载换成 containerd 状态目录（`-v /run/containerd:/run/containerd` 与 `-v /var/lib/containerd:/var/lib/containerd`，整目录共享），并保留 runner 日志卷 `/var/lib/pixiu`：
 
 ```bash
 # 1) 拉取新版本镜像（tag 换成目标版本）
@@ -76,10 +76,11 @@ sudo nerdctl -n default pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyu
 # 2) 删除旧容器
 sudo nerdctl -n default rm -f pixiu
 
-# 3) 按原参数重建（参数与当初 nerdctl 手工部署时一致，仅替换镜像 tag）
+# 3) 按下方参数重建（containerd 状态路径需以整目录共享；仅替换镜像 tag）
 sudo nerdctl -n default run -d --restart=always --net host --privileged \
   -v /etc/pixiu:/etc/pixiu \
-  -v /run/containerd/containerd.sock:/run/containerd/containerd.sock \
+  -v /run/containerd:/run/containerd \
+  -v /var/lib/containerd:/var/lib/containerd \
   -v /var/lib/pixiu:/var/lib/pixiu \
   --name pixiu \
   crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
