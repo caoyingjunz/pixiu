@@ -17,10 +17,3 @@ sudo apt-get install -y containerd.io
 sudo systemctl enable --now containerd
 sudo systemctl start containerd
 ```
-
-### 安装 nerdctl
-```bash
-curl -fsSL -o /tmp/nerdctl.tar.gz https://github.com/containerd/nerdctl/releases/download/v2.4.0/nerdctl-2.4.0-linux-amd64.tar.gz
-sudo tar -xzf /tmp/nerdctl.tar.gz -C /usr/local/bin nerdctl
-rm -f /tmp/nerdctl.tar.gz
-```
