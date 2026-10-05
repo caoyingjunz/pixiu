@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/deployagent"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 func main() {
@@ -40,7 +42,18 @@ func main() {
 	if err != nil {
 		klog.Fatalf("Failed to load config: %v", err)
 	}
-	server, token, workRoot := cfg.Resolve()
+	server, token, workRoot, rtOpts := cfg.Resolve()
+	rtOpts.SetDefaults()
+	// 校验运行时配置（与主服务一致：拒绝非法 CRI、带协议前缀或非绝对路径的 socket）
+	if err = rtOpts.Valid(); err != nil {
+		klog.Fatalf("Failed to validate container runtime config: %v", err)
+	}
+
+	// 构造宿主容器运行时，注入 Agent（deploy-agent 为独立二进制，不走全局单例）
+	rt, err := runtime.New(rtOpts)
+	if err != nil {
+		klog.Fatalf("Failed to init container runtime: %v", err)
+	}
 
 	server = strings.TrimRight(strings.TrimSpace(server), "/")
 	token = strings.TrimSpace(token)
@@ -58,13 +71,13 @@ func main() {
 	if err != nil {
 		klog.Fatalf("Failed to get hostname: %v", err)
 	}
-	ag := deployagent.New(server, token)
+	ag := deployagent.New(server, token, rt)
 
 	klog.Infof("pixiu-deploy-agent %s starting, server=%s", deployagent.Version, server)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	var running bool
+	var running atomic.Bool
 
 	for {
 		select {
@@ -75,7 +88,7 @@ func main() {
 				klog.Errorf("heartbeat failed: %v", err)
 			}
 
-			if running {
+			if running.Load() {
 				continue
 			}
 			job, err := ag.Claim()
@@ -87,9 +100,9 @@ func main() {
 				continue
 			}
 			klog.Infof("claimed job %d kind=%s action=%s", job.Id, job.Kind, job.Action)
-			running = true
+			running.Store(true)
 			go func(j *types.Job) {
-				defer func() { running = false }()
+				defer running.Store(false)
 				if err := deployagent.RunJob(ctx, ag, workRoot, j); err != nil {
 					klog.Errorf("job %d failed: %v", j.Id, err)
 					_ = ag.Report(j.Id, false, err.Error(), "")

@@ -25,12 +25,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/docker/docker/pkg/stdcopy"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util/container"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 // TaskInterface 计划任务子接口
@@ -119,25 +118,19 @@ func (t *planTask) WatchLog(ctx context.Context, planId int64, taskId int64, w h
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	cli, err := container.NewContainer("", planId, "")
+	rt, err := runtime.Default()
 	if err != nil {
 		return err
 	}
-	readCloser, err := cli.WatchContainerLog(ctx, fmt.Sprintf("%s-%d", task.Action, planId), "")
+	readCloser, err := rt.Logs(ctx, fmt.Sprintf("%s-%d", task.Action, planId), true)
 	if err != nil {
 		return err
 	}
 	defer readCloser.Close()
 
-	// Docker 同时拉取 stdout/stderr 时是带 8 字节头的复用流，
-	// 按行直接切掉前 8 字节会在短行上 panic，这里先解复用再按行推送。
-	pr, pw := io.Pipe()
-	go func() {
-		_, copyErr := stdcopy.StdCopy(pw, pw, readCloser)
-		_ = pw.CloseWithError(copyErr)
-	}()
-
-	scanner := bufio.NewScanner(pr)
+	// 解复用已归运行时实现（docker.go 内部用 StdCopy 解复用；containerd 读纯文本落盘日志），
+	// 调用点二次解复用会得到空流，此为 #1061 panic 修复在抽象层的等价承接。
+	scanner := bufio.NewScanner(readCloser)
 	flush, _ := w.(http.Flusher)
 	for scanner.Scan() {
 		line := append(scanner.Bytes(), '\n')

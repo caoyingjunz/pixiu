@@ -1,9 +1,12 @@
-# 前置准备
+# 安装 docker
+
+1. [离线安装](offline-docker.md)
+2. [在线安装](online-docker.md)
+
 ```bash
-确保 docker 已经安装
-注意: pixiu 和 kubernetes 集群复用节点的时候, 在ubuntu系统上通过 apt 的方式直接安装 docker. 安装方式推荐如下:
+# 验证 docker 安装完成
+docker ps -a 
 ```
-[docker 快速安装](./deploy/offline/docker.md)
 
 # 数据库
 ```bash
@@ -15,11 +18,11 @@ docker run -d --net host --restart=always --privileged=true --name mariadb -e MY
 
 # 获取部署驱动镜像（可选，如果没有部署k8s需求，或者可联网可跳过，pixiu 部署时会自行同步 runner）
 ```shell
-docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v2.0.2
-docker pull ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.4
+docker pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/kubez-ansible:v3.0.4
 ```
 
 # 启动 pixiu 服务端
+
 ## 配置 pixiu
 ```bash
 # 创建配置文件夹
@@ -35,6 +38,12 @@ default:
   # 超级管理初始化用户名和密码；不指定的情况下，默认为 admin/Pixiu123456!
   admin_user: admin
   admin_password: Pixiu123456!
+
+runtime:
+  # 宿主容器运行时类型：docker / containerd，默认 containerd；docker 部署须显式写 docker
+  cri: docker
+  # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
+  #socket: /run/containerd/containerd.sock
 
 # 数据库地址信息, 根据实际情况配置
 mysql:

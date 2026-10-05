@@ -19,9 +19,7 @@ package runner
 import (
 	"context"
 	"fmt"
-	"io"
 
-	"github.com/docker/docker/api/types/image"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/errors"
@@ -30,8 +28,8 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
-	"github.com/caoyingjunz/pixiu/pkg/util/docker"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 type RunnerGetter interface {
@@ -296,24 +294,14 @@ func (r *runnerController) updateStatus(ctx context.Context, runnerId int64, sta
 	return r.factory.Runner().InternalUpdate(ctx, runnerId, map[string]interface{}{"status": status})
 }
 
-// 拉取 docker 镜像
+// 拉取 runner 镜像
 func (r *runnerController) pullImage(ctx context.Context, imageName string) error {
-	cli, err := docker.NewClient()
+	rt, err := runtime.Default()
 	if err != nil {
-		klog.Errorf("failed to create docker client for pull %s: %v", imageName, err)
-		return fmt.Errorf("%s: %w", imageName, err)
+		return err
 	}
-	defer cli.Close()
-
-	reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
-	if err != nil {
+	if err := rt.PullImage(ctx, imageName); err != nil {
 		klog.Errorf("failed to pull image %s: %v", imageName, err)
-		return fmt.Errorf("%s: %w", imageName, err)
-	}
-	defer reader.Close()
-
-	if _, err = io.Copy(io.Discard, reader); err != nil {
-		klog.Errorf("failed to read pull output for image %s: %v", imageName, err)
 		return fmt.Errorf("%s: %w", imageName, err)
 	}
 
@@ -321,16 +309,13 @@ func (r *runnerController) pullImage(ctx context.Context, imageName string) erro
 	return nil
 }
 
-// 移除 docker 镜像
+// 移除 runner 镜像
 func (r *runnerController) removeImage(ctx context.Context, imageName string) error {
-	cli, err := docker.NewClient()
+	rt, err := runtime.Default()
 	if err != nil {
-		klog.Errorf("failed to create docker client for remove %s: %v", imageName, err)
-		return fmt.Errorf("%s: %w", imageName, err)
+		return err
 	}
-	defer cli.Close()
-
-	if _, err = cli.ImageRemove(ctx, imageName, image.RemoveOptions{Force: true}); err != nil {
+	if err := rt.RemoveImage(ctx, imageName); err != nil {
 		klog.Errorf("failed to remove image %s: %v", imageName, err)
 		return fmt.Errorf("%s: %w", imageName, err)
 	}

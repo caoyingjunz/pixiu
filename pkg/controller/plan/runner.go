@@ -19,14 +19,12 @@ package plan
 import (
 	"context"
 	"fmt"
-	"io"
+
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/util/docker"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
-	"k8s.io/klog/v2"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 // Runner 部署前确保本地已存在 runner 镜像
@@ -59,28 +57,22 @@ func (r Runner) Run() error {
 		klog.Warningf("get runner by %s: %v", imageName, runnerErr)
 	}
 
-	cli, err := docker.NewClient()
+	rt, err := runtime.Default()
 	if err != nil {
-		return fmt.Errorf("create docker client: %w", err)
+		return err
 	}
-	defer cli.Close()
-
-	if _, _, err = cli.ImageInspectWithRaw(ctx, imageName); err == nil {
+	exists, err := rt.ImageExists(ctx, imageName)
+	if err != nil {
+		return fmt.Errorf("inspect image %s: %w", imageName, err)
+	}
+	if exists {
 		klog.Infof("runner image %s already exists locally, skip pull", imageName)
 		return nil
-	} else if !client.IsErrNotFound(err) {
-		return fmt.Errorf("inspect image %s: %w", imageName, err)
 	}
 
 	klog.Infof("runner image %s not found locally, pulling", imageName)
-	reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
-	if err != nil {
+	if err = rt.PullImage(ctx, imageName); err != nil {
 		return fmt.Errorf("pull image %s: %w", imageName, err)
-	}
-	defer reader.Close()
-
-	if _, err = io.Copy(io.Discard, reader); err != nil {
-		return fmt.Errorf("read pull output for image %s: %w", imageName, err)
 	}
 
 	klog.Infof("successfully pulled runner image %s", imageName)
