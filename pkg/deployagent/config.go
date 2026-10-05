@@ -32,9 +32,10 @@ type Config struct {
 
 // DefaultConfig 为配置文件中的 default 段。
 type DefaultConfig struct {
-	Server  string                `yaml:"server"`
-	Token   string                `yaml:"token"`
-	WorkDir string                `yaml:"work_dir"`
+	Server  string `yaml:"server"`
+	Token   string `yaml:"token"`
+	WorkDir string `yaml:"work_dir"`
+
 	Runtime config.RuntimeOptions `yaml:"runtime"`
 }
 

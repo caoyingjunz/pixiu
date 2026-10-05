@@ -54,13 +54,6 @@ mysql:
   name: pixiu
 ```
 
-### 容器运行时配置说明
-pixiu 会在部署节点上拉起 runner 容器（kubez-ansible），其使用的容器运行时由主配置样例中的 `runtime` 段决定：**默认 containerd，不配置即使用 containerd**。
-
-- 本文是 docker 部署方式，样例中已显式写 `runtime.cri: docker`；宿主改用 containerd 时将其改为 `containerd`（或删除该行，使用缺省值）。
-- `runtime.socket` 只支持裸路径（不要写 `unix://` 前缀）：留空时 containerd 使用 `/run/containerd/containerd.sock`，docker 沿用 `DOCKER_HOST`/默认 socket。
-- 宿主用 containerd 时的 socket 路径与日志目录挂载要求见 [基于 containerd 安装](containerd-install.md)。
-
 ## 启动 pixiu
 ```bash
 # 根据实际需要修改宿主机端口，默认使用宿主机端口，可替换 --net host 为期望端口映射 -p <hostPort>:80
