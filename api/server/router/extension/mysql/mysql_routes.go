@@ -55,7 +55,7 @@ type slowQueryOptions struct {
 	PageSize int64 `form:"page_size"`
 }
 
-// pingMySQLAdhoc 临时探测：请求体直接传连接配置，不依赖已保存的数据源
+// pingMySQLAdhoc 临时探测数据源连通性
 func (mr *mysqlRouter) pingMySQLAdhoc(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -67,7 +67,7 @@ func (mr *mysqlRouter) pingMySQLAdhoc(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = mr.c.Extension().Mysql().PingAdhocWithDatasource(c, req.DatasourceId, &req.MySQLSourceConfig); err != nil {
+	if r.Result, err = mr.c.Extension().Mysql().PingAdhoc(c, req.DatasourceId, &req.MySQLSourceConfig); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

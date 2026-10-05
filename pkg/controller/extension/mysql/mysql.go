@@ -35,6 +35,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -65,10 +66,7 @@ var allowedDSNParams = map[string]struct{}{
 
 type Interface interface {
 	Ping(ctx context.Context, datasourceId int64) (*types.MySQLPing, error)
-	// PingAdhoc 临时探测（不落库、不缓存连接），用于创建数据源前的连通性验证；仅管理员可调用
-	PingAdhoc(ctx context.Context, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error)
-	// PingAdhocWithDatasource 使用当前表单配置，并在密码为空时补齐已保存密码。
-	PingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error)
+	datasourcecontroller.PingInterface[types.MySQLSourceConfig, types.MySQLPing]
 	Info(ctx context.Context, datasourceId int64) (*types.MySQLServerInfo, error)
 	ListDatabases(ctx context.Context, datasourceId int64) ([]types.MySQLDatabase, error)
 	ListTables(ctx context.Context, datasourceId int64, database string) ([]types.MySQLTable, error)
@@ -339,7 +337,14 @@ func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.MySQL
 
 // PingAdhoc 使用临时连接探测指定配置，探测完成后立即关闭连接。
 // 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
-func (c *controller) PingAdhoc(ctx context.Context, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
+func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
+	if datasourceId > 0 {
+		return c.pingAdhocWithDatasource(ctx, datasourceId, cfg)
+	}
+	return c.pingAdhocConfig(ctx, cfg)
+}
+
+func (c *controller) pingAdhocConfig(ctx context.Context, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
 	if err := requireMySQLAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -351,10 +356,7 @@ func (c *controller) PingAdhoc(ctx context.Context, cfg *types.MySQLSourceConfig
 	return pingMySQL(ctx, dbConn, cfg)
 }
 
-func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
-	if datasourceId <= 0 {
-		return c.PingAdhoc(ctx, cfg)
-	}
+func (c *controller) pingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
 	if err := requireMySQLAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -378,7 +380,7 @@ func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId i
 	if cfg.Password == "" {
 		cfg.Password = saved.Mysql.Password
 	}
-	return c.PingAdhoc(ctx, cfg)
+	return c.pingAdhocConfig(ctx, cfg)
 }
 
 // pingMySQL 执行 PING + 顺带取版本（失败不影响探测结果）
