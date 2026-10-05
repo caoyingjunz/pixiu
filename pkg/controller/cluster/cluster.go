@@ -91,7 +91,7 @@ type Interface interface {
 	WsClusterHandler(ctx context.Context, req types.ClusterWebRequest, w http.ResponseWriter, r *http.Request) error
 
 	// WatchPodLog 实时获取 pod 的日志
-	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error
+	WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, sinceTime string, timestamps bool, w http.ResponseWriter, r *http.Request) error
 
 	// ReRunJob 重新执行指定任务
 	ReRunJob(ctx context.Context, cluster string, namespace string, jobName string, resourceVersion string) error
@@ -703,19 +703,29 @@ func (c *cluster) GetEventList(ctx context.Context, cluster string, options type
 //
 // Returns:
 // - error: An error if there was a problem streaming the logs.
-func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, w http.ResponseWriter, r *http.Request) error {
+func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace string, podName string, containerName string, tailLine int64, sinceTime string, timestamps bool, w http.ResponseWriter, r *http.Request) error {
 	clusterSet, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		klog.Errorf("failed to get cluster(%s) clientSet: %v", cluster, err)
 		return err
 	}
 
-	req := clusterSet.Client.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
+	logOptions := &v1.PodLogOptions{
 		Container:  containerName,
 		Follow:     true,
-		TailLines:  &tailLine,
-		Timestamps: false,
-	})
+		Timestamps: timestamps,
+	}
+	if sinceTime != "" {
+		parsedSinceTime, parseErr := time.Parse(time.RFC3339Nano, sinceTime)
+		if parseErr != nil {
+			return fmt.Errorf("invalid pod log sinceTime: %w", parseErr)
+		}
+		logOptions.SinceTime = &metav1.Time{Time: parsedSinceTime}
+	} else {
+		logOptions.TailLines = &tailLine
+	}
+
+	req := clusterSet.Client.CoreV1().Pods(namespace).GetLogs(podName, logOptions)
 	if req == nil {
 		klog.Errorf("failed to get stream")
 		return fmt.Errorf("failed to get stream")
@@ -738,15 +748,20 @@ func (c *cluster) WatchPodLog(ctx context.Context, cluster string, namespace str
 	}
 	defer conn.Close()
 
+	buf := make([]byte, 32*1024)
 	for {
-		buf := make([]byte, 1024)
-		n, err := reader.Read(buf)
-		if err != nil && err != io.EOF {
+		n, readErr := reader.Read(buf)
+		if n > 0 {
+			if err = conn.WriteMessage(websocket.TextMessage, buf[:n]); err != nil {
+				klog.Errorf("failed to write message: %v, this websocket connection will be closed", err)
+				break
+			}
+		}
+		if readErr == io.EOF {
 			break
 		}
-		err = conn.WriteMessage(websocket.TextMessage, buf[0:n])
-		if err != nil {
-			klog.Errorf("failed to write message: %v ,this websocket connection will be closed", err)
+		if readErr != nil {
+			klog.Errorf("failed to read pod log stream: %v", readErr)
 			break
 		}
 	}
