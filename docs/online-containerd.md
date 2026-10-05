@@ -20,6 +20,7 @@ sudo apt-get update
 #    （此前按旧版文档执行失败过的机器：重跑第 1 步整段即可修复，会重下 key 并覆写 docker.list）
 sudo apt-get install -y containerd.io
 sudo systemctl enable --now containerd
+sudo systemctl start containerd
 
 # 3) 安装 nerdctl v2.4.0（官方发布包；arm64 节点把文件名中的 amd64 换成 arm64）
 curl -fsSL -o /tmp/nerdctl.tar.gz https://github.com/containerd/nerdctl/releases/download/v2.4.0/nerdctl-2.4.0-linux-amd64.tar.gz
