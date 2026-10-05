@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -43,7 +44,7 @@ func main() {
 	}
 	server, token, workRoot, rtOpts := cfg.Resolve()
 	rtOpts.SetDefaults()
-	// 校验运行时配置（与主服务一致：拒绝 containerd + k8s.io 命名空间等非法取值）
+	// 校验运行时配置（与主服务一致：拒绝非法 CRI、带协议前缀或非绝对路径的 socket）
 	if err = rtOpts.Valid(); err != nil {
 		klog.Fatalf("Failed to validate container runtime config: %v", err)
 	}
@@ -76,7 +77,7 @@ func main() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	var running bool
+	var running atomic.Bool
 
 	for {
 		select {
@@ -87,7 +88,7 @@ func main() {
 				klog.Errorf("heartbeat failed: %v", err)
 			}
 
-			if running {
+			if running.Load() {
 				continue
 			}
 			job, err := ag.Claim()
@@ -99,9 +100,9 @@ func main() {
 				continue
 			}
 			klog.Infof("claimed job %d kind=%s action=%s", job.Id, job.Kind, job.Action)
-			running = true
+			running.Store(true)
 			go func(j *types.Job) {
-				defer func() { running = false }()
+				defer running.Store(false)
 				if err := deployagent.RunJob(ctx, ag, workRoot, j); err != nil {
 					klog.Errorf("job %d failed: %v", j.Id, err)
 					_ = ag.Report(j.Id, false, err.Error(), "")

@@ -3,7 +3,7 @@
 # 使用方式:
 #   deploy-agent -config=/etc/pixiu/agent.yaml
 #
-# 环境变量（PIXIU_SERVER / PIXIU_DEPLOY_TOKEN / PIXIU_AGENT_WORKDIR / PIXIU_RUNTIME_CRI）
+# 环境变量（PIXIU_SERVER / PIXIU_DEPLOY_TOKEN / PIXIU_AGENT_WORKDIR）
 # 在配置文件值为空时作为回退。
 
 default:
@@ -13,20 +13,3 @@ default:
   token: ""
   # 本地工作目录
   work_dir: "/etc/pixiu"
-
-  # 宿主容器运行时配置（Agent 在本机拉起部署 runner 容器）
-  # 注意：这是宿主运行时，与「被部署集群的 CRI」不是一回事
-  # 缺省 containerd，不配置即使用 containerd；仅当本机只有 docker 时才改为 cri: docker
-  runtime:
-    # 运行时类型：docker / containerd，默认 containerd
-    # 也可用环境变量 PIXIU_RUNTIME_CRI 指定；docker.host、containerd 子项仅走配置文件
-    cri: containerd
-    # log_dir: /var/lib/pixiu/runner-logs  # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
-    #docker:                # 仅当 cri: docker 时生效
-    #  # 留空沿用 docker 环境变量/默认 socket
-    #  host: ""
-    #containerd:            # cri: containerd 时的可选项，整段不写即用下列默认值
-    #  # containerd gRPC socket 地址
-    #  address: /run/containerd/containerd.sock
-    #  # 命名空间，默认 default；禁止使用 k8s.io（kubelet 工作区，会被拒绝）
-    #  namespace: default

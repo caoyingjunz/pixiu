@@ -6,22 +6,6 @@ default:
   admin_user: admin
   admin_password: Pixiu123456!
 
-# 宿主容器运行时配置（pixiu 调用本机运行时拉起部署 runner 容器）
-# 注意：这是宿主运行时，与「被部署集群的 CRI」（部署计划里的运行时选择）不是一回事
-# docker-compose 部署已挂载 /var/run/docker.sock，须显式配置 cri: docker（缺省值已改为 containerd）
-runtime:
-  # 运行时类型：docker / containerd，默认 containerd
-  cri: docker
-  # log_dir: /var/lib/pixiu/runner-logs  # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
-  #docker:                # 仅当 cri: docker 时生效
-  #  # 留空沿用 docker 环境变量/默认 socket
-  #  host: ""
-  #containerd:            # cri: containerd 时的可选项，整段不写即用下列默认值
-  #  # containerd gRPC socket 地址
-  #  address: /run/containerd/containerd.sock
-  #  # 命名空间，默认 default；禁止使用 k8s.io（kubelet 工作区，会被服务端拒绝）
-  #  namespace: default
-
 # 数据库地址信息, 根据实际情况配置
 mysql:
   host: mysql # 数据库的ip

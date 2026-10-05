@@ -29,8 +29,8 @@
 ## 安装步骤
 ### 0. 容器运行时准备
 
-- 用 containerd：参见 [deploy/containerd/README.md](../containerd/README.md)（安装 containerd 与 nerdctl、权限说明；Agent 只用到 containerd，不依赖 nerdctl）。
-- 用 docker：[Docker极速安装](../offline/docker.md)。
+- 用 containerd：宿主需已安装并运行 containerd 与 nerdctl（Agent 只用到 containerd，不依赖 nerdctl）。
+- 用 docker：[Docker极速安装](../../docs/offline-docker.md)。
 
 ### 1. 获取 Token
 
@@ -62,23 +62,17 @@ default:
   runtime:
     # 运行时类型：docker / containerd，默认 containerd
     cri: containerd
-    # log_dir: /var/lib/pixiu/runner-logs  # runner 容器日志落盘目录，默认 /var/lib/pixiu/runner-logs
-    #docker:                # 仅当 cri: docker 时生效
-    #  # 留空沿用 docker 环境变量/默认 socket
-    #  host: ""
-    #containerd:            # cri: containerd 时的可选项，整段不写即用下列默认值
-    #  # containerd gRPC socket 地址
-    #  address: /run/containerd/containerd.sock
-    #  # 命名空间，默认 default；禁止使用 k8s.io（kubelet 工作区，会被拒绝）
-    #  namespace: default
+    # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
+    #socket: /run/containerd/containerd.sock
 EOF
 
 # 运行时配置只取自本文件（或下面的 PIXIU_RUNTIME_CRI 环境变量），
 # 由 Agent 自己决定用哪种宿主运行时，控制面不会下发 runtime 配置。
 # 配置文件优先于环境变量，留空时回退到环境变量；
-# 运行时类型也可用 PIXIU_RUNTIME_CRI 指定；docker.host、containerd.address/namespace
-# 等子项仅走配置文件，环境变量不生效
+# 运行时类型也可用 PIXIU_RUNTIME_CRI 指定；socket 仅走配置文件，环境变量不生效
 ```
+
+> **存量节点升级注意**：历史 `agent.yaml` 若无 runtime 段，新版默认按 containerd 启动；docker 节点请先在 `agent.yaml` 写 `cri: docker`，否则 agent 会因连不上 containerd 启动失败。
 
 ### 4. 注册 systemd 服务
 

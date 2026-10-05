@@ -283,6 +283,17 @@ func (a *agentController) ReportResult(ctx context.Context, agentToken string, j
 	if !req.Success {
 		status = model.JobFailed
 	}
+
+	// 首个终态为准：服务端超时已判 failed 后，agent 的迟到上报不得把作业翻回 success
+	job, err := a.factory.Agent().Job().Get(ctx, jobId)
+	if err != nil {
+		return err
+	}
+	if job != nil && (job.Status == model.JobSuccess || job.Status == model.JobFailed) {
+		klog.Warningf("作业(%d)已是终态(%s)，忽略本次迟到上报(%s)", jobId, job.Status, status)
+		return nil
+	}
+
 	return a.factory.Agent().Job().InternalUpdate(ctx, jobId, map[string]interface{}{
 		"status": status, "message": req.Message, "result": req.Result,
 	})

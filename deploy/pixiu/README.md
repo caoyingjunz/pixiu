@@ -53,11 +53,9 @@ kubectl apply -f deploy/pixiu/pixiu.yaml
 ConfigMap 中的 `runtime` 段决定 pixiu「在本机拉起部署 runner 容器」时使用哪种宿主运行时（与被部署集群的 CRI 不是一回事）：
 
 - `runtime.cri`：`docker` / `containerd`，**默认 containerd**，不配置即使用 containerd
-- `runtime.docker.host`：docker 地址，留空沿用 docker 默认/环境变量
-- `runtime.containerd.address`：containerd socket 地址，默认 `/run/containerd/containerd.sock`
-- `runtime.containerd.namespace`：containerd 命名空间，默认 `default`；禁止使用 `k8s.io`（会污染 kubelet 视图）
+- `runtime.socket`：宿主运行时 socket 路径，只支持裸路径（不要写 unix:// 前缀）；留空时 containerd 使用 `/run/containerd/containerd.sock`，docker 沿用默认 socket
 
-本清单显式配置 `cri: docker`。宿主直接用 containerd 部署 pixiu 本身的完整步骤见 [deploy/containerd/README.md](../containerd/README.md)。
+本清单显式配置 `cri: docker`：该形态未挂载运行时 socket，若按缺省 containerd 拨号会启动失败，也因此不支持本地执行（见上文「已知限制」）。使用 containerd 部署 pixiu 本身的步骤见 install.md「使用 containerd 部署」。
 
 ## 访问
 
