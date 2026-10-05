@@ -136,7 +136,7 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 
 	logFile, err = openLogFile(path)
 	if err != nil {
-		return fmt.Errorf("打开日志文件(%s)失败: %v；请确认日志目录可写（如 /var/lib/pixiu 已挂载进 pixiu 容器）", path, err)
+		return fmt.Errorf("打开日志文件(%s)失败: %v；请确认日志目录可写（如 /etc/pixiu 已挂载进 pixiu 容器）", path, err)
 	}
 
 	img, err := c.client.GetImage(ctx, imageRef)

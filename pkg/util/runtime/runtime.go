@@ -34,8 +34,9 @@ const (
 	KindContainerd Kind = "containerd"
 )
 
-// DefaultLogDir runner 容器日志根目录，固定不可配置；容器日志固定落 <DefaultLogDir>/<容器名>.log
-const DefaultLogDir = "/var/lib/pixiu/runner-logs"
+// DefaultLogDir runner 容器日志根目录，固定不可配置；容器日志固定落 <DefaultLogDir>/<容器名>.log。
+// 目录位于 /etc/pixiu 卷内：随 pixiu 容器的 /etc/pixiu 挂载天然持久化，无需独立日志卷。
+const DefaultLogDir = "/etc/pixiu/runner-logs"
 
 // logPath 返回容器日志文件的确定性路径 <DefaultLogDir>/<容器名>.log。
 // 该路径是日志位置在全局的唯一来源：RunContainer 按它落盘、Logs 按它读取，

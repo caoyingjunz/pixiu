@@ -36,7 +36,7 @@ type DeployMaster struct {
 // runRunnerContainer 以宿主容器运行时拉起 runner 任务容器并等待退出。
 // waitTimeout 为等待容器退出的最长时长，来自 worker.deploy_timeout 配置(秒)；
 // <=0 时表示不设内部上限（等待容器退出或 ctx 结束）。
-// 日志路径由运行时按容器名自行决定（固定 /var/lib/pixiu/runner-logs/<name>.log），调用方不再传入。
+// 日志路径由运行时按容器名自行决定（固定 /etc/pixiu/runner-logs/<name>.log），调用方不再传入。
 func runRunnerContainer(ctx context.Context, action string, planId int64, dir, image string, waitTimeout time.Duration) error {
 	name := fmt.Sprintf("%s-%d", action, planId)
 	rt, err := runtime.Default()
