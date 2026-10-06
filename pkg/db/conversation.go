@@ -31,6 +31,8 @@ type ConversationInterface interface {
 	Update(ctx context.Context, id int64, resourceVersion int64, updates map[string]interface{}) error
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*model.Conversation, error)
+	GetCurrent(ctx context.Context) (*model.Conversation, error)
+	SetCurrent(ctx context.Context, id int64) error
 	List(ctx context.Context, opts ...Options) ([]model.Conversation, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
 }
@@ -87,6 +89,41 @@ func (a *conversation) Get(ctx context.Context, id int64) (*model.Conversation, 
 		return nil, err
 	}
 	return &object, nil
+}
+
+func (a *conversation) GetCurrent(ctx context.Context) (*model.Conversation, error) {
+	var object model.Conversation
+	if err := a.db.WithContext(ctx).Where("is_current = ?", true).Order("gmt_modified DESC").First(&object).Error; err != nil {
+		if errors.IsRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &object, nil
+}
+
+func (a *conversation) SetCurrent(ctx context.Context, id int64) error {
+	return a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Conversation{}).Where("is_current = ?", true).
+			Update("is_current", false).Error; err != nil {
+			return err
+		}
+		if id <= 0 {
+			return nil
+		}
+
+		f := tx.Model(&model.Conversation{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"is_current":   true,
+			"gmt_modified": time.Now(),
+		})
+		if f.Error != nil {
+			return f.Error
+		}
+		if f.RowsAffected == 0 {
+			return errors.ErrRecordNotFound
+		}
+		return nil
+	})
 }
 
 func (a *conversation) List(ctx context.Context, opts ...Options) ([]model.Conversation, error) {

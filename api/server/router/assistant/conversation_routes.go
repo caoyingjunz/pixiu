@@ -27,6 +27,10 @@ type conversationMeta struct {
 	ConversationId int64 `uri:"conversationId"`
 }
 
+type currentConversationRequest struct {
+	ConversationId int64 `json:"conversation_id"`
+}
+
 func (r *router) deleteConversation(c *gin.Context) {
 	resp := httputils.NewResponse()
 
@@ -57,6 +61,35 @@ func (r *router) getConversation(c *gin.Context) {
 		return
 	}
 	if resp.Result, err = r.c.Assistant().Conversation().Get(c, idMeta.ConversationId); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) getCurrentConversation(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var err error
+	if resp.Result, err = r.c.Assistant().Conversation().GetCurrent(c); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *router) setCurrentConversation(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	var (
+		req currentConversationRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, nil, nil); err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if err = r.c.Assistant().Conversation().SetCurrent(c, req.ConversationId); err != nil {
 		httputils.SetFailed(c, resp, err)
 		return
 	}

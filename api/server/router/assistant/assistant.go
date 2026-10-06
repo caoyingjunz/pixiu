@@ -76,7 +76,9 @@ func (r *router) initRoutes(ginEngine *gin.Engine) {
 		Entries: []apiregistry.RouteEntry{
 			{Method: "DELETE", RelativePath: "/:conversationId", Handler: r.deleteConversation, Description: "Delete conversation"},
 			{Method: "GET", RelativePath: "", Handler: r.listConversations, Description: "List conversations"},
+			{Method: "GET", RelativePath: "/current", Handler: r.getCurrentConversation, Description: "Get current conversation"},
 			{Method: "GET", RelativePath: "/:conversationId", Handler: r.getConversation, Description: "Get conversation"},
+			{Method: "PUT", RelativePath: "/current", Handler: r.setCurrentConversation, Description: "Set current conversation"},
 		},
 	}
 	conversationGroup.Register(ginEngine.Group(conversationBaseURL), r.c.APIResource())
