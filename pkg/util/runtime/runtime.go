@@ -82,12 +82,26 @@ type Runtime interface {
 }
 
 // New 按配置构造运行时实例。
+// 报错路径保证返回 nil 接口（构造函数结果解包后再返回，避免 typed-nil 装箱），调用方仍应优先判 err。
 func New(opts config.RuntimeOptions) (Runtime, error) {
+	// 启动链不校验 CRI 配置（见 config.Config.Valid 注释）；配置合法性在此处、即首次实际使用时报出
+	if err := opts.Valid(); err != nil {
+		return nil, err
+	}
+
 	switch Kind(opts.CRI) {
 	case KindDocker:
-		return newDockerRuntime(opts)
+		rt, err := newDockerRuntime(opts)
+		if err != nil {
+			return nil, err
+		}
+		return rt, nil
 	case KindContainerd:
-		return newContainerdRuntime(opts)
+		rt, err := newContainerdRuntime(opts)
+		if err != nil {
+			return nil, err
+		}
+		return rt, nil
 	default:
 		return nil, fmt.Errorf("未知的容器运行时类型(%s)，可选值: docker, containerd", opts.CRI)
 	}
@@ -104,7 +118,7 @@ var (
 )
 
 // Init 登记宿主容器运行时配置，不做任何连接（懒加载）。
-// 配置合法性（CRI 取值、socket 路径）由启动链路 Config.Valid 校验，此处不再 fail-fast；
+// 配置合法性由 New（首次实际使用 CRI 时）校验，此处不再 fail-fast；
 // 连接失败只在实际使用（Default）时报错，不阻断 pixiu 启动。
 func Init(opts config.RuntimeOptions) {
 	defaultRuntimeMu.Lock()

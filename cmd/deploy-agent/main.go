@@ -44,7 +44,7 @@ func main() {
 	}
 	server, token, workRoot, rtOpts := cfg.Resolve()
 	rtOpts.SetDefaults()
-	// 校验运行时配置（与主服务一致：拒绝非法 CRI、带协议前缀或非绝对路径的 socket）
+	// 校验运行时配置（deploy-agent 启动即构造运行时，提前校验以尽早给出精确报错；主服务侧该校验发生在首次实际使用运行时）
 	if err = rtOpts.Valid(); err != nil {
 		klog.Fatalf("Failed to validate container runtime config: %v", err)
 	}
