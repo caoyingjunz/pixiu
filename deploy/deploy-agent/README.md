@@ -23,14 +23,13 @@
 
 - Pixiu 控制面已部署，Agent 可访问控制面地址
 - 已在控制面创建 Agent 并获取 Token
-- Agent 节点已安装并运行 containerd（默认）或 docker：`runtime.cri` **缺省为 containerd**，只有本机只有 docker 时才需在 `agent.yaml` 显式写 `cri: docker`
-- Agent 以 root 运行：containerd 需通过 `/run/containerd/containerd.sock` 通信（默认 socket），非 root 需具备该 socket 读写权限
+- Agent 节点已安装并运行 containerd（默认）或 docker
 
 ## 安装步骤
 ### 0. 容器运行时准备
 
-- 用 containerd：宿主需已安装并运行 containerd 与 nerdctl（Agent 只用到 containerd，不依赖 nerdctl）。
-- 用 docker：[Docker极速安装](../../docs/offline-docker.md)。
+- 基于 containerd：[离线安装](../../docs/offline-containerd.md) [在线安装](../../docs/online-containerd.md)
+- 基于 docker：[Docker极速安装](../../docs/offline-docker.md)。
 
 ### 1. 获取 Token
 
@@ -38,11 +37,11 @@
 ![img.png](img.png)
 
 ### 2. 下载二进制文件
+[下载地址](https://github.com/offline-hub/repo/releases?page=2#release-deploy-agent)
 
 ```bash
-# 下载最新版本
-curl -Lo /usr/local/bin/pixiu-deploy-agent \
-  https://pixiu-1302939330.cos.ap-guangzhou.myqcloud.com/deploy-agent/pixiu-deploy-agent
+# 赋予可执行权限
+cp pixiu-deploy-agent-v2.0.1-amd64 /usr/local/bin/pixiu-deploy-agent
 chmod +x /usr/local/bin/pixiu-deploy-agent
 ```
 
@@ -55,24 +54,8 @@ cat > /etc/pixiu/agent.yaml <<EOF
 default:
   server: "https://pixiu.example.com"
   token: "<your-agent-token>"
-
-  # 宿主容器运行时配置（Agent 在本机拉起部署 runner 容器）
-  # 注意：这是宿主运行时，与「被部署集群的 CRI」不是一回事
-  # 缺省 containerd，不配置即使用 containerd；仅当本机只有 docker 时才改为 cri: docker
-  runtime:
-    # 运行时类型：docker / containerd，默认 containerd
-    cri: containerd
-    # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
-    #socket: /run/containerd/containerd.sock
 EOF
-
-# 运行时配置只取自本文件（或下面的 PIXIU_RUNTIME_CRI 环境变量），
-# 由 Agent 自己决定用哪种宿主运行时，控制面不会下发 runtime 配置。
-# 配置文件优先于环境变量，留空时回退到环境变量；
-# 运行时类型也可用 PIXIU_RUNTIME_CRI 指定；socket 仅走配置文件，环境变量不生效
 ```
-
-> **存量节点升级注意**：历史 `agent.yaml` 若无 runtime 段，新版默认按 containerd 启动；docker 节点请先在 `agent.yaml` 写 `cri: docker`，否则 agent 会因连不上 containerd 启动失败。
 
 ### 4. 注册 systemd 服务
 

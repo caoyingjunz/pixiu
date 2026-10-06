@@ -63,7 +63,7 @@ readonly / Pixiu123!
 - [docker-compose安装](deploy/docker-compose/README.md)
 
 ### 升级手册
-- [手动升级](deploy/upgrade/README.md)
+- [手动升级](docs/upgrade/README.md)
 
 ### 离线安装
 - [离线安装](deploy/offline/README.md)

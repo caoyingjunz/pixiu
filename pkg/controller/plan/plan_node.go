@@ -74,7 +74,7 @@ func (p *plan) syncPlanNodes(ctx context.Context, planId int64, nodes []types.Cr
 	return nil
 }
 
-// applyPlanNode 有 node_id 则绑定/更新已有节点（plan_id/role/cri，不改 ip/auth）；无 node_id 则新建计划节点。
+// applyPlanNode 有 node_id 则绑定/更新已有节点（plan_id/role/cri/ip，不改 auth）；无 node_id 则新建计划节点。
 func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.CreatePlanNodeRequest, tx *gorm.DB) error {
 	role := strings.Join(req.Role, ",")
 
@@ -96,6 +96,11 @@ func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.Creat
 		}
 
 		updates := map[string]interface{}{"plan_id": planId, "role": role, "cri": req.CRI}
+		// 计划内允许直接修正已绑定节点 IP：与主机管理端点（PUT /pixiu/nodes/:id）写同一 nodes.ip，
+		// 两处入口均可更新；请求未携带（空值）时保持原值不覆盖
+		if req.Ip != "" {
+			updates["ip"] = req.Ip
+		}
 
 		return p.factory.Plan().Node().Update(ctx, tx, req.NodeId, object.ResourceVersion, updates)
 	}
