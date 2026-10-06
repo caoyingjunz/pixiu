@@ -18,7 +18,7 @@ package config
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
@@ -166,6 +166,7 @@ func (w WorkerOptions) Valid() error {
 }
 
 // RuntimeOptions 宿主容器运行时配置（pixiu 调用本机运行时拉起 runner 容器）。
+// 配置取值在首次实际使用运行时（runtime.New）时校验，启动链不校验。
 type RuntimeOptions struct {
 	CRI string `yaml:"cri"` // docker | containerd，默认 containerd
 	// Socket 宿主运行时 socket 文件路径（裸路径，如 /run/containerd/containerd.sock）。
@@ -186,6 +187,10 @@ func (o *RuntimeOptions) SetDefaults() {
 	}
 }
 
+// Valid 校验运行时配置取值。
+// 按设计，服务启动链不做任何 CRI 校验（Config.Valid 不再调用本方法）：
+// 本方法只在首次实际使用运行时（pkg/util/runtime.New）时执行，
+// 配置有误只在运行 CRI 时报错，不阻断 pixiu 启动。
 func (o RuntimeOptions) Valid() error {
 	if o.CRI != "docker" && o.CRI != "containerd" {
 		return fmt.Errorf("runtime.cri 取值非法(%s)，可选值: docker, containerd", o.CRI)
@@ -194,8 +199,10 @@ func (o RuntimeOptions) Valid() error {
 		if strings.Contains(o.Socket, "://") {
 			return fmt.Errorf("runtime.socket 只支持裸 socket 路径(%s)，请去掉 unix:// 等协议前缀", o.Socket)
 		}
-		if !filepath.IsAbs(o.Socket) {
-			return fmt.Errorf("runtime.socket 必须是绝对路径(%s)", o.Socket)
+		// socket 是宿主运行时的 Unix socket 路径，语义为 POSIX；
+		// 不能用 filepath.IsAbs（按宿主 OS 判定，Windows 上会把 /run/... 误判为相对路径）
+		if !path.IsAbs(o.Socket) {
+			return fmt.Errorf("runtime.socket 必须是绝对路径(以 / 开头，如 /run/containerd/containerd.sock)，当前值(%s)", o.Socket)
 		}
 	}
 
@@ -221,9 +228,7 @@ func (c *Config) Valid() (err error) {
 	}
 	c.TLS.SetDefaults()
 	c.Runtime.SetDefaults()
-	if err = c.Runtime.Valid(); err != nil {
-		return
-	}
+	// 按设计，启动链不做任何 CRI 配置校验：坏值延迟到首次实际使用运行时（runtime.New）时报错，不阻断启动
 
 	return
 }

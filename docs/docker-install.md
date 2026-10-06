@@ -43,6 +43,7 @@ runtime:
   # 宿主容器运行时类型：docker / containerd，默认 containerd；docker 部署须显式写 docker
   cri: docker
   # 宿主运行时 socket 路径，只支持裸路径（如 /run/containerd/containerd.sock），不要写 unix:// 前缀
+  # 说明：runtime 配置在服务启动时不校验，配置有误将在首次执行部署任务时报错
   #socket: /run/containerd/containerd.sock
 
 # 数据库地址信息, 根据实际情况配置
