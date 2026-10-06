@@ -34,6 +34,8 @@ import (
 type Interface interface {
 	Delete(ctx context.Context, id int64) error
 	Get(ctx context.Context, id int64) (*types.Conversation, error)
+	GetCurrent(ctx context.Context) (*types.Conversation, error)
+	SetCurrent(ctx context.Context, id int64) error
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
@@ -76,6 +78,29 @@ func (c *controller) Get(ctx context.Context, id int64) (*types.Conversation, er
 		return nil, apierrors.NewError(fmt.Errorf("conversation not found"), http.StatusNotFound)
 	}
 	return modelToType(object), nil
+}
+
+func (c *controller) GetCurrent(ctx context.Context) (*types.Conversation, error) {
+	object, err := c.factory.Assistant().Conversation().GetCurrent(ctx)
+	if err != nil {
+		klog.Errorf("failed to get current conversation: %v", err)
+		return nil, apierrors.ErrServerInternal
+	}
+	if object == nil {
+		return nil, nil
+	}
+	return modelToType(object), nil
+}
+
+func (c *controller) SetCurrent(ctx context.Context, id int64) error {
+	if err := c.factory.Assistant().Conversation().SetCurrent(ctx, id); err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return apierrors.NewError(fmt.Errorf("conversation not found"), http.StatusNotFound)
+		}
+		klog.Errorf("failed to set current conversation(%d): %v", id, err)
+		return apierrors.ErrServerInternal
+	}
+	return nil
 }
 
 func (c *controller) List(ctx context.Context, listOption types.ListOptions) (interface{}, error) {

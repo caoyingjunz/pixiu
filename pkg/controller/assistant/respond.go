@@ -464,6 +464,10 @@ func (c *controller) persistConversation(
 			klog.Errorf("failed to create ai conversation: %v", err)
 			return 0, apierrors.ErrServerInternal
 		}
+		// 新会话设为当前会话，best-effort：失败仅记录，不影响回答返回
+		if err = c.factory.Assistant().Conversation().SetCurrent(ctx, object.Id); err != nil {
+			klog.Warningf("failed to set current ai conversation(%d): %v", object.Id, err)
+		}
 		return object.Id, nil
 	}
 

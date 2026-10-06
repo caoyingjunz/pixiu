@@ -64,6 +64,7 @@ type Conversation struct {
 	Title              string `gorm:"type:varchar(256)" json:"title"`
 	PreviousResponseId string `gorm:"column:previous_response_id;type:varchar(256)" json:"previous_response_id"`
 	History            string `gorm:"type:longtext" json:"history"`
+	IsCurrent          bool   `gorm:"column:is_current;not null;default:false" json:"is_current"`
 }
 
 func (Conversation) TableName() string {
