@@ -28,7 +28,7 @@
 ## 安装步骤
 ### 0. 容器运行时准备
 
-- 基于 containerd：[离线](../../docs/offline-containerd.md) [在线安装](../../docs/online-containerd.md)
+- 基于 containerd：[离线安装](../../docs/offline-containerd.md) [在线安装](../../docs/online-containerd.md)
 - 基于 docker：[Docker极速安装](../../docs/offline-docker.md)。
 
 ### 1. 获取 Token
@@ -41,6 +41,7 @@
 
 ```bash
 # 赋予可执行权限
+cp pixiu-deploy-agent-v2.0.1-amd64 /usr/local/bin/pixiu-deploy-agent
 chmod +x /usr/local/bin/pixiu-deploy-agent
 ```
 
