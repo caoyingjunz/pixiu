@@ -14,3 +14,5 @@
 浏览器登陆: http://<ip>:<port>
 ```
 
+## 页面效果
+![img.png](images/img.png)

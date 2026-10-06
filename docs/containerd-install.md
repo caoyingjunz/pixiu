@@ -50,7 +50,6 @@ mysql:
 ## 启动 pixiu
 ```bash
 # 启动 pixiu（/run/containerd 与 /var/lib/containerd 为宿主 containerd 状态路径，必须整目录共享：
-# pixiu 会在容器内创建 fifo、执行镜像解包挂载；runner 日志落 /etc/pixiu/runner-logs 随卷持久化）
 nerdctl -n default run -d --restart=always --net host --privileged=true \
   -v /etc/pixiu:/etc/pixiu \
   -v /run/containerd:/run/containerd \

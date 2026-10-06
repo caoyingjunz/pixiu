@@ -34,7 +34,33 @@ docker-compose up -d pixiu
 docker-compose ps
 ```
 
-## 基于手动安装
+## 基于手动安装（containerd）
+
+containerd 形态是 `nerdctl` 命令式启动的，升级步骤与 docker 版一致：先拉新镜像，再删掉旧容器后按原参数重新启动。
+
+拉取镜像
+
+```bash
+# pixiu
+nerdctl -n default pull crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
+```
+
+替换容器
+
+```bash
+nerdctl -n default stop pixiu
+nerdctl -n default rm pixiu
+
+# 参数与 containerd-install.md 保持一致，仅替换镜像版本（/run/containerd 与 /var/lib/containerd 须整目录挂载）
+nerdctl -n default run -d --net host --restart=always --privileged=true \
+  -v /etc/pixiu:/etc/pixiu \
+  -v /run/containerd:/run/containerd \
+  -v /var/lib/containerd:/var/lib/containerd \
+  --name pixiu \
+  crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
+```
+
+## 基于手动安装（docker）
 
 手动安装是 `docker run` 启动的，需要先拉新镜像，再删掉旧容器后按原参数重新启动：
 
