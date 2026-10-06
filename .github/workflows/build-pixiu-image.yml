@@ -3,7 +3,7 @@ name: Publish pixiu-server image
 on:
   push:
     branches:
-      - "*"
+      - "master"
     paths-ignore:
       - 'docs/**'
       - 'cmd/cluster-agent/**'
@@ -58,7 +58,7 @@ jobs:
           sbom: false
           tags: |
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1-dev
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
         # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.COMMIT_HASH }}
 
   build-arm64:
