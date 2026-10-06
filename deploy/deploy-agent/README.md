@@ -37,11 +37,10 @@
 ![img.png](img.png)
 
 ### 2. 下载二进制文件
+[下载地址](https://github.com/offline-hub/repo/releases?page=2#release-deploy-agent)
 
 ```bash
-# 下载最新版本
-curl -Lo /usr/local/bin/pixiu-deploy-agent \
-  https://pixiu-1302939330.cos.ap-guangzhou.myqcloud.com/deploy-agent/pixiu-deploy-agent
+# 赋予可执行权限
 chmod +x /usr/local/bin/pixiu-deploy-agent
 ```
 
