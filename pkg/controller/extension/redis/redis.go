@@ -60,7 +60,6 @@ const (
 )
 
 type Interface interface {
-	Ping(ctx context.Context, datasourceId int64) (*types.RedisPing, error)
 	datasourcecontroller.PingInterface[types.RedisSourceConfig, types.RedisPing]
 	// db 为逻辑库编号（0-15）；nil 表示使用数据源配置的默认 DB；cluster 模式强制 0
 	Info(ctx context.Context, datasourceId int64, db *int) (*types.RedisInfo, error)
@@ -314,7 +313,7 @@ func opContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, redisOpTimeout)
 }
 
-func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.RedisPing, error) {
+func (c *controller) pingDatasource(ctx context.Context, datasourceId int64) (*types.RedisPing, error) {
 	client, cfg, err := c.clientFor(ctx, datasourceId, nil)
 	if err != nil {
 		return nil, err
@@ -339,9 +338,10 @@ func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.Redis
 	return result, nil
 }
 
-// PingAdhoc 使用临时连接探测指定配置，探测完成后立即关闭连接。
-// 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
 func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
+	if datasourceId > 0 && cfg == nil {
+		return c.pingDatasource(ctx, datasourceId)
+	}
 	if datasourceId > 0 {
 		return c.pingAdhocWithDatasource(ctx, datasourceId, cfg)
 	}

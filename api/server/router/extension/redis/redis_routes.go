@@ -78,7 +78,7 @@ func (rr *redisRouter) pingRedis(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = rr.c.Extension().Redis().Ping(c, m.DatasourceId); err != nil {
+	if r.Result, err = rr.c.Extension().Redis().PingAdhoc(c, m.DatasourceId, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

@@ -65,7 +65,6 @@ var allowedDSNParams = map[string]struct{}{
 }
 
 type Interface interface {
-	Ping(ctx context.Context, datasourceId int64) (*types.MySQLPing, error)
 	datasourcecontroller.PingInterface[types.MySQLSourceConfig, types.MySQLPing]
 	Info(ctx context.Context, datasourceId int64) (*types.MySQLServerInfo, error)
 	ListDatabases(ctx context.Context, datasourceId int64) ([]types.MySQLDatabase, error)
@@ -327,7 +326,7 @@ func checkIdentifier(kind, s string) error {
 	return nil
 }
 
-func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.MySQLPing, error) {
+func (c *controller) pingDatasource(ctx context.Context, datasourceId int64) (*types.MySQLPing, error) {
 	dbConn, cfg, err := c.connFor(ctx, datasourceId)
 	if err != nil {
 		return nil, err
@@ -335,9 +334,10 @@ func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.MySQL
 	return pingMySQL(ctx, dbConn, cfg)
 }
 
-// PingAdhoc 使用临时连接探测指定配置，探测完成后立即关闭连接。
-// 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
 func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
+	if datasourceId > 0 && cfg == nil {
+		return c.pingDatasource(ctx, datasourceId)
+	}
 	if datasourceId > 0 {
 		return c.pingAdhocWithDatasource(ctx, datasourceId, cfg)
 	}

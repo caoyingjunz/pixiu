@@ -24,7 +24,6 @@ import (
 )
 
 type Interface interface {
-	Ping(context.Context, int64) (*types.PostgresPing, error)
 	datasourcecontroller.PingInterface[types.PostgresSourceConfig, types.PostgresPing]
 	Info(context.Context, int64) (*types.PostgresServerInfo, error)
 	ListDatabases(context.Context, int64) ([]types.PostgresDatabase, error)
@@ -182,7 +181,7 @@ func (c *controller) conn(ctx context.Context, id int64) (*sql.DB, *types.Postgr
 	c.conns[key] = cached{db: db, version: o.ResourceVersion, fingerprint: fp, last: time.Now()}
 	return db, p, nil
 }
-func (c *controller) Ping(ctx context.Context, id int64) (*types.PostgresPing, error) {
+func (c *controller) pingDatasource(ctx context.Context, id int64) (*types.PostgresPing, error) {
 	db, p, e := c.conn(ctx, id)
 	if e != nil {
 		return nil, e
@@ -190,6 +189,12 @@ func (c *controller) Ping(ctx context.Context, id int64) (*types.PostgresPing, e
 	return ping(ctx, db, p), nil
 }
 func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
+	if datasourceId > 0 && p == nil {
+		return c.pingDatasource(ctx, datasourceId)
+	}
+	if datasourceId <= 0 && p == nil {
+		return nil, apierrors.NewError(fmt.Errorf("postgres config is required"), http.StatusBadRequest)
+	}
 	if datasourceId > 0 {
 		return c.pingAdhocWithDatasource(ctx, datasourceId, p)
 	}

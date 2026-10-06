@@ -96,7 +96,7 @@ func (r *router) ping(c *gin.Context) {
 		httputils.SetFailed(c, res, e)
 		return
 	}
-	result, e := r.c.Extension().Postgres().Ping(c, m.DatasourceId)
+	result, e := r.c.Extension().Postgres().PingAdhoc(c, m.DatasourceId, nil)
 	if e != nil {
 		httputils.SetFailed(c, res, e)
 		return

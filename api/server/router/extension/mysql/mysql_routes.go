@@ -85,7 +85,7 @@ func (mr *mysqlRouter) pingMySQL(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = mr.c.Extension().Mysql().Ping(c, m.DatasourceId); err != nil {
+	if r.Result, err = mr.c.Extension().Mysql().PingAdhoc(c, m.DatasourceId, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
