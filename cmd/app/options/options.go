@@ -177,7 +177,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		return err
 	}
 
-	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
+	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.ComponentConfig.Default.EncryptionKey, o.ComponentConfig.Default.EncryptionKeyOld, o.Factory)
 	accessOpts := o.ComponentConfig.Log.AccessOptions()
 	o.JobManager = jobmanager.NewManager(
 		&accessOpts,
