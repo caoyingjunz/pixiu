@@ -76,9 +76,9 @@ type DefaultOptions struct {
 	EncryptionKey string `yaml:"encryption_key"`
 	// EncryptionKeyOld is optional and is only used during datasource credential key rotation.
 	EncryptionKeyOld string `yaml:"encryption_key_old"`
-	Mode          Mode   `yaml:"mode"`
-	Listen        int    `yaml:"listen"`
-	JWTKey        string `yaml:"jwt_key"`
+	Mode             Mode   `yaml:"mode"`
+	Listen           int    `yaml:"listen"`
+	JWTKey           string `yaml:"jwt_key"`
 	// CloudShell/工具容器镜像
 	Toolbox string `yaml:"toolbox"`
 
