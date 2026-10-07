@@ -28,6 +28,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
@@ -89,12 +90,21 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		httputils.SetFailed(c, resp, fmt.Errorf("failed to get cluster %q clusterSet %v", credName, err))
 		return
 	}
+	target, err := p.parseProxyTarget(*c.Request.URL, name)
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	p.injectDatasourceLoginCredentials(c, func(datasource *types.Datasource) bool {
+		return matchesInClusterDatasourceTarget(datasource, target.Path)
+	})
 
 	// 上游 service proxy 需 Basic 认证时（数据源 ID 或 X-Pixiu-Proxy-Authorization），
 	// 绕过 apiserver proxy 经 Pod port-forward 注入 Authorization。
+	datasourceID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
 	if upstreamAuth := p.resolveServiceProxyUpstreamAuth(c); upstreamAuth != "" {
-		if dsID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader)); dsID != "" {
-			klog.Infof("proxying with datasource %s", dsID)
+		if datasourceID != "" {
+			klog.Infof("proxying with datasource %s", datasourceID)
 		}
 		handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, credName, upstreamAuth)
 		if handled {
@@ -105,11 +115,6 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		}
 	}
 
-	target, err := p.parseProxyTarget(*c.Request.URL, name)
-	if err != nil {
-		httputils.SetFailed(c, resp, err)
-		return
-	}
 	if err = p.forwardToCluster(c, credName, target); err != nil {
 		httputils.SetFailed(c, resp, err)
 	}

@@ -49,6 +49,7 @@ func (p *proxyRouter) forwardToCluster(c *gin.Context, clusterName string, targe
 
 	c.Request.Header.Del("Authorization")
 	c.Request.Header.Del("Cookie")
+	c.Request.Header.Del(upstreamDatasourceIDHeader)
 
 	klog.V(2).Infof("proxying cluster=%s path=%s", clusterName, c.Request.URL.Path)
 	httpProxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, nil)

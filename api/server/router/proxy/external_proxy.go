@@ -31,6 +31,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const (
@@ -75,7 +76,6 @@ func (p *proxyRouter) externalProxyHandler(c *gin.Context) {
 	if c.Request.Body != nil {
 		c.Request.Body = newMaxBytesReadCloser(c.Request.Body, externalProxyMaxBodyBytes, errExternalProxyRequestTooLarge)
 	}
-
 	var req struct {
 		Act string `uri:"act"`
 	}
@@ -92,6 +92,9 @@ func (p *proxyRouter) externalProxyHandler(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
+	p.injectDatasourceLoginCredentials(c, func(datasource *types.Datasource) bool {
+		return matchesExternalDatasourceTarget(datasource, target)
+	})
 	p.forwardExternalRequest(c, resp, target, c.Request)
 }
 
@@ -144,7 +147,7 @@ func (p *proxyRouter) forwardExternalRequest(c *gin.Context, resp *httputils.Res
 		r.Header = make(http.Header)
 		for key, values := range upstreamReq.Header {
 			lowerKey := strings.ToLower(strings.TrimSpace(key))
-			if lowerKey == "authorization" || lowerKey == "cookie" || lowerKey == strings.ToLower(externalProxyAuthorizationHeaderKey) {
+			if lowerKey == "authorization" || lowerKey == "cookie" || lowerKey == strings.ToLower(externalProxyAuthorizationHeaderKey) || lowerKey == strings.ToLower(upstreamDatasourceIDHeader) {
 				continue
 			}
 			for _, value := range values {

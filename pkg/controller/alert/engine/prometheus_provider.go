@@ -46,16 +46,20 @@ const (
 
 // DatasourceMetricProvider queries Prometheus / Loki via external HTTP or in-cluster Service proxy.
 type DatasourceMetricProvider struct {
-	factory    db.ShareDaoFactory
-	httpClient *http.Client
+	factory          db.ShareDaoFactory
+	encryptionKey    string
+	encryptionKeyOld string
+	httpClient       *http.Client
 
 	mu       sync.Mutex
 	clusters map[string]*client.ClusterSet
 }
 
-func NewDatasourceMetricProvider(factory db.ShareDaoFactory) *DatasourceMetricProvider {
+func NewDatasourceMetricProvider(factory db.ShareDaoFactory, encryptionKey, encryptionKeyOld string) *DatasourceMetricProvider {
 	return &DatasourceMetricProvider{
-		factory: factory,
+		factory:          factory,
+		encryptionKey:    encryptionKey,
+		encryptionKeyOld: encryptionKeyOld,
 		httpClient: &http.Client{
 			Timeout: prometheusQueryTimeout,
 		},
@@ -140,6 +144,9 @@ func (p *DatasourceMetricProvider) loadQueryContext(
 	var cfg types.DatasourceConfig
 	if err = cfg.Unmarshal(ds.Config); err != nil {
 		return nil, types.DatasourceConfig{}, "", "", fmt.Errorf("parse datasource %d config: %w", ds.Id, err)
+	}
+	if err = cfg.DecryptPasswords(p.encryptionKey, p.encryptionKeyOld); err != nil {
+		return nil, types.DatasourceConfig{}, "", "", fmt.Errorf("decrypt datasource %d credentials: %w", ds.Id, err)
 	}
 	baseURL := resolveDatasourceURL(ds.Type, &cfg)
 	if baseURL == "" {

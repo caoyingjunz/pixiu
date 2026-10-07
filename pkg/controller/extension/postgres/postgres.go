@@ -153,6 +153,9 @@ func (c *controller) conn(ctx context.Context, id int64) (*sql.DB, *types.Postgr
 	if e = cfg.Unmarshal(o.Config); e != nil {
 		return nil, nil, apierrors.ErrServerInternal
 	}
+	if e = cfg.DecryptPasswords(c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld); e != nil {
+		return nil, nil, apierrors.ErrServerInternal
+	}
 	if cfg.Postgres == nil {
 		return nil, nil, apierrors.NewError(fmt.Errorf("missing postgres config"), 400)
 	}
@@ -222,6 +225,9 @@ func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId i
 	var saved types.DatasourceConfig
 	if e = saved.Unmarshal(object.Config); e != nil || saved.Postgres == nil {
 		return nil, apierrors.NewError(fmt.Errorf("invalid PostgreSQL datasource config"), http.StatusBadRequest)
+	}
+	if e = saved.DecryptPasswords(c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld); e != nil {
+		return nil, apierrors.ErrServerInternal
 	}
 	if p == nil {
 		p = &types.PostgresSourceConfig{}
