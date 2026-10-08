@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
+	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
 )
 
 const (
@@ -35,15 +35,14 @@ const (
 )
 
 type proxyRouter struct {
-	c            controller.PixiuInterface
-	nacosTokenMu sync.Mutex
-	nacosTokens  map[int64]nacosTokenEntry
+	c    controller.PixiuInterface
+	auth *datasourceauth.Authenticator
 }
 
 func NewRouter(o *options.Options) {
 	s := &proxyRouter{
-		c:           o.Controller,
-		nacosTokens: make(map[int64]nacosTokenEntry),
+		c:    o.Controller,
+		auth: datasourceauth.NewAuthenticator(),
 	}
 	s.initRoutes(o.HttpEngine)
 }
@@ -121,7 +120,7 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 
 	// 上游 service proxy 需 Basic 认证时（数据源 ID 或 X-Pixiu-Proxy-Authorization），
 	// 绕过 apiserver proxy 经 Pod port-forward 注入 Authorization。
-	upstreamAuth := datasourceBasicAuthorization(datasource)
+	upstreamAuth := datasourceauth.BasicAuthorization(datasource)
 	if upstreamAuth == "" {
 		upstreamAuth = strings.TrimSpace(c.Request.Header.Get(externalProxyAuthorizationHeaderKey))
 	}

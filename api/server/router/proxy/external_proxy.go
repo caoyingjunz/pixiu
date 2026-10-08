@@ -31,6 +31,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
 )
 
 const (
@@ -98,7 +99,7 @@ func (p *proxyRouter) externalProxyHandler(c *gin.Context) {
 		return
 	}
 	if datasource != nil {
-		if err := validateExternalDatasourceTarget(datasource, target); err != nil {
+		if err := datasourceauth.ValidateExternalTarget(datasource, target); err != nil {
 			httputils.SetFailed(c, resp, err)
 			return
 		}
