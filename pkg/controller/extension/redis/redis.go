@@ -35,6 +35,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -59,10 +60,7 @@ const (
 )
 
 type Interface interface {
-	Ping(ctx context.Context, datasourceId int64) (*types.RedisPing, error)
-	// PingAdhoc 临时探测（不落库、不缓存连接），用于创建数据源前的连通性验证；仅管理员可调用
-	PingAdhoc(ctx context.Context, cfg *types.RedisSourceConfig) (*types.RedisPing, error)
-	PingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisPing, error)
+	datasourcecontroller.PingInterface[types.RedisSourceConfig, types.RedisPing]
 	// db 为逻辑库编号（0-15）；nil 表示使用数据源配置的默认 DB；cluster 模式强制 0
 	Info(ctx context.Context, datasourceId int64, db *int) (*types.RedisInfo, error)
 	// ScanKeys cursor 透传分页：前端保存 cursor，后端无状态；count<=0 用默认值，超上限截断
@@ -315,7 +313,7 @@ func opContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, redisOpTimeout)
 }
 
-func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.RedisPing, error) {
+func (c *controller) pingDatasource(ctx context.Context, datasourceId int64) (*types.RedisPing, error) {
 	client, cfg, err := c.clientFor(ctx, datasourceId, nil)
 	if err != nil {
 		return nil, err
@@ -340,9 +338,17 @@ func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.Redis
 	return result, nil
 }
 
-// PingAdhoc 使用临时连接探测指定配置，探测完成后立即关闭连接。
-// 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
-func (c *controller) PingAdhoc(ctx context.Context, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
+func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
+	if datasourceId > 0 && cfg == nil {
+		return c.pingDatasource(ctx, datasourceId)
+	}
+	if datasourceId > 0 {
+		return c.pingAdhocWithDatasource(ctx, datasourceId, cfg)
+	}
+	return c.pingAdhocConfig(ctx, cfg)
+}
+
+func (c *controller) pingAdhocConfig(ctx context.Context, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
 	if err := requireRedisAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -374,11 +380,7 @@ func (c *controller) PingAdhoc(ctx context.Context, cfg *types.RedisSourceConfig
 	return result, nil
 }
 
-// PingAdhocWithDatasource 使用当前表单配置，并在密码为空时补齐已保存密码。
-func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
-	if datasourceId <= 0 {
-		return c.PingAdhoc(ctx, cfg)
-	}
+func (c *controller) pingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
 	if err := requireRedisAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -405,7 +407,7 @@ func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId i
 	if cfg.SentinelPassword == "" {
 		cfg.SentinelPassword = saved.Redis.SentinelPassword
 	}
-	return c.PingAdhoc(ctx, cfg)
+	return c.pingAdhocConfig(ctx, cfg)
 }
 
 func (c *controller) Info(ctx context.Context, datasourceId int64, db *int) (*types.RedisInfo, error) {
