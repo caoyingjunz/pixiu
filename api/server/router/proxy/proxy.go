@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
-	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -35,12 +35,15 @@ const (
 )
 
 type proxyRouter struct {
-	c controller.PixiuInterface
+	c            controller.PixiuInterface
+	nacosTokenMu sync.Mutex
+	nacosTokens  map[int64]nacosTokenEntry
 }
 
 func NewRouter(o *options.Options) {
 	s := &proxyRouter{
-		c: o.Controller,
+		c:           o.Controller,
+		nacosTokens: make(map[int64]nacosTokenEntry),
 	}
 	s.initRoutes(o.HttpEngine)
 }
@@ -90,13 +93,40 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		return
 	}
 
+	datasource, err := p.resolveProxyDatasource(c)
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if datasource != nil {
+		target, ok := serviceProxyTargetFromRequest(c, name)
+		if !ok {
+			httputils.SetFailed(c, resp, fmt.Errorf("datasource proxy requires a Kubernetes Service target"))
+			return
+		}
+		if err := validateInternalDatasourceTarget(datasource, target); err != nil {
+			httputils.SetFailed(c, resp, err)
+			return
+		}
+	}
+	if datasource != nil {
+		handled, proxyErr := p.tryProxyDatasourceService(c, clusterSet.Client, clusterSet.Config, name, datasource)
+		if handled {
+			if proxyErr != nil {
+				httputils.SetFailed(c, resp, proxyErr)
+			}
+			return
+		}
+	}
+
 	// 上游 service proxy 需 Basic 认证时（数据源 ID 或 X-Pixiu-Proxy-Authorization），
 	// 绕过 apiserver proxy 经 Pod port-forward 注入 Authorization。
-	if upstreamAuth := p.resolveServiceProxyUpstreamAuth(c); upstreamAuth != "" {
-		if dsID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader)); dsID != "" {
-			klog.Infof("proxying with datasource %s", dsID)
-		}
-		handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, credName, upstreamAuth)
+	upstreamAuth := datasourceBasicAuthorization(datasource)
+	if upstreamAuth == "" {
+		upstreamAuth = strings.TrimSpace(c.Request.Header.Get(externalProxyAuthorizationHeaderKey))
+	}
+	if upstreamAuth != "" {
+		handled, proxyErr := p.tryProxyAuthenticatedService(c, clusterSet.Client, clusterSet.Config, name, upstreamAuth)
 		if handled {
 			if proxyErr != nil {
 				httputils.SetFailed(c, resp, proxyErr)

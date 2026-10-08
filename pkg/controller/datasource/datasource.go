@@ -42,6 +42,8 @@ type Interface interface {
 	Update(ctx context.Context, req *types.UpdateDatasourceRequest) error
 	Delete(ctx context.Context, datasourceId int64) error
 	Get(ctx context.Context, datasourceId int64) (*types.Datasource, error)
+	// GetForProxy is for server-side proxying only and keeps credentials intact.
+	GetForProxy(ctx context.Context, datasourceId int64) (*types.Datasource, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 }
 
@@ -337,6 +339,15 @@ func (c *controller) Delete(ctx context.Context, datasourceId int64) error {
 }
 
 func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Datasource, error) {
+	return c.get(ctx, datasourceId, true)
+}
+
+// GetForProxy returns unredacted configuration for the internal proxy.
+func (c *controller) GetForProxy(ctx context.Context, datasourceId int64) (*types.Datasource, error) {
+	return c.get(ctx, datasourceId, false)
+}
+
+func (c *controller) get(ctx context.Context, datasourceId int64, redact bool) (*types.Datasource, error) {
 	object, err := c.factory.Datasource().Get(ctx, datasourceId)
 	if err != nil {
 		klog.Errorf("failed to get datasource(%d): %v", datasourceId, err)
@@ -348,7 +359,7 @@ func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Dataso
 	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
 		return nil, err
 	}
-	ds, err := modelToType(object)
+	ds, err := modelToTypeWithRedaction(object, redact)
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
 	}
@@ -446,11 +457,17 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 }
 
 func modelToType(object *model.Datasource) (*types.Datasource, error) {
+	return modelToTypeWithRedaction(object, true)
+}
+
+func modelToTypeWithRedaction(object *model.Datasource, redact bool) (*types.Datasource, error) {
 	var cfg types.DatasourceConfig
 	if err := cfg.Unmarshal(object.Config); err != nil {
 		return nil, err
 	}
-	redactDatasourceConfig(&cfg)
+	if redact {
+		redactDatasourceConfig(&cfg)
+	}
 	return &types.Datasource{
 		PixiuMeta: types.PixiuMeta{
 			Id:              object.Id,

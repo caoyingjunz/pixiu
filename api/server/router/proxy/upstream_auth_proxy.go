@@ -18,10 +18,13 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -39,6 +42,8 @@ import (
 	"k8s.io/klog/v2"
 
 	pixiuclient "github.com/caoyingjunz/pixiu/pkg/client"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 var (
@@ -58,6 +63,19 @@ type podProxyTarget struct {
 	podName    string
 	remotePort int32
 	path       string
+}
+
+const (
+	nacosTokenDefaultTTL = 5 * time.Hour
+	nacosTokenMinTTL     = time.Minute
+)
+
+var errNacosAuthDisabled = errors.New("nacos authentication is disabled")
+
+type nacosTokenEntry struct {
+	token       string
+	expiresAt   time.Time
+	fingerprint string
 }
 
 func parseServiceProxyPath(k8sPath string) (*serviceProxyTarget, bool) {
@@ -81,47 +99,363 @@ func parseServiceProxyPath(k8sPath string) (*serviceProxyTarget, bool) {
 	}, true
 }
 
-// tryProxyAuthenticatedService 在携带上游 Basic 认证时，绕过 K8s service proxy 转发。
-// apiserver 的 service proxy 会剥离 Authorization，导致 ES 等上游服务返回 401。
-// 实现方式：选取 Service 后端的一个 Pod，通过 apiserver port-forward 隧道转发请求。
+// tryProxyAuthenticatedService forwards authenticated Service requests through a Pod.
 func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kubernetes.Interface, config *rest.Config, clusterName string, upstreamAuth string) (handled bool, err error) {
-	// 使用原始转义路径（保留 %2F 等），避免 RabbitMQ 默认 vhost 等路径段被解码失真；
-	// gin 按解码后的 Path 路由，原始转义形式仅在 URL.RawPath/EscapedPath 中可用。
-	escapedPath := c.Request.URL.EscapedPath()
-	prefix := proxyBaseURL + "/" + clusterName
-	k8sPath := escapedPath
-	if strings.HasPrefix(escapedPath, prefix) {
-		k8sPath = escapedPath[len(prefix):]
-	}
-	if k8sPath == "" {
-		k8sPath = "/"
-	}
-	target, ok := parseServiceProxyPath(k8sPath)
+	target, ok := serviceProxyTargetFromRequest(c, clusterName)
 	if !ok {
-		klog.V(4).Infof("skip authenticated upstream proxy, path not service proxy: %q", k8sPath)
+		klog.V(4).Infof("skip authenticated upstream proxy, path not service proxy: %q", c.Request.URL.EscapedPath())
 		return false, nil
 	}
-
-	// TODO: 改成指定的 agent Pod
 	podTarget, err := pickOnePodForProxy(c.Request.Context(), clientSet, target)
 	if err != nil {
 		return true, err
 	}
+	return true, proxyPodRequest(c, config, clientSet, podTarget, upstreamAuth)
+}
 
-	resp, err := proxyViaPodPortForward(c.Request.Context(), config, clientSet, podTarget, c.Request, upstreamAuth)
+// tryProxyDatasourceService handles saved datasource credentials through a Pod.
+func (p *proxyRouter) tryProxyDatasourceService(
+	c *gin.Context,
+	clientSet kubernetes.Interface,
+	config *rest.Config,
+	clusterName string,
+	datasource *types.Datasource,
+) (bool, error) {
+	if !datasourceRequiresServiceProxy(datasource) {
+		return false, nil
+	}
+
+	target, ok := serviceProxyTargetFromRequest(c, clusterName)
+	if !ok {
+		return false, nil
+	}
+	podTarget, err := pickOnePodForProxy(c.Request.Context(), clientSet, target)
 	if err != nil {
 		return true, err
 	}
-	defer resp.Body.Close()
+	upstreamAuth, err := p.prepareDatasourceServiceRequest(c, clientSet, config, podTarget, target.path, datasource)
+	if err != nil {
+		return true, err
+	}
+	return true, proxyPodRequest(c, config, clientSet, podTarget, upstreamAuth)
+}
 
-	for key, values := range resp.Header {
+func proxyPodRequest(
+	c *gin.Context,
+	config *rest.Config,
+	clientSet kubernetes.Interface,
+	podTarget *podProxyTarget,
+	upstreamAuth string,
+) error {
+	response, err := proxyViaPodPortForward(c.Request.Context(), config, clientSet, podTarget, c.Request, upstreamAuth)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	copyProxyResponse(c, response)
+	return nil
+}
+
+// prepareExternalDatasourceRequest applies datasource authentication.
+func (p *proxyRouter) prepareExternalDatasourceRequest(c *gin.Context, target *url.URL, datasource *types.Datasource) (string, error) {
+	if !isNacosDatasource(datasource) {
+		return datasourceBasicAuthorization(datasource), nil
+	}
+
+	token, err := p.nacosToken(datasource, func() (string, time.Duration, error) {
+		loginTarget := *target
+		loginTarget.Path = nacosLoginPath(target.Path, datasource.Config.Nacos)
+		loginTarget.RawPath = ""
+		loginTarget.RawQuery = ""
+		request, err := newNacosLoginRequest(c.Request.Context(), datasource, loginTarget.String())
+		if err != nil {
+			return "", 0, err
+		}
+		response, err := (&http.Client{Transport: externalProxyTransport, Timeout: externalProxyRequestTimeout}).Do(request)
+		if err != nil {
+			return "", 0, err
+		}
+		defer response.Body.Close()
+		return parseNacosLoginResponse(response)
+	})
+	if err != nil {
+		return "", err
+	}
+	addNacosAccessToken(target, token)
+	return "", nil
+}
+
+func datasourceRequiresServiceProxy(datasource *types.Datasource) bool {
+	if datasource == nil {
+		return false
+	}
+	if isNacosDatasource(datasource) {
+		return datasource.Config.Log != nil && strings.TrimSpace(datasource.Config.Log.UserName) != ""
+	}
+	return datasourceBasicAuthorization(datasource) != ""
+}
+
+func (p *proxyRouter) prepareDatasourceServiceRequest(
+	c *gin.Context,
+	clientSet kubernetes.Interface,
+	config *rest.Config,
+	podTarget *podProxyTarget,
+	requestPath string,
+	datasource *types.Datasource,
+) (string, error) {
+	if !isNacosDatasource(datasource) {
+		return datasourceBasicAuthorization(datasource), nil
+	}
+
+	token, err := p.nacosTokenForService(c.Request.Context(), clientSet, config, podTarget, requestPath, datasource)
+	if err != nil {
+		return "", err
+	}
+	addNacosAccessToken(c.Request.URL, token)
+	return "", nil
+}
+
+func (p *proxyRouter) nacosTokenForService(
+	ctx context.Context,
+	clientSet kubernetes.Interface,
+	config *rest.Config,
+	podTarget *podProxyTarget,
+	requestPath string,
+	datasource *types.Datasource,
+) (string, error) {
+	return p.nacosToken(datasource, func() (string, time.Duration, error) {
+		loginTarget := *podTarget
+		loginTarget.path = nacosLoginPath(requestPath, datasource.Config.Nacos)
+		request, err := newNacosLoginRequest(ctx, datasource, "http://nacos.local"+loginTarget.path)
+		if err != nil {
+			return "", 0, err
+		}
+		response, err := proxyViaPodPortForward(ctx, config, clientSet, &loginTarget, request, "")
+		if err != nil {
+			return "", 0, err
+		}
+		defer response.Body.Close()
+		return parseNacosLoginResponse(response)
+	})
+}
+
+func (p *proxyRouter) nacosToken(datasource *types.Datasource, login func() (string, time.Duration, error)) (string, error) {
+	if datasource == nil || datasource.Config.Log == nil || strings.TrimSpace(datasource.Config.Log.UserName) == "" {
+		return "", nil
+	}
+	fingerprint := nacosCredentialFingerprint(datasource)
+	now := time.Now()
+	p.nacosTokenMu.Lock()
+	cached, ok := p.nacosTokens[datasource.Id]
+	p.nacosTokenMu.Unlock()
+	if ok && cached.fingerprint == fingerprint && cached.expiresAt.After(now) {
+		return cached.token, nil
+	}
+
+	token, ttl, err := login()
+	if errors.Is(err, errNacosAuthDisabled) {
+		token, ttl, err = "", 10*time.Minute, nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if ttl <= 0 {
+		ttl = nacosTokenDefaultTTL
+	}
+	cacheTTL := ttl - time.Minute
+	if cacheTTL < nacosTokenMinTTL {
+		cacheTTL = nacosTokenMinTTL
+	}
+	p.nacosTokenMu.Lock()
+	p.nacosTokens[datasource.Id] = nacosTokenEntry{
+		token:       token,
+		expiresAt:   now.Add(cacheTTL),
+		fingerprint: fingerprint,
+	}
+	p.nacosTokenMu.Unlock()
+	return token, nil
+}
+
+func nacosCredentialFingerprint(datasource *types.Datasource) string {
+	if datasource == nil || datasource.Config.Log == nil {
+		return ""
+	}
+	version := ""
+	if datasource.Config.Nacos != nil {
+		version = datasource.Config.Nacos.Version
+	}
+	return strings.Join([]string{datasource.Config.Log.URL, datasource.Config.Log.UserName, datasource.Config.Log.Password, version}, "\x00")
+}
+
+func newNacosLoginRequest(ctx context.Context, datasource *types.Datasource, target string) (*http.Request, error) {
+	if datasource == nil || datasource.Config.Log == nil {
+		return nil, fmt.Errorf("nacos datasource is missing login configuration")
+	}
+	body := url.Values{
+		"username": {datasource.Config.Log.UserName},
+		"password": {datasource.Config.Log.Password},
+	}.Encode()
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, target, strings.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+	for _, header := range datasource.Config.Headers {
+		if key, value := strings.TrimSpace(header.Key), strings.TrimSpace(header.Value); key != "" && value != "" {
+			request.Header.Set(key, value)
+		}
+	}
+	return request, nil
+}
+
+func nacosLoginPath(requestPath string, config *types.NacosSourceConfig) string {
+	if strings.HasPrefix(requestPath, "/nacos/v3/") {
+		return "/nacos/v3/auth/user/login"
+	}
+	if strings.HasPrefix(requestPath, "/v3/") {
+		return "/v3/auth/user/login"
+	}
+	if config != nil && config.Version == "v3" {
+		return "/v3/auth/user/login"
+	}
+	return "/nacos/v1/auth/login"
+}
+
+func parseNacosLoginResponse(response *http.Response) (string, time.Duration, error) {
+	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	if err != nil {
+		return "", 0, err
+	}
+	if response.StatusCode == http.StatusNotFound {
+		return "", 0, errNacosAuthDisabled
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return "", 0, fmt.Errorf("nacos login failed: %s", nacosResponseMessage(body))
+	}
+
+	var payload struct {
+		Code        json.RawMessage `json:"code"`
+		Message     string          `json:"message"`
+		Data        json.RawMessage `json:"data"`
+		AccessToken string          `json:"accessToken"`
+		TokenTTL    json.RawMessage `json:"tokenTtl"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return "", 0, fmt.Errorf("invalid nacos login response: %w", err)
+	}
+	if nacosResponseFailed(payload.Code) {
+		return "", 0, fmt.Errorf("nacos login failed: %s", nacosResponseMessage(body))
+	}
+
+	token := payload.AccessToken
+	ttlRaw := payload.TokenTTL
+	if len(payload.Data) > 0 && string(payload.Data) != "null" {
+		var data struct {
+			AccessToken string          `json:"accessToken"`
+			TokenTTL    json.RawMessage `json:"tokenTtl"`
+		}
+		if err := json.Unmarshal(payload.Data, &data); err == nil {
+			if token == "" {
+				token = data.AccessToken
+			}
+			if len(ttlRaw) == 0 {
+				ttlRaw = data.TokenTTL
+			}
+		}
+	}
+	if token == "" {
+		return "", 0, fmt.Errorf("nacos login response did not include accessToken")
+	}
+	return token, parseNacosTokenTTL(ttlRaw), nil
+}
+
+func nacosResponseFailed(raw json.RawMessage) bool {
+	if len(raw) == 0 || string(raw) == "null" {
+		return false
+	}
+	var code int
+	if err := json.Unmarshal(raw, &code); err == nil {
+		return code != 0 && code != http.StatusOK
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return text != "" && text != "0" && text != "200"
+	}
+	return false
+}
+
+func parseNacosTokenTTL(raw json.RawMessage) time.Duration {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nacosTokenDefaultTTL
+	}
+	var seconds int64
+	if err := json.Unmarshal(raw, &seconds); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		if seconds, err := strconv.ParseInt(text, 10, 64); err == nil && seconds > 0 {
+			return time.Duration(seconds) * time.Second
+		}
+	}
+	return nacosTokenDefaultTTL
+}
+
+func nacosResponseMessage(body []byte) string {
+	var payload struct {
+		Message string          `json:"message"`
+		Data    json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(body, &payload); err == nil {
+		if len(payload.Data) > 0 {
+			var detail string
+			if json.Unmarshal(payload.Data, &detail) == nil && strings.TrimSpace(detail) != "" {
+				return detail
+			}
+		}
+		if strings.TrimSpace(payload.Message) != "" {
+			return payload.Message
+		}
+	}
+	if text := strings.TrimSpace(string(body)); text != "" {
+		return text
+	}
+	return "unknown error"
+}
+
+func addNacosAccessToken(target *url.URL, token string) {
+	if target == nil || token == "" {
+		return
+	}
+	query := target.Query()
+	query.Set("accessToken", token)
+	target.RawQuery = query.Encode()
+}
+
+func serviceProxyTargetFromRequest(c *gin.Context, clusterName string) (*serviceProxyTarget, bool) {
+	escapedPath := c.Request.URL.EscapedPath()
+	prefix := proxyBaseURL + "/" + clusterName
+	if strings.HasPrefix(escapedPath, prefix) {
+		escapedPath = escapedPath[len(prefix):]
+	}
+	if escapedPath == "" {
+		escapedPath = "/"
+	}
+	return parseServiceProxyPath(escapedPath)
+}
+
+func copyProxyResponse(c *gin.Context, response *http.Response) {
+	for key, values := range response.Header {
 		for _, value := range values {
 			c.Writer.Header().Add(key, value)
 		}
 	}
-	c.Status(resp.StatusCode)
-	_, err = io.Copy(c.Writer, resp.Body)
-	return true, err
+	c.Status(response.StatusCode)
+	_, _ = io.Copy(c.Writer, response.Body)
+}
+
+func isNacosDatasource(datasource *types.Datasource) bool {
+	return datasource != nil && datasource.SubType == model.DatasourceSubTypeNacos
 }
 
 func pickOnePodForProxy(ctx context.Context, clientSet kubernetes.Interface, target *serviceProxyTarget) (*podProxyTarget, error) {
@@ -261,7 +595,9 @@ func cloneUpstreamRequest(ctx context.Context, orig *http.Request, url string, u
 
 	for key, values := range orig.Header {
 		lowerKey := strings.ToLower(key)
-		if lowerKey == "authorization" || lowerKey == strings.ToLower(upstreamDatasourceIDHeader) {
+		if lowerKey == "authorization" ||
+			lowerKey == strings.ToLower(upstreamDatasourceIDHeader) ||
+			lowerKey == strings.ToLower(externalProxyAuthorizationHeaderKey) {
 			continue
 		}
 		if lowerKey == "host" || lowerKey == "cookie" {
@@ -272,7 +608,9 @@ func cloneUpstreamRequest(ctx context.Context, orig *http.Request, url string, u
 		}
 	}
 
-	req.Header.Set("Authorization", upstreamAuth)
+	if upstreamAuth != "" {
+		req.Header.Set("Authorization", upstreamAuth)
+	}
 	if orig.ContentLength > 0 {
 		req.ContentLength = orig.ContentLength
 	}

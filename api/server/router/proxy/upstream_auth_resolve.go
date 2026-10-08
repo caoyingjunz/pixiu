@@ -18,40 +18,44 @@ package proxy
 
 import (
 	"encoding/base64"
+	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const upstreamDatasourceIDHeader = "X-Pixiu-Datasource-Id"
 
-// resolveServiceProxyUpstreamAuth 解析集群内 service proxy 的上游 Basic 认证。
-// K8s apiserver 的 service proxy 会剥离 Authorization，需经 port-forward 注入认证。
-// 优先 X-Pixiu-Datasource-Id（已保存数据源），否则读取 X-Pixiu-Proxy-Authorization（创建/测试前临时认证）。
-func (p *proxyRouter) resolveServiceProxyUpstreamAuth(c *gin.Context) string {
-	if dsID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader)); dsID != "" {
-		if auth := p.resolveUpstreamAuth(c, dsID); auth != "" {
-			return auth
-		}
-	}
-	return strings.TrimSpace(c.Request.Header.Get(externalProxyAuthorizationHeaderKey))
-}
-
-func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string {
+// resolveProxyDatasource consumes the datasource ID before forwarding upstream.
+func (p *proxyRouter) resolveProxyDatasource(c *gin.Context) (*types.Datasource, error) {
+	dsIDStr := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
 	if dsIDStr == "" {
-		return ""
+		return nil, nil
 	}
 	c.Request.Header.Del(upstreamDatasourceIDHeader)
 
 	datasourceID, err := strconv.ParseInt(dsIDStr, 10, 64)
 	if err != nil || datasourceID <= 0 {
-		return ""
+		return nil, fmt.Errorf("invalid datasource id")
 	}
-	datasource, err := p.c.Datasource().Get(c, datasourceID)
-	if err != nil || datasource == nil {
+	datasource, err := p.c.Datasource().GetForProxy(c, datasourceID)
+	if err != nil {
+		return nil, err
+	}
+	if datasource == nil {
+		return nil, fmt.Errorf("datasource %d not found", datasourceID)
+	}
+	return datasource, nil
+}
+
+// datasourceBasicAuthorization returns HTTP Basic credentials for non-Nacos datasources.
+func datasourceBasicAuthorization(datasource *types.Datasource) string {
+	if datasource == nil || datasource.SubType == model.DatasourceSubTypeNacos {
 		return ""
 	}
 
@@ -80,4 +84,75 @@ func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string
 
 	token := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 	return "Basic " + token
+}
+
+func datasourceBaseURL(datasource *types.Datasource) (string, error) {
+	if datasource == nil {
+		return "", fmt.Errorf("datasource is required")
+	}
+	switch datasource.Type {
+	case model.DatasourceTypeLog, model.DatasourceTypeMiddleware:
+		if datasource.Config.Log != nil && strings.TrimSpace(datasource.Config.Log.URL) != "" {
+			return datasource.Config.Log.URL, nil
+		}
+	case model.DatasourceTypeAlert:
+		if datasource.Config.Alert != nil && strings.TrimSpace(datasource.Config.Alert.URL) != "" {
+			return datasource.Config.Alert.URL, nil
+		}
+	}
+	return "", fmt.Errorf("datasource %d has no proxy URL", datasource.Id)
+}
+
+// validateExternalDatasourceTarget binds datasource credentials to their configured origin.
+func validateExternalDatasourceTarget(datasource *types.Datasource, target *url.URL) error {
+	baseURL, err := datasourceBaseURL(datasource)
+	if err != nil {
+		return err
+	}
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return fmt.Errorf("invalid datasource URL: %w", err)
+	}
+	if target == nil || !strings.EqualFold(base.Hostname(), target.Hostname()) || base.Scheme != target.Scheme {
+		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
+	}
+	// Nacos 3.x may expose its Console API on 8080 while the configured client
+	// endpoint uses another port. The hostname still must match.
+	if datasource.SubType != model.DatasourceSubTypeNacos && effectivePort(base) != effectivePort(target) {
+		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
+	}
+	return nil
+}
+
+// validateInternalDatasourceTarget binds datasource credentials to their Service target.
+func validateInternalDatasourceTarget(datasource *types.Datasource, target *serviceProxyTarget) error {
+	baseURL, err := datasourceBaseURL(datasource)
+	if err != nil {
+		return err
+	}
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return fmt.Errorf("invalid datasource URL: %w", err)
+	}
+	parts := strings.Split(base.Hostname(), ".")
+	if len(parts) < 2 || target == nil || parts[0] != target.service || parts[1] != target.namespace {
+		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
+	}
+	if effectivePort(base) != target.port {
+		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
+	}
+	return nil
+}
+
+func effectivePort(raw *url.URL) int {
+	if raw == nil {
+		return 0
+	}
+	if port, err := strconv.Atoi(raw.Port()); err == nil && port > 0 {
+		return port
+	}
+	if raw.Scheme == "https" {
+		return 443
+	}
+	return 80
 }
