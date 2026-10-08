@@ -180,6 +180,16 @@ func WithNullUsedAt() Options {
 	}
 }
 
+// WithScene 按验证码场景过滤（register/forgot）
+func WithScene(scene string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if scene == "" {
+			return tx
+		}
+		return tx.Where("scene = ?", scene)
+	}
+}
+
 func WithForUpdate() Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Clauses(clause.Locking{Strength: "UPDATE"})

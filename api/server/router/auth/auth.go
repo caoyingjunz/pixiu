@@ -53,6 +53,8 @@ func (a *authRouter) initRoutes(httpEngine *gin.Engine) {
 
 			{Method: "POST", RelativePath: "/verification-codes", Handler: a.sendVerificationCode, Description: "发送注册验证码", Persist: &persistPublicAuthAPI},
 			{Method: "POST", RelativePath: "/register", Handler: a.registerUser, Description: "注册用户", Persist: &persistPublicAuthAPI},
+			{Method: "POST", RelativePath: "/forgot-password/verification-codes", Handler: a.sendForgotPasswordCode, Description: "发送忘记密码验证码", Persist: &persistPublicAuthAPI},
+			{Method: "POST", RelativePath: "/reset-password", Handler: a.resetPassword, Description: "重置密码", Persist: &persistPublicAuthAPI},
 		},
 	}
 	authGroup.Register(httpEngine.Group(authBaseURL), a.c.APIResource())

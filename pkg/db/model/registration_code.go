@@ -26,11 +26,13 @@ func init() {
 	register(&RegistrationCode{})
 }
 
-// RegistrationCode 保存邮箱注册验证码的服务端状态。验证码仅保存 HMAC 摘要。
+// RegistrationCode 保存邮箱验证码的服务端状态。验证码仅保存 HMAC 摘要。
+// 同一邮箱按 scene 场景（register/forgot）各占一行（(email, scene) 联合唯一索引），重复发码覆盖同场景旧记录。
 type RegistrationCode struct {
 	pixiu.Model
 
-	Email          string     `gorm:"column:email;type:varchar(128);not null;uniqueIndex:uk_registration_code_email" json:"email"`
+	Email          string     `gorm:"column:email;type:varchar(128);not null;uniqueIndex:uk_registration_code_email_scene" json:"email"`
+	Scene          string     `gorm:"column:scene;type:varchar(16);not null;default:'register';uniqueIndex:uk_registration_code_email_scene" json:"scene"`
 	CodeHash       string     `gorm:"column:code_hash;type:char(64);not null" json:"-"`
 	ExpiresAt      time.Time  `gorm:"column:expires_at;type:datetime;not null;index:idx_registration_code_expires" json:"expires_at"`
 	UsedAt         *time.Time `gorm:"column:used_at;type:datetime" json:"used_at,omitempty"`
