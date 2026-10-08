@@ -28,9 +28,11 @@ import (
 )
 
 const (
-	verificationCodePath = "/pixiu/auth/verification-codes"
-	registrationPath     = "/pixiu/auth/register"
-	registrationIPCap    = 8192
+	verificationCodePath   = "/pixiu/auth/verification-codes"
+	forgotPasswordCodePath = "/pixiu/auth/forgot-password/verification-codes"
+	registrationPath       = "/pixiu/auth/register"
+	resetPasswordPath      = "/pixiu/auth/reset-password"
+	registrationIPCap      = 8192
 )
 
 var (
@@ -39,26 +41,35 @@ var (
 	registrationIPLimits   = lru.NewLRUCache(registrationIPCap)
 )
 
-// RegistrationRateLimiter 单独限制公开注册接口，防止邮件轰炸和批量猜码。
+// RegistrationRateLimiter 单独限制公开注册/发码/忘记密码接口，防止邮件轰炸和批量猜码。
+// 发码（注册/忘记密码）：全局 5/s + 每 IP 10/h；注册/重置：全局 20/s + 每 IP 30/min。
+// 同类接口按场景使用独立 IP 配额（keyPrefix 区分），互不挤占。
 func RegistrationRateLimiter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method != http.MethodPost {
 			return
 		}
 		path := c.Request.URL.Path
-		if path != verificationCodePath && path != registrationPath {
-			return
-		}
 
 		global := registrationGlobal
 		ipRate := rate.Limit(30.0 / 60.0)
 		burst := 10
 		keyPrefix := "register:"
-		if path == verificationCodePath {
+		switch path {
+		case verificationCodePath, forgotPasswordCodePath:
 			global = registrationCodeGlobal
 			ipRate = rate.Limit(10.0 / 3600.0)
 			burst = 3
 			keyPrefix = "registration-code:"
+			if path == forgotPasswordCodePath {
+				keyPrefix = "forgot-password-code:"
+			}
+		case resetPasswordPath:
+			keyPrefix = "reset-password:"
+		case registrationPath:
+			// 保持默认分支（register:）
+		default:
+			return
 		}
 		if !global.Allow() {
 			httputils.AbortFailedWithCode(c, http.StatusTooManyRequests, errors.ErrTooManyRegistrationAttempts)

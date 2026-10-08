@@ -111,3 +111,45 @@ func (a *authRouter) registerUser(c *gin.Context) {
 
 	httputils.SetSuccess(c, r)
 }
+
+func (a *authRouter) sendForgotPasswordCode(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.SendForgotPasswordCodeRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	// 发码为未认证公开接口，将目标邮箱作为操作者留痕，便于审计检索与邮件轰炸排查
+	httputils.SetAuditOperator(c, req.Email)
+	r.Result, err = a.c.Auth().SendForgotPasswordCode(c, &req, c.ClientIP())
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) resetPassword(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req types.ResetPasswordRequest
+		err error
+	)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetAuditOperator(c, req.Email)
+	if err = a.c.Auth().ResetPassword(c, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}

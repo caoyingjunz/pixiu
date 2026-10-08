@@ -28,8 +28,8 @@ import (
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 )
 
-func registrationCodeLockOpts(email string) []db.Options {
-	return []db.Options{db.WithEmail(email), db.WithForUpdate()}
+func registrationCodeLockOpts(email, scene string) []db.Options {
+	return []db.Options{db.WithEmail(email), db.WithScene(scene), db.WithForUpdate()}
 }
 
 func (c *controller) issueRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, object *model.RegistrationCode, cooldown time.Duration) error {
@@ -39,7 +39,7 @@ func (c *controller) issueRegistrationCode(ctx context.Context, factory db.Share
 		object.SentAt = now
 	}
 
-	current, err := factory.RegistrationCode().GetBy(ctx, registrationCodeLockOpts(object.Email)...)
+	current, err := factory.RegistrationCode().GetBy(ctx, registrationCodeLockOpts(object.Email, object.Scene)...)
 	if err != nil {
 		return err
 	}
@@ -66,12 +66,33 @@ func (c *controller) issueRegistrationCode(ctx context.Context, factory db.Share
 	return nil
 }
 
+// issueCooldownPlaceholder 登记冷却占位（防枚举）：不发码的路径也必须占用冷却窗口，否则
+// 「同一邮箱连发两次」时未注册路径永远成功、已注册路径第二次命中冷却，两次比对响应即可
+// 判定邮箱注册状态。占位行与正常发码共用同一套冷却判定，故第二条重复请求同样返回 errCodeTooFrequent。
+// 占位行不可被消费——独立 scene（如 forgot_cool）+ 非 HMAC 摘要（placeholderCodeHash）+ 立即过期。
+func (c *controller) issueCooldownPlaceholder(ctx context.Context, email, scene, requestIP string) error {
+	now := time.Now()
+	object := &model.RegistrationCode{
+		Email:          email,
+		Scene:          scene,
+		CodeHash:       placeholderCodeHash,
+		ExpiresAt:      now, // 立即过期：占位行永远不可用于任何校验
+		FailedAttempts: 0,
+		SentAt:         now,
+		RequestIP:      requestIP,
+	}
+	return c.factory.Transaction(ctx, func(factory db.ShareDaoFactory) error {
+		return c.issueRegistrationCode(ctx, factory, object, codeCooldown)
+	})
+}
+
 // expireUnsentRegistrationCode 作废未发送成功的验证码：置为已过期/已使用并回拨发送时间，
 // 既杜绝该验证码被使用，也释放冷却窗口允许用户立即重试。
-func (c *controller) expireUnsentRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, email, codeHash string) error {
+func (c *controller) expireUnsentRegistrationCode(ctx context.Context, factory db.ShareDaoFactory, email, codeHash, scene string) error {
 	now := time.Now()
 	_, err := factory.RegistrationCode().UpdateBy(ctx, []db.Options{
 		db.WithEmail(email),
+		db.WithScene(scene),
 		db.WithCodeHash(codeHash),
 	}, map[string]interface{}{
 		"expires_at": now,
@@ -84,7 +105,7 @@ func (c *controller) expireUnsentRegistrationCode(ctx context.Context, factory d
 func (c *controller) registerUser(ctx context.Context, factory db.ShareDaoFactory, email, codeHash string, user *model.User) error {
 	now := time.Now()
 
-	code, err := factory.RegistrationCode().GetBy(ctx, registrationCodeLockOpts(email)...)
+	code, err := factory.RegistrationCode().GetBy(ctx, registrationCodeLockOpts(email, sceneRegister)...)
 	if err != nil {
 		return err
 	}
@@ -136,6 +157,61 @@ func (c *controller) registerUser(ctx context.Context, factory db.ShareDaoFactor
 		if utilerrors.IsUniqueConstraintError(err) {
 			return errUserExists
 		}
+		return err
+	}
+
+	rows, err := factory.RegistrationCode().UpdateBy(ctx, []db.Options{
+		db.WithId(code.Id),
+		db.WithNullUsedAt(),
+	}, map[string]interface{}{
+		"used_at": now,
+	})
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return errCodeUsed
+	}
+	return nil
+}
+
+// resetPassword 事务内重置密码：校验 forgot 场景验证码 → 更新用户密码 → 原子标记验证码已用。
+func (c *controller) resetPassword(ctx context.Context, factory db.ShareDaoFactory, email, codeHash, encrypted string) error {
+	now := time.Now()
+
+	code, err := factory.RegistrationCode().GetBy(ctx,
+		db.WithEmail(email), db.WithScene(sceneForgot), db.WithNullUsedAt(), db.WithForUpdate())
+	if err != nil {
+		return err
+	}
+	if code == nil {
+		return errCodeInvalid
+	}
+	if !now.Before(code.ExpiresAt) {
+		return errCodeExpired
+	}
+	if code.FailedAttempts >= maxCodeAttempts {
+		return errCodeAttempts
+	}
+	if subtle.ConstantTimeCompare([]byte(code.CodeHash), []byte(codeHash)) != 1 {
+		attempts := code.FailedAttempts + 1
+		if err = factory.RegistrationCode().Update(ctx, code.Id, map[string]interface{}{"failed_attempts": attempts}); err != nil {
+			return err
+		}
+		if attempts >= maxCodeAttempts {
+			return errCodeAttempts
+		}
+		return errCodeInvalid
+	}
+
+	user, err := factory.User().GetBy(ctx, db.WithEmail(email))
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return errCodeInvalid
+	}
+	if err = factory.User().Update(ctx, user.Id, user.ResourceVersion, map[string]interface{}{"password": encrypted}); err != nil {
 		return err
 	}
 

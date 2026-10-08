@@ -39,6 +39,16 @@ type (
 		Email string `json:"email" binding:"required,email,max=128"`
 	}
 
+	SendForgotPasswordCodeRequest struct {
+		Email string `json:"email" binding:"required,email,max=128"`
+	}
+
+	ResetPasswordRequest struct {
+		Email       string `json:"email" binding:"required,email,max=128"`
+		Code        string `json:"code" binding:"required,len=6,numeric"`
+		NewPassword string `json:"new_password" binding:"required,min=6"`
+	}
+
 	RegisterUserRequest struct {
 		Name     string `json:"name" binding:"required,min=3,max=20"`
 		Password string `json:"password" binding:"required,password"`

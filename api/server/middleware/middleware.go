@@ -34,6 +34,8 @@ func init() {
 		"/pixiu/auth/login",
 		"/pixiu/auth/verification-codes",
 		"/pixiu/auth/register",
+		"/pixiu/auth/forgot-password/verification-codes",
+		"/pixiu/auth/reset-password",
 		"/pixiu/connect",
 	)
 }
