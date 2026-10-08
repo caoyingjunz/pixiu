@@ -29,8 +29,8 @@ type AlertEvaluator struct {
 	scheduler *engine.Scheduler
 }
 
-func NewAlertEvaluator(f db.ShareDaoFactory) *AlertEvaluator {
-	scheduler := engine.NewScheduler(f, engine.NewDatasourceMetricProvider(f))
+func NewAlertEvaluator(encryptionKey, encryptionKeyOld string, f db.ShareDaoFactory) *AlertEvaluator {
+	scheduler := engine.NewScheduler(f, engine.NewDatasourceMetricProvider(f, encryptionKey, encryptionKeyOld))
 	scheduler.Start(context.Background())
 	return &AlertEvaluator{scheduler: scheduler}
 }

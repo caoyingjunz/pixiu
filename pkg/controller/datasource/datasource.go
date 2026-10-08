@@ -18,6 +18,7 @@ package datasource
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -42,7 +43,54 @@ type Interface interface {
 	Update(ctx context.Context, req *types.UpdateDatasourceRequest) error
 	Delete(ctx context.Context, datasourceId int64) error
 	Get(ctx context.Context, datasourceId int64) (*types.Datasource, error)
+	GetUpstreamCredentials(ctx context.Context, datasourceId int64) (string, string, error)
+	GetUpstreamAuth(ctx context.Context, datasourceId int64) (string, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+}
+
+// GetUpstreamCredentials resolves credentials without exposing them in API objects.
+func (c *controller) GetUpstreamCredentials(ctx context.Context, datasourceId int64) (string, string, error) {
+	object, err := c.factory.Datasource().Get(ctx, datasourceId)
+	if err != nil || object == nil {
+		return "", "", err
+	}
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
+		return "", "", err
+	}
+	var cfg types.DatasourceConfig
+	if err = cfg.Unmarshal(object.Config); err != nil {
+		return "", "", err
+	}
+	if err = cfg.DecryptPasswords(c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld); err != nil {
+		return "", "", err
+	}
+	var username, password string
+	switch object.Type {
+	case model.DatasourceTypeLog, model.DatasourceTypeMiddleware:
+		if cfg.Log != nil {
+			username, password = cfg.Log.UserName, cfg.Log.Password
+		}
+	case model.DatasourceTypeAlert:
+		if cfg.Alert != nil {
+			username, password = cfg.Alert.UserName, cfg.Alert.Password
+		}
+	default:
+		return "", "", nil
+	}
+	return username, password, nil
+}
+
+// GetUpstreamAuth resolves stored Basic Auth credentials for internal proxy use.
+func (c *controller) GetUpstreamAuth(ctx context.Context, datasourceId int64) (string, error) {
+	username, password, err := c.GetUpstreamCredentials(ctx, datasourceId)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(username) == "" && strings.TrimSpace(password) == "" {
+		return "", nil
+	}
+	token := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+	return "Basic " + token, nil
 }
 
 type controller struct {
@@ -113,6 +161,9 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 
 	// 对配置进行简化，移除不必要的配置
 	req.Config.Clean(req.Type, req.SubType)
+	if err := req.Config.EncryptPasswords(c.cc.Default.EncryptionKey); err != nil {
+		return apierrors.NewError(fmt.Errorf("encrypt datasource credentials: %w", err), http.StatusBadRequest)
+	}
 	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
@@ -261,11 +312,14 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 
 	updates := make(map[string]interface{})
 
-	if err = preserveDatasourcePasswords(req.Config, old.Config); err != nil {
+	if err = preserveDatasourcePasswords(req.Config, old.Config, c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld); err != nil {
 		klog.Errorf("failed to preserve datasource(%d) credentials: %v", req.Id, err)
 		return apierrors.ErrServerInternal
 	}
 	req.Config.Clean(req.Type, req.SubType)
+	if err = req.Config.EncryptPasswords(c.cc.Default.EncryptionKey); err != nil {
+		return apierrors.NewError(fmt.Errorf("encrypt datasource credentials: %w", err), http.StatusBadRequest)
+	}
 	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return err
@@ -348,7 +402,7 @@ func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Dataso
 	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
 		return nil, err
 	}
-	ds, err := modelToType(object)
+	ds, err := modelToType(object, c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld)
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
 	}
@@ -434,9 +488,14 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 
 	items := make([]types.Datasource, 0)
 	for i := range objects {
-		t, convErr := modelToType(&objects[i])
+		t, convErr := modelToType(&objects[i], c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld)
 		if convErr != nil {
-			return nil, apierrors.ErrServerInternal
+			// Keep other datasources visible when one credential cannot be decrypted.
+			klog.Warningf("failed to decrypt datasource(%d) credentials while listing: %v", objects[i].Id, convErr)
+		}
+		if t == nil {
+			klog.Warningf("failed to convert datasource(%d) while listing", objects[i].Id)
+			continue
 		}
 		items = append(items, *t)
 	}
@@ -445,13 +504,14 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	return pageResult, nil
 }
 
-func modelToType(object *model.Datasource) (*types.Datasource, error) {
+func modelToType(object *model.Datasource, encryptionKey, encryptionKeyOld string) (*types.Datasource, error) {
 	var cfg types.DatasourceConfig
 	if err := cfg.Unmarshal(object.Config); err != nil {
 		return nil, err
 	}
+	decryptErr := cfg.DecryptPasswords(encryptionKey, encryptionKeyOld)
 	redactDatasourceConfig(&cfg)
-	return &types.Datasource{
+	datasource := &types.Datasource{
 		PixiuMeta: types.PixiuMeta{
 			Id:              object.Id,
 			ResourceVersion: object.ResourceVersion,
@@ -469,7 +529,8 @@ func modelToType(object *model.Datasource) (*types.Datasource, error) {
 		IsDefault:   object.IsDefault,
 		External:    object.External,
 		Description: object.Description,
-	}, nil
+	}
+	return datasource, decryptErr
 }
 
 // redactDatasourceConfig removes credentials before a datasource is returned by an API.
@@ -498,12 +559,15 @@ func redactDatasourceConfig(cfg *types.DatasourceConfig) {
 
 // preserveDatasourcePasswords keeps existing credentials when an update omits them.
 // Datasource API responses redact secrets, so an unchanged frontend form submits empty values.
-func preserveDatasourcePasswords(cfg *types.DatasourceConfig, oldConfig string) error {
+func preserveDatasourcePasswords(cfg *types.DatasourceConfig, oldConfig, encryptionKey, encryptionKeyOld string) error {
 	if cfg == nil {
 		return nil
 	}
 	var old types.DatasourceConfig
 	if err := old.Unmarshal(oldConfig); err != nil {
+		return err
+	}
+	if err := old.DecryptPasswords(encryptionKey, encryptionKeyOld); err != nil {
 		return err
 	}
 	if cfg.Log != nil && old.Log != nil && cfg.Log.Password == "" {
