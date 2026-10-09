@@ -256,7 +256,7 @@ func parseNacosLoginResponse(response *http.Response) (string, time.Duration, er
 		return "", 0, errNacosAuthDisabled
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return "", 0, fmt.Errorf("nacos login failed: %s", nacosResponseMessage(body))
+		return "", 0, fmt.Errorf("nacos login failed: %s", responseMessage(body))
 	}
 
 	var payload struct {
@@ -269,7 +269,7 @@ func parseNacosLoginResponse(response *http.Response) (string, time.Duration, er
 		return "", 0, fmt.Errorf("invalid nacos login response: %w", err)
 	}
 	if nacosResponseFailed(payload.Code) {
-		return "", 0, fmt.Errorf("nacos login failed: %s", nacosResponseMessage(body))
+		return "", 0, fmt.Errorf("nacos login failed: %s", responseMessage(body))
 	}
 
 	token, ttlRaw := payload.AccessToken, payload.TokenTTL
@@ -322,7 +322,7 @@ func parseNacosTokenTTL(raw json.RawMessage) time.Duration {
 	return nacosTokenDefaultTTL
 }
 
-func nacosResponseMessage(body []byte) string {
+func responseMessage(body []byte) string {
 	var payload struct {
 		Message string          `json:"message"`
 		Data    json.RawMessage `json:"data"`
