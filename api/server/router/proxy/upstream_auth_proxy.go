@@ -40,6 +40,7 @@ import (
 	"k8s.io/klog/v2"
 
 	pixiuclient "github.com/caoyingjunz/pixiu/pkg/client"
+	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -105,7 +106,7 @@ func (p *proxyRouter) tryProxyDatasourceService(
 	clusterName string,
 	datasource *types.Datasource,
 ) (bool, error) {
-	if !p.auth.RequiresPodProxy(datasource) {
+	if !datasourceauth.RequiresPodProxy(datasource) {
 		return false, nil
 	}
 
@@ -141,7 +142,7 @@ func proxyPodRequest(
 }
 
 func (p *proxyRouter) prepareExternalDatasourceRequest(c *gin.Context, target *url.URL, datasource *types.Datasource) (string, error) {
-	return p.auth.Prepare(c.Request.Context(), datasource, target, func(request *http.Request) (*http.Response, error) {
+	return datasourceauth.Prepare(c.Request.Context(), datasource, target, func(request *http.Request) (*http.Response, error) {
 		return (&http.Client{Transport: externalProxyTransport, Timeout: externalProxyRequestTimeout}).Do(request)
 	})
 }
@@ -155,7 +156,7 @@ func (p *proxyRouter) prepareDatasourceServiceRequest(
 	datasource *types.Datasource,
 ) (string, error) {
 	target := &url.URL{Scheme: "http", Host: "upstream.local", Path: requestPath, RawQuery: c.Request.URL.RawQuery}
-	upstreamAuth, err := p.auth.Prepare(c.Request.Context(), datasource, target, func(request *http.Request) (*http.Response, error) {
+	upstreamAuth, err := datasourceauth.Prepare(c.Request.Context(), datasource, target, func(request *http.Request) (*http.Response, error) {
 		loginTarget := *podTarget
 		loginTarget.path = request.URL.Path
 		return proxyViaPodPortForward(c.Request.Context(), config, clientSet, &loginTarget, request, "")

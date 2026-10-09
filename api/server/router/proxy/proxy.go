@@ -35,14 +35,12 @@ const (
 )
 
 type proxyRouter struct {
-	c    controller.PixiuInterface
-	auth *datasourceauth.Authenticator
+	c controller.PixiuInterface
 }
 
 func NewRouter(o *options.Options) {
 	s := &proxyRouter{
-		c:    o.Controller,
-		auth: datasourceauth.NewAuthenticator(),
+		c: o.Controller,
 	}
 	s.initRoutes(o.HttpEngine)
 }

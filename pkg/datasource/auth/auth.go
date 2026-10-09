@@ -43,7 +43,7 @@ var errNacosAuthDisabled = errors.New("nacos authentication is disabled")
 
 type RequestExecutor func(*http.Request) (*http.Response, error)
 
-type Authenticator struct {
+type authenticator struct {
 	mu          sync.Mutex
 	nacosTokens map[int64]nacosTokenEntry
 }
@@ -54,18 +54,16 @@ type nacosTokenEntry struct {
 	fingerprint string
 }
 
-func NewAuthenticator() *Authenticator {
-	return &Authenticator{nacosTokens: make(map[int64]nacosTokenEntry)}
-}
+var defaultAuthenticator = &authenticator{nacosTokens: make(map[int64]nacosTokenEntry)}
 
-func (a *Authenticator) RequiresPodProxy(datasource *types.Datasource) bool {
+func RequiresPodProxy(datasource *types.Datasource) bool {
 	if isNacosDatasource(datasource) {
 		return hasNacosCredentials(datasource)
 	}
 	return BasicAuthorization(datasource) != ""
 }
 
-func (a *Authenticator) Prepare(
+func Prepare(
 	ctx context.Context,
 	datasource *types.Datasource,
 	target *url.URL,
@@ -81,7 +79,7 @@ func (a *Authenticator) Prepare(
 		return "", fmt.Errorf("nacos authentication requires a request target and executor")
 	}
 
-	token, err := a.nacosToken(datasource, func() (string, time.Duration, error) {
+	token, err := defaultAuthenticator.nacosToken(datasource, func() (string, time.Duration, error) {
 		loginTarget := *target
 		loginTarget.Path = nacosLoginPath(target.Path, datasource.Config.Nacos)
 		loginTarget.RawPath = ""
@@ -165,13 +163,13 @@ func ValidateExternalTarget(datasource *types.Datasource, target *url.URL) error
 	if target == nil || !strings.EqualFold(base.Hostname(), target.Hostname()) || base.Scheme != target.Scheme {
 		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
 	}
-	if !isNacosDatasource(datasource) && effectivePort(base) != effectivePort(target) {
+	if !isNacosDatasource(datasource) && EffectivePort(base) != EffectivePort(target) {
 		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
 	}
 	return nil
 }
 
-func (a *Authenticator) nacosToken(datasource *types.Datasource, login func() (string, time.Duration, error)) (string, error) {
+func (a *authenticator) nacosToken(datasource *types.Datasource, login func() (string, time.Duration, error)) (string, error) {
 	fingerprint := nacosCredentialFingerprint(datasource)
 	now := time.Now()
 	a.mu.Lock()
@@ -344,7 +342,7 @@ func nacosResponseMessage(body []byte) string {
 	return "unknown error"
 }
 
-func effectivePort(raw *url.URL) int {
+func EffectivePort(raw *url.URL) int {
 	if raw == nil {
 		return 0
 	}

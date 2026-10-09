@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -42,7 +43,7 @@ func (p *proxyRouter) resolveProxyDatasource(c *gin.Context) (*types.Datasource,
 	if err != nil || datasourceID <= 0 {
 		return nil, fmt.Errorf("invalid datasource id")
 	}
-	datasource, err := p.c.Datasource().GetForProxy(c, datasourceID)
+	datasource, err := p.c.Datasource().Get(c, datasourceID, datasource.WithCredentials())
 	if err != nil {
 		return nil, err
 	}
@@ -66,21 +67,8 @@ func validateInternalDatasourceTarget(datasource *types.Datasource, target *serv
 	if len(parts) < 2 || target == nil || parts[0] != target.service || parts[1] != target.namespace {
 		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
 	}
-	if effectivePort(base) != target.port {
+	if datasourceauth.EffectivePort(base) != target.port {
 		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
 	}
 	return nil
-}
-
-func effectivePort(raw *url.URL) int {
-	if raw == nil {
-		return 0
-	}
-	if port, err := strconv.Atoi(raw.Port()); err == nil && port > 0 {
-		return port
-	}
-	if raw.Scheme == "https" {
-		return 443
-	}
-	return 80
 }
