@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -39,6 +40,8 @@ import (
 	"k8s.io/klog/v2"
 
 	pixiuclient "github.com/caoyingjunz/pixiu/pkg/client"
+	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 var (
@@ -81,47 +84,109 @@ func parseServiceProxyPath(k8sPath string) (*serviceProxyTarget, bool) {
 	}, true
 }
 
-// tryProxyAuthenticatedService 在携带上游 Basic 认证时，绕过 K8s service proxy 转发。
-// apiserver 的 service proxy 会剥离 Authorization，导致 ES 等上游服务返回 401。
-// 实现方式：选取 Service 后端的一个 Pod，通过 apiserver port-forward 隧道转发请求。
+// tryProxyAuthenticatedService forwards authenticated Service requests through a Pod.
 func (p *proxyRouter) tryProxyAuthenticatedService(c *gin.Context, clientSet kubernetes.Interface, config *rest.Config, clusterName string, upstreamAuth string) (handled bool, err error) {
-	// 使用原始转义路径（保留 %2F 等），避免 RabbitMQ 默认 vhost 等路径段被解码失真；
-	// gin 按解码后的 Path 路由，原始转义形式仅在 URL.RawPath/EscapedPath 中可用。
-	escapedPath := c.Request.URL.EscapedPath()
-	prefix := proxyBaseURL + "/" + clusterName
-	k8sPath := escapedPath
-	if strings.HasPrefix(escapedPath, prefix) {
-		k8sPath = escapedPath[len(prefix):]
-	}
-	if k8sPath == "" {
-		k8sPath = "/"
-	}
-	target, ok := parseServiceProxyPath(k8sPath)
+	target, ok := serviceProxyTargetFromRequest(c, clusterName)
 	if !ok {
-		klog.V(4).Infof("skip authenticated upstream proxy, path not service proxy: %q", k8sPath)
+		klog.V(4).Infof("skip authenticated upstream proxy, path not service proxy: %q", c.Request.URL.EscapedPath())
 		return false, nil
 	}
-
-	// TODO: 改成指定的 agent Pod
 	podTarget, err := pickOnePodForProxy(c.Request.Context(), clientSet, target)
 	if err != nil {
 		return true, err
 	}
+	return true, proxyPodRequest(c, config, clientSet, podTarget, upstreamAuth)
+}
 
-	resp, err := proxyViaPodPortForward(c.Request.Context(), config, clientSet, podTarget, c.Request, upstreamAuth)
+// tryProxyDatasourceService handles saved datasource credentials through a Pod.
+func (p *proxyRouter) tryProxyDatasourceService(
+	c *gin.Context,
+	clientSet kubernetes.Interface,
+	config *rest.Config,
+	clusterName string,
+	datasource *types.Datasource,
+) (bool, error) {
+	if !datasourceauth.RequiresPodProxy(datasource) {
+		return false, nil
+	}
+
+	target, ok := serviceProxyTargetFromRequest(c, clusterName)
+	if !ok {
+		return false, nil
+	}
+	podTarget, err := pickOnePodForProxy(c.Request.Context(), clientSet, target)
 	if err != nil {
 		return true, err
 	}
-	defer resp.Body.Close()
+	upstreamAuth, err := p.prepareDatasourceServiceRequest(c, clientSet, config, podTarget, target.path, datasource)
+	if err != nil {
+		return true, err
+	}
+	return true, proxyPodRequest(c, config, clientSet, podTarget, upstreamAuth)
+}
 
-	for key, values := range resp.Header {
+func proxyPodRequest(
+	c *gin.Context,
+	config *rest.Config,
+	clientSet kubernetes.Interface,
+	podTarget *podProxyTarget,
+	upstreamAuth string,
+) error {
+	response, err := proxyViaPodPortForward(c.Request.Context(), config, clientSet, podTarget, c.Request, upstreamAuth)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	copyProxyResponse(c, response)
+	return nil
+}
+
+func (p *proxyRouter) prepareExternalDatasourceRequest(c *gin.Context, target *url.URL, datasource *types.Datasource) (string, error) {
+	return datasourceauth.Prepare(c.Request.Context(), datasource, target, func(request *http.Request) (*http.Response, error) {
+		return (&http.Client{Transport: externalProxyTransport, Timeout: externalProxyRequestTimeout}).Do(request)
+	})
+}
+
+func (p *proxyRouter) prepareDatasourceServiceRequest(
+	c *gin.Context,
+	clientSet kubernetes.Interface,
+	config *rest.Config,
+	podTarget *podProxyTarget,
+	requestPath string,
+	datasource *types.Datasource,
+) (string, error) {
+	target := &url.URL{Scheme: "http", Host: "upstream.local", Path: requestPath, RawQuery: c.Request.URL.RawQuery}
+	upstreamAuth, err := datasourceauth.Prepare(c.Request.Context(), datasource, target, func(request *http.Request) (*http.Response, error) {
+		loginTarget := *podTarget
+		loginTarget.path = request.URL.Path
+		return proxyViaPodPortForward(c.Request.Context(), config, clientSet, &loginTarget, request, "")
+	})
+	if err == nil {
+		c.Request.URL.RawQuery = target.RawQuery
+	}
+	return upstreamAuth, err
+}
+
+func serviceProxyTargetFromRequest(c *gin.Context, clusterName string) (*serviceProxyTarget, bool) {
+	escapedPath := c.Request.URL.EscapedPath()
+	prefix := proxyBaseURL + "/" + clusterName
+	if strings.HasPrefix(escapedPath, prefix) {
+		escapedPath = escapedPath[len(prefix):]
+	}
+	if escapedPath == "" {
+		escapedPath = "/"
+	}
+	return parseServiceProxyPath(escapedPath)
+}
+
+func copyProxyResponse(c *gin.Context, response *http.Response) {
+	for key, values := range response.Header {
 		for _, value := range values {
 			c.Writer.Header().Add(key, value)
 		}
 	}
-	c.Status(resp.StatusCode)
-	_, err = io.Copy(c.Writer, resp.Body)
-	return true, err
+	c.Status(response.StatusCode)
+	_, _ = io.Copy(c.Writer, response.Body)
 }
 
 func pickOnePodForProxy(ctx context.Context, clientSet kubernetes.Interface, target *serviceProxyTarget) (*podProxyTarget, error) {
@@ -261,7 +326,9 @@ func cloneUpstreamRequest(ctx context.Context, orig *http.Request, url string, u
 
 	for key, values := range orig.Header {
 		lowerKey := strings.ToLower(key)
-		if lowerKey == "authorization" || lowerKey == strings.ToLower(upstreamDatasourceIDHeader) {
+		if lowerKey == "authorization" ||
+			lowerKey == strings.ToLower(upstreamDatasourceIDHeader) ||
+			lowerKey == strings.ToLower(externalProxyAuthorizationHeaderKey) {
 			continue
 		}
 		if lowerKey == "host" || lowerKey == "cookie" {
@@ -272,7 +339,9 @@ func cloneUpstreamRequest(ctx context.Context, orig *http.Request, url string, u
 		}
 	}
 
-	req.Header.Set("Authorization", upstreamAuth)
+	if upstreamAuth != "" {
+		req.Header.Set("Authorization", upstreamAuth)
+	}
 	if orig.ContentLength > 0 {
 		req.ContentLength = orig.ContentLength
 	}

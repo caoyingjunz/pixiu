@@ -31,6 +31,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
 )
 
 const (
@@ -92,7 +93,23 @@ func (p *proxyRouter) externalProxyHandler(c *gin.Context) {
 		httputils.SetFailed(c, resp, err)
 		return
 	}
-	p.forwardExternalRequest(c, resp, target, c.Request)
+	datasource, err := p.resolveProxyDatasource(c)
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	if datasource != nil {
+		if err := datasourceauth.ValidateExternalTarget(datasource, target); err != nil {
+			httputils.SetFailed(c, resp, err)
+			return
+		}
+	}
+	datasourceAuth, err := p.prepareExternalDatasourceRequest(c, target, datasource)
+	if err != nil {
+		httputils.SetFailed(c, resp, err)
+		return
+	}
+	p.forwardExternalRequest(c, resp, target, c.Request, datasourceAuth)
 }
 
 func resolveExternalProxyTarget(c *gin.Context, act, escapedAct string) (*url.URL, error) {
@@ -129,7 +146,7 @@ func resolveExternalProxyTarget(c *gin.Context, act, escapedAct string) (*url.UR
 	return &targetURL, nil
 }
 
-func (p *proxyRouter) forwardExternalRequest(c *gin.Context, resp *httputils.Response, targetURL *url.URL, upstreamReq *http.Request) {
+func (p *proxyRouter) forwardExternalRequest(c *gin.Context, resp *httputils.Response, targetURL *url.URL, upstreamReq *http.Request, datasourceAuth string) {
 	reverseProxy := httputil.NewSingleHostReverseProxy(targetURL)
 	reverseProxy.Transport = externalProxyTransport
 	reverseProxy.Director = func(r *http.Request) {
@@ -144,7 +161,7 @@ func (p *proxyRouter) forwardExternalRequest(c *gin.Context, resp *httputils.Res
 		r.Header = make(http.Header)
 		for key, values := range upstreamReq.Header {
 			lowerKey := strings.ToLower(strings.TrimSpace(key))
-			if lowerKey == "authorization" || lowerKey == "cookie" || lowerKey == strings.ToLower(externalProxyAuthorizationHeaderKey) {
+			if lowerKey == "authorization" || lowerKey == "cookie" || lowerKey == strings.ToLower(externalProxyAuthorizationHeaderKey) || lowerKey == strings.ToLower(upstreamDatasourceIDHeader) {
 				continue
 			}
 			for _, value := range values {
@@ -152,7 +169,9 @@ func (p *proxyRouter) forwardExternalRequest(c *gin.Context, resp *httputils.Res
 			}
 		}
 
-		if proxyAuth := strings.TrimSpace(upstreamReq.Header.Get(externalProxyAuthorizationHeaderKey)); proxyAuth != "" {
+		if datasourceAuth != "" {
+			r.Header.Set("Authorization", datasourceAuth)
+		} else if proxyAuth := strings.TrimSpace(upstreamReq.Header.Get(externalProxyAuthorizationHeaderKey)); proxyAuth != "" {
 			r.Header.Set("Authorization", proxyAuth)
 		}
 	}

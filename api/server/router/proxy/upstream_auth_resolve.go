@@ -17,67 +17,58 @@ limitations under the License.
 package proxy
 
 import (
-	"encoding/base64"
+	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
+	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
+	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
 const upstreamDatasourceIDHeader = "X-Pixiu-Datasource-Id"
 
-// resolveServiceProxyUpstreamAuth 解析集群内 service proxy 的上游 Basic 认证。
-// K8s apiserver 的 service proxy 会剥离 Authorization，需经 port-forward 注入认证。
-// 优先 X-Pixiu-Datasource-Id（已保存数据源），否则读取 X-Pixiu-Proxy-Authorization（创建/测试前临时认证）。
-func (p *proxyRouter) resolveServiceProxyUpstreamAuth(c *gin.Context) string {
-	if dsID := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader)); dsID != "" {
-		if auth := p.resolveUpstreamAuth(c, dsID); auth != "" {
-			return auth
-		}
-	}
-	return strings.TrimSpace(c.Request.Header.Get(externalProxyAuthorizationHeaderKey))
-}
-
-func (p *proxyRouter) resolveUpstreamAuth(c *gin.Context, dsIDStr string) string {
+// resolveProxyDatasource consumes the datasource ID before forwarding upstream.
+func (p *proxyRouter) resolveProxyDatasource(c *gin.Context) (*types.Datasource, error) {
+	dsIDStr := strings.TrimSpace(c.Request.Header.Get(upstreamDatasourceIDHeader))
 	if dsIDStr == "" {
-		return ""
+		return nil, nil
 	}
 	c.Request.Header.Del(upstreamDatasourceIDHeader)
 
 	datasourceID, err := strconv.ParseInt(dsIDStr, 10, 64)
 	if err != nil || datasourceID <= 0 {
-		return ""
+		return nil, fmt.Errorf("invalid datasource id")
 	}
-	datasource, err := p.c.Datasource().Get(c, datasourceID)
-	if err != nil || datasource == nil {
-		return ""
+	datasource, err := p.c.Datasource().Get(c, datasourceID, datasource.WithCredentials())
+	if err != nil {
+		return nil, err
 	}
+	if datasource == nil {
+		return nil, fmt.Errorf("datasource %d not found", datasourceID)
+	}
+	return datasource, nil
+}
 
-	var username, password string
-	switch datasource.Type {
-	case model.DatasourceTypeLog, model.DatasourceTypeMiddleware:
-		// 中间件（如 Nacos）的鉴权账号复用 log 配置存储
-		if datasource.Config.Log == nil {
-			return ""
-		}
-		username = datasource.Config.Log.UserName
-		password = datasource.Config.Log.Password
-	case model.DatasourceTypeAlert:
-		if datasource.Config.Alert == nil {
-			return ""
-		}
-		username = datasource.Config.Alert.UserName
-		password = datasource.Config.Alert.Password
-	default:
-		return ""
+// validateInternalDatasourceTarget binds datasource credentials to their Service target.
+func validateInternalDatasourceTarget(datasource *types.Datasource, target *serviceProxyTarget) error {
+	baseURL, err := datasourceauth.DatasourceURL(datasource)
+	if err != nil {
+		return err
 	}
-
-	if strings.TrimSpace(username) == "" && strings.TrimSpace(password) == "" {
-		return ""
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return fmt.Errorf("invalid datasource URL: %w", err)
 	}
-
-	token := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-	return "Basic " + token
+	parts := strings.Split(base.Hostname(), ".")
+	if len(parts) < 2 || target == nil || parts[0] != target.service || parts[1] != target.namespace {
+		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
+	}
+	if datasourceauth.EffectivePort(base) != target.port {
+		return fmt.Errorf("proxy target does not match datasource %d", datasource.Id)
+	}
+	return nil
 }

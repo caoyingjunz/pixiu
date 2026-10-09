@@ -41,8 +41,20 @@ type Interface interface {
 	Create(ctx context.Context, req *types.CreateDatasourceRequest) error
 	Update(ctx context.Context, req *types.UpdateDatasourceRequest) error
 	Delete(ctx context.Context, datasourceId int64) error
-	Get(ctx context.Context, datasourceId int64) (*types.Datasource, error)
+	Get(ctx context.Context, datasourceId int64, options ...GetOption) (*types.Datasource, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
+}
+
+type GetOption func(*getOptions)
+
+type getOptions struct {
+	redact bool
+}
+
+func WithCredentials() GetOption {
+	return func(options *getOptions) {
+		options.redact = false
+	}
 }
 
 type controller struct {
@@ -336,7 +348,12 @@ func (c *controller) Delete(ctx context.Context, datasourceId int64) error {
 	return nil
 }
 
-func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Datasource, error) {
+func (c *controller) Get(ctx context.Context, datasourceId int64, options ...GetOption) (*types.Datasource, error) {
+	getOptions := getOptions{redact: true}
+	for _, option := range options {
+		option(&getOptions)
+	}
+
 	object, err := c.factory.Datasource().Get(ctx, datasourceId)
 	if err != nil {
 		klog.Errorf("failed to get datasource(%d): %v", datasourceId, err)
@@ -348,7 +365,7 @@ func (c *controller) Get(ctx context.Context, datasourceId int64) (*types.Dataso
 	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
 		return nil, err
 	}
-	ds, err := modelToType(object)
+	ds, err := modelToTypeWithRedaction(object, getOptions.redact)
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
 	}
@@ -434,7 +451,7 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 
 	items := make([]types.Datasource, 0)
 	for i := range objects {
-		t, convErr := modelToType(&objects[i])
+		t, convErr := modelToTypeWithRedaction(&objects[i], true)
 		if convErr != nil {
 			return nil, apierrors.ErrServerInternal
 		}
@@ -445,12 +462,14 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	return pageResult, nil
 }
 
-func modelToType(object *model.Datasource) (*types.Datasource, error) {
+func modelToTypeWithRedaction(object *model.Datasource, redact bool) (*types.Datasource, error) {
 	var cfg types.DatasourceConfig
 	if err := cfg.Unmarshal(object.Config); err != nil {
 		return nil, err
 	}
-	redactDatasourceConfig(&cfg)
+	if redact {
+		redactDatasourceConfig(&cfg)
+	}
 	return &types.Datasource{
 		PixiuMeta: types.PixiuMeta{
 			Id:              object.Id,
