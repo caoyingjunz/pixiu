@@ -66,8 +66,11 @@ spec:
               containerPort: 80
               protocol: TCP
           volumeMounts:
+            # 只挂 config.yaml 单文件：/etc/pixiu 保持可写，供 start.sh 创建 nginx 日志目录；
+            # 整目录 readOnly 挂载会使 /etc/pixiu 只读，导致容器启动 mkdir 失败。
             - name: config
-              mountPath: /etc/pixiu
+              mountPath: /etc/pixiu/config.yaml
+              subPath: config.yaml
               readOnly: true
           resources:
             requests:
