@@ -56,6 +56,27 @@ type (
 		Code     string `json:"code" binding:"required,len=6,numeric"`
 	}
 
+	OAuthLoginRequest struct {
+		Code  string `json:"code" binding:"required"`
+		State string `json:"state" binding:"required"`
+	}
+
+	// UpdateOAuthProviderConfigRequest 字段使用指针以支持 PATCH 的部分更新语义：
+	// 未传（nil）保持原值，传值（含空串/零值）则更新。
+	UpdateOAuthProviderConfigRequest struct {
+		Name           *string `json:"name" binding:"omitempty"`
+		LoginType      *string `json:"login_type" binding:"omitempty"`
+		Enabled        *bool   `json:"enabled"`
+		AppID          *string `json:"app_id" binding:"omitempty"`
+		AppSecret      *string `json:"app_secret" binding:"omitempty"`
+		RedirectURI    *string `json:"redirect_uri" binding:"omitempty"`
+		Scopes         *string `json:"scopes" binding:"omitempty"`
+		ConfigJSON     *string `json:"config_json" binding:"omitempty"`
+		AutoCreateUser *bool   `json:"auto_create_user"`
+		MatchEmail     *bool   `json:"match_email"`
+		Description    *string `json:"description" binding:"omitempty"`
+	}
+
 	CreateUserRequest struct {
 		Name        string           `json:"name" binding:"required"`              // required
 		Password    string           `json:"password" binding:"required,password"` // required
