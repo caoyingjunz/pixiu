@@ -179,6 +179,10 @@ var (
 		Code: http.StatusConflict,
 		Err:  errors.ErrNodeIPExists,
 	}
+	ErrInvalidNodeName = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.ErrInvalidNodeName,
+	}
 	ErrDistributionExists = Error{
 		Code: http.StatusConflict,
 		Err:  errors.DistributionExistError,

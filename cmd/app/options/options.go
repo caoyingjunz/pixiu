@@ -49,8 +49,8 @@ const (
 	defaultWorkDir    = "/etc/pixiu"
 	defaultStaticDir  = "/static"
 
-	// defaultDeployTimeout 本地部署任务容器等待超时(秒)
-	defaultDeployTimeout = 900
+	// defaultDeployTimeout 本地部署任务容器等待超时(秒)，默认 30 分钟
+	defaultDeployTimeout = 1800
 
 	defaultAdminUser     = "admin"
 	defaultAdminPassword = "Pixiu123456!"
