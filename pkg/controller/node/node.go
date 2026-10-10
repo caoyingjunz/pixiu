@@ -18,6 +18,8 @@ package node
 
 import (
 	"context"
+	"regexp"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -30,6 +32,15 @@ import (
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
 	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 )
+
+// nodeNameRe 主机名格式：符合 Linux 主机名规范（RFC 1123），
+// 1-63 位，仅小写字母/数字/中划线，且不能以中划线开头或结尾。与前端主机页校验保持一致。
+var nodeNameRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+
+// isValidNodeName 校验主机名是否符合 Linux 规范（调用方需先 trim，与前端口径一致）
+func isValidNodeName(name string) bool {
+	return nodeNameRe.MatchString(name)
+}
 
 type NodeGetter interface {
 	Node() Interface
@@ -58,6 +69,14 @@ func NewNode(cfg config.Config, f db.ShareDaoFactory) Interface {
 }
 
 func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeRequest) error {
+	// 主机名格式校验：与前端主机页保持一致（trim 后校验）
+	name := strings.TrimSpace(req.Name)
+	if !isValidNodeName(name) {
+		klog.Errorf("invalid node name %q", req.Name)
+		return errors.ErrInvalidNodeName
+	}
+	req.Name = name
+
 	if err := n.preCreate(ctx, req); err != nil {
 		klog.Errorf("pre-create check failed for node %s: %v", req.Name, err)
 		return err
@@ -120,7 +139,13 @@ func (n *nodeController) Update(ctx context.Context, nodeId int64, req *types.Up
 
 	updates := make(map[string]interface{})
 	if req.Name != nil {
-		updates["name"] = *req.Name
+		// 主机名格式校验：与前端主机页保持一致（trim 后校验）
+		name := strings.TrimSpace(*req.Name)
+		if !isValidNodeName(name) {
+			klog.Errorf("invalid node name %q", *req.Name)
+			return errors.ErrInvalidNodeName
+		}
+		updates["name"] = name
 	}
 	if req.Ip != nil {
 		updates["ip"] = *req.Ip
