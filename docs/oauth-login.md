@@ -9,11 +9,12 @@
 当前已实现：
 
 - `feishu`：飞书扫码登录
+- `wechat_web`：微信（开放平台「网站应用」）扫码登录
+- `wechat_work`：企业微信登录（网站扫码 / 企业微信内网页授权）
+- `dingtalk`：钉钉扫码登录
 
 已预留：
 
-- `wechat_work`：企业微信登录
-- `dingtalk`：钉钉登录
 - `ldap`：LDAP 登录
 
 通用接口：
@@ -44,7 +45,7 @@ CREATE TABLE `oauth_providers` (
   `gmt_create` datetime DEFAULT NULL COMMENT '创建时间',
   `gmt_modified` datetime DEFAULT NULL COMMENT '修改时间',
   `resource_version` bigint DEFAULT 0 COMMENT '资源版本',
-  `provider` varchar(32) NOT NULL COMMENT '登录源标识，如 feishu/wechat_work/dingtalk/ldap',
+  `provider` varchar(32) NOT NULL COMMENT '登录源标识，如 feishu/wechat_web/wechat_work/dingtalk/ldap',
   `name` varchar(64) DEFAULT '' COMMENT '登录源显示名称',
   `login_type` varchar(32) DEFAULT '' COMMENT '登录类型，如 redirect/password',
   `enabled` boolean DEFAULT false COMMENT '是否启用',
@@ -172,7 +173,226 @@ Config JSON: {"email_domains":["example.com"]}
 
 保存后，登录页会自动显示「飞书扫码登录」按钮。
 
+## 微信（网站应用扫码）
+
+微信登录对接的是**微信开放平台**的「网站应用」（扫码登录），不是「公众平台」的网页授权，也不是企业微信。
+
+### 微信开放平台配置
+
+1. 进入 [微信开放平台](https://open.weixin.qq.com/)，注册开发者账号并创建「网站应用」。
+2. 提交应用审核，审核通过后「网站应用」才会下发可用的 `AppID` / `AppSecret`。
+3. 在「授权回调域」中填写 Pixiu 的回调域名（**必须为已备案域名**，微信不校验完整路径，只校验域名）：
+
+```text
+pixiu.example.com
+```
+
+- 授权回调域只填域名，不带 `http(s)://`、端口和路径；Pixiu 后台配置的 `redirect_uri` 其域名必须与之一致。
+- 本地 `localhost` 无法用于真机联调（微信要求备案域名），需借助内网穿透或测试域名。
+
+4. 在「授权回调域」对应的网站应用下获取：
+
+```text
+AppID
+AppSecret
+```
+
+5. 本登录使用固定 scope `snsapi_login`（网站应用扫码登录的固定值），无需在开放平台额外勾选。
+
+### Pixiu 后台配置
+
+进入：
+
+```text
+系统管理 -> 第三方登录 -> 微信
+```
+
+填写：
+
+```text
+启用登录: 开启
+App ID: 微信开放平台「网站应用」的 AppID
+App Secret: 微信开放平台「网站应用」的 AppSecret
+Redirect URL: https://pixiu.example.com/auth/oauth/wechat_web/callback
+自动创建用户: 按需开启
+邮箱匹配绑定: 不可用（见下）
+```
+
+保存后，登录页会自动显示「微信登录」按钮。
+
+### 协议流程
+
+1. 前端跳转授权地址：`https://open.weixin.qq.com/connect/qrconnect?appid=...&redirect_uri=...&response_type=code&scope=snsapi_login&state=...#wechat_redirect`（结尾 `#wechat_redirect` 为微信强制要求）。
+2. 用户扫码确认后，微信回跳到 `redirect_uri` 并带上 `code`。
+3. 后端凭 `code` 调 `sns/oauth2/access_token` 换取 `access_token` 与 `openid`（若开放平台已绑定同主体多应用，还会返回 `unionid`）。
+4. 后端再调 `sns/userinfo` 获取昵称（`nickname`）与头像（`headimgurl`）。
+
+### 注意事项
+
+- **不返回邮箱与手机号**：微信网站应用的用户信息接口不返回邮箱和手机号，因此「邮箱匹配绑定（`match_email`）」对本登录源不可用。用户匹配只能依靠 `openid` / `unionid` 绑定，或开启「自动创建用户」。
+- **UnionID 需开放平台绑定多应用**：`unionid` 在且仅在开放平台账号下已绑定「网站应用」等应用时返回。未绑定时仅返回 `openid`，此时同一自然人在不同应用下会被视为不同身份。
+- **昵称中的 emoji**：微信昵称常含 emoji（4 字节字符），而 Pixiu `users.name` 列为 3 字节 utf8。后端在写入前会丢弃昵称中非 BMP（码点 > 0xFFFF）的字符，避免入库失败；若昵称因此为空，则由建号逻辑回退为 `openid` 派生名。
+- **错误以 HTTP 200 返回**：微信接口的业务错误通过响应体里的 `errcode` / `errmsg` 表达（而非 HTTP 状态码），后端已显式判定 `errcode != 0` 并报错。
+
+## 企业微信
+
+企业微信登录对接的是**企业微信管理后台**的自建应用，支持两种登录模式（由 `config_json.login_mode` 选择）：
+
+- `sso`（默认）：**企业微信网站扫码登录**，面向 PC 浏览器（`login.work.weixin.qq.com/wwlogin`）。
+- `web`：**企业微信内网页授权**，面向企业微信客户端内置浏览器（`open.weixin.qq.com/connect/oauth2`，scope 固定 `snsapi_base`）。
+
+### 企业微信管理后台配置
+
+1. 进入 [企业微信管理后台](https://work.weixin.qq.com/)，在「我的企业」→「企业信息」中获取：
+
+```text
+企业 ID（corpid）
+```
+
+2. 在「应用管理」→「自建」中创建应用，进入应用详情获取：
+
+```text
+Secret（corpsecret）
+AgentId（应用 id）
+```
+
+- `sso`（网站扫码登录）模式需要 `AgentId`；`web`（企业微信内网页授权）模式不需要。
+- 在应用详情的「企业微信授权登录」→「Web 网页授权及 JS-SDK」或「设置可信域名 / 授权回调域」中，配置 Pixiu 的回调域名与地址。
+
+3. 回调地址示例（与 Pixiu 后台配置的 `redirect_uri` 完全一致）：
+
+```text
+https://pixiu.example.com/auth/oauth/wechat_work/callback
+```
+
+### Pixiu 后台配置
+
+进入：
+
+```text
+系统管理 -> 第三方登录 -> 企业微信
+```
+
+填写：
+
+```text
+启用登录: 开启
+App ID: 企业 ID（corpid）
+App Secret: 自建应用的 Secret（corpsecret）
+Redirect URL: https://pixiu.example.com/auth/oauth/wechat_work/callback
+自动创建用户: 按需开启
+邮箱匹配绑定: 需应用具备「读取成员」权限且成员有邮箱（见下）
+Config JSON（sso 扫码）: {"agent_id":"1000002","login_mode":"sso"}
+Config JSON（网页授权）: {"login_mode":"web"}
+```
+
+保存后，登录页会自动显示「企业微信登录」按钮。
+
+### 协议流程
+
+1. 前端跳转授权地址：
+   - `sso`：`https://login.work.weixin.qq.com/wwlogin/sso/login?login_type=CorpApp&appid=<corpid>&agentid=<agent_id>&redirect_uri=...&state=...`
+   - `web`：`https://open.weixin.qq.com/connect/oauth2/authorize?appid=<corpid>&redirect_uri=...&response_type=code&scope=snsapi_base&state=...#wechat_redirect`（结尾 `#wechat_redirect` 为企业微信强制要求）
+2. 用户授权后回跳到 `redirect_uri` 并带上 `code`。
+3. 后端用 `corpid`+`corpsecret` 调 `cgi-bin/gettoken` 换取 **corp access_token**（进程内缓存，key=`corpid:corpsecret`，按 `expires_in` 提前 30s 过期）。
+4. 后端调 `cgi-bin/auth/getuserinfo` 用 `code` 换取用户身份：**企业成员返回 `userid`**（企业内稳定标识），**非成员/外部联系人返回 `openid`**。
+5. （best-effort）若拿到 `userid`，再调 `cgi-bin/user/get` 拉取成员详情（`name` / `mobile` / `email` / `avatar`）用于补全昵称、头像、邮箱、手机号。
+
+### 字段映射
+
+| 企业微信 | Pixiu profile |
+|---|---|
+| `userid`（企业成员） | `UnionID`（企业内稳定标识，放 union 槽） |
+| `openid`（非成员/外部） | `OpenID` |
+| 成员详情 `name` | `Name` |
+| 成员详情 `avatar` | `AvatarURL` |
+| 成员详情 `email` | `Email` |
+| 成员详情 `mobile` | `Mobile` |
+
+`userid` 与 `openid` 均为空时报「未返回可绑定的用户标识」。
+
+### 注意事项
+
+- **两种身份来源**：企业成员走 `userid`，非成员/外部联系人只返回 `openid`。两者都写入 `oauth_identities`（`union` / `open`），登录查找按 union → open 顺序匹配。
+- **成员详情可能失败**：`cgi-bin/user/get` 对非成员会返回非 0 `errcode`；该步失败会**降级为无详情**（不中断登录），此时 `Name`/`AvatarURL`/`Email`/`Mobile` 为空，由建号逻辑回退为 `userid`/`openid` 派生名。
+- **邮箱/手机号需应用权限**：成员详情的 `email`、`mobile` 需应用具备相应读取权限，未授权时为空，「邮箱匹配绑定」将无法命中。
+- **错误以 HTTP 200 返回**：企业微信接口的业务错误通过响应体里的 `errcode` / `errmsg` 表达（而非 HTTP 状态码），后端已显式判定 `errcode != 0` 并报错。
+- **corp access_token 缓存**：与飞书的 app_token 缓存相互独立（不同 key 空间），按 `corpid:corpsecret` 缓存，避免频繁换取触发企业微信限频。
+
+## 钉钉
+
+钉钉登录对接的是**钉钉开放平台**的「扫码登录」（新版 oauth2 开放能力，v1.0 API），使用「企业内部应用」的 AppKey / AppSecret。
+
+### 钉钉开放平台配置
+
+1. 进入 [钉钉开放平台](https://open-dev.dingtalk.com/)，创建「企业内部应用」。
+2. 在「凭证与基础信息」中获取：
+
+```text
+Client ID（AppKey）
+Client Secret（AppSecret）
+```
+
+3. 在应用的「登录与分享」→「回调域名」中配置 Pixiu 的回调地址（须与后台 `redirect_uri` 域名一致）。
+4. 回调地址示例：
+
+```text
+https://pixiu.example.com/auth/oauth/dingtalk/callback
+```
+
+5. 按需在「权限管理」中申请用户信息权限（读取昵称、头像、手机号、邮箱等）。
+
+### Pixiu 后台配置
+
+进入：
+
+```text
+系统管理 -> 第三方登录 -> 钉钉
+```
+
+填写：
+
+```text
+启用登录: 开启
+App ID: 企业内部应用的 Client ID（AppKey）
+App Secret: 企业内部应用的 Client Secret（AppSecret）
+Redirect URL: https://pixiu.example.com/auth/oauth/dingtalk/callback
+自动创建用户: 按需开启
+邮箱匹配绑定: 需钉钉返回邮箱（见下）
+```
+
+保存后，登录页会自动显示「钉钉登录」按钮。
+
+### 协议流程
+
+1. 前端跳转授权地址：`https://login.dingtalk.com/oauth2/auth?redirect_uri=...&response_type=code&client_id=<AppKey>&scope=openid&state=...&prompt=consent`（注意授权地址用的是 `client_id` 参数，而非 `app_id`）。
+2. 用户扫码确认后，钉钉回跳到 `redirect_uri` 并带上 `code`。
+3. 后端 `POST https://api.dingtalk.com/v1.0/oauth2/userAccessToken`，JSON body `{"clientId","clientSecret","code","grantType":"authorization_code"}`，换取 **userAccessToken**（返回 `accessToken` / `refreshToken` / `expireIn` / `corpId`）。
+4. 后端 `GET https://api.dingtalk.com/v1.0/contact/users/me`，请求头 `x-acs-dingtalk-access-token: <accessToken>`，获取用户信息。
+
+### 字段映射
+
+| 钉钉 | Pixiu profile |
+|---|---|
+| `openId` | `OpenID` |
+| `unionId` | `UnionID` |
+| `nick` | `Name` |
+| `avatarUrl` | `AvatarURL` |
+| `email` | `Email` |
+| `mobile` | `Mobile` |
+
+`openId` 与 `unionId` 均为空时报「未返回可绑定的用户标识」。
+
+### 注意事项
+
+- **错误以 HTTP 状态码表错**：钉钉 v1.0 API 与微信系（HTTP 200 + errcode）不同，非 2xx 即表示失败，错误体形如 `{"code","message","requestid"}`；后端已按状态码判定并透传 `code`/`message` 摘要。
+- **`client_id` 参数名**：授权地址与 token 端点用的是 `client_id`/`clientId`（AppKey），不是 `app_id`；后台配置仍填写在 `App ID` 字段（映射为 AppKey）。
+- **邮箱可用性**：`email` 需用户在钉钉侧已绑定邮箱且应用具备相应权限，未返回时「邮箱匹配绑定」无法命中。
+- **scope 固定 openid**：扫码登录使用固定 scope `openid`，无需在开放平台额外勾选；`prompt=consent` 强制展示授权确认页。
+
 ## 权限说明
+
+所有第三方登录成功后，Pixiu 会按「union_id → open_id → （可选）邮箱 → （可选）自动建号」的顺序查找用户。上述顺序对各登录源通用（飞书、微信、企业微信、钉钉一致）。
 
 飞书登录成功后，Pixiu 会按以下顺序查找用户：
 

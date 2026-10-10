@@ -81,16 +81,25 @@ var oauthProviderSpecs = []oauthProviderSpec{
 		Client:     feishuOAuthClient{},
 	},
 	{
+		Provider:   wechatWebProvider,
+		Name:       "微信",
+		LoginType:  "redirect",
+		ButtonText: "微信登录",
+		Client:     wechatOAuthClient{},
+	},
+	{
 		Provider:   "wechat_work",
 		Name:       "企业微信",
 		LoginType:  "redirect",
 		ButtonText: "企业微信登录",
+		Client:     wechatWorkOAuthClient{},
 	},
 	{
 		Provider:   "dingtalk",
 		Name:       "钉钉",
 		LoginType:  "redirect",
 		ButtonText: "钉钉登录",
+		Client:     dingtalkOAuthClient{},
 	},
 	{
 		Provider:   "ldap",
