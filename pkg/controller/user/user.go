@@ -294,7 +294,15 @@ func (u *user) Delete(ctx context.Context, userId int64) error {
 	if err := controllerutil.CheckResourceOwner(ctx, userId); err != nil {
 		return err
 	}
-	if err := u.factory.User().Delete(ctx, userId); err != nil {
+	// 删用户与其第三方登录绑定行（oauth_identities）同一事务：identity 是登录查找的唯一来源，
+	// 若不同步清理会残留悬垂行，导致该第三方身份再次登录时「建号唯一冲突 → 回查指向已删用户」
+	// 而永久锁死、再也无法自动建号。
+	if err = u.factory.Transaction(ctx, func(f db.ShareDaoFactory) error {
+		if e := f.User().Delete(ctx, userId); e != nil {
+			return e
+		}
+		return f.OAuthIdentity().DeleteByUser(ctx, userId)
+	}); err != nil {
 		klog.Errorf("failed to delete user(%d): %v", userId, err)
 		return errors.ErrServerInternal
 	}
@@ -558,12 +566,17 @@ func model2Type(o *model.User) *types.User {
 			Id:              o.Id,
 			ResourceVersion: o.ResourceVersion,
 		},
-		Name:        o.Name,
-		Description: o.Description,
-		Status:      o.Status,
-		Role:        o.Role,
-		Email:       o.Email,
-		Phone:       o.Phone,
+		Name:          o.Name,
+		Description:   o.Description,
+		Status:        o.Status,
+		Role:          o.Role,
+		Email:         o.Email,
+		Phone:         o.Phone,
+		OAuthProvider: o.OAuthProvider,
+		OAuthOpenID:   o.OAuthOpenID,
+		OAuthUnionID:  o.OAuthUnionID,
+		OAuthUserID:   o.OAuthUserID,
+		AvatarURL:     o.AvatarURL,
 		TimeMeta: types.TimeMeta{
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,

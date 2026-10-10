@@ -55,6 +55,14 @@ func (a *authRouter) initRoutes(httpEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "/register", Handler: a.registerUser, Description: "注册用户", Persist: &persistPublicAuthAPI},
 			{Method: "POST", RelativePath: "/forgot-password/verification-codes", Handler: a.sendForgotPasswordCode, Description: "发送忘记密码验证码", Persist: &persistPublicAuthAPI},
 			{Method: "POST", RelativePath: "/reset-password", Handler: a.resetPassword, Description: "重置密码", Persist: &persistPublicAuthAPI},
+
+			// 第三方登录相关APIs
+			{Method: "GET", RelativePath: "/oauth/providers", Handler: a.listOAuthProviders, Description: "查看第三方登录源（管理端全量）"},
+			{Method: "GET", RelativePath: "/oauth/providers/enabled", Handler: a.listEnabledOAuthProviders, Description: "查看已启用的第三方登录源", Persist: &persistPublicAuthAPI},
+			{Method: "GET", RelativePath: "/oauth/providers/:provider/config", Handler: a.getOAuthProviderConfig, Description: "查看第三方登录配置"},
+			{Method: "PATCH", RelativePath: "/oauth/providers/:provider/config", Handler: a.updateOAuthProviderConfig, Description: "更新第三方登录配置"},
+			{Method: "POST", RelativePath: "/oauth/providers/:provider/authorize", Handler: a.getOAuthProviderLoginURL, Description: "获取第三方登录地址", Persist: &persistPublicAuthAPI},
+			{Method: "POST", RelativePath: "/oauth/providers/:provider/exchange", Handler: a.loginWithOAuthProvider, Description: "第三方登录（凭授权码换取登录态）", Persist: &persistPublicAuthAPI},
 		},
 	}
 	authGroup.Register(httpEngine.Group(authBaseURL), a.c.APIResource())

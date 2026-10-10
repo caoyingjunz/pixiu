@@ -74,7 +74,10 @@ func (c *controller) Login(ctx context.Context, req *types.LoginRequest) (*types
 	}
 	loginlimit.ClearUserFailures(req.Name)
 
-	// 生成登陆的 token 信息
+	return c.loginResponseForUser(object)
+}
+
+func (c *controller) loginResponseForUser(object *model.User) (*types.LoginResponse, error) {
 	key := c.GetTokenKey()
 	token, err := tokenutil.GenerateToken(object.Id, object.Name, object.TenantId, key)
 	if err != nil {

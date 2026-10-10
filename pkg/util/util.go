@@ -17,10 +17,13 @@ limitations under the License.
 package util
 
 import (
+	crand "crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -85,6 +88,36 @@ func GenerateRequestID() string {
 
 func IsEmptyS(s string) bool {
 	return len(s) != 0
+}
+
+// FirstNonEmpty 返回第一个去除首尾空白后非空的字符串；全部为空时返回空字符串。
+func FirstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+// TruncateRunes 按 Unicode 字符数截断字符串，超出 limit 时截断；limit <= 0 返回空。
+func TruncateRunes(s string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= limit {
+		return s
+	}
+	return string(runes[:limit])
+}
+
+// RandomHex 返回 n 字节安全随机数的十六进制编码。
+// crypto/rand.Read 按官方契约保证填充全部字节且不返回错误，故不再保留弱随机回退分支。
+func RandomHex(n int) string {
+	buf := make([]byte, n)
+	_, _ = crand.Read(buf)
+	return hex.EncodeToString(buf)
 }
 
 func IsDirectoryExists(path string) bool {

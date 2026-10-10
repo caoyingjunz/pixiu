@@ -26,6 +26,8 @@ type ShareDaoFactory interface {
 	Cluster() ClusterInterface
 	Tenant() TenantInterface
 	Role() RoleInterface
+	OAuthProvider() OAuthProviderInterface
+	OAuthIdentity() OAuthIdentityInterface
 	API() APIResourceInterface
 	User() UserInterface
 	Plan() PlanInterface
@@ -50,9 +52,15 @@ type shareDaoFactory struct {
 	db *gorm.DB
 }
 
-func (f *shareDaoFactory) Cluster() ClusterInterface           { return newCluster(f.db) }
-func (f *shareDaoFactory) Tenant() TenantInterface             { return newTenant(f.db) }
-func (f *shareDaoFactory) Role() RoleInterface                 { return newRole(f.db) }
+func (f *shareDaoFactory) Cluster() ClusterInterface { return newCluster(f.db) }
+func (f *shareDaoFactory) Tenant() TenantInterface   { return newTenant(f.db) }
+func (f *shareDaoFactory) Role() RoleInterface       { return newRole(f.db) }
+func (f *shareDaoFactory) OAuthProvider() OAuthProviderInterface {
+	return newOAuthProvider(f.db)
+}
+func (f *shareDaoFactory) OAuthIdentity() OAuthIdentityInterface {
+	return newOAuthIdentity(f.db)
+}
 func (f *shareDaoFactory) API() APIResourceInterface           { return newAPIs(f.db) }
 func (f *shareDaoFactory) User() UserInterface                 { return newUser(f.db) }
 func (f *shareDaoFactory) Plan() PlanInterface                 { return newPlan(f.db) }

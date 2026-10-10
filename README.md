@@ -62,6 +62,9 @@ readonly / Pixiu123!
 - [kubernetes安装](deploy/pixiu/README.md)
 - [docker-compose安装](deploy/docker-compose/README.md)
 
+## 配置手册
+- [第三方登录与飞书扫码登录](docs/oauth-login.md)
+
 ### 升级手册
 - [手动升级](docs/upgrade/README.md)
 

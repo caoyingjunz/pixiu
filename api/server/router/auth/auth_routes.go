@@ -17,9 +17,13 @@ limitations under the License.
 package auth
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	authcontroller "github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -152,4 +156,121 @@ func (a *authRouter) resetPassword(c *gin.Context) {
 	}
 
 	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) listOAuthProviders(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = a.c.Auth().ListOAuthProviders(c, false); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) listEnabledOAuthProviders(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var err error
+	if r.Result, err = a.c.Auth().ListOAuthProviders(c, true); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) getOAuthProviderConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	req := providerMeta{}
+	if err := httputils.ShouldBindAny(c, nil, &req, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	var err error
+	if r.Result, err = a.c.Auth().GetOAuthProviderConfig(c, req.Provider); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) updateOAuthProviderConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req  types.UpdateOAuthProviderConfigRequest
+		meta providerMeta
+	)
+	if err := httputils.ShouldBindAny(c, &req, &meta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	var err error
+	if r.Result, err = a.c.Auth().UpdateOAuthProviderConfig(c, meta.Provider, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) getOAuthProviderLoginURL(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	req := providerMeta{}
+	if err := httputils.ShouldBindAny(c, nil, &req, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	sessionID, err := c.Cookie(authcontroller.OAuthSessionCookieName)
+	if err != nil || strings.TrimSpace(sessionID) == "" {
+		sessionID = authcontroller.NewOAuthSessionID()
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     authcontroller.OAuthSessionCookieName,
+		Value:    sessionID,
+		Path:     "/pixiu/auth/oauth",
+		MaxAge:   authcontroller.OAuthStateCookieMaxAge,
+		HttpOnly: true,
+		Secure:   c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https"),
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	var callErr error
+	ctx := authcontroller.WithOAuthSessionID(c, sessionID)
+	if r.Result, callErr = a.c.Auth().GetOAuthProviderLoginURL(ctx, req.Provider); callErr != nil {
+		httputils.SetFailed(c, r, callErr)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (a *authRouter) loginWithOAuthProvider(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		req  types.OAuthLoginRequest
+		meta providerMeta
+	)
+	if err := httputils.ShouldBindAny(c, &req, &meta, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	sessionID, _ := c.Cookie(authcontroller.OAuthSessionCookieName)
+	ctx := authcontroller.WithOAuthSessionID(c, sessionID)
+	loginResp, err := a.c.Auth().LoginWithOAuthProvider(ctx, meta.Provider, &req)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = loginResp
+
+	httputils.SetSuccess(c, r)
+}
+
+// providerMeta 承载第三方登录源的路径参数
+type providerMeta struct {
+	Provider string `uri:"provider"`
 }
