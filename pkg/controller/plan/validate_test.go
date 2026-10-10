@@ -77,6 +77,15 @@ func setNetwork(t *testing.T, d *TaskData, ns types.NetworkSpec) {
 	d.Config.Network = netJSON
 }
 
+func setComponent(t *testing.T, d *TaskData, cs types.ComponentSpec) {
+	t.Helper()
+	s, err := cs.Marshal()
+	if err != nil {
+		t.Fatalf("marshal component spec: %v", err)
+	}
+	d.Config.Component = s
+}
+
 func TestTaskDataValidate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -241,6 +250,35 @@ func TestTaskDataValidate(t *testing.T) {
 				setNetwork(t, d, types.NetworkSpec{PodNetwork: "10.244.0.0/16", ServiceNetwork: "10.96.0.0/99"})
 			},
 			wantErr: "Service IP 段",
+		},
+		{
+			name: "自定义配置 Key 注入换行（globals.yml YAML 注入）",
+			mutate: func(t *testing.T, d *TaskData) {
+				setComponent(t, d, types.ComponentSpec{CustomConfigs: []types.CustomConfigItem{
+					{Key: "evil\nansible_python_interpreter: /configs/pixiu", Value: "v"},
+				}})
+			},
+			wantErr: "自定义配置项 Key",
+		},
+		{
+			name: "自定义配置 Key 含空格与冒号",
+			mutate: func(t *testing.T, d *TaskData) {
+				setComponent(t, d, types.ComponentSpec{CustomConfigs: []types.CustomConfigItem{
+					{Key: "a b: c", Value: "v"},
+				}})
+			},
+			wantErr: "自定义配置项 Key",
+		},
+		{
+			name: "自定义配置 Key 合法字符通过",
+			mutate: func(t *testing.T, d *TaskData) {
+				setComponent(t, d, types.ComponentSpec{CustomConfigs: []types.CustomConfigItem{
+					{Key: "docker_registry_mirror", Value: "https://mirror.example.com"},
+					{Key: "kube_version.extra", Value: "x"},
+					{Key: "", Value: "empty-key-skipped"},
+				}})
+			},
+			wantErr: "",
 		},
 		{
 			name: "多节点其中第二个非法",
