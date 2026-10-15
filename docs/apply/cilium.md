@@ -12,6 +12,7 @@ Cilium 与 flannel / calico 一样，通过 `cni` 选择，在集群 `deploy`（
 
 ## 依赖条件
 
+- Kubernetes >= 1.21（Cilium 1.20 Chart / 官方要求）
 - Linux kernel >= 5.10（Cilium 1.20 官方建议）
 - 集群安装手册参考 [多节点](../install/multinode.md) 或 [单节点](../install/all-in-one.md)
 
