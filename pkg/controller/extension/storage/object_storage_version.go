@@ -30,7 +30,7 @@ import (
 // 对象存储多版本与回收站：历史版本列举、恢复与彻底删除、Bucket 版本控制状态（基于 S3 数据面标准 API）。
 
 const (
-	// maxObjectVersions 历史版本单次展开上限：minio-go 未暴露 version-id-marker，无法续读，一次展开到上限。
+	// maxObjectVersions 历史版本单次展开上限：REST 契约不提供版本续读参数，单次展开到上限。
 	maxObjectVersions = 2000
 )
 
@@ -50,7 +50,10 @@ func (c *controller) ListObjectVersions(ctx context.Context, datasourceID int64,
 
 	items := make([]types.StorageObjectVersion, 0, 64)
 	truncated := false
-	for obj := range client.ListVersionsStream(ctx, bucket, adapter.ListOptions{
+	// 消费端可能提前 break（达到上限）：取消上下文，及时释放列举生产者
+	produceCtx, cancelProduce := context.WithCancel(ctx)
+	defer cancelProduce()
+	for obj := range client.ListVersionsStream(produceCtx, bucket, adapter.ListOptions{
 		Prefix:    prefix,
 		Recursive: true,
 		MaxKeys:   1000,
@@ -81,6 +84,8 @@ func (c *controller) ListObjectVersions(ctx context.Context, datasourceID int64,
 			StorageClass:   obj.StorageClass,
 		})
 	}
+	// 后续还有版本状态查询：这里立即释放生产者，不必等到函数返回
+	cancelProduce()
 
 	// 回收站跨多个对象，按删除时间倒序更方便先看到最近误删的对象
 	if onlyDeleteMarkers {
@@ -148,7 +153,10 @@ func matchVersionPrefix(key, prefix string) bool {
 
 // findObjectVersion 在指定对象的历史版本中定位目标版本（列举前缀精确到 key，开销可控）。
 func findObjectVersion(ctx context.Context, client adapter.Adapter, bucket, key, versionID string) (adapter.ObjectInfo, bool) {
-	for obj := range client.ListVersionsStream(ctx, bucket, adapter.ListOptions{
+	// 找到目标即 return：取消上下文，及时释放列举生产者
+	produceCtx, cancelProduce := context.WithCancel(ctx)
+	defer cancelProduce()
+	for obj := range client.ListVersionsStream(produceCtx, bucket, adapter.ListOptions{
 		Prefix:    key,
 		Recursive: true,
 		MaxKeys:   1000,

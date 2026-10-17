@@ -1189,8 +1189,11 @@ func (c *controller) RenameObject(ctx context.Context, datasourceID int64, bucke
 	}
 
 	// 逐对象复制 + 删除源：中途失败会留下「部分已改名」的状态，错误里带上已处理数量便于手工清理。
+	// 中途 return（超限/失败）时取消上下文，及时释放列举生产者。
+	produceCtx, cancelProduce := context.WithCancel(ctx)
+	defer cancelProduce()
 	moved := 0
-	for obj := range client.ListObjectsStream(ctx, bucket, adapter.ListOptions{Prefix: srcKey, Recursive: true}) {
+	for obj := range client.ListObjectsStream(produceCtx, bucket, adapter.ListOptions{Prefix: srcKey, Recursive: true}) {
 		if obj.Err != nil {
 			return apierrors.NewError(
 				fmt.Errorf("list storage objects failed after moving %d objects: %w", moved, obj.Err), 502)

@@ -92,7 +92,7 @@ func (c *controller) UploadMultipartPart(ctx context.Context, datasourceID int64
 	if partNumber < 1 || partNumber > multipartMaxParts {
 		return nil, apierrors.NewError(fmt.Errorf("part number must be between 1 and %d", multipartMaxParts), 400)
 	}
-	// minio-go 需要确切的字节数（请求体不是 io.ReadSeeker）；缺失说明客户端实现异常。
+	// 适配层要求确切的字节数（分片请求体不是 io.ReadSeeker，无法事后测量长度）；缺失说明客户端实现异常。
 	if size <= 0 {
 		return nil, apierrors.NewError(fmt.Errorf("part content length is required"), 400)
 	}

@@ -56,8 +56,6 @@ func (c *controller) ListIncompleteUploads(ctx context.Context, datasourceID int
 		if err != nil {
 			return nil, apierrors.NewError(fmt.Errorf("list incomplete uploads failed: %w", err), 502)
 		}
-		keyMarker = page.NextKeyMarker
-		uploadIDMarker = page.NextUploadIDMarker
 		for _, info := range page.Uploads {
 			if len(items) >= maxIncompleteUploads {
 				truncated = true
@@ -75,6 +73,13 @@ func (c *controller) ListIncompleteUploads(ctx context.Context, datasourceID int
 		if truncated || !page.IsTruncated {
 			break
 		}
+		nextKeyMarker, nextUploadIDMarker := page.NextKeyMarker, page.NextUploadIDMarker
+		// marker 未前进（或为空）即停止：防止兼容异常的服务端让循环原地打转
+		if (nextKeyMarker == "" && nextUploadIDMarker == "") ||
+			(nextKeyMarker == keyMarker && nextUploadIDMarker == uploadIDMarker) {
+			break
+		}
+		keyMarker, uploadIDMarker = nextKeyMarker, nextUploadIDMarker
 	}
 
 	// 按发起时间升序，先清理最老的碎片（Initiated 由列举结果填充，恒非空）
@@ -127,8 +132,6 @@ func abortIncompleteUpload(ctx context.Context, client adapter.Adapter, bucket, 
 		if err != nil {
 			return err
 		}
-		keyMarker = page.NextKeyMarker
-		uploadIDMarker = page.NextUploadIDMarker
 		for _, upload := range page.Uploads {
 			if upload.Key == key {
 				uploadIDs = append(uploadIDs, upload.UploadID)
@@ -137,6 +140,13 @@ func abortIncompleteUpload(ctx context.Context, client adapter.Adapter, bucket, 
 		if !page.IsTruncated {
 			break
 		}
+		nextKeyMarker, nextUploadIDMarker := page.NextKeyMarker, page.NextUploadIDMarker
+		// marker 未前进（或为空）即停止：防止兼容异常的服务端让循环原地打转
+		if (nextKeyMarker == "" && nextUploadIDMarker == "") ||
+			(nextKeyMarker == keyMarker && nextUploadIDMarker == uploadIDMarker) {
+			break
+		}
+		keyMarker, uploadIDMarker = nextKeyMarker, nextUploadIDMarker
 	}
 	for _, uploadID := range uploadIDs {
 		if err := client.AbortMultipart(ctx, bucket, key, uploadID); err != nil {

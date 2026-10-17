@@ -45,7 +45,7 @@ func (c *controller) GetBucketPolicy(ctx context.Context, datasourceID int64, bu
 	if err != nil {
 		return nil, err
 	}
-	// 无策略态已由适配器归一化为 (\"\", nil)，走同一路径：Policy 空 / Exists=false / ACL=private
+	// 无策略态已由适配器归一化为 ("", nil)，走同一路径：Policy 空 / Exists=false / ACL=private
 	policy, err := client.GetBucketPolicy(ctx, bucket)
 	if err != nil {
 		return nil, apierrors.NewError(fmt.Errorf("get bucket policy failed: %w", err), 502)

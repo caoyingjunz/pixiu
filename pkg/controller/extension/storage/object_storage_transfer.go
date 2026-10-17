@@ -246,6 +246,9 @@ func expandTransferItems(ctx context.Context, client adapter.Adapter, bucket str
 func expandArchiveEntries(ctx context.Context, client adapter.Adapter, bucket string, keys []string) ([]archiveEntry, error) {
 	entries := make([]archiveEntry, 0, len(keys))
 	seen := make(map[string]struct{})
+	// 达到对象上限会提前 return（随后进入长时间 zip 写入）：取消上下文，及时释放列举生产者
+	produceCtx, cancelProduce := context.WithCancel(ctx)
+	defer cancelProduce()
 	for _, raw := range keys {
 		key := strings.TrimSpace(raw)
 		if key == "" {
@@ -276,7 +279,7 @@ func expandArchiveEntries(ctx context.Context, client adapter.Adapter, bucket st
 		}
 
 		dirName := baseObjectName(key)
-		for obj := range client.ListObjectsStream(ctx, bucket, adapter.ListOptions{Prefix: key, Recursive: true}) {
+		for obj := range client.ListObjectsStream(produceCtx, bucket, adapter.ListOptions{Prefix: key, Recursive: true}) {
 			if obj.Err != nil {
 				return nil, apierrors.NewError(fmt.Errorf("list storage objects failed: %w", obj.Err), 502)
 			}
