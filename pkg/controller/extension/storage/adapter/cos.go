@@ -452,7 +452,7 @@ func (a *cosAdapter) CopyObject(ctx context.Context, src CopySrc, dest CopyDest)
 }
 
 // cosCopyHeader 构造元数据整体替换（Replaced）的复制头。
-// 控制层传入的 UserMetadata 里混有系统项（X-Amz-Storage-Class / SSE），按 COS 对应头部拆分承载。
+// 系统元数据（存储类型 / SSE / KMS 主密钥）由 CopyDest 显式字段承载，UserMetadata 只放用户自定义项。
 func cosCopyHeader(dest CopyDest) *cos.ObjectCopyHeaderOptions {
 	header := &cos.ObjectCopyHeaderOptions{
 		ContentType:        dest.ContentType,
@@ -461,25 +461,21 @@ func cosCopyHeader(dest CopyDest) *cos.ObjectCopyHeaderOptions {
 		ContentLanguage:    dest.ContentLanguage,
 		CacheControl:       dest.CacheControl,
 		// COS 的元数据替换指令枚举是 Copy / Replaced（与 S3 的 COPY/REPLACE 措辞不同）
-		XCosMetadataDirective: "Replaced",
+		XCosMetadataDirective:    "Replaced",
+		XCosStorageClass:         dest.StorageClass,
+		XCosServerSideEncryption: dest.SSEAlgorithm,
 	}
 	if !dest.Expires.IsZero() {
 		header.Expires = dest.Expires.UTC().Format(http.TimeFormat)
 	}
 	meta := http.Header{}
 	extra := http.Header{}
+	if dest.SSEKMSKeyID != "" {
+		// COS 的 KMS 主密钥走独立头（x-cos-server-side-encryption-cos-kms-key-id）
+		extra.Set("X-Cos-Server-Side-Encryption-Cos-Kms-Key-Id", dest.SSEKMSKeyID)
+	}
 	for k, v := range dest.UserMetadata {
-		switch {
-		case strings.EqualFold(k, "X-Amz-Storage-Class"):
-			header.XCosStorageClass = v
-		case strings.EqualFold(k, "X-Amz-Server-Side-Encryption"):
-			header.XCosServerSideEncryption = v
-		case strings.EqualFold(k, "X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id"):
-			// COS 的 KMS 主密钥走独立头（x-cos-server-side-encryption-cos-kms-key-id）
-			extra.Set("X-Cos-Server-Side-Encryption-Cos-Kms-Key-Id", v)
-		default:
-			meta.Set("X-Cos-Meta-"+k, v)
-		}
+		meta.Set("X-Cos-Meta-"+k, v)
 	}
 	if len(meta) > 0 {
 		header.XCosMetaXXX = &meta
@@ -684,7 +680,7 @@ func (a *cosAdapter) GetObjectACL(ctx context.Context, bucket, key string) (*Obj
 	}
 	stat := &ObjectStat{Key: key, Metadata: http.Header{}}
 	// COS 的 GET acl 返回授权列表（无 canned 头）：按「对所有人授权」的粒度反推私有/公共读写
-	stat.Metadata.Set("X-Amz-Acl", classifyCosACL(res.AccessControlList))
+	stat.CannedACL = classifyCosACL(res.AccessControlList)
 	return stat, nil
 }
 

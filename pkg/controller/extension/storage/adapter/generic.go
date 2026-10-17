@@ -234,6 +234,24 @@ func (g *generic) PutObject(ctx context.Context, bucket, key string, reader io.R
 }
 
 func (g *generic) CopyObject(ctx context.Context, src CopySrc, dest CopyDest) error {
+	userMeta := dest.UserMetadata
+	if dest.StorageClass != "" || dest.SSEAlgorithm != "" || dest.SSEKMSKeyID != "" {
+		merged := make(map[string]string, len(dest.UserMetadata)+3)
+		for k, v := range dest.UserMetadata {
+			merged[k] = v
+		}
+		// minio-go 对以 X-Amz- 开头的用户元数据键按系统头直通（与改造前的隐式约定一致）
+		if dest.StorageClass != "" {
+			merged["X-Amz-Storage-Class"] = dest.StorageClass
+		}
+		if dest.SSEAlgorithm != "" {
+			merged["X-Amz-Server-Side-Encryption"] = dest.SSEAlgorithm
+		}
+		if dest.SSEKMSKeyID != "" {
+			merged["X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id"] = dest.SSEKMSKeyID
+		}
+		userMeta = merged
+	}
 	destOpts := minio.CopyDestOptions{
 		Bucket:             dest.Bucket,
 		Object:             dest.Object,
@@ -244,7 +262,7 @@ func (g *generic) CopyObject(ctx context.Context, src CopySrc, dest CopyDest) er
 		ContentLanguage:    dest.ContentLanguage,
 		CacheControl:       dest.CacheControl,
 		Expires:            dest.Expires,
-		UserMetadata:       dest.UserMetadata,
+		UserMetadata:       userMeta,
 	}
 	srcOpts := minio.CopySrcOptions{Bucket: src.Bucket, Object: src.Object, VersionID: src.VersionID}
 	if _, err := g.client.CopyObject(ctx, destOpts, srcOpts); err != nil {
@@ -328,7 +346,10 @@ func (g *generic) GetObjectACL(ctx context.Context, bucket, key string) (*Object
 	if info == nil {
 		return nil, nil
 	}
-	return toObjectStat(*info), nil
+	stat := toObjectStat(*info)
+	// minio 的 ACL 响应把 canned ACL 放在 X-Amz-Acl 响应头：转成显式字段供控制层读取
+	stat.CannedACL = stat.Metadata.Get("X-Amz-Acl")
+	return stat, nil
 }
 
 // —— F. Bucket 配置 ——

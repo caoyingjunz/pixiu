@@ -147,7 +147,7 @@ func (c *controller) GetObjectDetail(ctx context.Context, datasourceID int64, bu
 		detail.Tags = tagList
 	}
 	if aclInfo, aclErr := client.GetObjectACL(ctx, bucket, key); aclErr == nil && aclInfo != nil {
-		detail.ACL = aclInfo.Metadata.Get("X-Amz-Acl")
+		detail.ACL = aclInfo.CannedACL
 	}
 
 	return detail, nil
@@ -187,16 +187,11 @@ func (c *controller) UpdateObjectMeta(ctx context.Context, datasourceID int64, b
 		ContentLanguage:    stat.Metadata.Get("Content-Language"),
 		CacheControl:       stat.Metadata.Get("Cache-Control"),
 		Expires:            stat.Expires,
-		UserMetadata:       make(map[string]string, len(stat.UserMetadata)+4),
-	}
-	if sc := strings.TrimSpace(stat.StorageClass); sc != "" {
-		dest.UserMetadata["X-Amz-Storage-Class"] = sc
-	}
-	if sseAlgo := stat.Metadata.Get("X-Amz-Server-Side-Encryption"); sseAlgo != "" {
-		dest.UserMetadata["X-Amz-Server-Side-Encryption"] = sseAlgo
-	}
-	if kmsKey := stat.Metadata.Get("X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id"); kmsKey != "" {
-		dest.UserMetadata["X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id"] = kmsKey
+		// 系统元数据走显式字段（适配器按各自 SDK 的头承载），UserMetadata 只放用户自定义项
+		StorageClass: strings.TrimSpace(stat.StorageClass),
+		SSEAlgorithm: stat.Metadata.Get("X-Amz-Server-Side-Encryption"),
+		SSEKMSKeyID:  stat.Metadata.Get("X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id"),
+		UserMetadata: make(map[string]string, len(stat.UserMetadata)),
 	}
 	for metaKey, metaValue := range stat.UserMetadata {
 		dest.UserMetadata[metaKey] = metaValue

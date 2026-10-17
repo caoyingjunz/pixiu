@@ -426,19 +426,13 @@ func (a *obsAdapter) CopyObject(ctx context.Context, src CopySrc, dest CopyDest)
 		if !dest.Expires.IsZero() {
 			input.Expires = dest.Expires.UTC().Format(http.TimeFormat)
 		}
-		meta := make(map[string]string, len(dest.UserMetadata))
-		for k, v := range dest.UserMetadata {
-			switch {
-			case strings.EqualFold(k, "X-Amz-Storage-Class"):
-				input.StorageClass = obs.StorageClassType(v)
-			case strings.EqualFold(k, "X-Amz-Server-Side-Encryption"), strings.EqualFold(k, "X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id"):
-				// OBS 的复制不提供按请求指定 SSE-KMS 主密钥的通道：默认加密由桶级配置承接，这里忽略
-			default:
-				meta[k] = v
-			}
+		// 系统元数据由 CopyDest 显式字段承载；OBS 的复制不提供按请求指定 SSE-KMS 主密钥的通道，
+		// SSE 字段忽略（默认加密由桶级配置承接）
+		if dest.StorageClass != "" {
+			input.StorageClass = obs.StorageClassType(dest.StorageClass)
 		}
-		if len(meta) > 0 {
-			input.Metadata = meta
+		if len(dest.UserMetadata) > 0 {
+			input.Metadata = dest.UserMetadata
 		}
 	}
 	if _, err := a.client.CopyObject(input); err != nil {
@@ -603,7 +597,7 @@ func (a *obsAdapter) GetObjectACL(ctx context.Context, bucket, key string) (*Obj
 	}
 	stat := &ObjectStat{Key: key, Metadata: http.Header{}}
 	// OBS 的 GET acl 返回授权列表（无 canned 头）：按「对所有人授权」的粒度反推三档 ACL
-	stat.Metadata.Set("X-Amz-Acl", classifyOBSACL(res.Grants))
+	stat.CannedACL = classifyOBSACL(res.Grants)
 	return stat, nil
 }
 

@@ -103,6 +103,9 @@ type ObjectStat struct {
 	LastModified time.Time
 	Expires      time.Time
 	StorageClass string
+	// CannedACL 是 GetObjectACL 返回的权限归类（private/public-read/public-read-write）。
+	// 部分厂商只能从授权列表近似推导，可能为空。
+	CannedACL    string
 	Metadata     http.Header
 	UserMetadata map[string]string
 }
@@ -121,6 +124,7 @@ type CopySrc struct {
 }
 
 // CopyDest 复制目标；ReplaceMetadata 为 true 时以提供的元数据整体覆盖目标元数据（SDK 语义）。
+// 系统元数据（存储类型 / SSE 算法 / KMS 主密钥）使用显式字段承载；UserMetadata 只放用户自定义元数据。
 type CopyDest struct {
 	Bucket             string
 	Object             string
@@ -131,6 +135,9 @@ type CopyDest struct {
 	ContentLanguage    string
 	CacheControl       string
 	Expires            time.Time
+	StorageClass       string
+	SSEAlgorithm       string
+	SSEKMSKeyID        string
 	UserMetadata       map[string]string
 }
 

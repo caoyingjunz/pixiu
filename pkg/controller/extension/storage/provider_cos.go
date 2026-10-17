@@ -95,17 +95,29 @@ func (cosProvider) ClassifyAnonymousPolicy(policyText string) string {
 	if err := json.Unmarshal([]byte(policyText), &doc); err != nil {
 		return "private"
 	}
+	// COS v2.0 支持顶层 Principal：statement 内未声明时按顶层生效
+	docAnonymous := false
+	for _, principal := range flattenPolicyValues(doc.Principal) {
+		if principal == "*" || principal == cosAnonymousPrincipal {
+			docAnonymous = true
+			break
+		}
+	}
 	hasGet, hasWrite := false, false
 	for _, stmt := range doc.Statement {
 		if !strings.EqualFold(strings.TrimSpace(stmt.Effect), "allow") {
 			continue
 		}
-		// 只归类「匿名可访问」的策略：Principal 必须是 * 或 COS 的 everyone 身份
-		anonymous := false
-		for _, principal := range flattenPolicyValues(stmt.Principal) {
-			if principal == "*" || principal == cosAnonymousPrincipal {
-				anonymous = true
-				break
+		// 只归类「匿名可访问」的策略：Principal 必须是 * 或 COS 的 everyone 身份；
+		// statement 自带 Principal 时覆盖顶层声明
+		anonymous := docAnonymous
+		if stmt.Principal != nil {
+			anonymous = false
+			for _, principal := range flattenPolicyValues(stmt.Principal) {
+				if principal == "*" || principal == cosAnonymousPrincipal {
+					anonymous = true
+					break
+				}
 			}
 		}
 		if !anonymous {

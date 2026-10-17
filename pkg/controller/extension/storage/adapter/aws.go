@@ -495,21 +495,18 @@ func (a *awsAdapter) CopyObject(ctx context.Context, src CopySrc, dest CopyDest)
 		if !dest.Expires.IsZero() {
 			in.Expires = aws.Time(dest.Expires)
 		}
-		meta := make(map[string]string, len(dest.UserMetadata))
-		for k, v := range dest.UserMetadata {
-			switch {
-			case strings.EqualFold(k, "X-Amz-Storage-Class"):
-				in.StorageClass = types.StorageClass(v)
-			case strings.EqualFold(k, "X-Amz-Server-Side-Encryption"):
-				in.ServerSideEncryption = types.ServerSideEncryption(v)
-			case strings.EqualFold(k, "X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id"):
-				in.SSEKMSKeyId = aws.String(v)
-			default:
-				meta[k] = v
-			}
+		// 系统元数据由 CopyDest 显式字段承载，UserMetadata 只放用户自定义项
+		if dest.StorageClass != "" {
+			in.StorageClass = types.StorageClass(dest.StorageClass)
 		}
-		if len(meta) > 0 {
-			in.Metadata = meta
+		if dest.SSEAlgorithm != "" {
+			in.ServerSideEncryption = types.ServerSideEncryption(dest.SSEAlgorithm)
+		}
+		if dest.SSEKMSKeyID != "" {
+			in.SSEKMSKeyId = aws.String(dest.SSEKMSKeyID)
+		}
+		if len(dest.UserMetadata) > 0 {
+			in.Metadata = dest.UserMetadata
 		}
 	}
 	if _, err := a.client.CopyObject(ctx, in); err != nil {
@@ -702,7 +699,7 @@ func (a *awsAdapter) GetObjectACL(ctx context.Context, bucket, key string) (*Obj
 	}
 	stat := &ObjectStat{Key: key, Metadata: http.Header{}}
 	// AWS 的 GET acl 返回授权列表（无 canned 头）：按「对所有人授权」的粒度反推三档 ACL
-	stat.Metadata.Set("X-Amz-Acl", classifyAWSACL(res.Grants))
+	stat.CannedACL = classifyAWSACL(res.Grants)
 	return stat, nil
 }
 

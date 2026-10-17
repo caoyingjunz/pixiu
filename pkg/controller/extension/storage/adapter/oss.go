@@ -440,21 +440,14 @@ func (a *ossAdapter) CopyObject(ctx context.Context, src CopySrc, dest CopyDest)
 		if !dest.Expires.IsZero() {
 			req.Expires = oss.Ptr(dest.Expires.UTC().Format(http.TimeFormat))
 		}
-		meta := make(map[string]string, len(dest.UserMetadata))
-		for k, v := range dest.UserMetadata {
-			switch {
-			case strings.EqualFold(k, "X-Amz-Storage-Class"):
-				req.StorageClass = oss.StorageClassType(v)
-			case strings.EqualFold(k, "X-Amz-Server-Side-Encryption"):
-				req.ServerSideEncryption = oss.Ptr(v)
-			case strings.EqualFold(k, "X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id"):
-				req.ServerSideEncryptionKeyId = oss.Ptr(v)
-			default:
-				meta[k] = v
-			}
+		// 系统元数据由 CopyDest 显式字段承载，UserMetadata 只放用户自定义项
+		if dest.StorageClass != "" {
+			req.StorageClass = oss.StorageClassType(dest.StorageClass)
 		}
-		if len(meta) > 0 {
-			req.Metadata = meta
+		req.ServerSideEncryption = ossPtrString(dest.SSEAlgorithm)
+		req.ServerSideEncryptionKeyId = ossPtrString(dest.SSEKMSKeyID)
+		if len(dest.UserMetadata) > 0 {
+			req.Metadata = dest.UserMetadata
 		}
 	}
 	if _, err := a.client.CopyObject(ctx, req); err != nil {
@@ -647,7 +640,7 @@ func (a *ossAdapter) GetObjectACL(ctx context.Context, bucket, key string) (*Obj
 	if acl == "" {
 		acl = ossString(res.ACL)
 	}
-	stat.Metadata.Set("X-Amz-Acl", acl)
+	stat.CannedACL = acl
 	return stat, nil
 }
 

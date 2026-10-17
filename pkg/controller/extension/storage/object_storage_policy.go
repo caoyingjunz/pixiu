@@ -82,7 +82,7 @@ func (c *controller) SetBucketPolicy(ctx context.Context, datasourceID int64, bu
 		return apierrors.NewError(
 			fmt.Errorf("bucket policy is too large: %d bytes, limit is %d", len(policy), maxBucketPolicyBytes), 400)
 	}
-	if err := validateBucketPolicy(policy); err != nil {
+	if err := validateBucketPolicy(policy, cc.provider.Key() == cosProviderKey); err != nil {
 		return err
 	}
 	if err := client.SetBucketPolicy(ctx, bucket, policy); err != nil {
@@ -103,7 +103,10 @@ type policyStatement struct {
 }
 
 type bucketPolicyDoc struct {
-	Version   string            `json:"Version"`
+	Version string `json:"Version"`
+	// Principal 是 COS Bucket Policy v2.0 支持的顶层授权对象（statement 内未声明 Principal 时生效）；
+	// 其余厂商的文档没有该字段，序列化时省略（omitempty）。
+	Principal interface{}       `json:"principal,omitempty"`
 	Statement []policyStatement `json:"Statement"`
 }
 
@@ -140,7 +143,8 @@ func containsAny(items []string, target string) bool {
 }
 
 // validateBucketPolicy 提交给 S3 之前先做本地结构校验，省去 MalformedPolicy 往返定位。
-func validateBucketPolicy(text string) error {
+// allowTopLevelPrincipal 为 true 时（腾讯云 COS），statement 缺 Principal 可用文档顶层 Principal 兜底。
+func validateBucketPolicy(text string, allowTopLevelPrincipal bool) error {
 	var doc bucketPolicyDoc
 	if err := json.Unmarshal([]byte(text), &doc); err != nil {
 		return apierrors.NewError(fmt.Errorf("bucket policy is not valid JSON: %w", err), 400)
@@ -154,7 +158,7 @@ func validateBucketPolicy(text string) error {
 		default:
 			return apierrors.NewError(fmt.Errorf("statement[%d]: Effect must be Allow or Deny", i), 400)
 		}
-		if stmt.Principal == nil {
+		if stmt.Principal == nil && !(allowTopLevelPrincipal && doc.Principal != nil) {
 			return apierrors.NewError(fmt.Errorf("statement[%d]: Principal is required", i), 400)
 		}
 		if len(flattenPolicyValues(stmt.Action)) == 0 {
