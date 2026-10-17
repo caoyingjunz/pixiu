@@ -7,6 +7,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -24,8 +25,7 @@ import (
 
 type Interface interface {
 	Ping(context.Context, int64) (*types.PostgresPing, error)
-	PingAdhoc(context.Context, *types.PostgresSourceConfig) (*types.PostgresPing, error)
-	PingAdhocWithDatasource(context.Context, int64, *types.PostgresSourceConfig) (*types.PostgresPing, error)
+	datasourcecontroller.PingInterface[types.PostgresSourceConfig, types.PostgresPing]
 	Info(context.Context, int64) (*types.PostgresServerInfo, error)
 	ListDatabases(context.Context, int64) ([]types.PostgresDatabase, error)
 	ListSchemas(context.Context, int64, string) ([]types.PostgresSchema, error)
@@ -189,7 +189,14 @@ func (c *controller) Ping(ctx context.Context, id int64) (*types.PostgresPing, e
 	}
 	return ping(ctx, db, p), nil
 }
-func (c *controller) PingAdhoc(ctx context.Context, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
+func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
+	if datasourceId > 0 {
+		return c.pingAdhocWithDatasource(ctx, datasourceId, p)
+	}
+	return c.pingAdhocConfig(ctx, p)
+}
+
+func (c *controller) pingAdhocConfig(ctx context.Context, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
 	if e := requireAdmin(ctx); e != nil {
 		return nil, e
 	}
@@ -201,11 +208,7 @@ func (c *controller) PingAdhoc(ctx context.Context, p *types.PostgresSourceConfi
 	return ping(ctx, db, p), nil
 }
 
-// PingAdhocWithDatasource 使用当前表单配置，并在密码为空时补齐已保存密码。
-func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId int64, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
-	if datasourceId <= 0 {
-		return c.PingAdhoc(ctx, p)
-	}
+func (c *controller) pingAdhocWithDatasource(ctx context.Context, datasourceId int64, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
 	if e := requireAdmin(ctx); e != nil {
 		return nil, e
 	}
@@ -229,7 +232,7 @@ func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId i
 	if p.Password == "" {
 		p.Password = saved.Postgres.Password
 	}
-	return c.PingAdhoc(ctx, p)
+	return c.pingAdhocConfig(ctx, p)
 }
 
 func ping(ctx context.Context, db *sql.DB, p *types.PostgresSourceConfig) *types.PostgresPing {
