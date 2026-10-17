@@ -239,6 +239,9 @@ func (c *controller) clientFor(ctx context.Context, datasourceId int64, db *int)
 		klog.Errorf("failed to unmarshal datasource(%d) config: %v", datasourceId, err)
 		return nil, nil, apierrors.ErrServerInternal
 	}
+	if err = cfg.DecryptPasswords(c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld); err != nil {
+		return nil, nil, apierrors.ErrServerInternal
+	}
 	if cfg.Redis == nil {
 		return nil, nil, apierrors.NewError(fmt.Errorf("datasource(%d) missing redis config", datasourceId), http.StatusBadRequest)
 	}
@@ -395,6 +398,9 @@ func (c *controller) PingAdhocWithDatasource(ctx context.Context, datasourceId i
 	var saved types.DatasourceConfig
 	if err = saved.Unmarshal(object.Config); err != nil || saved.Redis == nil {
 		return nil, apierrors.NewError(fmt.Errorf("invalid Redis datasource config"), http.StatusBadRequest)
+	}
+	if err = saved.DecryptPasswords(c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld); err != nil {
+		return nil, apierrors.ErrServerInternal
 	}
 	if cfg == nil {
 		cfg = &types.RedisSourceConfig{}

@@ -45,13 +45,15 @@ type Request struct {
 
 // Client 按数据源类型 / 内外网语义发送请求（与实时查询一致）。
 type Client struct {
-	factory    db.ShareDaoFactory
-	httpClient *http.Client
+	factory        db.ShareDaoFactory
+	encryptionKeys []string
+	httpClient     *http.Client
 }
 
-func NewClient(factory db.ShareDaoFactory) *Client {
+func NewClient(factory db.ShareDaoFactory, encryptionKeys ...string) *Client {
 	return &Client{
-		factory: factory,
+		factory:        factory,
+		encryptionKeys: encryptionKeys,
 		httpClient: &http.Client{
 			Timeout: defaultHTTPTimeout,
 		},
@@ -63,7 +65,7 @@ func (c *Client) Do(ctx context.Context, ds *model.Datasource, req Request) ([]b
 	if ds == nil {
 		return nil, 0, fmt.Errorf("datasource is nil")
 	}
-	ep, err := ParseEndpoint(ds)
+	ep, err := ParseEndpoint(ds, c.encryptionKeys...)
 	if err != nil {
 		return nil, 0, err
 	}
