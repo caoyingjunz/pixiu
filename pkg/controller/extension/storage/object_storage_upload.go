@@ -105,7 +105,8 @@ func (c *controller) UploadMultipartPart(ctx context.Context, datasourceID int64
 	if err != nil {
 		return nil, apierrors.NewError(fmt.Errorf("upload multipart part(%d) failed: %w", partNumber, err), 502)
 	}
-	return toMultipartPart(*part), nil
+	info := toMultipartPart(*part)
+	return &info, nil
 }
 
 // ListMultipartParts 列举某次分片上传已成功上传的分片，用于断点续传（只补传缺失的片）。
@@ -135,7 +136,7 @@ func (c *controller) ListMultipartParts(ctx context.Context, datasourceID int64,
 			return nil, apierrors.NewError(fmt.Errorf("list multipart parts failed: %w", err), 502)
 		}
 		for _, part := range page.Parts {
-			parts = append(parts, *toMultipartPart(part))
+			parts = append(parts, toMultipartPart(part))
 		}
 		if !page.IsTruncated {
 			break
@@ -233,9 +234,9 @@ func requireUploadID(uploadID string) (string, error) {
 	return uploadID, nil
 }
 
-func toMultipartPart(part adapter.PartInfo) *types.StorageMultipartPart {
+func toMultipartPart(part adapter.PartInfo) types.StorageMultipartPart {
 	lastModified := part.LastModified
-	return &types.StorageMultipartPart{
+	return types.StorageMultipartPart{
 		PartNumber:   part.PartNumber,
 		ETag:         part.ETag,
 		Size:         part.Size,

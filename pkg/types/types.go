@@ -157,14 +157,16 @@ type StorageMultipartUpload struct {
 	Key       string     `json:"key"`
 	UploadID  string     `json:"upload_id"`
 	Initiated *time.Time `json:"initiated,omitempty"`
-	Size      int64      `json:"size"`
+	// Size 为已上传字节数；各厂商 SDK 的碎片列举均不返回该值，当前恒为 0（保留字段以兼容契约）
+	Size int64 `json:"size"`
 }
 
 // StorageMultipartUploadList 碎片列举结果，Truncated 为 true 表示超出上限未全部展开
 type StorageMultipartUploadList struct {
-	Items     []StorageMultipartUpload `json:"items"`
-	TotalSize int64                    `json:"total_size"`
-	Truncated bool                     `json:"truncated"`
+	Items []StorageMultipartUpload `json:"items"`
+	// TotalSize 由 Size 汇总而来；当前恒为 0（不聚合分片大小，保留字段以兼容契约）
+	TotalSize int64 `json:"total_size"`
+	Truncated bool  `json:"truncated"`
 }
 
 // StorageAbortUploadResult 碎片清理结果明细。部分失败也返回 200，仅参数/连接类错误才走 error。
