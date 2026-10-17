@@ -129,6 +129,9 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 
 	// 对配置进行简化，移除不必要的配置
 	req.Config.Clean(req.Type, req.SubType)
+	if err := req.Config.EncryptPasswords(c.cc.Default.EncryptionKey); err != nil {
+		return apierrors.NewError(fmt.Errorf("encrypt datasource credentials: %w", err), http.StatusBadRequest)
+	}
 	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
@@ -277,11 +280,14 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 
 	updates := make(map[string]interface{})
 
-	if err = preserveDatasourcePasswords(req.Config, old.Config); err != nil {
+	if err = preserveDatasourcePasswords(req.Config, old.Config, c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld); err != nil {
 		klog.Errorf("failed to preserve datasource(%d) credentials: %v", req.Id, err)
 		return apierrors.ErrServerInternal
 	}
 	req.Config.Clean(req.Type, req.SubType)
+	if err = req.Config.EncryptPasswords(c.cc.Default.EncryptionKey); err != nil {
+		return apierrors.NewError(fmt.Errorf("encrypt datasource credentials: %w", err), http.StatusBadRequest)
+	}
 	cfg, err := req.Config.Marshal()
 	if err != nil {
 		return err
@@ -369,7 +375,16 @@ func (c *controller) Get(ctx context.Context, datasourceId int64, options ...Get
 	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
 		return nil, err
 	}
-	ds, err := modelToTypeWithRedaction(object, getOptions.redact)
+	var cfg types.DatasourceConfig
+	if err = cfg.Unmarshal(object.Config); err != nil {
+		return nil, apierrors.ErrServerInternal
+	}
+	if !getOptions.redact {
+		if err = cfg.DecryptPasswords(c.cc.Default.EncryptionKey, c.cc.Default.EncryptionKeyOld); err != nil {
+			return nil, apierrors.ErrServerInternal
+		}
+	}
+	ds, err := datasourceFromConfig(object, cfg, getOptions.redact)
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
 	}
@@ -471,6 +486,10 @@ func modelToTypeWithRedaction(object *model.Datasource, redact bool) (*types.Dat
 	if err := cfg.Unmarshal(object.Config); err != nil {
 		return nil, err
 	}
+	return datasourceFromConfig(object, cfg, redact)
+}
+
+func datasourceFromConfig(object *model.Datasource, cfg types.DatasourceConfig, redact bool) (*types.Datasource, error) {
 	if redact {
 		redactDatasourceConfig(&cfg)
 	}
@@ -521,12 +540,15 @@ func redactDatasourceConfig(cfg *types.DatasourceConfig) {
 
 // preserveDatasourcePasswords keeps existing credentials when an update omits them.
 // Datasource API responses redact secrets, so an unchanged frontend form submits empty values.
-func preserveDatasourcePasswords(cfg *types.DatasourceConfig, oldConfig string) error {
+func preserveDatasourcePasswords(cfg *types.DatasourceConfig, oldConfig, encryptionKey, encryptionKeyOld string) error {
 	if cfg == nil {
 		return nil
 	}
 	var old types.DatasourceConfig
 	if err := old.Unmarshal(oldConfig); err != nil {
+		return err
+	}
+	if err := old.DecryptPasswords(encryptionKey, encryptionKeyOld); err != nil {
 		return err
 	}
 	if cfg.Log != nil && old.Log != nil && cfg.Log.Password == "" {

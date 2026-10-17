@@ -1,4 +1,8 @@
 default:
+  # 数据源密码加密密钥，必填，不允许关闭，使用 32 字节随机密钥
+  # 密钥轮换期间临时填写旧密钥,完成数据源重新保存或重加密后删除。
+  # encryption_key_old: "rceyZH0bWQVnoVg7r3pxmZubkho+Rg29zljsnLEQf28="
+  encryption_key: "NYh+81RFFXgkrpzDt7MTPNUlaMwRMfWgvtQU71Wh4PI="
   # 运行模式，可选 debug 和 release，默认是 release
   # debug: 有登录态时沿用真实用户身份（菜单/权限按角色过滤），不做 API ValidAccess；无登录态回退 root
   # release: 完整 JWT 认证 + API 级权限校验
