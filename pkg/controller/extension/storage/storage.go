@@ -114,15 +114,11 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{cc: cfg, factory: f}
 }
 
+// clientConfig 是控制层在请求期内复用的厂商标识与派生信息（凭据/端点等已随 adapter.Config 一次性消费）。
 type clientConfig struct {
 	provider Provider
-	endpoint string
 	region   string
 	appID    string
-	access   string
-	secret   string
-	token    string
-	secure   bool
 }
 
 func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter.Adapter, clientConfig, error) {
@@ -190,7 +186,7 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 	if err != nil {
 		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("create storage client: %w", err), 400)
 	}
-	return client, clientConfig{provider: provider, endpoint: endpoint, region: region, appID: appID, access: access, secret: secret, token: token, secure: u.Scheme == "https"}, nil
+	return client, clientConfig{provider: provider, region: region, appID: appID}, nil
 }
 
 func (c *controller) Ping(ctx context.Context, datasourceID int64) (*types.StoragePing, error) {

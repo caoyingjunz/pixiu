@@ -54,13 +54,6 @@ func ErrorCode(err error) string {
 	return code
 }
 
-// IsNotFound 判断错误是否为「服务端 404 且非 NoSuchBucket」——
-// 即目标不存在（未配置）而非真实失败。
-func IsNotFound(err error) bool {
-	code, status := errorInfo(err)
-	return status == http.StatusNotFound && code != "NoSuchBucket"
-}
-
 // errorInfo 提取错误链中的（错误码, HTTP 状态码）。
 func errorInfo(err error) (string, int) {
 	var se *StorageError

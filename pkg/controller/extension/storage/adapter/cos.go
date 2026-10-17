@@ -45,7 +45,6 @@ type cosAdapter struct {
 	schema string // http / https
 	host   string // 服务级端点 host[:port]（cos.<region>.myqcloud.com）
 	http   *http.Client
-	auth   *cos.AuthorizationTransport
 
 	mu      sync.Mutex
 	buckets map[string]*cos.Client
@@ -68,7 +67,6 @@ func newCos(cfg Config) (Adapter, error) {
 		schema:  schema,
 		host:    cfg.Endpoint,
 		http:    &http.Client{Transport: auth},
-		auth:    auth,
 		buckets: make(map[string]*cos.Client),
 	}, nil
 }
