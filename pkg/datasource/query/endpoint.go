@@ -48,13 +48,16 @@ type InClusterEndpoint struct {
 }
 
 // ParseEndpoint 从数据库 Datasource 解析查询端点。
-func ParseEndpoint(ds *model.Datasource) (*Endpoint, error) {
+func ParseEndpoint(ds *model.Datasource, encryptionKeys ...string) (*Endpoint, error) {
 	if ds == nil {
 		return nil, fmt.Errorf("datasource is nil")
 	}
 	var cfg types.DatasourceConfig
 	if err := cfg.Unmarshal(ds.Config); err != nil {
 		return nil, fmt.Errorf("invalid datasource config: %w", err)
+	}
+	if err := cfg.DecryptPasswords(encryptionKeys...); err != nil {
+		return nil, fmt.Errorf("decrypt datasource credentials: %w", err)
 	}
 
 	ep := &Endpoint{

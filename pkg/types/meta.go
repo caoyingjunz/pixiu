@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/util/credential"
 )
 
 const (
@@ -496,6 +498,85 @@ func (c *DatasourceConfig) Unmarshal(s string) error {
 		return err
 	}
 	return nil
+}
+
+// EncryptPasswords encrypts datasource passwords before persistence.
+func (c *DatasourceConfig) EncryptPasswords(key string) error {
+	if c == nil {
+		return nil
+	}
+	if strings.TrimSpace(key) == "" {
+		return fmt.Errorf("credential encryption key is not configured")
+	}
+	for _, password := range c.passwordFields() {
+		encrypted, err := credential.Encrypt(*password, key)
+		if err != nil {
+			return err
+		}
+		*password = encrypted
+	}
+	return nil
+}
+
+// DecryptPasswords decrypts stored datasource passwords. Legacy plaintext is preserved.
+func (c *DatasourceConfig) DecryptPasswords(keys ...string) error {
+	if c == nil {
+		return nil
+	}
+	for _, password := range c.passwordFields() {
+		plaintext, err := decryptCredential(*password, keys...)
+		if err != nil {
+			return err
+		}
+		*password = plaintext
+	}
+	return nil
+}
+
+func (c *DatasourceConfig) passwordFields() []*string {
+	if c == nil {
+		return nil
+	}
+	fields := make([]*string, 0, 6)
+	if c.Log != nil {
+		fields = append(fields, &c.Log.Password)
+	}
+	if c.Alert != nil {
+		fields = append(fields, &c.Alert.Password)
+	}
+	if c.Redis != nil {
+		fields = append(fields, &c.Redis.Password, &c.Redis.SentinelPassword)
+	}
+	if c.Mysql != nil {
+		fields = append(fields, &c.Mysql.Password)
+	}
+	if c.Postgres != nil {
+		fields = append(fields, &c.Postgres.Password)
+	}
+	return fields
+}
+
+// decryptCredential supports key rotation: the current key is tried first,
+// then the optional old key. Plaintext legacy values remain unchanged.
+func decryptCredential(value string, keys ...string) (string, error) {
+	if !credential.IsEncrypted(value) {
+		return value, nil
+	}
+	var lastErr error
+	for _, key := range keys {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		plaintext, err := credential.Decrypt(value, key)
+		if err == nil {
+			return plaintext, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		return "", fmt.Errorf("credential encryption key is not configured")
+	}
+	return "", lastErr
 }
 
 // Clean 移除不必要的配置，防止持久化的时候存储多余配置
