@@ -133,11 +133,11 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 	if object.Type != model.DatasourceTypeMiddleware || object.SubType != model.DatasourceSubTypeStorage {
 		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("datasource(%d) is not a storage datasource", datasourceID), 400)
 	}
-	if err := controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceID); err != nil {
+	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceID); err != nil {
 		return nil, clientConfig{}, err
 	}
 	var cfg types.DatasourceConfig
-	if err := cfg.Unmarshal(object.Config); err != nil {
+	if err = cfg.Unmarshal(object.Config); err != nil {
 		return nil, clientConfig{}, apierrors.ErrServerInternal
 	}
 	if cfg.Storage == nil {
