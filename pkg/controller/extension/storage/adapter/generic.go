@@ -39,8 +39,9 @@ type generic struct {
 	client *minio.Client
 }
 
-// newGeneric 构造 minio-go 客户端。寻址方式与签名版本由控制层解析后经 Config 传入，这里不再推导。
-func newGeneric(cfg Config) (Adapter, error) {
+// NewGeneric 构造 minio-go 客户端（通用 S3 兼容 / MinIO / 未知厂商的兜底实现）。
+// 寻址方式与签名版本由控制层解析后经 Config 传入，这里不再推导。
+func NewGeneric(cfg Config) (Adapter, error) {
 	opts := &minio.Options{
 		Creds:        newStorageCredentials(cfg.SignatureVersion, cfg.AccessKeyID, cfg.SecretAccessKey, cfg.SessionToken),
 		Secure:       cfg.Secure,

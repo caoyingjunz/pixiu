@@ -48,7 +48,8 @@ type awsAdapter struct {
 	client *s3.Client
 }
 
-func newAWS(cfg Config) (Adapter, error) {
+// NewAWS 构造 AWS S3 原生适配器。
+func NewAWS(cfg Config) (Adapter, error) {
 	schema := "https"
 	if !cfg.Secure {
 		schema = "http"

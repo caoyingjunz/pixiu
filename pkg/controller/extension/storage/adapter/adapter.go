@@ -14,11 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package adapter 定义对象存储的数据面适配层：接口（36 方法 / 7 组）、DTO 与工厂。
+// Package adapter 定义对象存储的数据面适配层：接口（36 方法 / 7 组）、DTO 与各厂商构造器。
 //
 // 设计约束：
 //   - 本包不反向依赖 pkg/controller/extension/storage（保持无环）：控制层解析并校验配置，
 //     适配器只消费；寻址方式与签名版本的语义推导留在控制层的 provider 层，不在本包重复实现。
+//   - 构造分派由控制层的 Provider 注册表选择（各 Provider 声明自己的 NewAdapter），
+//     本包不再维护厂商标识字符串到构造器的映射。
 //   - 接口按数据面原语划分；聚合逻辑（分页三态、目录展开、zip 打包、重命名等）留在控制层，
 //     与协议无关的产品规则不进入适配器。
 //   - 错误统一包装为 *StorageError；配置类「未设置」态（404 且非 NoSuchBucket，或历史已知
@@ -29,7 +31,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -38,7 +39,6 @@ import (
 // Config 是构造适配器所需的运行时配置（由控制层解析校验后传入）。
 // 寻址方式与签名版本两个 S3 系参数由控制层按 provider 语义计算，这里原样消费。
 type Config struct {
-	Provider         string                 // 厂商标识，P1 起用于分派；generic 为兜底实现
 	Endpoint         string                 // 端点 host[:port]（控制层已完成 scheme/host 校验）
 	Secure           bool                   // 端点使用 https 时为 true
 	Region           string                 // 区域（已完成控制层兜底）
@@ -298,28 +298,5 @@ type Adapter interface {
 	ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker string, maxUploads int) (*UploadsPage, error)
 }
 
-// New 按配置构造适配器。
-// 已就绪的原生适配器按 provider 分派；其余厂商与未知取值回落 generic（minio-go）实现。
-func New(cfg Config) (Adapter, error) {
-	switch normalizeProviderKey(cfg.Provider) {
-	case "cos":
-		return newCos(cfg)
-	case "oss":
-		return newOSS(cfg)
-	case "obs":
-		return newOBS(cfg)
-	case "aws":
-		return newAWS(cfg)
-	}
-	// s3 / minio 与未知取值回落 generic（minio-go）实现
-	return newGeneric(cfg)
-}
-
-// normalizeProviderKey 归一化厂商标识（与控制层 providerFor 的取值口径一致）。
-func normalizeProviderKey(name string) string {
-	key := strings.ToLower(strings.TrimSpace(name))
-	if key == "" {
-		key = "s3"
-	}
-	return key
-}
+// 各厂商适配器通过导出构造器 NewGeneric / NewAWS / NewOSS / NewCOS / NewOBS 暴露，
+// 由控制层 Provider 注册表按厂商标识选择，本包不提供统一的字符串分派入口。

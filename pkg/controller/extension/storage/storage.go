@@ -179,7 +179,6 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 		region = storageDefaultRegion
 	}
 	adapterCfg := adapter.Config{
-		Provider:         sc.Provider,
 		Endpoint:         u.Host,
 		Secure:           u.Scheme == "https",
 		Region:           region,
@@ -194,7 +193,7 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 	// 配置变更由 fingerprint 识别并触发客户端重建，TTL 与 LRU 仅作为兜底清理。
 	if adapterCfg.Transport != nil {
 		// 自定义 Transport（如探测场景的 SSRF 防护）不可共享，直接构造、不进入缓存。
-		client, err := adapter.New(adapterCfg)
+		client, err := provider.NewAdapter(adapterCfg)
 		if err != nil {
 			return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("create storage client: %w", err), 400)
 		}
@@ -204,7 +203,7 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 	if client, ok := c.clients.get(datasourceID, fingerprint); ok {
 		return client, cc, nil
 	}
-	client, err := adapter.New(adapterCfg)
+	client, err := provider.NewAdapter(adapterCfg)
 	if err != nil {
 		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("create storage client: %w", err), 400)
 	}
@@ -315,8 +314,7 @@ func clientFromConfig(sc *types.StorageSourceConfig) (adapter.Adapter, Provider,
 		}
 		region = storageDefaultRegion
 	}
-	client, err := adapter.New(adapter.Config{
-		Provider:         sc.Provider,
+	client, err := provider.NewAdapter(adapter.Config{
 		Endpoint:         u.Host,
 		Secure:           u.Scheme == "https",
 		Region:           region,

@@ -18,6 +18,8 @@ package storage
 
 import (
 	"github.com/minio/minio-go/v7"
+
+	"github.com/caoyingjunz/pixiu/pkg/controller/extension/storage/adapter"
 )
 
 // genericProvider 是「其他 S3 兼容 / 未知厂商」的实现，同时作为各厂商实现的默认骨架：
@@ -33,6 +35,11 @@ func (genericProvider) BucketLookup(style, endpointHost string) minio.BucketLook
 }
 
 func (genericProvider) AppID(string) string { return "" }
+
+// NewAdapter 构造通用 S3 兼容适配器；minioProvider 通过嵌入继承此实现。
+func (genericProvider) NewAdapter(cfg adapter.Config) (adapter.Adapter, error) {
+	return adapter.NewGeneric(cfg)
+}
 
 func (genericProvider) NormalizeBucketName(_, name string) (string, error) { return name, nil }
 

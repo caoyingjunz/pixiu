@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/caoyingjunz/pixiu/pkg/controller/extension/storage/adapter"
 )
 
 // 华为云 OBS。区域由用户显式填写；OBS 使用虚拟主机寻址。
@@ -30,6 +32,11 @@ type obsProvider struct {
 }
 
 func (obsProvider) Key() string { return obsProviderKey }
+
+// NewAdapter 构造华为云 OBS 原生适配器。
+func (obsProvider) NewAdapter(cfg adapter.Config) (adapter.Adapter, error) {
+	return adapter.NewOBS(cfg)
+}
 
 // Capabilities OBS 原生适配器支持授权策略（S3 格式桶策略）与默认加密（SSE-OBS），标签沿用。
 func (obsProvider) Capabilities() Capabilities {

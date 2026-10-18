@@ -48,7 +48,8 @@ type ossAdapter struct {
 // 原生 SDK 需要走服务级端点。这里做等价重写（同 region 同协议、同一份数据），并留下告警便于对账。
 var ossS3CompatHostRe = regexp.MustCompile(`^s3\.oss-([a-z0-9-]+)\.aliyuncs\.com$`)
 
-func newOSS(cfg Config) (Adapter, error) {
+// NewOSS 构造阿里云 OSS 原生适配器。
+func NewOSS(cfg Config) (Adapter, error) {
 	schema := "https"
 	if !cfg.Secure {
 		schema = "http"

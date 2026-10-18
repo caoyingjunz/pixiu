@@ -43,7 +43,8 @@ type obsAdapter struct {
 	client *obs.ObsClient
 }
 
-func newOBS(cfg Config) (Adapter, error) {
+// NewOBS 构造华为云 OBS 原生适配器。
+func NewOBS(cfg Config) (Adapter, error) {
 	schema := "https"
 	if !cfg.Secure {
 		schema = "http"

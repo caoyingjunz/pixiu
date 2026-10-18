@@ -16,6 +16,8 @@ limitations under the License.
 
 package storage
 
+import "github.com/caoyingjunz/pixiu/pkg/controller/extension/storage/adapter"
+
 // AWS S3。标准 S3 本体，控制面（策略 / SSE / 标签）都走标准接口；区域由用户显式填写。
 const awsProviderKey = "aws"
 
@@ -24,6 +26,11 @@ type awsProvider struct {
 }
 
 func (awsProvider) Key() string { return awsProviderKey }
+
+// NewAdapter 构造 AWS 原生适配器。
+func (awsProvider) NewAdapter(cfg adapter.Config) (adapter.Adapter, error) {
+	return adapter.NewAWS(cfg)
+}
 
 // Capabilities AWS 是标准 S3 本体，策略与 SSE-S3 都用标准接口。
 func (p awsProvider) Capabilities() Capabilities {

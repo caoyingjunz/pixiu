@@ -50,7 +50,8 @@ type cosAdapter struct {
 	buckets map[string]*cos.Client
 }
 
-func newCos(cfg Config) (Adapter, error) {
+// NewCOS 构造腾讯云 COS 原生适配器。
+func NewCOS(cfg Config) (Adapter, error) {
 	schema := "https"
 	if !cfg.Secure {
 		schema = "http"

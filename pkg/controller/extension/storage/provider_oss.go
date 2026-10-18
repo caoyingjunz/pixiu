@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/caoyingjunz/pixiu/pkg/controller/extension/storage/adapter"
 )
 
 // 阿里云 OSS。端点填服务级端点（oss-<region>.aliyuncs.com，或以 s3.oss- 开头的 S3 兼容端点，
@@ -31,6 +33,11 @@ type ossProvider struct {
 }
 
 func (ossProvider) Key() string { return ossProviderKey }
+
+// NewAdapter 构造阿里云 OSS 原生适配器。
+func (ossProvider) NewAdapter(cfg adapter.Config) (adapter.Adapter, error) {
+	return adapter.NewOSS(cfg)
+}
 
 // Capabilities OSS 原生适配器支持授权策略（Bucket Policy）与默认加密（SSE-OSS），标签沿用。
 func (ossProvider) Capabilities() Capabilities {

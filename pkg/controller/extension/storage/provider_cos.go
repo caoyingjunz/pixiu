@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/caoyingjunz/pixiu/pkg/controller/extension/storage/adapter"
 )
 
 // 腾讯云 COS。区域由用户显式填写；Bucket 名必须带所属账号的 AppID 后缀。
@@ -36,6 +38,11 @@ type cosProvider struct {
 }
 
 func (cosProvider) Key() string { return cosProviderKey }
+
+// NewAdapter 构造腾讯云 COS 原生适配器。
+func (cosProvider) NewAdapter(cfg adapter.Config) (adapter.Adapter, error) {
+	return adapter.NewCOS(cfg)
+}
 
 // Capabilities COS 原生适配器支持授权策略（Bucket Policy v2.0）与默认加密（SSE-COS），标签沿用。
 func (cosProvider) Capabilities() Capabilities {

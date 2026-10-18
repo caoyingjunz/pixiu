@@ -25,6 +25,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 
+	"github.com/caoyingjunz/pixiu/pkg/controller/extension/storage/adapter"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -49,6 +50,9 @@ type Provider interface {
 	RequiresExplicitRegion() bool
 	// BucketLookup 决定寻址方式（虚拟主机 / 路径）
 	BucketLookup(style, endpointHost string) minio.BucketLookupType
+	// NewAdapter 构造本厂商的数据面适配器。
+	// 各厂商在此声明自己的构造器，Provider 注册表即成为唯一的构造分派点。
+	NewAdapter(cfg adapter.Config) (adapter.Adapter, error)
 	// AppID 从端点提取账号级后缀（腾讯云 COS 的 AppID），其他厂商返回空串
 	AppID(endpoint string) string
 	// NormalizeBucketName 按厂商命名规则归一化 Bucket 名
