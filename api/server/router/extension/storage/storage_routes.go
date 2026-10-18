@@ -206,7 +206,7 @@ func (r *router) providers(c *gin.Context) {
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *router) buckets(c *gin.Context) {
+func (r *router) listBuckets(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var m meta
 	if err := httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
@@ -374,7 +374,7 @@ func (r *router) setCors(c *gin.Context) {
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *router) objects(c *gin.Context) {
+func (r *router) listObjects(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var m meta
 	var opts objectPageOptions
@@ -475,7 +475,7 @@ func (r *router) objectContent(c *gin.Context) {
 	c.DataFromReader(200, size, contentType, reader, nil)
 }
 
-func (r *router) objectVersions(c *gin.Context) {
+func (r *router) listObjectVersions(c *gin.Context) {
 	resp := httputils.NewResponse()
 	var m meta
 	var opts versionListOptions
