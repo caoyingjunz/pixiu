@@ -23,6 +23,7 @@ import (
 	mysqlcontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/mysql"
 	postgrescontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/postgres"
 	rediscontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/redis"
+	objectstoragecontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/storage"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
 
@@ -36,34 +37,33 @@ type Interface interface {
 	Autoscaling() autoscalingcontroller.Interface
 	Mysql() mysqlcontroller.Interface
 	Postgres() postgrescontroller.Interface
+	ObjectStorage() objectstoragecontroller.Interface
 }
 
 type controller struct {
-	redis       rediscontroller.Interface
-	autoscaling autoscalingcontroller.Interface
-	mysql       mysqlcontroller.Interface
-	postgres    postgrescontroller.Interface
+	redis         rediscontroller.Interface
+	autoscaling   autoscalingcontroller.Interface
+	mysql         mysqlcontroller.Interface
+	postgres      postgrescontroller.Interface
+	objectStorage objectstoragecontroller.Interface
 }
 
 func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{
-		redis:       rediscontroller.New(cfg, f),
-		autoscaling: autoscalingcontroller.New(cfg, f),
-		mysql:       mysqlcontroller.New(cfg, f),
-		postgres:    postgrescontroller.New(cfg, f),
+		redis:         rediscontroller.New(cfg, f),
+		autoscaling:   autoscalingcontroller.New(cfg, f),
+		mysql:         mysqlcontroller.New(cfg, f),
+		postgres:      postgrescontroller.New(cfg, f),
+		objectStorage: objectstoragecontroller.New(cfg, f),
 	}
 }
 
-func (c *controller) Redis() rediscontroller.Interface {
-	return c.redis
-}
-
+func (c *controller) Redis() rediscontroller.Interface { return c.redis }
 func (c *controller) Autoscaling() autoscalingcontroller.Interface {
 	return c.autoscaling
 }
-
 func (c *controller) Mysql() mysqlcontroller.Interface {
 	return c.mysql
 }
-
-func (c *controller) Postgres() postgrescontroller.Interface { return c.postgres }
+func (c *controller) Postgres() postgrescontroller.Interface           { return c.postgres }
+func (c *controller) ObjectStorage() objectstoragecontroller.Interface { return c.objectStorage }

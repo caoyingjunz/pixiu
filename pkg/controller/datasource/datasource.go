@@ -112,6 +112,9 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	if err := validatePostgresConstraint(req); err != nil {
 		return err
 	}
+	if err := validateStorageConstraint(req, true); err != nil {
+		return err
+	}
 	if err := c.preCreate(ctx, req); err != nil {
 		return err
 	}
@@ -240,6 +243,66 @@ func validatePostgresConstraint(req *types.CreateDatasourceRequest) error {
 	return nil
 }
 
+// validateStorageConstraint 校验对象存储数据源只能通过外部 HTTP 地址访问。
+// 对象存储服务不对应 Pixiu 集群内的 Service，因此不支持内部数据源模式。
+//
+// 地址与 Access Key 也在这里前移校验：否则「创建成功、进对象管理才报错」的体验很差
+// （storage.clientFor 在使用时才兜底，报错时机太晚）。
+// requireSecret 为 false 时跳过 Secret Key 校验，供 Update 使用——编辑表单留空表示不修改。
+func validateStorageConstraint(req *types.CreateDatasourceRequest, requireSecret bool) error {
+	if req.SubType != model.DatasourceSubTypeStorage {
+		return nil
+	}
+	if req.Type != model.DatasourceTypeMiddleware {
+		return apierrors.NewError(
+			fmt.Errorf("storage datasource requires type=%d", model.DatasourceTypeMiddleware),
+			http.StatusBadRequest,
+		)
+	}
+	if !req.External {
+		return apierrors.NewError(
+			fmt.Errorf("storage datasource only supports external direct connection, please enable external"),
+			http.StatusBadRequest,
+		)
+	}
+	if req.Config == nil || req.Config.Storage == nil {
+		return apierrors.NewError(
+			fmt.Errorf("storage datasource requires config.storage"),
+			http.StatusBadRequest,
+		)
+	}
+
+	sc := req.Config.Storage
+	endpoint := strings.TrimSpace(sc.Endpoint)
+	if endpoint == "" && req.Config.Log != nil {
+		// 兼容存量数据：地址与凭据曾统一落在通用 log 配置里（clientFor 有同款回退）
+		endpoint = strings.TrimSpace(req.Config.Log.URL)
+	}
+	if endpoint == "" {
+		return apierrors.NewError(fmt.Errorf("storage endpoint is required"), http.StatusBadRequest)
+	}
+	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+		return apierrors.NewError(
+			fmt.Errorf("storage endpoint must start with http:// or https://"),
+			http.StatusBadRequest,
+		)
+	}
+
+	accessKey := strings.TrimSpace(sc.AccessKeyID)
+	if accessKey == "" && req.Config.Log != nil {
+		accessKey = strings.TrimSpace(req.Config.Log.UserName)
+	}
+	if accessKey == "" {
+		return apierrors.NewError(fmt.Errorf("storage access key is required"), http.StatusBadRequest)
+	}
+	if requireSecret && strings.TrimSpace(sc.SecretAccessKey) == "" {
+		if req.Config.Log == nil || req.Config.Log.Password == "" {
+			return apierrors.NewError(fmt.Errorf("storage secret key is required"), http.StatusBadRequest)
+		}
+	}
+	return nil
+}
+
 // 更新前置检查：资源存在
 func (c *controller) preUpdate(ctx context.Context, id int64) (*model.Datasource, error) {
 	old, err := c.factory.Datasource().Get(ctx, id)
@@ -258,6 +321,9 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 		return err
 	}
 	if err := validatePostgresConstraint(&req.CreateDatasourceRequest); err != nil {
+		return err
+	}
+	if err := validateStorageConstraint(&req.CreateDatasourceRequest, false); err != nil {
 		return err
 	}
 	old, err := c.preUpdate(ctx, req.Id)
@@ -513,6 +579,10 @@ func redactDatasourceConfig(cfg *types.DatasourceConfig) {
 	if cfg.Postgres != nil {
 		cfg.Postgres.Password = ""
 	}
+	if cfg.Storage != nil {
+		cfg.Storage.SecretAccessKey = ""
+		cfg.Storage.SessionToken = ""
+	}
 }
 
 // preserveDatasourcePasswords keeps existing credentials when an update omits them.
@@ -544,6 +614,17 @@ func preserveDatasourcePasswords(cfg *types.DatasourceConfig, oldConfig string) 
 	}
 	if cfg.Postgres != nil && old.Postgres != nil && cfg.Postgres.Password == "" {
 		cfg.Postgres.Password = old.Postgres.Password
+	}
+	if cfg.Storage != nil && old.Storage != nil {
+		if cfg.Storage.AccessKeyID == "" {
+			cfg.Storage.AccessKeyID = old.Storage.AccessKeyID
+		}
+		if cfg.Storage.SecretAccessKey == "" {
+			cfg.Storage.SecretAccessKey = old.Storage.SecretAccessKey
+		}
+		if cfg.Storage.SessionToken == "" {
+			cfg.Storage.SessionToken = old.Storage.SessionToken
+		}
 	}
 	return nil
 }
