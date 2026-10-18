@@ -108,10 +108,16 @@ type Interface interface {
 type controller struct {
 	cc      config.Config
 	factory db.ShareDaoFactory
+	// clients 缓存按数据源构造好的对象存储客户端，避免每次请求重复解析配置并创建 SDK 客户端。
+	clients *clientCache
 }
 
 func New(cfg config.Config, f db.ShareDaoFactory) Interface {
-	return &controller{cc: cfg, factory: f}
+	return &controller{
+		cc:      cfg,
+		factory: f,
+		clients: newClientCache(defaultClientCacheMaxEntries, defaultClientCacheTTL),
+	}
 }
 
 // clientConfig 是控制层在请求期内复用的厂商标识与派生信息（凭据/端点等已随 adapter.Config 一次性消费）。
@@ -172,7 +178,7 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 		}
 		region = storageDefaultRegion
 	}
-	client, err := adapter.New(adapter.Config{
+	adapterCfg := adapter.Config{
 		Provider:         sc.Provider,
 		Endpoint:         u.Host,
 		Secure:           u.Scheme == "https",
@@ -182,11 +188,28 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 		SessionToken:     token,
 		SignatureVersion: sc.SignatureVersion,
 		BucketLookup:     provider.BucketLookup(sc.AddressingStyle, u.Hostname()),
-	})
+	}
+	cc := clientConfig{provider: provider, region: region, appID: appID}
+	// 数据源读取、归属/类型鉴权与配置校验始终先于缓存命中发生：删除的数据源会在上面的 DB Get 处被拦截，
+	// 配置变更由 fingerprint 识别并触发客户端重建，TTL 与 LRU 仅作为兜底清理。
+	if adapterCfg.Transport != nil {
+		// 自定义 Transport（如探测场景的 SSRF 防护）不可共享，直接构造、不进入缓存。
+		client, err := adapter.New(adapterCfg)
+		if err != nil {
+			return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("create storage client: %w", err), 400)
+		}
+		return client, cc, nil
+	}
+	fingerprint := adapterConfigFingerprint(adapterCfg, provider.Key())
+	if client, ok := c.clients.get(datasourceID, fingerprint); ok {
+		return client, cc, nil
+	}
+	client, err := adapter.New(adapterCfg)
 	if err != nil {
 		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("create storage client: %w", err), 400)
 	}
-	return client, clientConfig{provider: provider, region: region, appID: appID}, nil
+	c.clients.put(datasourceID, fingerprint, client)
+	return client, cc, nil
 }
 
 func (c *controller) Ping(ctx context.Context, datasourceID int64) (*types.StoragePing, error) {
