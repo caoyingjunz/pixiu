@@ -415,18 +415,45 @@ const (
 	storageProbeWindow = time.Minute
 	// storageProbeMaxPerWindow 单个用户在窗口内允许的探测次数
 	storageProbeMaxPerWindow = 30
+	// storageProbeSweepInterval 限流表主动清扫的最小间隔
+	storageProbeSweepInterval = time.Minute
 )
 
 var storageProbeRecords = struct {
 	sync.Mutex
-	seen map[string][]time.Time
+	seen      map[string][]time.Time
+	lastSweep time.Time
 }{seen: make(map[string][]time.Time)}
+
+// sweepStorageProbeRecordsLocked 最多每 storageProbeSweepInterval 清理一次限流表。
+// 只按当前用户裁剪会让「不再探测的用户」永久驻留，这里遍历全表，
+// 裁掉窗口外的记录并删除已无记录的用户，避免 seen map 无界增长。调用方需持有锁。
+func sweepStorageProbeRecordsLocked(now time.Time) {
+	if now.Sub(storageProbeRecords.lastSweep) < storageProbeSweepInterval {
+		return
+	}
+	storageProbeRecords.lastSweep = now
+	for userName, records := range storageProbeRecords.seen {
+		kept := records[:0]
+		for _, at := range records {
+			if now.Sub(at) < storageProbeWindow {
+				kept = append(kept, at)
+			}
+		}
+		if len(kept) == 0 {
+			delete(storageProbeRecords.seen, userName)
+			continue
+		}
+		storageProbeRecords.seen[userName] = kept
+	}
+}
 
 // allowStorageProbe 按用户做滑动窗口限流，避免临时连接测试被当作内网端口扫描器使用。
 func allowStorageProbe(userName string) bool {
 	now := time.Now()
 	storageProbeRecords.Lock()
 	defer storageProbeRecords.Unlock()
+	sweepStorageProbeRecordsLocked(now)
 	kept := make([]time.Time, 0, len(storageProbeRecords.seen[userName]))
 	for _, at := range storageProbeRecords.seen[userName] {
 		if now.Sub(at) < storageProbeWindow {
