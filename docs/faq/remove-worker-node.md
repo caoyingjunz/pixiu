@@ -167,9 +167,56 @@ ip link delete cni0
 - Worker 节点无 etcd 数据，**不要**删除 `/var/lib/etcd`；etcd member 清理属于控制面流程。
 - 刷 iptables 会影响宿主机上其他服务的规则，**仅在专用于 K8s 且确认下线的节点上执行**。
 - 接口名随 CNI 不同而不同，只删除确认属于本集群的接口。
-- 若节点整机重装/彻底下线，可选 `systemctl disable kubelet`，并按需卸载 kubelet/容器运行时、清理 `/var/lib/containerd`（后者会删除本机所有镜像与容器，非必要勿做）。
+- 若节点整机重装/彻底下线，可选 `systemctl disable kubelet`；安装包卸载与容器数据清理见第 6 节。
 
-### 6. 重启节点
+### 6. 卸载 kubeadm / kubelet / kubectl 等安装包
+
+仅在节点确认下线、报废或重装时执行。执行前确认 kubelet 已停止（见第 4、5 节）。
+
+先确认本机实际安装的包：
+
+```bash
+# Debian / Ubuntu
+dpkg -l | grep -E 'kube|containerd|docker'
+# RHEL / CentOS / Kylin
+rpm -qa | grep -E 'kube|containerd|docker'
+```
+
+Debian / Ubuntu：
+
+```bash
+apt-mark unhold kubelet kubeadm kubectl
+apt-get purge -y kubelet kubeadm kubectl
+```
+
+RHEL / CentOS / Kylin：
+
+```bash
+yum remove -y kubelet kubeadm kubectl
+# 或 dnf remove -y kubelet kubeadm kubectl
+```
+
+如需一并卸载容器运行时（会停止该主机上的所有容器，并可能删除本地镜像/容器数据）：
+
+```bash
+# containerd（按实际包名，可能是 containerd 或 containerd.io）
+apt-get purge -y containerd.io
+# RHEL / CentOS / Kylin
+yum remove -y containerd.io
+# 或 dnf remove -y containerd.io
+# Docker
+apt-get purge -y docker-ce docker-ce-cli containerd.io
+# RHEL / CentOS / Kylin
+yum remove -y docker-ce docker-ce-cli containerd.io
+```
+
+说明：
+
+- 包名随发行版/安装方式不同（如 `containerd` vs `containerd.io`、`docker-ce` vs `docker`、`kubectl` 可能未安装），以第 1 步的实际包名为准；未安装的包会提示，不影响其他包。
+- 若节点后续还要重新加入集群，**不要**执行本节，跳过即可。
+- 卸载 kubelet 不会自动删除 `/var/lib/kubelet`、`/etc/kubernetes` 等目录；前面已手工清理。若确认不再使用容器运行时，可在卸载后清理 `/var/lib/containerd`（会删除本机所有镜像与容器）。
+
+### 7. 重启节点
 
 节点侧清理完成后，重启主机，确认 kubelet、容器运行时和网络规则不会在启动时恢复：
 
@@ -180,9 +227,9 @@ reboot
 说明：
 
 - 若已执行 `systemctl disable kubelet`，重启后 kubelet 不会自启；若未 disable，重启后 kubelet 可能以失败状态启动，需确认节点未重新注册回集群。
-- 重启后等待 SSH 恢复，再执行第 7 节最终验证。
+- 重启后等待 SSH 恢复，再执行第 8 节最终验证。
 
-### 7. 最终验证
+### 8. 最终验证
 
 完整移除后，控制面：
 
@@ -229,7 +276,7 @@ docker ps                             # docker 运行时：仍能看到容器
 - `--force` 仅用于不受控制器管理的 Pod，慎用；被删除的裸 Pod 不会自动重建。
 - 控制面节点不能按本文操作，etcd 成员/仲裁风险高，必须走控制面专用流程。
 - 不要在仍有其他业务的宿主机上刷 iptables；`iptables -F` 会清空全部 filter 规则。
-- kubeadm reset 不会停止 kubelet，也不会卸载 kubelet、容器运行时等软件包；彻底下线需另行卸载（如 kubelet、containerd/docker，如不再使用 kubeadm 也可一并卸载）。
+- kubeadm reset 不会停止 kubelet，也不会卸载软件包；彻底下线请按第 6 节卸载 kubelet、kubeadm、kubectl 及容器运行时。
 - 同名节点重新加入前，必须确认旧 Node 对象已删除、旧证书/CNI 残留已清理；否则会出现证书、端口、CNI 冲突。
 - 节点不可达时先在控制面 `kubectl delete node`，主机恢复后补清理或重装。
 - 若节点使用 nftables 模式的 kube-proxy，`iptables` 命令可能无法覆盖全部规则，视发行版/运行时确认后再清理。
