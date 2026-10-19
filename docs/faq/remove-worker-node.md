@@ -168,9 +168,21 @@ ip link delete cni0
 - 刷 iptables 会影响宿主机上其他服务的规则，**仅在专用于 K8s 且确认下线的节点上执行**。
 - 接口名随 CNI 不同而不同，只删除确认属于本集群的接口。
 - 若节点整机重装/彻底下线，可选 `systemctl disable kubelet`，并按需卸载 kubelet/容器运行时、清理 `/var/lib/containerd`（后者会删除本机所有镜像与容器，非必要勿做）。
-- 网络规则/接口清理后建议重启一次：`reboot`。
 
-### 6. 最终验证
+### 6. 重启节点
+
+节点侧清理完成后，重启主机，确认 kubelet、容器运行时和网络规则不会在启动时恢复：
+
+```bash
+reboot
+```
+
+说明：
+
+- 若已执行 `systemctl disable kubelet`，重启后 kubelet 不会自启；若未 disable，重启后 kubelet 可能以失败状态启动，需确认节点未重新注册回集群。
+- 重启后等待 SSH 恢复，再执行第 7 节最终验证。
+
+### 7. 最终验证
 
 完整移除后，控制面：
 
