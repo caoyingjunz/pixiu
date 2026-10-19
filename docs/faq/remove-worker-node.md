@@ -1,7 +1,7 @@
 # FAQ-005 移除 k8s 集群中的 Worker 节点
 
 - **分类**：容器服务 / 节点管理
-- **涉及组件**：kubeadm / kubelet / kubectl / Pixiu 主机管理
+- **涉及组件**：kubelet / kubectl / 容器运行时 / Pixiu 主机管理
 
 > 范围说明：本文只覆盖 **Worker 节点**的移除。控制面节点（涉及 etcd member、API Server / Controller Manager / Scheduler 静态 Pod、VIP / LB）不在本文范围，需按控制面专用流程处理。
 
@@ -9,16 +9,20 @@
 
 适用于集群缩容、主机下线/报废、重装系统、节点迁移等场景。常见误区与现象：
 
-1. **只在 Pixiu「主机管理」页面删除主机记录**：`kubectl get nodes` 仍能看到该节点（通常仍为 Ready），K8s 侧未发生任何变化。
-2. **只执行 `kubectl delete node`**：节点上的 kubelet 仍在运行、凭据仍有效，节点可能重新注册回集群。
-3. **未清理旧节点就重新 join 同名节点**：出现证书、端口、CNI 残留冲突（如 10250 端口占用、旧集群 CA 配置残留、CNI 网桥/接口冲突）。
-4. 节点已下线或无法登录，但没有先在控制面摘除，后续误以为「已经删除」。
+1. **在 Pixiu 集群详情 → 节点管理 → 删除节点**：K8s 里看不到节点了，但主机上的 kubelet 和容器/服务仍在运行；这不是完整清理，kubelet 凭据有效时节点还可能重新注册。
+2. **只在 Pixiu「主机管理」页面删除主机记录**：只删除平台记录，K8s 节点仍在（通常仍为 Ready），K8s 侧未发生任何变化。
+3. **只执行 `kubectl delete node`**：与在 Pixiu 节点管理页删除等价，只删除 Node 对象；节点上的 kubelet 仍在运行、凭据仍有效，节点可能重新注册回集群。
+4. **未清理旧节点就重新 join 同名节点**：出现证书、端口、CNI 残留冲突（如 10250 端口占用、旧集群 CA 配置残留、CNI 网桥/接口冲突）。
+5. 节点已下线或无法登录，但没有先在控制面摘除，后续误以为「已经删除」。
 
 ## 根因
 
 - Kubernetes 的 Node 对象由该节点的 **kubelet 注册并保存在控制面**；Pixiu 的 `nodes` 表只是平台的部署/SSH 管理记录，两套数据相互独立。
+- Pixiu 的两个删除入口作用于不同对象：
+  - **集群详情 → 节点管理 → 删除节点**：前端调用 `DELETE /pixiu/proxy/<cluster>/api/v1/nodes/<name>`，经 Pixiu 代理删除的是 **K8s Node 对象**，不会停止主机侧服务，也不会清理证书/CNI/iptables。
+  - **主机管理 → 删除主机**：调用 `DELETE /pixiu/nodes/:nodeId`，只删除平台 `nodes` 表中的记录，不调用 Kubernetes API，K8s 节点不受影响。
 - 仅删除 Node 对象不会停止 kubelet，也不会清理 kubelet 证书、CNI 配置、iptables/IPVS 规则；kubelet 凭据有效时可重新注册节点。
-- 因此完整移除 = **业务迁移（cordon/drain）+ 控制面摘除（delete node）+ 主机侧清理（kubeadm reset + 残留清理）**，三步缺一不可。
+- **K8s 里看不到节点 ≠ 节点已清理**：完整移除仍需停止 kubelet 并做主机侧清理。完整移除 = **业务迁移（cordon/drain）+ 控制面摘除（删除 Node 对象）+ 主机侧清理（停止 kubelet + 清理证书/CNI/网络规则）**，三步缺一不可。
 
 ## 验证方式
 
@@ -63,7 +67,7 @@ kubectl get pv -o wide
 
 - 检查本地 PV / hostPath / emptyDir 等数据依赖，先迁移或备份；本地存储数据不会自动迁移。
 - 如节点同时是外部负载均衡 / Ingress VIP 的后端，先从 LB 摘除，再执行节点移除。
-- 节点已 NotReady / 无法登录时：可先在控制面执行 `kubectl delete node <NODE>`，主机恢复后再补做 reset/清理，或直接重装系统。
+- 节点已 NotReady / 无法登录时：可先在控制面执行 `kubectl delete node <NODE>`，主机恢复后再补做主机侧清理，或直接重装系统。
 
 ### 2. 封锁节点（cordon）
 
@@ -95,34 +99,29 @@ kubectl drain <NODE> --ignore-daemonsets --delete-emptydir-data
 systemctl stop kubelet
 ```
 
-在控制面执行：
+然后在控制面删除 Node 对象，两种方式等价：
+
+- Pixiu 集群详情 → 节点管理 → 删除节点
+- 命令行：
 
 ```bash
 kubectl delete node <NODE>
 ```
 
-说明：**先停 kubelet 再 delete**，可避免 kubelet 凭据仍有效时节点重新注册；若无法先登录节点，则删除后尽快执行 reset/清理。
-
-### 5. 节点侧 reset
-
-在待移除节点上执行：
-
-```bash
-kubeadm reset -f
-```
-
 说明：
 
-- 多 CRI 环境下用 `--cri-socket` 指定实际 socket，例如 `unix:///run/containerd/containerd.sock`。socket 以节点实际配置为准，可先确认：
+- 两种方式都只删除 K8s Node 对象，不会停止主机侧服务，也不会清理证书/CNI/iptables。
+- **先停 kubelet 再删除**，可避免 kubelet 凭据仍有效时节点重新注册；若无法先登录节点，则删除后尽快做主机侧清理。
+- **如果已经先在 Pixiu 节点管理页删除了节点**：Node 对象已消失，无法再对该节点执行 drain。应尽快登录主机停止 kubelet 并做手工清理，同时检查原节点上的业务 Pod 是否已被控制器重建或已丢失；若 kubelet 重新注册导致节点再次出现，先停 kubelet，再删除一次。
+- 推荐顺序：cordon → drain → 主机停止 kubelet → 删除 Node（Pixiu 页面或 kubectl）→ 主机侧手工清理 → 最后按需在主机管理删除主机记录。
 
-  ```bash
-  grep -o 'unix://[^" ]*' /var/lib/kubelet/kubeadm-flags.env
-  ```
+### 5. 停止 kubelet 并手工清理节点配置
 
-- `kubeadm reset` **不会停止 kubelet**，也不会卸载 kubelet/容器运行时软件包；此前已执行 `systemctl stop kubelet` 的不受影响。
-- Worker 节点无 etcd 数据，**不要**删除 `/var/lib/etcd`；etcd member 清理属于控制面流程。
+若第 4 步尚未停止 kubelet，先在节点上执行：
 
-### 6. 彻底清理残留
+```bash
+systemctl stop kubelet
+```
 
 删除 Kubernetes 相关目录与 kubeconfig：
 
@@ -157,24 +156,34 @@ ip link delete cni0
 
 说明：
 
+- Worker 节点无 etcd 数据，**不要**删除 `/var/lib/etcd`；etcd member 清理属于控制面流程。
 - 刷 iptables 会影响宿主机上其他服务的规则，**仅在专用于 K8s 且确认下线的节点上执行**。
 - 接口名随 CNI 不同而不同，只删除确认属于本集群的接口。
 - 若节点整机重装/彻底下线，可选 `systemctl disable kubelet`，并按需卸载 kubelet/容器运行时、清理 `/var/lib/containerd`（后者会删除本机所有镜像与容器，非必要勿做）。
 - 网络规则/接口清理后建议重启一次：`reboot`。
 
-### 7. Pixiu 平台侧清理（与 K8s 移除的关系）
+### 6. Pixiu 平台侧清理（与 K8s 移除的关系）
 
-必须明确两套数据的关系：
+Pixiu 有两个容易混淆的删除入口，作用范围完全不同：
 
-- Pixiu「主机管理」页面的删除记录走 `DELETE /pixiu/nodes/:nodeId`，**只删除平台 `nodes` 表中的主机记录，不会调用 Kubernetes API**，不会删除 Node 对象，也不会执行 kubelet/CNI/iptables 清理。
+#### 6.1 集群详情 → 节点管理 → 删除节点
+
+- 前端调用 `DELETE /pixiu/proxy/<cluster>/api/v1/nodes/<name>`，经 Pixiu 代理删除的是 **K8s Node 对象**。
+- 删除后 `kubectl get nodes` 看不到该节点，但主机侧 kubelet、容器运行时和已运行的容器/服务仍照常运行。
+- 因此该操作只完成「控制面摘除」，**不等于节点清理**；仍需按第 4、5 节停止 kubelet 并清理证书/CNI/iptables 等残留。
+- Node 对象删除后无法再对该节点执行 drain，见第 4 节的警示。
+
+#### 6.2 主机管理 → 删除主机
+
+- 调用 `DELETE /pixiu/nodes/:nodeId`，只删除平台 `nodes` 表中的主机记录，**不调用 Kubernetes API**，K8s 节点不受影响。
 - 反过来，完成本文的 K8s 移除也**不会自动删除** Pixiu 的主机记录，两者需要分别处理。
-- 推荐顺序：先完成 K8s 移除并验证 → 再在 Pixiu「主机管理」删除主机记录。
 - 若该主机已绑定部署计划：节点记录被计划引用，删除记录会把该节点从计划中移除（硬删除）。确认该计划不再需要此节点后再删，否则先在计划中调整节点或保留记录。
+- 推荐顺序：先完成 K8s 移除并验证 → 再在 Pixiu「主机管理」删除主机记录。
 - 若后续还要重新加入该主机，可在清理完成后重新在 Pixiu 添加主机，并重新执行 join/部署流程。
 
-### 8. 最终验证
+### 7. 最终验证
 
-控制面：
+完整移除后，控制面：
 
 ```bash
 kubectl get nodes
@@ -200,7 +209,19 @@ ipvsadm -Ln
 - 无 `KUBE-` 链（`grep` 无匹配时退出码为 1，属预期，不是命令失败）；
 - IPVS 中无 K8s Service（未使用 IPVS 模式时命令不存在或输出为空，属正常）。
 
-Pixiu 侧：主机管理列表中该记录已删除。
+对照检查（只在 Pixiu 节点管理页删除了节点、尚未做主机侧清理时）：
+
+```bash
+kubectl get nodes                     # 控制面：看不到 <NODE>
+systemctl is-active kubelet           # 节点侧：仍为 active
+crictl ps                             # containerd 运行时：仍能看到容器
+nerdctl ps                            # nerdctl 运行时：仍能看到容器
+docker ps                             # docker 运行时：仍能看到容器
+```
+
+预期：`kubectl get nodes` 中已无该节点，但 kubelet 仍为 active、容器仍在运行，说明只完成了控制面删除；请继续执行第 4、5 节的主机侧清理。若 kubelet 凭据有效，节点还可能重新注册回集群。
+
+Pixiu 侧：按需在主机管理列表中删除该主机记录（见 6.2）。
 
 ## 备注 / 风险
 
@@ -209,8 +230,10 @@ Pixiu 侧：主机管理列表中该记录已删除。
 - `--force` 仅用于不受控制器管理的 Pod，慎用；被删除的裸 Pod 不会自动重建。
 - 控制面节点不能按本文操作，etcd 成员/仲裁风险高，必须走控制面专用流程。
 - 不要在仍有其他业务的宿主机上刷 iptables；`iptables -F` 会清空全部 filter 规则。
-- `kubeadm reset` 不卸载软件包，彻底下线需另行卸载 kubelet/容器运行时。
+- 清理配置不会卸载 kubelet、容器运行时等软件包；彻底下线需另行卸载（如 kubelet、containerd/docker，如不再使用 kubeadm 也可一并卸载）。
 - 同名节点重新加入前，必须确认旧 Node 对象已删除、旧证书/CNI 残留已清理；否则会出现证书、端口、CNI 冲突。
 - 节点不可达时先在控制面 `kubectl delete node`，主机恢复后补清理或重装。
 - 若节点使用 nftables 模式的 kube-proxy，`iptables` 命令可能无法覆盖全部规则，视发行版/运行时确认后再清理。
-- 回滚说明：cordon 后若决定中止，可 `kubectl uncordon <NODE>` 恢复调度；一旦 drain 完成或执行 `kubectl delete node`，业务 Pod 已被驱逐，需等节点重新加入集群后才能恢复调度；`kubeadm reset` 后必须重新 join 才能恢复。
+- 回滚说明：cordon 后若决定中止，可 `kubectl uncordon <NODE>` 恢复调度；一旦 drain 完成或删除 Node 对象，业务 Pod 已被驱逐，需等节点重新加入集群后才能恢复调度；主机侧手工清理后，必须重新 join 才能恢复。
+- 先删除节点后 drain 会导致无法再驱逐该节点上的 Pod；如已删除，尽快停 kubelet 并检查业务 Pod 是否已被重建或丢失。
+- Pixiu 集群详情 → 节点管理 → 删除节点 ≠ 主机清理；主机管理 → 删除主机记录 ≠ K8s 节点删除。

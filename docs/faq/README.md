@@ -12,7 +12,7 @@
 | FAQ-002 | 无法通过「导入集群」管理 AWS EKS | 容器服务 / 集群接入 | [eks-import-cluster.md](./eks-import-cluster.md) |
 | FAQ-003 | 监控页无数据（未关联 Prometheus） | 监控与数据源 | [monitor-no-data.md](./monitor-no-data.md) |
 | FAQ-004 | runner 任务容器日志查看（nerdctl logs 报错） | 部署与运行时 | [runner-container-logs.md](./runner-container-logs.md) |
-| FAQ-005 | 移除 k8s 集群中的 Worker 节点 | 容器服务 / 节点管理 | [remove-kubeadm-worker-node.md](./remove-kubeadm-worker-node.md) |
+| FAQ-005 | 移除 k8s 集群中的 Worker 节点 | 容器服务 / 节点管理 | [remove-worker-node.md](./remove-worker-node.md) |
 
 ## 新增 FAQ 规范
 
