@@ -30,12 +30,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
-	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
+	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -65,7 +64,8 @@ var allowedDSNParams = map[string]struct{}{
 
 type Interface interface {
 	Ping(ctx context.Context, datasourceId int64) (*types.MySQLPing, error)
-	// PingAdhoc 临时探测（不落库、不缓存连接），用于创建数据源前的连通性验证；仅管理员可调用
+	// PingAdhoc 临时探测（不落库、不缓存连接），用于创建/编辑数据源前的连通性验证；
+	// 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
 	PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error)
 	Info(ctx context.Context, datasourceId int64) (*types.MySQLServerInfo, error)
 	ListDatabases(ctx context.Context, datasourceId int64) ([]types.MySQLDatabase, error)
@@ -204,48 +204,39 @@ func configFingerprint(cfg *types.MySQLSourceConfig) string {
 		cfg.Host, cfg.Port, cfg.UserName, cfg.Password, cfg.Database, cfg.Charset, cfg.Params)
 }
 
-// connFor 获取数据源对应的连接池（带缓存、配置变更失效与归属校验）
-func (c *controller) connFor(ctx context.Context, datasourceId int64) (*sql.DB, *types.MySQLSourceConfig, error) {
-	object, err := c.factory.Datasource().Get(ctx, datasourceId)
-	if err != nil {
-		klog.Errorf("failed to get datasource(%d): %v", datasourceId, err)
-		return nil, nil, apierrors.ErrServerInternal
-	}
-	if object == nil {
-		return nil, nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
-	}
+// validateMySQLDatasource 校验数据源类型与外部直连约束，Ping/PingAdhoc 共用
+func validateMySQLDatasource(object *model.Datasource) error {
 	if object.Type != model.DatasourceTypeMiddleware ||
 		object.SubType != model.DatasourceSubTypeMySQL {
-		return nil, nil, apierrors.NewError(fmt.Errorf("datasource(%d) is not a mysql datasource", datasourceId), http.StatusBadRequest)
+		return apierrors.NewError(fmt.Errorf("datasource(%d) is not a mysql datasource", object.Id), http.StatusBadRequest)
 	}
 	if !object.External {
-		return nil, nil, apierrors.NewError(fmt.Errorf("mysql datasource only supports external direct connection"), http.StatusBadRequest)
+		return apierrors.NewError(fmt.Errorf("mysql datasource only supports external direct connection"), http.StatusBadRequest)
 	}
-	// 归属校验：root/owner 放行，其余须命中角色 scope，与 datasource controller 的 Get 完全一致
-	if err := controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
-		klog.Warningf("datasource(%d) access denied: %v", datasourceId, err)
+	return nil
+}
+
+// connFor 获取数据源对应的连接池（带缓存、配置变更失效与归属校验）
+func (c *controller) connFor(ctx context.Context, datasourceId int64) (*sql.DB, *types.MySQLSourceConfig, error) {
+	object, saved, err := datasourcecontroller.LoadDatasourceConfig(ctx, c.factory, datasourceId, validateMySQLDatasource)
+	if err != nil {
 		return nil, nil, err
 	}
-
-	var cfg types.DatasourceConfig
-	if err = cfg.Unmarshal(object.Config); err != nil {
-		klog.Errorf("failed to unmarshal datasource(%d) config: %v", datasourceId, err)
-		return nil, nil, apierrors.ErrServerInternal
-	}
-	if cfg.Mysql == nil {
+	if saved.Mysql == nil {
 		return nil, nil, apierrors.NewError(fmt.Errorf("datasource(%d) missing mysql config", datasourceId), http.StatusBadRequest)
 	}
+	cfg := saved.Mysql
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	cacheKey := strconv.FormatInt(datasourceId, 10)
-	fingerprint := configFingerprint(cfg.Mysql)
+	fingerprint := configFingerprint(cfg)
 	if cached, ok := c.conns[cacheKey]; ok &&
 		cached.resourceVersion == object.ResourceVersion &&
 		cached.fingerprint == fingerprint {
 		cached.lastAccess = time.Now()
-		return cached.db, cfg.Mysql, nil
+		return cached.db, cfg, nil
 	}
 
 	// 配置变更或首次连接：关闭旧连接池并重建
@@ -254,7 +245,7 @@ func (c *controller) connFor(ctx context.Context, datasourceId int64) (*sql.DB, 
 		delete(c.conns, cacheKey)
 	}
 
-	dbConn, err := openMySQL(cfg.Mysql)
+	dbConn, err := openMySQL(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -278,7 +269,7 @@ func (c *controller) connFor(ctx context.Context, datasourceId int64) (*sql.DB, 
 			delete(c.conns, oldestKey)
 		}
 	}
-	return dbConn, cfg.Mysql, nil
+	return dbConn, cfg, nil
 }
 
 // wrapMySQLErr 将 MySQL 错误转换为带语义错误码的网关类错误：
@@ -337,35 +328,40 @@ func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.MySQL
 
 // PingAdhoc 使用临时连接探测指定配置，探测完成后立即关闭连接。
 // 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
-// datasourceId > 0 时读取已保存的数据源，并在密码为空时补齐已保存密码。
 func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
 	if err := requireMySQLAdmin(ctx); err != nil {
 		return nil, err
 	}
-
 	if datasourceId > 0 {
-		object, err := c.factory.Datasource().Get(ctx, datasourceId)
-		if err != nil || object == nil {
-			if err != nil {
-				return nil, apierrors.ErrServerInternal
-			}
-			return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
-		}
-		if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
+		var err error
+		cfg, err = c.resolveAdhocConfig(ctx, datasourceId, cfg)
+		if err != nil {
 			return nil, err
 		}
-		var saved types.DatasourceConfig
-		if err = saved.Unmarshal(object.Config); err != nil || saved.Mysql == nil {
-			return nil, apierrors.NewError(fmt.Errorf("invalid MySQL datasource config"), http.StatusBadRequest)
-		}
-		if cfg == nil {
-			cfg = &types.MySQLSourceConfig{}
-		}
-		if cfg.Password == "" {
-			cfg.Password = saved.Mysql.Password
-		}
 	}
+	return c.pingAdhocConfig(ctx, cfg)
+}
 
+// resolveAdhocConfig 基于已保存数据源补全临时探测配置：校验类型/外部直连/归属，
+// 请求未携带密码时回填服务端保存的密码。管理员校验由 PingAdhoc 入口完成。
+func (c *controller) resolveAdhocConfig(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLSourceConfig, error) {
+	_, saved, err := datasourcecontroller.LoadDatasourceConfigForAdhoc(ctx, c.factory, datasourceId, validateMySQLDatasource, "MySQL")
+	if err != nil {
+		return nil, err
+	}
+	if saved.Mysql == nil {
+		return nil, apierrors.NewError(fmt.Errorf("invalid MySQL datasource config"), http.StatusBadRequest)
+	}
+	if cfg == nil {
+		cfg = &types.MySQLSourceConfig{}
+	}
+	if cfg.Password == "" {
+		cfg.Password = saved.Mysql.Password
+	}
+	return cfg, nil
+}
+
+func (c *controller) pingAdhocConfig(ctx context.Context, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error) {
 	dbConn, err := openMySQL(cfg)
 	if err != nil {
 		return nil, err

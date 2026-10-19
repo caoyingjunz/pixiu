@@ -29,10 +29,9 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/klog/v2"
-
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/extension/storage/adapter"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -127,27 +126,22 @@ type clientConfig struct {
 	appID    string
 }
 
-func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter.Adapter, clientConfig, error) {
-	object, err := c.factory.Datasource().Get(ctx, datasourceID)
-	if err != nil {
-		klog.Errorf("failed to get datasource(%d): %v", datasourceID, err)
-		return nil, clientConfig{}, apierrors.ErrServerInternal
-	}
-	if object == nil {
-		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("datasource not found"), 404)
-	}
+// validateStorageDatasource 校验对象存储数据源的 Type/SubType。
+// 保持既有口径：不在此处新增 External 校验，避免改变现有连通性行为。
+func validateStorageDatasource(object *model.Datasource) error {
 	if object.Type != model.DatasourceTypeMiddleware || object.SubType != model.DatasourceSubTypeStorage {
-		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("datasource(%d) is not a storage datasource", datasourceID), 400)
+		return apierrors.NewError(fmt.Errorf("datasource(%d) is not a storage datasource", object.Id), http.StatusBadRequest)
 	}
-	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceID); err != nil {
+	return nil
+}
+
+func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter.Adapter, clientConfig, error) {
+	_, cfg, err := datasourcecontroller.LoadDatasourceConfig(ctx, c.factory, datasourceID, validateStorageDatasource)
+	if err != nil {
 		return nil, clientConfig{}, err
 	}
-	var cfg types.DatasourceConfig
-	if err = cfg.Unmarshal(object.Config); err != nil {
-		return nil, clientConfig{}, apierrors.ErrServerInternal
-	}
 	if cfg.Storage == nil {
-		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("datasource(%d) missing storage config", datasourceID), 400)
+		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("datasource(%d) missing storage config", datasourceID), http.StatusBadRequest)
 	}
 	sc := cfg.Storage
 	endpoint := strings.TrimSpace(sc.Endpoint)
@@ -242,23 +236,11 @@ func (c *controller) PingAdhoc(ctx context.Context, datasourceID int64, sc *type
 	}
 
 	if datasourceID > 0 {
-		object, err := c.factory.Datasource().Get(ctx, datasourceID)
+		_, saved, err := datasourcecontroller.LoadDatasourceConfigForAdhoc(ctx, c.factory, datasourceID, validateStorageDatasource, "storage")
 		if err != nil {
-			klog.Errorf("failed to get datasource(%d): %v", datasourceID, err)
-			return nil, apierrors.ErrServerInternal
-		}
-		if object == nil {
-			return nil, apierrors.NewError(fmt.Errorf("datasource not found"), 404)
-		}
-		if object.Type != model.DatasourceTypeMiddleware || object.SubType != model.DatasourceSubTypeStorage {
-			return nil, apierrors.NewError(fmt.Errorf("datasource(%d) is not a storage datasource", datasourceID), 400)
-		}
-		if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceID); err != nil {
 			return nil, err
 		}
-
-		var saved types.DatasourceConfig
-		if err = saved.Unmarshal(object.Config); err != nil || saved.Storage == nil {
+		if saved.Storage == nil {
 			return nil, apierrors.NewError(fmt.Errorf("invalid storage datasource config"), 400)
 		}
 		if sc == nil {
