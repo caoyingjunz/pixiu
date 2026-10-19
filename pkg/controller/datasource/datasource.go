@@ -37,6 +37,10 @@ type Getter interface {
 	Datasource() Interface
 }
 
+type PingInterface[Config any, Result any] interface {
+	PingAdhoc(context.Context, int64, *Config) (*Result, error)
+}
+
 type Interface interface {
 	Create(ctx context.Context, req *types.CreateDatasourceRequest) error
 	Update(ctx context.Context, req *types.UpdateDatasourceRequest) error

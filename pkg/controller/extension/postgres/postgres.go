@@ -7,6 +7,7 @@ import (
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
@@ -24,7 +25,7 @@ import (
 
 type Interface interface {
 	Ping(context.Context, int64) (*types.PostgresPing, error)
-	PingAdhoc(context.Context, int64, *types.PostgresSourceConfig) (*types.PostgresPing, error)
+	datasourcecontroller.PingInterface[types.PostgresSourceConfig, types.PostgresPing]
 	Info(context.Context, int64) (*types.PostgresServerInfo, error)
 	ListDatabases(context.Context, int64) ([]types.PostgresDatabase, error)
 	ListSchemas(context.Context, int64, string) ([]types.PostgresSchema, error)
@@ -188,43 +189,50 @@ func (c *controller) Ping(ctx context.Context, id int64) (*types.PostgresPing, e
 	}
 	return ping(ctx, db, p), nil
 }
+func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
+	if datasourceId > 0 {
+		return c.pingAdhocWithDatasource(ctx, datasourceId, p)
+	}
+	return c.pingAdhocConfig(ctx, p)
+}
 
-// PingAdhoc 使用当前表单配置做临时探测；id > 0 时读取已保存的数据源，
-// 并在密码为空时补齐已保存密码。
-func (c *controller) PingAdhoc(ctx context.Context, id int64, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
+func (c *controller) pingAdhocConfig(ctx context.Context, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
 	if e := requireAdmin(ctx); e != nil {
 		return nil, e
 	}
-
-	if id > 0 {
-		object, e := c.factory.Datasource().Get(ctx, id)
-		if e != nil || object == nil {
-			if e != nil {
-				return nil, apierrors.ErrServerInternal
-			}
-			return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
-		}
-		if e = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, id); e != nil {
-			return nil, e
-		}
-		var saved types.DatasourceConfig
-		if e = saved.Unmarshal(object.Config); e != nil || saved.Postgres == nil {
-			return nil, apierrors.NewError(fmt.Errorf("invalid PostgreSQL datasource config"), http.StatusBadRequest)
-		}
-		if p == nil {
-			p = &types.PostgresSourceConfig{}
-		}
-		if p.Password == "" {
-			p.Password = saved.Postgres.Password
-		}
-	}
-
 	db, e := open(p)
 	if e != nil {
 		return nil, e
 	}
 	defer db.Close()
 	return ping(ctx, db, p), nil
+}
+
+func (c *controller) pingAdhocWithDatasource(ctx context.Context, datasourceId int64, p *types.PostgresSourceConfig) (*types.PostgresPing, error) {
+	if e := requireAdmin(ctx); e != nil {
+		return nil, e
+	}
+	object, e := c.factory.Datasource().Get(ctx, datasourceId)
+	if e != nil || object == nil {
+		if e != nil {
+			return nil, apierrors.ErrServerInternal
+		}
+		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
+	}
+	if e = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); e != nil {
+		return nil, e
+	}
+	var saved types.DatasourceConfig
+	if e = saved.Unmarshal(object.Config); e != nil || saved.Postgres == nil {
+		return nil, apierrors.NewError(fmt.Errorf("invalid PostgreSQL datasource config"), http.StatusBadRequest)
+	}
+	if p == nil {
+		p = &types.PostgresSourceConfig{}
+	}
+	if p.Password == "" {
+		p.Password = saved.Postgres.Password
+	}
+	return c.pingAdhocConfig(ctx, p)
 }
 
 func ping(ctx context.Context, db *sql.DB, p *types.PostgresSourceConfig) *types.PostgresPing {
