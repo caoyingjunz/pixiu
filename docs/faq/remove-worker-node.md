@@ -1,7 +1,7 @@
 # FAQ-005 移除 k8s 集群中的 Worker 节点
 
 - **分类**：容器服务 / 节点管理
-- **涉及组件**：kubelet / kubectl / 容器运行时 / Pixiu 主机管理
+- **涉及组件**：kubeadm / kubelet / kubectl / 容器运行时 / Pixiu 主机管理
 
 > 范围说明：本文只覆盖 **Worker 节点**的移除。控制面节点（涉及 etcd member、API Server / Controller Manager / Scheduler 静态 Pod、VIP / LB）不在本文范围，需按控制面专用流程处理。
 
@@ -107,16 +107,29 @@ kubectl delete node <NODE>
 
 - 两种方式都只删除 K8s Node 对象，不会停止主机侧服务，也不会清理证书/CNI/iptables。
 - **先停 kubelet 再删除**，可避免 kubelet 凭据仍有效时节点重新注册；若无法先登录节点，则删除后尽快做主机侧清理。
-- **如果已经先在 Pixiu 节点管理页删除了节点**：Node 对象已消失，无法再对该节点执行 drain。应尽快登录主机停止 kubelet 并做手工清理，同时检查原节点上的业务 Pod 是否已被控制器重建或已丢失；若 kubelet 重新注册导致节点再次出现，先停 kubelet，再删除一次。
-- 推荐顺序：cordon → drain → 主机停止 kubelet → 删除 Node（Pixiu 页面或 kubectl）→ 主机侧手工清理 → 最后按需在主机管理删除主机记录。
+- **如果已经先在 Pixiu 节点管理页删除了节点**：Node 对象已消失，无法再对该节点执行 drain。应尽快登录主机停止 kubelet 并做手工清理，同时检查原节点上的业务 Pod 是否已被控制器重建或已丢失；若 kubelet 重新注册导致节点再次出现，先停 kubelet，再删除一次。仍可在主机上执行 `kubeadm reset -f`，再按第 5 节清理残留。
+- 推荐顺序：cordon → drain → 主机停止 kubelet → 删除 Node（Pixiu 页面或 kubectl）→ 节点执行 `kubeadm reset -f` → 主机侧手工清理残留 → 最后按需在主机管理删除主机记录。
 
-### 5. 停止 kubelet 并手工清理节点配置
+### 5. 节点侧 reset 与手工清理
 
 若第 4 步尚未停止 kubelet，先在节点上执行：
 
 ```bash
 systemctl stop kubelet
 ```
+
+在 kubeadm 部署的集群中，执行节点重置：
+
+```bash
+kubeadm reset -f
+```
+
+说明：
+
+- `kubeadm reset` **不会停止 kubelet**；若前面尚未停止，请先执行 `systemctl stop kubelet`。
+- 多 CRI 环境按需加 `--cri-socket`（如 `unix:///run/containerd/containerd.sock`）。
+- 非 kubeadm 部署的集群跳过此步，按对应安装工具的节点重置方式处理。
+- `kubeadm reset` 不会完整清理 CNI 配置、iptables/IPVS 规则，下面继续手工清理。
 
 删除 Kubernetes 相关目录与 kubeconfig：
 
@@ -225,7 +238,7 @@ Pixiu 侧：按需在主机管理列表中删除该主机记录（见 6.2）。
 - `--force` 仅用于不受控制器管理的 Pod，慎用；被删除的裸 Pod 不会自动重建。
 - 控制面节点不能按本文操作，etcd 成员/仲裁风险高，必须走控制面专用流程。
 - 不要在仍有其他业务的宿主机上刷 iptables；`iptables -F` 会清空全部 filter 规则。
-- 清理配置不会卸载 kubelet、容器运行时等软件包；彻底下线需另行卸载（如 kubelet、containerd/docker，如不再使用 kubeadm 也可一并卸载）。
+- kubeadm reset 不会停止 kubelet，也不会卸载 kubelet、容器运行时等软件包；彻底下线需另行卸载（如 kubelet、containerd/docker，如不再使用 kubeadm 也可一并卸载）。
 - 同名节点重新加入前，必须确认旧 Node 对象已删除、旧证书/CNI 残留已清理；否则会出现证书、端口、CNI 冲突。
 - 节点不可达时先在控制面 `kubectl delete node`，主机恢复后补清理或重装。
 - 若节点使用 nftables 模式的 kube-proxy，`iptables` 命令可能无法覆盖全部规则，视发行版/运行时确认后再清理。
