@@ -24,11 +24,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/containerd/errdefs"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
@@ -81,13 +81,18 @@ func (d *dockerRuntime) RunContainer(ctx context.Context, spec *ContainerSpec) e
 		hostConfig.NetworkMode = network.NetworkHost
 	}
 	netConfig := &network.NetworkingConfig{}
-	resp, err := d.client.ContainerCreate(ctx, cfg, hostConfig, netConfig, nil, spec.Name)
+	resp, err := d.client.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:           cfg,
+		HostConfig:       hostConfig,
+		NetworkingConfig: netConfig,
+		Name:             spec.Name,
+	})
 	if err != nil {
 		return err
 	}
 
 	// 启动容器
-	if err = d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	if _, err = d.client.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
 		return err
 	}
 	// 等待容器运行完成退出。times<=0 表示不设内部上限（对应 ContainerSpec.WaitTimeout<=0），
@@ -123,16 +128,16 @@ func (d *dockerRuntime) waitContainer(ctx context.Context, containerId string, t
 		time.Sleep(5 * time.Second)
 
 		// 实际开始检查
-		containerInfo, err := d.client.ContainerInspect(ctx, containerId)
+		containerInfo, err := d.client.ContainerInspect(ctx, containerId, client.ContainerInspectOptions{})
 		if err != nil {
 			if ctx.Err() != nil {
 				return fmt.Errorf("任务(%s)被取消: %v", containerId, ctx.Err())
 			}
 			return err
 		}
-		if containerInfo.State != nil {
+		if info := containerInfo.Container; info.State != nil {
 			// Can be one of "created", "running", "paused", "restarting", "removing", "exited", or "dead"
-			state := containerInfo.State
+			state := info.State
 			// 容器还在运行，等待下一次检查
 			if state.Status == "running" && state.Running {
 				continue
@@ -174,11 +179,12 @@ func (d *dockerRuntime) RemoveContainer(ctx context.Context, name string) error 
 	}
 
 	timeoutSec := 5
-	if err = d.client.ContainerStop(ctx, containerId, container.StopOptions{Timeout: &timeoutSec}); err != nil {
+	if _, err = d.client.ContainerStop(ctx, containerId, client.ContainerStopOptions{Timeout: &timeoutSec}); err != nil {
 		return err
 	}
 
-	return d.client.ContainerRemove(ctx, containerId, container.RemoveOptions{Force: true})
+	_, err = d.client.ContainerRemove(ctx, containerId, client.ContainerRemoveOptions{Force: true})
+	return err
 }
 
 // Logs 返回容器日志文本流。
@@ -194,7 +200,7 @@ func (d *dockerRuntime) Logs(ctx context.Context, name string, follow bool) (io.
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-	raw, err := d.client.ContainerLogs(ctx, containerId, container.LogsOptions{
+	raw, err := d.client.ContainerLogs(ctx, containerId, client.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     follow,
@@ -228,8 +234,8 @@ func (l *logsReadCloser) Close() error {
 }
 
 func (d *dockerRuntime) ImageExists(ctx context.Context, ref string) (bool, error) {
-	if _, _, err := d.client.ImageInspectWithRaw(ctx, ref); err != nil {
-		if client.IsErrNotFound(err) {
+	if _, err := d.client.ImageInspect(ctx, ref); err != nil {
+		if errdefs.IsNotFound(err) {
 			return false, nil
 		}
 		return false, err
@@ -239,7 +245,7 @@ func (d *dockerRuntime) ImageExists(ctx context.Context, ref string) (bool, erro
 }
 
 func (d *dockerRuntime) PullImage(ctx context.Context, ref string) error {
-	reader, err := d.client.ImagePull(ctx, ref, image.PullOptions{})
+	reader, err := d.client.ImagePull(ctx, ref, client.ImagePullOptions{})
 	if err != nil {
 		return err
 	}
@@ -272,20 +278,20 @@ func (d *dockerRuntime) PullImage(ctx context.Context, ref string) error {
 }
 
 func (d *dockerRuntime) RemoveImage(ctx context.Context, ref string) error {
-	_, err := d.client.ImageRemove(ctx, ref, image.RemoveOptions{Force: true})
+	_, err := d.client.ImageRemove(ctx, ref, client.ImageRemoveOptions{Force: true})
 	return err
 }
 
 // resolveContainerId 按名解析容器 ID（Inspect 支持容器名），避免全量列举容器
 func (d *dockerRuntime) resolveContainerId(ctx context.Context, name string) (string, bool, error) {
-	info, err := d.client.ContainerInspect(ctx, name)
+	info, err := d.client.ContainerInspect(ctx, name, client.ContainerInspectOptions{})
 	if err != nil {
-		if client.IsErrNotFound(err) {
+		if errdefs.IsNotFound(err) {
 			return "", false, nil
 		}
 		return "", false, err
 	}
-	return info.ID, true, nil
+	return info.Container.ID, true, nil
 }
 
 var _ Runtime = (*dockerRuntime)(nil)
