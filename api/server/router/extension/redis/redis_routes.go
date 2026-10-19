@@ -48,7 +48,7 @@ type pingRedisRequest struct {
 	types.RedisSourceConfig
 }
 
-// pingRedisAdhoc 临时探测数据源连通性
+// pingRedisAdhoc 临时探测：请求体直接传连接配置，不依赖已保存的数据源
 func (rr *redisRouter) pingRedisAdhoc(c *gin.Context) {
 	r := httputils.NewResponse()
 

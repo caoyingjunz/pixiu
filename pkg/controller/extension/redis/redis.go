@@ -30,13 +30,11 @@ import (
 	"unicode/utf8"
 
 	goredis "github.com/redis/go-redis/v9"
-	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
-	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -61,7 +59,9 @@ const (
 
 type Interface interface {
 	Ping(ctx context.Context, datasourceId int64) (*types.RedisPing, error)
-	datasourcecontroller.PingInterface[types.RedisSourceConfig, types.RedisPing]
+	// PingAdhoc 临时探测（不落库、不缓存连接），用于创建/编辑数据源前的连通性验证；
+	// 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
+	PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisPing, error)
 	// db 为逻辑库编号（0-15）；nil 表示使用数据源配置的默认 DB；cluster 模式强制 0
 	Info(ctx context.Context, datasourceId int64, db *int) (*types.RedisInfo, error)
 	// ScanKeys cursor 透传分页：前端保存 cursor，后端无状态；count<=0 用默认值，超上限截断
@@ -210,53 +210,44 @@ func configFingerprint(cfg *types.RedisSourceConfig) string {
 		cfg.MasterName, cfg.DB, cfg.Password)
 }
 
-// clientFor 获取数据源对应的 redis 客户端（带缓存、配置变更失效与归属校验）
-func (c *controller) clientFor(ctx context.Context, datasourceId int64, db *int) (goredis.UniversalClient, *types.RedisSourceConfig, error) {
-	object, err := c.factory.Datasource().Get(ctx, datasourceId)
-	if err != nil {
-		klog.Errorf("failed to get datasource(%d): %v", datasourceId, err)
-		return nil, nil, apierrors.ErrServerInternal
-	}
-	if object == nil {
-		return nil, nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
-	}
+// validateRedisDatasource 校验数据源类型与外部直连约束，Ping/PingAdhoc 共用
+func validateRedisDatasource(object *model.Datasource) error {
 	if (object.Type != model.DatasourceTypeRedis && object.Type != model.DatasourceTypeMiddleware) ||
 		object.SubType != model.DatasourceSubTypeRedis {
-		return nil, nil, apierrors.NewError(fmt.Errorf("datasource(%d) is not a redis datasource", datasourceId), http.StatusBadRequest)
+		return apierrors.NewError(fmt.Errorf("datasource(%d) is not a redis datasource", object.Id), http.StatusBadRequest)
 	}
 	if !object.External {
-		return nil, nil, apierrors.NewError(fmt.Errorf("redis datasource only supports external direct connection"), http.StatusBadRequest)
+		return apierrors.NewError(fmt.Errorf("redis datasource only supports external direct connection"), http.StatusBadRequest)
 	}
-	// 归属校验：root/owner 放行，其余须命中角色 scope，与 datasource controller 的 Get 完全一致
-	if err := controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
-		klog.Warningf("datasource(%d) access denied: %v", datasourceId, err)
+	return nil
+}
+
+// clientFor 获取数据源对应的 redis 客户端（带缓存、配置变更失效与归属校验）
+func (c *controller) clientFor(ctx context.Context, datasourceId int64, db *int) (goredis.UniversalClient, *types.RedisSourceConfig, error) {
+	object, saved, err := datasourcecontroller.LoadDatasourceConfig(ctx, c.factory, datasourceId, validateRedisDatasource)
+	if err != nil {
 		return nil, nil, err
 	}
-
-	var cfg types.DatasourceConfig
-	if err = cfg.Unmarshal(object.Config); err != nil {
-		klog.Errorf("failed to unmarshal datasource(%d) config: %v", datasourceId, err)
-		return nil, nil, apierrors.ErrServerInternal
-	}
-	if cfg.Redis == nil {
+	if saved.Redis == nil {
 		return nil, nil, apierrors.NewError(fmt.Errorf("datasource(%d) missing redis config", datasourceId), http.StatusBadRequest)
 	}
-	effectiveDB, err := resolveDB(cfg.Redis, db)
+	cfg := saved.Redis
+	effectiveDB, err := resolveDB(cfg, db)
 	if err != nil {
 		return nil, nil, apierrors.NewError(err, http.StatusBadRequest)
 	}
-	cfg.Redis.DB = effectiveDB
+	cfg.DB = effectiveDB
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	cacheKey := fmt.Sprintf("%d:%d", datasourceId, effectiveDB)
-	fingerprint := configFingerprint(cfg.Redis)
+	fingerprint := configFingerprint(cfg)
 	if cached, ok := c.clients[cacheKey]; ok &&
 		cached.resourceVersion == object.ResourceVersion &&
 		cached.fingerprint == fingerprint {
 		cached.lastAccess = time.Now()
-		return cached.client, cfg.Redis, nil
+		return cached.client, cfg, nil
 	}
 
 	// 配置变更或首次连接：关闭旧连接并重建
@@ -265,7 +256,7 @@ func (c *controller) clientFor(ctx context.Context, datasourceId int64, db *int)
 		delete(c.clients, cacheKey)
 	}
 
-	client, err := buildRedisClient(cfg.Redis)
+	client, err := buildRedisClient(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -289,7 +280,7 @@ func (c *controller) clientFor(ctx context.Context, datasourceId int64, db *int)
 			delete(c.clients, oldestKey)
 		}
 	}
-	return client, cfg.Redis, nil
+	return client, cfg, nil
 }
 
 // wrapRedisErr 将 redis 操作错误转换为带语义错误码的网关类错误：
@@ -319,15 +310,19 @@ func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.Redis
 	if err != nil {
 		return nil, err
 	}
+	return pingRedisClient(ctx, client, cfg), nil
+}
 
+// pingRedisClient 执行 PING 并顺带读取版本信息，Ping 与 PingAdhoc 共用
+func pingRedisClient(ctx context.Context, client goredis.UniversalClient, cfg *types.RedisSourceConfig) *types.RedisPing {
 	result := &types.RedisPing{Address: cfg.DisplayAddress(), DB: cfg.DB}
 	ctx, cancel := opContext(ctx)
 	defer cancel()
 
 	start := time.Now()
-	if err = client.Ping(ctx).Err(); err != nil {
+	if err := client.Ping(ctx).Err(); err != nil {
 		result.Message = err.Error()
-		return result, nil
+		return result
 	}
 	result.Connected = true
 	result.LatencyMs = time.Since(start).Milliseconds()
@@ -336,66 +331,33 @@ func (c *controller) Ping(ctx context.Context, datasourceId int64) (*types.Redis
 	if info, err := client.Info(ctx, "server").Result(); err == nil {
 		result.Version = parseInfoField(info, "redis_version")
 	}
-	return result, nil
+	return result
 }
 
 // PingAdhoc 使用临时连接探测指定配置，探测完成后立即关闭连接。
 // 仅管理员可调用：请求体可指定任意地址，属于认证后 SSRF 面，必须收敛权限。
 func (c *controller) PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
+	if err := requireRedisAdmin(ctx); err != nil {
+		return nil, err
+	}
 	if datasourceId > 0 {
-		return c.pingAdhocWithDatasource(ctx, datasourceId, cfg)
+		var err error
+		cfg, err = c.resolveAdhocConfig(ctx, datasourceId, cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return c.pingAdhocConfig(ctx, cfg)
 }
 
-func (c *controller) pingAdhocConfig(ctx context.Context, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
-	if err := requireRedisAdmin(ctx); err != nil {
-		return nil, err
-	}
-	if cfg == nil {
-		return nil, apierrors.NewError(fmt.Errorf("redis config is required"), http.StatusBadRequest)
-	}
-
-	result := &types.RedisPing{Address: cfg.DisplayAddress(), DB: cfg.DB}
-	client, err := buildRedisClient(cfg)
+// resolveAdhocConfig 基于已保存数据源补全临时探测配置：校验类型/外部直连/归属，
+// 请求未携带密码时回填服务端保存的密码。管理员校验由 PingAdhoc 入口完成。
+func (c *controller) resolveAdhocConfig(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisSourceConfig, error) {
+	_, saved, err := datasourcecontroller.LoadDatasourceConfigForAdhoc(ctx, c.factory, datasourceId, validateRedisDatasource, "Redis")
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = client.Close() }()
-
-	ctx, cancel := opContext(ctx)
-	defer cancel()
-
-	start := time.Now()
-	if err := client.Ping(ctx).Err(); err != nil {
-		result.Message = err.Error()
-		return result, nil
-	}
-	result.Connected = true
-	result.LatencyMs = time.Since(start).Milliseconds()
-
-	if info, err := client.Info(ctx, "server").Result(); err == nil {
-		result.Version = parseInfoField(info, "redis_version")
-	}
-	return result, nil
-}
-
-func (c *controller) pingAdhocWithDatasource(ctx context.Context, datasourceId int64, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
-	if err := requireRedisAdmin(ctx); err != nil {
-		return nil, err
-	}
-	object, err := c.factory.Datasource().Get(ctx, datasourceId)
-	if err != nil || object == nil {
-		if err != nil {
-			return nil, apierrors.ErrServerInternal
-		}
-		return nil, apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
-	}
-	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
-		return nil, err
-	}
-	var saved types.DatasourceConfig
-	if err = saved.Unmarshal(object.Config); err != nil || saved.Redis == nil {
+	if saved.Redis == nil {
 		return nil, apierrors.NewError(fmt.Errorf("invalid Redis datasource config"), http.StatusBadRequest)
 	}
 	if cfg == nil {
@@ -407,7 +369,19 @@ func (c *controller) pingAdhocWithDatasource(ctx context.Context, datasourceId i
 	if cfg.SentinelPassword == "" {
 		cfg.SentinelPassword = saved.Redis.SentinelPassword
 	}
-	return c.pingAdhocConfig(ctx, cfg)
+	return cfg, nil
+}
+
+func (c *controller) pingAdhocConfig(ctx context.Context, cfg *types.RedisSourceConfig) (*types.RedisPing, error) {
+	if cfg == nil {
+		return nil, apierrors.NewError(fmt.Errorf("redis config is required"), http.StatusBadRequest)
+	}
+	client, err := buildRedisClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = client.Close() }()
+	return pingRedisClient(ctx, client, cfg), nil
 }
 
 func (c *controller) Info(ctx context.Context, datasourceId int64, db *int) (*types.RedisInfo, error) {

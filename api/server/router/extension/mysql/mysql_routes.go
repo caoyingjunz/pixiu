@@ -55,7 +55,7 @@ type slowQueryOptions struct {
 	PageSize int64 `form:"page_size"`
 }
 
-// pingMySQLAdhoc 临时探测数据源连通性
+// pingMySQLAdhoc 临时探测：请求体直接传连接配置，不依赖已保存的数据源
 func (mr *mysqlRouter) pingMySQLAdhoc(c *gin.Context) {
 	r := httputils.NewResponse()
 
