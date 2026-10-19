@@ -1,4 +1,4 @@
-# FAQ-005 如何移除 kubeadm 集群中的 Worker 节点
+# FAQ-005 移除 k8s 集群中的 Worker 节点
 
 - **分类**：容器服务 / 节点管理
 - **涉及组件**：kubeadm / kubelet / kubectl / Pixiu 主机管理
