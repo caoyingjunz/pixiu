@@ -150,12 +150,10 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("datasource(%d) missing storage config", datasourceID), 400)
 	}
 	sc := cfg.Storage
-	provider := providerFor(sc.Provider)
 	endpoint := strings.TrimSpace(sc.Endpoint)
 	if endpoint == "" && cfg.Log != nil {
 		endpoint = strings.TrimSpace(cfg.Log.URL)
 	}
-	appID := provider.AppID(endpoint)
 	if endpoint == "" {
 		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("storage endpoint is required"), 400)
 	}
@@ -163,6 +161,8 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("invalid storage endpoint"), 400)
 	}
+	provider := providerFor(sc.Provider)
+	appID := provider.AppID(endpoint)
 	access, secret, token := sc.AccessKeyID, sc.SecretAccessKey, sc.SessionToken
 	// 兼容存量数据：地址与凭据曾统一落在通用 log 配置里
 	if access == "" && cfg.Log != nil {
@@ -295,12 +295,12 @@ func clientFromConfig(sc *types.StorageSourceConfig) (adapter.Adapter, Provider,
 	if sc == nil {
 		return nil, nil, apierrors.NewError(fmt.Errorf("storage config is required"), 400)
 	}
-	provider := providerFor(sc.Provider)
 	endpoint := strings.TrimSpace(sc.Endpoint)
 	u, err := url.Parse(endpoint)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, nil, apierrors.NewError(fmt.Errorf("invalid storage endpoint"), 400)
 	}
+	provider := providerFor(sc.Provider)
 	if err := validateProbeEndpoint(u); err != nil {
 		return nil, nil, err
 	}

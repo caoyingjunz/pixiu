@@ -117,11 +117,6 @@ func ProviderCapabilities() []types.StorageProviderInfo {
 	return infos
 }
 
-// normalizeHost 归一化主机名：去空格、去尾点、转小写。
-func normalizeHost(host string) string {
-	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "."))
-}
-
 // storageDefaultRegion 是既推导不出区域、端点也不属于公有云时的兜底值（MinIO 不按区域分布数据）。
 const storageDefaultRegion = "us-east-1"
 
@@ -147,11 +142,11 @@ func lookupByStyle(style, endpointHost string, publicCloud bool) minio.BucketLoo
 
 // virtualHostCapable 判断端点主机能否走 virtual-host 寻址：必须是真实域名，IP 与 localhost 都不行。
 func virtualHostCapable(endpointHost string) bool {
-	host := normalizeHost(endpointHost)
+	host := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(endpointHost), "."))
 	if host == "" {
 		return false
 	}
-	if net.ParseIP(host) != nil {
+	if net.ParseIP(strings.Trim(host, "[]")) != nil {
 		return false
 	}
 	return host != "localhost" && !strings.HasSuffix(host, ".localhost")

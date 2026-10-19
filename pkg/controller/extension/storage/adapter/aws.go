@@ -73,7 +73,8 @@ func awsNeedsPathStyle(endpoint string) bool {
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
-	if net.ParseIP(strings.Trim(host, "[]")) != nil {
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
+	if net.ParseIP(host) != nil {
 		return true
 	}
 	return host == "localhost" || strings.HasSuffix(host, ".localhost")
