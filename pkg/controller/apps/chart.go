@@ -247,8 +247,21 @@ func (c *controller) Get(ctx context.Context, id int64) (*types.ChartInfo, error
 	return &info, nil
 }
 
+// countInFlightInstalls 统计在途安装任务数（deploy_status 为 pending/installing）。
+func countInFlightInstalls(installs []model.AppstoreInstall) int {
+	var count int
+	for i := range installs {
+		if installs[i].DeployStatus == model.InstallDeployPending || installs[i].DeployStatus == model.InstallDeployInstalling {
+			count++
+		}
+	}
+	return count
+}
+
 // Delete 删除 chart 目录项（root/admin）。
-// 级联策略：存在安装记录时拒绝删除（409），需先在集群卸载；否则删除版本记录 + 目录项 + 存储对象。
+// 级联策略：仅在存在在途安装任务（deploy_status 为 pending/installing）时拒绝删除（409）；
+// 其余安装记账（含 success/failed）不阻止删除，记账记录保留，已安装应用与卸载链路不受影响。
+// 删除时清理版本记录 + 目录项 + 存储对象。
 func (c *controller) Delete(ctx context.Context, id int64) error {
 	if err := controllerutil.CheckAdmin(ctx); err != nil {
 		return err
@@ -266,9 +279,9 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 	if err != nil {
 		return apierrors.ErrServerInternal
 	}
-	if len(installs) > 0 {
+	if busy := countInFlightInstalls(installs); busy > 0 {
 		return apierrors.NewError(
-			fmt.Errorf("chart %s is referenced by %d install record(s), uninstall them first", chart.Name, len(installs)),
+			fmt.Errorf("chart %s has %d in-flight install operation(s), please retry after they finish", chart.Name, busy),
 			http.StatusConflict,
 		)
 	}
