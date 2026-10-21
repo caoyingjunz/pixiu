@@ -43,6 +43,22 @@ type ListChartOption struct {
 	PageSize int    `form:"pageSize" json:"pageSize"`
 }
 
+// ChartValuesInfo chart 版本的平台默认配置（可编辑副本）。
+type ChartValuesInfo struct {
+	// Values YAML 原文（空串表示平台默认被清空）
+	Values string `json:"values"`
+	// ResourceVersion 乐观锁版本号，写入时需原样回传
+	ResourceVersion int64 `json:"resource_version"`
+}
+
+// UpdateChartValuesRequest 更新平台默认配置请求。
+type UpdateChartValuesRequest struct {
+	// Values YAML 原文；空串允许（清空平台默认）
+	Values string `json:"values"`
+	// ResourceVersion 当前版本号，不匹配返回 409
+	ResourceVersion int64 `json:"resource_version"`
+}
+
 // ChartVersionInfo chart 版本信息。
 type ChartVersionInfo struct {
 	Version     string `json:"version"`

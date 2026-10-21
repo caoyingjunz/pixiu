@@ -50,6 +50,8 @@ func (ar *appsRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "/charts/:id", Handler: ar.getChart, Description: "Chart详情", Persist: &persist},
 			{Method: "DELETE", RelativePath: "/charts/:id", Handler: ar.deleteChart, Description: "删除Chart", Persist: &persist},
 			{Method: "GET", RelativePath: "/charts/:id/values", Handler: ar.getChartValues, Description: "获取配置值", Persist: &persist},
+			{Method: "PUT", RelativePath: "/charts/:id/values", Handler: ar.updateChartValues, Description: "修改默认配置", Persist: &persist},
+			{Method: "POST", RelativePath: "/charts/:id/values/reset", Handler: ar.resetChartValues, Description: "恢复默认配置", Persist: &persist},
 			{Method: "GET", RelativePath: "/charts/:id/templates", Handler: ar.listChartTemplates, Description: "模板列表", Persist: &persist},
 			{Method: "GET", RelativePath: "/charts/:id/templates/content", Handler: ar.getChartTemplateContent, Description: "模板内容", Persist: &persist},
 

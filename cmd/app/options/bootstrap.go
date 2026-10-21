@@ -73,6 +73,11 @@ var defaultDistributionCatalog = []struct {
 		runner: RunnerAgentV3,
 	},
 	{
+		family: distributionFamilyUbuntu,
+		name:   "ubuntu26.04",
+		runner: RunnerAgentV3,
+	},
+	{
 		family: distributionFamilyDebian,
 		name:   "debian10",
 		runner: RunnerAgentV2,

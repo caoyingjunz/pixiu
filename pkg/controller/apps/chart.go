@@ -94,8 +94,14 @@ func (c *controller) Upload(ctx context.Context, _ string, category string, r io
 	return c.persistChart(ctx, md, data, category, "upload", "", user)
 }
 
-// persistChart 上传落库管线：校验重复 → 存储 → 写 charts/chart_versions。
+// persistChart 上传落库管线：校验重复 → 提取默认 values → 存储 → 写 charts/chart_versions。
 func (c *controller) persistChart(ctx context.Context, md *chartutil.Metadata, data []byte, category, source, repoURL string, user *model.User) (*types.ChartInfo, error) {
+	// 先提取内置 values 原文（任何写操作之前），失败直接 500，避免产生副作用。
+	rawValues, err := archiveValuesFromData(data)
+	if err != nil {
+		return nil, apierrors.ErrServerInternal
+	}
+
 	chart, err := c.factory.Chart().GetChartByName(ctx, md.Name)
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
@@ -147,6 +153,8 @@ func (c *controller) persistChart(ctx context.Context, md *chartutil.Metadata, d
 		Digest:      md.Sha256,
 		Size:        md.Size,
 		StorageKey:  key,
+		// 内置 values.yaml 原文作为平台可编辑的默认配置基线，随版本行一次写入（天然原子）。
+		DefaultValues: &rawValues,
 	}
 	if _, err = c.factory.Chart().CreateChartVersion(ctx, version); err != nil {
 		// 回滚已存储的对象，避免产生孤儿文件
@@ -302,17 +310,111 @@ func (c *controller) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-// DefaultValues 返回指定版本的默认 values.yaml 内容。
-func (c *controller) DefaultValues(ctx context.Context, id int64, version string) (string, error) {
-	if err := c.ensureStore(); err != nil {
-		return "", apierrors.NewError(err, http.StatusServiceUnavailable)
+// DefaultValues 返回指定版本的默认配置。
+// source=chart 时解析所选版本的 chart 包并返回包内 values.yaml 原文；
+// 其余（含空值/未知值）按 source=db 处理，只返回版本行已落库的值，
+// 存量版本为 NULL 时直接返回空值，不再解析 chart 包懒回填。
+func (c *controller) DefaultValues(ctx context.Context, id int64, version string, source string) (*types.ChartValuesInfo, error) {
+	cv, err := c.resolveVersion(ctx, id, version)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(source) == "chart" {
+		raw, err := c.chartPackageValues(ctx, cv)
+		if err != nil {
+			return nil, err
+		}
+		return toChartValuesInfo(raw, cv.ResourceVersion), nil
+	}
+	if cv.DefaultValues == nil {
+		return toChartValuesInfo("", cv.ResourceVersion), nil
+	}
+	return toChartValuesInfo(*cv.DefaultValues, cv.ResourceVersion), nil
+}
+
+// UpdateDefaultValues 修改指定版本的平台默认配置（root/admin）。
+func (c *controller) UpdateDefaultValues(ctx context.Context, id int64, version string, req *types.UpdateChartValuesRequest) (*types.ChartValuesInfo, error) {
+	if err := controllerutil.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
+
+	values := req.Values
+	if strings.TrimSpace(values) == "" {
+		values = "" // 空串/纯空白统一按清空处理
+	} else {
+		var obj map[string]interface{}
+		if err := yaml.Unmarshal([]byte(values), &obj); err != nil {
+			return nil, apierrors.NewError(fmt.Errorf("invalid values yaml: %w", err), http.StatusBadRequest)
+		}
+		if obj == nil {
+			return nil, apierrors.NewError(fmt.Errorf("values yaml must be a mapping"), http.StatusBadRequest)
+		}
 	}
 
 	cv, err := c.resolveVersion(ctx, id, version)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
+	ok, err := c.factory.Chart().UpdateChartVersionValues(ctx, cv.Id, values, req.ResourceVersion)
+	if err != nil {
+		return nil, apierrors.ErrServerInternal
+	}
+	if !ok {
+		return nil, apierrors.NewError(fmt.Errorf("default values have been modified, please refresh and retry"), http.StatusConflict)
+	}
+	cv.DefaultValues = &values
+	cv.ResourceVersion = req.ResourceVersion + 1
+	return toChartValuesInfo(values, cv.ResourceVersion), nil
+}
+
+// ResetDefaultValues 将平台默认配置恢复为 chart 包内置的 values.yaml（root/admin）。
+func (c *controller) ResetDefaultValues(ctx context.Context, id int64, version string) (*types.ChartValuesInfo, error) {
+	if err := controllerutil.CheckAdmin(ctx); err != nil {
+		return nil, err
+	}
+	cv, err := c.resolveVersion(ctx, id, version)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := c.chartPackageValues(ctx, cv)
+	if err != nil {
+		return nil, err
+	}
+
+	// 重置以当前版本行版本号为乐观锁；并发修改时重读并重试一次。
+	expected := cv.ResourceVersion
+	for attempt := 0; attempt < 2; attempt++ {
+		ok, err := c.factory.Chart().UpdateChartVersionValues(ctx, cv.Id, raw, expected)
+		if err != nil {
+			return nil, apierrors.ErrServerInternal
+		}
+		if ok {
+			cv.DefaultValues = &raw
+			cv.ResourceVersion = expected + 1
+			return toChartValuesInfo(raw, cv.ResourceVersion), nil
+		}
+		latest, err := c.factory.Chart().GetChartVersion(ctx, cv.ChartId, cv.Version)
+		if err != nil {
+			return nil, apierrors.ErrServerInternal
+		}
+		if latest == nil {
+			return nil, apierrors.NewError(fmt.Errorf("chart version not found"), http.StatusNotFound)
+		}
+		expected = latest.ResourceVersion
+	}
+	return nil, apierrors.NewError(fmt.Errorf("default values have been modified, please refresh and retry"), http.StatusConflict)
+}
+
+func toChartValuesInfo(values string, resourceVersion int64) *types.ChartValuesInfo {
+	return &types.ChartValuesInfo{Values: values, ResourceVersion: resourceVersion}
+}
+
+// chartPackageValues 读取 chart 包并返回内置 values.yaml 原文（缺失时回退解析后 values 的 YAML）。
+func (c *controller) chartPackageValues(ctx context.Context, cv *model.AppstoreChartVersion) (string, error) {
+	if err := c.ensureStore(); err != nil {
+		return "", apierrors.NewError(err, http.StatusServiceUnavailable)
+	}
 	rc, err := c.store.Open(ctx, cv.StorageKey)
 	if err != nil {
 		return "", apierrors.NewError(fmt.Errorf("chart package not found: %w", err), http.StatusNotFound)
@@ -327,18 +429,41 @@ func (c *controller) DefaultValues(ctx context.Context, id int64, version string
 	if err != nil {
 		return "", apierrors.NewError(fmt.Errorf("invalid chart archive: %w", err), http.StatusBadRequest)
 	}
-
-	// 等价于 `helm show values`：直接返回 chart 内置 values.yaml 的解析结果
-	out, err := yaml.Marshal(ch.Values)
-	if err != nil {
-		return "", apierrors.ErrServerInternal
-	}
-	return string(out), nil
+	return archiveValues(ch), nil
 }
 
-// Templates 返回 chart（最新版本）内的模板文件清单（原始、未渲染）。
-func (c *controller) Templates(ctx context.Context, id int64) ([]types.ChartTemplateInfo, error) {
-	ch, err := c.loadChart(ctx, id)
+// archiveValuesFromData 解析 tgz 并提取内置 values.yaml 原文（导入落库路径使用）。
+func archiveValuesFromData(data []byte) (string, error) {
+	ch, err := loader.LoadArchive(bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+	return archiveValues(ch), nil
+}
+
+// archiveValues 取 chart 包内 values.yaml 原文；包内缺失时回退为解析后 values 的 YAML 序列化。
+func archiveValues(ch *helmchart.Chart) string {
+	if ch == nil {
+		return ""
+	}
+	for _, f := range ch.Raw {
+		if f != nil && f.Name == "values.yaml" && strings.TrimSpace(string(f.Data)) != "" {
+			return string(f.Data)
+		}
+	}
+	if len(ch.Values) == 0 {
+		return ""
+	}
+	out, err := yaml.Marshal(ch.Values)
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
+// Templates 返回 chart 指定版本（version 为空取最新版本）内的模板文件清单（原始、未渲染）。
+func (c *controller) Templates(ctx context.Context, id int64, version string) ([]types.ChartTemplateInfo, error) {
+	ch, err := c.loadChart(ctx, id, version)
 	if err != nil {
 		return nil, err
 	}
@@ -353,9 +478,9 @@ func (c *controller) Templates(ctx context.Context, id int64) ([]types.ChartTemp
 	return out, nil
 }
 
-// TemplateContent 返回 chart（最新版本）内指定模板文件的原始内容。
-func (c *controller) TemplateContent(ctx context.Context, id int64, name string) (string, error) {
-	ch, err := c.loadChart(ctx, id)
+// TemplateContent 返回 chart 指定版本（version 为空取最新版本）内指定模板文件的原始内容。
+func (c *controller) TemplateContent(ctx context.Context, id int64, name, version string) (string, error) {
+	ch, err := c.loadChart(ctx, id, version)
 	if err != nil {
 		return "", err
 	}
@@ -367,12 +492,12 @@ func (c *controller) TemplateContent(ctx context.Context, id int64, name string)
 	return "", apierrors.NewError(fmt.Errorf("template %s not found", name), http.StatusNotFound)
 }
 
-// loadChart 取 chart 最新版本的存储包并解析为 helm chart 对象（默认 values / 模板读取共用）。
-func (c *controller) loadChart(ctx context.Context, id int64) (*helmchart.Chart, error) {
+// loadChart 取 chart 指定版本（version 为空取最新版本）的存储包并解析为 helm chart 对象（默认 values / 模板读取共用）。
+func (c *controller) loadChart(ctx context.Context, id int64, version string) (*helmchart.Chart, error) {
 	if err := c.ensureStore(); err != nil {
 		return nil, apierrors.NewError(err, http.StatusServiceUnavailable)
 	}
-	cv, err := c.resolveVersion(ctx, id, "")
+	cv, err := c.resolveVersion(ctx, id, version)
 	if err != nil {
 		return nil, err
 	}

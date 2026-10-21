@@ -71,6 +71,11 @@ type AppstoreChartVersion struct {
 
 	// StorageKey 存储后端中的对象键，形如 charts/<name>-<version>.tgz
 	StorageKey string `gorm:"column:storage_key;type:varchar(255);not null" json:"storage_key"`
+
+	// DefaultValues 平台默认配置（YAML 原文，可编辑副本）。
+	// 使用指针区分「从未回填（NULL）」与「显式清空（空串）」：
+	// NULL 表示存量版本尚未从包内 values.yaml 回填，读取时懒回填一次。
+	DefaultValues *string `gorm:"column:default_values;type:longtext" json:"default_values,omitempty"`
 }
 
 func (*AppstoreChartVersion) TableName() string {
@@ -107,7 +112,8 @@ type AppstoreInstall struct {
 	ReleaseName string `gorm:"column:release_name;type:varchar(128);not null;uniqueIndex:uk_install_release,priority:3" json:"release_name"`
 
 	// Values 本次安装使用的 values（JSON 文本）
-	Values string `gorm:"column:values;type:text" json:"values"`
+	// 存「平台默认配置 + 本次差异化配置」的完整快照，重型 chart 可超 64KB，故用 longtext。
+	Values string `gorm:"column:values;type:longtext" json:"values"`
 	// Status 最近一次已知状态（running / failed / superseded / uninstalled 等），helm 侧真实状态
 	Status string `gorm:"column:status;type:varchar(32)" json:"status"`
 

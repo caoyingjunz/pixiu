@@ -46,6 +46,9 @@ type ChartInterface interface {
 	CreateChartVersion(ctx context.Context, object *model.AppstoreChartVersion) (*model.AppstoreChartVersion, error)
 	GetChartVersion(ctx context.Context, chartId int64, version string) (*model.AppstoreChartVersion, error)
 	ListChartVersions(ctx context.Context, chartId int64) ([]model.AppstoreChartVersion, error)
+	// UpdateChartVersionValues 以乐观锁写入版本默认配置：仅当版本行 resource_version
+	// 等于 expectedResourceVersion 时更新，冲突返回 false。
+	UpdateChartVersionValues(ctx context.Context, id int64, values string, expectedResourceVersion int64) (bool, error)
 	DeleteChartVersionsByChart(ctx context.Context, chartId int64) error
 
 	// 安装记账
@@ -208,6 +211,21 @@ func (c *chart) ListChartVersions(ctx context.Context, chartId int64) ([]model.A
 		return nil, err
 	}
 	return objects, nil
+}
+
+// UpdateChartVersionValues 条件更新版本默认配置（id + resource_version），冲突返回 false。
+func (c *chart) UpdateChartVersionValues(ctx context.Context, id int64, values string, expectedResourceVersion int64) (bool, error) {
+	f := c.db.WithContext(ctx).Model(&model.AppstoreChartVersion{}).
+		Where("id = ? AND resource_version = ?", id, expectedResourceVersion).
+		Updates(map[string]interface{}{
+			"default_values":   values,
+			"resource_version": expectedResourceVersion + 1,
+			"gmt_modified":     time.Now(),
+		})
+	if f.Error != nil {
+		return false, f.Error
+	}
+	return f.RowsAffected > 0, nil
 }
 
 func (c *chart) DeleteChartVersionsByChart(ctx context.Context, chartId int64) error {
