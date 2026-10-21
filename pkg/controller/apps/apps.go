@@ -41,9 +41,11 @@ type Interface interface {
 	List(ctx context.Context, opt types.ListChartOption) (*types.ChartListResponse, error)
 	Get(ctx context.Context, id int64) (*types.ChartInfo, error)
 	Delete(ctx context.Context, id int64) error
-	DefaultValues(ctx context.Context, id int64, version string) (string, error)
-	Templates(ctx context.Context, id int64) ([]types.ChartTemplateInfo, error)
-	TemplateContent(ctx context.Context, id int64, name string) (string, error)
+	DefaultValues(ctx context.Context, id int64, version string, source string) (*types.ChartValuesInfo, error)
+	UpdateDefaultValues(ctx context.Context, id int64, version string, req *types.UpdateChartValuesRequest) (*types.ChartValuesInfo, error)
+	ResetDefaultValues(ctx context.Context, id int64, version string) (*types.ChartValuesInfo, error)
+	Templates(ctx context.Context, id int64, version string) ([]types.ChartTemplateInfo, error)
+	TemplateContent(ctx context.Context, id int64, name, version string) (string, error)
 
 	// 安装编排（release 以 (cluster, namespace, name) 集群作用域自然身份定位；异步：入队即返，后台 worker 执行）
 	Install(ctx context.Context, cluster, namespace string, req *types.InstallReleaseRequest) (*types.InstallInfo, error)

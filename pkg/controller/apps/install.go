@@ -23,8 +23,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
+	helmchartutil "helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/release"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
@@ -69,6 +73,9 @@ func (c *controller) Install(ctx context.Context, clusterName, namespace string,
 		return nil, err
 	}
 
+	// 以平台默认配置为基线，本次请求值优先；快照写入记账，worker 不再查库。
+	mergedValues := c.installValues(ctx, cv, req.Values)
+
 	// 同一集群/命名空间下同名 release 不允许重复记账（按解析后的集群名记账，保证与后续操作一致）
 	existing, err := c.factory.Chart().GetInstallByTriple(ctx, clusterName, namespace, req.ReleaseName)
 	if err != nil {
@@ -86,7 +93,7 @@ func (c *controller) Install(ctx context.Context, clusterName, namespace string,
 		}
 		// 复用同一条记录重新入队：置回 pending + install，清空 message/status，
 		// 并更新目标 chart/version/values（允许失败后换 chart/版本重试）。
-		values, _ := json.Marshal(req.Values)
+		values, _ := json.Marshal(mergedValues)
 		if err = c.factory.Chart().UpdateInstallDeploy(ctx, rec.Id, map[string]interface{}{
 			"chart_id":      chart.Id,
 			"chart_name":    chart.Name,
@@ -109,10 +116,10 @@ func (c *controller) Install(ctx context.Context, clusterName, namespace string,
 
 	// dry-run 预览不落地：保持同步渲染（dry-run 本身不产生集群资源、也不记账，故不入队）
 	if req.Preview {
-		return c.previewInstall(ctx, chart, cv, clusterName, namespace, req, user)
+		return c.previewInstall(ctx, chart, cv, clusterName, namespace, req, mergedValues, user)
 	}
 
-	values, _ := json.Marshal(req.Values)
+	values, _ := json.Marshal(mergedValues)
 	record := &model.AppstoreInstall{
 		ChartId:       chart.Id,
 		ChartName:     chart.Name,
@@ -134,14 +141,14 @@ func (c *controller) Install(ctx context.Context, clusterName, namespace string,
 }
 
 // previewInstall 同步执行 helm dry-run（preview）：只渲染不落地，也不产生记账记录。
-func (c *controller) previewInstall(ctx context.Context, chart *model.Chart, cv *model.AppstoreChartVersion, clusterName, namespace string, req *types.InstallReleaseRequest, user *model.User) (*types.InstallInfo, error) {
+func (c *controller) previewInstall(ctx context.Context, chart *model.Chart, cv *model.AppstoreChartVersion, clusterName, namespace string, req *types.InstallReleaseRequest, values map[string]interface{}, user *model.User) (*types.InstallInfo, error) {
 	path, cleanup, err := c.materialize(ctx, cv.StorageKey)
 	if err != nil {
 		return nil, err
 	}
 	defer cleanup()
 
-	if err = c.guard(path, req.ReleaseName, namespace, req.Values, isAdmin(user)); err != nil {
+	if err = c.guard(path, req.ReleaseName, namespace, values, isAdmin(user)); err != nil {
 		return nil, err
 	}
 
@@ -149,7 +156,7 @@ func (c *controller) previewInstall(ctx context.Context, chart *model.Chart, cv 
 		Name:    req.ReleaseName,
 		Chart:   path,
 		Version: cv.Version,
-		Values:  req.Values,
+		Values:  values,
 		Preview: true, // helm dry-run：只渲染不落地
 	})
 	if err != nil {
@@ -317,10 +324,9 @@ func (c *controller) Upgrade(ctx context.Context, clusterName, namespace, name s
 			return err
 		}
 		rec.Version = cv.Version // 目标版本，worker 据此 materialize
-		if req.Values != nil {
-			values, _ := json.Marshal(req.Values)
-			rec.Values = string(values)
-		}
+		// 基线：当前 release values 优先，DB 默认补缺，本次请求值最终覆盖。
+		values, _ := json.Marshal(c.upgradeValues(ctx, cv, parseValuesYAML(rec.Values), req.Values))
+		rec.Values = string(values)
 		if _, err = c.factory.Chart().CreateInstall(ctx, rec); err != nil {
 			return apierrors.ErrServerInternal
 		}
@@ -335,7 +341,8 @@ func (c *controller) Upgrade(ctx context.Context, clusterName, namespace, name s
 	if err != nil {
 		return err
 	}
-	values, _ := json.Marshal(req.Values)
+	// 基线：当前 release values 优先，DB 默认补缺，本次请求值最终覆盖。
+	values, _ := json.Marshal(c.upgradeValues(ctx, cv, parseValuesYAML(rec.Values), req.Values))
 	updates := map[string]interface{}{
 		"version":       cv.Version, // 目标版本，worker 据此 materialize
 		"values":        string(values),
@@ -491,6 +498,56 @@ func ensureNotBusy(rec *model.AppstoreInstall) error {
 // isAdmin 判定用户是否为管理员（root/admin）。用于安全预检豁免的等价判定。
 func isAdmin(user *model.User) bool {
 	return user != nil && (user.Role == model.RoleRoot || user.Role == model.RoleAdmin)
+}
+
+// installValues 合并安装值：请求值优先，平台默认配置补缺（数组整体替换）。
+func (c *controller) installValues(ctx context.Context, cv *model.AppstoreChartVersion, req map[string]interface{}) map[string]interface{} {
+	return mergeInstallValues(c.chartDefaultValuesMap(ctx, cv), req)
+}
+
+// upgradeValues 合并升级值：请求值 > 当前 release values > 平台默认配置，快照随后落库。
+func (c *controller) upgradeValues(ctx context.Context, cv *model.AppstoreChartVersion, current, req map[string]interface{}) map[string]interface{} {
+	return mergeUpgradeValues(c.chartDefaultValuesMap(ctx, cv), current, req)
+}
+
+// mergeInstallValues 纯合并逻辑：以 dbDefaults 为补缺基线，req 优先；数组按整体替换。
+func mergeInstallValues(dbDefaults, req map[string]interface{}) map[string]interface{} {
+	return normalizeValues(helmchartutil.CoalesceTables(req, dbDefaults))
+}
+
+// mergeUpgradeValues 纯合并逻辑：dbDefaults 补缺 → current 优先 → req 最终覆盖。
+func mergeUpgradeValues(dbDefaults, current, req map[string]interface{}) map[string]interface{} {
+	base := helmchartutil.CoalesceTables(current, dbDefaults)
+	return normalizeValues(helmchartutil.CoalesceTables(req, base))
+}
+
+func normalizeValues(v map[string]interface{}) map[string]interface{} {
+	if v == nil {
+		return map[string]interface{}{}
+	}
+	return v
+}
+
+// chartDefaultValuesMap 读取版本的平台默认配置（仅读版本行，不解析 chart 包）。
+// 存量版本未落库默认值（NULL）时返回 nil，helm 仍会使用 chart 内置默认值。
+func (c *controller) chartDefaultValuesMap(ctx context.Context, cv *model.AppstoreChartVersion) map[string]interface{} {
+	if cv.DefaultValues == nil {
+		return nil
+	}
+	return parseValuesYAML(*cv.DefaultValues)
+}
+
+// parseValuesYAML 把默认配置文本解析为 map；空串/非法 YAML 返回 nil。
+func parseValuesYAML(raw string) map[string]interface{} {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	m := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(raw), &m); err != nil {
+		klog.Errorf("failed to parse values yaml: %v", err)
+		return nil
+	}
+	return m
 }
 
 // History 返回 release 的历史版本列表（只读，直接查集群 helm，不依赖平台记账）。

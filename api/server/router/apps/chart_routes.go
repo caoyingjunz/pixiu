@@ -17,11 +17,19 @@ limitations under the License.
 package apps
 
 import (
+	"errors"
+	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
+	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
+
+// maxDefaultValuesBytes 默认配置请求体大小上限（1MB）。
+const maxDefaultValuesBytes = 1 << 20
 
 // createChart 上传本地 .tgz chart 包（multipart/form-data，字段 file + category）。
 func (ar *appsRouter) createChart(c *gin.Context) {
@@ -117,6 +125,7 @@ func (ar *appsRouter) getChartValues(c *gin.Context) {
 		meta types.ChartIdMeta
 		req  struct {
 			Version string `form:"version"`
+			Source  string `form:"source"`
 		}
 	)
 	if err = httputils.ShouldBindAny(c, nil, &meta, &req); err != nil {
@@ -124,26 +133,88 @@ func (ar *appsRouter) getChartValues(c *gin.Context) {
 		return
 	}
 
-	values, err := ar.c.Appstore().DefaultValues(c, meta.Id, req.Version)
+	values, err := ar.c.Appstore().DefaultValues(c, meta.Id, req.Version, req.Source)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = gin.H{"values": values}
+	r.Result = values
 	httputils.SetSuccess(c, r)
 }
 
-// listChartTemplates 获取 chart（最新版本）内的模板文件清单。
-func (ar *appsRouter) listChartTemplates(c *gin.Context) {
+// updateChartValues 修改指定版本的平台默认配置（root/admin，乐观锁 + 1MB 上限）。
+func (ar *appsRouter) updateChartValues(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var meta types.ChartIdMeta
-	if err := c.ShouldBindUri(&meta); err != nil {
+	var (
+		err   error
+		meta  types.ChartIdMeta
+		req   types.UpdateChartValuesRequest
+		query struct {
+			Version string `form:"version"`
+		}
+	)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxDefaultValuesBytes)
+	if err = httputils.ShouldBindAny(c, &req, &meta, &query); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			err = apierrors.NewError(fmt.Errorf("values exceeds max size %d bytes", maxDefaultValuesBytes), http.StatusRequestEntityTooLarge)
+		}
 		httputils.SetFailed(c, r, err)
 		return
 	}
 
-	items, err := ar.c.Appstore().Templates(c, meta.Id)
+	info, err := ar.c.Appstore().UpdateDefaultValues(c, meta.Id, query.Version, &req)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = info
+	httputils.SetSuccess(c, r)
+}
+
+// resetChartValues 将指定版本的平台默认配置恢复为 chart 内置 values.yaml（root/admin）。
+func (ar *appsRouter) resetChartValues(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		err   error
+		meta  types.ChartIdMeta
+		query struct {
+			Version string `form:"version"`
+		}
+	)
+	if err = httputils.ShouldBindAny(c, nil, &meta, &query); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	info, err := ar.c.Appstore().ResetDefaultValues(c, meta.Id, query.Version)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = info
+	httputils.SetSuccess(c, r)
+}
+
+// listChartTemplates 获取 chart 指定版本（version 为空取最新版本）内的模板文件清单。
+func (ar *appsRouter) listChartTemplates(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		err   error
+		meta  types.ChartIdMeta
+		query struct {
+			Version string `form:"version"`
+		}
+	)
+	if err = httputils.ShouldBindAny(c, nil, &meta, &query); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	items, err := ar.c.Appstore().Templates(c, meta.Id, query.Version)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -152,7 +223,7 @@ func (ar *appsRouter) listChartTemplates(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-// getChartTemplateContent 获取指定模板文件的原始内容。
+// getChartTemplateContent 获取指定版本（version 为空取最新版本）指定模板文件的原始内容。
 func (ar *appsRouter) getChartTemplateContent(c *gin.Context) {
 	r := httputils.NewResponse()
 
@@ -160,7 +231,8 @@ func (ar *appsRouter) getChartTemplateContent(c *gin.Context) {
 		err  error
 		meta types.ChartIdMeta
 		req  struct {
-			Name string `form:"name"`
+			Name    string `form:"name"`
+			Version string `form:"version"`
 		}
 	)
 	if err = httputils.ShouldBindAny(c, nil, &meta, &req); err != nil {
@@ -168,7 +240,7 @@ func (ar *appsRouter) getChartTemplateContent(c *gin.Context) {
 		return
 	}
 
-	content, err := ar.c.Appstore().TemplateContent(c, meta.Id, req.Name)
+	content, err := ar.c.Appstore().TemplateContent(c, meta.Id, req.Name, req.Version)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
