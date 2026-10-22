@@ -92,3 +92,39 @@ journalctl -u pixiu-deploy-agent -f
 ```
 
 正常日志应显示 `pixiu-deploy-agent v0.1.0 starting, server=https://pixiu.example.com`，且心跳日志定期出现。
+
+## 远端 Shell（可选）
+
+Agent 默认开启远端 Shell：在本地 `unix` socket 上提供 PTY 服务，服务端通过反向隧道（`/pixiu/connect`）按需接入，管理员可在控制台直接登录该节点执行命令。Shell 启动失败（如目录无权限）时仅记录错误日志并禁用该能力，不影响作业轮询与部署功能。
+
+默认值：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `enabled` | `true` | 关闭后不监听 socket、不建立 Shell 隧道（部署隧道不受影响） |
+| `command` | 自动探测 | 优先 `/bin/bash`，不存在时回退 `/bin/sh` |
+
+本地 socket 路径固定为 `/run/pixiu/deploy-agent/shell.sock`（所在目录 `0700`、socket `0600`），不提供配置项：服务端始终按该路径拨号，改动路径将导致登录不可用。
+
+配置示例：
+
+```yaml
+default:
+  server: "https://pixiu.example.com"
+  token: "<your-agent-token>"
+  shell:
+    enabled: true
+    command: /bin/bash
+```
+
+安全说明：
+
+- Shell 以 **agent 进程的运行用户** 身份执行（systemd 默认 root）。仅 Pixiu 控制台中的 root/管理员可发起登录，链路复用 Agent Token 的反向隧道。
+- socket 路径固定为 `/run/pixiu/deploy-agent/shell.sock`，目录权限 `0700`、socket 权限 `0600`，防止本机普通用户直接连接获得高权限 Shell。
+- 建议收紧配置文件权限：`chmod 600 /etc/pixiu/agent.yaml`（文件内含 Agent Token）。
+- 如需完全禁用，将 `shell.enabled` 设为 `false`。
+
+运行环境差异：
+
+- 裸机 / systemd 直接运行 agent 时，Shell 进入的是 **宿主机** 环境。
+- 以容器方式运行 agent 时，Shell 默认进入 **agent 容器内部**；若需要操作宿主机，需在容器启动时共享宿主命名空间或挂载宿主根目录（按部署实际情况评估安全影响）。

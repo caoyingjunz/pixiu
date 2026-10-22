@@ -151,6 +151,8 @@ type InstallInfo struct {
 	Message string `json:"message"`
 	// Managed 是否平台记账（appstore 安装的 release 为 true；集群内外部 release 只读，为 false）
 	Managed bool `json:"managed"`
+	// Stale 数据是否来自 DB 回退（集群不可达/超时），此时 Status 等实时信息可能过期
+	Stale bool `json:"stale"`
 	// TargetRevision 回滚目标 revision
 	TargetRevision int    `json:"target_revision"`
 	CreatedBy      int64  `json:"created_by"`

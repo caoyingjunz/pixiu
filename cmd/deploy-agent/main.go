@@ -28,6 +28,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/caoyingjunz/pixiu/pkg/agentshell"
 	"github.com/caoyingjunz/pixiu/pkg/deployagent"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
@@ -74,6 +75,22 @@ func main() {
 	ag := deployagent.New(server, token, rt)
 
 	klog.Infof("pixiu-deploy-agent %s starting, server=%s", deployagent.Version, server)
+
+	// 远端 Shell：启动失败只禁用该能力，不影响作业轮询。
+	shellCfg := cfg.ResolveShell()
+	if shellCfg.IsEnabled() {
+		if err := deployagent.StartShellServer(ctx, shellCfg); err != nil {
+			klog.Errorf("failed to start remote shell server: %v; remote shell disabled", err)
+		} else {
+			go func() {
+				if err := deployagent.RunTunnel(ctx, server, token, agentshell.SocketPath); err != nil {
+					klog.Errorf("remote shell tunnel stopped: %v", err)
+				}
+			}()
+		}
+	} else {
+		klog.Infof("remote shell disabled by config")
+	}
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 

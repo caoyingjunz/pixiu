@@ -107,6 +107,23 @@ func (a *agentRouter) getAgent(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (a *agentRouter) shellWs(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		opt AgentMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = a.c.Agent().WsShellHandler(c, opt.AgentId, c.Writer, c.Request); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+}
+
 func (a *agentRouter) listAgents(c *gin.Context) {
 	r := httputils.NewResponse()
 

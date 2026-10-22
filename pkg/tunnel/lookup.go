@@ -19,24 +19,45 @@ package tunnel
 import (
 	"context"
 
+	"github.com/caoyingjunz/pixiu/pkg/agentshell"
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// FactoryLookup looks up cluster names by agent tunnel token via DAO.
+// FactoryLookup resolves tunnel tokens via DAO.
 type FactoryLookup struct {
 	Factory db.ShareDaoFactory
 }
 
-func (l FactoryLookup) ClusterName(ctx context.Context, token string) (string, error) {
+// SessionKey resolves a token to a remotedialer session key.
+// Cluster agents are namespaced under "cluster:"; deploy agents map to
+// agentshell.SessionKey ("agent:") so the two key spaces cannot collide.
+func (l FactoryLookup) SessionKey(ctx context.Context, token string) (string, error) {
 	if token == "" {
 		return "", nil
 	}
-	obj, err := l.Factory.Cluster().GetBy(ctx, db.WithAgentToken(token))
+
+	// 集群代理：使用独立命名空间，避免集群名伪造成 agent:<id> 与部署代理冲突。
+	cluster, err := l.Factory.Cluster().GetBy(ctx, db.WithAgentToken(token))
 	if err != nil {
 		return "", err
 	}
-	if obj == nil {
-		return "", nil
+	if cluster != nil {
+		return ClusterSessionKey(cluster.Name), nil
 	}
-	return obj.Name, nil
+
+	agentObj, err := l.Factory.Agent().GetBy(ctx, db.WithToken(token))
+	if err != nil {
+		return "", err
+	}
+	return agentSessionKey(agentObj), nil
+}
+
+// agentSessionKey maps a deploy agent to its tunnel session key.
+// Other agent types (cluster agents) do not own a shell session.
+func agentSessionKey(obj *model.Agent) string {
+	if obj == nil || obj.AgentType != model.AgentTypeDeploy {
+		return ""
+	}
+	return agentshell.SessionKey(obj.Id)
 }

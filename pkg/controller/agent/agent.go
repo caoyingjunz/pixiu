@@ -54,6 +54,8 @@ type Interface interface {
 	AppendLogs(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobLogsRequest) error
 	ReportResult(ctx context.Context, agentToken string, jobId int64, req *types.AgentJobResultRequest) error
 	GetPlan(ctx context.Context, agentToken string, jobId int64) (*types.Plan, error)
+
+	WsShellHandler(ctx context.Context, agentId int64, w http.ResponseWriter, r *http.Request) error
 }
 
 type agentController struct {
@@ -205,7 +207,10 @@ func (a *agentController) List(ctx context.Context, listOption types.ListOptions
 
 	ts := make([]types.Agent, 0)
 	for _, object := range objects {
-		ts = append(ts, *model2Type(&object))
+		item := model2Type(&object)
+		// 列表页不返回凭证，仅详情接口（查看凭证）可获取。
+		item.Token = ""
+		ts = append(ts, *item)
 	}
 	pageResult.Items = ts
 

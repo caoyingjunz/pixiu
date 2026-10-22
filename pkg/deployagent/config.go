@@ -37,6 +37,18 @@ type DefaultConfig struct {
 	WorkDir string `yaml:"work_dir"`
 
 	Runtime config.RuntimeOptions `yaml:"runtime"`
+	Shell   ShellConfig           `yaml:"shell"`
+}
+
+// ShellConfig 为远端 Shell（隧道内 PTY）配置。
+type ShellConfig struct {
+	Enabled *bool  `yaml:"enabled"` // nil => 默认 true
+	Command string `yaml:"command"` // 默认自动选择 /bin/bash，否则 /bin/sh
+}
+
+// IsEnabled 返回 Shell 是否启用（未配置时默认启用）。
+func (s ShellConfig) IsEnabled() bool {
+	return s.Enabled == nil || *s.Enabled
 }
 
 // LoadConfig 从 YAML 文件读取配置。文件不存在时返回空配置。
@@ -67,6 +79,27 @@ func (c Config) Resolve() (server, token, workDir string, rt config.RuntimeOptio
 	rt = c.Default.Runtime
 	rt.CRI = firstNonEmpty(rt.CRI, os.Getenv("PIXIU_RUNTIME_CRI"))
 	return
+}
+
+// ResolveShell 返回填充默认值后的 Shell 配置。
+func (c Config) ResolveShell() ShellConfig {
+	s := c.Default.Shell
+	if s.Enabled == nil {
+		enabled := true
+		s.Enabled = &enabled
+	}
+	if s.Command == "" {
+		s.Command = defaultShellCommand()
+	}
+	return s
+}
+
+// defaultShellCommand 优先使用 /bin/bash，不存在时回退 /bin/sh。
+func defaultShellCommand() string {
+	if _, err := os.Stat("/bin/bash"); err == nil {
+		return "/bin/bash"
+	}
+	return "/bin/sh"
 }
 
 func firstNonEmpty(values ...string) string {

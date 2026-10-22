@@ -157,6 +157,15 @@ type cluster struct {
 	getterFuncs map[string]getterFunc
 }
 
+// validateClusterName 只做最小校验：集群名会作为 Agent 隧道会话 key 的一部分，
+// 禁止 ':' 以免与部署代理的 "agent:" 命名空间产生歧义。
+func validateClusterName(name string) error {
+	if strings.Contains(name, ":") {
+		return fmt.Errorf("集群名称不能包含 ':'")
+	}
+	return nil
+}
+
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
 	// 防 SSRF：拒绝 kubeconfig server 指向回环/链路本地/元数据/未指定/多播地址
 	if err := c.validateKubeconfigServer(req.KubeConfig); err != nil {
@@ -225,6 +234,10 @@ func (c *cluster) validateKubeconfigServer(kubeConfig string) error {
 
 func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (*model.Cluster, error) {
 	if err := c.preCreate(ctx, req); err != nil {
+		return nil, errors.NewError(err, http.StatusBadRequest)
+	}
+	// 集群名会进入 Agent 隧道会话 key，禁止 ':' 以避免与部署代理会话命名空间冲突。
+	if err := validateClusterName(req.Name); err != nil {
 		return nil, errors.NewError(err, http.StatusBadRequest)
 	}
 	// TODO: 集群名称必须是由英文，数字组成

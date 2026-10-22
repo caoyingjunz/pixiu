@@ -50,6 +50,8 @@ type Interface interface {
 	// 安装编排（release 以 (cluster, namespace, name) 集群作用域自然身份定位；异步：入队即返，后台 worker 执行）
 	Install(ctx context.Context, cluster, namespace string, req *types.InstallReleaseRequest) (*types.InstallInfo, error)
 	ListReleases(ctx context.Context, cluster, namespace string) ([]types.InstallInfo, error)
+	// ListInstallRecords 仅读 DB 记账列出已安装应用（应用商店专用，不访问集群）。
+	ListInstallRecords(ctx context.Context, cluster, namespace string) ([]types.InstallInfo, error)
 	GetRelease(ctx context.Context, cluster, namespace, name string) (*types.InstallInfo, error)
 	Upgrade(ctx context.Context, cluster, namespace, name string, req *types.UpgradeChartRequest) error
 	Uninstall(ctx context.Context, cluster, namespace, name string) error

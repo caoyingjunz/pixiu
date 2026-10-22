@@ -45,6 +45,7 @@ func (a *agentRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "PUT", RelativePath: "/:agentId", Handler: a.updateAgent, Description: "更新代理", Persist: &persist},
 			{Method: "DELETE", RelativePath: "/:agentId", Handler: a.deleteAgent, Description: "删除代理", Persist: &persist},
 			{Method: "GET", RelativePath: "/:agentId", Handler: a.getAgent, Description: "代理详情", Persist: &persist},
+			{Method: "GET", RelativePath: "/:agentId/ws", Handler: a.shellWs, Description: "Agent HostShell", Persist: &persist},
 			{Method: "GET", RelativePath: "", Handler: a.listAgents, Description: "代理列表", Persist: &persist},
 
 			{Method: "POST", RelativePath: "/heartbeat", Handler: a.heartbeat, Description: "心跳上报", Persist: &persist},

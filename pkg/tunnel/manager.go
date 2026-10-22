@@ -33,7 +33,16 @@ const (
 	TokenHeader = "X-Pixiu-Tunnel-Token"
 	// ConnectPath is the websocket endpoint agents connect to.
 	ConnectPath = "/pixiu/connect"
+
+	// clusterSessionKeyPrefix isolates cluster tunnel sessions from deploy
+	// agent sessions (agentshell uses the "agent:" prefix).
+	clusterSessionKeyPrefix = "cluster:"
 )
+
+// ClusterSessionKey returns the remotedialer session key for a cluster agent.
+func ClusterSessionKey(name string) string {
+	return clusterSessionKeyPrefix + name
+}
 
 var (
 	ErrAgentDisconnected = errors.New("cluster agent disconnected")
@@ -42,9 +51,10 @@ var (
 	once           sync.Once
 )
 
-// TokenLookup resolves an agent tunnel token to a cluster name (session clientKey).
+// TokenLookup resolves an agent tunnel token to a tunnel session key.
+// Cluster agents use the cluster name; deploy agents use agentshell.SessionKey.
 type TokenLookup interface {
-	ClusterName(ctx context.Context, token string) (string, error)
+	SessionKey(ctx context.Context, token string) (string, error)
 }
 
 // Manager wraps remotedialer.Server for Pixiu reverse tunnels.
@@ -84,7 +94,7 @@ func (m *Manager) authorize(req *http.Request) (string, bool, error) {
 		return "", false, nil
 	}
 
-	name, err := m.lookup.ClusterName(req.Context(), token)
+	name, err := m.lookup.SessionKey(req.Context(), token)
 	if err != nil {
 		klog.Errorf("tunnel authorize failed: %v", err)
 		return "", false, err
@@ -93,14 +103,18 @@ func (m *Manager) authorize(req *http.Request) (string, bool, error) {
 		klog.Warningf("tunnel authorize denied: token not found (len=%d)", len(token))
 		return "", false, nil
 	}
-	// 记录本进程曾成功授权接入的集群，用于区分"agent 连到其他 server"与"本进程接入后断开"
+	// 同一 key 已有活跃会话时告警，但不拒绝（正常重连会先断后连）。
+	if m.server.HasSession(name) {
+		klog.Warningf("duplicate tunnel session for key=%s", name)
+	}
+	// 记录本进程曾成功授权接入的会话，用于区分"agent 连到其他 server"与"本进程接入后断开"
 	m.mu.Lock()
 	if m.seen == nil {
 		m.seen = make(map[string]bool)
 	}
 	m.seen[name] = true
 	m.mu.Unlock()
-	klog.V(2).Infof("tunnel authorize ok: cluster=%s", name)
+	klog.V(2).Infof("tunnel authorize ok: session=%s", name)
 	return name, true, nil
 }
 
@@ -124,10 +138,15 @@ func (m *Manager) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 // HasSession reports whether the cluster agent tunnel is connected.
 func (m *Manager) HasSession(clusterName string) bool {
+	return m.HasSessionKey(ClusterSessionKey(clusterName))
+}
+
+// HasSessionKey reports whether a tunnel session with the raw session key exists.
+func (m *Manager) HasSessionKey(sessionKey string) bool {
 	if m == nil || m.server == nil {
 		return false
 	}
-	return m.server.HasSession(clusterName)
+	return m.server.HasSession(sessionKey)
 }
 
 // SeenSession reports whether this process ever authorized the cluster's agent tunnel.
@@ -138,12 +157,22 @@ func (m *Manager) SeenSession(clusterName string) bool {
 	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.seen != nil && m.seen[clusterName]
+	return m.seen != nil && m.seen[ClusterSessionKey(clusterName)]
 }
 
 // Dialer returns a net.Dialer-compatible function that dials through the agent tunnel.
 func (m *Manager) Dialer(clusterName string) func(context.Context, string, string) (net.Conn, error) {
-	return m.server.Dialer(clusterName)
+	return m.DialerByKey(ClusterSessionKey(clusterName))
+}
+
+// DialerByKey returns a dialer for a raw session key (used by deploy agent shells).
+func (m *Manager) DialerByKey(sessionKey string) func(context.Context, string, string) (net.Conn, error) {
+	if m == nil || m.server == nil {
+		return func(context.Context, string, string) (net.Conn, error) {
+			return nil, ErrAgentDisconnected
+		}
+	}
+	return m.server.Dialer(sessionKey)
 }
 
 // ClusterDialContext returns a DialContext for rest.Config.
