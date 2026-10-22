@@ -68,6 +68,28 @@ func (ar *appsRouter) listReleases(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+// listInstallRecords 列出平台记账的已安装应用（仅读 DB，不访问集群；namespace 为空表示全部命名空间）。
+func (ar *appsRouter) listInstallRecords(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		err  error
+		meta types.ReleaseNamespaceMeta
+	)
+	if err = c.ShouldBindUri(&meta); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	items, err := ar.c.Appstore().ListInstallRecords(c, meta.Cluster, meta.Namespace)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = items
+	httputils.SetSuccess(c, r)
+}
+
 // getRelease 查看单个 release 详情。
 func (ar *appsRouter) getRelease(c *gin.Context) {
 	r := httputils.NewResponse()

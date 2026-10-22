@@ -59,6 +59,10 @@ func (ar *appsRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "/clusters/:cluster/namespaces/:namespace/releases", Handler: ar.installRelease, Description: "安装Release", Persist: &persist},
 			{Method: "GET", RelativePath: "/clusters/:cluster/releases", Handler: ar.listReleases, Description: "Release列表(全部命名空间)", Persist: &persist},
 			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/releases", Handler: ar.listReleases, Description: "Release列表(指定命名空间)", Persist: &persist},
+
+			// installs（应用商店「已安装应用」专用：仅读 DB 记账，不访问集群）
+			{Method: "GET", RelativePath: "/clusters/:cluster/installs", Handler: ar.listInstallRecords, Description: "已安装应用列表(全部命名空间)", Persist: &persist},
+			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/installs", Handler: ar.listInstallRecords, Description: "已安装应用列表(指定命名空间)", Persist: &persist},
 			{Method: "GET", RelativePath: "/clusters/:cluster/namespaces/:namespace/releases/:name", Handler: ar.getRelease, Description: "Release详情", Persist: &persist},
 			{Method: "PUT", RelativePath: "/clusters/:cluster/namespaces/:namespace/releases/:name", Handler: ar.upgradeRelease, Description: "升级Release", Persist: &persist},
 			{Method: "DELETE", RelativePath: "/clusters/:cluster/namespaces/:namespace/releases/:name", Handler: ar.uninstallRelease, Description: "卸载Release", Persist: &persist},

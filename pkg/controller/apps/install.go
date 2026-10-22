@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	helmchartutil "helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/release"
@@ -183,6 +184,7 @@ func (c *controller) previewInstall(ctx context.Context, chart *model.Chart, cv 
 // (cluster, namespace, release_name) 三元组叠加 DB 记账（Managed=true + 归属/DeployStatus/
 // ChartName/Message）；集群内不存在对应记账的外部 release 也会列出，但 Managed=false（只读）。
 // 另外，DB 中 deploy_status 为 pending/installing 但集群尚无该 release 的记录也要列出（Managed=true）。
+// 集群列举失败（不可达/超时）时降级为仅返回 DB 记账，并逐条标记 Stale=true。
 func (c *controller) ListReleases(ctx context.Context, clusterName, namespace string) ([]types.InstallInfo, error) {
 	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil {
@@ -196,17 +198,8 @@ func (c *controller) ListReleases(ctx context.Context, clusterName, namespace st
 	}
 	resolvedName := resolved.Name
 
-	// 命名空间为空 → 全部命名空间哨兵；helm 侧据此跨命名空间列举。
-	helmNamespace := namespace
-	if helmNamespace == "" {
-		helmNamespace = helm.AllNamespacesToken
-	}
-	releases, err := c.helmSvc.Release(resolvedName, helmNamespace).List(ctx)
-	if err != nil {
-		return nil, apierrors.NewError(fmt.Errorf("failed to list releases: %w", err), http.StatusInternalServerError)
-	}
-
 	// DB 记账：按解析后的集群名过滤（指定命名空间时一并下推过滤）。
+	// 先查 DB：集群不可达/列举超时时用其回退，避免整张列表 500。
 	opts := []db.Options{db.WithInstallCluster(resolvedName)}
 	if namespace != "" {
 		opts = append(opts, db.WithNamespace(namespace))
@@ -214,6 +207,26 @@ func (c *controller) ListReleases(ctx context.Context, clusterName, namespace st
 	records, err := c.factory.Chart().ListInstalls(ctx, opts...)
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
+	}
+
+	// 命名空间为空 → 全部命名空间哨兵；helm 侧据此跨命名空间列举。
+	helmNamespace := namespace
+	if helmNamespace == "" {
+		helmNamespace = helm.AllNamespacesToken
+	}
+	helmCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	releases, err := c.helmSvc.Release(resolvedName, helmNamespace).List(helmCtx)
+	if err != nil {
+		// 集群不可达/超时：回退 DB 记账，逐条标记 Stale，前端据此提示状态可能过期。
+		klog.Errorf("failed to list releases for cluster %s, falling back to DB: %v", resolvedName, err)
+		items := make([]types.InstallInfo, 0, len(records))
+		for i := range records {
+			info := toInstallInfo(&records[i])
+			info.Stale = true
+			items = append(items, info)
+		}
+		return items, nil
 	}
 
 	// 记账按 (namespace, release_name) 建索引，供实时叠加与「仅记账」记录补充。
@@ -255,6 +268,42 @@ func (c *controller) ListReleases(ctx context.Context, clusterName, namespace st
 		if rec.DeployStatus == model.InstallDeployPending || rec.DeployStatus == model.InstallDeployInstalling {
 			items = append(items, toInstallInfo(rec))
 		}
+	}
+	return items, nil
+}
+
+// ListInstallRecords 列出平台记账的已安装应用，仅读 DB，不访问 k8s/helm。
+// namespace 为空表示「该集群下全部命名空间」。
+//
+// 应用商店「已安装应用」专用接口：数据来源仅为 appstore_installs 记账表
+// （cluster 必选过滤，namespace 可选下推），按 ListInstalls 的顺序（id DESC）
+// 逐条转换返回。鉴权只用于把请求集群名解析为实际可访问的集群（resolved.Name），
+// 确保只能看到有权限集群的记账。不设置 Stale（不存在集群回退语义）。
+func (c *controller) ListInstallRecords(ctx context.Context, clusterName, namespace string) ([]types.InstallInfo, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// 必须用鉴权返回的集群名（resolved.Name）过滤记账：受限用户传主集群名时解析到其授权子集群，
+	// 若仍用请求集群名，会看到主集群的记账，构成越权。
+	resolved, err := cluster.NewCluster(c.cc, c.factory).AuthorizeClusterAccessByName(ctx, user, clusterName)
+	if err != nil {
+		return nil, err
+	}
+	resolvedName := resolved.Name
+
+	opts := []db.Options{db.WithInstallCluster(resolvedName)}
+	if namespace != "" {
+		opts = append(opts, db.WithNamespace(namespace))
+	}
+	records, err := c.factory.Chart().ListInstalls(ctx, opts...)
+	if err != nil {
+		return nil, apierrors.ErrServerInternal
+	}
+
+	items := make([]types.InstallInfo, 0, len(records))
+	for i := range records {
+		items = append(items, toInstallInfo(&records[i]))
 	}
 	return items, nil
 }

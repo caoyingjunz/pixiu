@@ -8,6 +8,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/caoyingjunz/pixiulib v0.0.0-20220819163605-c3c10ec3ed3c
 	github.com/containerd/containerd v1.7.36
+	github.com/creack/pty v1.1.24
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-contrib/requestid v0.0.6
 	github.com/gin-gonic/gin v1.12.0
