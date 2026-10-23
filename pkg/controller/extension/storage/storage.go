@@ -40,6 +40,8 @@ import (
 )
 
 type Interface interface {
+	ResolveConfig(context.Context, int64) (*types.StorageSourceConfig, error)
+
 	// 连通性探测
 	PingAdhoc(context.Context, int64, *types.StorageSourceConfig) (*types.StoragePing, error)
 	Ping(context.Context, int64) (*types.StoragePing, error)
@@ -158,10 +160,6 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 	provider := providerFor(sc.Provider)
 	appID := provider.AppID(endpoint)
 	access, secret, token := sc.AccessKeyID, sc.SecretAccessKey, sc.SessionToken
-	// 兼容存量数据：地址与凭据曾统一落在通用 log 配置里
-	if access == "" && cfg.Log != nil {
-		access, secret = cfg.Log.UserName, cfg.Log.Password
-	}
 	if access == "" || secret == "" {
 		return nil, clientConfig{}, apierrors.NewError(fmt.Errorf("storage access key and secret key are required"), 400)
 	}
@@ -203,6 +201,33 @@ func (c *controller) clientFor(ctx context.Context, datasourceID int64) (adapter
 	}
 	c.clients.put(datasourceID, fingerprint, client)
 	return client, cc, nil
+}
+
+// ResolveConfig reads a storage datasource for server-side consumers. It keeps
+// datasource validation, authorization and legacy-field compatibility in the
+// object storage module, so callers do not need to duplicate that logic.
+func (c *controller) ResolveConfig(ctx context.Context, datasourceID int64) (*types.StorageSourceConfig, error) {
+	object, err := datasourcecontroller.New(c.cc, c.factory).Get(ctx, datasourceID, datasourcecontroller.WithCredentials())
+	if err != nil {
+		return nil, err
+	}
+	if object.Type != model.DatasourceTypeMiddleware || object.SubType != model.DatasourceSubTypeStorage {
+		return nil, apierrors.NewError(fmt.Errorf("datasource(%d) is not a storage datasource", datasourceID), http.StatusBadRequest)
+	}
+	if object.Config.Storage == nil {
+		return nil, apierrors.NewError(fmt.Errorf("datasource(%d) missing storage config", datasourceID), http.StatusBadRequest)
+	}
+	storage := *object.Config.Storage
+	if object.Config.Log != nil {
+		if storage.Endpoint == "" {
+			storage.Endpoint = object.Config.Log.URL
+		}
+		if storage.AccessKeyID == "" {
+			storage.AccessKeyID = object.Config.Log.UserName
+			storage.SecretAccessKey = object.Config.Log.Password
+		}
+	}
+	return &storage, nil
 }
 
 func (c *controller) Ping(ctx context.Context, datasourceID int64) (*types.StoragePing, error) {

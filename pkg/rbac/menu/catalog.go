@@ -69,6 +69,7 @@ func Catalog() []Definition {
 		{Code: "safeguard", Title: "运维管理", Path: "/safeguard", Kind: KindDirectory},
 		{Code: "safeguard.runner", ParentCode: "safeguard", Title: "Runner", Path: "/safeguard/runner", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/runners"}},
 		{Code: "safeguard.host", ParentCode: "safeguard", Title: "主机管理", Path: "/safeguard/host", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/nodes"}},
+		{Code: "backup", Title: "备份恢复", Path: "/backup", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/backup/backups"}},
 
 		// 应用商店为普通菜单（普通用户可见）；用自身 Chart 列表接口推导，避免仅有集群查看权就带出无关菜单
 		// 导入 / 删除仍在 controller 用 CheckRoot 守卫，普通用户仅可浏览与安装
