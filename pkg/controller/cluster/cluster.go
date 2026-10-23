@@ -1116,9 +1116,9 @@ func (c *cluster) GetKubeConfigByName(ctx context.Context, name string) (*restcl
 	return cs.Config, nil
 }
 
-// resolveClusterSetOptions 构造 ClusterSet 拨号选项。
+// ResolveClusterSetOptions 构造 ClusterSet 拨号选项。
 // 授权子集群的 Agent 隧道挂在主集群名下，须用主集群 Name + Tunnel 模式拨号，否则会 502。
-func (c *cluster) resolveClusterSetOptions(ctx context.Context, object *model.Cluster) client.ClusterSetOptions {
+func ResolveClusterSetOptions(ctx context.Context, factory db.ShareDaoFactory, object *model.Cluster) client.ClusterSetOptions {
 	opts := client.ClusterSetOptions{
 		ClusterName: object.Name,
 		ConnectMode: object.ConnectMode,
@@ -1126,7 +1126,7 @@ func (c *cluster) resolveClusterSetOptions(ctx context.Context, object *model.Cl
 	if object.PermissionId == 0 || object.OwnerReference == 0 {
 		return opts
 	}
-	master, err := c.factory.Cluster().Get(ctx, object.OwnerReference)
+	master, err := factory.Cluster().Get(ctx, object.OwnerReference)
 	if err != nil || master == nil {
 		return opts
 	}
@@ -1135,6 +1135,11 @@ func (c *cluster) resolveClusterSetOptions(ctx context.Context, object *model.Cl
 		opts.ClusterName = master.Name
 	}
 	return opts
+}
+
+// resolveClusterSetOptions 构造 ClusterSet 拨号选项（包级实现的薄封装）。
+func (c *cluster) resolveClusterSetOptions(ctx context.Context, object *model.Cluster) client.ClusterSetOptions {
+	return ResolveClusterSetOptions(ctx, c.factory, object)
 }
 
 // GetClusterSetByName 获取 ClusterSet， 缓存中不存在时，构建缓存再返回

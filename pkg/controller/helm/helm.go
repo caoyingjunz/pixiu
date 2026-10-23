@@ -77,14 +77,6 @@ func NewHelm(factory db.ShareDaoFactory) Interface {
 }
 
 func (h *Helm) MustGetClusterSetByName(ctx context.Context, name string) client.ClusterSet {
-	cs, ok := cluster.ClusterIndexer.Get(name)
-	if ok {
-		klog.Infof("Get %s clusterSet from indexer", name)
-		return cs
-	}
-
-	klog.Infof("building clusterSet for %s", name)
-	// 缓存中不存在，则新建并重写回缓存
 	object, err := h.factory.Cluster().GetBy(ctx, db.WithName(name))
 	if err != nil {
 		return client.ClusterSet{}
@@ -92,8 +84,23 @@ func (h *Helm) MustGetClusterSetByName(ctx context.Context, name string) client.
 	if object == nil {
 		return client.ClusterSet{}
 	}
-	newClusterSet, err := client.NewClusterSet(object.KubeConfig)
+
+	// 与 cluster.GetClusterSetByName 对齐：授权子集群跳过缓存强制重建，
+	// 避免命中曾以错误 ConnectMode 构建的历史缓存。
+	if object.PermissionId == 0 {
+		if cs, ok := cluster.ClusterIndexer.Get(name); ok {
+			klog.Infof("Get %s clusterSet from indexer", name)
+			return cs
+		}
+	}
+
+	klog.Infof("building clusterSet for %s", name)
+	// 缓存未命中（或授权子集群），按集群 connect_mode / 主集群关系构造拨号选项，
+	// 隧道集群走 remotedialer 反向隧道，避免直连 apiserver 失败。
+	opts := cluster.ResolveClusterSetOptions(ctx, h.factory, object)
+	newClusterSet, err := client.NewClusterSetWithOptions(object.KubeConfig, opts)
 	if err != nil {
+		klog.Errorf("build clusterSet for %s failed: %v", name, err)
 		return client.ClusterSet{}
 	}
 
