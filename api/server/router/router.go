@@ -22,6 +22,7 @@ import (
 
 	alertrouter "github.com/caoyingjunz/pixiu/api/server/router/alert"
 	assistant "github.com/caoyingjunz/pixiu/api/server/router/assistant"
+	backup "github.com/caoyingjunz/pixiu/api/server/router/backup"
 	datasource "github.com/caoyingjunz/pixiu/api/server/router/datasource"
 	"github.com/gin-gonic/gin"
 
@@ -77,6 +78,7 @@ func InstallRouters(o *options.Options) {
 		emailrouter.NewRouter,
 		tunnel.NewRouter,
 		extensionrouter.NewRouter,
+		backup.NewRouter,
 	}
 
 	install(o, fs...)
