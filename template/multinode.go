@@ -79,14 +79,10 @@ containerd-node
 [baremetal:children]
 kube-master
 kube-node
-storage
 
 [kubernetes:children]
 kube-master
 kube-node
-
-[nfs-server:children]
-storage
 
 [haproxy:children]
 kube-master

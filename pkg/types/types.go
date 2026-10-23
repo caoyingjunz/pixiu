@@ -1072,13 +1072,8 @@ type RuntimeSpec struct {
 }
 
 type ComponentSpec struct {
-	Helm         *Helm         `json:"helm,omitempty"` // 忽略，则使用默认值
-	Prometheus   *Prometheus   `json:"prometheus,omitempty"`
-	Grafana      *Grafana      `json:"grafana,omitempty"`
 	Haproxy      *Haproxy      `json:"haproxy,omitempty"`
 	MetricServer *MetricServer `json:"metric_server,omitempty"`
-	IngressNginx *IngressNginx `json:"ingress_nginx,omitempty"`
-	NFS          *NFS          `json:"nfs,omitempty"`
 
 	CustomRepo        *CustomRepo        `json:"custom_repo,omitempty"`
 	CustomConfigs     []CustomConfigItem `json:"custom_configs,omitempty"`     // 用户自定义 globals 键值对
@@ -1089,11 +1084,6 @@ type ComponentSpec struct {
 type CustomConfigItem struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
-}
-
-type Helm struct {
-	Enable      bool   `json:"enable"`
-	HelmRelease string `json:"helm_release"`
 }
 
 type CustomRepo struct {
@@ -1108,30 +1098,8 @@ type CertificatePeriod struct {
 	CaCertificateValidityPeriod string `json:"ca_certificate_validity_period"` // 根证书有效期 默认 10年
 }
 
-type NFS struct {
-	Enable bool `json:"enable"`
-
-	StorageClassName string `json:"storage_class_name"` // 指定 nfs 存储名称
-	StorageDataDir   string `json:"storage_data_dir"`   // 指定 nfs server 存储地址
-}
-
 type MetricServer struct {
 	Enable bool `json:"enable"`
-}
-
-type IngressNginx struct {
-	Enable bool `json:"enable"`
-}
-
-type Prometheus struct {
-	EnablePrometheus string `json:"enable_prometheus"`
-	Enable           bool   `json:"enable"`
-}
-
-type Grafana struct {
-	Enable               bool   `json:"enable"`
-	GrafanaAdminUser     string `json:"grafana_admin_user"`
-	GrafanaAdminPassword string `json:"grafana_admin_password"`
 }
 
 // Haproxy Options
