@@ -64,12 +64,6 @@ enable_metrics_server: "no"
 enable_metrics_scraper: "no"
 {{- end }}
 
-{{- if and .Component.IngressNginx .Component.IngressNginx.Enable }}
-enable_ingress_nginx: "yes"
-{{- else }}
-enable_ingress_nginx: "no"
-{{- end }}
-
 {{- if ne .Runtime.DataDir "" }}
 runtime_data_dir: "{{ .Runtime.DataDir }}"
 {{- end }}
@@ -82,20 +76,6 @@ set_hostname: "no"
 
 {{- if not .Kubernetes.ChangeSelinux }}
 change_selinux: "no"
-{{- end }}
-
-{{- if and .Component.NFS .Component.NFS.Enable }}
-enable_nfs: "yes"
-
-{{- if ne .Component.NFS.StorageClassName "" }}
-nfs_storage_class: "{{ .Component.NFS.StorageClassName }}"
-{{- end }}
-{{- if ne .Component.NFS.StorageDataDir "" }}
-nfs_share: "{{ .Component.NFS.StorageDataDir }}"
-{{- end }}
-
-{{- else }}
-enable_nfs: "no"
 {{- end }}
 
 {{- if and .Component.CustomRepo .Component.CustomRepo.Enable }}
