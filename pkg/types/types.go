@@ -1072,8 +1072,6 @@ type RuntimeSpec struct {
 }
 
 type ComponentSpec struct {
-	Helm         *Helm         `json:"helm,omitempty"` // 忽略，则使用默认值
-	Prometheus   *Prometheus   `json:"prometheus,omitempty"`
 	Haproxy      *Haproxy      `json:"haproxy,omitempty"`
 	MetricServer *MetricServer `json:"metric_server,omitempty"`
 
@@ -1086,11 +1084,6 @@ type ComponentSpec struct {
 type CustomConfigItem struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
-}
-
-type Helm struct {
-	Enable      bool   `json:"enable"`
-	HelmRelease string `json:"helm_release"`
 }
 
 type CustomRepo struct {
@@ -1107,11 +1100,6 @@ type CertificatePeriod struct {
 
 type MetricServer struct {
 	Enable bool `json:"enable"`
-}
-
-type Prometheus struct {
-	EnablePrometheus string `json:"enable_prometheus"`
-	Enable           bool   `json:"enable"`
 }
 
 // Haproxy Options
