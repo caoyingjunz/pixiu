@@ -70,7 +70,7 @@ func (f *shareDaoFactory) RegistrationCode() RegistrationCodeInterface {
 	return newRegistrationCode(f.db)
 }
 func (f *shareDaoFactory) CronHpa() CronHpaInterface { return newCronHpa(f.db) }
-func (f *shareDaoFactory) Chart() ChartInterface      { return newChart(f.db) }
+func (f *shareDaoFactory) Chart() ChartInterface     { return newChart(f.db) }
 func (f *shareDaoFactory) Backup() BackupInterface   { return newBackup(f.db) }
 
 func (f *shareDaoFactory) Transaction(ctx context.Context, fn func(ShareDaoFactory) error) error {
