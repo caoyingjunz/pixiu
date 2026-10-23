@@ -198,6 +198,11 @@ func (c *controller) ListReleases(ctx context.Context, clusterName, namespace st
 	}
 	resolvedName := resolved.Name
 
+	// 前端「全部命名空间」以哨兵值传入，归一为空串，避免被当作真实命名空间过滤。
+	if namespace == helm.AllNamespacesToken {
+		namespace = ""
+	}
+
 	// DB 记账：按解析后的集群名过滤（指定命名空间时一并下推过滤）。
 	// 先查 DB：集群不可达/列举超时时用其回退，避免整张列表 500。
 	opts := []db.Options{db.WithInstallCluster(resolvedName)}
@@ -291,6 +296,11 @@ func (c *controller) ListInstallRecords(ctx context.Context, clusterName, namesp
 		return nil, err
 	}
 	resolvedName := resolved.Name
+
+	// 前端「全部命名空间」以哨兵值传入，归一为空串，避免被当作真实命名空间过滤。
+	if namespace == helm.AllNamespacesToken {
+		namespace = ""
+	}
 
 	opts := []db.Options{db.WithInstallCluster(resolvedName)}
 	if namespace != "" {
