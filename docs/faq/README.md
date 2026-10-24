@@ -1,6 +1,6 @@
 # 常见问题汇总（FAQ）
 
-> 最后更新：2026-10-19　|　维护：平台组
+> 最后更新：2026-10-25　|　维护：平台组
 
 每个问题对应一个独立 Markdown 文档，本文件仅作索引。
 
@@ -13,6 +13,7 @@
 | FAQ-003 | 监控页无数据（未关联 Prometheus） | 监控与数据源 | [monitor-no-data.md](./monitor-no-data.md) |
 | FAQ-004 | runner 任务容器日志查看（nerdctl logs 报错） | 部署与运行时 | [runner-container-logs.md](./runner-container-logs.md) |
 | FAQ-005 | 移除 k8s 集群中的 Worker 节点 | 容器服务 / 节点管理 | [remove-worker-node.md](./remove-worker-node.md) |
+| FAQ-006 | Velero 应用安装失败（BSL/VSL provider 为空） | 应用商店 / Velero | [velero-provider-required.md](./velero-provider-required.md) |
 
 ## 新增 FAQ 规范
 
