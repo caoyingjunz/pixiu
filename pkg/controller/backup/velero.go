@@ -189,18 +189,10 @@ func storageSecretName(name string) string {
 	return strings.Trim(name, "-") + "-credentials"
 }
 
-func providerName(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "oss":
-		return "aws"
-	case "cos":
-		return "aws"
-	case "obs":
-		return "aws"
-	default:
-		return "aws"
-	}
-}
+// providerName Velero 的 BackupStorageLocation 统一使用 S3 兼容协议访问对象存储
+// （AWS S3、MinIO、阿里云 OSS、腾讯云 COS、华为云 OBS 等均兼容），provider 固定为 aws；
+// 各存储的差异（endpoint、path-style 等）由 StorageConfig 单独下发。
+func providerName(string) string { return "aws" }
 
 func (c *Client) CreateBackup(ctx context.Context, namespace string, spec BackupSpec) (*unstructured.Unstructured, error) {
 	object := &unstructured.Unstructured{Object: map[string]interface{}{
