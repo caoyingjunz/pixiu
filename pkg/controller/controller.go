@@ -25,6 +25,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/assistant"
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/auth"
+	"github.com/caoyingjunz/pixiu/pkg/controller/backup"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
 	"github.com/caoyingjunz/pixiu/pkg/controller/distribution"
@@ -58,6 +59,7 @@ type PixiuInterface interface {
 	alert.Getter
 	email.Getter
 	auth.Getter
+	backup.Getter
 	extensioncontroller.Getter
 	apps.Getter
 }
@@ -90,6 +92,9 @@ func (p *pixiu) Email() email.Interface {
 }
 func (p *pixiu) Auth() auth.Interface {
 	return auth.New(p.cc, p.factory)
+}
+func (p *pixiu) Backup() backup.Interface {
+	return backup.New(p.cc, p.factory, p.Cluster(), p.Extension().ObjectStorage())
 }
 func (p *pixiu) Distribution() distribution.Interface {
 	return distribution.NewDistribution(p.cc, p.factory)
