@@ -68,6 +68,10 @@ readonly / Pixiu123!
 ### 离线安装
 - [离线安装](deploy/offline/README.md)
 
+## 安装应用
+
+- [应用商店使用指南](docs/appstore/README.md)
+
 ## 增强代理
 
 - [DeployAgent](deploy/deploy-agent/README.md)：边缘节点在网络隔离的情况下通过驱动完成 Kubernetes 集群部署。
