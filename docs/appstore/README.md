@@ -19,20 +19,6 @@
 
 官方 Chart 仓库地址：https://github.com/pixiu-io/pixiu-chart-repo ，所有打包产物位于 `charts/` 目录。
 
-当前包含的 Chart：
-
-| Chart 名 | 版本 | 文件 |
-|---|---|---|
-| kube-prometheus-stack | 92.11.0 | charts/kube-prometheus-stack-92.11.0.tgz |
-| velero | 12.2.1 | charts/velero-12.2.1.tgz |
-| gpu-operator | v26.7.2 | charts/gpu-operator-v26.7.2.tgz |
-| ingress-nginx | 4.15.1 | charts/ingress-nginx-4.15.1.tgz |
-| minio | 5.4.0 | charts/minio-5.4.0.tgz |
-| loki | 7.5.0 | charts/loki-7.5.0.tgz |
-| promtail | 6.17.1 | charts/promtail-6.17.1.tgz |
-| cert-manager | v1.21.3 | charts/cert-manager-v1.21.3.tgz |
-| longhorn | 1.13.0 | charts/longhorn-1.13.0.tgz |
-
 获取方式二选一：
 
 - 浏览器打开仓库 `charts` 目录，点击对应的 `.tgz` 下载。
