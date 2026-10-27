@@ -639,6 +639,12 @@ func (c *controller) History(ctx context.Context, clusterName, namespace, name s
 			item.Chart = fmt.Sprintf("%s-%s", rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
 			item.AppVersion = rel.Chart.Metadata.AppVersion
 		}
+		// 该 revision 实际下发的用户 values（helm release.Config）；空配置不返回文本
+		if len(rel.Config) > 0 {
+			if raw, err := json.Marshal(rel.Config); err == nil {
+				item.Values = string(raw)
+			}
+		}
 		items = append(items, item)
 	}
 	return items, nil

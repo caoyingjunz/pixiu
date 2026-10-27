@@ -172,4 +172,7 @@ type InstallHistoryItem struct {
 	AppVersion  string `json:"app_version"`
 	Description string `json:"description"`
 	Updated     string `json:"updated"`
+	// Values 该 revision 实际下发的用户 values（JSON 文本，来自 helm release.Config）；
+	// 空串表示该版本未传自定义配置（使用 Chart 默认值）。
+	Values string `json:"values"`
 }
