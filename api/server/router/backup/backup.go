@@ -22,8 +22,7 @@ func (r *backupRouter) initRoutes(engine *gin.Engine) {
 		Name:    "集群备份",
 		BaseURL: backupURL,
 		Entries: []apiregistry.RouteEntry{
-			{Method: "POST", RelativePath: "/storage/test", Handler: r.testStorage, Description: "测试对象存储连接"},
-			{Method: "GET", RelativePath: "/clusters/:clusterId/velero-status", Handler: r.getVeleroStatus, Description: "检测集群 Velero 安装状态"},
+			{Method: "GET", RelativePath: "/clusters/:clusterId/velero-status", Handler: r.getVeleroStatus, Description: "获取 Velero 安装状态"},
 			{Method: "GET", RelativePath: "/plans", Handler: r.listPlans, Description: "备份计划列表"},
 			{Method: "GET", RelativePath: "/plans/:planId", Handler: r.getPlan, Description: "备份计划详情"},
 			{Method: "POST", RelativePath: "/plans", Handler: r.createPlan, Description: "创建备份计划"},

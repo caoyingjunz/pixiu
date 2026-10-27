@@ -14,21 +14,6 @@ type idMeta struct {
 	ClusterID int64 `uri:"clusterId"`
 }
 
-func (r *backupRouter) testStorage(c *gin.Context) {
-	result := httputils.NewResponse()
-	var req types.TestBackupStorageRequest
-	err := c.ShouldBindJSON(&req)
-	if err == nil {
-		err = r.c.Backup().TestStorage(c, &req)
-	}
-	if err != nil {
-		httputils.SetFailed(c, result, err)
-		return
-	}
-	result.Result = map[string]string{"message": "连接成功"}
-	httputils.SetSuccess(c, result)
-}
-
 func (r *backupRouter) getVeleroStatus(c *gin.Context) {
 	result := httputils.NewResponse()
 	var meta idMeta

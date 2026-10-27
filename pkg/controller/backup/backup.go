@@ -20,11 +20,8 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-const defaultVeleroNamespace = "velero"
-
 type Getter interface{ Backup() Interface }
 type Interface interface {
-	TestStorage(context.Context, *types.TestBackupStorageRequest) error
 	GetVeleroStatus(context.Context, int64) (*types.VeleroStatus, error)
 	CreatePlan(context.Context, *types.CreateBackupPlanRequest) (*types.BackupPlan, error)
 	UpdatePlan(context.Context, int64, *types.UpdateBackupPlanRequest) error
@@ -51,18 +48,6 @@ type controller struct {
 
 func New(cc config.Config, factory db.ShareDaoFactory, clusters clustercontroller.Interface, storage storagecontroller.Interface) Interface {
 	return &controller{cc: cc, factory: factory, clusters: clusters, storage: storage}
-}
-
-func (c *controller) TestStorage(ctx context.Context, req *types.TestBackupStorageRequest) error {
-	if err := c.ensureClusterAccess(ctx, req.ClusterId); err != nil {
-		return err
-	}
-	if req.StorageDatasourceId > 0 {
-		_, err := c.storage.Ping(ctx, req.StorageDatasourceId)
-		return err
-	}
-	_, err := c.storage.PingAdhoc(ctx, 0, storageSourceConfig(req.StorageConfig))
-	return err
 }
 
 func (c *controller) GetVeleroStatus(ctx context.Context, clusterID int64) (*types.VeleroStatus, error) {
@@ -207,9 +192,6 @@ func (c *controller) UpdatePlan(ctx context.Context, id int64, req *types.Update
 		raw, _ := json.Marshal(config)
 		updates["storage_config"] = string(raw)
 	}
-	if req.VeleroNamespace != nil {
-		updates["velero_namespace"] = namespaceOrDefault(*req.VeleroNamespace)
-	}
 	if req.Schedule != nil {
 		updates["schedule"] = *req.Schedule
 	}
@@ -256,6 +238,17 @@ func (c *controller) UpdatePlan(ctx context.Context, id int64, req *types.Update
 	}
 	client, err := c.velero(ctx, updated.SourceClusterId)
 	if err != nil {
+		return err
+	}
+	if updated.SourceClusterId != plan.SourceClusterId {
+		namespace, resolveErr := resolveVeleroNamespace(ctx, client, "")
+		if resolveErr != nil {
+			return fmt.Errorf("resolve Velero namespace for cluster %d: %w", updated.SourceClusterId, resolveErr)
+		}
+		updates["velero_namespace"] = namespace
+		updated.VeleroNamespace = namespace
+	}
+	if _, err = resolveVeleroNamespace(ctx, client, updated.VeleroNamespace); err != nil {
 		return err
 	}
 	if strings.TrimSpace(updated.StorageLocation) != "" {
@@ -358,6 +351,9 @@ func (c *controller) RunPlan(ctx context.Context, id int64, req *types.RunBackup
 		return nil, err
 	}
 	client, err := c.velero(ctx, plan.SourceClusterId)
+	if err == nil {
+		_, err = resolveVeleroNamespace(ctx, client, plan.VeleroNamespace)
+	}
 	if err == nil {
 		config, configErr := c.planStorageConfig(ctx, plan)
 		if configErr != nil {
@@ -633,12 +629,6 @@ func (c *controller) planSpec(plan *model.BackupPlan, name ...string) BackupSpec
 	return BackupSpec{Name: backupName, StorageLocation: plan.StorageLocation, Namespaces: namespaces, IncludedResources: includedResources, LabelSelector: plan.LabelSelector, IncludeClusterResources: plan.IncludeClusterResources, SnapshotVolumes: plan.SnapshotVolumes, TTL: fmt.Sprintf("%dh", plan.RetentionDays*24)}
 }
 func planExternalName(id int64) string { return fmt.Sprintf("pixiu-plan-%d", id) }
-func namespaceOrDefault(namespace string) string {
-	if strings.TrimSpace(namespace) == "" {
-		return defaultVeleroNamespace
-	}
-	return strings.TrimSpace(namespace)
-}
 
 func resolveVeleroNamespace(ctx context.Context, client *Client, requested string) (string, error) {
 	namespaces, err := client.AvailableNamespaces(ctx)
@@ -844,9 +834,6 @@ func storageConfigToEngine(config types.BackupStorageConfig) StorageConfig {
 	return StorageConfig{Provider: config.Provider, Endpoint: config.Endpoint, Bucket: config.Bucket, Prefix: config.Prefix, Region: config.Region, AccessKey: config.AccessKey, SecretKey: config.SecretKey, SessionToken: config.SessionToken, UsePathStyle: config.UsePathStyle, InsecureSkipTLSVerify: config.InsecureSkipTLSVerify}
 }
 
-func storageSourceConfig(config types.BackupStorageConfig) *types.StorageSourceConfig {
-	return &types.StorageSourceConfig{Provider: config.Provider, Endpoint: config.Endpoint, Region: config.Region, Bucket: config.Bucket, AccessKeyID: config.AccessKey, SecretAccessKey: config.SecretKey, SessionToken: config.SessionToken, AddressingStyle: map[bool]string{true: "path", false: "virtual"}[config.UsePathStyle]}
-}
 func storageConfigFromJSON(raw string) StorageConfig {
 	var config types.BackupStorageConfig
 	_ = json.Unmarshal([]byte(raw), &config)

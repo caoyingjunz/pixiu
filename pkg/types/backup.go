@@ -127,7 +127,6 @@ type UpdateBackupPlanRequest struct {
 	StorageBucket               *string              `json:"storage_bucket"`
 	StorageLocation             *string              `json:"storage_location"`
 	StorageConfig               *BackupStorageConfig `json:"storage_config"`
-	VeleroNamespace             *string              `json:"velero_namespace"`
 	Schedule                    *string              `json:"schedule"`
 	RetentionDays               *int                 `json:"retention_days"`
 	Namespaces                  *[]string            `json:"namespaces"`
@@ -162,12 +161,4 @@ type CreateRestoreRequest struct {
 
 type UpdateRestoreRequest struct {
 	Name string `json:"name" binding:"required,max=50"`
-}
-
-type TestBackupStorageRequest struct {
-	ClusterId           int64               `json:"cluster_id" binding:"required"`
-	StorageDatasourceId int64               `json:"storage_datasource_id"`
-	VeleroNamespace     string              `json:"velero_namespace"`
-	StorageLocation     string              `json:"storage_location"`
-	StorageConfig       BackupStorageConfig `json:"storage_config"`
 }
