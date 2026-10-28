@@ -707,6 +707,7 @@ func (c *controller) syncRestore(ctx context.Context, object *model.RestoreTask)
 		object.Status, object.Warnings, object.ErrorMessage = status, warnings, message
 	}
 }
+
 // resourceErrorDetail 汇总 Velero 资源状态里的失败信息：
 // failureReason（Velero 1.10+）、validationErrors（如 BSL 不可用）、errors 字符串或整型计数。
 func resourceErrorDetail(resource *unstructured.Unstructured) string {
