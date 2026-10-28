@@ -160,7 +160,7 @@ func ParseInClusterEndpoint(rawURL string) (*InClusterEndpoint, error) {
 	port := 0
 	if parsed.Port() != "" {
 		port, err = strconv.Atoi(parsed.Port())
-		if err != nil || port <= 0 {
+		if err != nil || port <= 0 || port > 65535 {
 			return nil, fmt.Errorf("invalid port in datasource url")
 		}
 	} else if scheme == "https" {
