@@ -660,7 +660,8 @@ func normalizeExistingResourceMode(mode string) string {
 }
 
 func (c *controller) syncBackup(ctx context.Context, object *model.Backup) {
-	if object.Status != model.BackupStatusNew && object.Status != model.BackupStatusInProgress {
+	needsErrorDetail := object.Status == model.BackupStatusFailed && strings.TrimSpace(object.ErrorMessage) == ""
+	if object.Status != model.BackupStatusNew && object.Status != model.BackupStatusInProgress && !needsErrorDetail {
 		return
 	}
 	client, err := c.velero(ctx, object.SourceClusterId)
@@ -673,7 +674,7 @@ func (c *controller) syncBackup(ctx context.Context, object *model.Backup) {
 	}
 	status, warnings, message := backupStatus(resource)
 	updates := map[string]interface{}{"status": status, "warnings": warnings, "error_message": message}
-	if status == model.BackupStatusCompleted || status == model.BackupStatusFailed {
+	if (status == model.BackupStatusCompleted || status == model.BackupStatusFailed) && object.CompletedAt == nil {
 		now := time.Now()
 		updates["completed_at"] = now
 		object.CompletedAt = &now
@@ -683,7 +684,8 @@ func (c *controller) syncBackup(ctx context.Context, object *model.Backup) {
 	}
 }
 func (c *controller) syncRestore(ctx context.Context, object *model.RestoreTask) {
-	if object.Status != model.RestoreStatusNew && object.Status != model.RestoreStatusInProgress {
+	needsErrorDetail := object.Status == model.RestoreStatusFailed && strings.TrimSpace(object.ErrorMessage) == ""
+	if object.Status != model.RestoreStatusNew && object.Status != model.RestoreStatusInProgress && !needsErrorDetail {
 		return
 	}
 	client, err := c.velero(ctx, object.TargetClusterId)
@@ -696,7 +698,7 @@ func (c *controller) syncRestore(ctx context.Context, object *model.RestoreTask)
 	}
 	status, warnings, message := restoreStatus(resource)
 	updates := map[string]interface{}{"status": status, "warnings": warnings, "error_message": message}
-	if status == model.RestoreStatusCompleted || status == model.RestoreStatusFailed {
+	if (status == model.RestoreStatusCompleted || status == model.RestoreStatusFailed) && object.CompletedAt == nil {
 		now := time.Now()
 		updates["completed_at"] = now
 		object.CompletedAt = &now
@@ -705,10 +707,34 @@ func (c *controller) syncRestore(ctx context.Context, object *model.RestoreTask)
 		object.Status, object.Warnings, object.ErrorMessage = status, warnings, message
 	}
 }
+
+// resourceErrorDetail 汇总 Velero 资源状态里的失败信息：
+// failureReason（Velero 1.10+）、validationErrors（如 BSL 不可用）、errors 字符串或整型计数。
+func resourceErrorDetail(resource *unstructured.Unstructured) string {
+	parts := make([]string, 0, 4)
+	if reason, _, _ := unstructured.NestedString(resource.Object, "status", "failureReason"); strings.TrimSpace(reason) != "" {
+		parts = append(parts, strings.TrimSpace(reason))
+	}
+	if list, _, _ := unstructured.NestedStringSlice(resource.Object, "status", "validationErrors"); len(list) > 0 {
+		for _, item := range list {
+			if value := strings.TrimSpace(item); value != "" {
+				parts = append(parts, value)
+			}
+		}
+	}
+	if message, _, _ := unstructured.NestedString(resource.Object, "status", "errors"); strings.TrimSpace(message) != "" {
+		parts = append(parts, strings.TrimSpace(message))
+	}
+	if count, ok, _ := unstructured.NestedInt64(resource.Object, "status", "errors"); ok && count > 0 {
+		parts = append(parts, fmt.Sprintf("共 %d 个错误，详见备份日志", count))
+	}
+	return strings.Join(parts, "\n")
+}
+
 func backupStatus(resource *unstructured.Unstructured) (model.BackupStatus, string, string) {
 	phase, _, _ := unstructured.NestedString(resource.Object, "status", "phase")
 	warnings, _, _ := unstructured.NestedString(resource.Object, "status", "warnings")
-	message, _, _ := unstructured.NestedString(resource.Object, "status", "errors")
+	message := resourceErrorDetail(resource)
 	switch phase {
 	case "Completed":
 		return model.BackupStatusCompleted, warnings, message
@@ -723,7 +749,7 @@ func backupStatus(resource *unstructured.Unstructured) (model.BackupStatus, stri
 func restoreStatus(resource *unstructured.Unstructured) (model.RestoreStatus, string, string) {
 	phase, _, _ := unstructured.NestedString(resource.Object, "status", "phase")
 	warnings, _, _ := unstructured.NestedString(resource.Object, "status", "warnings")
-	message, _, _ := unstructured.NestedString(resource.Object, "status", "errors")
+	message := resourceErrorDetail(resource)
 	switch phase {
 	case "Completed":
 		return model.RestoreStatusCompleted, warnings, message
