@@ -20,12 +20,29 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"path"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/proxy"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
+
+// applyClusterHost 回填上游地址，并保留 kubeconfig server 的路径前缀。
+// client-go 将 server 中的非空 path 作为所有 API 请求的统一前缀；
+// 代理转发需保持同一语义，否则经网关暴露的集群（如 vcluster、Rancher）会 404。
+func applyClusterHost(target, kubeURL *url.URL) {
+	target.Host = kubeURL.Host
+	target.Scheme = kubeURL.Scheme
+
+	prefix := path.Clean("/" + kubeURL.Path)
+	if prefix == "/" {
+		return
+	}
+	target.Path = prefix + "/" + strings.TrimPrefix(target.Path, "/")
+	target.RawPath = ""
+}
 
 // forwardToCluster 构建传输层并转发请求到目标集群。
 // target 的 Host/Scheme 会从集群配置中回填。
@@ -44,8 +61,7 @@ func (p *proxyRouter) forwardToCluster(c *gin.Context, clusterName string, targe
 	if err != nil {
 		return fmt.Errorf("invalid cluster host: %w", err)
 	}
-	target.Host = kubeURL.Host
-	target.Scheme = kubeURL.Scheme
+	applyClusterHost(target, kubeURL)
 
 	c.Request.Header.Del("Authorization")
 	c.Request.Header.Del("Cookie")
