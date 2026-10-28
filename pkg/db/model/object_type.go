@@ -24,6 +24,8 @@ const (
 	ObjectCluster        ObjectType = "clusters"
 	ObjectTenant         ObjectType = "tenants"
 	ObjectPlan           ObjectType = "plans"
+	ObjectApp            ObjectType = "apps"
+	ObjectDatasource     ObjectType = "datasources"
 	ObjectAuth           ObjectType = "auth"
 	ObjectContainerProxy ObjectType = "container_proxy"
 	ObjectExternalProxy  ObjectType = "external_proxy"
@@ -39,6 +41,8 @@ var ObjectTypeMap = map[ObjectType]struct{}{
 	ObjectCluster:        {},
 	ObjectTenant:         {},
 	ObjectPlan:           {},
+	ObjectApp:            {},
+	ObjectDatasource:     {},
 	ObjectAuth:           {},
 	ObjectContainerProxy: {},
 	ObjectExternalProxy:  {},

@@ -2,17 +2,26 @@ package backup
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+)
+
+const (
+	storageLocationReadyTimeout      = 30 * time.Second
+	storageLocationReadyPollInterval = 500 * time.Millisecond
 )
 
 var (
@@ -120,20 +129,32 @@ func (c *Client) EnsureConfiguredStorageLocation(ctx context.Context, namespace,
 	if strings.TrimSpace(config.Bucket) == "" || strings.TrimSpace(config.AccessKey) == "" || strings.TrimSpace(config.SecretKey) == "" {
 		return fmt.Errorf("object storage bucket and credentials are required")
 	}
+	credentials := credentialsFile(config)
 	secretName := storageSecretName(name)
-	secretData := map[string]interface{}{"metadata": map[string]interface{}{"name": secretName}, "type": "Opaque", "stringData": map[string]interface{}{"cloud": credentialsFile(config)}}
+	secretData := map[string]interface{}{"metadata": map[string]interface{}{"name": secretName}, "type": "Opaque", "stringData": map[string]interface{}{"cloud": credentials}}
+
+	// Velero 在 BSL 更新后会重新校验对象存储，期间 status.phase 短暂变为 Unknown，
+	// 此时创建 Backup 会被判为 Unavailable 而失败。因此只在内容真正变化时才更新，
+	// 并在更新/创建后等待 BSL 回到 Available。
+	secretChanged := false
 	secret := c.dynamic.Resource(secretGVR).Namespace(namespace)
 	if existing, err := secret.Get(ctx, secretName, metav1.GetOptions{}); err == nil {
-		secretObject := &unstructured.Unstructured{Object: secretData}
-		secretObject.SetResourceVersion(existing.GetResourceVersion())
-		if _, err = secret.Update(ctx, secretObject, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("update Velero storage credential: %w", err)
+		if secretCredential(existing) != credentials {
+			secretChanged = true
+			secretObject := &unstructured.Unstructured{Object: secretData}
+			secretObject.SetResourceVersion(existing.GetResourceVersion())
+			if _, err = secret.Update(ctx, secretObject, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("update Velero storage credential: %w", err)
+			}
 		}
 	} else if !apierrors.IsNotFound(err) {
 		return fmt.Errorf("get Velero storage credential: %w", err)
 	} else if _, err = secret.Create(ctx, &unstructured.Unstructured{Object: secretData}, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("create Velero storage credential: %w", err)
+	} else {
+		secretChanged = true
 	}
+
 	bsl := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "velero.io/v1", "kind": "BackupStorageLocation",
 		"metadata": map[string]interface{}{"name": name},
@@ -147,27 +168,96 @@ func (c *Client) EnsureConfiguredStorageLocation(ctx context.Context, namespace,
 	locations := c.dynamic.Resource(storageLocationGVR).Namespace(namespace)
 	existing, err := locations.Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
-		bsl.SetResourceVersion(existing.GetResourceVersion())
-		_, err = locations.Update(ctx, bsl, metav1.UpdateOptions{})
+		// 无变化时不更新，避免无谓触发 Velero 重新校验；凭据变化时仍需更新 BSL 以触发校验。
+		if !storageLocationMatches(existing, bsl) || secretChanged {
+			bsl.SetResourceVersion(existing.GetResourceVersion())
+			if _, err = locations.Update(ctx, bsl, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("configure Velero storage location: %w", err)
+			}
+		}
 	} else if apierrors.IsNotFound(err) {
-		_, err = locations.Create(ctx, bsl, metav1.CreateOptions{})
+		if _, err = locations.Create(ctx, bsl, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("configure Velero storage location: %w", err)
+		}
 	} else {
 		return fmt.Errorf("get Velero storage location: %w", err)
 	}
-	if err != nil {
-		return fmt.Errorf("configure Velero storage location: %w", err)
-	}
-	if current, getErr := locations.Get(ctx, name, metav1.GetOptions{}); getErr == nil {
-		phase, _, _ := unstructured.NestedString(current.Object, "status", "phase")
-		message, _, _ := unstructured.NestedString(current.Object, "status", "message")
-		if strings.EqualFold(phase, "Unavailable") {
-			if message == "" {
-				message = "Velero reports that the object storage is unavailable"
+	// 无论是否更新，都要确认 BSL 已就绪：上一次可能遗留 Unknown/Unavailable。
+	return waitStorageLocationAvailable(ctx, locations, name)
+}
+
+// waitStorageLocationAvailable 轮询 BSL 状态，直到 Available 或超时；
+// Unavailable 立即返回携带 Velero message 的错误。
+func waitStorageLocationAvailable(ctx context.Context, locations dynamic.ResourceInterface, name string) error {
+	var lastErr error
+	err := wait.PollUntilContextTimeout(ctx, storageLocationReadyPollInterval, storageLocationReadyTimeout, true,
+		func(ctx context.Context) (bool, error) {
+			current, err := locations.Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				lastErr = err
+				return false, nil
 			}
-			return fmt.Errorf("object storage connection failed: %s", message)
+			phase, _, _ := unstructured.NestedString(current.Object, "status", "phase")
+			switch strings.ToLower(strings.TrimSpace(phase)) {
+			case "available":
+				return true, nil
+			case "unavailable":
+				message, _, _ := unstructured.NestedString(current.Object, "status", "message")
+				if strings.TrimSpace(message) == "" {
+					message = "Velero reports that the object storage is unavailable"
+				}
+				return false, fmt.Errorf("object storage connection failed: %s", message)
+			default:
+				return false, nil
+			}
+		})
+	if err == nil {
+		return nil
+	}
+	if wait.Interrupted(err) {
+		if lastErr != nil {
+			return fmt.Errorf("wait for Velero storage location %q: %w", name, lastErr)
+		}
+		return fmt.Errorf("wait for Velero storage location %q to become available: timed out after %s", name, storageLocationReadyTimeout)
+	}
+	return err
+}
+
+// secretCredential 读取 Secret 中的 cloud 凭据内容，兼容 base64 字符串与 []byte 两种表示。
+func secretCredential(secret *unstructured.Unstructured) string {
+	data, _, _ := unstructured.NestedMap(secret.Object, "data")
+	switch value := data["cloud"].(type) {
+	case string:
+		decoded, err := base64.StdEncoding.DecodeString(value)
+		if err != nil {
+			return ""
+		}
+		return string(decoded)
+	case []byte:
+		return string(value)
+	default:
+		return ""
+	}
+}
+
+// storageLocationMatches 只比较我们下发的字段，避免 CRD 默认值造成误判。
+func storageLocationMatches(existing, desired *unstructured.Unstructured) bool {
+	for _, path := range [][]string{
+		{"spec", "provider"},
+		{"spec", "objectStorage", "bucket"},
+		{"spec", "objectStorage", "prefix"},
+		{"spec", "credential", "name"},
+		{"spec", "credential", "key"},
+	} {
+		want, _, _ := unstructured.NestedString(desired.Object, path...)
+		got, _, _ := unstructured.NestedString(existing.Object, path...)
+		if want != got {
+			return false
 		}
 	}
-	return nil
+	wantConfig, _, _ := unstructured.NestedMap(desired.Object, "spec", "config")
+	gotConfig, _, _ := unstructured.NestedMap(existing.Object, "spec", "config")
+	return apiequality.Semantic.DeepEqual(wantConfig, gotConfig)
 }
 
 func credentialsFile(config *StorageConfig) string {
@@ -223,8 +313,13 @@ func (c *Client) GetBackup(ctx context.Context, namespace, name string) (*unstru
 	return c.dynamic.Resource(backupGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
+// DeleteBackup 删除 Velero Backup；对象不存在视为已删除（幂等）。
 func (c *Client) DeleteBackup(ctx context.Context, namespace, name string) error {
-	return c.dynamic.Resource(backupGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	err := c.dynamic.Resource(backupGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 func (c *Client) CreateSchedule(ctx context.Context, namespace, name, cron string, spec BackupSpec) (*unstructured.Unstructured, error) {
