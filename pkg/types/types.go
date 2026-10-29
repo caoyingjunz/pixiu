@@ -96,6 +96,7 @@ type StorageSourceConfig struct {
 	Endpoint         string `json:"endpoint,omitempty"`
 	Region           string `json:"region,omitempty"`
 	Bucket           string `json:"bucket,omitempty"`
+	Prefix           string `json:"prefix,omitempty"`
 	AccessKeyID      string `json:"access_key_id,omitempty"`
 	SecretAccessKey  string `json:"secret_access_key,omitempty"`
 	SessionToken     string `json:"session_token,omitempty"`

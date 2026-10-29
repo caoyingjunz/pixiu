@@ -93,8 +93,9 @@ func (c *controller) CreatePlan(ctx context.Context, req *types.CreateBackupPlan
 		raw, _ := json.Marshal(req.StorageConfig)
 		storageConfig = string(raw)
 	}
+	// 创建计划只配置 BSL，不等待其变为 Available；完整可用性校验在开始备份时进行。
 	if strings.TrimSpace(req.StorageLocation) != "" {
-		if err = client.EnsureConfiguredStorageLocation(ctx, namespace, req.StorageLocation, &config); err != nil {
+		if err = client.ConfigureStorageLocation(ctx, namespace, req.StorageLocation, &config); err != nil {
 			return nil, err
 		}
 	}
@@ -253,8 +254,9 @@ func (c *controller) UpdatePlan(ctx context.Context, id int64, req *types.Update
 	if _, err = resolveVeleroNamespace(ctx, client, updated.VeleroNamespace); err != nil {
 		return err
 	}
+	// 编辑计划同样只配置 BSL，不等待可用；完整校验留到开始备份/恢复时。
 	if strings.TrimSpace(updated.StorageLocation) != "" {
-		if err = client.EnsureConfiguredStorageLocation(ctx, updated.VeleroNamespace, updated.StorageLocation, &config); err != nil {
+		if err = client.ConfigureStorageLocation(ctx, updated.VeleroNamespace, updated.StorageLocation, &config); err != nil {
 			return err
 		}
 	}
@@ -305,6 +307,20 @@ func (c *controller) DeletePlan(ctx context.Context, id int64) error {
 	}
 	if err = client.DeleteSchedule(ctx, plan.VeleroNamespace, planExternalName(plan.Id)); err != nil && !strings.Contains(err.Error(), "not found") {
 		return err
+	}
+	records, err := c.planBackups(ctx, plan.Id)
+	if err != nil {
+		return err
+	}
+	for i := range records {
+		if err = client.DeleteBackup(ctx, plan.VeleroNamespace, records[i].ExternalName); err != nil {
+			return err
+		}
+	}
+	for i := range records {
+		if err = c.factory.Backup().Record().Delete(ctx, records[i].Id); err != nil {
+			return err
+		}
 	}
 	return c.factory.Backup().Plan().Delete(ctx, id)
 }
@@ -649,6 +665,12 @@ func (c *controller) ensureClusterAccess(ctx context.Context, clusterID int64) e
 	return controllerutil.CheckMasterKubeconfigAccess(ctx, cluster)
 }
 
+func (c *controller) planBackups(ctx context.Context, planId int64) ([]model.Backup, error) {
+	return c.factory.Backup().Record().List(ctx, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("plan_id = ?", planId).Order("id desc")
+	})
+}
+
 func (c *controller) restoreRecords(ctx context.Context, taskId int64) ([]model.RestoreRecord, error) {
 	return c.factory.Backup().RestoreRecord().List(ctx, func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("task_id = ?", taskId).Order("id desc")
@@ -909,7 +931,8 @@ func (c *controller) storageConfigFromDatasource(ctx context.Context, datasource
 	if provider == "aws" || provider == "minio" {
 		provider = "s3"
 	}
-	config := StorageConfig{Provider: provider, Endpoint: storage.Endpoint, Bucket: bucket, Region: storage.Region, AccessKey: storage.AccessKeyID, SecretKey: storage.SecretAccessKey, SessionToken: storage.SessionToken, UsePathStyle: storage.AddressingStyle == "path" || strings.EqualFold(storage.Provider, "minio")}
+	prefix := strings.Trim(strings.TrimSpace(storage.Prefix), "/")
+	config := StorageConfig{Provider: provider, Endpoint: storage.Endpoint, Bucket: bucket, Prefix: prefix, Region: storage.Region, AccessKey: storage.AccessKeyID, SecretKey: storage.SecretAccessKey, SessionToken: storage.SessionToken, UsePathStyle: storage.AddressingStyle == "path" || strings.EqualFold(storage.Provider, "minio")}
 	return config, bucket, storageLocationName(datasourceID, bucket), nil
 }
 
