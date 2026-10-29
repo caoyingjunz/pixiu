@@ -70,7 +70,7 @@ join 参数来源：
 ## 数据模型
 
 - `plans` 新增 `type`（0=普通部署计划，1=集群扩容计划，默认 0）与 `cluster_id`（扩容计划关联的目标集群）。
-- `nodes` 新增 `cluster_id`、`status`、`status_message`；扩容节点同时写入扩容计划的 `plan_id` 与 `cluster_id`（普通计划节点仅 `plan_id`）。
+- `nodes` 新增 `cluster_id`、`status`、`status_message`；扩容节点同时写入扩容计划的 `plan_id` 与 `cluster_id`（普通计划节点仅 `plan_id`）；节点成功加入集群后自动从扩容计划解绑（`plan_id` 置 0，保留 `cluster_id`），移除节点时两者一并清空。
 - 新增 `cluster_expansions`：每次扩容一条记录（plan_id、目标节点、参数、状态、步骤、消息、时间）。
 - 计划向导「关联节点」已过滤 `cluster_id != 0`，避免扩容节点被部署计划再次绑定；扩容计划不通过计划页 Start（节点管理页发起扩容执行），存在绑定时不可删除。
 

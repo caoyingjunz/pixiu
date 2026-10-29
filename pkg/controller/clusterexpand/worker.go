@@ -351,7 +351,9 @@ func (c *controller) reconcileNodes(ctx context.Context, cs *client.ClusterSet, 
 		node := &nodes[i]
 		if nodeMatched(node.Name, node.Ip, names, ips) {
 			joined++
+			// 已加入集群的节点从扩容计划解绑（保留 cluster_id 供节点管理页展示）
 			_ = c.factory.Plan().Node().UpdateFields(ctx, node.Id, map[string]interface{}{
+				"plan_id":        int64(0),
 				"status":         model.NodeStatusAdded,
 				"status_message": "",
 			})

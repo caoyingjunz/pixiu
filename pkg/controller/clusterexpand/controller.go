@@ -275,6 +275,7 @@ func (c *controller) RemoveNode(ctx context.Context, clusterId, nodeId int64) er
 
 	updates := map[string]interface{}{
 		"cluster_id":     int64(0),
+		"plan_id":        int64(0),
 		"role":           "",
 		"cri":            "",
 		"status":         model.NodeStatusUnadded,
