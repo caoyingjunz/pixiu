@@ -501,15 +501,6 @@ func (c *controller) Logs(ctx context.Context, clusterId, expansionId int64, ste
 	if step != stepBootstrap && step != stepAddNode {
 		return fmt.Errorf("不支持的日志步骤: %s", step)
 	}
-	if step == stepBootstrap {
-		var options types.ExpansionOptions
-		if object.Options != "" {
-			_ = json.Unmarshal([]byte(object.Options), &options)
-		}
-		if options.SkipBootstrap {
-			return fmt.Errorf("本次扩容跳过了节点初始化，无初始化日志")
-		}
-	}
 
 	rt, err := runtime.Default()
 	if err != nil {

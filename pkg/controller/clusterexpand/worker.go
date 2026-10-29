@@ -219,10 +219,9 @@ func (c *controller) syncHandler(ctx context.Context, expansionId int64) {
 	}
 
 	var runErr error
-	if !options.SkipBootstrap {
-		_ = c.factory.ClusterExpansion().Update(ctx, expansion.Id, map[string]interface{}{"step": "初始化"})
-		runErr = runRunnerContainer(ctx, containerName(expansion.Id, stepBootstrap), "bootstrap-servers", runner, dir, timeout)
-	}
+	// bootstrap-servers 为必经步骤（kubez-ansible 同名 action，初始化节点依赖）
+	_ = c.factory.ClusterExpansion().Update(ctx, expansion.Id, map[string]interface{}{"step": "初始化"})
+	runErr = runRunnerContainer(ctx, containerName(expansion.Id, stepBootstrap), "bootstrap-servers", runner, dir, timeout)
 
 	joined := 0
 	if runErr == nil {

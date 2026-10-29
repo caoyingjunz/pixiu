@@ -64,7 +64,6 @@ type CreateClusterNodesRequest struct {
 // ExpansionOptions 扩容执行参数。
 type ExpansionOptions struct {
 	OSImage          string      `json:"os_image,omitempty"`
-	SkipBootstrap    bool        `json:"skip_bootstrap"`
 	NetworkInterface string      `json:"network_interface,omitempty"`
 	ImageRepository  string      `json:"image_repository,omitempty"`
 	SetHostname      bool        `json:"set_hostname"`

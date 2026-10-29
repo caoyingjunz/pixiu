@@ -24,7 +24,6 @@
 2. 添加后的节点状态为 `未添加`（`nodes.status=0`），不会立即执行任何操作。
 3. 勾选一个或多个未加入节点，点击「扩容」：
    - 选择操作系统镜像（用于解析 runner 镜像，bootstrap 时也用于安装对应版本组件）；
-   - 可选「跳过初始化」（节点已安装 kubelet/kubeadm/containerd）；
    - 可配置网卡、镜像仓库、主机名修改；
    - kubeconfig 权限不足或 apiserver 地址不可达时，可在高级选项中覆盖 api_server / token / ca_cert_hash。
 4. 执行状态：`未添加 → 添加中 → 已加入（K8s Node Ready 后显示运行中）`；失败为 `添加失败`，可重试。
@@ -37,8 +36,8 @@
   → worker：
       1. 解析 join 参数：apiserver / CA hash / bootstrap token / live version
       2. 渲染 <workdir>/expansions/<id>/{hosts,multinode,globals.yml,ssh/}
-      3. （未跳过时）容器 pixiu-expand-<id>-bootstrap  COMMAND=bootstrap-servers
-      4. 容器 pixiu-expand-<id>-add-node  COMMAND=add-node
+      3. 容器 pixiu-expand-<id>-bootstrap  COMMAND=bootstrap-servers（必经步骤）
+      4. 容器 pixiu-expand-<id>-add-node  COMMAND=add-node（与 kubez-ansible 对齐：join 参数加入已有集群，非 deploy-node）
       5. 按 K8s 实时节点列表校正节点状态
       6. 清理含 token/SSH 私钥的渲染目录
 ```
@@ -77,7 +76,7 @@ join 参数来源：
 - 仅支持 **worker（role=node）**，不支持 master/etcd 扩容；
 - 仅支持 **containerd** 运行时；
 - 仅支持 **local** 执行模式；agent 模式（单向网络边缘）暂不支持，后续需扩展 job 模型；
-- bootstrap 需要新节点可访问系统包仓库；离线环境需配置自定义 repo，或预装组件后勾选「跳过初始化」；
+- bootstrap 需要新节点可访问系统包仓库；离线环境需配置自定义 repo；
 - 扩容不改集群状态、不改部署计划状态；计划仅作为默认参数来源；
 - 已加入节点不允许在扩容页移除，请使用集群节点移除流程。
 
