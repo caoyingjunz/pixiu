@@ -90,7 +90,12 @@ func Run(opt *options.Options) error {
 
 	// TODO: 暂未设置优雅退出
 	// 启动集群相关控制器
-	runers := []func(context.Context, int) error{opt.Controller.Plan().Run, opt.Controller.Cluster().Run, opt.Controller.Appstore().Run}
+	runers := []func(context.Context, int) error{
+		opt.Controller.Plan().Run,
+		opt.Controller.Cluster().Run,
+		opt.Controller.Appstore().Run,
+		opt.Controller.ClusterExpand().Run,
+	}
 	for _, runner := range runers {
 		if err := runner(context.TODO(), 5); err != nil {
 			klog.Fatal("failed to start manager: ", err)

@@ -16,6 +16,8 @@ limitations under the License.
 
 package types
 
+import "github.com/caoyingjunz/pixiu/pkg/db/model"
+
 // NodeAuthResult 节点认证对外返回（仅认证类型与端口，不含密钥/密码）
 type NodeAuthResult struct {
 	Type AuthType `json:"type"`
@@ -33,8 +35,16 @@ type NodeResult struct {
 	Auth   NodeAuthResult `json:"auth"`
 
 	// 所属部署计划；列表接口按 plan_id 冗余返回所属集群名称（自建集群 alias_name，回退 plan 名称）
-	PlanId      int64  `json:"plan_id"`
+	PlanId int64 `json:"plan_id"`
+	// ClusterId 直接关联的集群（扩容节点）；与 PlanId 互斥
+	ClusterId   int64  `json:"cluster_id"`
 	ClusterName string `json:"cluster_name,omitempty"`
+
+	// 扩容节点属性（仅 ClusterId > 0 有意义）
+	Role          string           `json:"role,omitempty"`
+	CRI           model.CRI        `json:"cri,omitempty"`
+	Status        model.NodeStatus `json:"status"`
+	StatusMessage string           `json:"status_message,omitempty"`
 }
 
 // CreateNodeRequest POST /pixiu/nodes
@@ -44,6 +54,8 @@ type CreateNodeRequest struct {
 	Ip     string       `json:"ip" binding:"required"`
 	Auth   PlanNodeAuth `json:"auth" binding:"required"`
 	PlanId int64        `json:"plan_id"`
+	// ClusterId 创建时直接绑定到集群（扩容场景）；与 PlanId 互斥
+	ClusterId int64 `json:"cluster_id"`
 }
 
 // SetUserID 实现 UserIDSetter 接口。

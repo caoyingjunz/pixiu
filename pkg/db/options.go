@@ -534,6 +534,30 @@ func WithClusterId(clusterId int64) Options {
 	}
 }
 
+// WithClusterIdEq 按 cluster_id 精确过滤（包含 0，用于查询未绑定集群的主机）。
+func WithClusterIdEq(clusterId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("cluster_id = ?", clusterId)
+	}
+}
+
+// WithNodeStatus 按节点扩容状态过滤。
+func WithNodeStatus(status model.NodeStatus) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
+
+// WithTaskStatus 按任务状态过滤（cluster_expansions 等复用 TaskStatus 的表）。
+func WithTaskStatus(status model.TaskStatus) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if status == "" {
+			return tx
+		}
+		return tx.Where("status = ?", status)
+	}
+}
+
 func WithJTI(jti string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if jti == "" {

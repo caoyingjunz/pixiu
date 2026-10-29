@@ -984,6 +984,9 @@ type CustomMeta struct {
 
 	// node
 	PlanId *int64 `form:"plan_id" json:"plan_id"`
+	// NodeClusterId 节点列表按 cluster_id 过滤；0 表示仅查未绑定集群的主机
+	// （与 CustomMeta.ClusterId 区分：后者供告警等模块使用）
+	NodeClusterId *int64 `form:"node_cluster_id" json:"node_cluster_id"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {

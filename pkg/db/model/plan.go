@@ -61,16 +61,33 @@ const (
 	ContainerdCRI CRI = "containerd"
 )
 
+// NodeStatus 主机节点状态（集群扩容场景）
+type NodeStatus uint8
+
+const (
+	NodeStatusUnadded NodeStatus = iota // 未添加
+	NodeStatusAdding                    // 添加中
+	NodeStatusFailed                    // 添加失败
+	NodeStatusAdded                     // 已加入
+)
+
 type Node struct {
 	pixiu.Model
 
 	Name   string `json:"name"`                             // 主机名，相同plan内不允许重复
 	UserId int64  `gorm:"index:idx_user_id" json:"user_id"` // 所属用户
 	PlanId int64  `json:"plan_id"`
-	Role   string `json:"role"` // k8s 节点的角色，master 和 node
-	CRI    CRI    `json:"cri"`
-	Ip     string `json:"ip"`
-	Auth   string `json:"auth"`
+	// ClusterId 直接关联的集群（扩容场景）。与 PlanId 互斥：
+	// 计划初次部署的节点用 PlanId，集群扩容的节点用 ClusterId。
+	ClusterId int64  `gorm:"index:idx_node_cluster_id;default:0" json:"cluster_id"`
+	Role      string `json:"role"` // k8s 节点的角色，master 和 node
+	CRI       CRI    `json:"cri"`
+	Ip        string `json:"ip"`
+	Auth      string `json:"auth"`
+
+	// Status 仅对 ClusterId > 0 的扩容节点有意义
+	Status        NodeStatus `gorm:"type:tinyint;default:0;index:idx_node_status" json:"status"`
+	StatusMessage string     `gorm:"type:text" json:"status_message"`
 }
 
 func (node *Node) TableName() string {
