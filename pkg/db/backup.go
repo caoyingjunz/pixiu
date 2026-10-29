@@ -14,6 +14,7 @@ type BackupInterface interface {
 	Plan() BackupPlanInterface
 	Record() BackupRecordInterface
 	Restore() RestoreTaskInterface
+	RestoreRecord() RestoreRecordInterface
 }
 
 type BackupPlanInterface interface {
@@ -40,15 +41,27 @@ type RestoreTaskInterface interface {
 	Delete(context.Context, int64) error
 }
 
+type RestoreRecordInterface interface {
+	Create(context.Context, *model.RestoreRecord) (*model.RestoreRecord, error)
+	Get(context.Context, int64) (*model.RestoreRecord, error)
+	List(context.Context, ...Options) ([]model.RestoreRecord, error)
+	UpdateInternal(context.Context, int64, map[string]interface{}) error
+	Delete(context.Context, int64) error
+}
+
 type backup struct{ db *gorm.DB }
 type backupPlan struct{ db *gorm.DB }
 type backupRecord struct{ db *gorm.DB }
 type restoreTask struct{ db *gorm.DB }
+type restoreRecord struct{ db *gorm.DB }
 
 func newBackup(db *gorm.DB) BackupInterface     { return &backup{db: db} }
 func (b *backup) Plan() BackupPlanInterface     { return &backupPlan{db: b.db} }
 func (b *backup) Record() BackupRecordInterface { return &backupRecord{db: b.db} }
 func (b *backup) Restore() RestoreTaskInterface { return &restoreTask{db: b.db} }
+func (b *backup) RestoreRecord() RestoreRecordInterface {
+	return &restoreRecord{db: b.db}
+}
 
 func (b *backupPlan) Create(ctx context.Context, o *model.BackupPlan) (*model.BackupPlan, error) {
 	now := time.Now()
@@ -171,4 +184,40 @@ func (b *restoreTask) UpdateInternal(ctx context.Context, id int64, updates map[
 }
 func (b *restoreTask) Delete(ctx context.Context, id int64) error {
 	return b.db.WithContext(ctx).Delete(&model.RestoreTask{}, id).Error
+}
+
+func (b *restoreRecord) Create(ctx context.Context, o *model.RestoreRecord) (*model.RestoreRecord, error) {
+	now := time.Now()
+	o.GmtCreate = now
+	o.GmtModified = now
+	if err := b.db.WithContext(ctx).Create(o).Error; err != nil {
+		return nil, err
+	}
+	return o, nil
+}
+func (b *restoreRecord) Get(ctx context.Context, id int64) (*model.RestoreRecord, error) {
+	var o model.RestoreRecord
+	err := b.db.WithContext(ctx).First(&o, id).Error
+	if utilerrors.IsRecordNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+func (b *restoreRecord) List(ctx context.Context, opts ...Options) ([]model.RestoreRecord, error) {
+	var o []model.RestoreRecord
+	tx := b.db.WithContext(ctx)
+	for _, opt := range opts {
+		tx = opt(tx)
+	}
+	return o, tx.Find(&o).Error
+}
+func (b *restoreRecord) UpdateInternal(ctx context.Context, id int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+	return b.db.WithContext(ctx).Model(&model.RestoreRecord{}).Where("id = ?", id).Updates(updates).Error
+}
+func (b *restoreRecord) Delete(ctx context.Context, id int64) error {
+	return b.db.WithContext(ctx).Delete(&model.RestoreRecord{}, id).Error
 }
