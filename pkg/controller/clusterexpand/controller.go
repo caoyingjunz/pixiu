@@ -148,6 +148,12 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 		Failed:    make([]types.BatchOperationFailure, 0),
 	}
 
+	// 拉取集群实时节点列表：名称或 IP 已存在的节点不允许添加
+	names, ips, listErr := clusterNodeAddresses(ctx, info.Client)
+	if listErr != nil {
+		return nil, errors.NewError(fmt.Errorf("查询集群节点失败: %v", listErr), http.StatusBadGateway)
+	}
+
 	// 1) 关联主机库已有主机
 	for _, nodeId := range req.NodeIds {
 		object, getErr := c.factory.Plan().Node().Get(ctx, nodeId)
@@ -157,6 +163,15 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 		}
 		if accessErr := util.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeNode, nodeId); accessErr != nil {
 			result.Failed = append(result.Failed, types.BatchOperationFailure{Key: nodeId, Name: object.Name, Reason: "无权操作该主机"})
+			continue
+		}
+		// 扩容仅支持 worker 节点：非 node 角色的主机（如 master/storage）不允许加入
+		if object.Role != "" && object.Role != model.NodeRole {
+			result.Failed = append(result.Failed, types.BatchOperationFailure{Key: nodeId, Name: object.Name, Reason: "仅支持添加 node 角色的节点"})
+			continue
+		}
+		if nodeMatched(object.Name, object.Ip, names, ips) {
+			result.Failed = append(result.Failed, types.BatchOperationFailure{Key: nodeId, Name: object.Name, Reason: "名称或 IP 已存在于集群中"})
 			continue
 		}
 		switch {
@@ -189,6 +204,10 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 	nodeCtrl := node.NewNode(c.cc, c.factory)
 	for i := range req.Nodes {
 		spec := req.Nodes[i]
+		if nodeMatched(spec.Name, spec.Ip, names, ips) {
+			result.Failed = append(result.Failed, types.BatchOperationFailure{Name: spec.Name, Reason: "名称或 IP 已存在于集群中"})
+			continue
+		}
 		createReq := &types.CreateNodeRequest{
 			Name:      spec.Name,
 			UserId:    user.Id,
