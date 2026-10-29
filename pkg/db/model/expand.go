@@ -33,6 +33,9 @@ type ClusterExpansion struct {
 	ClusterId int64 `gorm:"index:idx_expansion_cluster_id" json:"cluster_id"`
 	UserId    int64 `gorm:"index:idx_expansion_user_id" json:"user_id"`
 
+	// PlanId 关联的扩容计划（plans.type=1，系统在添加节点时自动创建）
+	PlanId int64 `gorm:"index:idx_expansion_plan_id;default:0" json:"plan_id"`
+
 	// NodeIds 本次扩容的目标节点 ID 列表（JSON 数组）
 	NodeIds string `gorm:"type:text" json:"node_ids"`
 	// Options 本次扩容的执行参数（JSON）

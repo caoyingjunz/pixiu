@@ -288,6 +288,10 @@ func (c *controller) loadNodes(ctx context.Context, expansion *model.ClusterExpa
 		if nodes[i].ClusterId != expansion.ClusterId {
 			return nil, fmt.Errorf("节点 %s 不属于该集群", nodes[i].Name)
 		}
+		// 扩容节点应挂在集群对应的扩容计划（type=1）下；plan_id=0 的历史节点仍按 cluster_id 判定
+		if expansion.PlanId != 0 && nodes[i].PlanId != 0 && nodes[i].PlanId != expansion.PlanId {
+			return nil, fmt.Errorf("节点 %s 不属于该集群的扩容计划", nodes[i].Name)
+		}
 	}
 	return nodes, nil
 }

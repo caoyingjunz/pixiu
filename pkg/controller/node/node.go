@@ -79,8 +79,16 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 	}
 	req.Name = name
 
+	// 扩容场景允许 plan_id 与 cluster_id 同时存在（节点挂到扩容计划且绑定集群）
 	if req.PlanId != 0 && req.ClusterId != 0 {
-		return errors.ErrInvalidRequest
+		planObj, err := n.factory.Plan().Get(ctx, req.PlanId)
+		if err != nil || planObj == nil {
+			return errors.ErrPlanNotFound
+		}
+		if planObj.Type != 1 {
+			// 仅扩容计划（type=1）允许同时绑定集群，普通部署计划仍保持互斥
+			return errors.ErrInvalidRequest
+		}
 	}
 	// 直接绑定集群时需校验集群存在且当前用户可访问
 	if req.ClusterId != 0 {

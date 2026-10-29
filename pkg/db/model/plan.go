@@ -40,6 +40,11 @@ type Plan struct {
 	DeployAgentId     int64  `gorm:"index:idx_plan_deploy_agent;default:0" json:"deploy_agent_id"`
 	KubernetesVersion string `gorm:"type:varchar(64)" json:"kubernetes_version"` // k8s 版本（冗余自 configs.kubernetes）
 	NodeCount         int    `gorm:"default:0" json:"node_count"`                // 节点总数（冗余自 nodes 表）
+
+	// Type 计划类型：0=普通部署计划（默认），1=集群扩容计划（添加节点时系统自动创建）
+	Type int `gorm:"default:0;index:idx_plan_type" json:"type"`
+	// ClusterId 扩容计划（Type=1）关联的目标集群
+	ClusterId int64 `gorm:"index:idx_plan_cluster_id;default:0" json:"cluster_id"`
 }
 
 func (plan *Plan) TableName() string {
@@ -77,8 +82,8 @@ type Node struct {
 	Name   string `json:"name"`                             // 主机名，相同plan内不允许重复
 	UserId int64  `gorm:"index:idx_user_id" json:"user_id"` // 所属用户
 	PlanId int64  `json:"plan_id"`
-	// ClusterId 直接关联的集群（扩容场景）。与 PlanId 互斥：
-	// 计划初次部署的节点用 PlanId，集群扩容的节点用 ClusterId。
+	// ClusterId 直接关联的集群（扩容场景）。
+	// 普通计划部署的节点只有 PlanId；集群扩容的节点同时写入扩容计划的 PlanId 与 ClusterId。
 	ClusterId int64  `gorm:"index:idx_node_cluster_id;default:0" json:"cluster_id"`
 	Role      string `json:"role"` // k8s 节点的角色，master 和 node
 	CRI       CRI    `json:"cri"`

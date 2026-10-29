@@ -154,6 +154,12 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 		return nil, errors.NewError(fmt.Errorf("查询集群节点失败: %v", listErr), http.StatusBadGateway)
 	}
 
+	// 扩容节点统一挂到集群对应的扩容计划（type=1）下，不存在则自动创建
+	expansionPlan, planErr := c.ensureExpansionPlan(ctx, obj)
+	if planErr != nil {
+		return nil, planErr
+	}
+
 	// 1) 关联主机库已有主机
 	for _, nodeId := range req.NodeIds {
 		object, getErr := c.factory.Plan().Node().Get(ctx, nodeId)
@@ -187,6 +193,7 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 		}
 		updates := map[string]interface{}{
 			"cluster_id":     clusterId,
+			"plan_id":        expansionPlan.Id,
 			"role":           model.NodeRole,
 			"cri":            model.ContainerdCRI,
 			"status":         model.NodeStatusUnadded,
@@ -213,6 +220,7 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 			UserId:    user.Id,
 			Ip:        spec.Ip,
 			Auth:      spec.Auth,
+			PlanId:    expansionPlan.Id,
 			ClusterId: clusterId,
 		}
 		if createErr := nodeCtrl.Create(ctx, createReq); createErr != nil {
@@ -279,10 +287,44 @@ func (c *controller) RemoveNode(ctx context.Context, clusterId, nodeId int64) er
 	return nil
 }
 
+// ensureExpansionPlan 返回集群对应的扩容计划（plans.type=1），不存在则自动创建。
+// 扩容计划由系统管理：不创建 configs/nodes/cluster 等子资源，节点通过 plan_id 挂在计划下。
+func (c *controller) ensureExpansionPlan(ctx context.Context, cluster *model.Cluster) (*model.Plan, error) {
+	plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cluster.Id))
+	if err != nil {
+		klog.Errorf("list expansion plans of cluster(%d): %v", cluster.Id, err)
+		return nil, errors.ErrServerInternal
+	}
+	if len(plans) > 0 {
+		return &plans[0], nil
+	}
+
+	created, err := c.factory.Plan().Create(ctx, &model.Plan{
+		Name:        fmt.Sprintf("expand-cluster-%d", cluster.Id),
+		UserId:      cluster.UserId,
+		Description: fmt.Sprintf("集群 %s 扩容计划（添加节点时自动创建）", cluster.AliasName),
+		Status:      model.UnStartPlanStatus,
+		Type:        1,
+		ClusterId:   cluster.Id,
+	})
+	if err != nil {
+		klog.Errorf("create expansion plan for cluster(%d): %v", cluster.Id, err)
+		return nil, errors.ErrServerInternal
+	}
+	klog.Infof("created expansion plan(%d) for cluster(%d)", created.Id, cluster.Id)
+	return created, nil
+}
+
 func (c *controller) Create(ctx context.Context, clusterId int64, req *types.CreateClusterExpansionRequest) (int64, error) {
 	obj, user, err := c.authorize(ctx, clusterId, true)
 	if err != nil {
 		return 0, err
+	}
+
+	// 执行扩容前先确保集群对应的扩容计划（type=1）存在，扩容记录关联到该计划
+	expansionPlan, planErr := c.ensureExpansionPlan(ctx, obj)
+	if planErr != nil {
+		return 0, planErr
 	}
 
 	info := c.detectCluster(ctx, obj)
@@ -388,6 +430,7 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 		expansion, createErr := tx.ClusterExpansion().Create(ctx, &model.ClusterExpansion{
 			ClusterId: clusterId,
 			UserId:    user.Id,
+			PlanId:    expansionPlan.Id,
 			NodeIds:   string(nodeIdsJSON),
 			Options:   string(optionsJSON),
 			Status:    model.UnStartPlanStatus,

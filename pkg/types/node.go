@@ -54,7 +54,7 @@ type CreateNodeRequest struct {
 	Ip     string       `json:"ip" binding:"required"`
 	Auth   PlanNodeAuth `json:"auth" binding:"required"`
 	PlanId int64        `json:"plan_id"`
-	// ClusterId 创建时直接绑定到集群（扩容场景）；与 PlanId 互斥
+	// ClusterId 创建时直接绑定到集群（扩容场景）；扩容节点会同时写入扩容计划（type=1）的 PlanId
 	ClusterId int64 `json:"cluster_id"`
 }
 

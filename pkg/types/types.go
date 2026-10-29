@@ -757,6 +757,8 @@ type Plan struct {
 	NodeCount         int                `json:"node_count"`         // 节点总数
 	ExecMode          model.PlanExecMode `json:"exec_mode"`
 	DeployAgentId     int64              `json:"deploy_agent_id,omitempty"`
+	Type              int                `json:"type"`                // 计划类型：0=普通部署计划，1=集群扩容计划
+	ClusterId         int64              `json:"cluster_id,omitempty"` // 扩容计划（Type=1）关联的目标集群
 
 	Config PlanConfig `json:"config"`
 	Nodes  []PlanNode `json:"nodes"`
