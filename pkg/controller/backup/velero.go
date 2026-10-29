@@ -122,7 +122,10 @@ func (c *Client) EnsureStorageLocation(ctx context.Context, namespace, name stri
 	return nil
 }
 
-func (c *Client) EnsureConfiguredStorageLocation(ctx context.Context, namespace, name string, config *StorageConfig) error {
+// ConfigureStorageLocation 只负责创建/更新 BSL 及其凭据 Secret，不等待 BSL 变为 Available。
+// 用于备份计划创建/编辑：桶内可能暂时存在非 Velero 目录等情况，此时不应阻塞计划保存；
+// 完整性校验推迟到开始备份/恢复执行时（EnsureConfiguredStorageLocation）。
+func (c *Client) ConfigureStorageLocation(ctx context.Context, namespace, name string, config *StorageConfig) error {
 	if config == nil || strings.TrimSpace(config.Endpoint) == "" {
 		return c.EnsureStorageLocation(ctx, namespace, name)
 	}
@@ -134,8 +137,8 @@ func (c *Client) EnsureConfiguredStorageLocation(ctx context.Context, namespace,
 	secretData := map[string]interface{}{"metadata": map[string]interface{}{"name": secretName}, "type": "Opaque", "stringData": map[string]interface{}{"cloud": credentials}}
 
 	// Velero 在 BSL 更新后会重新校验对象存储，期间 status.phase 短暂变为 Unknown，
-	// 此时创建 Backup 会被判为 Unavailable 而失败。因此只在内容真正变化时才更新，
-	// 并在更新/创建后等待 BSL 回到 Available。
+	// 此时创建 Backup 会被判为 Unavailable 而失败。因此只在内容真正变化时才更新；
+	// 需要立即执行备份的场景由 EnsureConfiguredStorageLocation 负责等待 BSL 回到 Available。
 	secretChanged := false
 	secret := c.dynamic.Resource(secretGVR).Namespace(namespace)
 	if existing, err := secret.Get(ctx, secretName, metav1.GetOptions{}); err == nil {
@@ -182,8 +185,20 @@ func (c *Client) EnsureConfiguredStorageLocation(ctx context.Context, namespace,
 	} else {
 		return fmt.Errorf("get Velero storage location: %w", err)
 	}
-	// 无论是否更新，都要确认 BSL 已就绪：上一次可能遗留 Unknown/Unavailable。
-	return waitStorageLocationAvailable(ctx, locations, name)
+	return nil
+}
+
+// EnsureConfiguredStorageLocation 在 ConfigureStorageLocation 基础上等待 BSL 变为 Available，
+// 用于开始备份/恢复等必须确认对象存储可用的场景。
+func (c *Client) EnsureConfiguredStorageLocation(ctx context.Context, namespace, name string, config *StorageConfig) error {
+	if config == nil || strings.TrimSpace(config.Endpoint) == "" {
+		return c.EnsureStorageLocation(ctx, namespace, name)
+	}
+	if err := c.ConfigureStorageLocation(ctx, namespace, name, config); err != nil {
+		return err
+	}
+	// 无论本次是否更新，都要确认 BSL 已就绪：上一次可能遗留 Unknown/Unavailable。
+	return waitStorageLocationAvailable(ctx, c.dynamic.Resource(storageLocationGVR).Namespace(namespace), name)
 }
 
 // waitStorageLocationAvailable 轮询 BSL 状态，直到 Available 或超时；
