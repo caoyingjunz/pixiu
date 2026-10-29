@@ -34,6 +34,7 @@ func (r *backupRouter) initRoutes(engine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/backups/:backupId", Handler: r.deleteBackup, Description: "删除备份"},
 			{Method: "GET", RelativePath: "/restores", Handler: r.listRestores, Description: "恢复任务列表"},
 			{Method: "POST", RelativePath: "/restores", Handler: r.createRestore, Description: "创建恢复任务"},
+			{Method: "POST", RelativePath: "/restores/:restoreId/run", Handler: r.runRestore, Description: "执行恢复任务"},
 			{Method: "PUT", RelativePath: "/restores/:restoreId", Handler: r.updateRestore, Description: "更新恢复任务"},
 			{Method: "DELETE", RelativePath: "/restores/:restoreId", Handler: r.deleteRestore, Description: "删除恢复任务"},
 			{Method: "GET", RelativePath: "/restores/:restoreId", Handler: r.getRestore, Description: "恢复任务详情"},

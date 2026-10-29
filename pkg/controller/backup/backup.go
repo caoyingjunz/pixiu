@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -33,6 +34,7 @@ type Interface interface {
 	GetBackup(context.Context, int64) (*types.Backup, error)
 	DeleteBackup(context.Context, int64) error
 	CreateRestore(context.Context, *types.CreateRestoreRequest) (*types.RestoreTask, error)
+	RunRestore(context.Context, int64) (*types.RestoreTask, error)
 	UpdateRestore(context.Context, int64, *types.UpdateRestoreRequest) error
 	DeleteRestore(context.Context, int64) error
 	ListRestores(context.Context) ([]types.RestoreTask, error)
@@ -440,11 +442,53 @@ func (c *controller) CreateRestore(ctx context.Context, req *types.CreateRestore
 	if backup.Status != model.BackupStatusCompleted {
 		return nil, fmt.Errorf("backup %q is not completed", backup.ExternalName)
 	}
-	client, err := c.velero(ctx, req.TargetClusterId)
+	mode := normalizeExistingResourceMode(req.ExistingResourceMode)
+	restoreVolumes := true
+	if req.RestoreVolumes != nil {
+		restoreVolumes = *req.RestoreVolumes
+	}
+	namespaceMapping, _ := json.Marshal(req.NamespaceMapping)
+	includedNamespaces, _ := json.Marshal(req.IncludedNamespaces)
+	excludedNamespaces, _ := json.Marshal(req.ExcludedNamespaces)
+	storageClassMapping, _ := json.Marshal(req.StorageClassMapping)
+	task, err := c.factory.Backup().Restore().Create(ctx, &model.RestoreTask{Name: restoreName, Description: strings.TrimSpace(req.Description), UserId: backup.UserId, BackupId: backup.Id, SourceClusterId: backup.SourceClusterId, TargetClusterId: req.TargetClusterId, VeleroNamespace: strings.TrimSpace(req.VeleroNamespace), IncludedNamespaces: string(includedNamespaces), ExcludedNamespaces: string(excludedNamespaces), NamespaceMapping: string(namespaceMapping), StorageClassMapping: string(storageClassMapping), ExistingResourceMode: mode, RestoreVolumes: restoreVolumes})
 	if err != nil {
 		return nil, err
 	}
-	namespace, err := resolveVeleroNamespace(ctx, client, req.VeleroNamespace)
+	return toRestore(task, nil, false), nil
+}
+
+func (c *controller) RunRestore(ctx context.Context, id int64) (*types.RestoreTask, error) {
+	task, err := c.restore(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err = c.ensureClusterAccess(ctx, task.SourceClusterId); err != nil {
+		return nil, err
+	}
+	if err = c.ensureClusterAccess(ctx, task.TargetClusterId); err != nil {
+		return nil, err
+	}
+	records, err := c.restoreRecords(ctx, task.Id)
+	if err != nil {
+		return nil, err
+	}
+	if len(records) > 0 && records[0].Status == model.RestoreStatusInProgress {
+		return nil, fmt.Errorf("restore task %q is already running", task.Name)
+	}
+	backup, err := c.backup(ctx, task.BackupId)
+	if err != nil {
+		return nil, err
+	}
+	c.syncBackup(ctx, backup)
+	if backup.Status != model.BackupStatusCompleted {
+		return nil, fmt.Errorf("backup %q is not completed", backup.ExternalName)
+	}
+	client, err := c.velero(ctx, task.TargetClusterId)
+	if err != nil {
+		return nil, err
+	}
+	namespace, err := resolveVeleroNamespace(ctx, client, task.VeleroNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -455,29 +499,33 @@ func (c *controller) CreateRestore(ctx context.Context, req *types.CreateRestore
 	if err = client.EnsureConfiguredStorageLocation(ctx, namespace, backup.StorageLocation, &config); err != nil {
 		return nil, err
 	}
-	mode := normalizeExistingResourceMode(req.ExistingResourceMode)
-	restoreVolumes := true
-	if req.RestoreVolumes != nil {
-		restoreVolumes = *req.RestoreVolumes
-	}
-	namespaceMapping, _ := json.Marshal(req.NamespaceMapping)
-	includedNamespaces, _ := json.Marshal(req.IncludedNamespaces)
-	excludedNamespaces, _ := json.Marshal(req.ExcludedNamespaces)
-	storageClassMapping, _ := json.Marshal(req.StorageClassMapping)
 	name := fmt.Sprintf("pixiu-restore-%d", time.Now().UnixNano())
-	task, err := c.factory.Backup().Restore().Create(ctx, &model.RestoreTask{Name: restoreName, Description: strings.TrimSpace(req.Description), UserId: backup.UserId, BackupId: backup.Id, SourceClusterId: backup.SourceClusterId, TargetClusterId: req.TargetClusterId, VeleroNamespace: namespace, ExternalName: name, IncludedNamespaces: string(includedNamespaces), ExcludedNamespaces: string(excludedNamespaces), NamespaceMapping: string(namespaceMapping), StorageClassMapping: string(storageClassMapping), ExistingResourceMode: mode, RestoreVolumes: restoreVolumes, Status: model.RestoreStatusNew})
+	record, err := c.factory.Backup().RestoreRecord().Create(ctx, &model.RestoreRecord{TaskId: task.Id, ExternalName: name, Status: model.RestoreStatusNew})
 	if err != nil {
 		return nil, err
 	}
-	_, err = client.CreateRestore(ctx, namespace, RestoreSpec{Name: name, BackupName: backup.ExternalName, IncludedNamespaces: req.IncludedNamespaces, ExcludedNamespaces: req.ExcludedNamespaces, NamespaceMapping: req.NamespaceMapping, ExistingResourceMode: mode, RestoreVolumes: restoreVolumes})
+	var includedNamespaces, excludedNamespaces []string
+	var namespaceMapping map[string]string
+	_ = json.Unmarshal([]byte(task.IncludedNamespaces), &includedNamespaces)
+	_ = json.Unmarshal([]byte(task.ExcludedNamespaces), &excludedNamespaces)
+	_ = json.Unmarshal([]byte(task.NamespaceMapping), &namespaceMapping)
+	_, err = client.CreateRestore(ctx, namespace, RestoreSpec{Name: name, BackupName: backup.ExternalName, IncludedNamespaces: includedNamespaces, ExcludedNamespaces: excludedNamespaces, NamespaceMapping: namespaceMapping, ExistingResourceMode: task.ExistingResourceMode, RestoreVolumes: task.RestoreVolumes})
 	if err != nil {
-		_ = c.factory.Backup().Restore().UpdateInternal(context.Background(), task.Id, map[string]interface{}{"status": model.RestoreStatusFailed, "error_message": err.Error()})
+		_ = c.factory.Backup().RestoreRecord().UpdateInternal(context.Background(), record.Id, map[string]interface{}{"status": model.RestoreStatusFailed, "error_message": err.Error()})
 		return nil, fmt.Errorf("create Velero restore: %w", err)
 	}
 	now := time.Now()
-	_ = c.factory.Backup().Restore().UpdateInternal(ctx, task.Id, map[string]interface{}{"status": model.RestoreStatusInProgress, "started_at": now})
-	task.Status, task.StartedAt = model.RestoreStatusInProgress, &now
-	return toRestore(task), nil
+	_ = c.factory.Backup().RestoreRecord().UpdateInternal(ctx, record.Id, map[string]interface{}{"status": model.RestoreStatusInProgress, "started_at": now})
+	record.Status, record.StartedAt = model.RestoreStatusInProgress, &now
+	if task.VeleroNamespace != namespace {
+		_ = c.factory.Backup().Restore().UpdateInternal(ctx, task.Id, map[string]interface{}{"velero_namespace": namespace})
+		task.VeleroNamespace = namespace
+	}
+	records, err = c.restoreRecords(ctx, task.Id)
+	if err != nil {
+		return nil, err
+	}
+	return toRestore(task, records, true), nil
 }
 
 func (c *controller) UpdateRestore(ctx context.Context, id int64, req *types.UpdateRestoreRequest) error {
@@ -513,8 +561,19 @@ func (c *controller) DeleteRestore(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if err = client.DeleteRestore(ctx, task.VeleroNamespace, task.ExternalName); err != nil && !apierrors.IsNotFound(err) {
+	records, err := c.restoreRecords(ctx, task.Id)
+	if err != nil {
 		return err
+	}
+	for i := range records {
+		if err = client.DeleteRestore(ctx, task.VeleroNamespace, records[i].ExternalName); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+	for i := range records {
+		if err = c.factory.Backup().RestoreRecord().Delete(ctx, records[i].Id); err != nil {
+			return err
+		}
 	}
 	return c.factory.Backup().Restore().Delete(ctx, id)
 }
@@ -527,8 +586,14 @@ func (c *controller) ListRestores(ctx context.Context) ([]types.RestoreTask, err
 	result := make([]types.RestoreTask, 0, len(objects))
 	for i := range objects {
 		if controllerutil.CheckResourceOwner(ctx, objects[i].UserId) == nil && c.ensureClusterAccess(ctx, objects[i].SourceClusterId) == nil && c.ensureClusterAccess(ctx, objects[i].TargetClusterId) == nil {
-			c.syncRestore(ctx, &objects[i])
-			result = append(result, *toRestore(&objects[i]))
+			records, listErr := c.restoreRecords(ctx, objects[i].Id)
+			if listErr != nil {
+				return nil, listErr
+			}
+			if len(records) > 0 {
+				c.syncRestore(ctx, &objects[i], &records[0])
+			}
+			result = append(result, *toRestore(&objects[i], records, false))
 		}
 	}
 	return result, nil
@@ -545,7 +610,14 @@ func (c *controller) GetRestore(ctx context.Context, id int64) (*types.RestoreTa
 	if err = c.ensureClusterAccess(ctx, task.TargetClusterId); err != nil {
 		return nil, err
 	}
-	return toRestore(task), nil
+	records, err := c.restoreRecords(ctx, task.Id)
+	if err != nil {
+		return nil, err
+	}
+	if len(records) > 0 {
+		c.syncRestore(ctx, task, &records[0])
+	}
+	return toRestore(task, records, true), nil
 }
 
 func (c *controller) velero(ctx context.Context, clusterID int64) (*Client, error) {
@@ -575,6 +647,12 @@ func (c *controller) ensureClusterAccess(ctx context.Context, clusterID int64) e
 		return err
 	}
 	return controllerutil.CheckMasterKubeconfigAccess(ctx, cluster)
+}
+
+func (c *controller) restoreRecords(ctx context.Context, taskId int64) ([]model.RestoreRecord, error) {
+	return c.factory.Backup().RestoreRecord().List(ctx, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("task_id = ?", taskId).Order("id desc")
+	})
 }
 
 func (c *controller) plan(ctx context.Context, id int64) (*model.BackupPlan, error) {
@@ -683,28 +761,28 @@ func (c *controller) syncBackup(ctx context.Context, object *model.Backup) {
 		object.Status, object.Warnings, object.ErrorMessage = status, warnings, message
 	}
 }
-func (c *controller) syncRestore(ctx context.Context, object *model.RestoreTask) {
-	needsErrorDetail := object.Status == model.RestoreStatusFailed && strings.TrimSpace(object.ErrorMessage) == ""
-	if object.Status != model.RestoreStatusNew && object.Status != model.RestoreStatusInProgress && !needsErrorDetail {
+func (c *controller) syncRestore(ctx context.Context, object *model.RestoreTask, record *model.RestoreRecord) {
+	needsErrorDetail := record.Status == model.RestoreStatusFailed && strings.TrimSpace(record.ErrorMessage) == ""
+	if record.Status != model.RestoreStatusInProgress && !needsErrorDetail {
 		return
 	}
 	client, err := c.velero(ctx, object.TargetClusterId)
 	if err != nil {
 		return
 	}
-	resource, err := client.GetRestore(ctx, object.VeleroNamespace, object.ExternalName)
+	resource, err := client.GetRestore(ctx, object.VeleroNamespace, record.ExternalName)
 	if err != nil {
 		return
 	}
 	status, warnings, message := restoreStatus(resource)
 	updates := map[string]interface{}{"status": status, "warnings": warnings, "error_message": message}
-	if (status == model.RestoreStatusCompleted || status == model.RestoreStatusFailed) && object.CompletedAt == nil {
+	if (status == model.RestoreStatusCompleted || status == model.RestoreStatusFailed) && record.CompletedAt == nil {
 		now := time.Now()
 		updates["completed_at"] = now
-		object.CompletedAt = &now
+		record.CompletedAt = &now
 	}
-	if c.factory.Backup().Restore().UpdateInternal(ctx, object.Id, updates) == nil {
-		object.Status, object.Warnings, object.ErrorMessage = status, warnings, message
+	if c.factory.Backup().RestoreRecord().UpdateInternal(ctx, record.Id, updates) == nil {
+		record.Status, record.Warnings, record.ErrorMessage = status, warnings, message
 	}
 }
 
@@ -880,12 +958,26 @@ func restoreVolumesValue(value *bool) bool {
 func toBackup(object *model.Backup) *types.Backup {
 	return &types.Backup{PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion}, TimeMeta: types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified}, PlanId: object.PlanId, SourceClusterId: object.SourceClusterId, StorageDatasourceId: object.StorageDatasourceId, StorageBucket: object.StorageBucket, StorageLocation: object.StorageLocation, VeleroNamespace: object.VeleroNamespace, ExternalName: object.ExternalName, Status: object.Status, StartedAt: object.StartedAt, CompletedAt: object.CompletedAt, ExpiresAt: object.ExpiresAt, Warnings: object.Warnings, ErrorMessage: object.ErrorMessage}
 }
-func toRestore(object *model.RestoreTask) *types.RestoreTask {
+func toRestore(object *model.RestoreTask, records []model.RestoreRecord, includeRecords bool) *types.RestoreTask {
 	var namespaceMapping, storageClassMapping map[string]string
 	var includedNamespaces, excludedNamespaces []string
 	_ = json.Unmarshal([]byte(object.NamespaceMapping), &namespaceMapping)
 	_ = json.Unmarshal([]byte(object.StorageClassMapping), &storageClassMapping)
 	_ = json.Unmarshal([]byte(object.IncludedNamespaces), &includedNamespaces)
 	_ = json.Unmarshal([]byte(object.ExcludedNamespaces), &excludedNamespaces)
-	return &types.RestoreTask{PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion}, TimeMeta: types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified}, Name: object.Name, Description: object.Description, BackupId: object.BackupId, SourceClusterId: object.SourceClusterId, TargetClusterId: object.TargetClusterId, VeleroNamespace: object.VeleroNamespace, ExternalName: object.ExternalName, IncludedNamespaces: includedNamespaces, ExcludedNamespaces: excludedNamespaces, NamespaceMapping: namespaceMapping, StorageClassMapping: storageClassMapping, ExistingResourceMode: object.ExistingResourceMode, RestoreVolumes: object.RestoreVolumes, Status: object.Status, StartedAt: object.StartedAt, CompletedAt: object.CompletedAt, Warnings: object.Warnings, ErrorMessage: object.ErrorMessage}
+	result := &types.RestoreTask{PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion}, TimeMeta: types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified}, Name: object.Name, Description: object.Description, BackupId: object.BackupId, SourceClusterId: object.SourceClusterId, TargetClusterId: object.TargetClusterId, VeleroNamespace: object.VeleroNamespace, IncludedNamespaces: includedNamespaces, ExcludedNamespaces: excludedNamespaces, NamespaceMapping: namespaceMapping, StorageClassMapping: storageClassMapping, ExistingResourceMode: object.ExistingResourceMode, RestoreVolumes: object.RestoreVolumes, RecordCount: len(records)}
+	if len(records) > 0 {
+		result.LatestRecord = toRestoreRecord(&records[0])
+	}
+	if includeRecords {
+		result.Records = make([]types.RestoreRecord, 0, len(records))
+		for i := range records {
+			result.Records = append(result.Records, *toRestoreRecord(&records[i]))
+		}
+	}
+	return result
+}
+
+func toRestoreRecord(object *model.RestoreRecord) *types.RestoreRecord {
+	return &types.RestoreRecord{PixiuMeta: types.PixiuMeta{Id: object.Id, ResourceVersion: object.ResourceVersion}, TimeMeta: types.TimeMeta{GmtCreate: object.GmtCreate, GmtModified: object.GmtModified}, TaskId: object.TaskId, ExternalName: object.ExternalName, Status: object.Status, StartedAt: object.StartedAt, CompletedAt: object.CompletedAt, Warnings: object.Warnings, ErrorMessage: object.ErrorMessage}
 }

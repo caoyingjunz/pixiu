@@ -153,6 +153,19 @@ func (r *backupRouter) createRestore(c *gin.Context) {
 	}
 	httputils.SetSuccess(c, result)
 }
+func (r *backupRouter) runRestore(c *gin.Context) {
+	result := httputils.NewResponse()
+	var meta idMeta
+	err := c.ShouldBindUri(&meta)
+	if err == nil {
+		result.Result, err = r.c.Backup().RunRestore(c, meta.RestoreID)
+	}
+	if err != nil {
+		httputils.SetFailed(c, result, err)
+		return
+	}
+	httputils.SetSuccess(c, result)
+}
 func (r *backupRouter) updateRestore(c *gin.Context) {
 	result := httputils.NewResponse()
 	var meta idMeta

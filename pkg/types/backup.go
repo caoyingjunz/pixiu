@@ -68,27 +68,36 @@ type Backup struct {
 	ErrorMessage        string             `json:"error_message"`
 }
 
+type RestoreRecord struct {
+	PixiuMeta    `json:",inline"`
+	TimeMeta     `json:",inline"`
+	TaskId       int64               `json:"task_id"`
+	ExternalName string              `json:"external_name"`
+	Status       model.RestoreStatus `json:"status"`
+	StartedAt    *time.Time          `json:"started_at"`
+	CompletedAt  *time.Time          `json:"completed_at"`
+	Warnings     string              `json:"warnings"`
+	ErrorMessage string              `json:"error_message"`
+}
+
 type RestoreTask struct {
 	PixiuMeta            `json:",inline"`
 	TimeMeta             `json:",inline"`
-	Name                 string              `json:"name"`
-	Description          string              `json:"description"`
-	BackupId             int64               `json:"backup_id"`
-	SourceClusterId      int64               `json:"source_cluster_id"`
-	TargetClusterId      int64               `json:"target_cluster_id"`
-	VeleroNamespace      string              `json:"velero_namespace"`
-	ExternalName         string              `json:"external_name"`
-	IncludedNamespaces   []string            `json:"included_namespaces"`
-	ExcludedNamespaces   []string            `json:"excluded_namespaces"`
-	NamespaceMapping     map[string]string   `json:"namespace_mapping"`
-	StorageClassMapping  map[string]string   `json:"storage_class_mapping"`
-	ExistingResourceMode string              `json:"existing_resource_mode"`
-	RestoreVolumes       bool                `json:"restore_volumes"`
-	Status               model.RestoreStatus `json:"status"`
-	StartedAt            *time.Time          `json:"started_at"`
-	CompletedAt          *time.Time          `json:"completed_at"`
-	Warnings             string              `json:"warnings"`
-	ErrorMessage         string              `json:"error_message"`
+	Name                 string            `json:"name"`
+	Description          string            `json:"description"`
+	BackupId             int64             `json:"backup_id"`
+	SourceClusterId      int64             `json:"source_cluster_id"`
+	TargetClusterId      int64             `json:"target_cluster_id"`
+	VeleroNamespace      string            `json:"velero_namespace"`
+	IncludedNamespaces   []string          `json:"included_namespaces"`
+	ExcludedNamespaces   []string          `json:"excluded_namespaces"`
+	NamespaceMapping     map[string]string `json:"namespace_mapping"`
+	StorageClassMapping  map[string]string `json:"storage_class_mapping"`
+	ExistingResourceMode string            `json:"existing_resource_mode"`
+	RestoreVolumes       bool              `json:"restore_volumes"`
+	RecordCount          int               `json:"record_count"`
+	LatestRecord         *RestoreRecord    `json:"latest_record"`
+	Records              []RestoreRecord   `json:"records,omitempty"`
 }
 
 type CreateBackupPlanRequest struct {
