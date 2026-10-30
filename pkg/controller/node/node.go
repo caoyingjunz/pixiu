@@ -18,6 +18,8 @@ package node
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -77,6 +79,28 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 	}
 	req.Name = name
 
+	// 扩容场景允许 plan_id 与 cluster_id 同时存在（节点挂到扩容计划且绑定集群）
+	if req.PlanId != 0 && req.ClusterId != 0 {
+		planObj, err := n.factory.Plan().Get(ctx, req.PlanId)
+		if err != nil || planObj == nil {
+			return errors.ErrPlanNotFound
+		}
+		if planObj.Type != 1 {
+			// 仅扩容计划（type=1）允许同时绑定集群，普通部署计划仍保持互斥
+			return errors.ErrInvalidRequest
+		}
+	}
+	// 直接绑定集群时需校验集群存在且当前用户可访问
+	if req.ClusterId != 0 {
+		object, err := n.factory.Cluster().Get(ctx, req.ClusterId)
+		if err != nil || object == nil {
+			return errors.ErrClusterNotFound
+		}
+		if err = util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeCluster, req.ClusterId); err != nil {
+			return err
+		}
+	}
+
 	if err := n.preCreate(ctx, req); err != nil {
 		klog.Errorf("pre-create check failed for node %s: %v", req.Name, err)
 		return err
@@ -88,11 +112,18 @@ func (n *nodeController) Create(ctx context.Context, req *types.CreateNodeReques
 		return errors.ErrInvalidRequest
 	}
 	object := &model.Node{
-		Name:   req.Name,
-		UserId: req.UserId,
-		PlanId: req.PlanId,
-		Ip:     req.Ip,
-		Auth:   authStr,
+		Name:      req.Name,
+		UserId:    req.UserId,
+		PlanId:    req.PlanId,
+		ClusterId: req.ClusterId,
+		Ip:        req.Ip,
+		Auth:      authStr,
+	}
+	// 直接绑定集群的主机是扩容候选节点，固定为 worker + containerd
+	if req.ClusterId != 0 {
+		object.Role = model.NodeRole
+		object.CRI = model.ContainerdCRI
+		object.Status = model.NodeStatusUnadded
 	}
 	if _, err = n.factory.Plan().Node().Create(ctx, nil, object); err != nil {
 		klog.Errorf("failed to create node %s: %v", req.Name, err)
@@ -184,6 +215,10 @@ func (n *nodeController) Delete(ctx context.Context, nodeId int64) error {
 	}
 	if err := util.CheckResourceAccess(ctx, n.factory, object.UserId, types.ResourceTypeNode, nodeId); err != nil {
 		return err
+	}
+	// 已绑定集群的节点请先在集群节点管理页移除，避免绕过扩容状态直接删主机记录
+	if object.ClusterId != 0 {
+		return errors.NewError(fmt.Errorf("节点已绑定集群，请先在集群节点管理页移除"), http.StatusConflict)
 	}
 
 	if _, err := n.factory.Plan().Node().Delete(ctx, nodeId); err != nil {
@@ -295,6 +330,9 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 	if listOption.PlanId != nil {
 		opts = append(opts, db.WithPlanIdEq(*listOption.PlanId))
 	}
+	if listOption.NodeClusterId != nil {
+		opts = append(opts, db.WithClusterIdEq(*listOption.NodeClusterId))
+	}
 
 	pageResult.Total, err = n.factory.Plan().Node().Count(ctx, opts...)
 	if err != nil {
@@ -333,55 +371,87 @@ func (n *nodeController) List(ctx context.Context, listOption types.ListOptions)
 // fillClusterNames 按 plan_id 批量填充所属集群名称：
 // 优先自建集群 alias_name（plan 注册集群时 AliasName 即 plan 名称），无集群记录时回退 plan 名称。
 func (n *nodeController) fillClusterNames(ctx context.Context, items []types.NodeResult) error {
+	// 1) cluster_id 直接关联的扩容节点：按集群 ID 回填
+	clusterIDs := make([]int64, 0, len(items))
+	seenCluster := make(map[int64]struct{}, len(items))
+	for i := range items {
+		cid := items[i].ClusterId
+		if cid == 0 {
+			continue
+		}
+		if _, ok := seenCluster[cid]; ok {
+			continue
+		}
+		seenCluster[cid] = struct{}{}
+		clusterIDs = append(clusterIDs, cid)
+	}
+	clusterNames := make(map[int64]string, len(clusterIDs))
+	if len(clusterIDs) > 0 {
+		clusters, err := n.factory.Cluster().List(ctx, db.WithIdIn(clusterIDs))
+		if err != nil {
+			return err
+		}
+		for i := range clusters {
+			name := clusters[i].AliasName
+			if name == "" {
+				name = clusters[i].Name
+			}
+			clusterNames[clusters[i].Id] = name
+		}
+	}
+
+	// 2) plan_id 关联的部署节点：沿用原逻辑（集群 alias_name，回退 plan 名称）
 	planIDs := make([]int64, 0, len(items))
-	seen := make(map[int64]struct{}, len(items))
+	seenPlan := make(map[int64]struct{}, len(items))
 	for i := range items {
 		pid := items[i].PlanId
 		if pid == 0 {
 			continue
 		}
-		if _, ok := seen[pid]; ok {
+		if _, ok := seenPlan[pid]; ok {
 			continue
 		}
-		seen[pid] = struct{}{}
+		seenPlan[pid] = struct{}{}
 		planIDs = append(planIDs, pid)
 	}
-	if len(planIDs) == 0 {
-		return nil
-	}
-
-	clusters, err := n.factory.Cluster().List(ctx, db.WithPlanIn(planIDs))
-	if err != nil {
-		return err
-	}
-	clusterNames := make(map[int64]string, len(clusters))
-	for i := range clusters {
-		name := clusters[i].AliasName
-		if name == "" {
-			name = clusters[i].Name
-		}
-		clusterNames[clusters[i].PlanId] = name
-	}
-
-	// 未注册集群的 plan，回退显示 plan 名称
-	fallbackIDs := make([]int64, 0, len(planIDs))
-	for _, pid := range planIDs {
-		if _, ok := clusterNames[pid]; !ok {
-			fallbackIDs = append(fallbackIDs, pid)
-		}
-	}
-	if len(fallbackIDs) > 0 {
-		plans, err := n.factory.Plan().List(ctx, db.WithIdIn(fallbackIDs))
+	planClusterNames := make(map[int64]string, len(planIDs))
+	if len(planIDs) > 0 {
+		clusters, err := n.factory.Cluster().List(ctx, db.WithPlanIn(planIDs))
 		if err != nil {
 			return err
 		}
-		for i := range plans {
-			clusterNames[plans[i].Id] = plans[i].Name
+		for i := range clusters {
+			name := clusters[i].AliasName
+			if name == "" {
+				name = clusters[i].Name
+			}
+			planClusterNames[clusters[i].PlanId] = name
+		}
+
+		// 未注册集群的 plan，回退显示 plan 名称
+		fallbackIDs := make([]int64, 0, len(planIDs))
+		for _, pid := range planIDs {
+			if _, ok := planClusterNames[pid]; !ok {
+				fallbackIDs = append(fallbackIDs, pid)
+			}
+		}
+		if len(fallbackIDs) > 0 {
+			plans, err := n.factory.Plan().List(ctx, db.WithIdIn(fallbackIDs))
+			if err != nil {
+				return err
+			}
+			for i := range plans {
+				planClusterNames[plans[i].Id] = plans[i].Name
+			}
 		}
 	}
 
 	for i := range items {
-		items[i].ClusterName = clusterNames[items[i].PlanId]
+		if items[i].ClusterId != 0 {
+			items[i].ClusterName = clusterNames[items[i].ClusterId]
+			continue
+		}
+		items[i].ClusterName = planClusterNames[items[i].PlanId]
 	}
 	return nil
 }
@@ -403,10 +473,15 @@ func model2Node(o *model.Node) *types.NodeResult {
 			GmtCreate:   o.GmtCreate,
 			GmtModified: o.GmtModified,
 		},
-		Name:   o.Name,
-		UserId: o.UserId,
-		Ip:     o.Ip,
-		Auth:   auth,
-		PlanId: o.PlanId,
+		Name:          o.Name,
+		UserId:        o.UserId,
+		Ip:            o.Ip,
+		Auth:          auth,
+		PlanId:        o.PlanId,
+		ClusterId:     o.ClusterId,
+		Role:          o.Role,
+		CRI:           o.CRI,
+		Status:        o.Status,
+		StatusMessage: o.StatusMessage,
 	}
 }

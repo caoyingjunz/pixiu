@@ -94,6 +94,10 @@ func (p *plan) applyPlanNode(ctx context.Context, planId int64, req *types.Creat
 		if object.PlanId != 0 && object.PlanId != planId {
 			return errors.ErrConflict
 		}
+		// 已绑定集群（扩容节点）不允许再关联到部署计划，避免同一主机被两套生命周期管理
+		if object.ClusterId != 0 {
+			return errors.ErrConflict
+		}
 
 		updates := map[string]interface{}{"plan_id": planId, "role": role, "cri": req.CRI}
 		// 计划内允许直接修正已绑定节点 IP：与主机管理端点（PUT /pixiu/nodes/:id）写同一 nodes.ip，

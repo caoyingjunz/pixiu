@@ -757,6 +757,8 @@ type Plan struct {
 	NodeCount         int                `json:"node_count"`         // 节点总数
 	ExecMode          model.PlanExecMode `json:"exec_mode"`
 	DeployAgentId     int64              `json:"deploy_agent_id,omitempty"`
+	Type              int                `json:"type"`                // 计划类型：0=普通部署计划，1=集群扩容计划
+	ClusterId         int64              `json:"cluster_id,omitempty"` // 扩容计划（Type=1）关联的目标集群
 
 	Config PlanConfig `json:"config"`
 	Nodes  []PlanNode `json:"nodes"`
@@ -984,6 +986,9 @@ type CustomMeta struct {
 
 	// node
 	PlanId *int64 `form:"plan_id" json:"plan_id"`
+	// NodeClusterId 节点列表按 cluster_id 过滤；0 表示仅查未绑定集群的主机
+	// （与 CustomMeta.ClusterId 区分：后者供告警等模块使用）
+	NodeClusterId *int64 `form:"node_cluster_id" json:"node_cluster_id"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {

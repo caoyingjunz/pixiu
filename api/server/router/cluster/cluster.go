@@ -60,6 +60,16 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "/:clusterId/proxy-kubeconfig", Handler: cr.createProxyKubeconfig, Description: "生成代理KubeConfig"},
 			{Method: "GET", RelativePath: "/:clusterId/proxy-kubeconfig", Handler: cr.getProxyKubeconfig, Description: "获取代理KubeConfig"},
 			{Method: "DELETE", RelativePath: "/:clusterId/access-tokens/:jti", Handler: cr.revokeAccessToken, Description: "删除访问令牌"},
+
+			// 集群节点扩容
+			{Method: "GET", RelativePath: "/:clusterId/expansion-config", Handler: cr.getExpansionConfig, Description: "扩容能力探测"},
+			{Method: "GET", RelativePath: "/:clusterId/nodes", Handler: cr.listExpansionNodes, Description: "扩容节点列表"},
+			{Method: "POST", RelativePath: "/:clusterId/nodes", Handler: cr.addExpansionNodes, Description: "添加扩容节点"},
+			{Method: "DELETE", RelativePath: "/:clusterId/nodes/:nodeId", Handler: cr.removeExpansionNode, Description: "移除扩容节点"},
+			{Method: "POST", RelativePath: "/:clusterId/expansions", Handler: cr.createExpansion, Description: "创建节点扩容"},
+			{Method: "GET", RelativePath: "/:clusterId/expansions", Handler: cr.listExpansions, Description: "节点扩容历史"},
+			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId", Handler: cr.getExpansion, Description: "节点扩容详情"},
+			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId/logs", Handler: cr.watchExpansionLogs, Description: "节点扩容日志"},
 		},
 	}
 	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())

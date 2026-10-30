@@ -484,8 +484,40 @@ func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (*mo
 			http.StatusForbidden)
 	}
 
+	// 存在进行中的节点扩容时不允许删除，避免扩容任务操作已删除集群
+	for _, status := range []model.TaskStatus{model.UnStartPlanStatus, model.RunningPlanStatus} {
+		count, err := c.factory.ClusterExpansion().Count(ctx, db.WithClusterIdEq(cid), db.WithTaskStatus(status))
+		if err != nil {
+			return nil, errors.ErrServerInternal
+		}
+		if count > 0 {
+			return nil, errors.NewError(fmt.Errorf("存在进行中的节点扩容任务，不允许删除 %s", obj.AliasName),
+				http.StatusConflict)
+		}
+	}
+
 	// TODO: 其他删除策略检查
 	return obj, nil
+}
+
+// unbindExpansionNodes 集群删除后，把扩容节点解绑回主机池，避免遗留悬空 cluster_id。
+func (c *cluster) unbindExpansionNodes(ctx context.Context, clusterId int64) error {
+	nodes, err := c.factory.Plan().Node().List(ctx, db.WithClusterIdEq(clusterId))
+	if err != nil {
+		return err
+	}
+	for i := range nodes {
+		if err = c.factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{
+			"cluster_id":     int64(0),
+			"role":           "",
+			"cri":            "",
+			"status":         model.NodeStatusUnadded,
+			"status_message": "",
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *cluster) Delete(ctx context.Context, cid int64, skipCheck bool) error {
@@ -497,6 +529,11 @@ func (c *cluster) Delete(ctx context.Context, cid int64, skipCheck bool) error {
 	if err = c.factory.Cluster().Delete(ctx, clu); err != nil {
 		klog.Errorf("failed to delete cluster(%d): %v", cid, err)
 		return errors.ErrServerInternal
+	}
+
+	// 扩容节点解绑回主机池（非核心数据，失败仅告警）
+	if err = c.unbindExpansionNodes(ctx, cid); err != nil {
+		klog.Warningf("failed to unbind expansion nodes of cluster(%d): %v", cid, err)
 	}
 
 	cs, err := c.GetClusterSetByName(ctx, clu.Name)

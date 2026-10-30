@@ -42,6 +42,7 @@ type ShareDaoFactory interface {
 	CronHpa() CronHpaInterface
 	Chart() ChartInterface
 	Backup() BackupInterface
+	ClusterExpansion() ClusterExpansionInterface
 
 	// Transaction 在单库事务中执行 fn，fn 内应使用传入的 factory 访问 DAO。
 	Transaction(ctx context.Context, fn func(ShareDaoFactory) error) error
@@ -72,6 +73,9 @@ func (f *shareDaoFactory) RegistrationCode() RegistrationCodeInterface {
 func (f *shareDaoFactory) CronHpa() CronHpaInterface { return newCronHpa(f.db) }
 func (f *shareDaoFactory) Chart() ChartInterface     { return newChart(f.db) }
 func (f *shareDaoFactory) Backup() BackupInterface   { return newBackup(f.db) }
+func (f *shareDaoFactory) ClusterExpansion() ClusterExpansionInterface {
+	return newClusterExpansion(f.db)
+}
 
 func (f *shareDaoFactory) Transaction(ctx context.Context, fn func(ShareDaoFactory) error) error {
 	return f.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

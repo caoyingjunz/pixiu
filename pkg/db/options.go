@@ -265,6 +265,20 @@ func WithPlanIdEq(pid int64) Options {
 	}
 }
 
+// WithPlanTypeEq 按计划类型过滤（0=普通部署计划，1=集群扩容计划）。
+func WithPlanTypeEq(planType int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("type = ?", planType)
+	}
+}
+
+// WithPlanClusterIdEq 按扩容计划关联的目标集群过滤。
+func WithPlanClusterIdEq(clusterId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("cluster_id = ?", clusterId)
+	}
+}
+
 // WithPlanIn 按 plan_id 集合过滤（plan_id = 0 的记录不匹配任何 IN 条件，天然排除）。
 func WithPlanIn(pids []int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
@@ -531,6 +545,30 @@ func WithClusterId(clusterId int64) Options {
 			return tx
 		}
 		return tx.Where("cluster_id = ?", clusterId)
+	}
+}
+
+// WithClusterIdEq 按 cluster_id 精确过滤（包含 0，用于查询未绑定集群的主机）。
+func WithClusterIdEq(clusterId int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("cluster_id = ?", clusterId)
+	}
+}
+
+// WithNodeStatus 按节点扩容状态过滤。
+func WithNodeStatus(status model.NodeStatus) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("status = ?", status)
+	}
+}
+
+// WithTaskStatus 按任务状态过滤（cluster_expansions 等复用 TaskStatus 的表）。
+func WithTaskStatus(status model.TaskStatus) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if status == "" {
+			return tx
+		}
+		return tx.Where("status = ?", status)
 	}
 }
 
