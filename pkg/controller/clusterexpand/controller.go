@@ -264,7 +264,8 @@ func (c *controller) RemoveNode(ctx context.Context, clusterId, nodeId int64) er
 		names, ips, listErr := clusterNodeAddresses(ctx, info.Client)
 		if listErr == nil && nodeMatched(object.Name, object.Ip, names, ips) {
 			_ = c.factory.Plan().Node().UpdateFields(ctx, nodeId, map[string]interface{}{
-				"status": model.NodeStatusAdded, "status_message": "",
+				"plan_id": int64(0),
+				"status":  model.NodeStatusAdded, "status_message": "",
 			})
 			return errors.NewError(fmt.Errorf("节点已加入集群，无法移除"), http.StatusConflict)
 		}
@@ -392,8 +393,10 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 	for i := range nodes {
 		n := &nodes[i]
 		if nodeMatched(n.Name, n.Ip, names, ips) {
+			// 已在集群中的节点标记已加入，并解除与扩容计划的关联
 			_ = c.factory.Plan().Node().UpdateFields(ctx, n.Id, map[string]interface{}{
-				"status": model.NodeStatusAdded, "status_message": "",
+				"plan_id": int64(0),
+				"status":  model.NodeStatusAdded, "status_message": "",
 			})
 			return 0, errors.NewError(fmt.Errorf("节点 %s 已在集群中，请刷新后重试", n.Name), http.StatusConflict)
 		}
