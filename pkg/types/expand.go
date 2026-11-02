@@ -88,6 +88,7 @@ type ClusterExpansion struct {
 	TimeMeta  `json:",inline"`
 
 	ClusterId int64            `json:"cluster_id"`
+	PlanId    int64            `json:"plan_id"`
 	NodeIds   []int64          `json:"node_ids"`
 	Options   ExpansionOptions `json:"options"`
 

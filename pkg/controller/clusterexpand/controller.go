@@ -444,6 +444,22 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 		}
 		expansionId = expansion.Id
 
+		// 每次扩容重置该计划的进度任务，避免历史步骤残留
+		if taskErr := tx.Plan().Task().Delete(ctx, expansionPlan.Id); taskErr != nil {
+			return taskErr
+		}
+		for _, t := range expansionTaskSpecs {
+			if _, taskErr := tx.Plan().Task().Create(ctx, &model.Task{
+				Name:   t.Name,
+				PlanId: expansionPlan.Id,
+				Step:   model.UnStartedPlanStep,
+				Action: t.Action,
+				Status: model.UnStartPlanStatus,
+			}); taskErr != nil {
+				return taskErr
+			}
+		}
+
 		for i := range nodes {
 			if updateErr := tx.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{
 				"status": model.NodeStatusAdding, "status_message": "",
@@ -549,11 +565,16 @@ func (c *controller) Logs(ctx context.Context, clusterId, expansionId int64, ste
 		return fmt.Errorf("不支持的日志步骤: %s", step)
 	}
 
+	action := actionBootstrap
+	if step == stepAddNode {
+		action = actionAddNode
+	}
+
 	rt, err := runtime.Default()
 	if err != nil {
 		return err
 	}
-	readCloser, err := rt.Logs(ctx, containerName(expansionId, step), true)
+	readCloser, err := rt.Logs(ctx, fmt.Sprintf("%s-%d", action, object.PlanId), true)
 	if err != nil {
 		return err
 	}
@@ -625,6 +646,7 @@ func modelExpansion2Type(o *model.ClusterExpansion) (*types.ClusterExpansion, er
 			GmtModified: o.GmtModified,
 		},
 		ClusterId:   o.ClusterId,
+		PlanId:      o.PlanId,
 		NodeIds:     nodeIds,
 		Options:     options,
 		Status:      o.Status,
