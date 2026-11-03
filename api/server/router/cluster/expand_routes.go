@@ -148,6 +148,23 @@ func (cr *clusterRouter) saveExpansionPlanConfig(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
+func (cr *clusterRouter) generateExpansionJoinToken(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var opt expandClusterMeta
+	if err := c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	result, err := cr.c.ClusterExpand().GenerateJoinParams(c, opt.ClusterId)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = result
+	httputils.SetSuccess(c, r)
+}
+
 func (cr *clusterRouter) getExpansionPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 

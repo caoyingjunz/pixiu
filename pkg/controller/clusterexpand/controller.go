@@ -55,6 +55,8 @@ type Interface interface {
 	RemoveNode(ctx context.Context, clusterId, nodeId int64) error
 	// Create 创建并启动一次扩容，返回扩容记录 ID
 	Create(ctx context.Context, clusterId int64, req *types.CreateClusterExpansionRequest) (int64, error)
+	// GenerateJoinParams 通过 Kubernetes API 自动生成 join 参数（bootstrap token + CA hash + apiserver）。
+	GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error)
 	// SavePlanConfig 保存集群扩容计划（plans.type=1）的配置与元数据。
 	SavePlanConfig(ctx context.Context, clusterId int64, req *types.SaveClusterExpansionPlanConfigRequest) error
 	// GetPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。

@@ -76,6 +76,18 @@ type ExpansionOptions struct {
 	CAHash    string `json:"ca_cert_hash,omitempty"`
 }
 
+// ExpansionJoinParams 自动生成的 join 参数，供扩容页面「自动生成」按钮一键填充。
+type ExpansionJoinParams struct {
+	// APIServer 新节点可达的 kube-apiserver 地址，格式 host:port
+	APIServer string `json:"api_server"`
+	// Token kubeadm bootstrap token，格式 id.secret
+	Token string `json:"token"`
+	// CAHash CA 证书公钥的 sha256（纯 hex，不含 sha256: 前缀）
+	CAHash string `json:"ca_cert_hash"`
+	// ExpiresAt token 过期时间（TTL 2 小时）
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 // CreateClusterExpansionRequest 创建并启动一次集群扩容。
 type CreateClusterExpansionRequest struct {
 	NodeIds []int64          `json:"node_ids" binding:"required,min=1"`

@@ -68,6 +68,7 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "DELETE", RelativePath: "/:clusterId/nodes/:nodeId", Handler: cr.removeExpansionNode, Description: "移除扩容节点"},
 			{Method: "POST", RelativePath: "/:clusterId/expansions", Handler: cr.createExpansion, Description: "创建节点扩容"},
 			{Method: "PUT", RelativePath: "/:clusterId/expansion-plan-config", Handler: cr.saveExpansionPlanConfig, Description: "保存扩容计划配置"},
+			{Method: "POST", RelativePath: "/:clusterId/expansion-join-token", Handler: cr.generateExpansionJoinToken, Description: "自动生成扩容 join 参数"},
 			{Method: "GET", RelativePath: "/:clusterId/expansion-plan", Handler: cr.getExpansionPlan, Description: "查询扩容计划及配置"},
 			{Method: "DELETE", RelativePath: "/:clusterId/expansion-plan", Handler: cr.deleteExpansionPlan, Description: "删除扩容计划"},
 			{Method: "GET", RelativePath: "/:clusterId/expansions", Handler: cr.listExpansions, Description: "节点扩容历史"},

@@ -25,6 +25,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -35,6 +36,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
+	"github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/pkg/client"
 	clustercontroller "github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -250,6 +252,51 @@ func (c *controller) resolveJoin(ctx context.Context, obj *model.Cluster, info *
 		CAHash:          caHash,
 		KubeRelease:     info.Config.KubernetesVersion,
 		ImageRepository: imageRepository,
+	}, nil
+}
+
+// GenerateJoinParams 通过 Kubernetes API 自动生成一次性 join 参数，供扩容页面「自动生成」按钮填充。
+// token 由 K8s API 创建（bootstrap-token Secret，TTL 2 小时），CA hash 由 kubeconfig 中的 CA 证书计算，
+// apiserver 取 kubeadm-config 的 controlPlaneEndpoint，缺省回落 kubeconfig 的 server。
+func (c *controller) GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error) {
+	obj, _, err := c.authorize(ctx, clusterId, true)
+	if err != nil {
+		return nil, err
+	}
+
+	info := c.detectCluster(ctx, obj)
+	if info == nil || info.Config == nil || !info.Config.Supported {
+		reason := "集群不支持扩容"
+		if info != nil && info.Config != nil && info.Config.Reason != "" {
+			reason = info.Config.Reason
+		}
+		return nil, errors.NewError(fmt.Errorf("%s", reason), http.StatusBadRequest)
+	}
+
+	apiServer := strings.TrimSpace(info.Config.ControlPlaneEndpoint)
+	if apiServer == "" {
+		apiServer = info.Server
+	}
+	apiServer, err = normalizeAPIServer(apiServer)
+	if err != nil {
+		return nil, errors.NewError(err, http.StatusBadRequest)
+	}
+
+	caHash, err := caHashFromCertData(info.CAData)
+	if err != nil {
+		return nil, errors.NewError(fmt.Errorf("计算 CA hash 失败（可在 kubeconfig 中补充 CA 证书后重试）: %w", err), http.StatusBadGateway)
+	}
+
+	token, err := createBootstrapToken(ctx, info.Client)
+	if err != nil {
+		return nil, errors.NewError(fmt.Errorf("创建 bootstrap token 失败（请确认 kubeconfig 具备 kube-system secrets 创建权限）: %w", err), http.StatusBadGateway)
+	}
+
+	return &types.ExpansionJoinParams{
+		APIServer: apiServer,
+		Token:     token,
+		CAHash:    caHash,
+		ExpiresAt: time.Now().Add(bootstrapTokenTTL),
 	}, nil
 }
 
