@@ -60,7 +60,7 @@ func RequiresPodProxy(datasource *types.Datasource) bool {
 	if isNacosDatasource(datasource) {
 		return hasNacosCredentials(datasource)
 	}
-	return BasicAuthorization(datasource) != ""
+	return Authorization(datasource) != ""
 }
 
 func Prepare(
@@ -70,7 +70,7 @@ func Prepare(
 	execute RequestExecutor,
 ) (string, error) {
 	if !isNacosDatasource(datasource) {
-		return BasicAuthorization(datasource), nil
+		return Authorization(datasource), nil
 	}
 	if !hasNacosCredentials(datasource) {
 		return "", nil
@@ -106,7 +106,7 @@ func Prepare(
 	return "", nil
 }
 
-func BasicAuthorization(datasource *types.Datasource) string {
+func Authorization(datasource *types.Datasource) string {
 	if datasource == nil || isNacosDatasource(datasource) {
 		return ""
 	}
@@ -128,6 +128,25 @@ func BasicAuthorization(datasource *types.Datasource) string {
 	default:
 		return ""
 	}
+	return HTTPAuthorization(username, password)
+}
+
+func HTTPAuthorization(username, password string) string {
+	if strings.TrimSpace(username) != "" {
+		return basicAuthorization(username, password)
+	}
+	return bearerAuthorization(password)
+}
+
+func bearerAuthorization(token string) string {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return ""
+	}
+	return "Bearer " + token
+}
+
+func basicAuthorization(username, password string) string {
 	if strings.TrimSpace(username) == "" && strings.TrimSpace(password) == "" {
 		return ""
 	}
