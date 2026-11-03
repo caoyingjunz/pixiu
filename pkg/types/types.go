@@ -1062,6 +1062,13 @@ type KubernetesSpec struct {
 	SetHostname       bool   `json:"set_hostname"`               // 自动修改k8s节点名称, Rocky 系统不生效
 	Protect           bool   `json:"protect"`                    // 开启集群保护，防止误删除
 	ChangeSelinux     bool   `json:"change_selinux"`             // 关闭 Selinux
+
+	// 扩容计划（Type=1）join 参数：bootstrap token 与 CA 证书 hash，随 kubernetes 配置一并持久化。
+	BootstrapToken string `json:"bootstrap_token,omitempty"`
+	CAHash         string `json:"ca_hash,omitempty"`
+
+	// KubeAPIServerAddress 扩容节点加入集群使用的 kube-apiserver 地址，格式 https://<ip>:6443。
+	KubeAPIServerAddress string `json:"kube_apiserver_address,omitempty"`
 }
 
 type NetworkSpec struct {

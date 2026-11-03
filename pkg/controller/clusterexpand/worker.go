@@ -297,11 +297,12 @@ func (c *controller) syncHandler(ctx context.Context, expansionId int64) {
 		return
 	}
 
-	dir := filepath.Join(c.cc.Worker.WorkDir, "expansions", strconv.FormatInt(expansion.Id, 10))
-	defer func() {
-		// 渲染目录内含 join token / SSH 私钥，任务结束即清理
-		_ = os.RemoveAll(dir)
-	}()
+	// 与部署任务保持一致：使用 plan id 作为渲染目录；历史无 plan_id 的记录回退 expansion id
+	planId := expansion.PlanId
+	if planId <= 0 {
+		planId = expansion.Id
+	}
+	dir := filepath.Join(c.cc.Worker.WorkDir, strconv.FormatInt(planId, 10))
 
 	planNodes, err := nodesToPlanNodes(nodes)
 	if err != nil {
@@ -314,11 +315,17 @@ func (c *controller) syncHandler(ctx context.Context, expansionId int64) {
 		APIServer:        join.APIServer,
 		Token:            join.Token,
 		CAHash:           join.CAHash,
-		ImageRepository:  join.ImageRepository,
 		NetworkInterface: options.NetworkInterface,
 		SetHostname:      options.SetHostname,
 		RuntimeDataDir:   options.RuntimeDataDir,
 		EnableCustomRepo: options.CustomRepo != nil && options.CustomRepo.Enable,
+	}
+	// 重新触发扩容时清理旧渲染产物，保证 plan 目录内容为本次最新渲染结果
+	if rmErr := os.RemoveAll(dir); rmErr != nil {
+		renderErr := fmt.Errorf("清理扩容渲染目录失败: %v", rmErr)
+		c.finishTask(ctx, expansion.PlanId, taskNameRender, renderErr)
+		c.failExpansion(ctx, expansion.Id, nodes, renderErr)
+		return
 	}
 	if err = planrender.RenderExpand(dir, planNodes, globals, options.CustomRepo); err != nil {
 		renderErr := fmt.Errorf("渲染扩容配置失败: %v", err)

@@ -82,6 +82,40 @@ type CreateClusterExpansionRequest struct {
 	Options ExpansionOptions `json:"options"`
 }
 
+// SaveClusterExpansionPlanConfigRequest 保存集群扩容计划（plans.type=1）的配置与元数据。
+type SaveClusterExpansionPlanConfigRequest struct {
+	// Name 保存扩容计划时忽略名称，避免与部署计划名称唯一索引冲突（计划名称由系统生成）。
+	Name        string                  `json:"name"`
+	Description string                  `json:"description"`
+	Config      CreatePlanConfigRequest `json:"config"`
+	// NodeIds 本次勾选的扩容节点：仅这些节点关联到该计划，未勾选节点解绑。
+	NodeIds []int64 `json:"node_ids"`
+	// join 参数位于 config.kubernetes 内（KubernetesSpec.bootstrap_token / ca_hash）。
+}
+
+// ClusterExpansionPlanResponse 集群扩容计划（plans.type=1）及配置的查询结果。
+// 计划不存在时 Exists=false，其余字段省略。
+type ClusterExpansionPlanResponse struct {
+	Exists      bool                         `json:"exists"`
+	PlanId      int64                        `json:"plan_id,omitempty"`
+	Name        string                       `json:"name,omitempty"`
+	Description string                       `json:"description,omitempty"`
+	Config      *ExpansionPlanConfigResponse `json:"config,omitempty"`
+	// NodeIds 该计划当前关联的扩容节点。
+	NodeIds []int64 `json:"node_ids"`
+}
+
+// ExpansionPlanConfigResponse 集群扩容计划配置（configs 表解析结果）。
+type ExpansionPlanConfigResponse struct {
+	OSImage     string         `json:"os_image"`
+	Description string         `json:"description"`
+	Kubernetes  KubernetesSpec `json:"kubernetes"`
+	Network     NetworkSpec    `json:"network"`
+	Runtime     RuntimeSpec    `json:"runtime"`
+	Component   ComponentSpec  `json:"component"`
+	// join 参数随 Kubernetes 字段返回（kubernetes.bootstrap_token / ca_hash）。
+}
+
 // ClusterExpansion 扩容记录 API 返回结构。
 type ClusterExpansion struct {
 	PixiuMeta `json:",inline"`

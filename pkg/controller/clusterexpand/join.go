@@ -171,7 +171,25 @@ func (c *controller) detectCluster(ctx context.Context, obj *model.Cluster) *clu
 	return info
 }
 
-// resolveJoin 计算 join 所需的参数：优先请求覆盖，其次 kubeadm-config，最后 kubeconfig。
+// expansionPlanJoinParams 读取集群扩容计划（plans.type=1）配置中持久化的 join 参数。
+// 无计划 / 无配置 / 解析失败时返回空值，不报错。
+func (c *controller) expansionPlanJoinParams(ctx context.Context, clusterId int64) (bootstrapToken, caHash, apiServer string) {
+	plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId))
+	if err != nil || len(plans) == 0 {
+		return "", "", ""
+	}
+	cfg, err := c.factory.Plan().Config().GetByPlan(ctx, plans[0].Id)
+	if err != nil || cfg == nil {
+		return "", "", ""
+	}
+	ks := types.KubernetesSpec{}
+	if err = ks.Unmarshal(cfg.Kubernetes); err != nil {
+		return "", "", ""
+	}
+	return strings.TrimSpace(ks.BootstrapToken), strings.TrimSpace(ks.CAHash), strings.TrimSpace(ks.KubeAPIServerAddress)
+}
+
+// resolveJoin 计算 join 所需的参数：优先请求覆盖，其次扩容计划配置，再次 kubeadm-config，最后 kubeconfig。
 func (c *controller) resolveJoin(ctx context.Context, obj *model.Cluster, info *clusterInfo, options *types.ExpansionOptions) (*joinConfig, error) {
 	if info == nil || info.Config == nil || !info.Config.Supported {
 		reason := "集群不支持扩容"
@@ -181,7 +199,12 @@ func (c *controller) resolveJoin(ctx context.Context, obj *model.Cluster, info *
 		return nil, fmt.Errorf("%s", reason)
 	}
 
+	planToken, planCAHash, planAPIServer := c.expansionPlanJoinParams(ctx, obj.Id)
+
 	apiServer := strings.TrimSpace(options.APIServer)
+	if apiServer == "" {
+		apiServer = planAPIServer
+	}
 	if apiServer == "" && info.Kubeadm != nil {
 		apiServer = strings.TrimSpace(info.Kubeadm.ControlPlaneEndpoint)
 	}
@@ -196,6 +219,9 @@ func (c *controller) resolveJoin(ctx context.Context, obj *model.Cluster, info *
 	// kubez 会自动补 "sha256:" 前缀，这里容忍用户粘贴完整 join 命令中的带前缀值
 	caHash := strings.TrimPrefix(strings.TrimSpace(options.CAHash), "sha256:")
 	if caHash == "" {
+		caHash = strings.TrimPrefix(planCAHash, "sha256:")
+	}
+	if caHash == "" {
 		caHash, err = caHashFromCertData(info.CAData)
 		if err != nil {
 			return nil, fmt.Errorf("计算 CA hash 失败（可手工指定 ca_cert_hash）: %w", err)
@@ -203,6 +229,9 @@ func (c *controller) resolveJoin(ctx context.Context, obj *model.Cluster, info *
 	}
 
 	token := strings.TrimSpace(options.Token)
+	if token == "" {
+		token = planToken
+	}
 	if token == "" {
 		token, err = createBootstrapToken(ctx, info.Client)
 		if err != nil {

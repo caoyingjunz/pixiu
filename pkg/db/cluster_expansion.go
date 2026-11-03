@@ -32,6 +32,8 @@ type ClusterExpansionInterface interface {
 	List(ctx context.Context, opts ...Options) ([]model.ClusterExpansion, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
 	Update(ctx context.Context, id int64, updates map[string]interface{}) error
+	// DeleteByClusterId 删除集群下所有扩容记录，无记录时视为成功。
+	DeleteByClusterId(ctx context.Context, clusterId int64) error
 }
 
 type clusterExpansion struct {
@@ -88,4 +90,8 @@ func (c *clusterExpansion) Count(ctx context.Context, opts ...Options) (int64, e
 func (c *clusterExpansion) Update(ctx context.Context, id int64, updates map[string]interface{}) error {
 	updates["gmt_modified"] = time.Now()
 	return c.db.WithContext(ctx).Model(&model.ClusterExpansion{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (c *clusterExpansion) DeleteByClusterId(ctx context.Context, clusterId int64) error {
+	return c.db.WithContext(ctx).Where("cluster_id = ?", clusterId).Delete(&model.ClusterExpansion{}).Error
 }

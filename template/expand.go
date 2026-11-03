@@ -24,7 +24,6 @@ type ExpandGlobals struct {
 	APIServer        string
 	Token            string
 	CAHash           string
-	ImageRepository  string
 	NetworkInterface string
 	SetHostname      bool
 	RuntimeDataDir   string
@@ -38,11 +37,6 @@ kube_release: {{ .KubeRelease }}
 kube_apiserver_address: {{ printf "%q" .APIServer }}
 kube_admin_token: {{ printf "%q" .Token }}
 kube_admin_token_ca_cert_hash: {{ printf "%q" .CAHash }}
-
-{{- if ne .ImageRepository "" }}
-image_repository: {{ printf "%q" .ImageRepository }}
-app_image_repository: {{ printf "%q" .ImageRepository }}
-{{- end }}
 
 {{- if ne .NetworkInterface "" }}
 network_interface: {{ printf "%q" .NetworkInterface }}
