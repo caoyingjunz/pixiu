@@ -157,7 +157,7 @@ func (cr *clusterRouter) createOrUpdateExpansionPlan(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (cr *clusterRouter) generateExpansionJoinToken(c *gin.Context) {
+func (cr *clusterRouter) generateExpansionJoinParams(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var opt expandClusterMeta

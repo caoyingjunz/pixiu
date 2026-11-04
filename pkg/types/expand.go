@@ -76,7 +76,8 @@ type ExpansionOptions struct {
 	CAHash    string `json:"ca_cert_hash,omitempty"`
 }
 
-// ExpansionJoinParams 自动生成的 join 参数，供扩容页面「自动生成」按钮一键填充。
+// ExpansionJoinParams 节点加入参数，对应 POST /pixiu/clusters/:clusterId/expansion-join-params，
+// 供扩容页面「自动生成」按钮一键填充。
 type ExpansionJoinParams struct {
 	// APIServer 新节点可达的 kube-apiserver 地址，格式 host:port
 	APIServer string `json:"api_server"`
