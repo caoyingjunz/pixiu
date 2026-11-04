@@ -325,8 +325,8 @@ func (c *controller) RemoveNode(ctx context.Context, clusterId, nodeId int64) er
 
 // ensureExpansionPlan 返回集群对应的扩容计划（plans.type=1），不存在则自动创建。
 // 扩容计划由系统管理：不创建 configs/nodes/cluster 等子资源，节点通过 plan_id 挂在计划下。
-func (c *controller) ensureExpansionPlan(ctx context.Context, cluster *model.Cluster) (*model.Plan, error) {
-	plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cluster.Id))
+func (c *controller) ensureExpansionPlan(ctx context.Context, factory db.ShareDaoFactory, cluster *model.Cluster) (*model.Plan, error) {
+	plans, err := factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cluster.Id))
 	if err != nil {
 		klog.Errorf("list expansion plans of cluster(%d): %v", cluster.Id, err)
 		return nil, errors.ErrServerInternal
@@ -335,7 +335,7 @@ func (c *controller) ensureExpansionPlan(ctx context.Context, cluster *model.Clu
 		return &plans[0], nil
 	}
 
-	created, err := c.factory.Plan().Create(ctx, &model.Plan{
+	created, err := factory.Plan().Create(ctx, &model.Plan{
 		Name:        fmt.Sprintf("expand-cluster-%d", cluster.Id),
 		UserId:      cluster.UserId,
 		Description: fmt.Sprintf("集群 %s 扩容计划（添加节点时自动创建）", cluster.AliasName),
@@ -352,34 +352,36 @@ func (c *controller) ensureExpansionPlan(ctx context.Context, cluster *model.Clu
 }
 
 // syncExpansionPlanNodes 将选中节点关联到计划，并解绑该计划下未选中的节点。
-func (c *controller) syncExpansionPlanNodes(ctx context.Context, clusterId, planId int64, nodeIds []int64) error {
+// 返回同步后实际关联到该计划的节点 ID，供保存接口直接构造响应。
+func (c *controller) syncExpansionPlanNodes(ctx context.Context, factory db.ShareDaoFactory, clusterId, planId int64, nodeIds []int64) ([]int64, error) {
 	selected := make(map[int64]struct{}, len(nodeIds))
 	for _, id := range nodeIds {
 		selected[id] = struct{}{}
 	}
-	nodes, err := c.factory.Plan().Node().List(ctx, db.WithClusterIdEq(clusterId))
+	nodes, err := factory.Plan().Node().List(ctx, db.WithClusterIdEq(clusterId))
 	if err != nil {
 		klog.Errorf("list expansion nodes of cluster(%d): %v", clusterId, err)
-		return err
+		return nil, err
 	}
+	associated := make([]int64, 0, len(nodes))
 	for i := range nodes {
 		_, want := selected[nodes[i].Id]
 		if want {
-			if nodes[i].PlanId == planId {
-				continue
+			if nodes[i].PlanId != planId {
+				if err = factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{"plan_id": planId}); err != nil {
+					klog.Errorf("associate node(%d) to plan(%d): %v", nodes[i].Id, planId, err)
+					return nil, err
+				}
 			}
-			if err = c.factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{"plan_id": planId}); err != nil {
-				klog.Errorf("associate node(%d) to plan(%d): %v", nodes[i].Id, planId, err)
-				return err
-			}
+			associated = append(associated, nodes[i].Id)
 		} else if nodes[i].PlanId == planId {
-			if err = c.factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{"plan_id": int64(0)}); err != nil {
+			if err = factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{"plan_id": int64(0)}); err != nil {
 				klog.Errorf("unbind node(%d) from plan(%d): %v", nodes[i].Id, planId, err)
-				return err
+				return nil, err
 			}
 		}
 	}
-	return nil
+	return associated, nil
 }
 
 func (c *controller) Create(ctx context.Context, clusterId int64, req *types.CreateClusterExpansionRequest) (int64, error) {
@@ -389,7 +391,7 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 	}
 
 	// 执行扩容前先确保集群对应的扩容计划（type=1）存在，扩容记录关联到该计划
-	expansionPlan, planErr := c.ensureExpansionPlan(ctx, obj)
+	expansionPlan, planErr := c.ensureExpansionPlan(ctx, c.factory, obj)
 	if planErr != nil {
 		return 0, planErr
 	}
@@ -468,7 +470,7 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 	}
 
 	// 节点校验通过后，按去重后的勾选节点同步计划关联：选中关联、未选中解绑
-	if planErr = c.syncExpansionPlanNodes(ctx, clusterId, expansionPlan.Id, nodeIds); planErr != nil {
+	if _, planErr = c.syncExpansionPlanNodes(ctx, c.factory, clusterId, expansionPlan.Id, nodeIds); planErr != nil {
 		return 0, errors.ErrServerInternal
 	}
 
@@ -567,7 +569,7 @@ func (c *controller) checkNoActiveExpansion(ctx context.Context, clusterId int64
 }
 
 // CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据，
-// 并返回保存后的计划表示，避免调用方再次查询。
+// 并在同一事务内完成后直接构造响应，避免调用方二次查询。
 // 与 plan 控制器一致：存在则 Update，不存在则 Create；EnablePublicIp=false 时清空 api_server。
 func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) (*types.ClusterExpansionPlanResponse, error) {
 	obj, _, err := c.authorize(ctx, clusterId, true)
@@ -580,62 +582,118 @@ func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId 
 	if len(req.NodeIds) == 0 {
 		return nil, errors.ErrInvalidRequest
 	}
-	expansionPlan, err := c.ensureExpansionPlan(ctx, obj)
-	if err != nil {
-		return nil, err
-	}
-	// 按勾选的节点同步计划关联：选中关联、未选中解绑
-	if err = c.syncExpansionPlanNodes(ctx, clusterId, expansionPlan.Id, req.NodeIds); err != nil {
-		return nil, errors.ErrServerInternal
-	}
 
 	planConfig, err := buildExpansionPlanConfig(&req.Config)
 	if err != nil {
 		return nil, err
 	}
-	planConfig.PlanId = expansionPlan.Id
 
-	oldConfig, getErr := c.factory.Plan().Config().GetByPlan(ctx, expansionPlan.Id)
-	switch {
-	case getErr == nil:
-		updates := map[string]interface{}{
-			"region":     planConfig.Region,
-			"os_image":   planConfig.OSImage,
-			"kubernetes": planConfig.Kubernetes,
-			"network":    planConfig.Network,
-			"runtime":    planConfig.Runtime,
-			"component":  planConfig.Component,
+	var (
+		expansionPlan *model.Plan
+		associatedIds []int64
+	)
+	txErr := c.factory.Transaction(ctx, func(tx db.ShareDaoFactory) error {
+		var txErr error
+		expansionPlan, txErr = c.ensureExpansionPlan(ctx, tx, obj)
+		if txErr != nil {
+			return txErr
 		}
-		if err = c.factory.Plan().Config().Update(ctx, oldConfig.Id, oldConfig.ResourceVersion, updates); err != nil {
-			klog.Errorf("update plan(%d) config: %v", expansionPlan.Id, err)
-			return nil, errors.ErrServerInternal
+		// 按勾选的节点同步计划关联：选中关联、未选中解绑
+		associatedIds, txErr = c.syncExpansionPlanNodes(ctx, tx, clusterId, expansionPlan.Id, req.NodeIds)
+		if txErr != nil {
+			return errors.ErrServerInternal
 		}
-	case utilerrors.IsRecordNotFound(getErr):
-		if err = c.factory.Plan().Config().Create(ctx, nil, planConfig); err != nil {
-			klog.Errorf("create plan(%d) config: %v", expansionPlan.Id, err)
-			return nil, errors.ErrServerInternal
+
+		planConfig.PlanId = expansionPlan.Id
+		oldConfig, getErr := tx.Plan().Config().GetByPlan(ctx, expansionPlan.Id)
+		switch {
+		case getErr == nil && oldConfig != nil:
+			updates := map[string]interface{}{
+				"region":     planConfig.Region,
+				"os_image":   planConfig.OSImage,
+				"kubernetes": planConfig.Kubernetes,
+				"network":    planConfig.Network,
+				"runtime":    planConfig.Runtime,
+				"component":  planConfig.Component,
+			}
+			if txErr = tx.Plan().Config().Update(ctx, oldConfig.Id, oldConfig.ResourceVersion, updates); txErr != nil {
+				klog.Errorf("update plan(%d) config: %v", expansionPlan.Id, txErr)
+				return errors.ErrServerInternal
+			}
+		case utilerrors.IsRecordNotFound(getErr) || (getErr == nil && oldConfig == nil):
+			if txErr = tx.Plan().Config().Create(ctx, nil, planConfig); txErr != nil {
+				klog.Errorf("create plan(%d) config: %v", expansionPlan.Id, txErr)
+				return errors.ErrServerInternal
+			}
+		default:
+			klog.Errorf("get plan(%d) config: %v", expansionPlan.Id, getErr)
+			return errors.ErrServerInternal
 		}
-	default:
-		klog.Errorf("get plan(%d) config: %v", expansionPlan.Id, getErr)
+
+		// 同步计划元数据（description/kubernetes_version）
+		// 扩容计划名称由系统生成（expand-cluster-<id>），不随前端更新，避免与部署计划名称唯一索引冲突
+		if expansionPlan.Description != req.Description ||
+			expansionPlan.KubernetesVersion != req.Config.Kubernetes.KubernetesVersion {
+			updates := map[string]interface{}{
+				"description":        req.Description,
+				"kubernetes_version": req.Config.Kubernetes.KubernetesVersion,
+			}
+			if txErr = tx.Plan().Update(ctx, expansionPlan.Id, expansionPlan.ResourceVersion, updates); txErr != nil {
+				klog.Errorf("update plan(%d): %v", expansionPlan.Id, txErr)
+				return errors.ErrServerInternal
+			}
+		}
+		expansionPlan.Description = req.Description
+		expansionPlan.KubernetesVersion = req.Config.Kubernetes.KubernetesVersion
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+
+	resp, respErr := buildExpansionPlanResponse(expansionPlan, planConfig, associatedIds)
+	if respErr != nil {
+		klog.Errorf("build plan(%d) response: %v", expansionPlan.Id, respErr)
 		return nil, errors.ErrServerInternal
 	}
+	return resp, nil
+}
 
-	// 同步计划元数据（description/kubernetes_version）
-	// 扩容计划名称由系统生成（expand-cluster-<id>），不随前端更新，避免与部署计划名称唯一索引冲突
-	if expansionPlan.Description != req.Description ||
-		expansionPlan.KubernetesVersion != req.Config.Kubernetes.KubernetesVersion {
-		updates := map[string]interface{}{
-			"description":        req.Description,
-			"kubernetes_version": req.Config.Kubernetes.KubernetesVersion,
-		}
-		if err = c.factory.Plan().Update(ctx, expansionPlan.Id, expansionPlan.ResourceVersion, updates); err != nil {
-			klog.Errorf("update plan(%d): %v", expansionPlan.Id, err)
-			return nil, errors.ErrServerInternal
-		}
+// buildExpansionPlanResponse 根据计划、配置与关联节点构造对外响应。
+// cfg 为 nil 时仅返回计划元数据，不返回配置。
+func buildExpansionPlanResponse(plan *model.Plan, cfg *model.Config, nodeIds []int64) (*types.ClusterExpansionPlanResponse, error) {
+	if plan == nil {
+		return nil, fmt.Errorf("expansion plan is nil")
+	}
+	resp := &types.ClusterExpansionPlanResponse{
+		Exists:      true,
+		PlanId:      plan.Id,
+		Name:        plan.Name,
+		Description: plan.Description,
+		NodeIds:     append(make([]int64, 0, len(nodeIds)), nodeIds...),
+	}
+	if cfg == nil {
+		return resp, nil
 	}
 
-	// 返回保存后的计划表示，省去调用方二次查询
-	return c.GetExpansionPlan(ctx, clusterId)
+	planConfig := &types.ExpansionPlanConfigResponse{
+		OSImage:     cfg.OSImage,
+		Description: plan.Description,
+	}
+	if err := planConfig.Kubernetes.Unmarshal(cfg.Kubernetes); err != nil {
+		return nil, fmt.Errorf("unmarshal kubernetes config: %w", err)
+	}
+	if err := planConfig.Network.Unmarshal(cfg.Network); err != nil {
+		return nil, fmt.Errorf("unmarshal network config: %w", err)
+	}
+	if err := planConfig.Runtime.Unmarshal(cfg.Runtime); err != nil {
+		return nil, fmt.Errorf("unmarshal runtime config: %w", err)
+	}
+	if err := planConfig.Component.Unmarshal(cfg.Component); err != nil {
+		return nil, fmt.Errorf("unmarshal component config: %w", err)
+	}
+	resp.Config = planConfig
+	return resp, nil
 }
 
 // GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置。
@@ -655,57 +713,30 @@ func (c *controller) GetExpansionPlan(ctx context.Context, clusterId int64) (*ty
 	}
 
 	plan := &plans[0]
-	resp := &types.ClusterExpansionPlanResponse{
-		Exists:      true,
-		PlanId:      plan.Id,
-		Name:        plan.Name,
-		Description: plan.Description,
-		NodeIds:     make([]int64, 0),
-	}
-
-	// 返回该计划当前关联的节点，供页面回填勾选状态
 	nodes, err := c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(plan.Id))
 	if err != nil {
 		klog.Errorf("list plan(%d) nodes: %v", plan.Id, err)
 		return nil, errors.ErrServerInternal
 	}
+	nodeIds := make([]int64, 0, len(nodes))
 	for i := range nodes {
-		resp.NodeIds = append(resp.NodeIds, nodes[i].Id)
+		nodeIds = append(nodeIds, nodes[i].Id)
 	}
 
 	cfg, err := c.factory.Plan().Config().GetByPlan(ctx, plan.Id)
 	if err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return resp, nil
+		if !utilerrors.IsRecordNotFound(err) {
+			klog.Errorf("get plan(%d) config: %v", plan.Id, err)
+			return nil, errors.ErrServerInternal
 		}
-		klog.Errorf("get plan(%d) config: %v", plan.Id, err)
-		return nil, errors.ErrServerInternal
-	}
-	if cfg == nil {
-		return resp, nil
+		cfg = nil
 	}
 
-	planConfig := &types.ExpansionPlanConfigResponse{
-		OSImage:     cfg.OSImage,
-		Description: plan.Description,
-	}
-	if err = planConfig.Kubernetes.Unmarshal(cfg.Kubernetes); err != nil {
-		klog.Errorf("unmarshal plan(%d) kubernetes config: %v", plan.Id, err)
+	resp, respErr := buildExpansionPlanResponse(plan, cfg, nodeIds)
+	if respErr != nil {
+		klog.Errorf("build plan(%d) response: %v", plan.Id, respErr)
 		return nil, errors.ErrServerInternal
 	}
-	if err = planConfig.Network.Unmarshal(cfg.Network); err != nil {
-		klog.Errorf("unmarshal plan(%d) network config: %v", plan.Id, err)
-		return nil, errors.ErrServerInternal
-	}
-	if err = planConfig.Runtime.Unmarshal(cfg.Runtime); err != nil {
-		klog.Errorf("unmarshal plan(%d) runtime config: %v", plan.Id, err)
-		return nil, errors.ErrServerInternal
-	}
-	if err = planConfig.Component.Unmarshal(cfg.Component); err != nil {
-		klog.Errorf("unmarshal plan(%d) component config: %v", plan.Id, err)
-		return nil, errors.ErrServerInternal
-	}
-	resp.Config = planConfig
 	return resp, nil
 }
 
