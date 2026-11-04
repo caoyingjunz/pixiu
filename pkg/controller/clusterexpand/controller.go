@@ -59,10 +59,10 @@ type Interface interface {
 	GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error)
 	// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据。
 	CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.SaveClusterExpansionPlanConfigRequest) error
-	// GetPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。
-	GetPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error)
-	// DeletePlan 删除集群扩容计划及其关联的扩容记录/任务/配置，并解除节点与计划的关联。
-	DeletePlan(ctx context.Context, clusterId int64) error
+	// GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。
+	GetExpansionPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error)
+	// DeleteExpansionPlan 删除集群扩容计划及其关联的扩容记录/任务/配置，并解除节点与计划的关联。
+	DeleteExpansionPlan(ctx context.Context, clusterId int64) error
 	// List 扩容历史
 	List(ctx context.Context, clusterId int64, listOption types.ListOptions) (interface{}, error)
 	// Get 扩容详情
@@ -634,9 +634,9 @@ func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId 
 	return nil
 }
 
-// GetPlan 获取集群扩容计划（plans.type=1）及配置。
+// GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置。
 // 计划不存在时返回 Exists=false；计划存在但无 configs 行时 Config 留空。
-func (c *controller) GetPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error) {
+func (c *controller) GetExpansionPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error) {
 	if _, _, err := c.authorize(ctx, clusterId, false); err != nil {
 		return nil, err
 	}
@@ -812,9 +812,9 @@ func buildExpansionPlanConfig(req *types.CreatePlanConfigRequest) (*model.Config
 	}, nil
 }
 
-// DeletePlan 删除集群扩容计划（plans.type=1）。计划不存在时幂等返回成功；
+// DeleteExpansionPlan 删除集群扩容计划（plans.type=1）。计划不存在时幂等返回成功；
 // 存在未开始/运行中的扩容记录时拒绝删除。
-func (c *controller) DeletePlan(ctx context.Context, clusterId int64) error {
+func (c *controller) DeleteExpansionPlan(ctx context.Context, clusterId int64) error {
 	if _, _, err := c.authorize(ctx, clusterId, true); err != nil {
 		return err
 	}

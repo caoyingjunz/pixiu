@@ -148,7 +148,7 @@ func (cr *clusterRouter) createOrUpdateExpansionPlan(c *gin.Context) {
 		return
 	}
 	// 返回保存后的计划表示，避免客户端再发起一次 GET
-	result, err := cr.c.ClusterExpand().GetPlan(c, opt.ClusterId)
+	result, err := cr.c.ClusterExpand().GetExpansionPlan(c, opt.ClusterId)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -186,7 +186,7 @@ func (cr *clusterRouter) getExpansionPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	result, err := cr.c.ClusterExpand().GetPlan(c, opt.ClusterId)
+	result, err := cr.c.ClusterExpand().GetExpansionPlan(c, opt.ClusterId)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -203,7 +203,7 @@ func (cr *clusterRouter) deleteExpansionPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := cr.c.ClusterExpand().DeletePlan(c, opt.ClusterId); err != nil {
+	if err := cr.c.ClusterExpand().DeleteExpansionPlan(c, opt.ClusterId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
