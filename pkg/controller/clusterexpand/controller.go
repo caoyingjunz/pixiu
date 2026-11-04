@@ -57,8 +57,9 @@ type Interface interface {
 	Create(ctx context.Context, clusterId int64, req *types.CreateClusterExpansionRequest) (int64, error)
 	// GenerateJoinParams 通过 Kubernetes API 自动生成 join 参数（bootstrap token + CA hash + apiserver）。
 	GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error)
-	// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据。
-	CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) error
+	// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据，
+	// 返回保存后的计划表示，调用方无需再次查询。
+	CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) (*types.ClusterExpansionPlanResponse, error)
 	// GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。
 	GetExpansionPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error)
 	// DeleteExpansionPlan 删除集群扩容计划及其关联的扩容记录/任务/配置，并解除节点与计划的关联。
@@ -565,31 +566,32 @@ func (c *controller) checkNoActiveExpansion(ctx context.Context, clusterId int64
 	return nil
 }
 
-// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据。
+// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据，
+// 并返回保存后的计划表示，避免调用方再次查询。
 // 与 plan 控制器一致：存在则 Update，不存在则 Create；EnablePublicIp=false 时清空 api_server。
-func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) error {
+func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) (*types.ClusterExpansionPlanResponse, error) {
 	obj, _, err := c.authorize(ctx, clusterId, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err = c.checkNoActiveExpansion(ctx, clusterId, "扩容进行中，无法修改配置"); err != nil {
-		return err
+		return nil, err
 	}
 	if len(req.NodeIds) == 0 {
-		return errors.ErrInvalidRequest
+		return nil, errors.ErrInvalidRequest
 	}
 	expansionPlan, err := c.ensureExpansionPlan(ctx, obj)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// 按勾选的节点同步计划关联：选中关联、未选中解绑
 	if err = c.syncExpansionPlanNodes(ctx, clusterId, expansionPlan.Id, req.NodeIds); err != nil {
-		return errors.ErrServerInternal
+		return nil, errors.ErrServerInternal
 	}
 
 	planConfig, err := buildExpansionPlanConfig(&req.Config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	planConfig.PlanId = expansionPlan.Id
 
@@ -606,16 +608,16 @@ func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId 
 		}
 		if err = c.factory.Plan().Config().Update(ctx, oldConfig.Id, oldConfig.ResourceVersion, updates); err != nil {
 			klog.Errorf("update plan(%d) config: %v", expansionPlan.Id, err)
-			return errors.ErrServerInternal
+			return nil, errors.ErrServerInternal
 		}
 	case utilerrors.IsRecordNotFound(getErr):
 		if err = c.factory.Plan().Config().Create(ctx, nil, planConfig); err != nil {
 			klog.Errorf("create plan(%d) config: %v", expansionPlan.Id, err)
-			return errors.ErrServerInternal
+			return nil, errors.ErrServerInternal
 		}
 	default:
 		klog.Errorf("get plan(%d) config: %v", expansionPlan.Id, getErr)
-		return errors.ErrServerInternal
+		return nil, errors.ErrServerInternal
 	}
 
 	// 同步计划元数据（description/kubernetes_version）
@@ -628,10 +630,12 @@ func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId 
 		}
 		if err = c.factory.Plan().Update(ctx, expansionPlan.Id, expansionPlan.ResourceVersion, updates); err != nil {
 			klog.Errorf("update plan(%d): %v", expansionPlan.Id, err)
-			return errors.ErrServerInternal
+			return nil, errors.ErrServerInternal
 		}
 	}
-	return nil
+
+	// 返回保存后的计划表示，省去调用方二次查询
+	return c.GetExpansionPlan(ctx, clusterId)
 }
 
 // GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置。
