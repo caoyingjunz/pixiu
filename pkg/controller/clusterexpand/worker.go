@@ -95,7 +95,16 @@ func (c *controller) upsertTask(ctx context.Context, planId int64, name, action 
 			"gmt_create":   time.Now(),
 			"gmt_modified": time.Now(),
 		})
-		return err
+		if err != nil {
+			if errors.IsRecordNotFound(err) {
+				// 任务存在但更新值未变化时 Update 可能返回 not found；二次确认存在则视为成功
+				if _, getErr := c.factory.Plan().Task().GetByName(ctx, planId, name); getErr == nil {
+					return nil
+				}
+			}
+			return err
+		}
+		return nil
 	}
 	if !errors.IsRecordNotFound(err) {
 		return err
