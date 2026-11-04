@@ -58,7 +58,7 @@ type Interface interface {
 	// GenerateJoinParams 通过 Kubernetes API 自动生成 join 参数（bootstrap token + CA hash + apiserver）。
 	GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error)
 	// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据。
-	CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.SaveClusterExpansionPlanConfigRequest) error
+	CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) error
 	// GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。
 	GetExpansionPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error)
 	// DeleteExpansionPlan 删除集群扩容计划及其关联的扩容记录/任务/配置，并解除节点与计划的关联。
@@ -567,7 +567,7 @@ func (c *controller) checkNoActiveExpansion(ctx context.Context, clusterId int64
 
 // CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据。
 // 与 plan 控制器一致：存在则 Update，不存在则 Create；EnablePublicIp=false 时清空 api_server。
-func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.SaveClusterExpansionPlanConfigRequest) error {
+func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) error {
 	obj, _, err := c.authorize(ctx, clusterId, true)
 	if err != nil {
 		return err

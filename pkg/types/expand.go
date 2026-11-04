@@ -101,9 +101,9 @@ type CreateClusterExpansionResponse struct {
 	ExpansionId int64 `json:"expansion_id"`
 }
 
-// SaveClusterExpansionPlanConfigRequest 保存集群扩容计划（plans.type=1）的配置、元数据与节点集合。
+// CreateOrUpdateClusterExpansionPlanRequest 创建或更新集群扩容计划（plans.type=1）的配置、元数据与节点集合。
 // 对应 POST /pixiu/clusters/:clusterId/expansion-plan，属于计划单例的全量保存。
-type SaveClusterExpansionPlanConfigRequest struct {
+type CreateOrUpdateClusterExpansionPlanRequest struct {
 	// Name 保存扩容计划时忽略名称，避免与部署计划名称唯一索引冲突（计划名称由系统生成）。
 	Name        string                  `json:"name"`
 	Description string                  `json:"description"`

@@ -44,13 +44,12 @@ type expansionLogsQuery struct {
 }
 
 // 扩容计划 API
-
 func (cr *clusterRouter) createOrUpdateExpansionPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
 		opt expandClusterMeta
-		req types.SaveClusterExpansionPlanConfigRequest
+		req types.CreateOrUpdateClusterExpansionPlanRequest
 	)
 	if err := httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
