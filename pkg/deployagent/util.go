@@ -112,7 +112,7 @@ func sshGetAdminConf(ip, authJSON string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		user = "root"
+		user = auth.SSHUser()
 		authMethod = ssh.PublicKeys(signer)
 	default:
 		return nil, fmt.Errorf("unsupported auth type %v", auth.Type)
