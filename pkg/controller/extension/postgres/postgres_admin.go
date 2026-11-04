@@ -393,7 +393,7 @@ func (c *controller) ExecuteSQL(ctx context.Context, id int64, q *types.Postgres
 		}
 	}
 
-	dbConn, _, err := c.conn(ctx, id)
+	dbConn, _, err := c.connTo(ctx, id, q.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +442,7 @@ func (c *controller) ExecuteBatchSQL(ctx context.Context, id int64, req *types.P
 		}
 	}
 
-	dbConn, _, err := c.conn(ctx, id)
+	dbConn, _, err := c.connTo(ctx, id, req.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -492,7 +492,7 @@ func (c *controller) GetTableDetail(ctx context.Context, id int64, database, sch
 		return nil, err
 	}
 
-	dbConn, _, err := c.conn(ctx, id)
+	dbConn, _, err := c.connTo(ctx, id, database)
 	if err != nil {
 		return nil, err
 	}
@@ -766,8 +766,8 @@ func buildPgTableDDL(schema, table string, cols []types.PostgresColumn) string {
 }
 
 // execDDL 在受控超时内执行写语句并统一包装错误；权限与语句校验由调用方负责
-func (c *controller) execDDL(ctx context.Context, id int64, sqlText string) error {
-	dbConn, _, err := c.conn(ctx, id)
+func (c *controller) execDDL(ctx context.Context, id int64, database, sqlText string) error {
+	dbConn, _, err := c.connTo(ctx, id, database)
 	if err != nil {
 		return err
 	}
@@ -791,7 +791,7 @@ func (c *controller) CreateTable(ctx context.Context, id int64, req *types.Postg
 	if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(req.SQL)), "CREATE") {
 		return apierrors.NewError(fmt.Errorf("only CREATE TABLE statements are allowed"), http.StatusBadRequest)
 	}
-	return c.execDDL(ctx, id, req.SQL)
+	return c.execDDL(ctx, id, req.Database, req.SQL)
 }
 
 func (c *controller) AlterTable(ctx context.Context, id int64, req *types.PostgresAlterTableRequest) error {
@@ -805,7 +805,7 @@ func (c *controller) AlterTable(ctx context.Context, id int64, req *types.Postgr
 	if !strings.HasPrefix(upper, "ALTER") && !strings.HasPrefix(upper, "CREATE INDEX") && !strings.HasPrefix(upper, "DROP INDEX") {
 		return apierrors.NewError(fmt.Errorf("only ALTER TABLE / CREATE INDEX / DROP INDEX statements are allowed"), http.StatusBadRequest)
 	}
-	return c.execDDL(ctx, id, req.SQL)
+	return c.execDDL(ctx, id, req.Database, req.SQL)
 }
 
 // ── 用户管理 ─────────────────────────────────────────────────
@@ -882,7 +882,7 @@ func (c *controller) CreateUser(ctx context.Context, id int64, req *types.Postgr
 		strings.ReplaceAll(req.Password, "'", "''"),
 		strings.Join(opts, " "))
 
-	return c.execDDL(ctx, id, stmt)
+	return c.execDDL(ctx, id, "", stmt)
 }
 
 func (c *controller) DeleteUser(ctx context.Context, id int64, name string) error {
@@ -894,7 +894,7 @@ func (c *controller) DeleteUser(ctx context.Context, id int64, name string) erro
 	}
 
 	stmt := fmt.Sprintf("DROP ROLE %s", pgQuoteIdent(name))
-	return c.execDDL(ctx, id, stmt)
+	return c.execDDL(ctx, id, "", stmt)
 }
 
 func (c *controller) GrantRole(ctx context.Context, id int64, req *types.PostgresGrantRequest) error {
@@ -938,7 +938,7 @@ func (c *controller) GrantRole(ctx context.Context, id int64, req *types.Postgre
 			privStr, req.Object, pgQuoteIdent(req.User))
 	}
 
-	return c.execDDL(ctx, id, stmt)
+	return c.execDDL(ctx, id, "", stmt)
 }
 
 // ── 慢查询 ───────────────────────────────────────────────────
