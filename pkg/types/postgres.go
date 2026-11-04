@@ -52,7 +52,7 @@ type PostgresTable struct {
 	SizeBytes int64  `json:"sizeBytes"`
 }
 type PostgresQueryRequest struct {
-	Database string `json:"database"` // 执行库（PG 通过 SET search_path 切换）
+	Database string `json:"database"` // 目标库；PG 不能在同一连接内切换数据库，需按库另开连接
 	Schema   string `json:"schema"`
 	SQL      string `json:"sql" binding:"required"`
 	Limit    int64  `json:"limit,omitempty"`
