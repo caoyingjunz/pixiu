@@ -60,8 +60,15 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "POST", RelativePath: "/:clusterId/proxy-kubeconfig", Handler: cr.createProxyKubeconfig, Description: "生成代理KubeConfig"},
 			{Method: "GET", RelativePath: "/:clusterId/proxy-kubeconfig", Handler: cr.getProxyKubeconfig, Description: "获取代理KubeConfig"},
 			{Method: "DELETE", RelativePath: "/:clusterId/access-tokens/:jti", Handler: cr.revokeAccessToken, Description: "删除访问令牌"},
+		},
+	}
+	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
 
-			// 集群节点扩容
+	// 集群节点扩容
+	expansionGroup := &apiregistry.Group{
+		Name:    "集群扩容",
+		BaseURL: "/pixiu/clusters",
+		Entries: []apiregistry.RouteEntry{
 			{Method: "GET", RelativePath: "/:clusterId/expansion-capabilities", Handler: cr.getExpansionCapabilities, Description: "扩容能力探测"},
 			{Method: "GET", RelativePath: "/:clusterId/expansion-nodes", Handler: cr.listExpansionNodes, Description: "扩容节点列表"},
 			{Method: "POST", RelativePath: "/:clusterId/expansion-nodes", Handler: cr.addExpansionNodes, Description: "添加扩容节点"},
@@ -76,7 +83,7 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId/logs", Handler: cr.getExpansionLogs, Description: "节点扩容日志"},
 		},
 	}
-	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
+	expansionGroup.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
 
 	// 集群权限
 	permGroup := &apiregistry.Group{
