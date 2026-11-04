@@ -105,9 +105,9 @@ type CreateClusterExpansionResponse struct {
 // 对应 POST /pixiu/clusters/:clusterId/expansion-plan，属于计划单例的全量保存。
 // 计划名称由系统生成（expand-cluster-<id>），请求不接收名称。
 type CreateOrUpdateClusterExpansionPlanRequest struct {
-	Description string                  `json:"description"`
 	Config      CreatePlanConfigRequest `json:"config"`
 	NodeIds     []int64                 `json:"node_ids"`
+	Description string                  `json:"description"`
 }
 
 // ClusterExpansionPlanResponse 集群扩容计划（plans.type=1）及配置的查询结果。

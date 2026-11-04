@@ -50,17 +50,33 @@ func (cr *clusterRouter) createOrUpdateExpansionPlan(c *gin.Context) {
 	var (
 		opt expandClusterMeta
 		req types.CreateOrUpdateClusterExpansionPlanRequest
+		err error
 	)
-	if err := httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	result, err := cr.c.ClusterExpand().CreateOrUpdateExpansionPlan(c, opt.ClusterId, &req)
+	r.Result, err = cr.c.ClusterExpand().CreateOrUpdateExpansionPlan(c, opt.ClusterId, &req)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = result
+
+	httputils.SetSuccess(c, r)
+}
+
+func (cr *clusterRouter) deleteExpansionPlan(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var opt expandClusterMeta
+	if err := c.ShouldBindUri(&opt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err := cr.c.ClusterExpand().DeleteExpansionPlan(c, opt.ClusterId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
 	httputils.SetSuccess(c, r)
 }
 
@@ -78,21 +94,6 @@ func (cr *clusterRouter) getExpansionPlan(c *gin.Context) {
 		return
 	}
 	r.Result = result
-	httputils.SetSuccess(c, r)
-}
-
-func (cr *clusterRouter) deleteExpansionPlan(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var opt expandClusterMeta
-	if err := c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err := cr.c.ClusterExpand().DeleteExpansionPlan(c, opt.ClusterId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
 	httputils.SetSuccess(c, r)
 }
 

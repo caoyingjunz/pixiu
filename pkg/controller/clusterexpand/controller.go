@@ -45,6 +45,13 @@ type Getter interface {
 
 // Interface 集群节点扩容能力。
 type Interface interface {
+	// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据，
+	CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) (*types.ClusterExpansionPlanResponse, error)
+	// GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。
+	GetExpansionPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error)
+	// DeleteExpansionPlan 删除集群扩容计划及其关联的扩容记录/任务/配置，并解除节点与计划的关联。
+	DeleteExpansionPlan(ctx context.Context, clusterId int64) error
+
 	// Config 返回集群扩容能力探测结果与默认参数
 	Config(ctx context.Context, clusterId int64) (*types.ClusterExpansionConfig, error)
 	// ListNodes 返回绑定到该集群的扩容节点（摘要，不含凭据）
@@ -57,13 +64,7 @@ type Interface interface {
 	Create(ctx context.Context, clusterId int64, req *types.CreateClusterExpansionRequest) (int64, error)
 	// GenerateJoinParams 通过 Kubernetes API 自动生成 join 参数（bootstrap token + CA hash + apiserver）。
 	GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error)
-	// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据，
-	// 返回保存后的计划表示，调用方无需再次查询。
-	CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) (*types.ClusterExpansionPlanResponse, error)
-	// GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。
-	GetExpansionPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error)
-	// DeleteExpansionPlan 删除集群扩容计划及其关联的扩容记录/任务/配置，并解除节点与计划的关联。
-	DeleteExpansionPlan(ctx context.Context, clusterId int64) error
+
 	// List 扩容历史
 	List(ctx context.Context, clusterId int64, listOption types.ListOptions) (interface{}, error)
 	// Get 扩容详情
