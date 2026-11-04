@@ -18,8 +18,9 @@ package types
 
 import "github.com/caoyingjunz/pixiu/pkg/db/model"
 
-// NodeAuthResult 节点认证对外返回（仅认证类型与端口，不含密钥/密码）
+// NodeAuthResult 节点认证对外返回（认证类型、端口与登录用户，不含密钥/密码）
 type NodeAuthResult struct {
+	User string   `json:"user"`
 	Type AuthType `json:"type"`
 	Port int      `json:"port"`
 }

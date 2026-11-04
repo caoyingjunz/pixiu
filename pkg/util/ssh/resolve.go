@@ -42,7 +42,7 @@ func ResolveAuth(auth *types.PlanNodeAuth) (*types.WebSSHRequest, error) {
 		if auth.Key == nil || auth.Key.Data == "" {
 			return nil, fmt.Errorf("节点未配置 SSH 私钥")
 		}
-		req.User = "root"
+		req.User = auth.SSHUser()
 		req.PrivateKey = auth.Key.Data
 	default:
 		return nil, fmt.Errorf("不支持的认证类型: %s", auth.Type)

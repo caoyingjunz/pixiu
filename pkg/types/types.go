@@ -836,6 +836,25 @@ func (a PlanNodeAuth) SSHPort() int {
 	return a.Port
 }
 
+// SSHUser returns the configured login user; old records default to root.
+func (a PlanNodeAuth) SSHUser() string {
+	var user string
+	switch a.Type {
+	case KeyAuth:
+		if a.Key != nil {
+			user = a.Key.User
+		}
+	case PasswordAuth:
+		if a.Password != nil {
+			user = a.Password.User
+		}
+	}
+	if user = strings.TrimSpace(user); user == "" {
+		return "root"
+	}
+	return user
+}
+
 type PlanTask struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
@@ -848,6 +867,7 @@ type PlanTask struct {
 }
 
 type KeySpec struct {
+	User string `json:"user,omitempty"`
 	Data string `json:"data,omitempty"`
 	File string `json:"-"`
 }

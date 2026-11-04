@@ -284,7 +284,7 @@ func dialSSHClient(node model.Node) (*ssh.Client, string, string, error) {
 		if err != nil {
 			return nil, "", "", err
 		}
-		user = "root" // 秘钥登陆时，默认 root
+		user = nodeAuth.SSHUser()
 		clientConfig = &ssh.ClientConfig{
 			User: user,
 			Auth: []ssh.AuthMethod{

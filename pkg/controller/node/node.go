@@ -461,7 +461,7 @@ func model2Node(o *model.Node) *types.NodeResult {
 	if o.Auth != "" {
 		var spec types.PlanNodeAuth
 		if err := spec.Unmarshal(o.Auth); err == nil {
-			auth = types.NodeAuthResult{Type: spec.Type, Port: spec.Port}
+			auth = types.NodeAuthResult{Type: spec.Type, Port: spec.Port, User: spec.SSHUser()}
 		}
 	}
 	return &types.NodeResult{
