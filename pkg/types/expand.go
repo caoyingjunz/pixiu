@@ -103,14 +103,11 @@ type CreateClusterExpansionResponse struct {
 
 // CreateOrUpdateClusterExpansionPlanRequest 创建或更新集群扩容计划（plans.type=1）的配置、元数据与节点集合。
 // 对应 POST /pixiu/clusters/:clusterId/expansion-plan，属于计划单例的全量保存。
+// 计划名称由系统生成（expand-cluster-<id>），请求不接收名称。
 type CreateOrUpdateClusterExpansionPlanRequest struct {
-	// Name 保存扩容计划时忽略名称，避免与部署计划名称唯一索引冲突（计划名称由系统生成）。
-	Name        string                  `json:"name"`
 	Description string                  `json:"description"`
 	Config      CreatePlanConfigRequest `json:"config"`
-	// NodeIds 本次勾选的扩容节点：仅这些节点关联到该计划，未勾选节点解绑。
-	NodeIds []int64 `json:"node_ids"`
-	// join 参数位于 config.kubernetes 内（KubernetesSpec.bootstrap_token / ca_hash）。
+	NodeIds     []int64                 `json:"node_ids"`
 }
 
 // ClusterExpansionPlanResponse 集群扩容计划（plans.type=1）及配置的查询结果。
