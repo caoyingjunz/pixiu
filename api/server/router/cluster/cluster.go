@@ -117,7 +117,7 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId", Handler: cr.getExpansion, Description: "节点扩容详情"},
 			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId/logs", Handler: cr.getExpansionLogs, Description: "节点扩容日志"},
 
-			{Method: "POST", RelativePath: "/:clusterId/expansion-join-params", Handler: cr.generateExpansionJoinParams, Description: "生成节点加入参数（Bootstrap Token，2 小时有效）"},
+			{Method: "POST", RelativePath: "/:clusterId/expansion-join-params", Handler: cr.generateExpansionJoinParams, Description: "生成自动扩容参数"},
 			{Method: "GET", RelativePath: "/:clusterId/expansion-capabilities", Handler: cr.getExpansionCapabilities, Description: "扩容能力探测"},
 		},
 	}

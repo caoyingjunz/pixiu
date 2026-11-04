@@ -170,9 +170,10 @@ func (cr *clusterRouter) generateExpansionJoinParams(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	// join 参数包含 bootstrap token，禁止中间层与浏览器缓存
-	c.Header("Cache-Control", "no-store")
+
+	c.Header("Cache-Control", "no-store") // join 参数包含 bootstrap token，禁止中间层与浏览器缓存
 	c.Header("Pragma", "no-cache")
+
 	r.Result = result
 	httputils.SetSuccess(c, r)
 }
