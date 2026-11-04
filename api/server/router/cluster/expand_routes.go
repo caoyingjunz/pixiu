@@ -143,7 +143,7 @@ func (cr *clusterRouter) createOrUpdateExpansionPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := cr.c.ClusterExpand().SavePlanConfig(c, opt.ClusterId, &req); err != nil {
+	if err := cr.c.ClusterExpand().CreateOrUpdateExpansionPlan(c, opt.ClusterId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
