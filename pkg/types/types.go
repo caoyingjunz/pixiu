@@ -1067,6 +1067,9 @@ type KubernetesSpec struct {
 	BootstrapToken string `json:"bootstrap_token,omitempty"`
 	CAHash         string `json:"ca_hash,omitempty"`
 
+	// BootstrapTokenExpiresAt Bootstrap Token 过期时间（RFC3339），随 kubernetes 配置持久化。
+	BootstrapTokenExpiresAt string `json:"bootstrap_token_expires_at,omitempty"`
+
 	// KubeAPIServerAddress 扩容节点加入集群使用的 kube-apiserver 地址，格式 https://<ip>:6443。
 	KubeAPIServerAddress string `json:"kube_apiserver_address,omitempty"`
 }
