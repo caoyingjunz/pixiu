@@ -132,7 +132,7 @@ func (cr *clusterRouter) createExpansion(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (cr *clusterRouter) saveExpansionPlan(c *gin.Context) {
+func (cr *clusterRouter) createOrUpdateExpansionPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (

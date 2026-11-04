@@ -74,12 +74,12 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 
 			{Method: "DELETE", RelativePath: "/:clusterId/expansion-nodes/:nodeId", Handler: cr.removeExpansionNode, Description: "移除扩容节点（解绑主机，保留主机记录）"},
 
-			{Method: "POST", RelativePath: "/:clusterId/expansions", Handler: cr.createExpansion, Description: "发起节点扩容"},
-			{Method: "GET", RelativePath: "/:clusterId/expansion-plan", Handler: cr.getExpansionPlan, Description: "查询扩容计划及配置"},
-			{Method: "PUT", RelativePath: "/:clusterId/expansion-plan", Handler: cr.saveExpansionPlan, Description: "保存扩容计划（配置与节点）"},
-			{Method: "DELETE", RelativePath: "/:clusterId/expansion-plan", Handler: cr.deleteExpansionPlan, Description: "删除扩容计划（含扩容历史）"},
+			{Method: "GET", RelativePath: "/:clusterId/expansion-plan", Handler: cr.getExpansionPlan, Description: "查询扩容计划"},
+			{Method: "POST", RelativePath: "/:clusterId/expansion-plan", Handler: cr.createOrUpdateExpansionPlan, Description: "保存扩容计划（不存在则自动创建）"},
+			{Method: "DELETE", RelativePath: "/:clusterId/expansion-plan", Handler: cr.deleteExpansionPlan, Description: "删除扩容计划"},
 
 			{Method: "POST", RelativePath: "/:clusterId/expansion-join-tokens", Handler: cr.generateExpansionJoinToken, Description: "自动生成扩容 join 参数"},
+
 			{Method: "GET", RelativePath: "/:clusterId/expansions", Handler: cr.listExpansions, Description: "节点扩容历史"},
 			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId", Handler: cr.getExpansion, Description: "节点扩容详情"},
 			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId/logs", Handler: cr.getExpansionLogs, Description: "节点扩容日志"},
