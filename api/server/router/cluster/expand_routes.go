@@ -18,8 +18,10 @@ package cluster
 
 import (
 	"github.com/gin-gonic/gin"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -38,10 +40,36 @@ type expansionMeta struct {
 }
 
 type expansionLogsQuery struct {
-	Step string `form:"step"`
+	Step  string `form:"step" binding:"omitempty,oneof=bootstrap add-node"`
+	Watch bool   `form:"watch"`
 }
 
-func (cr *clusterRouter) getExpansionConfig(c *gin.Context) {
+// registerExpansionRoutes 注册集群节点扩容路由。
+// 资源命名约定：能力探测用 capabilities，节点集合用 expansion-nodes，
+// 计划单例用 expansion-plan（PUT 全量保存），join 凭据用 expansion-join-tokens（集合语义）。
+func (cr *clusterRouter) registerExpansionRoutes(ginEngine *gin.Engine) {
+	group := &apiregistry.Group{
+		Name:    "集群扩容",
+		BaseURL: "/pixiu/clusters",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "GET", RelativePath: "/:clusterId/expansion-capabilities", Handler: cr.getExpansionCapabilities, Description: "扩容能力探测"},
+			{Method: "GET", RelativePath: "/:clusterId/expansion-nodes", Handler: cr.listExpansionNodes, Description: "扩容节点列表"},
+			{Method: "POST", RelativePath: "/:clusterId/expansion-nodes", Handler: cr.addExpansionNodes, Description: "添加扩容节点"},
+			{Method: "DELETE", RelativePath: "/:clusterId/expansion-nodes/:nodeId", Handler: cr.removeExpansionNode, Description: "移除扩容节点（解绑主机，保留主机记录）"},
+			{Method: "POST", RelativePath: "/:clusterId/expansions", Handler: cr.createExpansion, Description: "创建节点扩容"},
+			{Method: "GET", RelativePath: "/:clusterId/expansion-plan", Handler: cr.getExpansionPlan, Description: "查询扩容计划及配置"},
+			{Method: "PUT", RelativePath: "/:clusterId/expansion-plan", Handler: cr.saveExpansionPlan, Description: "保存扩容计划（配置与节点）"},
+			{Method: "DELETE", RelativePath: "/:clusterId/expansion-plan", Handler: cr.deleteExpansionPlan, Description: "删除扩容计划（含扩容历史）"},
+			{Method: "POST", RelativePath: "/:clusterId/expansion-join-tokens", Handler: cr.generateExpansionJoinToken, Description: "自动生成扩容 join 参数"},
+			{Method: "GET", RelativePath: "/:clusterId/expansions", Handler: cr.listExpansions, Description: "节点扩容历史"},
+			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId", Handler: cr.getExpansion, Description: "节点扩容详情"},
+			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId/logs", Handler: cr.getExpansionLogs, Description: "节点扩容日志"},
+		},
+	}
+	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
+}
+
+func (cr *clusterRouter) getExpansionCapabilities(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var opt expandClusterMeta
@@ -126,11 +154,11 @@ func (cr *clusterRouter) createExpansion(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = map[string]int64{"expansion_id": expansionId}
+	r.Result = types.CreateClusterExpansionResponse{ExpansionId: expansionId}
 	httputils.SetSuccess(c, r)
 }
 
-func (cr *clusterRouter) saveExpansionPlanConfig(c *gin.Context) {
+func (cr *clusterRouter) saveExpansionPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -145,6 +173,13 @@ func (cr *clusterRouter) saveExpansionPlanConfig(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	// 返回保存后的计划表示，避免客户端再发起一次 GET
+	result, err := cr.c.ClusterExpand().GetPlan(c, opt.ClusterId)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	r.Result = result
 	httputils.SetSuccess(c, r)
 }
 
@@ -161,6 +196,9 @@ func (cr *clusterRouter) generateExpansionJoinToken(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	// join 参数包含 bootstrap token，禁止中间层与浏览器缓存
+	c.Header("Cache-Control", "no-store")
+	c.Header("Pragma", "no-cache")
 	r.Result = result
 	httputils.SetSuccess(c, r)
 }
@@ -238,7 +276,7 @@ func (cr *clusterRouter) getExpansion(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (cr *clusterRouter) watchExpansionLogs(c *gin.Context) {
+func (cr *clusterRouter) getExpansionLogs(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
@@ -249,7 +287,13 @@ func (cr *clusterRouter) watchExpansionLogs(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := cr.c.ClusterExpand().Logs(c, opt.ClusterId, opt.ExpansionId, query.Step, c.Writer, c.Request); err != nil {
+	if err := cr.c.ClusterExpand().Logs(c, opt.ClusterId, opt.ExpansionId, query.Step, query.Watch, c.Writer, c.Request); err != nil {
+		// 日志流一旦开始写出，响应头已发送，不能再写 JSON 业务错误
+		if c.Writer.Written() {
+			klog.Errorf("stream expansion(%d) logs: %v", opt.ExpansionId, err)
+			c.Abort()
+			return
+		}
 		httputils.SetFailed(c, r, err)
 		return
 	}

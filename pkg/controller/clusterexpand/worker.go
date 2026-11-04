@@ -364,7 +364,7 @@ func (c *controller) syncHandler(ctx context.Context, expansionId int64) {
 	var runErr error
 	_ = c.factory.ClusterExpansion().Update(ctx, expansion.Id, map[string]interface{}{"step": taskNameBootstrap})
 	c.markTaskRunning(ctx, expansion.PlanId, taskNameBootstrap)
-	runErr = runRunnerContainer(ctx, fmt.Sprintf("%s-%d", actionBootstrap, expansion.PlanId), actionBootstrap, runner, dir, timeout)
+	runErr = runRunnerContainer(ctx, fmt.Sprintf("%s-%d-%d", actionBootstrap, expansion.PlanId, expansion.Id), actionBootstrap, runner, dir, timeout)
 	c.finishTask(ctx, expansion.PlanId, taskNameBootstrap, runErr)
 
 	// 5) 加入集群
@@ -372,7 +372,7 @@ func (c *controller) syncHandler(ctx context.Context, expansionId int64) {
 	if runErr == nil {
 		_ = c.factory.ClusterExpansion().Update(ctx, expansion.Id, map[string]interface{}{"step": taskNameAddNode})
 		c.markTaskRunning(ctx, expansion.PlanId, taskNameAddNode)
-		runErr = runRunnerContainer(ctx, fmt.Sprintf("%s-%d", actionAddNode, expansion.PlanId), actionAddNode, runner, dir, timeout)
+		runErr = runRunnerContainer(ctx, fmt.Sprintf("%s-%d-%d", actionAddNode, expansion.PlanId, expansion.Id), actionAddNode, runner, dir, timeout)
 		c.finishTask(ctx, expansion.PlanId, taskNameAddNode, runErr)
 	}
 

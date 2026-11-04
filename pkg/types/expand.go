@@ -89,12 +89,19 @@ type ExpansionJoinParams struct {
 }
 
 // CreateClusterExpansionRequest 创建并启动一次集群扩容。
+// Options 为执行参数，优先级：请求体显式字段 > 已保存的扩容计划配置 > 集群能力探测默认值。
 type CreateClusterExpansionRequest struct {
 	NodeIds []int64          `json:"node_ids" binding:"required,min=1"`
 	Options ExpansionOptions `json:"options"`
 }
 
-// SaveClusterExpansionPlanConfigRequest 保存集群扩容计划（plans.type=1）的配置与元数据。
+// CreateClusterExpansionResponse 创建扩容任务的返回结构。
+type CreateClusterExpansionResponse struct {
+	ExpansionId int64 `json:"expansion_id"`
+}
+
+// SaveClusterExpansionPlanConfigRequest 保存集群扩容计划（plans.type=1）的配置、元数据与节点集合。
+// 对应 PUT /pixiu/clusters/:clusterId/expansion-plan，属于计划单例的全量保存。
 type SaveClusterExpansionPlanConfigRequest struct {
 	// Name 保存扩容计划时忽略名称，避免与部署计划名称唯一索引冲突（计划名称由系统生成）。
 	Name        string                  `json:"name"`

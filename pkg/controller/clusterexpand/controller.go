@@ -67,8 +67,8 @@ type Interface interface {
 	List(ctx context.Context, clusterId int64, listOption types.ListOptions) (interface{}, error)
 	// Get 扩容详情
 	Get(ctx context.Context, clusterId, expansionId int64) (*types.ClusterExpansion, error)
-	// Logs 扩容日志（SSE）
-	Logs(ctx context.Context, clusterId, expansionId int64, step string, w http.ResponseWriter, r *http.Request) error
+	// Logs 扩容日志（text/plain 流；follow=true 时持续跟随）
+	Logs(ctx context.Context, clusterId, expansionId int64, step string, follow bool, w http.ResponseWriter, r *http.Request) error
 
 	// Run 启动扩容 worker
 	Run(ctx context.Context, workers int) error
@@ -215,6 +215,37 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 		spec := req.Nodes[i]
 		if nodeMatched(spec.Name, spec.Ip, names, ips) {
 			result.Failed = append(result.Failed, types.BatchOperationFailure{Name: spec.Name, Reason: "名称或 IP 已存在于集群中"})
+			continue
+		}
+		// 幂等：同一 IP 已存在于主机库时复用，避免重试时重复创建主机
+		existing, getErr := c.factory.Plan().Node().GetByIP(ctx, spec.Ip)
+		switch {
+		case getErr == nil && existing != nil:
+			if existing.ClusterId == clusterId {
+				result.Skipped = append(result.Skipped, types.BatchOperationItem{Key: existing.Id, Name: existing.Name})
+				continue
+			}
+			if existing.PlanId != 0 || existing.ClusterId != 0 {
+				result.Failed = append(result.Failed, types.BatchOperationFailure{Key: existing.Id, Name: existing.Name, Reason: "IP 已被其他集群或计划占用"})
+				continue
+			}
+			updates := map[string]interface{}{
+				"cluster_id":     clusterId,
+				"plan_id":        int64(0),
+				"role":           model.NodeRole,
+				"cri":            model.ContainerdCRI,
+				"status":         model.NodeStatusUnadded,
+				"status_message": "",
+			}
+			if updateErr := c.factory.Plan().Node().UpdateFields(ctx, existing.Id, updates); updateErr != nil {
+				klog.Errorf("bind existing node(%d) to cluster(%d): %v", existing.Id, clusterId, updateErr)
+				result.Failed = append(result.Failed, types.BatchOperationFailure{Key: existing.Id, Name: existing.Name, Reason: "绑定集群失败"})
+				continue
+			}
+			result.Succeeded = append(result.Succeeded, types.BatchOperationItem{Key: existing.Id, Name: existing.Name})
+			continue
+		case getErr != nil && !utilerrors.IsRecordNotFound(getErr):
+			result.Failed = append(result.Failed, types.BatchOperationFailure{Name: spec.Name, Reason: "查询主机失败"})
 			continue
 		}
 		createReq := &types.CreateNodeRequest{
@@ -441,6 +472,8 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 	}
 
 	options := req.Options
+	// 优先级：请求体显式字段 > 已保存的扩容计划配置 > 集群能力探测默认值
+	c.applyExpansionPlanDefaults(ctx, expansionPlan.Id, &options)
 	if options.ImageRepository == "" {
 		options.ImageRepository = info.Config.ImageRepository
 	}
@@ -672,6 +705,75 @@ func (c *controller) GetPlan(ctx context.Context, clusterId int64) (*types.Clust
 	return resp, nil
 }
 
+// applyExpansionPlanDefaults 用已保存的扩容计划配置填充请求中未显式提供的执行参数。
+// 显式零值无法与“未提供”区分，因此 bool 字段按 false 视为未提供；请求体非零值始终优先。
+func (c *controller) applyExpansionPlanDefaults(ctx context.Context, planId int64, options *types.ExpansionOptions) {
+	cfg, err := c.factory.Plan().Config().GetByPlan(ctx, planId)
+	if err != nil {
+		if !utilerrors.IsRecordNotFound(err) {
+			klog.Warningf("get expansion plan(%d) config: %v", planId, err)
+		}
+		return
+	}
+	if cfg == nil {
+		return
+	}
+
+	var (
+		kubernetes  types.KubernetesSpec
+		network     types.NetworkSpec
+		runtimeSpec types.RuntimeSpec
+		component   types.ComponentSpec
+	)
+	if err = kubernetes.Unmarshal(cfg.Kubernetes); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) kubernetes config: %v", planId, err)
+		return
+	}
+	if err = network.Unmarshal(cfg.Network); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) network config: %v", planId, err)
+		return
+	}
+	if err = runtimeSpec.Unmarshal(cfg.Runtime); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) runtime config: %v", planId, err)
+		return
+	}
+	if err = component.Unmarshal(cfg.Component); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) component config: %v", planId, err)
+		return
+	}
+
+	if options.OSImage == "" {
+		options.OSImage = cfg.OSImage
+	}
+	if options.NetworkInterface == "" {
+		options.NetworkInterface = network.NetworkInterface
+	}
+	if options.ImageRepository == "" {
+		options.ImageRepository = kubernetes.ImageRepository
+	}
+	if options.RuntimeDataDir == "" {
+		options.RuntimeDataDir = runtimeSpec.DataDir
+	}
+	if options.CustomRepo == nil {
+		options.CustomRepo = component.CustomRepo
+	}
+	if !options.SetHostname {
+		options.SetHostname = kubernetes.SetHostname
+	}
+	if options.APIServer == "" {
+		options.APIServer = kubernetes.KubeAPIServerAddress
+		if options.APIServer == "" {
+			options.APIServer = kubernetes.ApiServer
+		}
+	}
+	if options.Token == "" {
+		options.Token = kubernetes.BootstrapToken
+	}
+	if options.CAHash == "" {
+		options.CAHash = kubernetes.CAHash
+	}
+}
+
 // buildExpansionPlanConfig 将请求配置 marshal 为 configs 模型，字段映射沿用 plan 控制器的 buildPlanConfig。
 // join 参数（bootstrap_token / ca_hash）位于 KubernetesSpec 内，随 kubernetes JSON 一并持久化。
 func buildExpansionPlanConfig(req *types.CreatePlanConfigRequest) (*model.Config, error) {
@@ -829,7 +931,7 @@ func (c *controller) Get(ctx context.Context, clusterId, expansionId int64) (*ty
 	return modelExpansion2Type(object)
 }
 
-func (c *controller) Logs(ctx context.Context, clusterId, expansionId int64, step string, w http.ResponseWriter, r *http.Request) error {
+func (c *controller) Logs(ctx context.Context, clusterId, expansionId int64, step string, follow bool, w http.ResponseWriter, r *http.Request) error {
 	if _, _, err := c.authorize(ctx, clusterId, false); err != nil {
 		return err
 	}
@@ -865,15 +967,16 @@ func (c *controller) Logs(ctx context.Context, clusterId, expansionId int64, ste
 	if err != nil {
 		return err
 	}
-	readCloser, err := rt.Logs(ctx, fmt.Sprintf("%s-%d", action, object.PlanId), true)
+	// 日志按扩容记录隔离：runner 名称在 action-planId 后追加 expansionId
+	readCloser, err := rt.Logs(ctx, fmt.Sprintf("%s-%d-%d", action, object.PlanId, object.Id), follow)
 	if err != nil {
 		return err
 	}
 	defer readCloser.Close()
 
-	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
 	flush, _ := w.(http.Flusher)
 
 	scanner := bufio.NewScanner(readCloser)
