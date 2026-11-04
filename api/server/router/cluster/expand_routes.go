@@ -21,7 +21,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -42,31 +41,6 @@ type expansionMeta struct {
 type expansionLogsQuery struct {
 	Step  string `form:"step" binding:"omitempty,oneof=bootstrap add-node"`
 	Watch bool   `form:"watch"`
-}
-
-// registerExpansionRoutes 注册集群节点扩容路由。
-// 资源命名约定：能力探测用 capabilities，节点集合用 expansion-nodes，
-// 计划单例用 expansion-plan（PUT 全量保存），join 凭据用 expansion-join-tokens（集合语义）。
-func (cr *clusterRouter) registerExpansionRoutes(ginEngine *gin.Engine) {
-	group := &apiregistry.Group{
-		Name:    "集群扩容",
-		BaseURL: "/pixiu/clusters",
-		Entries: []apiregistry.RouteEntry{
-			{Method: "GET", RelativePath: "/:clusterId/expansion-capabilities", Handler: cr.getExpansionCapabilities, Description: "扩容能力探测"},
-			{Method: "GET", RelativePath: "/:clusterId/expansion-nodes", Handler: cr.listExpansionNodes, Description: "扩容节点列表"},
-			{Method: "POST", RelativePath: "/:clusterId/expansion-nodes", Handler: cr.addExpansionNodes, Description: "添加扩容节点"},
-			{Method: "DELETE", RelativePath: "/:clusterId/expansion-nodes/:nodeId", Handler: cr.removeExpansionNode, Description: "移除扩容节点（解绑主机，保留主机记录）"},
-			{Method: "POST", RelativePath: "/:clusterId/expansions", Handler: cr.createExpansion, Description: "创建节点扩容"},
-			{Method: "GET", RelativePath: "/:clusterId/expansion-plan", Handler: cr.getExpansionPlan, Description: "查询扩容计划及配置"},
-			{Method: "PUT", RelativePath: "/:clusterId/expansion-plan", Handler: cr.saveExpansionPlan, Description: "保存扩容计划（配置与节点）"},
-			{Method: "DELETE", RelativePath: "/:clusterId/expansion-plan", Handler: cr.deleteExpansionPlan, Description: "删除扩容计划（含扩容历史）"},
-			{Method: "POST", RelativePath: "/:clusterId/expansion-join-tokens", Handler: cr.generateExpansionJoinToken, Description: "自动生成扩容 join 参数"},
-			{Method: "GET", RelativePath: "/:clusterId/expansions", Handler: cr.listExpansions, Description: "节点扩容历史"},
-			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId", Handler: cr.getExpansion, Description: "节点扩容详情"},
-			{Method: "GET", RelativePath: "/:clusterId/expansions/:expansionId/logs", Handler: cr.getExpansionLogs, Description: "节点扩容日志"},
-		},
-	}
-	group.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
 }
 
 func (cr *clusterRouter) getExpansionCapabilities(c *gin.Context) {
