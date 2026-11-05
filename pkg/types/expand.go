@@ -60,6 +60,26 @@ type CreateClusterNodesRequest struct {
 	Nodes   []ClusterNodeSpec `json:"nodes"`
 }
 
+// BatchOperationItem 批量操作成功/跳过的对象。
+type BatchOperationItem struct {
+	Key  int64  `json:"key"`
+	Name string `json:"name,omitempty"`
+}
+
+// BatchOperationFailure 批量操作失败的明细。
+type BatchOperationFailure struct {
+	Key    int64  `json:"key"`
+	Name   string `json:"name,omitempty"`
+	Reason string `json:"reason"`
+}
+
+// BatchOperationResult 批量操作结果：单条失败隔离，不整体报错。
+type BatchOperationResult struct {
+	Succeeded []BatchOperationItem    `json:"succeeded"`
+	Skipped   []BatchOperationItem    `json:"skipped"`
+	Failed    []BatchOperationFailure `json:"failed"`
+}
+
 // ExpansionOptions 扩容执行参数。
 type ExpansionOptions struct {
 	OSImage          string      `json:"os_image,omitempty"`

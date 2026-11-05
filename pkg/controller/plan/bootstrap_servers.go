@@ -19,6 +19,8 @@ package plan
 import (
 	"context"
 	"time"
+
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 )
 
 type BootStrap struct {
@@ -29,8 +31,9 @@ type BootStrap struct {
 	waitTimeout time.Duration
 }
 
-func (b BootStrap) Name() string      { return "初始化部署环境" }
-func (b BootStrap) GetAction() string { return "bootstrap-servers" } // action 和底层 kubez-ansible 保持一致 https://github.com/pixiu-io/kubez-ansible/blob/master/tools/kubez-ansible#L260
+func (b BootStrap) Name() string      { return TaskNameBootstrap }
+func (b BootStrap) GetAction() string { return kubezansible.Bootstrap }
+
 // Run 以容器的形式执行 BootStrap 任务，如果存在旧的容器，则先删除在执行
 func (b BootStrap) Run() error {
 	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错

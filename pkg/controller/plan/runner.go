@@ -24,6 +24,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
@@ -35,8 +36,8 @@ type Runner struct {
 	factory db.ShareDaoFactory
 }
 
-func (r Runner) Name() string      { return "前置准备" }
-func (r Runner) GetAction() string { return "runner" }
+func (r Runner) Name() string      { return TaskNamePrepare }
+func (r Runner) GetAction() string { return kubezansible.Runner }
 
 func (r Runner) Run() error {
 	imageName := r.image

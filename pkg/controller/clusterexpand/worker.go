@@ -19,7 +19,6 @@ package clusterexpand
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -30,45 +29,27 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	planctrl "github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/planrender"
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
 	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
-	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
 
-const (
-	actionBootstrap = "bootstrap-servers"
-	actionAddNode   = "add-node"
-	actionRunner    = "runner"
-	actionRender    = "render"
-	actionPrechecks = "prechecks"
-
-	taskNamePrepare   = "前置准备"
-	taskNameRender    = "配置渲染"
-	taskNamePrechecks = "部署预检查"
-	taskNameBootstrap = "初始化部署环境"
-	taskNameAddNode   = "部署Node"
-
-	// 旧扩容日志接口（?step=）仍以 bootstrap/add-node 作为步骤标识
-	stepBootstrap = "bootstrap"
-	stepAddNode   = "add-node"
-
-	defaultExpansionTimeout = 30 * time.Minute
-)
+const defaultExpansionTimeout = 30 * time.Minute
 
 // expansionTaskSpecs 扩容进度任务定义，下发时按此顺序创建、worker 按此顺序执行。
 var expansionTaskSpecs = []struct {
 	Name   string
 	Action string
 }{
-	{taskNamePrepare, actionRunner},
-	{taskNameRender, actionRender},
-	{taskNamePrechecks, actionPrechecks},
-	{taskNameBootstrap, actionBootstrap},
-	{taskNameAddNode, actionAddNode},
+	{planctrl.TaskNamePrepare, kubezansible.Runner},
+	{planctrl.TaskNameRender, kubezansible.Render},
+	{planctrl.TaskNamePrechecks, kubezansible.Prechecks},
+	{planctrl.TaskNameBootstrap, kubezansible.Bootstrap},
+	{planctrl.TaskNameDeployNode, kubezansible.AddNode},
 }
 
 var (
@@ -83,29 +64,15 @@ func lockCluster(clusterId int64) func() {
 	return mu.Unlock
 }
 
-func (c *controller) upsertTask(ctx context.Context, planId int64, name, action string) error {
+// createExpansionTaskIfNotExist 初始化扩容任务：不存在则创建，已存在则跳过。
+// 任务的重置由 Start 在入队前统一完成（删除并重建），此处只兜底补齐缺失任务。
+func (c *controller) createExpansionTaskIfNotExist(ctx context.Context, planId int64, name, action string) error {
 	_, err := c.factory.Plan().Task().GetByName(ctx, planId, name)
 	if err == nil {
-		_, err = c.factory.Plan().Task().Update(ctx, planId, name, map[string]interface{}{
-			"status":       model.UnStartPlanStatus,
-			"step":         model.UnStartedPlanStep,
-			"action":       action,
-			"message":      "",
-			"gmt_create":   time.Now(),
-			"gmt_modified": time.Now(),
-		})
-		if err != nil {
-			if errors.IsRecordNotFound(err) {
-				// 任务存在但更新值未变化时 Update 可能返回 not found；二次确认存在则视为成功
-				if _, getErr := c.factory.Plan().Task().GetByName(ctx, planId, name); getErr == nil {
-					return nil
-				}
-			}
-			return err
-		}
 		return nil
 	}
 	if !errors.IsRecordNotFound(err) {
+		klog.Infof("failed to get plan(%d) task(%s) for init: %v", planId, name, err)
 		return err
 	}
 	_, err = c.factory.Plan().Task().Create(ctx, &model.Task{
@@ -115,6 +82,9 @@ func (c *controller) upsertTask(ctx context.Context, planId int64, name, action 
 		Action: action,
 		Status: model.UnStartPlanStatus,
 	})
+	if err != nil {
+		klog.Errorf("failed to init plan(%d) task(%s): %v", planId, name, err)
+	}
 	return err
 }
 
@@ -124,21 +94,13 @@ func (c *controller) updateTask(ctx context.Context, planId int64, name string, 
 	}
 }
 
-// markTaskRunning 将任务标记为进行中；planId 为 0 时（历史无计划扩容）跳过。
+// markTaskRunning 将任务标记为进行中。
 func (c *controller) markTaskRunning(ctx context.Context, planId int64, name string) {
-	if planId == 0 {
-		return
-	}
-	c.updateTask(ctx, planId, name, map[string]interface{}{
-		"status": model.RunningPlanStatus, "step": model.RunningPlanStep, "message": "", "gmt_create": time.Now(),
-	})
+	c.updateTask(ctx, planId, name, map[string]interface{}{"status": model.RunningPlanStatus, "step": model.RunningPlanStep, "message": "", "gmt_create": time.Now()})
 }
 
-// finishTask 按执行结果结束任务；planId 为 0 时跳过。
+// finishTask 按执行结果结束任务。
 func (c *controller) finishTask(ctx context.Context, planId int64, name string, cause error) {
-	if planId == 0 {
-		return
-	}
 	if cause != nil {
 		c.updateTask(ctx, planId, name, map[string]interface{}{
 			"status": model.FailedPlanStatus, "step": model.FailedPlanStep, "message": cause.Error(), "gmt_modified": time.Now(),
@@ -186,18 +148,17 @@ func (c *controller) process(ctx context.Context) bool {
 	return true
 }
 
-// syncStatus 进程启动时的状态恢复：未完成/运行中的扩容计划标记失败，添加中的节点标记失败。
+// syncStatus 进程启动时的状态恢复：运行中的扩容计划标记失败，添加中的节点标记失败。
+// 「未开始」表示计划已保存但从未执行，属于空闲状态，不做处理。
 func (c *controller) syncStatus(ctx context.Context) error {
-	for _, status := range []model.TaskStatus{model.UnStartPlanStatus, model.RunningPlanStatus} {
-		plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithTaskStatus(status))
-		if err != nil {
-			return err
-		}
-		for i := range plans {
-			c.updatePlanStatus(ctx, plans[i].Id, model.FailedPlanStatus)
-			// 服务重启中断时任务可能仍停留在「未开始」，补一条失败任务用于展示原因
-			c.markFirstPendingTaskFailed(ctx, plans[i].Id, "服务异常中断，请重新发起扩容")
-		}
+	plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithTaskStatus(model.RunningPlanStatus))
+	if err != nil {
+		return err
+	}
+	for i := range plans {
+		c.updatePlanStatus(ctx, plans[i].Id, model.FailedPlanStatus)
+		// 服务重启中断时任务可能仍停留在「未开始/运行中」，补一条失败任务用于展示原因
+		c.markFirstUnfinishedTaskFailed(ctx, plans[i].Id, "服务异常中断，请重新发起扩容")
 	}
 
 	nodes, err := c.factory.Plan().Node().List(ctx, db.WithNodeStatus(model.NodeStatusAdding))
@@ -217,160 +178,93 @@ func (c *controller) syncStatus(ctx context.Context) error {
 
 func (c *controller) syncHandler(ctx context.Context, planId int64) {
 	plan, err := c.factory.Plan().Get(ctx, planId)
-	if err != nil || plan == nil || plan.Type != 1 {
+	if err != nil || plan == nil {
 		klog.Errorf("get expansion plan(%d): %v", planId, err)
 		return
 	}
-	if plan.Status != model.UnStartPlanStatus && plan.Status != model.RunningPlanStatus {
+
+	if plan.Type != 1 {
+		klog.Infof("skip expansion plan(%d)", planId)
+		return
+	}
+	if plan.Status != model.RunningPlanStatus {
+		klog.Infof("skip expansion plan(%d) running task ", planId)
 		return
 	}
 
-	unlock := lockCluster(plan.ClusterId)
-	defer unlock()
-
 	clusterObj, err := c.factory.Cluster().Get(ctx, plan.ClusterId)
 	if err != nil || clusterObj == nil {
-		c.failExpansion(ctx, plan.Id, nil, fmt.Errorf("集群不存在或已被删除"))
+		c.failExpansionPlan(ctx, plan.Id, fmt.Errorf("集群不存在或已被删除"))
 		return
 	}
 
 	nodes, err := c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(plan.Id))
 	if err != nil {
-		c.failExpansion(ctx, plan.Id, nil, err)
+		c.failExpansionPlan(ctx, plan.Id, err)
 		return
 	}
 	if len(nodes) == 0 {
-		c.failExpansion(ctx, plan.Id, nil, fmt.Errorf("扩容节点为空"))
+		c.failExpansionPlan(ctx, plan.Id, fmt.Errorf("扩容节点为空"))
 		return
 	}
 
 	info := c.detectClusterInfo(ctx, clusterObj)
 	if !info.Capabilities.Supported {
 		// 不支持扩容时直接失败，避免继续拉取镜像与渲染配置
-		c.failExpansion(ctx, plan.Id, nodes, fmt.Errorf("%s", info.Capabilities.Reason))
+		c.failExpansionPlan(ctx, plan.Id, fmt.Errorf("%s", info.Capabilities.Reason))
 		return
 	}
 
 	for _, spec := range expansionTaskSpecs {
-		if err = c.upsertTask(ctx, plan.Id, spec.Name, spec.Action); err != nil {
-			c.failExpansion(ctx, plan.Id, nodes, fmt.Errorf("初始化扩容任务失败: %v", err))
+		if err = c.createExpansionTaskIfNotExist(ctx, plan.Id, spec.Name, spec.Action); err != nil {
+			c.failExpansionPlan(ctx, plan.Id, fmt.Errorf("初始化扩容任务失败: %v", err))
 			return
 		}
 	}
+
+	// 更新状态，开始执行
 	c.updatePlanStatus(ctx, plan.Id, model.RunningPlanStatus)
 
-	// 执行参数以已保存的扩容计划配置为准
+	// 执行参数以已保存的扩容计划配置为准，缺失项回落到集群能力探测默认值
 	var options types.ExpansionOptions
-	c.applyExpansionPlanDefaults(ctx, plan.Id, &options)
-	if options.NetworkInterface == "" {
-		options.NetworkInterface = "eth0"
-	}
-	if options.OSImage == "" {
-		options.OSImage = info.Capabilities.DefaultOSImage
-	}
+	c.applyExpansionOptions(ctx, plan.Id, &options, info.Capabilities)
 
 	timeout := time.Duration(c.cc.Worker.DeployTimeout) * time.Second
 	if timeout <= 0 {
 		timeout = defaultExpansionTimeout
 	}
 
-	// 1) 前置准备：解析 runner 镜像
-	c.markTaskRunning(ctx, plan.Id, taskNamePrepare)
-	runner, err := c.resolveRunner(ctx, options.OSImage)
-	if err != nil {
-		c.finishTask(ctx, plan.Id, taskNamePrepare, err)
-		c.failExpansion(ctx, plan.Id, nodes, err)
-		return
-	}
-	c.finishTask(ctx, plan.Id, taskNamePrepare, nil)
-
-	// 2) 配置渲染：解析 join 信息并渲染节点配置
-	c.markTaskRunning(ctx, plan.Id, taskNameRender)
-	join, err := c.resolveJoin(ctx, clusterObj, info, &options)
-	if err != nil {
-		c.finishTask(ctx, plan.Id, taskNameRender, err)
-		c.failExpansion(ctx, plan.Id, nodes, err)
-		return
+	task := &expandTask{
+		plan:    plan,
+		cluster: clusterObj,
+		info:    info,
+		options: &options,
+		nodes:   nodes,
+		// 与部署任务保持一致：使用 plan id 作为渲染目录
+		dir: filepath.Join(c.cc.Worker.WorkDir, strconv.FormatInt(plan.Id, 10)),
 	}
 
-	// 与部署任务保持一致：使用 plan id 作为渲染目录
-	dir := filepath.Join(c.cc.Worker.WorkDir, strconv.FormatInt(plan.Id, 10))
-
-	planNodes, err := nodesToPlanNodes(nodes)
-	if err != nil {
-		c.finishTask(ctx, plan.Id, taskNameRender, err)
-		c.failExpansion(ctx, plan.Id, nodes, err)
-		return
+	handlers := []expandHandler{
+		taskPrepare{c: c},
+		taskRender{c: c},
+		taskPrechecks{},
+		taskBootstrap{c: c, timeout: timeout},
+		taskAddNode{c: c, timeout: timeout},
 	}
-	globals := pixiutpl.ExpandGlobals{
-		KubeRelease:      join.KubeRelease,
-		APIServer:        join.APIServer,
-		Token:            join.Token,
-		CAHash:           join.CAHash,
-		NetworkInterface: options.NetworkInterface,
-		SetHostname:      options.SetHostname,
-		RuntimeDataDir:   options.RuntimeDataDir,
-		EnableCustomRepo: options.CustomRepo != nil && options.CustomRepo.Enable,
-	}
-	// 重新触发扩容时清理旧渲染产物，保证 plan 目录内容为本次最新渲染结果
-	if rmErr := os.RemoveAll(dir); rmErr != nil {
-		renderErr := fmt.Errorf("清理扩容渲染目录失败: %v", rmErr)
-		c.finishTask(ctx, plan.Id, taskNameRender, renderErr)
-		c.failExpansion(ctx, plan.Id, nodes, renderErr)
-		return
-	}
-	if err = planrender.RenderExpand(dir, planNodes, globals, options.CustomRepo); err != nil {
-		renderErr := fmt.Errorf("渲染扩容配置失败: %v", err)
-		c.finishTask(ctx, plan.Id, taskNameRender, renderErr)
-		c.failExpansion(ctx, plan.Id, nodes, renderErr)
-		return
-	}
-	c.finishTask(ctx, plan.Id, taskNameRender, nil)
-
-	// 3) 部署预检查：确认集群可达且支持扩容
-	c.markTaskRunning(ctx, plan.Id, taskNamePrechecks)
-	var precheckErr error
-	if info.Client == nil || !info.Capabilities.Supported {
-		reason := info.Capabilities.Reason
-		if reason == "" {
-			reason = "集群不可达"
-		}
-		precheckErr = fmt.Errorf("%s", reason)
-	}
-	c.finishTask(ctx, plan.Id, taskNamePrechecks, precheckErr)
-	if precheckErr != nil {
-		c.failExpansion(ctx, plan.Id, nodes, precheckErr)
+	if err = c.syncExpansionTasks(ctx, plan.Id, task, handlers...); err != nil {
 		return
 	}
 
-	// 4) 初始化部署环境：bootstrap-servers 为必经步骤（kubez-ansible 同名 action）
-	var runErr error
-	c.markTaskRunning(ctx, plan.Id, taskNameBootstrap)
-	runErr = runRunnerContainer(ctx, fmt.Sprintf("%s-%d", actionBootstrap, plan.Id), actionBootstrap, runner, dir, timeout)
-	c.finishTask(ctx, plan.Id, taskNameBootstrap, runErr)
-
-	// 5) 加入集群
-	joined := 0
-	if runErr == nil {
-		c.markTaskRunning(ctx, plan.Id, taskNameAddNode)
-		runErr = runRunnerContainer(ctx, fmt.Sprintf("%s-%d", actionAddNode, plan.Id), actionAddNode, runner, dir, timeout)
-		c.finishTask(ctx, plan.Id, taskNameAddNode, runErr)
-	}
-
-	// 无论成败都按集群实时节点列表校正，保证已 join 的节点不误报失败
+	// 执行成功后按集群实时节点列表校正，确认节点确实已加入
 	joined, reconcileErr := c.reconcileNodes(ctx, info.Client, nodes)
-	if runErr == nil {
-		runErr = reconcileErr
-	}
-
-	if runErr != nil {
+	if reconcileErr != nil {
 		c.updatePlanStatus(ctx, plan.Id, model.FailedPlanStatus)
-		klog.Errorf("cluster(%d) expansion plan(%d) failed: %v", plan.ClusterId, plan.Id, runErr)
+		klog.Errorf("cluster(%d) expansion plan(%d) failed: %v", plan.ClusterId, plan.Id, reconcileErr)
 		return
 	}
 	if joined != len(nodes) {
 		message := fmt.Sprintf("扩容未完全成功：%d/%d 个节点已加入集群", joined, len(nodes))
-		c.updateTask(ctx, plan.Id, taskNameAddNode, map[string]interface{}{
+		c.updateTask(ctx, plan.Id, planctrl.TaskNameDeployNode, map[string]interface{}{
 			"status": model.FailedPlanStatus, "step": model.FailedPlanStep, "message": message, "gmt_modified": time.Now(),
 		})
 		c.updatePlanStatus(ctx, plan.Id, model.FailedPlanStatus)
@@ -452,12 +346,9 @@ func (c *controller) reconcileNodes(ctx context.Context, cs *client.ClusterSet, 
 	return joined, nil
 }
 
-// markFirstPendingTaskFailed 在没有失败任务时把第一个「未开始」任务标记为失败，
+// markFirstUnfinishedTaskFailed 在没有失败任务时，把第一个未结束（未开始/运行中）的任务标记为失败，
 // 保证早期失败、服务重启中断等场景下进度抽屉有失败行可展示原因。
-func (c *controller) markFirstPendingTaskFailed(ctx context.Context, planId int64, message string) {
-	if planId == 0 {
-		return
-	}
+func (c *controller) markFirstUnfinishedTaskFailed(ctx context.Context, planId int64, message string) {
 	tasks, err := c.factory.Plan().Task().List(ctx, planId)
 	if err != nil {
 		klog.Errorf("list plan(%d) tasks: %v", planId, err)
@@ -469,7 +360,7 @@ func (c *controller) markFirstPendingTaskFailed(ctx context.Context, planId int6
 		}
 	}
 	for _, task := range tasks {
-		if task.Status == model.UnStartPlanStatus {
+		if task.Status == model.UnStartPlanStatus || task.Status == model.RunningPlanStatus {
 			c.updateTask(ctx, planId, task.Name, map[string]interface{}{
 				"status": model.FailedPlanStatus, "step": model.FailedPlanStep,
 				"message": message, "gmt_modified": time.Now(),
@@ -479,13 +370,15 @@ func (c *controller) markFirstPendingTaskFailed(ctx context.Context, planId int6
 	}
 }
 
-func (c *controller) failExpansion(ctx context.Context, planId int64, nodes []model.Node, cause error) {
+// failExpansionPlan 将扩容计划标记为失败：计划状态置失败、补一条失败任务、计划节点置添加失败。
+func (c *controller) failExpansionPlan(ctx context.Context, planId int64, cause error) {
 	c.updatePlanStatus(ctx, planId, model.FailedPlanStatus)
-	c.markFirstPendingTaskFailed(ctx, planId, cause.Error())
+	c.markFirstUnfinishedTaskFailed(ctx, planId, cause.Error())
 
-	// 早期失败（节点尚未加载）时按计划关联反查节点，避免「添加中」状态残留
-	if len(nodes) == 0 {
-		nodes, _ = c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
+	// 按计划关联反查节点，避免早期失败时「添加中」状态残留
+	nodes, err := c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
+	if err != nil {
+		klog.Errorf("list plan(%d) nodes for failure handling: %v", planId, err)
 	}
 	for i := range nodes {
 		_ = c.factory.Plan().Node().InternalUpdate(ctx, nodes[i].Id, map[string]interface{}{

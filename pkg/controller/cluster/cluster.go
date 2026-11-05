@@ -485,15 +485,13 @@ func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (*mo
 	}
 
 	// 存在进行中的节点扩容时不允许删除，避免扩容任务操作已删除集群
-	for _, status := range []model.TaskStatus{model.UnStartPlanStatus, model.RunningPlanStatus} {
-		count, err := c.factory.Plan().Count(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cid), db.WithTaskStatus(status))
-		if err != nil {
-			return nil, errors.ErrServerInternal
-		}
-		if count > 0 {
-			return nil, errors.NewError(fmt.Errorf("存在进行中的节点扩容任务，不允许删除 %s", obj.AliasName),
-				http.StatusConflict)
-		}
+	count, err := c.factory.Plan().Count(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cid), db.WithTaskStatus(model.RunningPlanStatus))
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+	if count > 0 {
+		return nil, errors.NewError(fmt.Errorf("存在进行中的节点扩容任务，不允许删除 %s", obj.AliasName),
+			http.StatusConflict)
 	}
 
 	// TODO: 其他删除策略检查

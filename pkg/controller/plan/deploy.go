@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
@@ -55,7 +56,7 @@ func runRunnerContainer(ctx context.Context, action string, planId int64, dir, i
 }
 
 func (b DeployMaster) Name() string      { return "部署Master" }
-func (b DeployMaster) GetAction() string { return "deploy-master" }
+func (b DeployMaster) GetAction() string { return kubezansible.DeployMaster }
 func (b DeployMaster) Run() error {
 	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错
 	ctx, cancel := context.WithTimeout(context.Background(), b.waitTimeout+60*time.Second)
@@ -70,7 +71,7 @@ type AddMaster struct {
 }
 
 func (b AddMaster) Name() string      { return "新增Master" }
-func (b AddMaster) GetAction() string { return "add-master" }
+func (b AddMaster) GetAction() string { return kubezansible.AddMaster }
 func (b AddMaster) Run() error {
 	return nil
 }
@@ -83,8 +84,8 @@ type DeployNode struct {
 	waitTimeout time.Duration
 }
 
-func (b DeployNode) Name() string      { return "部署Node" }
-func (b DeployNode) GetAction() string { return "deploy-node" }
+func (b DeployNode) Name() string      { return TaskNameDeployNode }
+func (b DeployNode) GetAction() string { return kubezansible.DeployNode }
 func (b DeployNode) Run() error {
 	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错
 	ctx, cancel := context.WithTimeout(context.Background(), b.waitTimeout+60*time.Second)
@@ -98,8 +99,8 @@ type AddNode struct {
 	handlerTask
 }
 
-func (b AddNode) Name() string      { return "新增Node" }
-func (b AddNode) GetAction() string { return "add-node" }
+func (b AddNode) Name() string      { return TaskNameAddNode }
+func (b AddNode) GetAction() string { return kubezansible.AddNode }
 func (b AddNode) Run() error {
 	return nil
 }
@@ -113,7 +114,7 @@ type DeployChart struct {
 }
 
 func (b DeployChart) Name() string         { return "部署基础组件" }
-func (b DeployChart) GetAction() string    { return "apply" }
+func (b DeployChart) GetAction() string    { return kubezansible.Apply }
 func (b DeployChart) Step() model.PlanStep { return model.RunningPlanStep }
 func (b DeployChart) Run() error {
 	// ctx 比容器等待超时多留 60s 余量，避免 ctx 先过期导致无意义报错

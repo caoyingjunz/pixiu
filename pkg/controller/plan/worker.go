@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
@@ -187,44 +188,44 @@ func (p *plan) buildAgentHandlers(task handlerTask, runner string, data TaskData
 		// 镜像拉取、配置渲染与部署均在边缘 Agent 执行；控制面只下发 Job 并等待结果
 		AgentJob{
 			handlerTask: task, factory: p.factory, agentId: agentId,
-			stepName: "前置准备", step: model.RunningPlanStep,
+			stepName: TaskNamePrepare, step: model.RunningPlanStep,
 			kind: model.JobPullImage, action: "pull_image", image: runner,
 			timeout: 30 * time.Minute,
 		},
 		AgentJob{
 			handlerTask: task, factory: p.factory, agentId: agentId,
-			stepName: "配置渲染", step: model.RunningPlanStep,
-			kind: model.JobRenderConfig, action: "render", image: runner,
+			stepName: TaskNameRender, step: model.RunningPlanStep,
+			kind: model.JobRenderConfig, action: kubezansible.Render, image: runner,
 			timeout: 10 * time.Minute,
 		},
 		AgentJob{
 			handlerTask: task, factory: p.factory, agentId: agentId,
-			stepName: "初始化部署环境", step: model.RunningPlanStep,
-			kind: model.JobRunContainer, action: "bootstrap-servers", image: runner,
+			stepName: TaskNameBootstrap, step: model.RunningPlanStep,
+			kind: model.JobRunContainer, action: kubezansible.Bootstrap, image: runner,
 			timeout: 30 * time.Minute,
 		},
 		AgentJob{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "部署Master", step: model.RunningPlanStep,
-			kind: model.JobRunContainer, action: "deploy-master", image: runner,
+			kind: model.JobRunContainer, action: kubezansible.DeployMaster, image: runner,
 			timeout: 60 * time.Minute,
 		},
 		AgentJob{
 			handlerTask: task, factory: p.factory, agentId: agentId,
-			stepName: "部署Node", step: model.RunningPlanStep,
-			kind: model.JobRunContainer, action: "deploy-node", image: runner,
+			stepName: TaskNameDeployNode, step: model.RunningPlanStep,
+			kind: model.JobRunContainer, action: kubezansible.DeployNode, image: runner,
 			timeout: 60 * time.Minute,
 		},
 		AgentJob{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "部署基础组件", step: model.RunningPlanStep,
-			kind: model.JobRunContainer, action: "apply", image: runner,
+			kind: model.JobRunContainer, action: kubezansible.Apply, image: runner,
 			timeout: 60 * time.Minute,
 		},
 		AgentJob{
 			handlerTask: task, factory: p.factory, agentId: agentId,
 			stepName: "集群注册", step: model.CompletedPlanStep,
-			kind: model.JobFetchKubeconfig, action: "register", payload: payload,
+			kind: model.JobFetchKubeconfig, action: kubezansible.Register, payload: payload,
 			timeout: 15 * time.Minute,
 			onSuccess: func(result string) error {
 				return reg.finishWithKubeConfig(result)

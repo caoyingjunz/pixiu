@@ -430,7 +430,7 @@ func (c *controller) Start(ctx context.Context, clusterId int64) error {
 				return updateErr
 			}
 		}
-		return tx.Plan().UpdateBy(ctx, map[string]interface{}{"status": model.UnStartPlanStatus}, db.WithId(expansionPlan.Id))
+		return tx.Plan().UpdateBy(ctx, map[string]interface{}{"status": model.RunningPlanStatus}, db.WithId(expansionPlan.Id))
 	})
 	if txErr != nil {
 		klog.Errorf("start expansion for cluster(%d): %v", clusterId, txErr)
@@ -441,17 +441,15 @@ func (c *controller) Start(ctx context.Context, clusterId int64) error {
 	return nil
 }
 
-// checkNoActiveExpansion 扩容计划处于未开始/运行中时返回冲突。
+// checkNoActiveExpansion 扩容计划处于运行中时返回冲突。
 func (c *controller) checkNoActiveExpansion(ctx context.Context, clusterId int64, message string) error {
-	for _, status := range []model.TaskStatus{model.UnStartPlanStatus, model.RunningPlanStatus} {
-		count, err := c.factory.Plan().Count(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(status))
-		if err != nil {
-			klog.Errorf("count %s expansion plan of cluster(%d): %v", status, clusterId, err)
-			return errors.ErrServerInternal
-		}
-		if count > 0 {
-			return errors.NewError(fmt.Errorf("%s", message), http.StatusConflict)
-		}
+	count, err := c.factory.Plan().Count(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
+	if err != nil {
+		klog.Errorf("count running expansion plan of cluster(%d): %v", clusterId, err)
+		return errors.ErrServerInternal
+	}
+	if count > 0 {
+		return errors.NewError(fmt.Errorf("%s", message), http.StatusConflict)
 	}
 	return nil
 }
@@ -614,9 +612,22 @@ func (c *controller) GetExpansionPlan(ctx context.Context, clusterId int64) (*ty
 	return resp, nil
 }
 
-// applyExpansionPlanDefaults 用已保存的扩容计划配置填充请求中未显式提供的执行参数。
+// applyExpansionOptions 解析扩容执行参数的最终值。
+// 优先级：plan 配置 > 集群能力探测结果 > 兜底常量。
+func (c *controller) applyExpansionOptions(ctx context.Context, planId int64, options *types.ExpansionOptions, capabilities *types.ClusterExpansionCapabilities) {
+	c.applyOptionsFromPlanConfig(ctx, planId, options)
+
+	if options.OSImage == "" && capabilities != nil {
+		options.OSImage = capabilities.DefaultOSImage
+	}
+	if options.NetworkInterface == "" {
+		options.NetworkInterface = "eth0"
+	}
+}
+
+// applyOptionsFromPlanConfig 用已保存的扩容计划配置填充执行参数。
 // 显式零值无法与“未提供”区分，因此 bool 字段按 false 视为未提供；请求体非零值始终优先。
-func (c *controller) applyExpansionPlanDefaults(ctx context.Context, planId int64, options *types.ExpansionOptions) {
+func (c *controller) applyOptionsFromPlanConfig(ctx context.Context, planId int64, options *types.ExpansionOptions) {
 	cfg, err := c.factory.Plan().Config().GetByPlan(ctx, planId)
 	if err != nil {
 		if !utilerrors.IsRecordNotFound(err) {

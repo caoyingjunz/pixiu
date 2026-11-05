@@ -16,12 +16,14 @@ limitations under the License.
 
 package plan
 
+import "github.com/caoyingjunz/pixiu/pkg/kubezansible"
+
 type Check struct {
 	handlerTask
 }
 
-func (c Check) Name() string      { return "部署预检查" }
-func (c Check) GetAction() string { return "prechecks" }
+func (c Check) Name() string      { return TaskNamePrechecks }
+func (c Check) GetAction() string { return kubezansible.Prechecks }
 func (c Check) Run() error {
 	if err := c.data.validate(); err != nil {
 		return err
