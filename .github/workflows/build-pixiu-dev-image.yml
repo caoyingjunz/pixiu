@@ -3,7 +3,7 @@ name: Publish pixiu-dev-server image
 on:
   push:
     branches:
-      - "**"
+      - "master"
     paths-ignore:
       - 'docs/**'
       - 'cmd/cluster-agent/**'
@@ -58,4 +58,4 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest-dev
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest

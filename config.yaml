@@ -36,7 +36,7 @@ mysql:
 
 worker:
   # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
-  work_dir: /tmp/pixiu
+  #work_dir: /etc/pixiu
   # 本地部署任务容器等待超时秒数，默认 900 秒
   #deploy_timeout: 900
 
