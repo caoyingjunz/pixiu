@@ -470,6 +470,9 @@ func (p *plan) List(ctx context.Context, listOption types.ListOptions) (interfac
 		db.WithUserOrResourceIDs(listOption.UserId, authorizedPlanIDs),
 		db.WithNameLike(listOption.NameSelector),
 	}
+	if listOption.PlanType != nil {
+		opts = append(opts, db.WithPlanTypeEq(*listOption.PlanType))
+	}
 
 	pageResult.Total, err = p.factory.Plan().Count(ctx, opts...)
 	if err != nil {

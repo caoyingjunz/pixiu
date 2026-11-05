@@ -963,6 +963,8 @@ type ListOptions struct {
 type CustomMeta struct {
 	Status *int   `form:"status" json:"status"`
 	Step   string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
+	// PlanType 计划类型过滤：0=普通部署计划，1=集群扩容计划；不传则不过滤
+	PlanType *int `form:"type" json:"type"`
 
 	ClusterName    string                  `form:"cluster_name" json:"cluster_name"`
 	DatasourceType *model.DatasourceType   `form:"datasource_type" json:"datasource_type"`
