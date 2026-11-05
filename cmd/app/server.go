@@ -33,6 +33,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/chartstore"
+	pixiulicense "github.com/caoyingjunz/pixiu/pkg/license"
 	"github.com/caoyingjunz/pixiu/pkg/util/tlscert"
 )
 
@@ -83,6 +84,9 @@ func NewServerCommand(version string) *cobra.Command {
 
 // Run 优雅启动貔貅服务
 func Run(opt *options.Options) error {
+	// 启动 license 热更新轮询（支持续费换证免重启）
+	pixiulicense.StartAutoReload(context.TODO(), time.Duration(opt.ComponentConfig.License.AutoReloadInterval)*time.Second)
+
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", opt.ComponentConfig.Default.Listen),
 		Handler: opt.HttpEngine,

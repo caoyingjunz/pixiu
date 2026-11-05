@@ -51,6 +51,7 @@ import (
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	pixiulicense "github.com/caoyingjunz/pixiu/pkg/license"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
@@ -180,6 +181,18 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 	return nil
 }
 
+// checkLicenseQuota 商业 license 配额校验：纳管集群数不能超过 license 授权上限
+func (c *cluster) checkLicenseQuota(ctx context.Context) error {
+	existing, err := c.factory.Cluster().List(ctx)
+	if err != nil {
+		return errors.ErrServerInternal
+	}
+	if err = pixiulicense.Get().CheckClusterQuota(len(existing)); err != nil {
+		return errors.NewError(err, http.StatusPaymentRequired)
+	}
+	return nil
+}
+
 // validateKubeconfigServer 防 SSRF：校验 kubeconfig server 地址不指向回环、链路本地（含云元数据 169.254.169.254）、
 // 未指定、多播等危险地址。私网 IP（10/8、172.16/12、192.168/16）不拦截，pixiu 常部署在内网管理内网集群，
 // 拦截会误伤正常场景；如需拦截私网可后续增加配置开关。
@@ -235,6 +248,10 @@ func (c *cluster) validateKubeconfigServer(kubeConfig string) error {
 func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (*model.Cluster, error) {
 	if err := c.preCreate(ctx, req); err != nil {
 		return nil, errors.NewError(err, http.StatusBadRequest)
+	}
+	// 商业 license 集群数配额校验
+	if err := c.checkLicenseQuota(ctx); err != nil {
+		return nil, err
 	}
 	// 集群名会进入 Agent 隧道会话 key，禁止 ':' 以避免与部署代理会话命名空间冲突。
 	if err := validateClusterName(req.Name); err != nil {

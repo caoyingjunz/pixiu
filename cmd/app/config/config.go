@@ -51,6 +51,37 @@ type Config struct {
 
 	// Appstore 应用商店（Helm Chart 目录）配置
 	Appstore AppstoreOptions `yaml:"appstore"`
+
+	// License 商业授权配置
+	License LicenseOptions `yaml:"license"`
+}
+
+// LicenseOptions 商业授权配置。
+// 未配置或 license 文件缺失时，服务自动降级为社区版。
+type LicenseOptions struct {
+	// Path license.key 文件路径；上传接口会写入该路径
+	Path string `yaml:"path"`
+	// AutoReloadInterval 热更新轮询间隔（秒），默认 86400（24 小时）
+	AutoReloadInterval int `yaml:"auto_reload_interval"`
+}
+
+// defaultLicensePath license 文件默认路径
+const defaultLicensePath = "/etc/pixiu/license.key"
+
+// defaultLicenseReloadInterval license 热更新默认轮询间隔（秒）
+const defaultLicenseReloadInterval = 86400
+
+// SetDefaults 补齐 license 配置默认值
+func (o *LicenseOptions) SetDefaults() {
+	if o == nil {
+		return
+	}
+	if o.Path == "" {
+		o.Path = defaultLicensePath
+	}
+	if o.AutoReloadInterval <= 0 {
+		o.AutoReloadInterval = defaultLicenseReloadInterval
+	}
 }
 
 // AppstoreOptions 应用商店配置（Chart 包存储在本地磁盘）。
@@ -254,6 +285,7 @@ func (c *Config) Valid() (err error) {
 	// 按设计，启动链不做任何 CRI 配置校验：坏值延迟到首次实际使用运行时（runtime.New）时报错，不阻断启动
 
 	c.Appstore.SetDefaults()
+	c.License.SetDefaults()
 
 	return
 }
