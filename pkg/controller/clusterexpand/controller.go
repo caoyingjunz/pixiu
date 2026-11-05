@@ -17,13 +17,9 @@ limitations under the License.
 package clusterexpand
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -36,7 +32,6 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
-	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 type Getter interface {
@@ -45,30 +40,28 @@ type Getter interface {
 
 // Interface 集群节点扩容能力。
 type Interface interface {
-	// Config 返回集群扩容能力探测结果与默认参数
-	Config(ctx context.Context, clusterId int64) (*types.ClusterExpansionConfig, error)
+	// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据，
+	CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) error
+	// DeleteExpansionPlan 删除集群扩容计划及其关联的任务/配置，并解除节点与计划的关联。
+	DeleteExpansionPlan(ctx context.Context, clusterId int64) error
+	// GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。
+	GetExpansionPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error)
+
+	// Capabilities 返回集群扩容能力探测结果与默认参数
+	Capabilities(ctx context.Context, clusterId int64) (*types.ClusterExpansionCapabilities, error)
+
 	// ListNodes 返回绑定到该集群的扩容节点（摘要，不含凭据）
-	ListNodes(ctx context.Context, clusterId int64) ([]types.ClusterNodeSummary, error)
+	ListNodes(ctx context.Context, clusterId int64) ([]types.ClusterExpansionNodeSummary, error)
 	// AddNodes 添加节点到集群（只绑定/创建，不执行）
 	AddNodes(ctx context.Context, clusterId int64, req *types.CreateClusterNodesRequest) (*types.BatchOperationResult, error)
 	// RemoveNode 移除未加入集群的节点（解绑回主机池）
 	RemoveNode(ctx context.Context, clusterId, nodeId int64) error
-	// Create 创建并启动一次扩容，返回扩容记录 ID
-	Create(ctx context.Context, clusterId int64, req *types.CreateClusterExpansionRequest) (int64, error)
+
 	// GenerateJoinParams 通过 Kubernetes API 自动生成 join 参数（bootstrap token + CA hash + apiserver）。
 	GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error)
-	// SavePlanConfig 保存集群扩容计划（plans.type=1）的配置与元数据。
-	SavePlanConfig(ctx context.Context, clusterId int64, req *types.SaveClusterExpansionPlanConfigRequest) error
-	// GetPlan 获取集群扩容计划（plans.type=1）及配置；计划不存在时 Exists=false。
-	GetPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error)
-	// DeletePlan 删除集群扩容计划及其关联的扩容记录/任务/配置，并解除节点与计划的关联。
-	DeletePlan(ctx context.Context, clusterId int64) error
-	// List 扩容历史
-	List(ctx context.Context, clusterId int64, listOption types.ListOptions) (interface{}, error)
-	// Get 扩容详情
-	Get(ctx context.Context, clusterId, expansionId int64) (*types.ClusterExpansion, error)
-	// Logs 扩容日志（SSE）
-	Logs(ctx context.Context, clusterId, expansionId int64, step string, w http.ResponseWriter, r *http.Request) error
+
+	// Start 按已保存的扩容计划启动一次扩容
+	Start(ctx context.Context, clusterId int64) error
 
 	// Run 启动扩容 worker
 	Run(ctx context.Context, workers int) error
@@ -83,44 +76,16 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{cc: cfg, factory: f}
 }
 
-// authorize 校验集群访问权；write=true 时仅允许 owner / 管理员 / 超管执行变更。
-func (c *controller) authorize(ctx context.Context, clusterId int64, write bool) (*model.Cluster, *model.User, error) {
-	user, err := httputils.GetUserFromContext(ctx)
-	if err != nil {
-		return nil, nil, errors.ErrUnauthorized
-	}
-
-	obj, err := c.factory.Cluster().Get(ctx, clusterId)
-	if err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return nil, nil, errors.ErrClusterNotFound
-		}
-		klog.Errorf("get cluster(%d) for expansion: %v", clusterId, err)
-		return nil, nil, errors.ErrServerInternal
-	}
-	if obj == nil {
-		return nil, nil, errors.ErrClusterNotFound
-	}
-
-	if err = util.CheckResourceAccess(ctx, c.factory, obj.UserId, types.ResourceTypeCluster, clusterId); err != nil {
-		return nil, nil, err
-	}
-	if write && user.Role != model.RoleRoot && user.Role != model.RoleAdmin && user.Id != obj.UserId {
-		return nil, nil, errors.ErrForbidden
-	}
-	return obj, user, nil
-}
-
-func (c *controller) Config(ctx context.Context, clusterId int64) (*types.ClusterExpansionConfig, error) {
-	obj, _, err := c.authorize(ctx, clusterId, false)
+func (c *controller) Capabilities(ctx context.Context, clusterId int64) (*types.ClusterExpansionCapabilities, error) {
+	obj, _, err := c.authorize(ctx, clusterId)
 	if err != nil {
 		return nil, err
 	}
-	return c.detectCluster(ctx, obj).Config, nil
+	return c.detectClusterInfo(ctx, obj).Capabilities, nil
 }
 
-func (c *controller) ListNodes(ctx context.Context, clusterId int64) ([]types.ClusterNodeSummary, error) {
-	if _, _, err := c.authorize(ctx, clusterId, false); err != nil {
+func (c *controller) ListNodes(ctx context.Context, clusterId int64) ([]types.ClusterExpansionNodeSummary, error) {
+	if _, _, err := c.authorize(ctx, clusterId); err != nil {
 		return nil, err
 	}
 
@@ -130,7 +95,7 @@ func (c *controller) ListNodes(ctx context.Context, clusterId int64) ([]types.Cl
 		return nil, errors.ErrServerInternal
 	}
 
-	items := make([]types.ClusterNodeSummary, 0, len(objects))
+	items := make([]types.ClusterExpansionNodeSummary, 0, len(objects))
 	for i := range objects {
 		items = append(items, modelNode2Summary(&objects[i]))
 	}
@@ -138,13 +103,13 @@ func (c *controller) ListNodes(ctx context.Context, clusterId int64) ([]types.Cl
 }
 
 func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.CreateClusterNodesRequest) (*types.BatchOperationResult, error) {
-	obj, user, err := c.authorize(ctx, clusterId, true)
+	obj, user, err := c.authorize(ctx, clusterId)
 	if err != nil {
 		return nil, err
 	}
-	info := c.detectCluster(ctx, obj)
-	if !info.Config.Supported {
-		return nil, errors.NewError(fmt.Errorf("%s", info.Config.Reason), http.StatusBadRequest)
+	info := c.detectClusterInfo(ctx, obj)
+	if !info.Capabilities.Supported {
+		return nil, errors.NewError(fmt.Errorf("%s", info.Capabilities.Reason), http.StatusBadRequest)
 	}
 	if len(req.NodeIds) == 0 && len(req.Nodes) == 0 {
 		return nil, errors.ErrInvalidRequest
@@ -201,7 +166,7 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 			"status":         model.NodeStatusUnadded,
 			"status_message": "",
 		}
-		if updateErr := c.factory.Plan().Node().UpdateFields(ctx, nodeId, updates); updateErr != nil {
+		if updateErr := c.factory.Plan().Node().InternalUpdate(ctx, nodeId, updates); updateErr != nil {
 			klog.Errorf("bind node(%d) to cluster(%d): %v", nodeId, clusterId, updateErr)
 			result.Failed = append(result.Failed, types.BatchOperationFailure{Key: nodeId, Name: object.Name, Reason: "绑定集群失败"})
 			continue
@@ -215,6 +180,37 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 		spec := req.Nodes[i]
 		if nodeMatched(spec.Name, spec.Ip, names, ips) {
 			result.Failed = append(result.Failed, types.BatchOperationFailure{Name: spec.Name, Reason: "名称或 IP 已存在于集群中"})
+			continue
+		}
+		// 幂等：同一 IP 已存在于主机库时复用，避免重试时重复创建主机
+		existing, getErr := c.factory.Plan().Node().GetByIP(ctx, spec.Ip)
+		switch {
+		case getErr == nil && existing != nil:
+			if existing.ClusterId == clusterId {
+				result.Skipped = append(result.Skipped, types.BatchOperationItem{Key: existing.Id, Name: existing.Name})
+				continue
+			}
+			if existing.PlanId != 0 || existing.ClusterId != 0 {
+				result.Failed = append(result.Failed, types.BatchOperationFailure{Key: existing.Id, Name: existing.Name, Reason: "IP 已被其他集群或计划占用"})
+				continue
+			}
+			updates := map[string]interface{}{
+				"cluster_id":     clusterId,
+				"plan_id":        int64(0),
+				"role":           model.NodeRole,
+				"cri":            model.ContainerdCRI,
+				"status":         model.NodeStatusUnadded,
+				"status_message": "",
+			}
+			if updateErr := c.factory.Plan().Node().InternalUpdate(ctx, existing.Id, updates); updateErr != nil {
+				klog.Errorf("bind existing node(%d) to cluster(%d): %v", existing.Id, clusterId, updateErr)
+				result.Failed = append(result.Failed, types.BatchOperationFailure{Key: existing.Id, Name: existing.Name, Reason: "绑定集群失败"})
+				continue
+			}
+			result.Succeeded = append(result.Succeeded, types.BatchOperationItem{Key: existing.Id, Name: existing.Name})
+			continue
+		case getErr != nil && !utilerrors.IsRecordNotFound(getErr):
+			result.Failed = append(result.Failed, types.BatchOperationFailure{Name: spec.Name, Reason: "查询主机失败"})
 			continue
 		}
 		createReq := &types.CreateNodeRequest{
@@ -241,7 +237,7 @@ func (c *controller) AddNodes(ctx context.Context, clusterId int64, req *types.C
 }
 
 func (c *controller) RemoveNode(ctx context.Context, clusterId, nodeId int64) error {
-	obj, _, err := c.authorize(ctx, clusterId, true)
+	obj, _, err := c.authorize(ctx, clusterId)
 	if err != nil {
 		return err
 	}
@@ -261,11 +257,11 @@ func (c *controller) RemoveNode(ctx context.Context, clusterId, nodeId int64) er
 	}
 
 	// 状态可能陈旧：能连上集群时以实时节点列表为准
-	info := c.detectCluster(ctx, obj)
-	if info.Config.Supported && info.Client != nil {
+	info := c.detectClusterInfo(ctx, obj)
+	if info.Capabilities.Supported && info.Client != nil {
 		names, ips, listErr := clusterNodeAddresses(ctx, info.Client)
 		if listErr == nil && nodeMatched(object.Name, object.Ip, names, ips) {
-			_ = c.factory.Plan().Node().UpdateFields(ctx, nodeId, map[string]interface{}{
+			_ = c.factory.Plan().Node().InternalUpdate(ctx, nodeId, map[string]interface{}{
 				"plan_id": int64(0),
 				"status":  model.NodeStatusAdded, "status_message": "",
 			})
@@ -284,7 +280,7 @@ func (c *controller) RemoveNode(ctx context.Context, clusterId, nodeId int64) er
 		"status":         model.NodeStatusUnadded,
 		"status_message": "",
 	}
-	if err = c.factory.Plan().Node().UpdateFields(ctx, nodeId, updates); err != nil {
+	if err = c.factory.Plan().Node().InternalUpdate(ctx, nodeId, updates); err != nil {
 		klog.Errorf("unbind node(%d) from cluster(%d): %v", nodeId, clusterId, err)
 		return errors.ErrServerInternal
 	}
@@ -292,27 +288,27 @@ func (c *controller) RemoveNode(ctx context.Context, clusterId, nodeId int64) er
 }
 
 // ensureExpansionPlan 返回集群对应的扩容计划（plans.type=1），不存在则自动创建。
-// 扩容计划由系统管理：不创建 configs/nodes/cluster 等子资源，节点通过 plan_id 挂在计划下。
-func (c *controller) ensureExpansionPlan(ctx context.Context, cluster *model.Cluster) (*model.Plan, error) {
-	plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cluster.Id))
+func (c *controller) ensureExpansionPlan(ctx context.Context, factory db.ShareDaoFactory, cluster *model.Cluster) (*model.Plan, error) {
+	plans, err := factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cluster.Id))
 	if err != nil {
 		klog.Errorf("list expansion plans of cluster(%d): %v", cluster.Id, err)
 		return nil, errors.ErrServerInternal
 	}
 	if len(plans) > 0 {
+		// 如果存在，则返回，正常应该不会有多个，plan 数组长度为 1
 		return &plans[0], nil
 	}
 
-	created, err := c.factory.Plan().Create(ctx, &model.Plan{
-		Name:        fmt.Sprintf("expand-cluster-%d", cluster.Id),
+	created, err := factory.Plan().Create(ctx, &model.Plan{
+		Name:        fmt.Sprintf("expand-cluster-%d-nodes", cluster.Id),
 		UserId:      cluster.UserId,
-		Description: fmt.Sprintf("集群 %s 扩容计划（添加节点时自动创建）", cluster.AliasName),
+		Description: fmt.Sprintf("集群 %s 扩容计划（保存配置或开始扩容时自动创建）", cluster.AliasName),
 		Status:      model.UnStartPlanStatus,
 		Type:        1,
 		ClusterId:   cluster.Id,
 	})
 	if err != nil {
-		klog.Errorf("create expansion plan for cluster(%d): %v", cluster.Id, err)
+		klog.Errorf("failed to create expansion plan for cluster(%d): %v", cluster.Id, err)
 		return nil, errors.ErrServerInternal
 	}
 	klog.Infof("created expansion plan(%d) for cluster(%d)", created.Id, cluster.Id)
@@ -320,12 +316,12 @@ func (c *controller) ensureExpansionPlan(ctx context.Context, cluster *model.Clu
 }
 
 // syncExpansionPlanNodes 将选中节点关联到计划，并解绑该计划下未选中的节点。
-func (c *controller) syncExpansionPlanNodes(ctx context.Context, clusterId, planId int64, nodeIds []int64) error {
+func (c *controller) syncExpansionPlanNodes(ctx context.Context, factory db.ShareDaoFactory, clusterId, planId int64, nodeIds []int64) error {
 	selected := make(map[int64]struct{}, len(nodeIds))
 	for _, id := range nodeIds {
 		selected[id] = struct{}{}
 	}
-	nodes, err := c.factory.Plan().Node().List(ctx, db.WithClusterIdEq(clusterId))
+	nodes, err := factory.Plan().Node().List(ctx, db.WithClusterIdEq(clusterId))
 	if err != nil {
 		klog.Errorf("list expansion nodes of cluster(%d): %v", clusterId, err)
 		return err
@@ -333,15 +329,14 @@ func (c *controller) syncExpansionPlanNodes(ctx context.Context, clusterId, plan
 	for i := range nodes {
 		_, want := selected[nodes[i].Id]
 		if want {
-			if nodes[i].PlanId == planId {
-				continue
-			}
-			if err = c.factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{"plan_id": planId}); err != nil {
-				klog.Errorf("associate node(%d) to plan(%d): %v", nodes[i].Id, planId, err)
-				return err
+			if nodes[i].PlanId != planId {
+				if err = factory.Plan().Node().InternalUpdate(ctx, nodes[i].Id, map[string]interface{}{"plan_id": planId}); err != nil {
+					klog.Errorf("associate node(%d) to plan(%d): %v", nodes[i].Id, planId, err)
+					return err
+				}
 			}
 		} else if nodes[i].PlanId == planId {
-			if err = c.factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{"plan_id": int64(0)}); err != nil {
+			if err = factory.Plan().Node().InternalUpdate(ctx, nodes[i].Id, map[string]interface{}{"plan_id": int64(0)}); err != nil {
 				klog.Errorf("unbind node(%d) from plan(%d): %v", nodes[i].Id, planId, err)
 				return err
 			}
@@ -350,138 +345,68 @@ func (c *controller) syncExpansionPlanNodes(ctx context.Context, clusterId, plan
 	return nil
 }
 
-func (c *controller) Create(ctx context.Context, clusterId int64, req *types.CreateClusterExpansionRequest) (int64, error) {
-	obj, user, err := c.authorize(ctx, clusterId, true)
+// Start 按已保存的扩容计划（配置 + 节点 + join 参数）启动一次扩容。
+func (c *controller) Start(ctx context.Context, clusterId int64) error {
+	obj, _, err := c.authorize(ctx, clusterId)
 	if err != nil {
-		return 0, err
-	}
-
-	// 执行扩容前先确保集群对应的扩容计划（type=1）存在，扩容记录关联到该计划
-	expansionPlan, planErr := c.ensureExpansionPlan(ctx, obj)
-	if planErr != nil {
-		return 0, planErr
-	}
-
-	info := c.detectCluster(ctx, obj)
-	if !info.Config.Supported {
-		return 0, errors.NewError(fmt.Errorf("%s", info.Config.Reason), http.StatusBadRequest)
+		return err
 	}
 
 	unlock := lockCluster(clusterId)
 	defer unlock()
 
-	// 同一集群串行：存在未开始/运行中的扩容时拒绝
-	active, err := c.factory.ClusterExpansion().Count(ctx, db.WithClusterIdEq(clusterId), db.WithTaskStatus(model.UnStartPlanStatus))
+	expansionPlan, err := c.ensureExpansionPlan(ctx, c.factory, obj)
 	if err != nil {
-		return 0, errors.ErrServerInternal
+		return err
 	}
-	if active > 0 {
-		return 0, errors.NewError(fmt.Errorf("该集群存在进行中的扩容任务，请稍后重试"), http.StatusConflict)
-	}
-	running, err := c.factory.ClusterExpansion().Count(ctx, db.WithClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
-	if err != nil {
-		return 0, errors.ErrServerInternal
-	}
-	if running > 0 {
-		return 0, errors.NewError(fmt.Errorf("该集群存在进行中的扩容任务，请稍后重试"), http.StatusConflict)
+	if err = c.checkNoActiveExpansion(ctx, clusterId, "该集群存在进行中的扩容任务，请稍后重试"); err != nil {
+		return err
 	}
 
-	// 去重节点 ID
-	nodeIds := make([]int64, 0, len(req.NodeIds))
-	seen := make(map[int64]struct{}, len(req.NodeIds))
-	for _, id := range req.NodeIds {
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		nodeIds = append(nodeIds, id)
-	}
-	if len(nodeIds) == 0 {
-		return 0, errors.ErrInvalidRequest
+	info := c.detectClusterInfo(ctx, obj)
+	if !info.Capabilities.Supported {
+		return errors.NewError(fmt.Errorf("%s", info.Capabilities.Reason), http.StatusBadRequest)
 	}
 
-	nodes, err := c.factory.Plan().Node().List(ctx, db.WithIdIn(nodeIds))
+	// 扩容节点以计划关联为准（保存扩容计划时同步）
+	nodes, err := c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(expansionPlan.Id))
 	if err != nil {
-		return 0, errors.ErrServerInternal
+		return errors.ErrServerInternal
 	}
-	if len(nodes) != len(nodeIds) {
-		return 0, errors.NewError(fmt.Errorf("部分节点不存在"), http.StatusBadRequest)
+	if len(nodes) == 0 {
+		return errors.NewError(fmt.Errorf("扩容节点为空，请先在扩容计划中添加节点"), http.StatusBadRequest)
 	}
 	for i := range nodes {
 		n := &nodes[i]
 		if n.ClusterId != clusterId {
-			return 0, errors.NewError(fmt.Errorf("节点 %s 不属于该集群", n.Name), http.StatusBadRequest)
+			return errors.NewError(fmt.Errorf("节点 %s 不属于该集群", n.Name), http.StatusBadRequest)
 		}
 		if n.Status == model.NodeStatusAdding {
-			return 0, errors.NewError(fmt.Errorf("节点 %s 正在添加中", n.Name), http.StatusConflict)
+			return errors.NewError(fmt.Errorf("节点 %s 正在添加中", n.Name), http.StatusConflict)
 		}
 		// status=已加入 可能是 K8s 外部删除后的陈旧标记，交由下方实时节点列表判定
 	}
 
 	// 已在集群中的节点直接标记为已加入并拒绝本次执行
-	names, ips, err := clusterNodeAddresses(ctx, info.Client)
-	if err != nil {
-		return 0, errors.NewError(fmt.Errorf("查询集群节点失败: %v", err), http.StatusBadGateway)
-	}
-	for i := range nodes {
-		n := &nodes[i]
-		if nodeMatched(n.Name, n.Ip, names, ips) {
-			// 已在集群中的节点标记已加入，并解除与扩容计划的关联
-			_ = c.factory.Plan().Node().UpdateFields(ctx, n.Id, map[string]interface{}{
-				"plan_id": int64(0),
-				"status":  model.NodeStatusAdded, "status_message": "",
-			})
-			return 0, errors.NewError(fmt.Errorf("节点 %s 已在集群中，请刷新后重试", n.Name), http.StatusConflict)
+	if info.Client != nil {
+		names, ips, listErr := clusterNodeAddresses(ctx, info.Client)
+		if listErr != nil {
+			return errors.NewError(fmt.Errorf("查询集群节点失败: %v", listErr), http.StatusBadGateway)
+		}
+		for i := range nodes {
+			n := &nodes[i]
+			if nodeMatched(n.Name, n.Ip, names, ips) {
+				// 已在集群中的节点标记已加入，并解除与扩容计划的关联
+				_ = c.factory.Plan().Node().InternalUpdate(ctx, n.Id, map[string]interface{}{
+					"plan_id": int64(0),
+					"status":  model.NodeStatusAdded, "status_message": "",
+				})
+				return errors.NewError(fmt.Errorf("节点 %s 已在集群中，请刷新后重试", n.Name), http.StatusConflict)
+			}
 		}
 	}
 
-	// 节点校验通过后，按去重后的勾选节点同步计划关联：选中关联、未选中解绑
-	if planErr = c.syncExpansionPlanNodes(ctx, clusterId, expansionPlan.Id, nodeIds); planErr != nil {
-		return 0, errors.ErrServerInternal
-	}
-
-	options := req.Options
-	if options.ImageRepository == "" {
-		options.ImageRepository = info.Config.ImageRepository
-	}
-	if options.NetworkInterface == "" {
-		options.NetworkInterface = info.Config.DefaultNetworkInterface
-	}
-	if options.NetworkInterface == "" {
-		options.NetworkInterface = "eth0"
-	}
-	if options.OSImage == "" {
-		options.OSImage = info.Config.DefaultOSImage
-	}
-	// runner 镜像无论是否跳过 bootstrap 都必须可用（add-node 容器本身来自 runner 镜像）
-	if _, err = c.resolveRunner(ctx, options.OSImage); err != nil {
-		return 0, errors.NewError(fmt.Errorf("解析 runner 失败: %v", err), http.StatusBadRequest)
-	}
-
-	nodeIdsJSON, err := json.Marshal(nodeIds)
-	if err != nil {
-		return 0, errors.ErrServerInternal
-	}
-	optionsJSON, err := json.Marshal(options)
-	if err != nil {
-		return 0, errors.ErrServerInternal
-	}
-
-	var expansionId int64
 	txErr := c.factory.Transaction(ctx, func(tx db.ShareDaoFactory) error {
-		expansion, createErr := tx.ClusterExpansion().Create(ctx, &model.ClusterExpansion{
-			ClusterId: clusterId,
-			UserId:    user.Id,
-			PlanId:    expansionPlan.Id,
-			NodeIds:   string(nodeIdsJSON),
-			Options:   string(optionsJSON),
-			Status:    model.UnStartPlanStatus,
-		})
-		if createErr != nil {
-			return createErr
-		}
-		expansionId = expansion.Id
-
 		// 每次扩容重置该计划的进度任务，避免历史步骤残留
 		if taskErr := tx.Plan().Task().Delete(ctx, expansionPlan.Id); taskErr != nil {
 			return taskErr
@@ -499,112 +424,154 @@ func (c *controller) Create(ctx context.Context, clusterId int64, req *types.Cre
 		}
 
 		for i := range nodes {
-			if updateErr := tx.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{
+			if updateErr := tx.Plan().Node().InternalUpdate(ctx, nodes[i].Id, map[string]interface{}{
 				"status": model.NodeStatusAdding, "status_message": "",
 			}); updateErr != nil {
 				return updateErr
 			}
 		}
-		return nil
+		return tx.Plan().UpdateBy(ctx, map[string]interface{}{"status": model.RunningPlanStatus}, db.WithId(expansionPlan.Id))
 	})
 	if txErr != nil {
-		klog.Errorf("create expansion for cluster(%d): %v", clusterId, txErr)
-		return 0, errors.ErrServerInternal
+		klog.Errorf("start expansion for cluster(%d): %v", clusterId, txErr)
+		return errors.ErrServerInternal
 	}
 
-	expansionQueue.Add(expansionId)
-
-	return expansionId, nil
+	expansionQueue.Add(expansionPlan.Id)
+	return nil
 }
 
-// checkNoActiveExpansion 存在未开始/运行中的扩容记录时返回冲突。
+// checkNoActiveExpansion 扩容计划处于运行中时返回冲突。
 func (c *controller) checkNoActiveExpansion(ctx context.Context, clusterId int64, message string) error {
-	for _, status := range []model.TaskStatus{model.UnStartPlanStatus, model.RunningPlanStatus} {
-		count, err := c.factory.ClusterExpansion().Count(ctx, db.WithClusterIdEq(clusterId), db.WithTaskStatus(status))
-		if err != nil {
-			klog.Errorf("count %s expansion of cluster(%d): %v", status, clusterId, err)
-			return errors.ErrServerInternal
-		}
-		if count > 0 {
-			return errors.NewError(fmt.Errorf("%s", message), http.StatusConflict)
-		}
+	count, err := c.factory.Plan().Count(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
+	if err != nil {
+		klog.Errorf("count running expansion plan of cluster(%d): %v", clusterId, err)
+		return errors.ErrServerInternal
+	}
+	if count > 0 {
+		return errors.NewError(fmt.Errorf("%s", message), http.StatusConflict)
 	}
 	return nil
 }
 
-// SavePlanConfig 保存集群扩容计划（plans.type=1）的配置与元数据。
-// 与 plan 控制器一致：存在则 Update，不存在则 Create；EnablePublicIp=false 时清空 api_server。
-func (c *controller) SavePlanConfig(ctx context.Context, clusterId int64, req *types.SaveClusterExpansionPlanConfigRequest) error {
-	obj, _, err := c.authorize(ctx, clusterId, true)
+// CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据
+func (c *controller) CreateOrUpdateExpansionPlan(ctx context.Context, clusterId int64, req *types.CreateOrUpdateClusterExpansionPlanRequest) error {
+	obj, _, err := c.authorize(ctx, clusterId)
 	if err != nil {
 		return err
 	}
+
+	// 检查是否有进行中的任务，有的话，不允许调整
 	if err = c.checkNoActiveExpansion(ctx, clusterId, "扩容进行中，无法修改配置"); err != nil {
 		return err
 	}
 	if len(req.NodeIds) == 0 {
 		return errors.ErrInvalidRequest
 	}
-	expansionPlan, err := c.ensureExpansionPlan(ctx, obj)
-	if err != nil {
-		return err
-	}
-	// 按勾选的节点同步计划关联：选中关联、未选中解绑
-	if err = c.syncExpansionPlanNodes(ctx, clusterId, expansionPlan.Id, req.NodeIds); err != nil {
-		return errors.ErrServerInternal
-	}
 
 	planConfig, err := buildExpansionPlanConfig(&req.Config)
 	if err != nil {
 		return err
 	}
-	planConfig.PlanId = expansionPlan.Id
 
-	oldConfig, getErr := c.factory.Plan().Config().GetByPlan(ctx, expansionPlan.Id)
-	switch {
-	case getErr == nil:
-		updates := map[string]interface{}{
-			"region":     planConfig.Region,
-			"os_image":   planConfig.OSImage,
-			"kubernetes": planConfig.Kubernetes,
-			"network":    planConfig.Network,
-			"runtime":    planConfig.Runtime,
-			"component":  planConfig.Component,
+	return c.factory.Transaction(ctx, func(tx db.ShareDaoFactory) error {
+		var txErr error
+		expansionPlan, txErr := c.ensureExpansionPlan(ctx, tx, obj)
+		if txErr != nil {
+			return txErr
 		}
-		if err = c.factory.Plan().Config().Update(ctx, oldConfig.Id, oldConfig.ResourceVersion, updates); err != nil {
-			klog.Errorf("update plan(%d) config: %v", expansionPlan.Id, err)
+		// 按勾选的节点同步计划关联：选中关联、未选中解绑
+		if txErr = c.syncExpansionPlanNodes(ctx, tx, clusterId, expansionPlan.Id, req.NodeIds); txErr != nil {
 			return errors.ErrServerInternal
 		}
-	case utilerrors.IsRecordNotFound(getErr):
-		if err = c.factory.Plan().Config().Create(ctx, nil, planConfig); err != nil {
-			klog.Errorf("create plan(%d) config: %v", expansionPlan.Id, err)
-			return errors.ErrServerInternal
-		}
-	default:
-		klog.Errorf("get plan(%d) config: %v", expansionPlan.Id, getErr)
-		return errors.ErrServerInternal
-	}
 
-	// 同步计划元数据（description/kubernetes_version）
-	// 扩容计划名称由系统生成（expand-cluster-<id>），不随前端更新，避免与部署计划名称唯一索引冲突
-	if expansionPlan.Description != req.Description ||
-		expansionPlan.KubernetesVersion != req.Config.Kubernetes.KubernetesVersion {
-		updates := map[string]interface{}{
-			"description":        req.Description,
-			"kubernetes_version": req.Config.Kubernetes.KubernetesVersion,
-		}
-		if err = c.factory.Plan().Update(ctx, expansionPlan.Id, expansionPlan.ResourceVersion, updates); err != nil {
-			klog.Errorf("update plan(%d): %v", expansionPlan.Id, err)
+		planConfig.PlanId = expansionPlan.Id
+		oldConfig, getErr := tx.Plan().Config().GetByPlan(ctx, expansionPlan.Id)
+		switch {
+		case getErr == nil && oldConfig != nil:
+			updates := map[string]interface{}{
+				"region":     planConfig.Region,
+				"os_image":   planConfig.OSImage,
+				"kubernetes": planConfig.Kubernetes,
+				"network":    planConfig.Network,
+				"runtime":    planConfig.Runtime,
+				"component":  planConfig.Component,
+			}
+			if txErr = tx.Plan().Config().Update(ctx, oldConfig.Id, oldConfig.ResourceVersion, updates); txErr != nil {
+				klog.Errorf("update plan(%d) config: %v", expansionPlan.Id, txErr)
+				return errors.ErrServerInternal
+			}
+		case utilerrors.IsRecordNotFound(getErr) || (getErr == nil && oldConfig == nil):
+			if txErr = tx.Plan().Config().Create(ctx, nil, planConfig); txErr != nil {
+				klog.Errorf("create plan(%d) config: %v", expansionPlan.Id, txErr)
+				return errors.ErrServerInternal
+			}
+		default:
+			klog.Errorf("get plan(%d) config: %v", expansionPlan.Id, getErr)
 			return errors.ErrServerInternal
 		}
-	}
-	return nil
+
+		// 同步计划元数据（description/kubernetes_version）
+		// 扩容计划名称由系统生成（expand-cluster-<id>），不随前端更新，避免与部署计划名称唯一索引冲突
+		if expansionPlan.Description != req.Description ||
+			expansionPlan.KubernetesVersion != req.Config.Kubernetes.KubernetesVersion {
+			updates := map[string]interface{}{
+				"description":        req.Description,
+				"kubernetes_version": req.Config.Kubernetes.KubernetesVersion,
+			}
+			if txErr = tx.Plan().Update(ctx, expansionPlan.Id, expansionPlan.ResourceVersion, updates); txErr != nil {
+				klog.Errorf("update plan(%d): %v", expansionPlan.Id, txErr)
+				return errors.ErrServerInternal
+			}
+		}
+		expansionPlan.Description = req.Description
+		expansionPlan.KubernetesVersion = req.Config.Kubernetes.KubernetesVersion
+		return nil
+	})
 }
 
-// GetPlan 获取集群扩容计划（plans.type=1）及配置。
+// buildExpansionPlanResponse 根据计划、配置与关联节点构造对外响应。
+// cfg 为 nil 时仅返回计划元数据，不返回配置。
+func buildExpansionPlanResponse(plan *model.Plan, cfg *model.Config, nodeIds []int64) (*types.ClusterExpansionPlanResponse, error) {
+	if plan == nil {
+		return nil, fmt.Errorf("expansion plan is nil")
+	}
+	resp := &types.ClusterExpansionPlanResponse{
+		Exists:      true,
+		PlanId:      plan.Id,
+		Name:        plan.Name,
+		Description: plan.Description,
+		NodeIds:     append(make([]int64, 0, len(nodeIds)), nodeIds...),
+		Status:      plan.Status,
+	}
+	if cfg == nil {
+		return resp, nil
+	}
+
+	planConfig := &types.ExpansionPlanConfigResponse{
+		OSImage:     cfg.OSImage,
+		Description: plan.Description,
+	}
+	if err := planConfig.Kubernetes.Unmarshal(cfg.Kubernetes); err != nil {
+		return nil, fmt.Errorf("unmarshal kubernetes config: %w", err)
+	}
+	if err := planConfig.Network.Unmarshal(cfg.Network); err != nil {
+		return nil, fmt.Errorf("unmarshal network config: %w", err)
+	}
+	if err := planConfig.Runtime.Unmarshal(cfg.Runtime); err != nil {
+		return nil, fmt.Errorf("unmarshal runtime config: %w", err)
+	}
+	if err := planConfig.Component.Unmarshal(cfg.Component); err != nil {
+		return nil, fmt.Errorf("unmarshal component config: %w", err)
+	}
+	resp.Config = planConfig
+	return resp, nil
+}
+
+// GetExpansionPlan 获取集群扩容计划（plans.type=1）及配置。
 // 计划不存在时返回 Exists=false；计划存在但无 configs 行时 Config 留空。
-func (c *controller) GetPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error) {
-	if _, _, err := c.authorize(ctx, clusterId, false); err != nil {
+func (c *controller) GetExpansionPlan(ctx context.Context, clusterId int64) (*types.ClusterExpansionPlanResponse, error) {
+	if _, _, err := c.authorize(ctx, clusterId); err != nil {
 		return nil, err
 	}
 
@@ -618,62 +585,116 @@ func (c *controller) GetPlan(ctx context.Context, clusterId int64) (*types.Clust
 	}
 
 	plan := &plans[0]
-	resp := &types.ClusterExpansionPlanResponse{
-		Exists:      true,
-		PlanId:      plan.Id,
-		Name:        plan.Name,
-		Description: plan.Description,
-		NodeIds:     make([]int64, 0),
-	}
-
-	// 返回该计划当前关联的节点，供页面回填勾选状态
 	nodes, err := c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(plan.Id))
 	if err != nil {
 		klog.Errorf("list plan(%d) nodes: %v", plan.Id, err)
 		return nil, errors.ErrServerInternal
 	}
+	nodeIds := make([]int64, 0, len(nodes))
 	for i := range nodes {
-		resp.NodeIds = append(resp.NodeIds, nodes[i].Id)
+		nodeIds = append(nodeIds, nodes[i].Id)
 	}
 
 	cfg, err := c.factory.Plan().Config().GetByPlan(ctx, plan.Id)
 	if err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return resp, nil
+		if !utilerrors.IsRecordNotFound(err) {
+			klog.Errorf("get plan(%d) config: %v", plan.Id, err)
+			return nil, errors.ErrServerInternal
 		}
-		klog.Errorf("get plan(%d) config: %v", plan.Id, err)
-		return nil, errors.ErrServerInternal
-	}
-	if cfg == nil {
-		return resp, nil
+		cfg = nil
 	}
 
-	planConfig := &types.ExpansionPlanConfigResponse{
-		OSImage:     cfg.OSImage,
-		Description: plan.Description,
-	}
-	if err = planConfig.Kubernetes.Unmarshal(cfg.Kubernetes); err != nil {
-		klog.Errorf("unmarshal plan(%d) kubernetes config: %v", plan.Id, err)
+	resp, respErr := buildExpansionPlanResponse(plan, cfg, nodeIds)
+	if respErr != nil {
+		klog.Errorf("build plan(%d) response: %v", plan.Id, respErr)
 		return nil, errors.ErrServerInternal
 	}
-	if err = planConfig.Network.Unmarshal(cfg.Network); err != nil {
-		klog.Errorf("unmarshal plan(%d) network config: %v", plan.Id, err)
-		return nil, errors.ErrServerInternal
-	}
-	if err = planConfig.Runtime.Unmarshal(cfg.Runtime); err != nil {
-		klog.Errorf("unmarshal plan(%d) runtime config: %v", plan.Id, err)
-		return nil, errors.ErrServerInternal
-	}
-	if err = planConfig.Component.Unmarshal(cfg.Component); err != nil {
-		klog.Errorf("unmarshal plan(%d) component config: %v", plan.Id, err)
-		return nil, errors.ErrServerInternal
-	}
-	resp.Config = planConfig
 	return resp, nil
 }
 
+// applyExpansionOptions 解析扩容执行参数的最终值。
+// 优先级：plan 配置 > 集群能力探测结果 > 兜底常量。
+func (c *controller) applyExpansionOptions(ctx context.Context, planId int64, options *types.ExpansionOptions, capabilities *types.ClusterExpansionCapabilities) {
+	c.applyOptionsFromPlanConfig(ctx, planId, options)
+
+	if options.OSImage == "" && capabilities != nil {
+		options.OSImage = capabilities.DefaultOSImage
+	}
+	if options.NetworkInterface == "" {
+		options.NetworkInterface = "eth0"
+	}
+}
+
+// applyOptionsFromPlanConfig 用已保存的扩容计划配置填充执行参数。
+// 显式零值无法与“未提供”区分，因此 bool 字段按 false 视为未提供；请求体非零值始终优先。
+func (c *controller) applyOptionsFromPlanConfig(ctx context.Context, planId int64, options *types.ExpansionOptions) {
+	cfg, err := c.factory.Plan().Config().GetByPlan(ctx, planId)
+	if err != nil {
+		if !utilerrors.IsRecordNotFound(err) {
+			klog.Warningf("get expansion plan(%d) config: %v", planId, err)
+		}
+		return
+	}
+	if cfg == nil {
+		return
+	}
+
+	var (
+		kubernetes  types.KubernetesSpec
+		network     types.NetworkSpec
+		runtimeSpec types.RuntimeSpec
+		component   types.ComponentSpec
+	)
+	if err = kubernetes.Unmarshal(cfg.Kubernetes); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) kubernetes config: %v", planId, err)
+		return
+	}
+	if err = network.Unmarshal(cfg.Network); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) network config: %v", planId, err)
+		return
+	}
+	if err = runtimeSpec.Unmarshal(cfg.Runtime); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) runtime config: %v", planId, err)
+		return
+	}
+	if err = component.Unmarshal(cfg.Component); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) component config: %v", planId, err)
+		return
+	}
+
+	if options.OSImage == "" {
+		options.OSImage = cfg.OSImage
+	}
+	if options.NetworkInterface == "" {
+		options.NetworkInterface = network.NetworkInterface
+	}
+	if options.ImageRepository == "" {
+		options.ImageRepository = kubernetes.ImageRepository
+	}
+	if options.RuntimeDataDir == "" {
+		options.RuntimeDataDir = runtimeSpec.DataDir
+	}
+	if options.CustomRepo == nil {
+		options.CustomRepo = component.CustomRepo
+	}
+	if !options.SetHostname {
+		options.SetHostname = kubernetes.SetHostname
+	}
+	if options.APIServer == "" {
+		options.APIServer = kubernetes.KubeAPIServerAddress
+		if options.APIServer == "" {
+			options.APIServer = kubernetes.ApiServer
+		}
+	}
+	if options.Token == "" {
+		options.Token = kubernetes.BootstrapToken
+	}
+	if options.CAHash == "" {
+		options.CAHash = kubernetes.CAHash
+	}
+}
+
 // buildExpansionPlanConfig 将请求配置 marshal 为 configs 模型，字段映射沿用 plan 控制器的 buildPlanConfig。
-// join 参数（bootstrap_token / ca_hash）位于 KubernetesSpec 内，随 kubernetes JSON 一并持久化。
 func buildExpansionPlanConfig(req *types.CreatePlanConfigRequest) (*model.Config, error) {
 	ks := req.Kubernetes
 	if ks.EnablePublicIp {
@@ -710,10 +731,10 @@ func buildExpansionPlanConfig(req *types.CreatePlanConfigRequest) (*model.Config
 	}, nil
 }
 
-// DeletePlan 删除集群扩容计划（plans.type=1）。计划不存在时幂等返回成功；
-// 存在未开始/运行中的扩容记录时拒绝删除。
-func (c *controller) DeletePlan(ctx context.Context, clusterId int64) error {
-	if _, _, err := c.authorize(ctx, clusterId, true); err != nil {
+// DeleteExpansionPlan 删除集群扩容计划（plans.type=1）。计划不存在时幂等返回成功；
+// 存在未开始/运行中的扩容任务时拒绝删除。
+func (c *controller) DeleteExpansionPlan(ctx context.Context, clusterId int64) error {
+	if _, _, err := c.authorize(ctx, clusterId); err != nil {
 		return err
 	}
 	if err := c.checkNoActiveExpansion(ctx, clusterId, "扩容进行中，无法删除"); err != nil {
@@ -730,10 +751,7 @@ func (c *controller) DeletePlan(ctx context.Context, clusterId int64) error {
 	}
 
 	txErr := c.factory.Transaction(ctx, func(tx db.ShareDaoFactory) error {
-		// a) 删除集群下全部扩容记录
-		if delErr := tx.ClusterExpansion().DeleteByClusterId(ctx, clusterId); delErr != nil {
-			return delErr
-		}
+		// 正常应该只有一个 plan
 		for i := range plans {
 			planId := plans[i].Id
 			// c) 删除计划的任务与配置
@@ -749,9 +767,7 @@ func (c *controller) DeletePlan(ctx context.Context, clusterId int64) error {
 				return listErr
 			}
 			for j := range nodes {
-				if updErr := tx.Plan().Node().UpdateFields(ctx, nodes[j].Id, map[string]interface{}{
-					"plan_id": int64(0),
-				}); updErr != nil {
+				if updErr := tx.Plan().Node().InternalUpdate(ctx, nodes[j].Id, map[string]interface{}{"plan_id": int64(0)}); updErr != nil {
 					return updErr
 				}
 			}
@@ -769,132 +785,8 @@ func (c *controller) DeletePlan(ctx context.Context, clusterId int64) error {
 	return nil
 }
 
-func (c *controller) List(ctx context.Context, clusterId int64, listOption types.ListOptions) (interface{}, error) {
-	if _, _, err := c.authorize(ctx, clusterId, false); err != nil {
-		return nil, err
-	}
-	listOption.SetDefaultPageOption()
-
-	pageResult := types.PageResult{
-		PageRequest: types.PageRequest{
-			Page:  listOption.Page,
-			Limit: listOption.Limit,
-		},
-	}
-
-	opts := []db.Options{db.WithClusterIdEq(clusterId)}
-	total, err := c.factory.ClusterExpansion().Count(ctx, opts...)
-	if err != nil {
-		return nil, errors.ErrServerInternal
-	}
-	pageResult.Total = total
-
-	opts = append(opts,
-		db.WithOrderByDesc(),
-		db.WithOffset((listOption.Page-1)*listOption.Limit),
-		db.WithLimit(listOption.Limit),
-	)
-	objects, err := c.factory.ClusterExpansion().List(ctx, opts...)
-	if err != nil {
-		return nil, errors.ErrServerInternal
-	}
-
-	items := make([]types.ClusterExpansion, 0, len(objects))
-	for i := range objects {
-		item, mapErr := modelExpansion2Type(&objects[i])
-		if mapErr != nil {
-			return nil, errors.ErrServerInternal
-		}
-		items = append(items, *item)
-	}
-	pageResult.Items = items
-	return pageResult, nil
-}
-
-func (c *controller) Get(ctx context.Context, clusterId, expansionId int64) (*types.ClusterExpansion, error) {
-	if _, _, err := c.authorize(ctx, clusterId, false); err != nil {
-		return nil, err
-	}
-
-	object, err := c.factory.ClusterExpansion().Get(ctx, expansionId)
-	if err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return nil, errors.NewError(fmt.Errorf("扩容任务不存在"), http.StatusNotFound)
-		}
-		return nil, errors.ErrServerInternal
-	}
-	if object.ClusterId != clusterId {
-		return nil, errors.NewError(fmt.Errorf("扩容任务不存在"), http.StatusNotFound)
-	}
-	return modelExpansion2Type(object)
-}
-
-func (c *controller) Logs(ctx context.Context, clusterId, expansionId int64, step string, w http.ResponseWriter, r *http.Request) error {
-	if _, _, err := c.authorize(ctx, clusterId, false); err != nil {
-		return err
-	}
-
-	object, err := c.factory.ClusterExpansion().Get(ctx, expansionId)
-	if err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return errors.NewError(fmt.Errorf("扩容任务不存在"), http.StatusNotFound)
-		}
-		return errors.ErrServerInternal
-	}
-	if object.ClusterId != clusterId {
-		return errors.NewError(fmt.Errorf("扩容任务不存在"), http.StatusNotFound)
-	}
-	if object.Status == model.UnStartPlanStatus {
-		return fmt.Errorf("任务尚未开始")
-	}
-
-	step = strings.TrimSpace(step)
-	if step == "" {
-		step = stepAddNode
-	}
-	if step != stepBootstrap && step != stepAddNode {
-		return fmt.Errorf("不支持的日志步骤: %s", step)
-	}
-
-	action := actionBootstrap
-	if step == stepAddNode {
-		action = actionAddNode
-	}
-
-	rt, err := runtime.Default()
-	if err != nil {
-		return err
-	}
-	readCloser, err := rt.Logs(ctx, fmt.Sprintf("%s-%d", action, object.PlanId), true)
-	if err != nil {
-		return err
-	}
-	defer readCloser.Close()
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	flush, _ := w.(http.Flusher)
-
-	scanner := bufio.NewScanner(readCloser)
-	for scanner.Scan() {
-		line := append(scanner.Bytes(), '\n')
-		if _, err = w.Write(line); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		flush.Flush()
-	}
-	if err = scanner.Err(); err != nil && err != io.EOF {
-		return err
-	}
-	return nil
-}
-
-func modelNode2Summary(o *model.Node) types.ClusterNodeSummary {
-	return types.ClusterNodeSummary{
+func modelNode2Summary(o *model.Node) types.ClusterExpansionNodeSummary {
+	return types.ClusterExpansionNodeSummary{
 		PixiuMeta: types.PixiuMeta{
 			Id:              o.Id,
 			ResourceVersion: o.ResourceVersion,
@@ -912,38 +804,27 @@ func modelNode2Summary(o *model.Node) types.ClusterNodeSummary {
 	}
 }
 
-func modelExpansion2Type(o *model.ClusterExpansion) (*types.ClusterExpansion, error) {
-	var nodeIds []int64
-	if o.NodeIds != "" {
-		if err := json.Unmarshal([]byte(o.NodeIds), &nodeIds); err != nil {
-			return nil, err
-		}
+// authorize 校验集群访问权：超管 / owner / 角色 scope 命中均可访问。
+func (c *controller) authorize(ctx context.Context, clusterId int64) (*model.Cluster, *model.User, error) {
+	user, err := httputils.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, nil, errors.ErrUnauthorized
 	}
-	var options types.ExpansionOptions
-	if o.Options != "" {
-		if err := json.Unmarshal([]byte(o.Options), &options); err != nil {
-			return nil, err
+
+	obj, err := c.factory.Cluster().Get(ctx, clusterId)
+	if err != nil {
+		if utilerrors.IsRecordNotFound(err) {
+			return nil, nil, errors.ErrClusterNotFound
 		}
+		klog.Errorf("get cluster(%d) for expansion: %v", clusterId, err)
+		return nil, nil, errors.ErrServerInternal
 	}
-	// bootstrap token 属于敏感凭据，不在 API 响应中回显
-	options.Token = ""
-	return &types.ClusterExpansion{
-		PixiuMeta: types.PixiuMeta{
-			Id:              o.Id,
-			ResourceVersion: o.ResourceVersion,
-		},
-		TimeMeta: types.TimeMeta{
-			GmtCreate:   o.GmtCreate,
-			GmtModified: o.GmtModified,
-		},
-		ClusterId:   o.ClusterId,
-		PlanId:      o.PlanId,
-		NodeIds:     nodeIds,
-		Options:     options,
-		Status:      o.Status,
-		Step:        o.Step,
-		Message:     o.Message,
-		StartedAt:   o.StartedAt,
-		CompletedAt: o.CompletedAt,
-	}, nil
+	if obj == nil {
+		return nil, nil, errors.ErrClusterNotFound
+	}
+
+	if err = util.CheckResourceAccess(ctx, c.factory, obj.UserId, types.ResourceTypeCluster, clusterId); err != nil {
+		return nil, nil, err
+	}
+	return obj, user, nil
 }

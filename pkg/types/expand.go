@@ -22,21 +22,20 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// ClusterExpansionConfig 集群扩容能力探测结果。
-type ClusterExpansionConfig struct {
+// ClusterExpansionCapabilities 集群扩容能力探测结果与默认参数。
+type ClusterExpansionCapabilities struct {
 	Supported bool   `json:"supported"`
 	Reason    string `json:"reason,omitempty"`
 
 	KubernetesVersion       string `json:"kubernetes_version,omitempty"`
 	ImageRepository         string `json:"image_repository,omitempty"`
 	ControlPlaneEndpoint    string `json:"control_plane_endpoint,omitempty"`
-	Runtime                 string `json:"runtime,omitempty"`
 	DefaultOSImage          string `json:"default_os_image,omitempty"`
 	DefaultNetworkInterface string `json:"default_network_interface,omitempty"`
 }
 
-// ClusterNodeSummary 扩容节点摘要（不含凭据），供节点管理页使用。
-type ClusterNodeSummary struct {
+// ClusterExpansionNodeSummary 扩容节点摘要（不含凭据），供节点管理页使用。
+type ClusterExpansionNodeSummary struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
@@ -61,6 +60,26 @@ type CreateClusterNodesRequest struct {
 	Nodes   []ClusterNodeSpec `json:"nodes"`
 }
 
+// BatchOperationItem 批量操作成功/跳过的对象。
+type BatchOperationItem struct {
+	Key  int64  `json:"key"`
+	Name string `json:"name,omitempty"`
+}
+
+// BatchOperationFailure 批量操作失败的明细。
+type BatchOperationFailure struct {
+	Key    int64  `json:"key"`
+	Name   string `json:"name,omitempty"`
+	Reason string `json:"reason"`
+}
+
+// BatchOperationResult 批量操作结果：单条失败隔离，不整体报错。
+type BatchOperationResult struct {
+	Succeeded []BatchOperationItem    `json:"succeeded"`
+	Skipped   []BatchOperationItem    `json:"skipped"`
+	Failed    []BatchOperationFailure `json:"failed"`
+}
+
 // ExpansionOptions 扩容执行参数。
 type ExpansionOptions struct {
 	OSImage          string      `json:"os_image,omitempty"`
@@ -76,7 +95,8 @@ type ExpansionOptions struct {
 	CAHash    string `json:"ca_cert_hash,omitempty"`
 }
 
-// ExpansionJoinParams 自动生成的 join 参数，供扩容页面「自动生成」按钮一键填充。
+// ExpansionJoinParams 节点加入参数，对应 POST /pixiu/clusters/:clusterId/expansion-join-params，
+// 供扩容页面「自动生成」按钮一键填充。
 type ExpansionJoinParams struct {
 	// APIServer 新节点可达的 kube-apiserver 地址，格式 host:port
 	APIServer string `json:"api_server"`
@@ -88,21 +108,13 @@ type ExpansionJoinParams struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// CreateClusterExpansionRequest 创建并启动一次集群扩容。
-type CreateClusterExpansionRequest struct {
-	NodeIds []int64          `json:"node_ids" binding:"required,min=1"`
-	Options ExpansionOptions `json:"options"`
-}
-
-// SaveClusterExpansionPlanConfigRequest 保存集群扩容计划（plans.type=1）的配置与元数据。
-type SaveClusterExpansionPlanConfigRequest struct {
-	// Name 保存扩容计划时忽略名称，避免与部署计划名称唯一索引冲突（计划名称由系统生成）。
-	Name        string                  `json:"name"`
-	Description string                  `json:"description"`
+// CreateOrUpdateClusterExpansionPlanRequest 创建或更新集群扩容计划（plans.type=1）的配置、元数据与节点集合。
+// 对应 POST /pixiu/clusters/:clusterId/expansion-plan，属于计划单例的全量保存。
+// 计划名称由系统生成（expand-cluster-<id>），请求不接收名称。
+type CreateOrUpdateClusterExpansionPlanRequest struct {
 	Config      CreatePlanConfigRequest `json:"config"`
-	// NodeIds 本次勾选的扩容节点：仅这些节点关联到该计划，未勾选节点解绑。
-	NodeIds []int64 `json:"node_ids"`
-	// join 参数位于 config.kubernetes 内（KubernetesSpec.bootstrap_token / ca_hash）。
+	NodeIds     []int64                 `json:"node_ids"`
+	Description string                  `json:"description"`
 }
 
 // ClusterExpansionPlanResponse 集群扩容计划（plans.type=1）及配置的查询结果。
@@ -115,6 +127,8 @@ type ClusterExpansionPlanResponse struct {
 	Config      *ExpansionPlanConfigResponse `json:"config,omitempty"`
 	// NodeIds 该计划当前关联的扩容节点。
 	NodeIds []int64 `json:"node_ids"`
+	// Status 计划最近一次扩容的执行状态。
+	Status model.TaskStatus `json:"status"`
 }
 
 // ExpansionPlanConfigResponse 集群扩容计划配置（configs 表解析结果）。
@@ -126,21 +140,4 @@ type ExpansionPlanConfigResponse struct {
 	Runtime     RuntimeSpec    `json:"runtime"`
 	Component   ComponentSpec  `json:"component"`
 	// join 参数随 Kubernetes 字段返回（kubernetes.bootstrap_token / ca_hash）。
-}
-
-// ClusterExpansion 扩容记录 API 返回结构。
-type ClusterExpansion struct {
-	PixiuMeta `json:",inline"`
-	TimeMeta  `json:",inline"`
-
-	ClusterId int64            `json:"cluster_id"`
-	PlanId    int64            `json:"plan_id"`
-	NodeIds   []int64          `json:"node_ids"`
-	Options   ExpansionOptions `json:"options"`
-
-	Status      model.TaskStatus `json:"status"`
-	Step        string           `json:"step"`
-	Message     string           `json:"message"`
-	StartedAt   *time.Time       `json:"started_at,omitempty"`
-	CompletedAt *time.Time       `json:"completed_at,omitempty"`
 }

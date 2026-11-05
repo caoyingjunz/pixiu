@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net"
 	"net/http"
 	"net/url"
@@ -58,11 +59,11 @@ type kubeadmClusterConfiguration struct {
 
 // clusterInfo 集群扩容能力探测的中间结果。
 type clusterInfo struct {
-	Config  *types.ClusterExpansionConfig
-	Client  *client.ClusterSet
-	Kubeadm *kubeadmClusterConfiguration
-	Server  string
-	CAData  []byte
+	Capabilities *types.ClusterExpansionCapabilities
+	Client       *client.ClusterSet
+	Kubeadm      *kubeadmClusterConfiguration
+	Server       string
+	CAData       []byte
 }
 
 type joinConfig struct {
@@ -73,30 +74,29 @@ type joinConfig struct {
 	ImageRepository string
 }
 
-// detectCluster 探测集群是否具备扩容能力，并返回 join 所需的原始信息。
-// 不可扩容时不返回 error，而是把原因写入 Config.Reason，便于前端直接展示。
-func (c *controller) detectCluster(ctx context.Context, obj *model.Cluster) *clusterInfo {
+// detectClusterInfo 探测集群是否具备扩容能力，并返回 join 所需的原始信息。
+func (c *controller) detectClusterInfo(ctx context.Context, obj *model.Cluster) *clusterInfo {
 	info := &clusterInfo{
-		Config: &types.ClusterExpansionConfig{},
+		Capabilities: &types.ClusterExpansionCapabilities{},
 	}
 
 	opts := clustercontroller.ResolveClusterSetOptions(ctx, c.factory, obj)
 	cs, err := client.NewClusterSetWithOptions(obj.KubeConfig, opts)
 	if err != nil {
-		info.Config.Reason = fmt.Sprintf("加载集群 kubeconfig 失败: %v", err)
+		info.Capabilities.Reason = fmt.Sprintf("加载集群 kubeconfig 失败: %v", err)
 		return info
 	}
 	info.Client = cs
 
-	// 1) kubeadm 体系判定：kubez add-node 本质是 kubeadm join
+	// 1) kubeadm 体系判定 add-node 本质是 kubeadm join
 	cm, err := cs.Client.CoreV1().ConfigMaps("kube-system").Get(ctx, kubeadmConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		info.Config.Reason = "未检测到 kube-system/kubeadm-config，当前集群不是 kubeadm 体系，暂不支持扩容"
+		info.Capabilities.Reason = "未检测到 kube-system/kubeadm-config，当前集群不是 kubeadm 体系，暂不支持扩容"
 		return info
 	}
 	var kubeadmCfg kubeadmClusterConfiguration
 	if err = yaml.Unmarshal([]byte(cm.Data[kubeadmConfigDataKey]), &kubeadmCfg); err != nil {
-		info.Config.Reason = fmt.Sprintf("解析 kubeadm-config 失败: %v", err)
+		info.Capabilities.Reason = fmt.Sprintf("解析 kubeadm-config 失败: %v", err)
 		return info
 	}
 	info.Kubeadm = &kubeadmCfg
@@ -104,12 +104,12 @@ func (c *controller) detectCluster(ctx context.Context, obj *model.Cluster) *clu
 	// 2) kubeconfig 中的 apiserver 与 CA
 	rawKubeconfig, err := client.ParseKubeConfigBytes(obj.KubeConfig)
 	if err != nil {
-		info.Config.Reason = fmt.Sprintf("解析集群 kubeconfig 失败: %v", err)
+		info.Capabilities.Reason = fmt.Sprintf("解析集群 kubeconfig 失败: %v", err)
 		return info
 	}
 	kubeconfig, err := clientcmd.Load(rawKubeconfig)
 	if err != nil {
-		info.Config.Reason = fmt.Sprintf("加载集群 kubeconfig 失败: %v", err)
+		info.Capabilities.Reason = fmt.Sprintf("加载集群 kubeconfig 失败: %v", err)
 		return info
 	}
 	if apiCtx := kubeconfig.Contexts[kubeconfig.CurrentContext]; apiCtx != nil {
@@ -122,27 +122,20 @@ func (c *controller) detectCluster(ctx context.Context, obj *model.Cluster) *clu
 	// 3) 运行时探测：仅 containerd
 	nodes, err := cs.Client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		info.Config.Reason = fmt.Sprintf("查询集群节点失败: %v", err)
+		info.Capabilities.Reason = fmt.Sprintf("查询集群节点失败: %v", err)
 		return info
 	}
 	if len(nodes.Items) == 0 {
-		info.Config.Reason = "集群暂无可探测的节点，无法确认容器运行时"
+		info.Capabilities.Reason = "集群暂无可探测的节点，无法确认容器运行时"
 		return info
 	}
-	hasContainerd := false
-	hasDocker := false
+	// 全节点必须是 containerd，docker、cri-o 以及混合运行时均不支持
 	for i := range nodes.Items {
-		version := nodes.Items[i].Status.NodeInfo.ContainerRuntimeVersion
-		if strings.HasPrefix(version, "containerd://") {
-			hasContainerd = true
+		runtimeVersion := nodes.Items[i].Status.NodeInfo.ContainerRuntimeVersion
+		if !strings.HasPrefix(runtimeVersion, "containerd://") {
+			info.Capabilities.Reason = "当前集群容器运行时不是纯 containerd，暂不支持扩容（kubez-ansible add-node 仅支持 containerd）"
+			return info
 		}
-		if strings.HasPrefix(version, "docker://") {
-			hasDocker = true
-		}
-	}
-	if !hasContainerd || hasDocker {
-		info.Config.Reason = "当前集群容器运行时不是纯 containerd，暂不支持扩容（kubez add-node 仅支持 containerd）"
-		return info
 	}
 
 	// 4) 版本 / 镜像仓库 / 控制面地址
@@ -152,24 +145,23 @@ func (c *controller) detectCluster(ctx context.Context, obj *model.Cluster) *clu
 			version = strings.TrimPrefix(sv.GitVersion, "v")
 		}
 	}
-	info.Config.KubernetesVersion = version
-	info.Config.ImageRepository = strings.TrimSpace(kubeadmCfg.ImageRepository)
-	info.Config.ControlPlaneEndpoint = strings.TrimSpace(kubeadmCfg.ControlPlaneEndpoint)
-	info.Config.Runtime = string(model.ContainerdCRI)
+	info.Capabilities.KubernetesVersion = version
+	info.Capabilities.ImageRepository = strings.TrimSpace(kubeadmCfg.ImageRepository)
+	info.Capabilities.ControlPlaneEndpoint = strings.TrimSpace(kubeadmCfg.ControlPlaneEndpoint)
 
 	// 5) 计划存在时仅作为默认值（不参与执行依赖）
-	info.Config.DefaultNetworkInterface = "eth0"
+	info.Capabilities.DefaultNetworkInterface = "eth0"
 	if obj.PlanId > 0 {
 		if cfg, cerr := c.factory.Plan().Config().GetByPlan(ctx, obj.PlanId); cerr == nil && cfg != nil {
-			info.Config.DefaultOSImage = cfg.OSImage
+			info.Capabilities.DefaultOSImage = cfg.OSImage
 			networkSpec := types.NetworkSpec{}
 			if networkSpec.Unmarshal(cfg.Network) == nil && networkSpec.NetworkInterface != "" {
-				info.Config.DefaultNetworkInterface = networkSpec.NetworkInterface
+				info.Capabilities.DefaultNetworkInterface = networkSpec.NetworkInterface
 			}
 		}
 	}
 
-	info.Config.Supported = true
+	info.Capabilities.Supported = true
 	return info
 }
 
@@ -193,10 +185,10 @@ func (c *controller) expansionPlanJoinParams(ctx context.Context, clusterId int6
 
 // resolveJoin 计算 join 所需的参数：优先请求覆盖，其次扩容计划配置，再次 kubeadm-config，最后 kubeconfig。
 func (c *controller) resolveJoin(ctx context.Context, obj *model.Cluster, info *clusterInfo, options *types.ExpansionOptions) (*joinConfig, error) {
-	if info == nil || info.Config == nil || !info.Config.Supported {
+	if info == nil || info.Capabilities == nil || !info.Capabilities.Supported {
 		reason := "集群不支持扩容"
-		if info != nil && info.Config != nil && info.Config.Reason != "" {
-			reason = info.Config.Reason
+		if info != nil && info.Capabilities != nil && info.Capabilities.Reason != "" {
+			reason = info.Capabilities.Reason
 		}
 		return nil, fmt.Errorf("%s", reason)
 	}
@@ -243,14 +235,14 @@ func (c *controller) resolveJoin(ctx context.Context, obj *model.Cluster, info *
 
 	imageRepository := strings.TrimSpace(options.ImageRepository)
 	if imageRepository == "" {
-		imageRepository = info.Config.ImageRepository
+		imageRepository = info.Capabilities.ImageRepository
 	}
 
 	return &joinConfig{
 		APIServer:       apiServer,
 		Token:           token,
 		CAHash:          caHash,
-		KubeRelease:     info.Config.KubernetesVersion,
+		KubeRelease:     info.Capabilities.KubernetesVersion,
 		ImageRepository: imageRepository,
 	}, nil
 }
@@ -259,21 +251,21 @@ func (c *controller) resolveJoin(ctx context.Context, obj *model.Cluster, info *
 // token 由 K8s API 创建（bootstrap-token Secret，TTL 2 小时），CA hash 由 kubeconfig 中的 CA 证书计算，
 // apiserver 取 kubeadm-config 的 controlPlaneEndpoint，缺省回落 kubeconfig 的 server。
 func (c *controller) GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error) {
-	obj, _, err := c.authorize(ctx, clusterId, true)
+	obj, _, err := c.authorize(ctx, clusterId)
 	if err != nil {
 		return nil, err
 	}
 
-	info := c.detectCluster(ctx, obj)
-	if info == nil || info.Config == nil || !info.Config.Supported {
+	info := c.detectClusterInfo(ctx, obj)
+	if info == nil || info.Capabilities == nil || !info.Capabilities.Supported {
 		reason := "集群不支持扩容"
-		if info != nil && info.Config != nil && info.Config.Reason != "" {
-			reason = info.Config.Reason
+		if info != nil && info.Capabilities != nil && info.Capabilities.Reason != "" {
+			reason = info.Capabilities.Reason
 		}
 		return nil, errors.NewError(fmt.Errorf("%s", reason), http.StatusBadRequest)
 	}
 
-	apiServer := strings.TrimSpace(info.Config.ControlPlaneEndpoint)
+	apiServer := strings.TrimSpace(info.Capabilities.ControlPlaneEndpoint)
 	if apiServer == "" {
 		apiServer = info.Server
 	}
@@ -402,13 +394,15 @@ func createBootstrapToken(ctx context.Context, cs *client.ClusterSet) (string, e
 
 func randomToken(length int) (string, error) {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	// 用 rand.Int 按字符集大小取随机数，避免 byte % len(charset) 的取模偏差
+	limit := big.NewInt(int64(len(charset)))
 	out := make([]byte, length)
-	buf := make([]byte, length)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
 	for i := range out {
-		out[i] = charset[int(buf[i])%len(charset)]
+		n, err := rand.Int(rand.Reader, limit)
+		if err != nil {
+			return "", err
+		}
+		out[i] = charset[n.Int64()]
 	}
 	return string(out), nil
 }

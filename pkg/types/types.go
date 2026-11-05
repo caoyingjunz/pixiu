@@ -836,6 +836,25 @@ func (a PlanNodeAuth) SSHPort() int {
 	return a.Port
 }
 
+// SSHUser returns the configured login user; old records default to root.
+func (a PlanNodeAuth) SSHUser() string {
+	var user string
+	switch a.Type {
+	case KeyAuth:
+		if a.Key != nil {
+			user = a.Key.User
+		}
+	case PasswordAuth:
+		if a.Password != nil {
+			user = a.Password.User
+		}
+	}
+	if user = strings.TrimSpace(user); user == "" {
+		return "root"
+	}
+	return user
+}
+
 type PlanTask struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
@@ -848,6 +867,7 @@ type PlanTask struct {
 }
 
 type KeySpec struct {
+	User string `json:"user,omitempty"`
 	Data string `json:"data,omitempty"`
 	File string `json:"-"`
 }
@@ -943,6 +963,8 @@ type ListOptions struct {
 type CustomMeta struct {
 	Status *int   `form:"status" json:"status"`
 	Step   string `form:"step" json:"step"` // plan 查询的时候需要 状态过滤，不传则不过滤
+	// PlanType 计划类型过滤：0=普通部署计划，1=集群扩容计划；不传则不过滤
+	PlanType *int `form:"type" json:"type"`
 
 	ClusterName    string                  `form:"cluster_name" json:"cluster_name"`
 	DatasourceType *model.DatasourceType   `form:"datasource_type" json:"datasource_type"`

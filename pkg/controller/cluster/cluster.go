@@ -245,7 +245,7 @@ func (c *cluster) validateKubeconfigServer(kubeConfig string) error {
 	return nil
 }
 
-func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (*model.Cluster, error) {
+	func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (*model.Cluster, error) {
 	if err := c.preCreate(ctx, req); err != nil {
 		return nil, errors.NewError(err, http.StatusBadRequest)
 	}
@@ -502,15 +502,13 @@ func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (*mo
 	}
 
 	// 存在进行中的节点扩容时不允许删除，避免扩容任务操作已删除集群
-	for _, status := range []model.TaskStatus{model.UnStartPlanStatus, model.RunningPlanStatus} {
-		count, err := c.factory.ClusterExpansion().Count(ctx, db.WithClusterIdEq(cid), db.WithTaskStatus(status))
-		if err != nil {
-			return nil, errors.ErrServerInternal
-		}
-		if count > 0 {
-			return nil, errors.NewError(fmt.Errorf("存在进行中的节点扩容任务，不允许删除 %s", obj.AliasName),
-				http.StatusConflict)
-		}
+	count, err := c.factory.Plan().Count(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cid), db.WithTaskStatus(model.RunningPlanStatus))
+	if err != nil {
+		return nil, errors.ErrServerInternal
+	}
+	if count > 0 {
+		return nil, errors.NewError(fmt.Errorf("存在进行中的节点扩容任务，不允许删除 %s", obj.AliasName),
+			http.StatusConflict)
 	}
 
 	// TODO: 其他删除策略检查
@@ -524,7 +522,7 @@ func (c *cluster) unbindExpansionNodes(ctx context.Context, clusterId int64) err
 		return err
 	}
 	for i := range nodes {
-		if err = c.factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{
+		if err = c.factory.Plan().Node().InternalUpdate(ctx, nodes[i].Id, map[string]interface{}{
 			"cluster_id":     int64(0),
 			"role":           "",
 			"cri":            "",

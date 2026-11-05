@@ -34,6 +34,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util/token"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
@@ -50,7 +51,7 @@ type Register struct {
 }
 
 func (c Register) Name() string         { return "集群注册" }
-func (c Register) GetAction() string    { return "register" }
+func (c Register) GetAction() string    { return kubezansible.Register }
 func (c Register) Step() model.PlanStep { return model.CompletedPlanStep }
 func (c Register) Run() error {
 	ks := &types.KubernetesSpec{}
@@ -284,7 +285,7 @@ func dialSSHClient(node model.Node) (*ssh.Client, string, string, error) {
 		if err != nil {
 			return nil, "", "", err
 		}
-		user = "root" // 秘钥登陆时，默认 root
+		user = nodeAuth.SSHUser()
 		clientConfig = &ssh.ClientConfig{
 			User: user,
 			Auth: []ssh.AuthMethod{
