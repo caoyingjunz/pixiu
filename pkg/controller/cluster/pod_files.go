@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -100,9 +101,9 @@ func (c *cluster) DownloadPodFile(ctx context.Context, cluster, namespace, pod, 
 		return fmt.Errorf("cannot download root directory")
 	}
 
-	stdout, stderr, err := c.execPodCommandWithTimeout(ctx, podFileDownloadTimeout, cluster, namespace, pod, container, []string{
-		"sh", "-c", podFileDownloadScript, "--", cleaned, strconv.FormatInt(types.PodFileMaxBytes, 10),
-	})
+	stdout, stderr, err := c.execPodStream(ctx, podFileDownloadTimeout, cluster, namespace, pod, container, []string{
+		"sh", "-c", podFileDownloadTimeoutScript, "--", podFileDownloadScript, cleaned, strconv.FormatInt(types.PodFileMaxBytes, 10),
+	}, nil, types.PodFileMaxBytes)
 	if err != nil {
 		msg := strings.TrimSpace(stderr)
 		if msg == "" {
@@ -181,14 +182,49 @@ func (c *cluster) execPodCommand(ctx context.Context, cluster, namespace, pod, c
 }
 
 func (c *cluster) execPodCommandWithTimeout(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string) ([]byte, string, error) {
-	return c.execPodStream(ctx, timeout, cluster, namespace, pod, container, command, nil)
+	return c.execPodStream(ctx, timeout, cluster, namespace, pod, container, command, nil, 0)
 }
 
 func (c *cluster) execPodCommandWithStdin(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string, stdin io.Reader) ([]byte, string, error) {
-	return c.execPodStream(ctx, timeout, cluster, namespace, pod, container, command, stdin)
+	return c.execPodStream(ctx, timeout, cluster, namespace, pod, container, command, stdin, 0)
 }
 
-func (c *cluster) execPodStream(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string, stdin io.Reader) ([]byte, string, error) {
+type podFileOutputBuffer struct {
+	mu       sync.Mutex
+	buffer   bytes.Buffer
+	limit    int64
+	exceeded bool
+	sealed   bool
+	cancel   context.CancelFunc
+}
+
+func (b *podFileOutputBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.sealed {
+		return len(p), nil
+	}
+	if b.limit > 0 && int64(b.buffer.Len())+int64(len(p)) > b.limit {
+		b.exceeded = true
+		if b.cancel != nil {
+			b.cancel()
+		}
+		return 0, fmt.Errorf("pod file output exceeds size limit")
+	}
+	return b.buffer.Write(p)
+}
+
+func (b *podFileOutputBuffer) result() ([]byte, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.sealed = true
+	if b.exceeded {
+		return nil, true
+	}
+	return b.buffer.Bytes(), false
+}
+
+func (c *cluster) execPodStream(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string, stdin io.Reader, outputLimit int64) ([]byte, string, error) {
 	cs, err := c.GetClusterSetByName(ctx, cluster)
 	if err != nil {
 		return nil, "", err
@@ -216,14 +252,20 @@ func (c *cluster) execPodStream(ctx context.Context, timeout time.Duration, clus
 		return nil, "", err
 	}
 
-	var stdout, stderr bytes.Buffer
+	stdout := &podFileOutputBuffer{limit: outputLimit, cancel: cancel}
+	stderr := &podFileOutputBuffer{}
 	err = executor.StreamWithContext(execCtx, remotecommand.StreamOptions{
 		Stdin:  stdin,
-		Stdout: &stdout,
-		Stderr: &stderr,
+		Stdout: stdout,
+		Stderr: stderr,
 		Tty:    false,
 	})
-	return stdout.Bytes(), stderr.String(), err
+	output, exceeded := stdout.result()
+	errorOutput, _ := stderr.result()
+	if exceeded {
+		return nil, fmt.Sprintf("ETOOLARGE:%d", outputLimit), fmt.Errorf("pod file output exceeds size limit")
+	}
+	return output, string(errorOutput), err
 }
 
 func sanitizePodFilePath(p string) (string, error) {
@@ -277,7 +319,21 @@ func sanitizeUploadFilename(name string) (string, error) {
 }
 
 func shortenExecMessage(stderr string, err error) string {
-	msg := strings.TrimSpace(stderr)
+	lines := strings.Split(stderr, "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "PIXIU_KIND:") {
+			filtered = append(filtered, line)
+		}
+	}
+	msg := strings.Join(filtered, "\n")
+	for _, line := range strings.Split(msg, "\n") {
+		if strings.HasPrefix(line, "E") && strings.Contains(line, ":") {
+			msg = line
+			break
+		}
+	}
 	switch {
 	case strings.HasPrefix(msg, "ENOTDIR:"):
 		return "path is not a directory"
@@ -285,6 +341,14 @@ func shortenExecMessage(stderr string, err error) string {
 		return "path not found"
 	case strings.HasPrefix(msg, "EISDIR:"):
 		return "path is a directory"
+	case strings.HasPrefix(msg, "EUNSUPPORTED:"):
+		return "unsupported file type or symbolic link"
+	case strings.HasPrefix(msg, "ENOSTAT:"):
+		return "container does not support required file metadata operations"
+	case strings.HasPrefix(msg, "ENOTIMEOUT:"):
+		return "container does not support safe file download (timeout unavailable)"
+	case strings.HasPrefix(msg, "ETIMEDOUT:"):
+		return "file download timed out"
 	case strings.HasPrefix(msg, "ENOTAR:"):
 		return "container does not support directory download (tar unavailable)"
 	case strings.HasPrefix(msg, "ETOOLARGE:"):
@@ -325,7 +389,10 @@ func parsePodFileListOutput(out []byte) []types.PodFileEntry {
 			default:
 				continue
 			}
-			size, _ := strconv.ParseInt(parts[1], 10, 64)
+			size, sizeErr := strconv.ParseInt(parts[1], 10, 64)
+			if sizeErr != nil {
+				size = -1
+			}
 			mtime, _ := strconv.ParseInt(parts[2], 10, 64)
 			name := parts[3]
 			if name == "" || name == "." || name == ".." {
@@ -347,7 +414,10 @@ func parsePodFileListOutput(out []byte) []types.PodFileEntry {
 		default:
 			continue
 		}
-		size, _ := strconv.ParseInt(parts[1], 10, 64)
+		size, sizeErr := strconv.ParseInt(parts[1], 10, 64)
+		if sizeErr != nil {
+			size = -1
+		}
 		mtime, _ := strconv.ParseInt(parts[2], 10, 64)
 		mode := parts[3]
 		uid := parts[4]
@@ -398,11 +468,10 @@ ls -A 2>/dev/null | while IFS= read -r f; do
   else
     t="other"
   fi
-  if [ "$t" = "dir" ]; then
-    s=0
-  else
-    s=$(wc -c < "$f" 2>/dev/null | tr -d ' \n\t' || echo 0)
-  fi
+  s=$(stat -c %s "$f" 2>/dev/null || stat -f %z "$f" 2>/dev/null || true)
+  case "$s" in
+    ''|*[!0-9]*) s='-' ;;
+  esac
   m=$(date -r "$f" +%s 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
   mode=$(ls -ld "$f" 2>/dev/null | awk '{print $1}' || echo '-')
   uid=$(stat -c %u "$f" 2>/dev/null || stat -f %u "$f" 2>/dev/null || echo '0')
@@ -421,7 +490,21 @@ func parsePodDownloadKind(stderr string) string {
 	return "file"
 }
 
-// podFileDownloadScript downloads a regular file (cat) or directory (tar).
+// podFileDownloadTimeoutScript runs downloads with a container-side deadline.
+const podFileDownloadTimeoutScript = `
+if ! command -v timeout >/dev/null 2>&1 || ! timeout -k 1 2 true >/dev/null 2>&1; then
+  echo "ENOTIMEOUT:timeout not available" >&2
+  exit 5
+fi
+timeout -k 5 110 sh -c "$1" -- "$2" "$3"
+status=$?
+if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+  echo "ETIMEDOUT:download timed out" >&2
+fi
+exit "$status"
+`
+
+// podFileDownloadScript downloads a regular file or directory (tar).
 // Args: path maxBytes. On success stderr may contain PIXIU_KIND:file|dir.
 const podFileDownloadScript = `
 set -e
@@ -429,6 +512,10 @@ P="$1"
 MAX="$2"
 if [ ! -e "$P" ]; then
   echo "ENOENT:$P" >&2
+  exit 2
+fi
+if [ -L "$P" ]; then
+  echo "EUNSUPPORTED:$P" >&2
   exit 2
 fi
 if [ -d "$P" ]; then
@@ -451,20 +538,20 @@ if [ -d "$P" ]; then
   tar cf - -C "$parent" "$base"
   exit 0
 fi
-if [ ! -f "$P" ] && [ ! -L "$P" ]; then
-  echo "ENOENT:$P" >&2
+if [ ! -f "$P" ]; then
+  echo "EUNSUPPORTED:$P" >&2
   exit 2
 fi
 echo "PIXIU_KIND:file" >&2
-s=$(wc -c < "$P" 2>/dev/null | tr -d ' \n\t' || echo 0)
+s=$(stat -c %s "$P" 2>/dev/null || stat -f %z "$P" 2>/dev/null || true)
 case "$s" in
-  ''|*[!0-9]*) s=0 ;;
+  ''|*[!0-9]*) echo "ENOSTAT:$P" >&2; exit 5 ;;
 esac
 if [ "$s" -gt "$MAX" ]; then
   echo "ETOOLARGE:$s" >&2
   exit 4
 fi
-cat -- "$P"
+head -c "$((MAX + 1))" -- "$P"
 `
 
 // podFileUploadScript writes stdin to the target path. Args: absolute file path.
@@ -476,8 +563,16 @@ if [ ! -d "$parent" ]; then
   echo "ENOTDIR:$parent" >&2
   exit 2
 fi
-if [ -e "$P" ] && [ -d "$P" ]; then
+if [ -L "$P" ]; then
+  echo "EUNSUPPORTED:$P" >&2
+  exit 3
+fi
+if [ -d "$P" ]; then
   echo "EISDIR:$P" >&2
+  exit 3
+fi
+if [ -e "$P" ] && [ ! -f "$P" ]; then
+  echo "EUNSUPPORTED:$P" >&2
   exit 3
 fi
 cat > "$P"
