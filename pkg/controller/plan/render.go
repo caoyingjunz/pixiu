@@ -17,6 +17,7 @@ limitations under the License.
 package plan
 
 import (
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"github.com/caoyingjunz/pixiu/pkg/planrender"
 )
 
@@ -32,8 +33,8 @@ type Render struct {
 	dir string
 }
 
-func (r Render) Name() string      { return "配置渲染" }
-func (r Render) GetAction() string { return "render" }
+func (r Render) Name() string      { return TaskNameRender }
+func (r Render) GetAction() string { return kubezansible.Render }
 func (r Render) Run() error {
 	plan, err := planrender.NewPlan(r.data.PlanId, r.data.Config, r.data.Nodes)
 	if err != nil {

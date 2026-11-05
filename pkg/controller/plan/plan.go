@@ -323,6 +323,16 @@ func (p *plan) preDelete(ctx context.Context, planId int64) error {
 	if err = util.CheckResourceAccess(ctx, p.factory, planObj.UserId, types.ResourceTypePlan, planId); err != nil {
 		return err
 	}
+	// 扩容计划（type=1）由系统管理：存在绑定的扩容节点时不允许删除
+	if planObj.Type == 1 {
+		nodes, nodeErr := p.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
+		if nodeErr != nil {
+			return errors.ErrServerInternal
+		}
+		if len(nodes) > 0 {
+			return fmt.Errorf("扩容计划下存在节点，请先在集群节点管理页移除")
+		}
+	}
 
 	// 有正在运行中的任务则不允许删除
 	isRunning, err := p.IsRunning(ctx, planId)
@@ -557,6 +567,10 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 	if err = util.CheckResourceAccess(ctx, p.factory, planObj.UserId, types.ResourceTypePlan, pid); err != nil {
 		return err
 	}
+	// 扩容计划（type=1）由集群节点管理页驱动执行，不走部署计划的 Start
+	if planObj.Type == 1 {
+		return fmt.Errorf("扩容计划请在集群节点管理页发起扩容执行")
+	}
 
 	// 4. 校验运行任务
 	isRunning, err := p.IsRunning(ctx, pid)
@@ -689,6 +703,8 @@ func (p *plan) model2Type(o *model.Plan) (*types.Plan, error) {
 		NodeCount:         o.NodeCount,
 		ExecMode:          o.ExecMode,
 		DeployAgentId:     o.DeployAgentId,
+		Type:              o.Type,
+		ClusterId:         o.ClusterId,
 	}, nil
 }
 

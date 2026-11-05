@@ -165,6 +165,67 @@ func writeRSA(planId int64, name, workDir string, auth types.PlanNodeAuth) (stri
 	return f, nil
 }
 
+// RenderExpand 渲染集群扩容所需的 hosts / multinode / globals.yml / ssh key。
+// 与部署渲染隔离：使用独立目录，只包含本次扩容的目标节点，不依赖部署计划。
+func RenderExpand(planDir string, nodes []types.PlanNode, globals pixiutpl.ExpandGlobals, customRepo *types.CustomRepo) error {
+	if err := os.MkdirAll(planDir, 0o755); err != nil {
+		return err
+	}
+
+	if err := writeTemplate(filepath.Join(planDir, "hosts"), pixiutpl.HostTemplate, struct {
+		Nodes []types.PlanNode
+	}{Nodes: nodes}); err != nil {
+		return err
+	}
+
+	prepared := make([]types.PlanNode, 0, len(nodes))
+	for i := range nodes {
+		node := nodes[i]
+		if node.Auth.Type == types.KeyAuth {
+			if node.Auth.Key == nil {
+				return fmt.Errorf("node(%s) key auth config is empty", node.Name)
+			}
+			if err := writeExpandRSA(planDir, node.Name, node.Auth.Key.Data); err != nil {
+				return err
+			}
+			key := *node.Auth.Key
+			key.File = fmt.Sprintf("/configs/ssh/%s/id_rsa", node.Name)
+			node.Auth.Key = &key
+		}
+		if node.Auth.Type == types.PasswordAuth && node.Auth.Password == nil {
+			return fmt.Errorf("node(%s) password auth config is empty", node.Name)
+		}
+		prepared = append(prepared, node)
+	}
+
+	multinode := Multinode{
+		DockerMaster:     make([]types.PlanNode, 0),
+		DockerNode:       make([]types.PlanNode, 0),
+		ContainerdMaster: make([]types.PlanNode, 0),
+		ContainerdNode:   prepared,
+		StorageNode:      make([]types.PlanNode, 0),
+	}
+	if err := writeTemplate(filepath.Join(planDir, "multinode"), pixiutpl.MultiModeTemplate, multinode); err != nil {
+		return err
+	}
+
+	if customRepo != nil && customRepo.Enable {
+		if err := os.WriteFile(filepath.Join(planDir, "pixiu"), []byte(customRepo.Content), 0o600); err != nil {
+			return fmt.Errorf("write custom repo file: %w", err)
+		}
+	}
+
+	return writeTemplate(filepath.Join(planDir, "globals.yml"), pixiutpl.ExpandGlobalsTemplate, globals)
+}
+
+func writeExpandRSA(planDir, name, data string) error {
+	rsaDir := filepath.Join(planDir, "ssh", name)
+	if err := os.MkdirAll(rsaDir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(rsaDir, "id_rsa"), []byte(data), 0o600)
+}
+
 // NewPlan 将 DB 模型转为 types.Plan，供 local 模式控制面渲染使用。
 func NewPlan(planId int64, cfg *model.Config, nodes []model.Node) (*types.Plan, error) {
 	plan := &types.Plan{

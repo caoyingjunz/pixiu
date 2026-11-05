@@ -757,6 +757,8 @@ type Plan struct {
 	NodeCount         int                `json:"node_count"`         // 节点总数
 	ExecMode          model.PlanExecMode `json:"exec_mode"`
 	DeployAgentId     int64              `json:"deploy_agent_id,omitempty"`
+	Type              int                `json:"type"`                 // 计划类型：0=普通部署计划，1=集群扩容计划
+	ClusterId         int64              `json:"cluster_id,omitempty"` // 扩容计划（Type=1）关联的目标集群
 
 	Config PlanConfig `json:"config"`
 	Nodes  []PlanNode `json:"nodes"`
@@ -1004,6 +1006,9 @@ type CustomMeta struct {
 
 	// node
 	PlanId *int64 `form:"plan_id" json:"plan_id"`
+	// NodeClusterId 节点列表按 cluster_id 过滤；0 表示仅查未绑定集群的主机
+	// （与 CustomMeta.ClusterId 区分：后者供告警等模块使用）
+	NodeClusterId *int64 `form:"node_cluster_id" json:"node_cluster_id"`
 }
 
 func (o *ListOptions) SetDefaultPageOption() {
@@ -1077,6 +1082,16 @@ type KubernetesSpec struct {
 	SetHostname       bool   `json:"set_hostname"`               // 自动修改k8s节点名称, Rocky 系统不生效
 	Protect           bool   `json:"protect"`                    // 开启集群保护，防止误删除
 	ChangeSelinux     bool   `json:"change_selinux"`             // 关闭 Selinux
+
+	// 扩容计划（Type=1）join 参数：bootstrap token 与 CA 证书 hash，随 kubernetes 配置一并持久化。
+	BootstrapToken string `json:"bootstrap_token,omitempty"`
+	CAHash         string `json:"ca_hash,omitempty"`
+
+	// BootstrapTokenExpiresAt Bootstrap Token 过期时间（RFC3339），随 kubernetes 配置持久化。
+	BootstrapTokenExpiresAt string `json:"bootstrap_token_expires_at,omitempty"`
+
+	// KubeAPIServerAddress 扩容节点加入集群使用的 kube-apiserver 地址，格式 https://<ip>:6443。
+	KubeAPIServerAddress string `json:"kube_apiserver_address,omitempty"`
 }
 
 type NetworkSpec struct {

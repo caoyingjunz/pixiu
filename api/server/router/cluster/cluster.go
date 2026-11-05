@@ -98,4 +98,27 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 		},
 	}
 	proxyGroup.Register(ginEngine.Group(kubeProxyBaseURL), cr.c.APIResource())
+
+	// 集群节点扩容
+	expansionGroup := &apiregistry.Group{
+		Name:    "集群扩容",
+		BaseURL: "/pixiu/clusters",
+		Entries: []apiregistry.RouteEntry{
+			// 扩容计划 API
+			{Method: "POST", RelativePath: "/:clusterId/expansion-plan", Handler: cr.createOrUpdateExpansionPlan, Description: "创建扩容计划"},
+			{Method: "DELETE", RelativePath: "/:clusterId/expansion-plan", Handler: cr.deleteExpansionPlan, Description: "删除扩容计划"},
+			{Method: "GET", RelativePath: "/:clusterId/expansion-plan", Handler: cr.getExpansionPlan, Description: "查询扩容计划"},
+
+			{Method: "POST", RelativePath: "/:clusterId/expansion-nodes", Handler: cr.addExpansionNodes, Description: "添加扩容节点"},
+			{Method: "GET", RelativePath: "/:clusterId/expansion-nodes", Handler: cr.listExpansionNodes, Description: "扩容节点列表"},
+			{Method: "DELETE", RelativePath: "/:clusterId/expansion-nodes/:nodeId", Handler: cr.removeExpansionNode, Description: "移除扩容节点"},
+
+			// 启动扩容
+			{Method: "POST", RelativePath: "/:clusterId/expansions", Handler: cr.startExpansion, Description: "开始扩容"},
+
+			{Method: "POST", RelativePath: "/:clusterId/expansion-join-params", Handler: cr.generateExpansionJoinParams, Description: "生成扩容参数"},
+			{Method: "GET", RelativePath: "/:clusterId/expansion-capabilities", Handler: cr.getExpansionCapabilities, Description: "扩容能力探测"},
+		},
+	}
+	expansionGroup.Register(ginEngine.Group("/pixiu/clusters"), cr.c.APIResource())
 }

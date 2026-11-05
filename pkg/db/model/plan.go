@@ -40,6 +40,11 @@ type Plan struct {
 	DeployAgentId     int64  `gorm:"index:idx_plan_deploy_agent;default:0" json:"deploy_agent_id"`
 	KubernetesVersion string `gorm:"type:varchar(64)" json:"kubernetes_version"` // k8s 版本（冗余自 configs.kubernetes）
 	NodeCount         int    `gorm:"default:0" json:"node_count"`                // 节点总数（冗余自 nodes 表）
+
+	// Type 计划类型：0=普通部署计划（默认），1=集群扩容计划（添加节点时系统自动创建）
+	Type int `gorm:"default:0;index:idx_plan_type" json:"type"`
+	// ClusterId 扩容计划（Type=1）关联的目标集群
+	ClusterId int64 `gorm:"index:idx_plan_cluster_id;default:0" json:"cluster_id"`
 }
 
 func (plan *Plan) TableName() string {
@@ -61,16 +66,33 @@ const (
 	ContainerdCRI CRI = "containerd"
 )
 
+// NodeStatus 主机节点状态（集群扩容场景）
+type NodeStatus uint8
+
+const (
+	NodeStatusUnadded NodeStatus = iota // 未添加
+	NodeStatusAdding                    // 添加中
+	NodeStatusFailed                    // 添加失败
+	NodeStatusAdded                     // 已加入
+)
+
 type Node struct {
 	pixiu.Model
 
 	Name   string `json:"name"`                             // 主机名，相同plan内不允许重复
 	UserId int64  `gorm:"index:idx_user_id" json:"user_id"` // 所属用户
 	PlanId int64  `json:"plan_id"`
-	Role   string `json:"role"` // k8s 节点的角色，master 和 node
-	CRI    CRI    `json:"cri"`
-	Ip     string `json:"ip"`
-	Auth   string `json:"auth"`
+	// ClusterId 直接关联的集群（扩容场景）。
+	// 普通计划部署的节点只有 PlanId；集群扩容的节点同时写入扩容计划的 PlanId 与 ClusterId。
+	ClusterId int64  `gorm:"index:idx_node_cluster_id;default:0" json:"cluster_id"`
+	Role      string `json:"role"` // k8s 节点的角色，master 和 node
+	CRI       CRI    `json:"cri"`
+	Ip        string `json:"ip"`
+	Auth      string `json:"auth"`
+
+	// Status 仅对 ClusterId > 0 的扩容节点有意义
+	Status        NodeStatus `gorm:"type:tinyint;default:0;index:idx_node_status" json:"status"`
+	StatusMessage string     `gorm:"type:text" json:"status_message"`
 }
 
 func (node *Node) TableName() string {
