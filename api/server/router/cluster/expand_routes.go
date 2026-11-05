@@ -18,7 +18,6 @@ package cluster
 
 import (
 	"github.com/gin-gonic/gin"
-	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -31,16 +30,6 @@ type expandClusterMeta struct {
 type expandNodeMeta struct {
 	ClusterId int64 `uri:"clusterId" binding:"required"`
 	NodeId    int64 `uri:"nodeId" binding:"required"`
-}
-
-type expansionMeta struct {
-	ClusterId   int64 `uri:"clusterId" binding:"required"`
-	ExpansionId int64 `uri:"expansionId" binding:"required"`
-}
-
-type expansionLogsQuery struct {
-	Step  string `form:"step" binding:"omitempty,oneof=bootstrap add-node"`
-	Watch bool   `form:"watch"`
 }
 
 // 扩容计划 API
@@ -56,8 +45,7 @@ func (cr *clusterRouter) createOrUpdateExpansionPlan(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result, err = cr.c.ClusterExpand().CreateOrUpdateExpansionPlan(c, opt.ClusterId, &req)
-	if err != nil {
+	if err = cr.c.ClusterExpand().CreateOrUpdateExpansionPlan(c, opt.ClusterId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -68,12 +56,15 @@ func (cr *clusterRouter) createOrUpdateExpansionPlan(c *gin.Context) {
 func (cr *clusterRouter) deleteExpansionPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var opt expandClusterMeta
-	if err := c.ShouldBindUri(&opt); err != nil {
+	var (
+		opt expandClusterMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := cr.c.ClusterExpand().DeleteExpansionPlan(c, opt.ClusterId); err != nil {
+	if err = cr.c.ClusterExpand().DeleteExpansionPlan(c, opt.ClusterId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -83,51 +74,54 @@ func (cr *clusterRouter) deleteExpansionPlan(c *gin.Context) {
 func (cr *clusterRouter) getExpansionPlan(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var opt expandClusterMeta
-	if err := c.ShouldBindUri(&opt); err != nil {
+	var (
+		opt expandClusterMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	result, err := cr.c.ClusterExpand().GetExpansionPlan(c, opt.ClusterId)
-	if err != nil {
+	if r.Result, err = cr.c.ClusterExpand().GetExpansionPlan(c, opt.ClusterId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = result
 	httputils.SetSuccess(c, r)
 }
 
 func (cr *clusterRouter) getExpansionCapabilities(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var opt expandClusterMeta
-	if err := c.ShouldBindUri(&opt); err != nil {
+	var (
+		opt expandClusterMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	result, err := cr.c.ClusterExpand().Config(c, opt.ClusterId)
-	if err != nil {
+	if r.Result, err = cr.c.ClusterExpand().Capabilities(c, opt.ClusterId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = result
 	httputils.SetSuccess(c, r)
 }
 
 func (cr *clusterRouter) listExpansionNodes(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var opt expandClusterMeta
-	if err := c.ShouldBindUri(&opt); err != nil {
+	var (
+		opt expandClusterMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	result, err := cr.c.ClusterExpand().ListNodes(c, opt.ClusterId)
-	if err != nil {
+	if r.Result, err = cr.c.ClusterExpand().ListNodes(c, opt.ClusterId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = result
 	httputils.SetSuccess(c, r)
 }
 
@@ -137,65 +131,67 @@ func (cr *clusterRouter) addExpansionNodes(c *gin.Context) {
 	var (
 		opt expandClusterMeta
 		req types.CreateClusterNodesRequest
+		err error
 	)
-	if err := httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	result, err := cr.c.ClusterExpand().AddNodes(c, opt.ClusterId, &req)
-	if err != nil {
+	if r.Result, err = cr.c.ClusterExpand().AddNodes(c, opt.ClusterId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = result
 	httputils.SetSuccess(c, r)
 }
 
 func (cr *clusterRouter) removeExpansionNode(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var opt expandNodeMeta
-	if err := c.ShouldBindUri(&opt); err != nil {
+	var (
+		opt expandNodeMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err := cr.c.ClusterExpand().RemoveNode(c, opt.ClusterId, opt.NodeId); err != nil {
+	if err = cr.c.ClusterExpand().RemoveNode(c, opt.ClusterId, opt.NodeId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 	httputils.SetSuccess(c, r)
 }
 
-func (cr *clusterRouter) createExpansion(c *gin.Context) {
+func (cr *clusterRouter) startExpansion(c *gin.Context) {
 	r := httputils.NewResponse()
 
 	var (
 		opt expandClusterMeta
-		req types.CreateClusterExpansionRequest
+		err error
 	)
-	if err := httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
+	if err = c.ShouldBindUri(&opt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	expansionId, err := cr.c.ClusterExpand().Create(c, opt.ClusterId, &req)
-	if err != nil {
+	if err = cr.c.ClusterExpand().Start(c, opt.ClusterId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	r.Result = types.CreateClusterExpansionResponse{ExpansionId: expansionId}
 	httputils.SetSuccess(c, r)
 }
 
 func (cr *clusterRouter) generateExpansionJoinParams(c *gin.Context) {
 	r := httputils.NewResponse()
 
-	var opt expandClusterMeta
-	if err := c.ShouldBindUri(&opt); err != nil {
+	var (
+		opt expandClusterMeta
+		err error
+	)
+	if err = c.ShouldBindUri(&opt); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	result, err := cr.c.ClusterExpand().GenerateJoinParams(c, opt.ClusterId)
-	if err != nil {
+	if r.Result, err = cr.c.ClusterExpand().GenerateJoinParams(c, opt.ClusterId); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -203,70 +199,5 @@ func (cr *clusterRouter) generateExpansionJoinParams(c *gin.Context) {
 	c.Header("Cache-Control", "no-store") // join 参数包含 bootstrap token，禁止中间层与浏览器缓存
 	c.Header("Pragma", "no-cache")
 
-	r.Result = result
 	httputils.SetSuccess(c, r)
-}
-
-func (cr *clusterRouter) listExpansions(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		opt        expandClusterMeta
-		listOption types.ListOptions
-	)
-	if err := c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err := httputils.BindListOptionsWithUser(c, &listOption); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	result, err := cr.c.ClusterExpand().List(c, opt.ClusterId, listOption)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result = result
-	httputils.SetSuccess(c, r)
-}
-
-func (cr *clusterRouter) getExpansion(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var opt expansionMeta
-	if err := c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	result, err := cr.c.ClusterExpand().Get(c, opt.ClusterId, opt.ExpansionId)
-	if err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	r.Result = result
-	httputils.SetSuccess(c, r)
-}
-
-func (cr *clusterRouter) getExpansionLogs(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		opt   expansionMeta
-		query expansionLogsQuery
-	)
-	if err := httputils.ShouldBindAny(c, nil, &opt, &query); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err := cr.c.ClusterExpand().Logs(c, opt.ClusterId, opt.ExpansionId, query.Step, query.Watch, c.Writer, c.Request); err != nil {
-		// 日志流一旦开始写出，响应头已发送，不能再写 JSON 业务错误
-		if c.Writer.Written() {
-			klog.Errorf("stream expansion(%d) logs: %v", opt.ExpansionId, err)
-			c.Abort()
-			return
-		}
-		httputils.SetFailed(c, r, err)
-		return
-	}
 }

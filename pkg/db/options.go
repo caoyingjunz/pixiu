@@ -562,7 +562,7 @@ func WithNodeStatus(status model.NodeStatus) Options {
 	}
 }
 
-// WithTaskStatus 按任务状态过滤（cluster_expansions 等复用 TaskStatus 的表）。
+// WithTaskStatus 按任务状态过滤（plans / plan_tasks 等复用 TaskStatus 的表）。
 func WithTaskStatus(status model.TaskStatus) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if status == "" {

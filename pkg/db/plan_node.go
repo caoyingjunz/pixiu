@@ -38,8 +38,8 @@ type NodeInterface interface {
 	GetByIP(ctx context.Context, ip string) (*model.Node, error)
 	Count(ctx context.Context, opts ...Options) (int64, error)
 
-	// UpdateFields 内部更新（不校验 resource_version），供扩容 worker 更新节点状态使用。
-	UpdateFields(ctx context.Context, nodeId int64, updates map[string]interface{}) error
+	// InternalUpdate 内部更新（不校验 resource_version )
+	InternalUpdate(ctx context.Context, nodeId int64, updates map[string]interface{}) error
 }
 
 type node struct {
@@ -62,6 +62,20 @@ func (n *node) Update(ctx context.Context, tx *gorm.DB, nodeId int64, resourceVe
 	updates["resource_version"] = resourceVersion + 1
 
 	f := n.exec(ctx, tx).Model(&model.Node{}).Where("id = ? and resource_version = ?", nodeId, resourceVersion).Updates(updates)
+	if f.Error != nil {
+		return f.Error
+	}
+	if f.RowsAffected == 0 {
+		return errors.ErrRecordNotFound
+	}
+	return nil
+}
+
+// InternalUpdate 内部更新节点字段，不做乐观锁校验、不递增 resource_version。
+func (n *node) InternalUpdate(ctx context.Context, nodeId int64, updates map[string]interface{}) error {
+	updates["gmt_modified"] = time.Now()
+
+	f := n.db.WithContext(ctx).Model(&model.Node{}).Where("id = ?", nodeId).Updates(updates)
 	if f.Error != nil {
 		return f.Error
 	}
@@ -130,18 +144,4 @@ func (n *node) Count(ctx context.Context, opts ...Options) (int64, error) {
 		return 0, err
 	}
 	return count, nil
-}
-
-// UpdateFields 内部更新节点字段，不做乐观锁校验、不递增 resource_version。
-func (n *node) UpdateFields(ctx context.Context, nodeId int64, updates map[string]interface{}) error {
-	updates["gmt_modified"] = time.Now()
-
-	f := n.db.WithContext(ctx).Model(&model.Node{}).Where("id = ?", nodeId).Updates(updates)
-	if f.Error != nil {
-		return f.Error
-	}
-	if f.RowsAffected == 0 {
-		return errors.ErrRecordNotFound
-	}
-	return nil
 }

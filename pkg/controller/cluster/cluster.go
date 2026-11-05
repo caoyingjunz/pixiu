@@ -486,7 +486,7 @@ func (c *cluster) preDelete(ctx context.Context, cid int64, skipCheck bool) (*mo
 
 	// 存在进行中的节点扩容时不允许删除，避免扩容任务操作已删除集群
 	for _, status := range []model.TaskStatus{model.UnStartPlanStatus, model.RunningPlanStatus} {
-		count, err := c.factory.ClusterExpansion().Count(ctx, db.WithClusterIdEq(cid), db.WithTaskStatus(status))
+		count, err := c.factory.Plan().Count(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(cid), db.WithTaskStatus(status))
 		if err != nil {
 			return nil, errors.ErrServerInternal
 		}
@@ -507,7 +507,7 @@ func (c *cluster) unbindExpansionNodes(ctx context.Context, clusterId int64) err
 		return err
 	}
 	for i := range nodes {
-		if err = c.factory.Plan().Node().UpdateFields(ctx, nodes[i].Id, map[string]interface{}{
+		if err = c.factory.Plan().Node().InternalUpdate(ctx, nodes[i].Id, map[string]interface{}{
 			"cluster_id":     int64(0),
 			"role":           "",
 			"cri":            "",

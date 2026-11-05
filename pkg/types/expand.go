@@ -22,21 +22,20 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// ClusterExpansionConfig 集群扩容能力探测结果。
-type ClusterExpansionConfig struct {
+// ClusterExpansionCapabilities 集群扩容能力探测结果与默认参数。
+type ClusterExpansionCapabilities struct {
 	Supported bool   `json:"supported"`
 	Reason    string `json:"reason,omitempty"`
 
 	KubernetesVersion       string `json:"kubernetes_version,omitempty"`
 	ImageRepository         string `json:"image_repository,omitempty"`
 	ControlPlaneEndpoint    string `json:"control_plane_endpoint,omitempty"`
-	Runtime                 string `json:"runtime,omitempty"`
 	DefaultOSImage          string `json:"default_os_image,omitempty"`
 	DefaultNetworkInterface string `json:"default_network_interface,omitempty"`
 }
 
-// ClusterNodeSummary 扩容节点摘要（不含凭据），供节点管理页使用。
-type ClusterNodeSummary struct {
+// ClusterExpansionNodeSummary 扩容节点摘要（不含凭据），供节点管理页使用。
+type ClusterExpansionNodeSummary struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
 
@@ -89,18 +88,6 @@ type ExpansionJoinParams struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// CreateClusterExpansionRequest 创建并启动一次集群扩容。
-// Options 为执行参数，优先级：请求体显式字段 > 已保存的扩容计划配置 > 集群能力探测默认值。
-type CreateClusterExpansionRequest struct {
-	NodeIds []int64          `json:"node_ids" binding:"required,min=1"`
-	Options ExpansionOptions `json:"options"`
-}
-
-// CreateClusterExpansionResponse 创建扩容任务的返回结构。
-type CreateClusterExpansionResponse struct {
-	ExpansionId int64 `json:"expansion_id"`
-}
-
 // CreateOrUpdateClusterExpansionPlanRequest 创建或更新集群扩容计划（plans.type=1）的配置、元数据与节点集合。
 // 对应 POST /pixiu/clusters/:clusterId/expansion-plan，属于计划单例的全量保存。
 // 计划名称由系统生成（expand-cluster-<id>），请求不接收名称。
@@ -120,6 +107,8 @@ type ClusterExpansionPlanResponse struct {
 	Config      *ExpansionPlanConfigResponse `json:"config,omitempty"`
 	// NodeIds 该计划当前关联的扩容节点。
 	NodeIds []int64 `json:"node_ids"`
+	// Status 计划最近一次扩容的执行状态。
+	Status model.TaskStatus `json:"status"`
 }
 
 // ExpansionPlanConfigResponse 集群扩容计划配置（configs 表解析结果）。
@@ -131,21 +120,4 @@ type ExpansionPlanConfigResponse struct {
 	Runtime     RuntimeSpec    `json:"runtime"`
 	Component   ComponentSpec  `json:"component"`
 	// join 参数随 Kubernetes 字段返回（kubernetes.bootstrap_token / ca_hash）。
-}
-
-// ClusterExpansion 扩容记录 API 返回结构。
-type ClusterExpansion struct {
-	PixiuMeta `json:",inline"`
-	TimeMeta  `json:",inline"`
-
-	ClusterId int64            `json:"cluster_id"`
-	PlanId    int64            `json:"plan_id"`
-	NodeIds   []int64          `json:"node_ids"`
-	Options   ExpansionOptions `json:"options"`
-
-	Status      model.TaskStatus `json:"status"`
-	Step        string           `json:"step"`
-	Message     string           `json:"message"`
-	StartedAt   *time.Time       `json:"started_at,omitempty"`
-	CompletedAt *time.Time       `json:"completed_at,omitempty"`
 }
