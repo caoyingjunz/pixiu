@@ -14,7 +14,8 @@
 | FAQ-004 | runner 任务容器日志查看（nerdctl logs 报错） | 部署与运行时 | [runner-container-logs.md](./runner-container-logs.md) | - |
 | FAQ-005 | 移除 k8s 集群中的 Worker 节点 | 容器服务 / 节点管理 | [remove-worker-node.md](./remove-worker-node.md) | - |
 | FAQ-006 | Velero 应用安装失败（BSL/VSL provider 为空） | 应用商店 / Velero | [velero-provider-required.md](./velero-provider-required.md) | - |
-| FAQ-007 | 节点监控 CPU、内存指标无数据（节点标签不匹配） | 监控与数据源 | [node-monitor-metrics-empty.md](./node-monitor-metrics-empty.md) | - |
+| FAQ-007 | 节点监控同一节点出现两行（节点名与主机名不一致） | 监控与数据源 | [node-duplicate-rows.md](./node-duplicate-rows.md) | - |
+| FAQ-008 | 节点监控 CPU、内存指标无数据（节点标签不匹配） | 监控与数据源 | [node-monitor-metrics-empty.md](./node-monitor-metrics-empty.md) | - |
 
 ## 新增 FAQ 规范
 
