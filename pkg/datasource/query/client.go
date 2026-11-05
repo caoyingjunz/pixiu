@@ -18,7 +18,6 @@ package query
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +27,7 @@ import (
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
@@ -180,9 +180,8 @@ func applyAuthAndHeaders(req *http.Request, ep *Endpoint, extra map[string]strin
 		}
 		req.Header.Set(key, value)
 	}
-	if ep.Username != "" || ep.Password != "" {
-		token := base64.StdEncoding.EncodeToString([]byte(ep.Username + ":" + ep.Password))
-		req.Header.Set("Authorization", "Basic "+token)
+	if header := datasourceauth.HTTPAuthorization(ep.Username, ep.Password); header != "" {
+		req.Header.Set("Authorization", header)
 	}
 }
 

@@ -18,7 +18,6 @@ package engine
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +30,7 @@ import (
 	"time"
 
 	"github.com/caoyingjunz/pixiu/pkg/client"
+	datasourceauth "github.com/caoyingjunz/pixiu/pkg/datasource/auth"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -306,11 +306,9 @@ func applyDatasourceAuth(req *http.Request, cfg *types.DatasourceConfig) {
 		username = cfg.Log.UserName
 		password = cfg.Log.Password
 	}
-	if username == "" && password == "" {
-		return
+	if header := datasourceauth.HTTPAuthorization(username, password); header != "" {
+		req.Header.Set("Authorization", header)
 	}
-	token := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-	req.Header.Set("Authorization", "Basic "+token)
 }
 
 func applyDatasourceHeaders(req *http.Request, cfg *types.DatasourceConfig) {
