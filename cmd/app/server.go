@@ -33,6 +33,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/chartstore"
+	"github.com/caoyingjunz/pixiu/pkg/upgrade"
 	"github.com/caoyingjunz/pixiu/pkg/util/tlscert"
 )
 
@@ -78,6 +79,22 @@ func NewServerCommand(version string) *cobra.Command {
 		},
 	}
 	cmd.AddCommand(verCmd)
+
+	// 自动升级执行器入口（内部使用）：由守护 job 以新镜像拉起的一次性容器调用，
+	// 不依赖数据库与路由，仅按状态文件完成旧容器删除与新容器重建
+	upgradeExecCmd := &cobra.Command{
+		Use:   "upgrade-execute",
+		Short: "Apply a pending auto-upgrade (internal)",
+		Long:  "内部命令：读取 /etc/pixiu/upgrade/state.json 中的待升级状态，删除旧 pixiu 容器并以新镜像重建服务容器。",
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := upgrade.ExecuteUpgrade(context.Background()); err != nil {
+				klog.Fatal(err)
+			}
+		},
+		Args: cobra.NoArgs,
+	}
+	cmd.AddCommand(upgradeExecCmd)
+
 	return cmd
 }
 

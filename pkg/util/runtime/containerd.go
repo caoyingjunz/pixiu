@@ -36,6 +36,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
+	restart "github.com/containerd/containerd/runtime/restart"
 	"github.com/distribution/reference"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"k8s.io/klog/v2"
@@ -259,6 +260,145 @@ func (c *containerdRuntime) RunContainer(ctx context.Context, spec *ContainerSpe
 	return nil
 }
 
+// InspectContainer 检出容器关键规格。
+// 特权与宿主网络从 OCI spec 反推，属启发式判定（spec 本身没有这两个概念的直接标记）：
+//   - 宿主网络：Linux namespaces 中无 network 命名空间条目
+//   - 特权：bounding 集合含 CAP_SYS_ADMIN（buildSpecOpts 的 WithPrivileged 即全量能力）
+func (c *containerdRuntime) InspectContainer(ctx context.Context, name string) (*ContainerInfo, error) {
+	if !containerNameRe.MatchString(name) {
+		return nil, fmt.Errorf("非法的容器名(%s)", name)
+	}
+
+	container, err := c.client.LoadContainer(ctx, name)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return nil, ErrContainerNotFound
+		}
+		return nil, err
+	}
+
+	info := &ContainerInfo{Name: name}
+	labels, err := container.Labels(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("读取容器(%s) labels 失败: %v", name, err)
+	}
+	info.Labels = labels
+	if v, ok := info.Labels[restart.PolicyLabel]; ok && v == "always" {
+		info.RestartPolicy = "always"
+	}
+	if image, err := container.Image(ctx); err == nil {
+		info.Image = image.Name()
+	}
+
+	spec, err := container.Spec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("读取容器(%s) spec 失败: %v", name, err)
+	}
+	if spec.Process != nil {
+		info.Env = spec.Process.Env
+		if spec.Process.Capabilities != nil {
+			for _, cap := range spec.Process.Capabilities.Bounding {
+				if cap == "CAP_SYS_ADMIN" {
+					info.Privileged = true
+					break
+				}
+			}
+		}
+	}
+	if spec.Linux != nil {
+		hostNet := true
+		for _, ns := range spec.Linux.Namespaces {
+			if ns.Type == specs.NetworkNamespace {
+				hostNet = false
+				break
+			}
+		}
+		info.NetworkHost = hostNet
+	}
+	info.Binds = bindMountsFromSpec(spec.Mounts)
+
+	return info, nil
+}
+
+// RunServiceContainer 清理同名旧容器 → 创建 → 启动；创建后立即返回，不等待退出。
+// RestartAlways 经 containerd 内置 restart monitor（runtime/restart 标签）实现，
+// 与 nerdctl --restart=always 的落盘方式一致。
+// 服务容器日志沿用 logPath(name) 约定（落 <DefaultLogDir>/<name>.log）。
+func (c *containerdRuntime) RunServiceContainer(ctx context.Context, spec *ServiceSpec) error {
+	if spec.Image == "" {
+		return fmt.Errorf("容器(%s)未指定镜像", spec.Name)
+	}
+	if !containerNameRe.MatchString(spec.Name) {
+		return fmt.Errorf("非法的容器名(%s)，只允许字母、数字、下划线、点和中划线，且必须以字母或数字开头", spec.Name)
+	}
+	imageRef, err := normalizeImageRef(spec.Image)
+	if err != nil {
+		return fmt.Errorf("非法的镜像名(%s): %v", spec.Image, err)
+	}
+
+	if err := c.RemoveContainer(ctx, spec.Name); err != nil {
+		return err
+	}
+
+	img, err := c.client.GetImage(ctx, imageRef)
+	if err != nil {
+		return fmt.Errorf("镜像(%s)不存在，请先拉取: %v", imageRef, err)
+	}
+
+	specOpts, err := buildSpecOpts(spec.toContainerSpec(), img)
+	if err != nil {
+		return err
+	}
+
+	labels := make(map[string]string, len(spec.Labels)+2)
+	for k, v := range spec.Labels {
+		labels[k] = v
+	}
+	if spec.RestartAlways {
+		labels[restart.PolicyLabel] = "always"
+		labels[restart.StatusLabel] = string(containerd.Running)
+	}
+	containerOpts := []containerd.NewContainerOpts{
+		containerd.WithImage(img),
+		containerd.WithNewSnapshot(spec.Name, img),
+		containerd.WithNewSpec(specOpts...),
+		containerd.WithContainerLabels(labels),
+	}
+	if spec.RestartAlways {
+		policy, err := restart.NewPolicy("always")
+		if err != nil {
+			return fmt.Errorf("构造重启策略失败: %v", err)
+		}
+		containerOpts = append(containerOpts, restart.WithPolicy(policy))
+	}
+
+	container, err := c.client.NewContainer(ctx, spec.Name, containerOpts...)
+	if err != nil {
+		return err
+	}
+
+	logFile, err := openLogFile(logPath(spec.Name))
+	if err != nil {
+		_ = container.Delete(ctx, containerd.WithSnapshotCleanup)
+		return fmt.Errorf("打开日志文件(%s)失败: %v", logPath(spec.Name), err)
+	}
+	// 服务容器长期运行，日志文件交由 cio 拷贝 goroutine 持有，不在此处关闭
+	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStreams(nil, logFile, logFile)))
+	if err != nil {
+		_ = logFile.Close()
+		_ = container.Delete(ctx, containerd.WithSnapshotCleanup)
+		return err
+	}
+	if err = task.Start(ctx); err != nil {
+		_, _ = task.Delete(ctx, containerd.WithProcessKill)
+		_ = container.Delete(ctx, containerd.WithSnapshotCleanup)
+		return err
+	}
+
+	klog.Infof("服务容器(%s)已启动，镜像: %s", spec.Name, imageRef)
+	return nil
+}
+
 // removeOrphanSnapshot 删除与容器名同 key 的残留 snapshot（不含容器记录的场景）。
 // snapshotter 名称解析顺序与 containerd 客户端内部一致：命名空间 label 优先，其次内置默认。
 func (c *containerdRuntime) removeOrphanSnapshot(ctx context.Context, key string) error {
@@ -455,29 +595,6 @@ func openLogFile(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 }
 
-// buildSpecOpts 把与运行时无关的 ContainerSpec 转成 containerd 的 OCI spec 选项。
-// WithNewSpec 内部经 GenerateSpec 已生成默认 spec（命名空间/挂载/能力等），无需再叠加 oci.WithDefaultSpec；
-// 但该默认 spec 的设备 cgroup 规则是 deny-all，必须显式放行 /dev/null、/dev/random 等基础设备，
-// 否则 runner 容器内 ssh/ansible 重定向 /dev/null 会 EPERM（ctr run 亦显式带 WithDefaultUnixDevices）
-func buildSpecOpts(spec *ContainerSpec, img containerd.Image) ([]oci.SpecOpts, error) {
-	opts := []oci.SpecOpts{oci.WithImageConfig(img), oci.WithDefaultUnixDevices}
-
-	if len(spec.Env) > 0 {
-		opts = append(opts, oci.WithEnv(spec.Env))
-	}
-	if spec.NetworkHost {
-		opts = append(opts, oci.WithHostNamespace(specs.NetworkNamespace))
-	}
-	if len(spec.Binds) > 0 {
-		mounts, err := parseBinds(spec.Binds)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, oci.WithMounts(mounts))
-	}
-	return opts, nil
-}
-
 // parseBinds 把 docker 风格的 host:container 挂载串转成 OCI mount
 func parseBinds(binds []string) ([]specs.Mount, error) {
 	mounts := make([]specs.Mount, 0, len(binds))
@@ -494,6 +611,66 @@ func parseBinds(binds []string) ([]specs.Mount, error) {
 		})
 	}
 	return mounts, nil
+}
+
+// inspectSkippedMounts InspectContainer 还原 binds 时跳过的挂载点：
+// 运行时自动注入的文件/目录（非用户显式声明），重建容器时由运行时重新生成，不应带原值
+var inspectSkippedMounts = map[string]bool{
+	"/dev":             true,
+	"/dev/pts":         true,
+	"/dev/mqueue":      true,
+	"/dev/shm":         true,
+	"/proc":            true,
+	"/sys":             true,
+	"/etc/hosts":       true,
+	"/etc/hostname":    true,
+	"/etc/resolv.conf": true,
+}
+
+// bindMountsFromSpec 从 OCI spec 的挂载列表还原 docker 风格 binds（保留宿主源路径）。
+// 运行时自动注入的挂载（/dev、/proc、resolv.conf 等）按 inspectSkippedMounts 跳过。
+func bindMountsFromSpec(mounts []specs.Mount) []string {
+	binds := make([]string, 0, len(mounts))
+	for _, m := range mounts {
+		if m.Type != "bind" || m.Source == "" || m.Destination == "" {
+			continue
+		}
+		if inspectSkippedMounts[m.Destination] {
+			continue
+		}
+		binds = append(binds, m.Source+":"+m.Destination)
+	}
+	return binds
+}
+
+// buildSpecOpts 把与运行时无关的 ContainerSpec 转成 containerd 的 OCI spec 选项。
+// WithNewSpec 内部经 GenerateSpec 已生成默认 spec（命名空间/挂载/能力等），无需再叠加 oci.WithDefaultSpec；
+// 但该默认 spec 的设备 cgroup 规则是 deny-all，必须显式放行 /dev/null、/dev/random 等基础设备，
+// 否则 runner 容器内 ssh/ansible 重定向 /dev/null 会 EPERM（ctr run 亦显式带 WithDefaultUnixDevices）
+func buildSpecOpts(spec *ContainerSpec, img containerd.Image) ([]oci.SpecOpts, error) {
+	opts := []oci.SpecOpts{oci.WithImageConfig(img), oci.WithDefaultUnixDevices}
+
+	if spec.Privileged {
+		opts = append(opts, oci.WithPrivileged)
+	}
+	if len(spec.Env) > 0 {
+		opts = append(opts, oci.WithEnv(spec.Env))
+	}
+	if spec.NetworkHost {
+		opts = append(opts, oci.WithHostNamespace(specs.NetworkNamespace))
+	}
+	if len(spec.Binds) > 0 {
+		mounts, err := parseBinds(spec.Binds)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, oci.WithMounts(mounts))
+	}
+	// 进程参数覆盖：非空时替换镜像默认 entrypoint/cmd
+	if len(spec.Args) > 0 {
+		opts = append(opts, oci.WithProcessArgs(spec.Args...))
+	}
+	return opts, nil
 }
 
 // fileFollower 以轮询方式跟随仍在增长的日志文件。

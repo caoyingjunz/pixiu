@@ -282,6 +282,72 @@ func (d *dockerRuntime) RemoveImage(ctx context.Context, ref string) error {
 	return err
 }
 
+// InspectContainer 检出容器关键规格（docker inspect 语义直接可得，无启发式）
+func (d *dockerRuntime) InspectContainer(ctx context.Context, name string) (*ContainerInfo, error) {
+	info, err := d.client.ContainerInspect(ctx, name, client.ContainerInspectOptions{})
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return nil, ErrContainerNotFound
+		}
+		return nil, err
+	}
+
+	out := &ContainerInfo{
+		Name:   name,
+		Env:    info.Container.Config.Env,
+		Binds:  info.Container.HostConfig.Binds,
+		Labels: info.Container.Config.Labels,
+	}
+	out.Image = info.Container.Config.Image
+	out.NetworkHost = string(info.Container.HostConfig.NetworkMode) == "host"
+	out.Privileged = info.Container.HostConfig.Privileged
+	out.RestartPolicy = string(info.Container.HostConfig.RestartPolicy.Name)
+	return out, nil
+}
+
+// RunServiceContainer 清理同名旧容器 → 创建 → 启动；创建后立即返回，不等待退出。
+// RestartAlways 映射 docker RestartPolicy=always。
+func (d *dockerRuntime) RunServiceContainer(ctx context.Context, spec *ServiceSpec) error {
+	if spec.Image == "" {
+		return fmt.Errorf("容器(%s)未指定镜像", spec.Name)
+	}
+
+	if err := d.RemoveContainer(ctx, spec.Name); err != nil {
+		return err
+	}
+
+	cfg := &container.Config{
+		Labels: spec.Labels,
+		Image:  spec.Image,
+		Env:    spec.Env,
+	}
+	hostConfig := &container.HostConfig{
+		Binds:      spec.Binds,
+		Privileged: spec.Privileged,
+	}
+	if spec.NetworkHost {
+		hostConfig.NetworkMode = network.NetworkHost
+	}
+	if spec.RestartAlways {
+		hostConfig.RestartPolicy = container.RestartPolicy{Name: container.RestartPolicyAlways}
+	}
+	resp, err := d.client.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:     cfg,
+		HostConfig: hostConfig,
+		Name:       spec.Name,
+	})
+	if err != nil {
+		return err
+	}
+	if _, err = d.client.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
+		_, _ = d.client.ContainerRemove(ctx, resp.ID, client.ContainerRemoveOptions{Force: true})
+		return err
+	}
+
+	klog.Infof("服务容器(%s)已启动，镜像: %s", spec.Name, spec.Image)
+	return nil
+}
+
 // resolveContainerId 按名解析容器 ID（Inspect 支持容器名），避免全量列举容器
 func (d *dockerRuntime) resolveContainerId(ctx context.Context, name string) (string, bool, error) {
 	info, err := d.client.ContainerInspect(ctx, name, client.ContainerInspectOptions{})

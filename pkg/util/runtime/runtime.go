@@ -18,6 +18,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -54,9 +55,58 @@ type ContainerSpec struct {
 	Env         []string // KEY=VALUE
 	Binds       []string // host:container，如 /etc/pixiu/plan/12:/configs
 	NetworkHost bool     // 是否使用宿主网络
-	Labels      map[string]string
+	// Privileged 是否以特权模式运行（全部能力、不限设备）。runner 任务容器固定非特权；
+	// 服务容器（重建 pixiu 自身）从原容器检出后可能为 true
+	Privileged bool
+	Labels     map[string]string
 	// WaitTimeout 等待容器退出的最长时长；<=0 表示不设内部上限（等待容器退出或 ctx 结束）
 	WaitTimeout time.Duration
+	// Args 进程参数覆盖；非空时替换镜像默认的 entrypoint/cmd（如一次性升级执行器复用 pixiu 镜像）
+	Args []string
+}
+
+// ServiceSpec 描述一个长期运行的服务容器（与一次性任务容器 ContainerSpec 相对）。
+// 与 ContainerSpec 的核心差异：创建后立即返回，不等待退出，并可声明重启策略。
+type ServiceSpec struct {
+	Name        string
+	Image       string
+	Env         []string
+	Binds       []string
+	NetworkHost bool
+	Privileged  bool
+	// RestartAlways 声明容器异常退出/宿主重启后由运行时自动拉起：
+	// docker 用 RestartPolicy=always；containerd 经内置 restart monitor（policy 标签）实现
+	RestartAlways bool
+	Labels        map[string]string
+}
+
+// toContainerSpec 复用 ContainerSpec 的 OCI 规格构建逻辑（不含任务专属字段）
+func (s *ServiceSpec) toContainerSpec() *ContainerSpec {
+	return &ContainerSpec{
+		Name:        s.Name,
+		Image:       s.Image,
+		Env:         s.Env,
+		Binds:       s.Binds,
+		NetworkHost: s.NetworkHost,
+		Privileged:  s.Privileged,
+		Labels:      s.Labels,
+	}
+}
+
+// ErrContainerNotFound 检出的容器在宿主运行时中不存在
+var ErrContainerNotFound = errors.New("容器不存在")
+
+// ContainerInfo 从宿主运行时检出的既有容器关键规格，重建服务容器（自动升级）时用于还原原始配置。
+// Binds 保留宿主侧源路径（inspect 语义），可直接用于创建新容器。
+type ContainerInfo struct {
+	Name          string
+	Image         string
+	Env           []string
+	Binds         []string
+	NetworkHost   bool
+	Privileged    bool
+	RestartPolicy string // "always" 表示声明了自动拉起，其余值视为未声明
+	Labels        map[string]string
 }
 
 // Runtime 是宿主容器运行时的抽象。
@@ -72,6 +122,13 @@ type Runtime interface {
 
 	// Logs 返回容器日志读取流；follow 为 true 时持续跟随
 	Logs(ctx context.Context, name string, follow bool) (io.ReadCloser, error)
+
+	// InspectContainer 检出同名容器的关键规格；容器不存在时返回 ErrContainerNotFound。
+	// 供自动升级还原 pixiu 自身容器规格使用。
+	InspectContainer(ctx context.Context, name string) (*ContainerInfo, error)
+	// RunServiceContainer 清理同名旧容器 → 创建 → 启动；创建后立即返回，不等待退出。
+	// 用于长期运行的服务容器（如自动升级重建 pixiu 自身）。
+	RunServiceContainer(ctx context.Context, spec *ServiceSpec) error
 
 	// 镜像操作
 	ImageExists(ctx context.Context, ref string) (bool, error)
