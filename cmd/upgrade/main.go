@@ -30,24 +30,24 @@ import (
 
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/updater"
+	"github.com/caoyingjunz/pixiu/pkg/upgrade"
 	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 func main() {
 	var configPath string
 	klog.InitFlags(nil)
-	// updater 与 pixiu 主服务共用 config.yaml，读取其中的 upgrade/runtime/mysql 段
+	// upgrade 进程与 pixiu 主服务共用 config.yaml，读取其中的 upgrade/runtime/mysql 段
 	flag.StringVar(&configPath, "config", "/etc/pixiu/config.yaml", "pixiu 配置文件路径")
 	flag.Parse()
 	defer klog.Flush()
 
-	cfg, err := updater.Load(configPath)
+	cfg, err := upgrade.Load(configPath)
 	if err != nil {
 		klog.Fatalf("加载配置失败: %v", err)
 	}
 	if !cfg.Enabled {
-		klog.Info("pixiu-updater 未启用（upgrade.enabled=false），退出")
+		klog.Info("pixiu-upgrade 未启用（upgrade.enabled=false），退出")
 		return
 	}
 
@@ -66,10 +66,10 @@ func main() {
 	defer stop()
 
 	// 版本检测由 pixiu 主服务负责，本进程只轮询升级请求并执行容器重建
-	updater.New(cfg, rt, factory).RunExecutor(ctx)
+	upgrade.New(cfg, rt, factory).RunExecutor(ctx)
 }
 
-func newFactory(cfg *updater.Config) (pixiudb.ShareDaoFactory, error) {
+func newFactory(cfg *upgrade.Config) (pixiudb.ShareDaoFactory, error) {
 	port := cfg.Mysql.Port
 	if port == 0 {
 		port = 3306

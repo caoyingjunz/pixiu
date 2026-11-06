@@ -3,7 +3,7 @@
 自动升级由两个进程协作完成：
 
 - **pixiu 主服务**：内置版本检查循环，定期查询版本源并与当前运行镜像比对，把结果写入数据库；新版 pixiu 启动后还会确认运行版本并回写「升级完成」。
-- **pixiu-updater**：独立进程，轮询数据库中的升级请求，执行镜像拉取、容器重建、健康检查与失败回滚。
+- **pixiu-upgrade**：独立进程，轮询数据库中的升级请求，执行镜像拉取、容器重建、健康检查与失败回滚。
 
 升级状态以单行记录（`upgrade_records`，`id` 固定为 1）持久化，使用 `status` 字段表达完整状态机。
 
@@ -12,15 +12,15 @@
 | status | 名称 | 含义 | 写入方 |
 |---|---|---|---|
 | 0 | 未升级 | 检查器发现 `latest > current`，等待用户确认 | pixiu 主服务（检查器 `SaveCheck`） |
-| 1 | 待升级 | 用户确认升级，等待 updater 认领 | 主服务 API `POST /pixiu/upgrade`（`MarkPending`） |
-| 2 | 升级中 | updater 原子认领成功并写入 `upgrader_id` | pixiu-updater（`Claim`，条件 1→2） |
+| 1 | 待升级 | 用户确认升级，等待 upgrade 进程认领 | 主服务 API `POST /pixiu/upgrade`（`MarkPending`） |
+| 2 | 升级中 | upgrade 进程原子认领成功并写入 `upgrade_id` | pixiu-upgrade（`Claim`，条件 1→2） |
 | 3 | 升级完成 | 新版 pixiu 确认当前运行版本与目标版本一致 | 新版 pixiu 启动钩子（`MarkCompleted`，条件 2→3） |
-| 4 | 升级失败 | 拉取/重建/健康检查失败（含回滚），`last_error` 记录原因 | pixiu-updater（`MarkFailed`，2/3→4）或启动自检（`ResetStale`，2→4） |
+| 4 | 升级失败 | 拉取/重建/健康检查失败（含回滚），`last_error` 记录原因 | pixiu-upgrade（`MarkFailed`，2/3→4）或启动自检（`ResetStale`，2→4） |
 
 状态迁移全部通过带条件的原子 `UPDATE` 完成，只有 `RowsAffected == 1` 才算成功：
 
 ```
-0 ──用户确认──> 1 ──updater 认领──> 2 ──新版 pixiu 回写──> 3
+0 ──用户确认──> 1 ──upgrade 进程认领──> 2 ──新版 pixiu 回写──> 3
 ↑                                  │
 └──────────发现更新版本─────────────┴──失败/崩溃恢复──> 4 ──用户重试──> 1
 ```
@@ -28,9 +28,9 @@
 其他约束：
 
 - 检查器在状态 1/2 期间只刷新 `last_checked_at`，不会覆盖状态与目标版本。
-- 状态 4 → 0 表示检查器发现了更新的版本（`latest` 变化），此时清空 `upgrader_id` 与 `last_error`。
+- 状态 4 → 0 表示检查器发现了更新的版本（`latest` 变化），此时清空 `upgrade_id` 与 `last_error`。
 - 同一版本升级失败后，检查器保持状态 4，直到用户重试或出现更新的版本。
-- 状态 3 → 4 是允许的：新版 pixiu 可能先回写 3，updater 随后的健康检查仍可能失败，此时按失败处理。
+- 状态 3 → 4 是允许的：新版 pixiu 可能先回写 3，upgrade 进程随后的健康检查仍可能失败，此时按失败处理。
 
 ## pixiu 主服务配置
 
@@ -38,7 +38,7 @@
 
 ```yaml
 upgrade:
-  # 是否启用自动升级的版本检测（升级执行由独立 updater 进程负责）
+  # 是否启用自动升级的版本检测（升级执行由独立 upgrade 进程负责）
   enabled: true
   # 版本号检查地址，支持 JSON（version/latest_version/tag + image）或纯文本
   version_url: https://console.cloud.pixiuio.com
@@ -48,7 +48,7 @@ upgrade:
   interval: 6h
   # 待升级的 pixiu 容器名
   container_name: pixiu
-  # updater 轮询数据库中升级请求的间隔，不低于 1 秒
+  # upgrade 进程轮询数据库中升级请求的间隔，不低于 1 秒
   poll_interval: 5s
   # 重建后的健康检查地址，留空视为跳过健康检查
   health_check_url: http://127.0.0.1:8091/healthz
@@ -71,15 +71,15 @@ runtime:
 
 主服务还需要能访问版本源；版本检测依赖 CRI 查询当前容器镜像（懒加载，CRI 不可用时只记录 `last_error`，不影响服务运行）。
 
-## pixiu-updater 配置（与主服务共用 config.yaml）
+## pixiu-upgrade 配置（与主服务共用 config.yaml）
 
-updater 与 pixiu 主服务共用配置文件 `/etc/pixiu/config.yaml`（`-config` 可覆盖路径），读取其中的 `upgrade`/`runtime`/`mysql` 三段；无需单独的 updater 配置文件。以下为 updater 关注的字段示例（可合并进同一份 config.yaml）：
+upgrade 进程与 pixiu 主服务共用配置文件 `/etc/pixiu/config.yaml`（`-config` 可覆盖路径），读取其中的 `upgrade`/`runtime`/`mysql` 三段；无需单独的 upgrade 配置文件。以下为 upgrade 进程关注的字段示例（可合并进同一份 config.yaml）：
 
 ```yaml
 upgrade:
   enabled: true
   # 升级执行者标识，默认主机名；用于任务认领与状态回写校验，多实例部署时应保证唯一
-  upgrader_id: pixiu-updater-01
+  upgrade_id: pixiu-upgrade-01
   container_name: pixiu
   poll_interval: 5s
   health_check_url: http://127.0.0.1:8091/healthz
@@ -100,13 +100,13 @@ mysql:
   name: pixiu
 ```
 
-`upgrade.enabled=false` 时 updater 直接退出。
+`upgrade.enabled=false` 时 upgrade 进程直接退出。
 
 ## 部署要求
 
-pixiu-updater **必须运行在 pixiu 容器之外**。升级过程会停止并删除名为 `container_name` 的 pixiu 容器再重新创建，updater 若运行在其中会连同自身一起被删除，导致升级中断。
+pixiu-upgrade **必须运行在 pixiu 容器之外**。升级过程会停止并删除名为 `container_name` 的 pixiu 容器再重新创建，upgrade 进程若运行在其中会连同自身一起被删除，导致升级中断。
 
-运行 updater 的进程/容器需要：
+运行 upgrade 进程的主机/容器需要：
 
 - 挂载宿主 CRI socket 或目录，能创建/删除 pixiu 容器：
   - containerd：挂载 `/run/containerd` 与 `/var/lib/containerd`，并保证 `nerdctl` 可用
@@ -118,15 +118,15 @@ pixiu-updater **必须运行在 pixiu 容器之外**。升级过程会停止并�
 
 ## 升级窗口与回滚
 
-- 用户确认升级后，API 返回成功即表示状态已迁移到 1；真正的容器重建在 updater 的下一次轮询（默认 5 秒）开始。
+- 用户确认升级后，API 返回成功即表示状态已迁移到 1；真正的容器重建在 upgrade 进程的下一次轮询（默认 5 秒）开始。
 - 升级窗口内 pixiu 服务会短暂不可用（容器重建 + 健康检查），建议在业务低峰执行。
 - 任一环节失败（拉取镜像、重建容器、健康检查）都会尝试回滚到升级前的镜像，并把状态置为 4、记录 `last_error`；用户可在修复后重试（4 → 1）。
 - 成功重建后不会立即写状态 3：新版 pixiu 启动后会校验「当前运行镜像 tag / 镜像地址 / 编译版本」与目标版本是否一致，一致才回写 3。回写最多重试 10 次、间隔 3 秒。
 
 ## 崩溃恢复
 
-- updater 启动时执行 `ResetStale`：把自己上次遗留的「升级中」（状态 2）记录置为失败（状态 4），并写入 `last_error` 说明进程重启。这样记录不会永久卡在 2，用户可以重新发起升级。
-- 由于 `upgrader_id` 参与条件更新，其他实例不会误清理不属于自己的「升级中」记录。
+- upgrade 进程启动时执行 `ResetStale`：把自己上次遗留的「升级中」（状态 2）记录置为失败（状态 4），并写入 `last_error` 说明进程重启。这样记录不会永久卡在 2，用户可以重新发起升级。
+- 由于 `upgrade_id` 参与条件更新，其他实例不会误清理不属于自己的「升级中」记录。
 - pixiu 主服务启动时如果发现自己是「升级中」的新容器，会在 60 秒内反复确认运行版本并回写状态 3；确认失败只记录告警，不影响服务启动。
 
 ## 接口

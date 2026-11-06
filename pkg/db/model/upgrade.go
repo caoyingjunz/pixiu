@@ -30,13 +30,13 @@ func init() {
 const (
 	// UpgradeStatusNotUpgraded 未升级（默认）：检查器发现 latest > current 时写入，等待用户确认。
 	UpgradeStatusNotUpgraded = 0
-	// UpgradeStatusPending 待升级：用户确认升级后写入，等待 updater 认领。
+	// UpgradeStatusPending 待升级：用户确认升级后写入，等待 upgrade 进程认领。
 	UpgradeStatusPending = 1
-	// UpgradeStatusUpgrading 升级中：updater 原子认领后写入，并记录执行者 upgrader_id。
+	// UpgradeStatusUpgrading 升级中：upgrade 进程原子认领后写入，并记录执行者 upgrade_id。
 	UpgradeStatusUpgrading = 2
 	// UpgradeStatusCompleted 升级完成：新版 pixiu 启动后确认运行版本与目标版本一致时写入。
 	UpgradeStatusCompleted = 3
-	// UpgradeStatusFailed 升级失败：updater 拉取/重建/健康检查失败（含回滚）后写入，允许用户重试（4 -> 1）。
+	// UpgradeStatusFailed 升级失败：upgrade 进程拉取/重建/健康检查失败（含回滚）后写入，允许用户重试（4 -> 1）。
 	UpgradeStatusFailed = 4
 )
 
@@ -50,7 +50,7 @@ type UpgradeRecord struct {
 	Image            string     `gorm:"type:varchar(512);default:''" json:"image"`
 	UpgradeAvailable bool       `gorm:"default:false" json:"upgrade_available"`
 	Status           int        `gorm:"type:tinyint;default:0;not null" json:"status"`
-	UpgraderID       string     `gorm:"type:varchar(128);default:''" json:"upgrader_id"`
+	UpgradeID        string     `gorm:"column:upgrade_id;type:varchar(128);default:''" json:"upgrade_id"`
 	LastError        string     `gorm:"type:text" json:"last_error"`
 	LastCheckedAt    *time.Time `json:"last_checked_at,omitempty"`
 }

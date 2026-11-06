@@ -52,13 +52,13 @@ type Config struct {
 	// Appstore 应用商店（Helm Chart 目录）配置
 	Appstore AppstoreOptions `yaml:"appstore"`
 
-	// Upgrade 自动升级配置（仅本地部署模式）；版本检测在主服务内运行，升级执行由独立 updater 进程完成
+	// Upgrade 自动升级配置（仅本地部署模式）；版本检测在主服务内运行，升级执行由独立 upgrade 进程完成
 	Upgrade UpgradeOptions `yaml:"upgrade"`
 }
 
 // UpgradeOptions 自动升级配置。
 // 版本检测（检查外部版本号并落库）在主服务流程内执行；
-// 升级执行（重建服务容器、健康检查、回滚）由独立的 pixiu-updater 进程完成。
+// 升级执行（重建服务容器、健康检查、回滚）由独立的 pixiu-upgrade 进程完成。
 type UpgradeOptions struct {
 	// Enabled 是否启用自动升级
 	Enabled bool `yaml:"enabled"`
@@ -76,7 +76,7 @@ type UpgradeOptions struct {
 	HealthCheckTimeout string `yaml:"health_check_timeout"`
 	// HealthCheckRetries 健康检查重试次数
 	HealthCheckRetries int `yaml:"health_check_retries"`
-	// PollInterval updater 轮询升级请求的间隔，如 5s
+	// PollInterval upgrade 进程轮询升级请求的间隔，如 5s
 	PollInterval string `yaml:"poll_interval"`
 }
 

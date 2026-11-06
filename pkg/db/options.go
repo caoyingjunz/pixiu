@@ -617,13 +617,13 @@ func WithUpgradeAvailable(available bool) Options {
 	}
 }
 
-// WithUpgradeUpgraderID 按升级执行者标识过滤。空 id 必须匹配 0 行，避免误匹配空标识记录。
-func WithUpgradeUpgraderID(id string) Options {
+// WithUpgradeID 按 upgrade_id（升级执行者标识）过滤。空 id 必须匹配 0 行，避免误匹配空标识记录。
+func WithUpgradeID(id string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if id == "" {
 			return tx.Where("1 = 0")
 		}
-		return tx.Where("upgrader_id = ?", id)
+		return tx.Where("upgrade_id = ?", id)
 	}
 }
 

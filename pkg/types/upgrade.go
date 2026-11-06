@@ -18,7 +18,7 @@ package types
 
 import "time"
 
-// UpgradeStatus 系统升级状态（由 pixiu-updater 同步到数据库）。
+// UpgradeStatus 系统升级状态（由 pixiu-upgrade 同步到数据库）。
 type UpgradeStatus struct {
 	CurrentVersion   string `json:"current_version"`
 	LatestVersion    string `json:"latest_version"`

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package updater
+package upgrade
 
 import (
 	"context"
@@ -43,19 +43,19 @@ const (
 // missingStatus 表示数据库中没有升级记录，供 decideCheckStatus 做纯函数判定。
 const missingStatus = -1
 
-// Updater 定时检查外部版本并持久化到数据库；用户确认后由独立 updater 进程按状态机执行升级。
+// Upgrade 定时检查外部版本并持久化到数据库；用户确认后由独立 upgrade 进程按状态机执行升级。
 //
 // 状态机：0 未升级 -> 1 待升级 -> 2 升级中 -> 3 升级完成 / 4 升级失败（可重试 4 -> 1）。
-type Updater struct {
+type Upgrade struct {
 	cfg          *Config
 	upgradeSvc   upgradecontroller.Interface
 	rtProvider   func() (runtime.Runtime, error)
 	buildVersion string
 }
 
-// New 用已构造好的容器运行时创建 Updater（独立 updater 进程使用）。
-func New(cfg *Config, rt runtime.Runtime, factory db.ShareDaoFactory) *Updater {
-	return &Updater{
+// New 用已构造好的容器运行时创建 Upgrade（独立 upgrade 进程使用）。
+func New(cfg *Config, rt runtime.Runtime, factory db.ShareDaoFactory) *Upgrade {
+	return &Upgrade{
 		cfg:        cfg,
 		upgradeSvc: upgradecontroller.New(factory.Upgrade()),
 		rtProvider: func() (runtime.Runtime, error) { return rt, nil },
@@ -64,8 +64,8 @@ func New(cfg *Config, rt runtime.Runtime, factory db.ShareDaoFactory) *Updater {
 
 // NewWithDefaultRuntime 使用进程内全局懒加载的容器运行时（pixiu 主服务内做版本检测使用），
 // 避免启动阶段就建立 CRI 连接。buildVersion 为当前 pixiu 编译版本，用于启动后回写升级完成状态。
-func NewWithDefaultRuntime(cfg *Config, factory db.ShareDaoFactory, buildVersion string) *Updater {
-	return &Updater{
+func NewWithDefaultRuntime(cfg *Config, factory db.ShareDaoFactory, buildVersion string) *Upgrade {
+	return &Upgrade{
 		cfg:          cfg,
 		upgradeSvc:   upgradecontroller.New(factory.Upgrade()),
 		rtProvider:   runtime.Default,
@@ -73,13 +73,13 @@ func NewWithDefaultRuntime(cfg *Config, factory db.ShareDaoFactory, buildVersion
 	}
 }
 
-func (u *Updater) containerRuntime() (runtime.Runtime, error) {
+func (u *Upgrade) containerRuntime() (runtime.Runtime, error) {
 	return u.rtProvider()
 }
 
 // RunChecker 启动版本检测循环，直到 ctx 被取消。
 // 由 pixiu 主服务流程调用：定期查询外部版本号并与当前容器镜像比对，结果落库。
-func (u *Updater) RunChecker(ctx context.Context) {
+func (u *Upgrade) RunChecker(ctx context.Context) {
 	klog.Infof("pixiu upgrade checker started: version_url=%s interval=%s container=%s",
 		u.cfg.VersionURL, u.cfg.Interval, u.cfg.ContainerName)
 
@@ -99,13 +99,13 @@ func (u *Updater) RunChecker(ctx context.Context) {
 }
 
 // RunExecutor 启动升级请求轮询，直到 ctx 被取消。
-// 由独立的 pixiu-updater 进程调用：只负责按数据库状态执行升级，不做版本检测。
-func (u *Updater) RunExecutor(ctx context.Context) {
-	klog.Infof("pixiu updater started: poll=%s container=%s upgrader_id=%s",
-		u.cfg.PollInterval, u.cfg.ContainerName, u.cfg.UpgraderID)
+// 由独立的 pixiu-upgrade 进程调用：只负责按数据库状态执行升级，不做版本检测。
+func (u *Upgrade) RunExecutor(ctx context.Context) {
+	klog.Infof("pixiu upgrade started: poll=%s container=%s upgrade_id=%s",
+		u.cfg.PollInterval, u.cfg.ContainerName, u.cfg.UpgradeID)
 
 	// 清理自身进程上次崩溃遗留的「升级中」状态，避免记录永远卡在 2
-	if reset, err := u.upgradeSvc.ResetStale(ctx, u.cfg.UpgraderID, "upgrader 进程重启，上次升级未完成"); err != nil {
+	if reset, err := u.upgradeSvc.ResetStale(ctx, u.cfg.UpgradeID, "upgrade 进程重启，上次升级未完成"); err != nil {
 		klog.Errorf("清理遗留升级状态失败: %v", err)
 	} else if reset {
 		klog.Warning("检测到上次升级未完成（状态 2），已回写为失败（状态 4），允许用户重试")
@@ -116,7 +116,7 @@ func (u *Updater) RunExecutor(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			klog.Info("pixiu updater stopped")
+			klog.Info("pixiu upgrade stopped")
 			return
 		case <-ticker.C:
 			u.pollUpgradeRequest(ctx)
@@ -125,7 +125,7 @@ func (u *Updater) RunExecutor(ctx context.Context) {
 }
 
 // refresh 查询最新版本并写入数据库，不执行升级。
-func (u *Updater) refresh(ctx context.Context) {
+func (u *Upgrade) refresh(ctx context.Context) {
 	record, err := u.upgradeSvc.Get(ctx)
 	if err != nil {
 		klog.Errorf("读取升级状态失败: %v", err)
@@ -244,8 +244,8 @@ func matchUpgradeTarget(currentImage, buildVersion string, record *model.Upgrade
 }
 
 // pollUpgradeRequest 原子认领待升级请求（状态 1 -> 2）并执行升级。
-func (u *Updater) pollUpgradeRequest(ctx context.Context) {
-	record, claimed, err := u.upgradeSvc.Claim(ctx, u.cfg.UpgraderID)
+func (u *Upgrade) pollUpgradeRequest(ctx context.Context) {
+	record, claimed, err := u.upgradeSvc.Claim(ctx, u.cfg.UpgradeID)
 	if err != nil {
 		klog.Errorf("认领升级请求失败: %v", err)
 		return
@@ -254,12 +254,12 @@ func (u *Updater) pollUpgradeRequest(ctx context.Context) {
 		return
 	}
 
-	klog.Infof("收到升级请求，开始升级到 %s（image=%s upgrader=%s）",
-		record.LatestVersion, record.Image, record.UpgraderID)
-	go u.doUpgrade(record.Image, record.LatestVersion, record.UpgraderID)
+	klog.Infof("收到升级请求，开始升级到 %s（image=%s upgrade_id=%s）",
+		record.LatestVersion, record.Image, record.UpgradeID)
+	go u.doUpgrade(record.Image, record.LatestVersion, record.UpgradeID)
 }
 
-func (u *Updater) doUpgrade(image, latestVersion, upgraderID string) {
+func (u *Upgrade) doUpgrade(image, latestVersion, upgradeID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), upgradeTimeout)
 	defer cancel()
 
@@ -268,7 +268,7 @@ func (u *Updater) doUpgrade(image, latestVersion, upgraderID string) {
 		klog.Errorf("升级失败: %v", err)
 		markCtx, markCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer markCancel()
-		if _, markErr := u.upgradeSvc.MarkFailed(markCtx, upgraderID, err.Error()); markErr != nil {
+		if _, markErr := u.upgradeSvc.MarkFailed(markCtx, upgradeID, err.Error()); markErr != nil {
 			klog.Errorf("回写升级失败状态失败: %v", markErr)
 		}
 	}
@@ -306,7 +306,7 @@ func (u *Updater) doUpgrade(image, latestVersion, upgraderID string) {
 
 // MarkCompleted 由新版 pixiu 启动后调用：确认当前运行版本已达到升级目标后回写状态 3。
 // 最多重试 completeMarkAttempts 次，调用方应传入约 60 秒超时的 ctx。
-func (u *Updater) MarkCompleted(ctx context.Context) {
+func (u *Upgrade) MarkCompleted(ctx context.Context) {
 	record, err := u.upgradeSvc.Get(ctx)
 	if err != nil {
 		klog.Errorf("读取升级状态失败: %v", err)
@@ -344,17 +344,17 @@ func (u *Updater) MarkCompleted(ctx context.Context) {
 			continue
 		}
 
-		marked, markErr := u.upgradeSvc.MarkCompleted(ctx, record.UpgraderID, record.LatestVersion)
+		marked, markErr := u.upgradeSvc.MarkCompleted(ctx, record.UpgradeID, record.LatestVersion)
 		if markErr != nil {
 			lastErr = markErr
 			continue
 		}
 		if !marked {
 			// 状态已被其他流程更新（如已完成或已重置），无需继续重试
-			klog.Warningf("回写升级完成状态未命中: upgrader=%s target=%s", record.UpgraderID, record.LatestVersion)
+			klog.Warningf("回写升级完成状态未命中: upgrade_id=%s target=%s", record.UpgradeID, record.LatestVersion)
 			return
 		}
-		klog.Infof("pixiu 升级完成: version=%s upgrader=%s", record.LatestVersion, record.UpgraderID)
+		klog.Infof("pixiu 升级完成: version=%s upgrade_id=%s", record.LatestVersion, record.UpgradeID)
 		return
 	}
 
@@ -362,7 +362,7 @@ func (u *Updater) MarkCompleted(ctx context.Context) {
 		current, record.LatestVersion, lastErr)
 }
 
-func (u *Updater) rollback(ctx context.Context, oldImage string) {
+func (u *Upgrade) rollback(ctx context.Context, oldImage string) {
 	if oldImage == "" {
 		klog.Warning("跳过回滚：旧镜像未知")
 		return
@@ -380,19 +380,19 @@ func (u *Updater) rollback(ctx context.Context, oldImage string) {
 	klog.Infof("已回滚到旧镜像 %s", oldImage)
 }
 
-func (u *Updater) saveCheck(ctx context.Context, record *model.UpgradeRecord) {
+func (u *Upgrade) saveCheck(ctx context.Context, record *model.UpgradeRecord) {
 	if err := u.upgradeSvc.SaveCheck(ctx, record); err != nil {
 		klog.Errorf("保存升级状态失败: %v", err)
 	}
 }
 
-func (u *Updater) saveCheckError(ctx context.Context, message string) {
+func (u *Upgrade) saveCheckError(ctx context.Context, message string) {
 	if err := u.upgradeSvc.SaveCheckError(ctx, message); err != nil {
 		klog.Errorf("保存版本检查错误失败: %v", err)
 	}
 }
 
-func (u *Updater) resolveImage(info *VersionInfo) (string, error) {
+func (u *Upgrade) resolveImage(info *VersionInfo) (string, error) {
 	if info.Image != "" {
 		return info.Image, nil
 	}
@@ -402,7 +402,7 @@ func (u *Updater) resolveImage(info *VersionInfo) (string, error) {
 	return fmt.Sprintf("%s:%s", u.cfg.ImageRepository, info.Version), nil
 }
 
-func (u *Updater) healthCheck(ctx context.Context) error {
+func (u *Upgrade) healthCheck(ctx context.Context) error {
 	if u.cfg.HealthCheckURL == "" {
 		return nil
 	}

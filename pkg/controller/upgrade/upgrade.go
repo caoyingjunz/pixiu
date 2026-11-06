@@ -38,14 +38,14 @@ type Interface interface {
 	SaveCheckError(ctx context.Context, message string) error
 	// MarkPending 用户确认升级：0/4 -> 1。
 	MarkPending(ctx context.Context) (bool, error)
-	// Claim 升级器原子认领升级请求：1 -> 2，并写入 upgrader_id；未抢到返回 nil, false, nil。
-	Claim(ctx context.Context, upgraderID string) (*model.UpgradeRecord, bool, error)
+	// Claim upgrade 进程原子认领升级请求：1 -> 2，并写入 upgrade_id；未抢到返回 nil, false, nil。
+	Claim(ctx context.Context, upgradeID string) (*model.UpgradeRecord, bool, error)
 	// MarkCompleted 新版 pixiu 回写升级完成：2 -> 3。
-	MarkCompleted(ctx context.Context, upgraderID, version string) (bool, error)
+	MarkCompleted(ctx context.Context, upgradeID, version string) (bool, error)
 	// MarkFailed 升级器回写升级失败：2/3 -> 4（允许 3 -> 4：pixiu 先回写 3 后健康检查失败）。
-	MarkFailed(ctx context.Context, upgraderID, message string) (bool, error)
+	MarkFailed(ctx context.Context, upgradeID, message string) (bool, error)
 	// ResetStale 升级器启动时清理自身上次崩溃遗留的 2：2 -> 4。
-	ResetStale(ctx context.Context, upgraderID, message string) (bool, error)
+	ResetStale(ctx context.Context, upgradeID, message string) (bool, error)
 }
 
 type Getter interface {
@@ -95,9 +95,9 @@ func (u *upgrade) SaveCheck(ctx context.Context, object *model.UpgradeRecord) er
 		"last_checked_at":   object.LastCheckedAt,
 		"gmt_modified":      now,
 	}
-	// 失败态发现更新的版本时重新回到未升级：清空上一轮 upgrader 标识与错误信息
+	// 失败态发现更新的版本时重新回到未升级：清空上一轮 upgrade_id 与错误信息
 	if existing.Status == model.UpgradeStatusFailed && object.Status == model.UpgradeStatusNotUpgraded {
-		updates["upgrader_id"] = ""
+		updates["upgrade_id"] = ""
 		updates["last_error"] = ""
 	}
 	_, err = u.dao.Update(ctx, 1, updates, db.WithUpgradeStatusNotIn(upgradeFlowStatuses...))
@@ -116,7 +116,7 @@ func (u *upgrade) MarkPending(ctx context.Context) (bool, error) {
 	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
 		"status":       model.UpgradeStatusPending,
 		"last_error":   "",
-		"upgrader_id":  "",
+		"upgrade_id":   "",
 		"gmt_modified": time.Now(),
 	},
 		db.WithUpgradeStatus(model.UpgradeStatusNotUpgraded, model.UpgradeStatusFailed),
@@ -129,10 +129,10 @@ func (u *upgrade) MarkPending(ctx context.Context) (bool, error) {
 	return affected == 1, nil
 }
 
-func (u *upgrade) Claim(ctx context.Context, upgraderID string) (*model.UpgradeRecord, bool, error) {
+func (u *upgrade) Claim(ctx context.Context, upgradeID string) (*model.UpgradeRecord, bool, error) {
 	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
 		"status":       model.UpgradeStatusUpgrading,
-		"upgrader_id":  upgraderID,
+		"upgrade_id":   upgradeID,
 		"last_error":   "",
 		"gmt_modified": time.Now(),
 	}, db.WithUpgradeStatus(model.UpgradeStatusPending))
@@ -153,7 +153,7 @@ func (u *upgrade) Claim(ctx context.Context, upgraderID string) (*model.UpgradeR
 	return record, true, nil
 }
 
-func (u *upgrade) MarkCompleted(ctx context.Context, upgraderID, version string) (bool, error) {
+func (u *upgrade) MarkCompleted(ctx context.Context, upgradeID, version string) (bool, error) {
 	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
 		"status":            model.UpgradeStatusCompleted,
 		"current_version":   version,
@@ -162,7 +162,7 @@ func (u *upgrade) MarkCompleted(ctx context.Context, upgraderID, version string)
 		"gmt_modified":      time.Now(),
 	},
 		db.WithUpgradeStatus(model.UpgradeStatusUpgrading),
-		db.WithUpgradeUpgraderID(upgraderID),
+		db.WithUpgradeID(upgradeID),
 		db.WithUpgradeLatestVersion(version),
 	)
 	if err != nil {
@@ -171,14 +171,14 @@ func (u *upgrade) MarkCompleted(ctx context.Context, upgraderID, version string)
 	return affected == 1, nil
 }
 
-func (u *upgrade) MarkFailed(ctx context.Context, upgraderID, message string) (bool, error) {
+func (u *upgrade) MarkFailed(ctx context.Context, upgradeID, message string) (bool, error) {
 	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
 		"status":       model.UpgradeStatusFailed,
 		"last_error":   message,
 		"gmt_modified": time.Now(),
 	},
 		db.WithUpgradeStatus(model.UpgradeStatusUpgrading, model.UpgradeStatusCompleted),
-		db.WithUpgradeUpgraderID(upgraderID),
+		db.WithUpgradeID(upgradeID),
 	)
 	if err != nil {
 		return false, err
@@ -186,14 +186,14 @@ func (u *upgrade) MarkFailed(ctx context.Context, upgraderID, message string) (b
 	return affected == 1, nil
 }
 
-func (u *upgrade) ResetStale(ctx context.Context, upgraderID, message string) (bool, error) {
+func (u *upgrade) ResetStale(ctx context.Context, upgradeID, message string) (bool, error) {
 	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
 		"status":       model.UpgradeStatusFailed,
 		"last_error":   message,
 		"gmt_modified": time.Now(),
 	},
 		db.WithUpgradeStatus(model.UpgradeStatusUpgrading),
-		db.WithUpgradeUpgraderID(upgraderID),
+		db.WithUpgradeID(upgradeID),
 	)
 	if err != nil {
 		return false, err
