@@ -21,16 +21,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/distribution/reference"
-
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
-)
-
-// 自动升级默认值（pkg/upgrade 的常量会互相引入，此处独立声明并保持一致）
-const (
-	upgradeDefaultSchedule      = "*/30 * * * *"
-	upgradeDefaultContainerName = "pixiu"
-	upgradeDefaultExecutable    = "/app"
 )
 
 type Mode string
@@ -60,63 +51,6 @@ type Config struct {
 
 	// Appstore 应用商店（Helm Chart 目录）配置
 	Appstore AppstoreOptions `yaml:"appstore"`
-
-	// Upgrade 自动升级配置（仅支持本地部署模式：pixiu 以容器方式运行在本机 CRI 上）
-	Upgrade UpgradeOptions `yaml:"upgrade"`
-}
-
-// UpgradeOptions pixiu 自动升级配置。
-// 仅支持本地部署模式：pixiu 以容器方式运行在本机 docker/containerd 上；
-// k8s/helm 部署模式下未发现本地容器，守护 job 会自动跳过。
-type UpgradeOptions struct {
-	// Enabled 是否启用自动升级，默认关闭
-	Enabled bool `yaml:"enabled"`
-	// Schedule 检查周期（cron 表达式），默认每 30 分钟
-	Schedule string `yaml:"schedule"`
-	// VersionURL 外部版本号地址：HTTP(S) GET 返回最新版本号（纯文本或 {"version":"v1.2.3"} JSON）
-	VersionURL string `yaml:"version_url"`
-	// Image 镜像仓库地址（不含 tag），升级时以版本号作为 tag 拉取与重建，如 crpi-xxx/pixiu-public/pixiu
-	Image string `yaml:"image"`
-	// ContainerName pixiu 服务容器名，默认 pixiu
-	ContainerName string `yaml:"container_name"`
-	// Executable pixiu 二进制在镜像内的路径，用于以新镜像拉起升级执行器，默认 /app
-	Executable string `yaml:"executable"`
-}
-
-func (o *UpgradeOptions) SetDefaults() {
-	if o == nil {
-		return
-	}
-	if o.Schedule == "" {
-		o.Schedule = upgradeDefaultSchedule
-	}
-	if o.ContainerName == "" {
-		o.ContainerName = upgradeDefaultContainerName
-	}
-	if o.Executable == "" {
-		o.Executable = upgradeDefaultExecutable
-	}
-}
-
-func (o UpgradeOptions) Valid() error {
-	if !o.Enabled {
-		return nil
-	}
-	if o.VersionURL == "" {
-		return fmt.Errorf("启用自动升级时必须配置 upgrade.version_url")
-	}
-	if o.Image == "" {
-		return fmt.Errorf("启用自动升级时必须配置 upgrade.image")
-	}
-	// image 必须不含 tag/digest：升级时以版本号作为 tag 动态拼接
-	named, err := reference.ParseNormalizedNamed(o.Image)
-	if err != nil {
-		return fmt.Errorf("upgrade.image 非法(%s): %v", o.Image, err)
-	}
-	if !reference.IsNameOnly(named) {
-		return fmt.Errorf("upgrade.image 不能包含 tag/digest(%s)，升级时以版本号作为 tag 动态拼接", o.Image)
-	}
-	return nil
 }
 
 // AppstoreOptions 应用商店配置（Chart 包存储在本地磁盘）。
@@ -261,6 +195,10 @@ type RuntimeOptions struct {
 	// Socket 宿主运行时 socket 文件路径（裸路径，如 /run/containerd/containerd.sock）。
 	// 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket。
 	Socket string `yaml:"socket"`
+	// Nerdctl containerd 下重建 pixiu 容器使用的 nerdctl 二进制路径（升级场景）。
+	Nerdctl string `yaml:"nerdctl"`
+	// Namespace containerd 命名空间（升级场景，默认 default）。
+	Namespace string `yaml:"namespace"`
 }
 
 // defaultContainerdSocket containerd 的默认 socket 路径（runtime.socket 留空且 CRI 为 containerd 时使用）
@@ -273,6 +211,12 @@ func (o *RuntimeOptions) SetDefaults() {
 	// socket 默认值仅 containerd 有固定路径；docker 留空表示沿用 DOCKER_HOST/默认 socket
 	if o.Socket == "" && o.CRI == "containerd" {
 		o.Socket = defaultContainerdSocket
+	}
+	if o.Nerdctl == "" {
+		o.Nerdctl = "nerdctl"
+	}
+	if o.Namespace == "" {
+		o.Namespace = "default"
 	}
 }
 
@@ -320,7 +264,6 @@ func (c *Config) Valid() (err error) {
 	// 按设计，启动链不做任何 CRI 配置校验：坏值延迟到首次实际使用运行时（runtime.New）时报错，不阻断启动
 
 	c.Appstore.SetDefaults()
-	c.Upgrade.SetDefaults()
 
 	return
 }

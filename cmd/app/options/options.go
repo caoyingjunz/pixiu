@@ -33,7 +33,6 @@ import (
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
-	"github.com/caoyingjunz/pixiu/pkg/upgrade"
 	pixiuruntime "github.com/caoyingjunz/pixiu/pkg/util/runtime"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
@@ -180,7 +179,8 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 
 	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
 	accessOpts := o.ComponentConfig.Log.AccessOptions()
-	jobs := []jobmanager.Job{
+	o.JobManager = jobmanager.NewManager(
+		&accessOpts,
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
 		jobmanager.NewCronHpaHistoryCleaner(o.ComponentConfig.CronHpaHistory, o.Factory),
@@ -189,12 +189,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		jobmanager.NewTunnelSyncer(o.Factory),
 		jobmanager.NewCronHpaEvaluator(o.Controller.Extension().Autoscaling()),
 		o.AlertEvaluator,
-	}
-	// 自动升级（仅本地部署模式）：未启用时不注册，避免空转的 cron 节拍
-	if o.ComponentConfig.Upgrade.Enabled {
-		jobs = append(jobs, upgrade.NewJob(o.ComponentConfig.Upgrade, o.ComponentConfig.Runtime))
-	}
-	o.JobManager = jobmanager.NewManager(&accessOpts, jobs...)
+	)
 	return nil
 }
 
