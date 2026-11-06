@@ -38,3 +38,8 @@ vendor
 
 # Local Go build cache
 /.gocache/
+
+# License 签发密钥（私钥严禁入库，仅签发方持有）
+license-keys/
+license.json
+license.key

@@ -36,7 +36,7 @@ mysql:
 
 worker:
   # 默认是 /etc/pixiu, 如果指定则需要修改挂载路径
-  #work_dir: /etc/pixiu
+  work_dir: /tmp/pixiu
   # 本地部署任务容器等待超时秒数，默认 900 秒
   #deploy_timeout: 900
 
@@ -97,3 +97,11 @@ appstore:
   data_dir: /tmp/pixiu/appstore
   # 单个 chart 包上传大小上限（MB），默认 32
   max_upload_mb: 32
+
+# 商业授权（license）配置
+# 未配置或文件缺失时自动降级为社区版（≤3 集群 / ≤50 主机，无付费功能）
+license:
+  # license.key 文件路径；控制台「商业授权」页上传时写入该路径
+  # path: /etc/pixiu/license.key
+  # 热更新轮询间隔（秒），默认 86400（24 小时），续费换证免重启
+  # auto_reload_interval: 86400
