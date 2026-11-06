@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "master"
+      - "feat/updater-refactor"
     paths:
       - 'cmd/upgrade/**'
       - 'pkg/upgrade/**'
