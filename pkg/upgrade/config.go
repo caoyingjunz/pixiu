@@ -35,7 +35,8 @@ const (
 	defaultPollInterval  = 5 * time.Second
 )
 
-// Config 是 pixiu-upgrade 的配置（与主服务共用 config.yaml，读取 upgrade/runtime/mysql 段）。
+// Config 是 pixiu-upgrade 的配置（与主服务共用 config.yaml，读取 upgrade/runtime/mysql 段），
+// 即校验并补全默认值后的运行期配置。
 type Config struct {
 	Enabled         bool
 	VersionURL      string
@@ -55,14 +56,15 @@ type Config struct {
 	Mysql   config.MysqlOptions
 }
 
-type rawConfig struct {
-	Upgrade upgradeSpec           `yaml:"upgrade"`
+// fileConfig 是 config.yaml 的原始文件结构（与主服务共用，只取 upgrade/runtime/mysql 三段）。
+type fileConfig struct {
+	Upgrade upgradeSection        `yaml:"upgrade"`
 	Runtime config.RuntimeOptions `yaml:"runtime"`
 	Mysql   config.MysqlOptions   `yaml:"mysql"`
 }
 
-// upgradeSpec 是 upgrade 配置段的原始形态（字符串形式的时长）。
-type upgradeSpec struct {
+// upgradeSection 是 upgrade 配置段的原始形态（时长等字段为字符串，normalize 后转为 Config）。
+type upgradeSection struct {
 	Enabled            bool   `yaml:"enabled"`
 	VersionURL         string `yaml:"version_url"`
 	ImageRepository    string `yaml:"image_repository"`
@@ -82,17 +84,17 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("读取配置(%s)失败: %v", path, err)
 	}
 
-	var raw rawConfig
-	if err = yaml.Unmarshal(data, &raw); err != nil {
+	var fileCfg fileConfig
+	if err = yaml.Unmarshal(data, &fileCfg); err != nil {
 		return nil, fmt.Errorf("解析配置(%s)失败: %v", path, err)
 	}
 
-	return normalize(raw.Upgrade, raw.Runtime, raw.Mysql, true)
+	return normalize(fileCfg.Upgrade, fileCfg.Runtime, fileCfg.Mysql, true)
 }
 
 // FromUpgradeOptions 由主服务配置构造 upgrade 进程配置（版本检测在主服务内运行，不需要 mysql 段）。
 func FromUpgradeOptions(opt config.UpgradeOptions, rt config.RuntimeOptions) (*Config, error) {
-	return normalize(upgradeSpec{
+	return normalize(upgradeSection{
 		Enabled:            opt.Enabled,
 		VersionURL:         opt.VersionURL,
 		ImageRepository:    opt.ImageRepository,
@@ -106,16 +108,16 @@ func FromUpgradeOptions(opt config.UpgradeOptions, rt config.RuntimeOptions) (*C
 }
 
 // normalize 校验并补全默认值；requireMysql 为 true 时校验数据库配置（独立进程需要自行连库）。
-func normalize(spec upgradeSpec, rt config.RuntimeOptions, mysql config.MysqlOptions, requireMysql bool) (*Config, error) {
+func normalize(section upgradeSection, rt config.RuntimeOptions, mysql config.MysqlOptions, requireMysql bool) (*Config, error) {
 	cfg := &Config{
-		Enabled:            spec.Enabled,
-		VersionURL:         spec.VersionURL,
-		ImageRepository:    spec.ImageRepository,
-		ContainerName:      spec.ContainerName,
-		UpgradeID:          spec.UpgradeID,
-		HealthCheckURL:     spec.HealthCheckURL,
+		Enabled:            section.Enabled,
+		VersionURL:         section.VersionURL,
+		ImageRepository:    section.ImageRepository,
+		ContainerName:      section.ContainerName,
+		UpgradeID:          section.UpgradeID,
+		HealthCheckURL:     section.HealthCheckURL,
 		HealthCheckTimeout: defaultHealthTimeout,
-		HealthCheckRetries: spec.HealthCheckRetries,
+		HealthCheckRetries: section.HealthCheckRetries,
 		Runtime:            rt,
 		Mysql:              mysql,
 	}
@@ -138,25 +140,25 @@ func normalize(spec upgradeSpec, rt config.RuntimeOptions, mysql config.MysqlOpt
 		}
 	}
 	cfg.PollInterval = defaultPollInterval
-	if spec.PollInterval != "" {
-		interval, parseErr := time.ParseDuration(spec.PollInterval)
+	if section.PollInterval != "" {
+		interval, parseErr := time.ParseDuration(section.PollInterval)
 		if parseErr != nil {
-			return nil, fmt.Errorf("upgrade.poll_interval 非法(%s): %v", spec.PollInterval, parseErr)
+			return nil, fmt.Errorf("upgrade.poll_interval 非法(%s): %v", section.PollInterval, parseErr)
 		}
 		cfg.PollInterval = interval
 	}
 	cfg.Interval = defaultInterval
-	if spec.Interval != "" {
-		interval, parseErr := time.ParseDuration(spec.Interval)
+	if section.Interval != "" {
+		interval, parseErr := time.ParseDuration(section.Interval)
 		if parseErr != nil {
-			return nil, fmt.Errorf("upgrade.interval 非法(%s): %v", spec.Interval, parseErr)
+			return nil, fmt.Errorf("upgrade.interval 非法(%s): %v", section.Interval, parseErr)
 		}
 		cfg.Interval = interval
 	}
-	if spec.HealthCheckTimeout != "" {
-		timeout, parseErr := time.ParseDuration(spec.HealthCheckTimeout)
+	if section.HealthCheckTimeout != "" {
+		timeout, parseErr := time.ParseDuration(section.HealthCheckTimeout)
 		if parseErr != nil {
-			return nil, fmt.Errorf("upgrade.health_check_timeout 非法(%s): %v", spec.HealthCheckTimeout, parseErr)
+			return nil, fmt.Errorf("upgrade.health_check_timeout 非法(%s): %v", section.HealthCheckTimeout, parseErr)
 		}
 		cfg.HealthCheckTimeout = timeout
 	}
