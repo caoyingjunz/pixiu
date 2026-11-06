@@ -33,6 +33,7 @@ import (
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
+	"github.com/caoyingjunz/pixiu/pkg/upgrade"
 	pixiuruntime "github.com/caoyingjunz/pixiu/pkg/util/runtime"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
@@ -73,10 +74,16 @@ type Options struct {
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
+	// ServerVersion 当前 pixiu 编译版本，用于升级完成后回写状态 3。
+	ServerVersion string
 
 	JobManager *jobmanager.Manager
 
 	AlertEvaluator *jobmanager.AlertEvaluator
+
+	// UpgradeChecker 自动升级的版本检测器；仅 upgrade.enabled=true 时创建。
+	// 版本检测跑在主服务流程里，升级执行由独立 pixiu-upgrade 进程完成。
+	UpgradeChecker *upgrade.Upgrade
 }
 
 func NewOptions() (*Options, error) {
@@ -190,6 +197,16 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		jobmanager.NewCronHpaEvaluator(o.Controller.Extension().Autoscaling()),
 		o.AlertEvaluator,
 	)
+
+	// 自动升级：版本检测纳入主服务流程（懒加载容器运行时，首次检测才连 CRI）；
+	// 升级执行仍由独立 pixiu-upgrade 进程按数据库标记完成。
+	if o.ComponentConfig.Upgrade.Enabled {
+		upgradeCfg, err := upgrade.FromUpgradeOptions(o.ComponentConfig.Upgrade, o.ComponentConfig.Runtime)
+		if err != nil {
+			return err
+		}
+		o.UpgradeChecker = upgrade.NewWithDefaultRuntime(upgradeCfg, o.Factory, o.ServerVersion)
+	}
 	return nil
 }
 

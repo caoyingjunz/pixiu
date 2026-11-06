@@ -51,6 +51,33 @@ type Config struct {
 
 	// Appstore 应用商店（Helm Chart 目录）配置
 	Appstore AppstoreOptions `yaml:"appstore"`
+
+	// Upgrade 自动升级配置（仅本地部署模式）；版本检测在主服务内运行，升级执行由独立 upgrade 进程完成
+	Upgrade UpgradeOptions `yaml:"upgrade"`
+}
+
+// UpgradeOptions 自动升级配置。
+// 版本检测（检查外部版本号并落库）在主服务流程内执行；
+// 升级执行（重建服务容器、健康检查、回滚）由独立的 pixiu-upgrade 进程完成。
+type UpgradeOptions struct {
+	// Enabled 是否启用自动升级
+	Enabled bool `yaml:"enabled"`
+	// VersionURL 版本号检查地址
+	VersionURL string `yaml:"version_url"`
+	// ImageRepository 版本源未返回镜像时的镜像仓库前缀
+	ImageRepository string `yaml:"image_repository"`
+	// Interval 版本检测间隔，如 6h
+	Interval string `yaml:"interval"`
+	// ContainerName 待升级的服务容器名，默认 pixiu
+	ContainerName string `yaml:"container_name"`
+	// HealthCheckURL 升级后健康检查地址
+	HealthCheckURL string `yaml:"health_check_url"`
+	// HealthCheckTimeout 单次健康检查超时时间，如 60s
+	HealthCheckTimeout string `yaml:"health_check_timeout"`
+	// HealthCheckRetries 健康检查重试次数
+	HealthCheckRetries int `yaml:"health_check_retries"`
+	// PollInterval upgrade 进程轮询升级请求的间隔，如 5s
+	PollInterval string `yaml:"poll_interval"`
 }
 
 // AppstoreOptions 应用商店配置（Chart 包存储在本地磁盘）。
@@ -195,6 +222,10 @@ type RuntimeOptions struct {
 	// Socket 宿主运行时 socket 文件路径（裸路径，如 /run/containerd/containerd.sock）。
 	// 留空时：containerd 使用 /run/containerd/containerd.sock；docker 沿用 DOCKER_HOST/默认 socket。
 	Socket string `yaml:"socket"`
+	// Nerdctl containerd 下重建 pixiu 容器使用的 nerdctl 二进制路径（升级场景）。
+	Nerdctl string `yaml:"nerdctl"`
+	// Namespace containerd 命名空间（升级场景，默认 default）。
+	Namespace string `yaml:"namespace"`
 }
 
 // defaultContainerdSocket containerd 的默认 socket 路径（runtime.socket 留空且 CRI 为 containerd 时使用）
@@ -207,6 +238,12 @@ func (o *RuntimeOptions) SetDefaults() {
 	// socket 默认值仅 containerd 有固定路径；docker 留空表示沿用 DOCKER_HOST/默认 socket
 	if o.Socket == "" && o.CRI == "containerd" {
 		o.Socket = defaultContainerdSocket
+	}
+	if o.Nerdctl == "" {
+		o.Nerdctl = "nerdctl"
+	}
+	if o.Namespace == "" {
+		o.Namespace = "default"
 	}
 }
 

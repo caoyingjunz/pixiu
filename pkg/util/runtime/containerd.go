@@ -66,7 +66,9 @@ type logEntry struct {
 var containerLogs sync.Map // 容器名 -> *logEntry
 
 type containerdRuntime struct {
-	client *containerd.Client
+	client    *containerd.Client
+	nerdctl   string // 升级重建容器使用的 nerdctl 二进制路径
+	namespace string // nerdctl 操作使用的 containerd 命名空间
 }
 
 func newContainerdRuntime(opts config.RuntimeOptions) (*containerdRuntime, error) {
@@ -85,7 +87,15 @@ func newContainerdRuntime(opts config.RuntimeOptions) (*containerdRuntime, error
 		return nil, fmt.Errorf("连接 containerd 失败（%s）：%v；请确认 containerd 正在运行、socket 已挂载进 pixiu 容器，或将 runtime.cri 显式配置为 docker", address, err)
 	}
 
-	return &containerdRuntime{client: cli}, nil
+	nerdctl := opts.Nerdctl
+	if nerdctl == "" {
+		nerdctl = "nerdctl"
+	}
+	namespace := opts.Namespace
+	if namespace == "" {
+		namespace = "default"
+	}
+	return &containerdRuntime{client: cli, nerdctl: nerdctl, namespace: namespace}, nil
 }
 
 func (c *containerdRuntime) Kind() Kind {
