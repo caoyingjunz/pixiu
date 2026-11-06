@@ -64,7 +64,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	updater.New(cfg, rt, factory).Run(ctx)
+	// 版本检测由 pixiu 主服务负责，本进程只轮询升级请求并执行容器重建
+	updater.New(cfg, rt, factory).RunExecutor(ctx)
 }
 
 func newFactory(cfg *updater.Config) (pixiudb.ShareDaoFactory, error) {

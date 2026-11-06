@@ -33,35 +33,64 @@ const upgradeTimeout = 30 * time.Minute
 
 // Updater 定时检查外部版本并持久化到数据库；用户确认后（数据库标记 requested）再执行升级。
 type Updater struct {
-	cfg     *Config
-	rt      runtime.Runtime
-	factory db.ShareDaoFactory
+	cfg        *Config
+	factory    db.ShareDaoFactory
+	rtProvider func() (runtime.Runtime, error)
 }
 
+// New 用已构造好的容器运行时创建 Updater（独立 updater 进程使用）。
 func New(cfg *Config, rt runtime.Runtime, factory db.ShareDaoFactory) *Updater {
-	return &Updater{cfg: cfg, rt: rt, factory: factory}
+	return &Updater{
+		cfg:        cfg,
+		factory:    factory,
+		rtProvider: func() (runtime.Runtime, error) { return rt, nil },
+	}
 }
 
-// Run 启动版本检查与升级请求轮询，直到 ctx 被取消。
-func (u *Updater) Run(ctx context.Context) {
-	klog.Infof("pixiu-updater started: version_url=%s interval=%s poll=%s container=%s",
-		u.cfg.VersionURL, u.cfg.Interval, u.cfg.PollInterval, u.cfg.ContainerName)
+// NewWithDefaultRuntime 使用进程内全局懒加载的容器运行时（pixiu 主服务内做版本检测使用），
+// 避免启动阶段就建立 CRI 连接。
+func NewWithDefaultRuntime(cfg *Config, factory db.ShareDaoFactory) *Updater {
+	return &Updater{cfg: cfg, factory: factory, rtProvider: runtime.Default}
+}
+
+func (u *Updater) containerRuntime() (runtime.Runtime, error) {
+	return u.rtProvider()
+}
+
+// RunChecker 启动版本检测循环，直到 ctx 被取消。
+// 由 pixiu 主服务流程调用：定期查询外部版本号并与当前容器镜像比对，结果落库。
+func (u *Updater) RunChecker(ctx context.Context) {
+	klog.Infof("pixiu upgrade checker started: version_url=%s interval=%s container=%s",
+		u.cfg.VersionURL, u.cfg.Interval, u.cfg.ContainerName)
 
 	u.refresh(ctx)
 
-	versionTicker := time.NewTicker(u.cfg.Interval)
-	requestTicker := time.NewTicker(u.cfg.PollInterval)
-	defer versionTicker.Stop()
-	defer requestTicker.Stop()
-
+	ticker := time.NewTicker(u.cfg.Interval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			klog.Info("pixiu-updater stopped")
+			klog.Info("pixiu upgrade checker stopped")
 			return
-		case <-versionTicker.C:
+		case <-ticker.C:
 			u.refresh(ctx)
-		case <-requestTicker.C:
+		}
+	}
+}
+
+// RunExecutor 启动升级请求轮询，直到 ctx 被取消。
+// 由独立的 pixiu-updater 进程调用：只负责按数据库标记执行升级，不做版本检测。
+func (u *Updater) RunExecutor(ctx context.Context) {
+	klog.Infof("pixiu updater started: poll=%s container=%s", u.cfg.PollInterval, u.cfg.ContainerName)
+
+	ticker := time.NewTicker(u.cfg.PollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			klog.Info("pixiu updater stopped")
+			return
+		case <-ticker.C:
 			u.pollUpgradeRequest(ctx)
 		}
 	}
@@ -91,7 +120,14 @@ func (u *Updater) refresh(ctx context.Context) {
 		klog.Errorf("解析升级镜像失败: %v", err)
 		return
 	}
-	current, err := u.rt.ContainerImage(ctx, u.cfg.ContainerName)
+	rt, err := u.containerRuntime()
+	if err != nil {
+		record.LastError = fmt.Sprintf("初始化容器运行时失败: %v", err)
+		u.saveRecord(ctx, record)
+		klog.Errorf("%s", record.LastError)
+		return
+	}
+	current, err := rt.ContainerImage(ctx, u.cfg.ContainerName)
 	if err != nil {
 		record.LastError = fmt.Sprintf("获取当前容器(%s)镜像失败: %v", u.cfg.ContainerName, err)
 		u.saveRecord(ctx, record)
@@ -143,7 +179,19 @@ func (u *Updater) doUpgrade(image, latestVersion string) {
 	ctx, cancel := context.WithTimeout(context.Background(), upgradeTimeout)
 	defer cancel()
 
-	oldImage, err := u.rt.ReplaceContainer(ctx, u.cfg.ContainerName, image)
+	rt, err := u.containerRuntime()
+	if err != nil {
+		klog.Errorf("升级失败: %v", err)
+		u.updateRecord(ctx, func(record *model.UpgradeRecord) {
+			now := time.Now()
+			record.Upgrading = false
+			record.LastError = err.Error()
+			record.LastCheckedAt = &now
+		})
+		return
+	}
+
+	oldImage, err := rt.ReplaceContainer(ctx, u.cfg.ContainerName, image)
 	if err == nil {
 		err = u.healthCheck(ctx)
 	}
@@ -176,8 +224,13 @@ func (u *Updater) rollback(ctx context.Context, oldImage string) {
 		klog.Warning("跳过回滚：旧镜像未知")
 		return
 	}
+	rt, err := u.containerRuntime()
+	if err != nil {
+		klog.Errorf("回滚失败: %v", err)
+		return
+	}
 	klog.Warningf("开始回滚到旧镜像 %s", oldImage)
-	if _, err := u.rt.ReplaceContainer(ctx, u.cfg.ContainerName, oldImage); err != nil {
+	if _, err = rt.ReplaceContainer(ctx, u.cfg.ContainerName, oldImage); err != nil {
 		klog.Errorf("回滚失败: %v", err)
 		return
 	}

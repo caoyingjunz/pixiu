@@ -51,6 +51,33 @@ type Config struct {
 
 	// Appstore 应用商店（Helm Chart 目录）配置
 	Appstore AppstoreOptions `yaml:"appstore"`
+
+	// Upgrade 自动升级配置（仅本地部署模式）；版本检测在主服务内运行，升级执行由独立 updater 进程完成
+	Upgrade UpgradeOptions `yaml:"upgrade"`
+}
+
+// UpgradeOptions 自动升级配置。
+// 版本检测（检查外部版本号并落库）在主服务流程内执行；
+// 升级执行（重建服务容器、健康检查、回滚）由独立的 pixiu-updater 进程完成。
+type UpgradeOptions struct {
+	// Enabled 是否启用自动升级
+	Enabled bool `yaml:"enabled"`
+	// VersionURL 版本号检查地址
+	VersionURL string `yaml:"version_url"`
+	// ImageRepository 版本源未返回镜像时的镜像仓库前缀
+	ImageRepository string `yaml:"image_repository"`
+	// Interval 版本检测间隔，如 6h
+	Interval string `yaml:"interval"`
+	// ContainerName 待升级的服务容器名，默认 pixiu
+	ContainerName string `yaml:"container_name"`
+	// HealthCheckURL 升级后健康检查地址
+	HealthCheckURL string `yaml:"health_check_url"`
+	// HealthCheckTimeout 单次健康检查超时时间，如 60s
+	HealthCheckTimeout string `yaml:"health_check_timeout"`
+	// HealthCheckRetries 健康检查重试次数
+	HealthCheckRetries int `yaml:"health_check_retries"`
+	// PollInterval updater 轮询升级请求的间隔，如 5s
+	PollInterval string `yaml:"poll_interval"`
 }
 
 // AppstoreOptions 应用商店配置（Chart 包存储在本地磁盘）。

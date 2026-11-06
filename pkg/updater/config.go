@@ -54,22 +54,25 @@ type Config struct {
 }
 
 type rawConfig struct {
-	Upgrade struct {
-		Enabled            bool   `yaml:"enabled"`
-		VersionURL         string `yaml:"version_url"`
-		ImageRepository    string `yaml:"image_repository"`
-		Interval           string `yaml:"interval"`
-		ContainerName      string `yaml:"container_name"`
-		PollInterval       string `yaml:"poll_interval"`
-		HealthCheckURL     string `yaml:"health_check_url"`
-		HealthCheckTimeout string `yaml:"health_check_timeout"`
-		HealthCheckRetries int    `yaml:"health_check_retries"`
-	} `yaml:"upgrade"`
+	Upgrade upgradeSpec           `yaml:"upgrade"`
 	Runtime config.RuntimeOptions `yaml:"runtime"`
 	Mysql   config.MysqlOptions   `yaml:"mysql"`
 }
 
-// Load 读取并校验 updater 配置。
+// upgradeSpec 是 upgrade 配置段的原始形态（字符串形式的时长）。
+type upgradeSpec struct {
+	Enabled            bool   `yaml:"enabled"`
+	VersionURL         string `yaml:"version_url"`
+	ImageRepository    string `yaml:"image_repository"`
+	Interval           string `yaml:"interval"`
+	ContainerName      string `yaml:"container_name"`
+	PollInterval       string `yaml:"poll_interval"`
+	HealthCheckURL     string `yaml:"health_check_url"`
+	HealthCheckTimeout string `yaml:"health_check_timeout"`
+	HealthCheckRetries int    `yaml:"health_check_retries"`
+}
+
+// Load 读取并校验 updater 的独立配置文件（pixiu-updater 进程使用）。
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -81,16 +84,36 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("解析配置(%s)失败: %v", path, err)
 	}
 
+	return normalize(raw.Upgrade, raw.Runtime, raw.Mysql, true)
+}
+
+// FromUpgradeOptions 由主服务配置构造 updater 配置（版本检测在主服务内运行，不需要 mysql 段）。
+func FromUpgradeOptions(opt config.UpgradeOptions, rt config.RuntimeOptions) (*Config, error) {
+	return normalize(upgradeSpec{
+		Enabled:            opt.Enabled,
+		VersionURL:         opt.VersionURL,
+		ImageRepository:    opt.ImageRepository,
+		Interval:           opt.Interval,
+		ContainerName:      opt.ContainerName,
+		PollInterval:       opt.PollInterval,
+		HealthCheckURL:     opt.HealthCheckURL,
+		HealthCheckTimeout: opt.HealthCheckTimeout,
+		HealthCheckRetries: opt.HealthCheckRetries,
+	}, rt, config.MysqlOptions{}, false)
+}
+
+// normalize 校验并补全默认值；requireMysql 为 true 时校验数据库配置（独立进程需要自行连库）。
+func normalize(spec upgradeSpec, rt config.RuntimeOptions, mysql config.MysqlOptions, requireMysql bool) (*Config, error) {
 	cfg := &Config{
-		Enabled:            raw.Upgrade.Enabled,
-		VersionURL:         raw.Upgrade.VersionURL,
-		ImageRepository:    raw.Upgrade.ImageRepository,
-		ContainerName:      raw.Upgrade.ContainerName,
-		HealthCheckURL:     raw.Upgrade.HealthCheckURL,
+		Enabled:            spec.Enabled,
+		VersionURL:         spec.VersionURL,
+		ImageRepository:    spec.ImageRepository,
+		ContainerName:      spec.ContainerName,
+		HealthCheckURL:     spec.HealthCheckURL,
 		HealthCheckTimeout: defaultHealthTimeout,
-		HealthCheckRetries: raw.Upgrade.HealthCheckRetries,
-		Runtime:            raw.Runtime,
-		Mysql:              raw.Mysql,
+		HealthCheckRetries: spec.HealthCheckRetries,
+		Runtime:            rt,
+		Mysql:              mysql,
 	}
 
 	if cfg.VersionURL == "" {
@@ -103,25 +126,25 @@ func Load(path string) (*Config, error) {
 		cfg.HealthCheckRetries = defaultHealthRetries
 	}
 	cfg.PollInterval = defaultPollInterval
-	if raw.Upgrade.PollInterval != "" {
-		interval, parseErr := time.ParseDuration(raw.Upgrade.PollInterval)
+	if spec.PollInterval != "" {
+		interval, parseErr := time.ParseDuration(spec.PollInterval)
 		if parseErr != nil {
-			return nil, fmt.Errorf("upgrade.poll_interval 非法(%s): %v", raw.Upgrade.PollInterval, parseErr)
+			return nil, fmt.Errorf("upgrade.poll_interval 非法(%s): %v", spec.PollInterval, parseErr)
 		}
 		cfg.PollInterval = interval
 	}
 	cfg.Interval = defaultInterval
-	if raw.Upgrade.Interval != "" {
-		interval, parseErr := time.ParseDuration(raw.Upgrade.Interval)
+	if spec.Interval != "" {
+		interval, parseErr := time.ParseDuration(spec.Interval)
 		if parseErr != nil {
-			return nil, fmt.Errorf("upgrade.interval 非法(%s): %v", raw.Upgrade.Interval, parseErr)
+			return nil, fmt.Errorf("upgrade.interval 非法(%s): %v", spec.Interval, parseErr)
 		}
 		cfg.Interval = interval
 	}
-	if raw.Upgrade.HealthCheckTimeout != "" {
-		timeout, parseErr := time.ParseDuration(raw.Upgrade.HealthCheckTimeout)
+	if spec.HealthCheckTimeout != "" {
+		timeout, parseErr := time.ParseDuration(spec.HealthCheckTimeout)
 		if parseErr != nil {
-			return nil, fmt.Errorf("upgrade.health_check_timeout 非法(%s): %v", raw.Upgrade.HealthCheckTimeout, parseErr)
+			return nil, fmt.Errorf("upgrade.health_check_timeout 非法(%s): %v", spec.HealthCheckTimeout, parseErr)
 		}
 		cfg.HealthCheckTimeout = timeout
 	}
@@ -131,12 +154,12 @@ func Load(path string) (*Config, error) {
 	if cfg.PollInterval < time.Second {
 		return nil, fmt.Errorf("upgrade.poll_interval 不能小于 1 秒")
 	}
-	if cfg.Mysql.Host == "" || cfg.Mysql.Name == "" || cfg.Mysql.User == "" {
+	if requireMysql && (cfg.Mysql.Host == "" || cfg.Mysql.Name == "" || cfg.Mysql.User == "") {
 		return nil, fmt.Errorf("mysql 配置不完整（host/name/user 必填）")
 	}
 
 	cfg.Runtime.SetDefaults()
-	if err = cfg.Runtime.Valid(); err != nil {
+	if err := cfg.Runtime.Valid(); err != nil {
 		return nil, err
 	}
 	return cfg, nil
