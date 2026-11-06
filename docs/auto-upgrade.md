@@ -116,6 +116,34 @@ pixiu-upgrade **必须运行在 pixiu 容器之外**。升级过程会停止并�
 - 能访问版本源与镜像仓库（拉取新镜像）
 - 与 pixiu 相同的 `health_check_url` 网络可达性
 
+## 镜像构建与运行
+
+- 镜像地址：`crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest`，版本 tag 为 `v2.0.2-beta.1`。
+- GitHub Actions `build-upgrade-image.yml` 在 master 分支推送且 `cmd/upgrade/**`、`pkg/upgrade/**`、`pkg/controller/upgrade/**`、`pkg/db/**`、`pkg/util/runtime/**`、`cmd/app/config/**`、`docker/Dockerfile-upgrade`、`go.mod`、`go.sum` 等路径变化时，构建 linux/amd64 与 linux/arm64 镜像。
+- 镜像内置 `upgrade` 二进制并默认读取 `/etc/pixiu/config.yaml`，可用 `-config` 覆盖；镜像未内置 `nerdctl`，containerd 运行时需挂载宿主 nerdctl（或基于本镜像自行派生）。
+
+Docker 运行示例：
+
+```bash
+docker run -d --name pixiu-upgrade --restart=always --net host \
+  -v /etc/pixiu:/etc/pixiu \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
+```
+
+containerd 运行示例（nerdctl 路径按宿主实际调整）：
+
+```bash
+nerdctl run -d --name pixiu-upgrade --restart=always --net host --privileged=true \
+  -v /etc/pixiu:/etc/pixiu \
+  -v /run/containerd:/run/containerd \
+  -v /var/lib/containerd:/var/lib/containerd \
+  -v /usr/local/bin/nerdctl:/usr/local/bin/nerdctl \
+  crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
+```
+
+覆盖配置路径时，在镜像名后追加 `-config /path/to/config.yaml` 即可。
+
 ## 升级窗口与回滚
 
 - 用户确认升级后，API 返回成功即表示状态已迁移到 1；真正的容器重建在 upgrade 进程的下一次轮询（默认 5 秒）开始。

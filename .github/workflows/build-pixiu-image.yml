@@ -12,6 +12,9 @@ on:
       - 'deploy/agent/**'
       - '.github/workflows/build-cluster-agent-image.yml'
       - '.github/workflows/build-toolbox-image.yml'
+      - 'cmd/upgrade/**'
+      - 'docker/Dockerfile-upgrade'
+      - '.github/workflows/build-upgrade-image.yml'
 
 jobs:
   build:
