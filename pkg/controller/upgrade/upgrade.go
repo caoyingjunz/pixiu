@@ -24,6 +24,9 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
+// upgradeRecordID 单行升级记录的业务约定：升级状态固定存放在 id=1 的记录中。
+const upgradeRecordID int64 = 1
+
 // upgradeFlowStatuses 升级流程进行中的状态，检查器不得覆盖。
 var upgradeFlowStatuses = []int{model.UpgradeStatusPending, model.UpgradeStatusUpgrading}
 
@@ -61,17 +64,18 @@ func New(dao db.UpgradeInterface) Interface {
 }
 
 func (u *upgrade) Get(ctx context.Context) (*model.UpgradeRecord, error) {
-	return u.dao.Get(ctx)
+	return u.dao.Get(ctx, upgradeRecordID)
 }
 
 func (u *upgrade) SaveCheck(ctx context.Context, object *model.UpgradeRecord) error {
-	existing, err := u.dao.Get(ctx)
+	existing, err := u.dao.Get(ctx, upgradeRecordID)
 	if err != nil {
 		return err
 	}
 
 	now := time.Now()
 	if existing == nil {
+		object.Id = upgradeRecordID
 		return u.dao.Create(ctx, object)
 	}
 
@@ -79,7 +83,7 @@ func (u *upgrade) SaveCheck(ctx context.Context, object *model.UpgradeRecord) er
 	// object.Status 为 1/2 时同样只刷新时间，避免调用方持过期快照把已完成状态写回待升级。
 	if existing.Status == model.UpgradeStatusPending || existing.Status == model.UpgradeStatusUpgrading ||
 		object.Status == model.UpgradeStatusPending || object.Status == model.UpgradeStatusUpgrading {
-		_, err = u.dao.Update(ctx, 1, map[string]interface{}{
+		_, err = u.dao.Update(ctx, upgradeRecordID, map[string]interface{}{
 			"last_checked_at": object.LastCheckedAt,
 		}, db.WithUpgradeStatus(upgradeFlowStatuses...))
 		return err
@@ -100,12 +104,12 @@ func (u *upgrade) SaveCheck(ctx context.Context, object *model.UpgradeRecord) er
 		updates["upgrade_id"] = ""
 		updates["last_error"] = ""
 	}
-	_, err = u.dao.Update(ctx, 1, updates, db.WithUpgradeStatusNotIn(upgradeFlowStatuses...))
+	_, err = u.dao.Update(ctx, upgradeRecordID, updates, db.WithUpgradeStatusNotIn(upgradeFlowStatuses...))
 	return err
 }
 
 func (u *upgrade) SaveCheckError(ctx context.Context, message string) error {
-	_, err := u.dao.Update(ctx, 1, map[string]interface{}{
+	_, err := u.dao.Update(ctx, upgradeRecordID, map[string]interface{}{
 		"last_error":   message,
 		"gmt_modified": time.Now(),
 	}, db.WithUpgradeStatusNotIn(upgradeFlowStatuses...))
@@ -113,7 +117,7 @@ func (u *upgrade) SaveCheckError(ctx context.Context, message string) error {
 }
 
 func (u *upgrade) MarkPending(ctx context.Context) (bool, error) {
-	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
+	affected, err := u.dao.Update(ctx, upgradeRecordID, map[string]interface{}{
 		"status":       model.UpgradeStatusPending,
 		"last_error":   "",
 		"upgrade_id":   "",
@@ -130,7 +134,7 @@ func (u *upgrade) MarkPending(ctx context.Context) (bool, error) {
 }
 
 func (u *upgrade) Claim(ctx context.Context, upgradeID string) (*model.UpgradeRecord, bool, error) {
-	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
+	affected, err := u.dao.Update(ctx, upgradeRecordID, map[string]interface{}{
 		"status":       model.UpgradeStatusUpgrading,
 		"upgrade_id":   upgradeID,
 		"last_error":   "",
@@ -143,7 +147,7 @@ func (u *upgrade) Claim(ctx context.Context, upgradeID string) (*model.UpgradeRe
 		return nil, false, nil
 	}
 
-	record, err := u.dao.Get(ctx)
+	record, err := u.dao.Get(ctx, upgradeRecordID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -154,7 +158,7 @@ func (u *upgrade) Claim(ctx context.Context, upgradeID string) (*model.UpgradeRe
 }
 
 func (u *upgrade) MarkCompleted(ctx context.Context, upgradeID, version string) (bool, error) {
-	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
+	affected, err := u.dao.Update(ctx, upgradeRecordID, map[string]interface{}{
 		"status":            model.UpgradeStatusCompleted,
 		"current_version":   version,
 		"upgrade_available": false,
@@ -172,7 +176,7 @@ func (u *upgrade) MarkCompleted(ctx context.Context, upgradeID, version string) 
 }
 
 func (u *upgrade) MarkFailed(ctx context.Context, upgradeID, message string) (bool, error) {
-	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
+	affected, err := u.dao.Update(ctx, upgradeRecordID, map[string]interface{}{
 		"status":       model.UpgradeStatusFailed,
 		"last_error":   message,
 		"gmt_modified": time.Now(),
@@ -187,7 +191,7 @@ func (u *upgrade) MarkFailed(ctx context.Context, upgradeID, message string) (bo
 }
 
 func (u *upgrade) ResetStale(ctx context.Context, upgradeID, message string) (bool, error) {
-	affected, err := u.dao.Update(ctx, 1, map[string]interface{}{
+	affected, err := u.dao.Update(ctx, upgradeRecordID, map[string]interface{}{
 		"status":       model.UpgradeStatusFailed,
 		"last_error":   message,
 		"gmt_modified": time.Now(),

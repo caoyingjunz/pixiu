@@ -26,12 +26,12 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// UpgradeInterface 系统升级状态 DAO（单行记录，Id 固定为 1），只提供简单 CRUD。
-// 状态机等业务逻辑在 pkg/controller/upgrade 中实现。
+// UpgradeInterface 系统升级状态 DAO，只提供简单 CRUD，不包含业务语义。
+// 状态机与单行记录约定均在 pkg/controller/upgrade 中实现。
 type UpgradeInterface interface {
-	// Get 返回升级状态；记录不存在时返回 nil, nil。
-	Get(ctx context.Context) (*model.UpgradeRecord, error)
-	// Create 创建升级状态记录（Id 固定为 1，已存在时不覆盖）。
+	// Get 按 id 返回升级状态；记录不存在时返回 nil, nil。
+	Get(ctx context.Context, id int64) (*model.UpgradeRecord, error)
+	// Create 创建升级状态记录（已存在时不覆盖）。
 	Create(ctx context.Context, object *model.UpgradeRecord) error
 	// Update 按 id 更新记录，opts 为附加过滤条件；返回受影响行数。
 	Update(ctx context.Context, id int64, updates map[string]interface{}, opts ...Options) (int64, error)
@@ -47,9 +47,9 @@ func newUpgrade(db *gorm.DB) UpgradeInterface {
 	return &upgrade{db: db}
 }
 
-func (u *upgrade) Get(ctx context.Context) (*model.UpgradeRecord, error) {
+func (u *upgrade) Get(ctx context.Context, id int64) (*model.UpgradeRecord, error) {
 	var object model.UpgradeRecord
-	if err := u.db.WithContext(ctx).Where("id = ?", 1).First(&object).Error; err != nil {
+	if err := u.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -60,7 +60,6 @@ func (u *upgrade) Get(ctx context.Context) (*model.UpgradeRecord, error) {
 
 func (u *upgrade) Create(ctx context.Context, object *model.UpgradeRecord) error {
 	now := time.Now()
-	object.Id = 1
 	if object.GmtCreate.IsZero() {
 		object.GmtCreate = now
 	}

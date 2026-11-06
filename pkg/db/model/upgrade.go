@@ -40,7 +40,7 @@ const (
 	UpgradeStatusFailed = 4
 )
 
-// UpgradeRecord 系统升级状态（单行记录，Id 固定为 1）。
+// UpgradeRecord 系统升级状态（单行记录，业务层 controller/upgrade 固定 Id=1）。
 // 状态迁移全部由条件 UPDATE 完成，禁止整行覆盖写入。
 type UpgradeRecord struct {
 	pixiu.Model
