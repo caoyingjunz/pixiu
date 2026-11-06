@@ -74,6 +74,8 @@ type Options struct {
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
+	// ServerVersion 当前 pixiu 编译版本，用于升级完成后回写状态 3。
+	ServerVersion string
 
 	JobManager *jobmanager.Manager
 
@@ -203,7 +205,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		if err != nil {
 			return err
 		}
-		o.UpgradeChecker = updater.NewWithDefaultRuntime(upgradeCfg, o.Factory)
+		o.UpgradeChecker = updater.NewWithDefaultRuntime(upgradeCfg, o.Factory, o.ServerVersion)
 	}
 	return nil
 }

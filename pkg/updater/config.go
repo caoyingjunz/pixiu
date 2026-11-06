@@ -42,6 +42,8 @@ type Config struct {
 	ImageRepository string
 	Interval        time.Duration
 	ContainerName   string
+	// UpgraderID 升级执行者标识（默认主机名），用于任务认领与状态回写校验。
+	UpgraderID string
 	// PollInterval 轮询数据库中升级请求的间隔。
 	PollInterval time.Duration
 
@@ -66,6 +68,7 @@ type upgradeSpec struct {
 	ImageRepository    string `yaml:"image_repository"`
 	Interval           string `yaml:"interval"`
 	ContainerName      string `yaml:"container_name"`
+	UpgraderID         string `yaml:"upgrader_id"`
 	PollInterval       string `yaml:"poll_interval"`
 	HealthCheckURL     string `yaml:"health_check_url"`
 	HealthCheckTimeout string `yaml:"health_check_timeout"`
@@ -109,6 +112,7 @@ func normalize(spec upgradeSpec, rt config.RuntimeOptions, mysql config.MysqlOpt
 		VersionURL:         spec.VersionURL,
 		ImageRepository:    spec.ImageRepository,
 		ContainerName:      spec.ContainerName,
+		UpgraderID:         spec.UpgraderID,
 		HealthCheckURL:     spec.HealthCheckURL,
 		HealthCheckTimeout: defaultHealthTimeout,
 		HealthCheckRetries: spec.HealthCheckRetries,
@@ -124,6 +128,14 @@ func normalize(spec upgradeSpec, rt config.RuntimeOptions, mysql config.MysqlOpt
 	}
 	if cfg.HealthCheckRetries <= 0 {
 		cfg.HealthCheckRetries = defaultHealthRetries
+	}
+	// 主服务检查器不传 upgrader_id，这里统一补默认值（主机名）
+	if cfg.UpgraderID == "" {
+		if hostname, hostErr := os.Hostname(); hostErr == nil && hostname != "" {
+			cfg.UpgraderID = hostname
+		} else {
+			cfg.UpgraderID = "pixiu-updater"
+		}
 	}
 	cfg.PollInterval = defaultPollInterval
 	if spec.PollInterval != "" {

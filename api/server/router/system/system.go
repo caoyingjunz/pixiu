@@ -79,18 +79,26 @@ func (r *systemRouter) triggerUpgrade(c *gin.Context) {
 		return
 	}
 	switch {
-	case record == nil || !record.UpgradeAvailable:
+	case record == nil || record.Image == "" || record.LatestVersion == "":
 		httputils.SetFailed(c, resp, errors.NewError(fmt.Errorf("当前已是最新版本"), http.StatusConflict))
 		return
-	case record.Upgrading || record.Requested:
+	case record.Status == model.UpgradeStatusPending || record.Status == model.UpgradeStatusUpgrading:
 		httputils.SetFailed(c, resp, errors.NewError(fmt.Errorf("升级已在进行中"), http.StatusConflict))
+		return
+	case !record.UpgradeAvailable &&
+		record.Status != model.UpgradeStatusNotUpgraded && record.Status != model.UpgradeStatusFailed:
+		httputils.SetFailed(c, resp, errors.NewError(fmt.Errorf("当前已是最新版本"), http.StatusConflict))
 		return
 	}
 
-	record.Requested = true
-	record.LastError = ""
-	if err = r.factory.Upgrade().Save(c, record); err != nil {
+	// 0/4 -> 1：条件 UPDATE 原子迁移，抢不到说明状态已被其他请求改变
+	marked, err := r.factory.Upgrade().MarkPending(c)
+	if err != nil {
 		httputils.SetFailed(c, resp, errors.ErrServerInternal)
+		return
+	}
+	if !marked {
+		httputils.SetFailed(c, resp, errors.NewError(fmt.Errorf("升级状态已变化，请刷新后重试"), http.StatusConflict))
 		return
 	}
 	httputils.SetSuccess(c, resp)
@@ -105,7 +113,8 @@ func modelUpgrade2Type(record *model.UpgradeRecord) *types.UpgradeStatus {
 		LatestVersion:    record.LatestVersion,
 		Image:            record.Image,
 		UpgradeAvailable: record.UpgradeAvailable,
-		Upgrading:        record.Upgrading || record.Requested,
+		Status:           record.Status,
+		Upgrading:        record.Status == model.UpgradeStatusPending || record.Status == model.UpgradeStatusUpgrading,
 		LastError:        record.LastError,
 		LastCheckedAt:    record.LastCheckedAt,
 	}
