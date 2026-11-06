@@ -12,7 +12,7 @@
 | status | 名称 | 含义 | 写入方 |
 |---|---|---|---|
 | 0 | 未升级 | 检查器发现 `latest > current`，等待用户确认 | pixiu 主服务（检查器 `SaveCheck`） |
-| 1 | 待升级 | 用户确认升级，等待 updater 认领 | 主服务 API `POST /pixiu/system/upgrade`（`MarkPending`） |
+| 1 | 待升级 | 用户确认升级，等待 updater 认领 | 主服务 API `POST /pixiu/upgrade`（`MarkPending`） |
 | 2 | 升级中 | updater 原子认领成功并写入 `upgrader_id` | pixiu-updater（`Claim`，条件 1→2） |
 | 3 | 升级完成 | 新版 pixiu 确认当前运行版本与目标版本一致 | 新版 pixiu 启动钩子（`MarkCompleted`，条件 2→3） |
 | 4 | 升级失败 | 拉取/重建/健康检查失败（含回滚），`last_error` 记录原因 | pixiu-updater（`MarkFailed`，2/3→4）或启动自检（`ResetStale`，2→4） |
@@ -71,9 +71,9 @@ runtime:
 
 主服务还需要能访问版本源；版本检测依赖 CRI 查询当前容器镜像（懒加载，CRI 不可用时只记录 `last_error`，不影响服务运行）。
 
-## pixiu-updater 独立配置
+## pixiu-updater 配置（与主服务共用 config.yaml）
 
-updater 使用独立配置文件 `/etc/pixiu/updater.yaml`（`-config` 可覆盖路径）：
+updater 与 pixiu 主服务共用配置文件 `/etc/pixiu/config.yaml`（`-config` 可覆盖路径），读取其中的 `upgrade`/`runtime`/`mysql` 三段；无需单独的 updater 配置文件。以下为 updater 关注的字段示例（可合并进同一份 config.yaml）：
 
 ```yaml
 upgrade:
@@ -131,5 +131,5 @@ pixiu-updater **必须运行在 pixiu 容器之外**。升级过程会停止并�
 
 ## 接口
 
-- `GET /pixiu/system/upgrade/status`：返回 `current_version`、`latest_version`、`image`、`upgrade_available`、`status`、`upgrading`（兼容字段，等价于 `status` 为 1 或 2）、`last_error`、`last_checked_at`。
-- `POST /pixiu/system/upgrade`：管理员触发升级（0/4 → 1）。无可用升级或目标镜像为空返回 409「当前已是最新版本」；状态 1/2 返回 409「升级已在进行中」；并发下状态被改变返回 409「升级状态已变化，请刷新后重试」。
+- `GET /pixiu/upgrade/status`：返回 `current_version`、`latest_version`、`image`、`upgrade_available`、`status`、`upgrading`（兼容字段，等价于 `status` 为 1 或 2）、`last_error`、`last_checked_at`。
+- `POST /pixiu/upgrade`：管理员触发升级（0/4 → 1）。无可用升级或目标镜像为空返回 409「当前已是最新版本」；状态 1/2 返回 409「升级已在进行中」；并发下状态被改变返回 409「升级状态已变化，请刷新后重试」。

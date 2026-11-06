@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package system
+package upgrade
 
 import (
 	"fmt"
@@ -28,35 +28,33 @@ import (
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
-	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
-type systemRouter struct {
-	c       controller.PixiuInterface
-	factory db.ShareDaoFactory
+type upgradeRouter struct {
+	c controller.PixiuInterface
 }
 
-// NewRouter 注册系统升级相关路由（状态由 pixiu-updater 持久化到数据库）。
+// NewRouter 注册系统升级相关路由（状态由升级控制器维护）。
 func NewRouter(o *options.Options) {
-	r := &systemRouter{c: o.Controller, factory: o.Factory}
+	r := &upgradeRouter{c: o.Controller}
 
 	group := &apiregistry.Group{
-		Name:    "系统升级",
-		BaseURL: "/pixiu/system",
+		Name:    "自动升级",
+		BaseURL: "/pixiu/upgrade",
 		Entries: []apiregistry.RouteEntry{
-			{Method: "GET", RelativePath: "/upgrade/status", Handler: r.getUpgradeStatus, Description: "查询升级状态"},
-			{Method: "POST", RelativePath: "/upgrade", Handler: r.triggerUpgrade, Description: "触发升级"},
+			{Method: "GET", RelativePath: "/status", Handler: r.getUpgradeStatus, Description: "查询升级状态"},
+			{Method: "POST", RelativePath: "", Handler: r.triggerUpgrade, Description: "触发升级"},
 		},
 	}
-	group.Register(o.HttpEngine.Group("/pixiu/system"), o.Controller.APIResource())
+	group.Register(o.HttpEngine.Group("/pixiu/upgrade"), o.Controller.APIResource())
 }
 
-func (r *systemRouter) getUpgradeStatus(c *gin.Context) {
+func (r *upgradeRouter) getUpgradeStatus(c *gin.Context) {
 	resp := httputils.NewResponse()
 
-	record, err := r.factory.Upgrade().Get(c)
+	record, err := r.c.Upgrade().Get(c)
 	if err != nil {
 		httputils.SetFailed(c, resp, errors.ErrServerInternal)
 		return
@@ -65,7 +63,7 @@ func (r *systemRouter) getUpgradeStatus(c *gin.Context) {
 	httputils.SetSuccess(c, resp)
 }
 
-func (r *systemRouter) triggerUpgrade(c *gin.Context) {
+func (r *upgradeRouter) triggerUpgrade(c *gin.Context) {
 	resp := httputils.NewResponse()
 
 	if err := controllerutil.CheckAdmin(c); err != nil {
@@ -73,7 +71,7 @@ func (r *systemRouter) triggerUpgrade(c *gin.Context) {
 		return
 	}
 
-	record, err := r.factory.Upgrade().Get(c)
+	record, err := r.c.Upgrade().Get(c)
 	if err != nil {
 		httputils.SetFailed(c, resp, errors.ErrServerInternal)
 		return
@@ -92,7 +90,7 @@ func (r *systemRouter) triggerUpgrade(c *gin.Context) {
 	}
 
 	// 0/4 -> 1：条件 UPDATE 原子迁移，抢不到说明状态已被其他请求改变
-	marked, err := r.factory.Upgrade().MarkPending(c)
+	marked, err := r.c.Upgrade().MarkPending(c)
 	if err != nil {
 		httputils.SetFailed(c, resp, errors.ErrServerInternal)
 		return

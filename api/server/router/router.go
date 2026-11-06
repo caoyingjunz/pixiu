@@ -43,9 +43,9 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/api/server/router/role"
 	"github.com/caoyingjunz/pixiu/api/server/router/runner"
-	systemrouter "github.com/caoyingjunz/pixiu/api/server/router/system"
 	"github.com/caoyingjunz/pixiu/api/server/router/tenant"
 	"github.com/caoyingjunz/pixiu/api/server/router/tunnel"
+	upgraderouter "github.com/caoyingjunz/pixiu/api/server/router/upgrade"
 	"github.com/caoyingjunz/pixiu/api/server/router/user"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/static"
@@ -80,7 +80,7 @@ func InstallRouters(o *options.Options) {
 		tunnel.NewRouter,
 		extensionrouter.NewRouter,
 		backup.NewRouter,
-		systemrouter.NewRouter,
+		upgraderouter.NewRouter,
 	}
 
 	install(o, fs...)

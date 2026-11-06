@@ -37,7 +37,8 @@ import (
 func main() {
 	var configPath string
 	klog.InitFlags(nil)
-	flag.StringVar(&configPath, "config", "/etc/pixiu/updater.yaml", "pixiu updater 配置文件路径")
+	// updater 与 pixiu 主服务共用 config.yaml，读取其中的 upgrade/runtime/mysql 段
+	flag.StringVar(&configPath, "config", "/etc/pixiu/config.yaml", "pixiu 配置文件路径")
 	flag.Parse()
 	defer klog.Flush()
 

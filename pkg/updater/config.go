@@ -35,7 +35,7 @@ const (
 	defaultPollInterval  = 5 * time.Second
 )
 
-// Config 是 pixiu-updater 的独立配置。
+// Config 是 pixiu-updater 的配置（与主服务共用 config.yaml，读取 upgrade/runtime/mysql 段）。
 type Config struct {
 	Enabled         bool
 	VersionURL      string
@@ -75,7 +75,7 @@ type upgradeSpec struct {
 	HealthCheckRetries int    `yaml:"health_check_retries"`
 }
 
-// Load 读取并校验 updater 的独立配置文件（pixiu-updater 进程使用）。
+// Load 读取并校验 pixiu 配置文件中的 upgrade/runtime/mysql 段（pixiu-updater 与主服务共用 config.yaml）。
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

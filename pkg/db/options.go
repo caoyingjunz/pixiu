@@ -589,3 +589,57 @@ func WithTokenHash(hash string) Options {
 		return tx.Where("token_hash = ?", hash)
 	}
 }
+
+// WithUpgradeStatus 按升级状态集合过滤。空列表必须匹配 0 行，避免漏掉 WHERE 条件导致误更新。
+func WithUpgradeStatus(statuses ...int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(statuses) == 0 {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("status IN ?", statuses)
+	}
+}
+
+// WithUpgradeStatusNotIn 按升级状态集合排除过滤。空列表不附加条件（NOT IN 空集恒为真）。
+func WithUpgradeStatusNotIn(statuses ...int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(statuses) == 0 {
+			return tx
+		}
+		return tx.Where("status NOT IN ?", statuses)
+	}
+}
+
+// WithUpgradeAvailable 按是否存在可用升级过滤。
+func WithUpgradeAvailable(available bool) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("upgrade_available = ?", available)
+	}
+}
+
+// WithUpgradeUpgraderID 按升级执行者标识过滤。空 id 必须匹配 0 行，避免误匹配空标识记录。
+func WithUpgradeUpgraderID(id string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if id == "" {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("upgrader_id = ?", id)
+	}
+}
+
+// WithUpgradeLatestVersion 按目标版本过滤。空版本必须匹配 0 行，避免误匹配未写入版本的记录。
+func WithUpgradeLatestVersion(version string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if version == "" {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("latest_version = ?", version)
+	}
+}
+
+// WithUpgradeTargetReady 仅匹配已具备目标镜像与版本、可执行升级的记录。
+func WithUpgradeTargetReady() Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("image <> '' AND latest_version <> ''")
+	}
+}

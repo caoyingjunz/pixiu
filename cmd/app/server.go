@@ -103,7 +103,7 @@ func Run(opt *options.Options) error {
 		}
 	}
 
-	// 自动升级：版本检测在主服务流程内运行（结果落库，供 /pixiu/system/upgrade/status 查询），
+	// 自动升级：版本检测在主服务流程内运行（结果落库，供 /pixiu/upgrade/status 查询），
 	// 升级执行由独立的 pixiu-updater 进程完成
 	if opt.UpgradeChecker != nil {
 		go opt.UpgradeChecker.RunChecker(context.Background())

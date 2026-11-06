@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	upgradecontroller "github.com/caoyingjunz/pixiu/pkg/controller/upgrade"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
@@ -47,7 +48,7 @@ const missingStatus = -1
 // 状态机：0 未升级 -> 1 待升级 -> 2 升级中 -> 3 升级完成 / 4 升级失败（可重试 4 -> 1）。
 type Updater struct {
 	cfg          *Config
-	factory      db.ShareDaoFactory
+	upgradeSvc   upgradecontroller.Interface
 	rtProvider   func() (runtime.Runtime, error)
 	buildVersion string
 }
@@ -56,7 +57,7 @@ type Updater struct {
 func New(cfg *Config, rt runtime.Runtime, factory db.ShareDaoFactory) *Updater {
 	return &Updater{
 		cfg:        cfg,
-		factory:    factory,
+		upgradeSvc: upgradecontroller.New(factory.Upgrade()),
 		rtProvider: func() (runtime.Runtime, error) { return rt, nil },
 	}
 }
@@ -66,7 +67,7 @@ func New(cfg *Config, rt runtime.Runtime, factory db.ShareDaoFactory) *Updater {
 func NewWithDefaultRuntime(cfg *Config, factory db.ShareDaoFactory, buildVersion string) *Updater {
 	return &Updater{
 		cfg:          cfg,
-		factory:      factory,
+		upgradeSvc:   upgradecontroller.New(factory.Upgrade()),
 		rtProvider:   runtime.Default,
 		buildVersion: buildVersion,
 	}
@@ -104,7 +105,7 @@ func (u *Updater) RunExecutor(ctx context.Context) {
 		u.cfg.PollInterval, u.cfg.ContainerName, u.cfg.UpgraderID)
 
 	// 清理自身进程上次崩溃遗留的「升级中」状态，避免记录永远卡在 2
-	if reset, err := u.factory.Upgrade().ResetStale(ctx, u.cfg.UpgraderID, "upgrader 进程重启，上次升级未完成"); err != nil {
+	if reset, err := u.upgradeSvc.ResetStale(ctx, u.cfg.UpgraderID, "upgrader 进程重启，上次升级未完成"); err != nil {
 		klog.Errorf("清理遗留升级状态失败: %v", err)
 	} else if reset {
 		klog.Warning("检测到上次升级未完成（状态 2），已回写为失败（状态 4），允许用户重试")
@@ -125,7 +126,7 @@ func (u *Updater) RunExecutor(ctx context.Context) {
 
 // refresh 查询最新版本并写入数据库，不执行升级。
 func (u *Updater) refresh(ctx context.Context) {
-	record, err := u.factory.Upgrade().Get(ctx)
+	record, err := u.upgradeSvc.Get(ctx)
 	if err != nil {
 		klog.Errorf("读取升级状态失败: %v", err)
 		return
@@ -244,7 +245,7 @@ func matchUpgradeTarget(currentImage, buildVersion string, record *model.Upgrade
 
 // pollUpgradeRequest 原子认领待升级请求（状态 1 -> 2）并执行升级。
 func (u *Updater) pollUpgradeRequest(ctx context.Context) {
-	record, claimed, err := u.factory.Upgrade().Claim(ctx, u.cfg.UpgraderID)
+	record, claimed, err := u.upgradeSvc.Claim(ctx, u.cfg.UpgraderID)
 	if err != nil {
 		klog.Errorf("认领升级请求失败: %v", err)
 		return
@@ -267,7 +268,7 @@ func (u *Updater) doUpgrade(image, latestVersion, upgraderID string) {
 		klog.Errorf("升级失败: %v", err)
 		markCtx, markCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer markCancel()
-		if _, markErr := u.factory.Upgrade().MarkFailed(markCtx, upgraderID, err.Error()); markErr != nil {
+		if _, markErr := u.upgradeSvc.MarkFailed(markCtx, upgraderID, err.Error()); markErr != nil {
 			klog.Errorf("回写升级失败状态失败: %v", markErr)
 		}
 	}
@@ -306,7 +307,7 @@ func (u *Updater) doUpgrade(image, latestVersion, upgraderID string) {
 // MarkCompleted 由新版 pixiu 启动后调用：确认当前运行版本已达到升级目标后回写状态 3。
 // 最多重试 completeMarkAttempts 次，调用方应传入约 60 秒超时的 ctx。
 func (u *Updater) MarkCompleted(ctx context.Context) {
-	record, err := u.factory.Upgrade().Get(ctx)
+	record, err := u.upgradeSvc.Get(ctx)
 	if err != nil {
 		klog.Errorf("读取升级状态失败: %v", err)
 		return
@@ -343,7 +344,7 @@ func (u *Updater) MarkCompleted(ctx context.Context) {
 			continue
 		}
 
-		marked, markErr := u.factory.Upgrade().MarkCompleted(ctx, record.UpgraderID, record.LatestVersion)
+		marked, markErr := u.upgradeSvc.MarkCompleted(ctx, record.UpgraderID, record.LatestVersion)
 		if markErr != nil {
 			lastErr = markErr
 			continue
@@ -380,13 +381,13 @@ func (u *Updater) rollback(ctx context.Context, oldImage string) {
 }
 
 func (u *Updater) saveCheck(ctx context.Context, record *model.UpgradeRecord) {
-	if err := u.factory.Upgrade().SaveCheck(ctx, record); err != nil {
+	if err := u.upgradeSvc.SaveCheck(ctx, record); err != nil {
 		klog.Errorf("保存升级状态失败: %v", err)
 	}
 }
 
 func (u *Updater) saveCheckError(ctx context.Context, message string) {
-	if err := u.factory.Upgrade().SaveCheckError(ctx, message); err != nil {
+	if err := u.upgradeSvc.SaveCheckError(ctx, message); err != nil {
 		klog.Errorf("保存版本检查错误失败: %v", err)
 	}
 }

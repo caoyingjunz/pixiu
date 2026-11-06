@@ -26,25 +26,17 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// UpgradeInterface 系统升级状态 DAO（单行记录，Id 固定为 1）。
-// 所有状态迁移均使用条件 UPDATE + RowsAffected 判定，禁止整行 OnConflict UpdateAll。
+// UpgradeInterface 系统升级状态 DAO（单行记录，Id 固定为 1），只提供简单 CRUD。
+// 状态机等业务逻辑在 pkg/controller/upgrade 中实现。
 type UpgradeInterface interface {
 	// Get 返回升级状态；记录不存在时返回 nil, nil。
 	Get(ctx context.Context) (*model.UpgradeRecord, error)
-	// SaveCheck 保存版本检查结果；升级流程进行中（状态 1/2）时只刷新 last_checked_at。
-	SaveCheck(ctx context.Context, object *model.UpgradeRecord) error
-	// SaveCheckError 记录版本检查失败信息；升级流程进行中时忽略。
-	SaveCheckError(ctx context.Context, message string) error
-	// MarkPending 用户确认升级：0/4 -> 1。
-	MarkPending(ctx context.Context) (bool, error)
-	// Claim 升级器原子认领升级请求：1 -> 2，并写入 upgrader_id；未抢到返回 nil, false, nil。
-	Claim(ctx context.Context, upgraderID string) (*model.UpgradeRecord, bool, error)
-	// MarkCompleted 新版 pixiu 回写升级完成：2 -> 3。
-	MarkCompleted(ctx context.Context, upgraderID, version string) (bool, error)
-	// MarkFailed 升级器回写升级失败：2/3 -> 4（允许 3 -> 4：pixiu 先回写 3 后健康检查失败）。
-	MarkFailed(ctx context.Context, upgraderID, message string) (bool, error)
-	// ResetStale 升级器启动时清理自身上次崩溃遗留的 2：2 -> 4。
-	ResetStale(ctx context.Context, upgraderID, message string) (bool, error)
+	// Create 创建升级状态记录（Id 固定为 1，已存在时不覆盖）。
+	Create(ctx context.Context, object *model.UpgradeRecord) error
+	// Update 按 id 更新记录，opts 为附加过滤条件；返回受影响行数。
+	Update(ctx context.Context, id int64, updates map[string]interface{}, opts ...Options) (int64, error)
+	// Delete 按 id 删除记录。
+	Delete(ctx context.Context, id int64) error
 }
 
 type upgrade struct {
@@ -54,9 +46,6 @@ type upgrade struct {
 func newUpgrade(db *gorm.DB) UpgradeInterface {
 	return &upgrade{db: db}
 }
-
-// upgradeFlowStatuses 升级流程进行中的状态，检查器不得覆盖。
-var upgradeFlowStatuses = []int{model.UpgradeStatusPending, model.UpgradeStatusUpgrading}
 
 func (u *upgrade) Get(ctx context.Context) (*model.UpgradeRecord, error) {
 	var object model.UpgradeRecord
@@ -69,146 +58,26 @@ func (u *upgrade) Get(ctx context.Context) (*model.UpgradeRecord, error) {
 	return &object, nil
 }
 
-func (u *upgrade) SaveCheck(ctx context.Context, object *model.UpgradeRecord) error {
-	existing, err := u.Get(ctx)
-	if err != nil {
-		return err
-	}
-
+func (u *upgrade) Create(ctx context.Context, object *model.UpgradeRecord) error {
 	now := time.Now()
 	object.Id = 1
+	if object.GmtCreate.IsZero() {
+		object.GmtCreate = now
+	}
 	object.GmtModified = now
-	if existing == nil {
-		if object.GmtCreate.IsZero() {
-			object.GmtCreate = now
-		}
-		// 并发下可能已被另一协程创建；DoNothing 避免覆盖已有状态
-		return u.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(object).Error
-	}
-
-	// 升级流程进行中：检查器只刷新检查时间，绝不覆盖状态与目标版本。
-	// object.Status 为 1/2 时同样只刷新时间，避免调用方持过期快照把已完成状态写回待升级。
-	if existing.Status == model.UpgradeStatusPending || existing.Status == model.UpgradeStatusUpgrading ||
-		object.Status == model.UpgradeStatusPending || object.Status == model.UpgradeStatusUpgrading {
-		return u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).
-			Where("id = ? AND status IN ?", 1, upgradeFlowStatuses).
-			Updates(map[string]interface{}{"last_checked_at": object.LastCheckedAt}).Error
-	}
-
-	updates := map[string]interface{}{
-		"current_version":   object.CurrentVersion,
-		"latest_version":    object.LatestVersion,
-		"image":             object.Image,
-		"status":            object.Status,
-		"upgrade_available": object.UpgradeAvailable,
-		"last_error":        object.LastError,
-		"last_checked_at":   object.LastCheckedAt,
-		"gmt_modified":      now,
-	}
-	// 失败态发现更新的版本时重新回到未升级：清空上一轮 upgrader 标识与错误信息
-	if existing.Status == model.UpgradeStatusFailed && object.Status == model.UpgradeStatusNotUpgraded {
-		updates["upgrader_id"] = ""
-		updates["last_error"] = ""
-	}
-	return u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).
-		Where("id = ? AND status NOT IN ?", 1, upgradeFlowStatuses).
-		Updates(updates).Error
+	// 并发下可能已被另一协程创建；DoNothing 避免覆盖已有状态
+	return u.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(object).Error
 }
 
-func (u *upgrade) SaveCheckError(ctx context.Context, message string) error {
-	return u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).
-		Where("id = ? AND status NOT IN ?", 1, upgradeFlowStatuses).
-		Updates(map[string]interface{}{
-			"last_error":   message,
-			"gmt_modified": time.Now(),
-		}).Error
+func (u *upgrade) Update(ctx context.Context, id int64, updates map[string]interface{}, opts ...Options) (int64, error) {
+	result := u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).Where("id = ?", id)
+	for _, opt := range opts {
+		result = opt(result)
+	}
+	result = result.Updates(updates)
+	return result.RowsAffected, result.Error
 }
 
-func (u *upgrade) MarkPending(ctx context.Context) (bool, error) {
-	result := u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).
-		Where("id = ? AND status IN ? AND upgrade_available = ? AND image <> '' AND latest_version <> ''",
-			1, []int{model.UpgradeStatusNotUpgraded, model.UpgradeStatusFailed}, true).
-		Updates(map[string]interface{}{
-			"status":       model.UpgradeStatusPending,
-			"last_error":   "",
-			"upgrader_id":  "",
-			"gmt_modified": time.Now(),
-		})
-	if result.Error != nil {
-		return false, result.Error
-	}
-	return result.RowsAffected == 1, nil
-}
-
-func (u *upgrade) Claim(ctx context.Context, upgraderID string) (*model.UpgradeRecord, bool, error) {
-	result := u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).
-		Where("id = ? AND status = ?", 1, model.UpgradeStatusPending).
-		Updates(map[string]interface{}{
-			"status":       model.UpgradeStatusUpgrading,
-			"upgrader_id":  upgraderID,
-			"last_error":   "",
-			"gmt_modified": time.Now(),
-		})
-	if result.Error != nil {
-		return nil, false, result.Error
-	}
-	if result.RowsAffected != 1 {
-		return nil, false, nil
-	}
-
-	record, err := u.Get(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-	if record == nil {
-		return nil, false, nil
-	}
-	return record, true, nil
-}
-
-func (u *upgrade) MarkCompleted(ctx context.Context, upgraderID, version string) (bool, error) {
-	result := u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).
-		Where("id = ? AND status = ? AND upgrader_id = ? AND latest_version = ?",
-			1, model.UpgradeStatusUpgrading, upgraderID, version).
-		Updates(map[string]interface{}{
-			"status":            model.UpgradeStatusCompleted,
-			"current_version":   version,
-			"upgrade_available": false,
-			"last_error":        "",
-			"gmt_modified":      time.Now(),
-		})
-	if result.Error != nil {
-		return false, result.Error
-	}
-	return result.RowsAffected == 1, nil
-}
-
-func (u *upgrade) MarkFailed(ctx context.Context, upgraderID, message string) (bool, error) {
-	result := u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).
-		Where("id = ? AND status IN ? AND upgrader_id = ?",
-			1, []int{model.UpgradeStatusUpgrading, model.UpgradeStatusCompleted}, upgraderID).
-		Updates(map[string]interface{}{
-			"status":       model.UpgradeStatusFailed,
-			"last_error":   message,
-			"gmt_modified": time.Now(),
-		})
-	if result.Error != nil {
-		return false, result.Error
-	}
-	return result.RowsAffected == 1, nil
-}
-
-func (u *upgrade) ResetStale(ctx context.Context, upgraderID, message string) (bool, error) {
-	result := u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).
-		Where("id = ? AND status = ? AND upgrader_id = ?",
-			1, model.UpgradeStatusUpgrading, upgraderID).
-		Updates(map[string]interface{}{
-			"status":       model.UpgradeStatusFailed,
-			"last_error":   message,
-			"gmt_modified": time.Now(),
-		})
-	if result.Error != nil {
-		return false, result.Error
-	}
-	return result.RowsAffected == 1, nil
+func (u *upgrade) Delete(ctx context.Context, id int64) error {
+	return u.db.WithContext(ctx).Where("id = ?", id).Delete(&model.UpgradeRecord{}).Error
 }
