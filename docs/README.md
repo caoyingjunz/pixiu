@@ -19,6 +19,3 @@
 
 # 自动升级
 [自动升级说明](auto-upgrade.md)
-
-# 开发规范
-[Go 单元测试标准模板](testing-template.md)
