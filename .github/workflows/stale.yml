@@ -1,0 +1,26 @@
+name: Mark Stale Issues
+
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-issue-stale: 90
+          days-before-issue-close: 30
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          stale-issue-label: stale
+          exempt-issue-labels: 'P0,P1,good first issue,help wanted'
+          stale-issue-message: |
+            该 issue 已 90 天无活动，即将被自动关闭。
+            如仍需跟进，请回复评论或移除 `stale` 标签；如已解决可自行关闭。
+          close-issue-message: '因长期无活动自动关闭，如仍有问题请重新打开或新提 issue。'
