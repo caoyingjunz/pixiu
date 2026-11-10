@@ -22,21 +22,32 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	defaultTableOptions = "AUTO_INCREMENT=20220801 DEFAULT CHARSET=utf8"
+	// upgradeTableOptions 升级状态表固定自增起点为 20261108（2026-11-08）。
+	upgradeTableOptions = "AUTO_INCREMENT=20261108 DEFAULT CHARSET=utf8"
+)
+
+// tableOptionsFor 返回模型对应的建表参数：升级状态表固定 20261108，其余表沿用全库 20220801。
+func tableOptionsFor(d interface{}) string {
+	if _, ok := d.(*model.UpgradeRecord); ok {
+		return upgradeTableOptions
+	}
+	return defaultTableOptions
+}
+
 type migrator struct {
 	db *gorm.DB
 }
 
 // AutoMigrate 自动创建/更新指定模型的数据库表结构（补齐新增字段）
 func (m *migrator) AutoMigrate() error {
-	db := m.db.Set("gorm:table_options", "AUTO_INCREMENT=20220801 DEFAULT CHARSET=utf8")
-
 	for _, d := range model.GetMigrationModels() {
-		if err := db.AutoMigrate(d); err != nil {
+		if err := m.db.Set("gorm:table_options", tableOptionsFor(d)).AutoMigrate(d); err != nil {
 			return err
 		}
 	}
-
-	return m.migrateAPIGroupColumn(db)
+	return m.migrateAPIGroupColumn(m.db)
 }
 
 // migrateAPIGroupColumn 将历史保留字段 group 迁移到 api_group，避免 MySQL 保留字导致读写异常

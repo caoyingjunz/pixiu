@@ -36,6 +36,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/typeurl/v2"
 	"github.com/distribution/reference"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"k8s.io/klog/v2"
@@ -615,3 +616,122 @@ func (l *fileFollower) Close() error {
 }
 
 var _ Runtime = (*containerdRuntime)(nil)
+
+// 自升级场景的容器操作（仅本地部署使用）。
+
+// upgradeLogFiles 保存升级重建任务日志文件句柄，避免被 GC 回收导致容器输出写失败。
+var upgradeLogFiles sync.Map
+
+// ContainerImageRef 返回容器当前使用的镜像引用。
+func (c *containerdRuntime) ContainerImageRef(ctx context.Context, name string) (string, error) {
+	container, err := c.client.LoadContainer(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	info, err := container.Info(ctx)
+	if err != nil {
+		return "", err
+	}
+	if info.Image == "" {
+		return "", fmt.Errorf("容器(%s)缺少镜像信息", name)
+	}
+	return info.Image, nil
+}
+
+// IsContainerRunning 返回容器是否处于运行状态；容器不存在时返回 false, nil。
+func (c *containerdRuntime) IsContainerRunning(ctx context.Context, name string) (bool, error) {
+	container, err := c.client.LoadContainer(ctx, name)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	task, err := container.Task(ctx, nil)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	status, err := task.Status(ctx)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return status.Status == containerd.Running, nil
+}
+
+// ReplaceContainer 使用 containerd 客户端按原容器配置用 newImage 重建容器，返回旧镜像引用。
+// 复用原容器的 OCI spec（env/mounts/network/privileged 等）与 labels（含 restart 策略），
+// 不依赖 nerdctl。
+func (c *containerdRuntime) ReplaceContainer(ctx context.Context, name, newImage string) (string, error) {
+	container, err := c.client.LoadContainer(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	info, err := container.Info(ctx)
+	if err != nil {
+		return "", err
+	}
+	oldImage := info.Image
+	if info.Spec == nil {
+		return oldImage, fmt.Errorf("容器(%s)缺少 OCI spec，无法重建", name)
+	}
+	spec := &oci.Spec{}
+	if err = typeurl.UnmarshalTo(info.Spec, spec); err != nil {
+		return oldImage, fmt.Errorf("解析容器(%s) OCI spec 失败: %v", name, err)
+	}
+
+	imageRef, err := normalizeImageRef(newImage)
+	if err != nil {
+		return oldImage, fmt.Errorf("非法的镜像名(%s): %v", newImage, err)
+	}
+	// 先拉镜像成功，再删除旧容器，避免拉取失败导致服务中断
+	if err = c.PullImage(ctx, imageRef); err != nil {
+		return oldImage, err
+	}
+	img, err := c.client.GetImage(ctx, imageRef)
+	if err != nil {
+		return oldImage, err
+	}
+	if err = c.RemoveContainer(ctx, name); err != nil {
+		return oldImage, err
+	}
+
+	containerOpts := []containerd.NewContainerOpts{
+		containerd.WithImage(img),
+		containerd.WithNewSnapshot(name, img),
+		containerd.WithSpec(spec),
+	}
+	if len(info.Labels) > 0 {
+		containerOpts = append(containerOpts, containerd.WithContainerLabels(info.Labels))
+	}
+	newContainer, err := c.client.NewContainer(ctx, name, containerOpts...)
+	if err != nil {
+		return oldImage, err
+	}
+
+	// 日志沿用 runner 日志路径约定；句柄保存在全局表，避免被 GC 关闭
+	logFile, err := openLogFile(logPath(name))
+	if err != nil {
+		return oldImage, err
+	}
+	if old, ok := upgradeLogFiles.Load(name); ok {
+		if file, ok := old.(*os.File); ok {
+			_ = file.Close()
+		}
+	}
+	upgradeLogFiles.Store(name, logFile)
+
+	task, err := newContainer.NewTask(ctx, cio.NewCreator(cio.WithStreams(nil, logFile, logFile)))
+	if err != nil {
+		return oldImage, err
+	}
+	if err = task.Start(ctx); err != nil {
+		return oldImage, err
+	}
+	return oldImage, nil
+}

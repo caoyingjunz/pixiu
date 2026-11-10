@@ -33,6 +33,7 @@ import (
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
+	"github.com/caoyingjunz/pixiu/pkg/upgrader"
 	pixiuruntime "github.com/caoyingjunz/pixiu/pkg/util/runtime"
 	pixiuConfig "github.com/caoyingjunz/pixiulib/config"
 )
@@ -73,10 +74,16 @@ type Options struct {
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
+	// ServerVersion 当前 pixiu 编译版本，用于升级完成后回写状态 3。
+	ServerVersion string
 
 	JobManager *jobmanager.Manager
 
 	AlertEvaluator *jobmanager.AlertEvaluator
+
+	// UpgradeChecker 自动升级的版本检测器；仅 upgrader.enabled=true 时创建。
+	// 版本检测由 JobManager 周期调度，升级执行由独立 pixiu-upgrade 进程完成。
+	UpgradeChecker *upgrader.Upgrade
 }
 
 func NewOptions() (*Options, error) {
@@ -178,9 +185,17 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 
 	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
+
+	if o.ComponentConfig.Upgrade.IsEnabled() {
+		upgradeCfg, err := upgrader.FromUpgradeOptions(o.ComponentConfig.Upgrade, o.ComponentConfig.Runtime)
+		if err != nil {
+			return err
+		}
+		o.UpgradeChecker = upgrader.NewWithDefaultRuntime(upgradeCfg, o.Factory, o.ServerVersion)
+	}
+
 	accessOpts := o.ComponentConfig.Log.AccessOptions()
-	o.JobManager = jobmanager.NewManager(
-		&accessOpts,
+	jobs := []jobmanager.Job{
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),
 		jobmanager.NewCronHpaHistoryCleaner(o.ComponentConfig.CronHpaHistory, o.Factory),
@@ -189,7 +204,11 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		jobmanager.NewTunnelSyncer(o.Factory),
 		jobmanager.NewCronHpaEvaluator(o.Controller.Extension().Autoscaling()),
 		o.AlertEvaluator,
-	)
+	}
+	if o.ComponentConfig.Upgrade.IsEnabled() {
+		jobs = append(jobs, jobmanager.NewUpgradeChecker(o.UpgradeChecker, o.UpgradeChecker.Interval()))
+	}
+	o.JobManager = jobmanager.NewManager(&accessOpts, jobs...)
 	return nil
 }
 

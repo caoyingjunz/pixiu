@@ -97,3 +97,9 @@ appstore:
   data_dir: /tmp/pixiu/appstore
   # 单个 chart 包上传大小上限（MB），默认 32
   max_upload_mb: 32
+
+# 可升级的配置
+upgrade:
+  enabled: true
+  interval: 10s
+  version_url: http://127.0.0.1:8090

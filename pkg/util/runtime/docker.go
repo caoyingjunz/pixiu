@@ -295,3 +295,77 @@ func (d *dockerRuntime) resolveContainerId(ctx context.Context, name string) (st
 }
 
 var _ Runtime = (*dockerRuntime)(nil)
+
+// 自升级场景的容器操作（仅本地部署使用）。
+
+// inspectContainer 返回 docker 容器详情，供 ContainerImageRef / ReplaceContainer 共用。
+func (d *dockerRuntime) inspectContainer(ctx context.Context, name string) (container.InspectResponse, error) {
+	result, err := d.client.ContainerInspect(ctx, name, client.ContainerInspectOptions{})
+	if err != nil {
+		return container.InspectResponse{}, err
+	}
+	return result.Container, nil
+}
+
+// ContainerImageRef 返回容器当前使用的镜像引用。
+func (d *dockerRuntime) ContainerImageRef(ctx context.Context, name string) (string, error) {
+	info, err := d.inspectContainer(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	if info.Config == nil || info.Config.Image == "" {
+		return "", fmt.Errorf("容器(%s)缺少镜像信息", name)
+	}
+	return info.Config.Image, nil
+}
+
+// IsContainerRunning 返回容器是否处于运行状态；容器不存在时返回 false, nil。
+func (d *dockerRuntime) IsContainerRunning(ctx context.Context, name string) (bool, error) {
+	info, err := d.inspectContainer(ctx, name)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if info.State == nil {
+		return false, nil
+	}
+	return info.State.Running, nil
+}
+
+// ReplaceContainer 按原容器配置用 newImage 重建容器，返回旧镜像引用。
+// 镜像拉取在删除旧容器之前完成，避免拉取失败导致服务中断。
+func (d *dockerRuntime) ReplaceContainer(ctx context.Context, name, newImage string) (string, error) {
+	info, err := d.inspectContainer(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	if info.Config == nil {
+		return "", fmt.Errorf("容器(%s)缺少配置信息", name)
+	}
+	oldImage := info.Config.Image
+
+	cfg := *info.Config
+	cfg.Image = newImage
+	cfg.Hostname = "" // 由引擎重新分配
+
+	if err = d.PullImage(ctx, newImage); err != nil {
+		return oldImage, err
+	}
+	if err = d.RemoveContainer(ctx, name); err != nil {
+		return oldImage, err
+	}
+	resp, err := d.client.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:     &cfg,
+		HostConfig: info.HostConfig,
+		Name:       name,
+	})
+	if err != nil {
+		return oldImage, err
+	}
+	if _, err = d.client.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
+		return oldImage, err
+	}
+	return oldImage, nil
+}
