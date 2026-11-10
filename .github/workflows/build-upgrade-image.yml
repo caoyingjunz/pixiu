@@ -43,7 +43,7 @@ jobs:
           username: ${{ secrets.DOCKER_NAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push the pixiu-upgrade image
+      - name: Build and push the multi-arch pixiu-upgrade image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -55,6 +55,5 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:v2.0.2-beta.1
         # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:${{ env.COMMIT_HASH }}

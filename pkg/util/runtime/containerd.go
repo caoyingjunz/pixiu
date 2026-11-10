@@ -18,6 +18,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -47,6 +48,8 @@ const (
 	containerdStopGrace = 5 * time.Second
 	// logPollInterval 跟随日志时的轮询间隔，避免忙等
 	logPollInterval = 300 * time.Millisecond
+	// nerdctlNameLabel 是 nerdctl 写入容器的名称标签；nerdctl 容器 ID 为哈希，名称仅存于标签。
+	nerdctlNameLabel = "nerdctl/name"
 )
 
 // containerd 容器 ID 的合法字符集
@@ -270,9 +273,40 @@ func (c *containerdRuntime) removeOrphanSnapshot(ctx context.Context, key string
 	return c.client.SnapshotService(snapshotter).Remove(ctx, key)
 }
 
+// resolveContainer 按名称解析 containerd 容器。
+// pixiu 自行创建的容器 ID 即名称；nerdctl 创建的容器 ID 是哈希，名称保存在 nerdctl/name 标签中。
+// 先按 ID 直查，未命中再按标签回退，兼容两种来源。
+func (c *containerdRuntime) resolveContainer(ctx context.Context, name string) (containerd.Container, error) {
+	container, err := c.client.LoadContainer(ctx, name)
+	if err == nil {
+		return container, nil
+	}
+	if !errdefs.IsNotFound(err) {
+		return nil, err
+	}
+
+	containers, listErr := c.client.Containers(ctx)
+	if listErr != nil {
+		return nil, listErr
+	}
+	for _, candidate := range containers {
+		info, infoErr := candidate.Info(ctx)
+		if infoErr != nil {
+			if errdefs.IsNotFound(infoErr) {
+				continue
+			}
+			return nil, infoErr
+		}
+		if info.Labels[nerdctlNameLabel] == name {
+			return candidate, nil
+		}
+	}
+	return nil, err
+}
+
 // RemoveContainer 停止并删除同名容器；容器不存在时返回 nil
 func (c *containerdRuntime) RemoveContainer(ctx context.Context, name string) error {
-	container, err := c.client.LoadContainer(ctx, name)
+	container, err := c.resolveContainer(ctx, name)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
 			return nil
@@ -622,9 +656,85 @@ var _ Runtime = (*containerdRuntime)(nil)
 // upgradeLogFiles 保存升级重建任务日志文件句柄，避免被 GC 回收导致容器输出写失败。
 var upgradeLogFiles sync.Map
 
+// upgradeJSONLogFiles 保存升级重建任务的 nerdctl JSON 日志文件句柄，避免被 GC 回收。
+var upgradeJSONLogFiles sync.Map
+
+// nerdctlLogWriter 将容器输出编码为 nerdctl json-file 驱动的日志行。
+// nerdctl logs 读取 <state-dir>/<容器名>-json.log，因此升级重建的容器必须同步写入该文件。
+type nerdctlLogWriter struct {
+	file   *os.File
+	stream string
+	mu     *sync.Mutex
+}
+
+func (w *nerdctlLogWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	entry, err := json.Marshal(struct {
+		Log    string `json:"log"`
+		Stream string `json:"stream"`
+		Time   string `json:"time"`
+	}{
+		Log:    string(p),
+		Stream: w.stream,
+		Time:   time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		return 0, err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if _, err = w.file.Write(append(entry, '\n')); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+// prepareNerdctlLog 为 containerd 直接重建的容器补齐 nerdctl 状态目录与 JSON 日志。
+// oldStateDir 取自原容器的 nerdctl/state-dir 标签；父目录不存在（未挂载 /var/lib/nerdctl）
+// 时返回 nil，调用方回退为仅写普通日志文件。
+func prepareNerdctlLog(name, oldStateDir string) (io.Writer, io.Writer, *os.File, error) {
+	if oldStateDir == "" {
+		return nil, nil, nil, nil
+	}
+	parent := filepath.Dir(oldStateDir)
+	if _, err := os.Stat(parent); err != nil {
+		klog.Warningf("nerdctl 状态目录不可用（%s），升级后 nerdctl logs 将不可用: %v", parent, err)
+		return nil, nil, nil, nil
+	}
+
+	newStateDir := filepath.Join(parent, name)
+	if err := os.MkdirAll(newStateDir, 0o700); err != nil {
+		return nil, nil, nil, err
+	}
+	for _, file := range []string{"log-config.json", "hostname", "network-config.json", "resolv.conf"} {
+		if data, err := os.ReadFile(filepath.Join(oldStateDir, file)); err == nil {
+			_ = os.WriteFile(filepath.Join(newStateDir, file), data, 0o600)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(newStateDir, "log-config.json")); err != nil {
+		cfg := `{"driver":"json-file","address":"/run/containerd/containerd.sock"}`
+		if err := os.WriteFile(filepath.Join(newStateDir, "log-config.json"), []byte(cfg), 0o600); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	if lock, err := os.OpenFile(filepath.Join(newStateDir, "logger-lock"), os.O_CREATE|os.O_RDWR, 0o600); err == nil {
+		_ = lock.Close()
+	}
+	logFile, err := os.OpenFile(filepath.Join(newStateDir, name+"-json.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	mu := &sync.Mutex{}
+	return &nerdctlLogWriter{file: logFile, stream: "stdout", mu: mu},
+		&nerdctlLogWriter{file: logFile, stream: "stderr", mu: mu},
+		logFile, nil
+}
+
 // ContainerImageRef 返回容器当前使用的镜像引用。
 func (c *containerdRuntime) ContainerImageRef(ctx context.Context, name string) (string, error) {
-	container, err := c.client.LoadContainer(ctx, name)
+	container, err := c.resolveContainer(ctx, name)
 	if err != nil {
 		return "", err
 	}
@@ -640,7 +750,7 @@ func (c *containerdRuntime) ContainerImageRef(ctx context.Context, name string) 
 
 // IsContainerRunning 返回容器是否处于运行状态；容器不存在时返回 false, nil。
 func (c *containerdRuntime) IsContainerRunning(ctx context.Context, name string) (bool, error) {
-	container, err := c.client.LoadContainer(ctx, name)
+	container, err := c.resolveContainer(ctx, name)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
 			return false, nil
@@ -668,7 +778,7 @@ func (c *containerdRuntime) IsContainerRunning(ctx context.Context, name string)
 // 复用原容器的 OCI spec（env/mounts/network/privileged 等）与 labels（含 restart 策略），
 // 不依赖 nerdctl。
 func (c *containerdRuntime) ReplaceContainer(ctx context.Context, name, newImage string) (string, error) {
-	container, err := c.client.LoadContainer(ctx, name)
+	container, err := c.resolveContainer(ctx, name)
 	if err != nil {
 		return "", err
 	}
@@ -701,22 +811,33 @@ func (c *containerdRuntime) ReplaceContainer(ctx context.Context, name, newImage
 		return oldImage, err
 	}
 
-	containerOpts := []containerd.NewContainerOpts{
-		containerd.WithImage(img),
-		containerd.WithNewSnapshot(name, img),
-		containerd.WithSpec(spec),
+	// 升级重建的容器由 containerd 直接创建，不会生成 nerdctl 的容器状态目录；
+	// 此处补齐状态目录与 json-file 日志，保证升级后 nerdctl logs 仍可用。
+	labels := make(map[string]string, len(info.Labels)+1)
+	for k, v := range info.Labels {
+		labels[k] = v
 	}
-	if len(info.Labels) > 0 {
-		containerOpts = append(containerOpts, containerd.WithContainerLabels(info.Labels))
+	oldStateDir := labels["nerdctl/state-dir"]
+	stdoutLogWriter, stderrLogWriter, jsonLogFile, prepErr := prepareNerdctlLog(name, oldStateDir)
+	if prepErr != nil {
+		klog.Warningf("初始化 nerdctl 日志状态失败，升级后 nerdctl logs 将不可用: %v", prepErr)
 	}
-	newContainer, err := c.client.NewContainer(ctx, name, containerOpts...)
-	if err != nil {
-		return oldImage, err
+	if jsonLogFile != nil {
+		labels["nerdctl/state-dir"] = filepath.Join(filepath.Dir(oldStateDir), name)
+		if old, ok := upgradeJSONLogFiles.Load(name); ok {
+			if file, ok := old.(*os.File); ok {
+				_ = file.Close()
+			}
+		}
+		upgradeJSONLogFiles.Store(name, jsonLogFile)
 	}
 
-	// 日志沿用 runner 日志路径约定；句柄保存在全局表，避免被 GC 关闭
-	logFile, err := openLogFile(logPath(name))
+	// 普通日志文件仍保留（/etc/pixiu/runner-logs/<name>.log），便于运维直接查看。
+	plainLogFile, err := openLogFile(logPath(name))
 	if err != nil {
+		if jsonLogFile != nil {
+			_ = jsonLogFile.Close()
+		}
 		return oldImage, err
 	}
 	if old, ok := upgradeLogFiles.Load(name); ok {
@@ -724,10 +845,36 @@ func (c *containerdRuntime) ReplaceContainer(ctx context.Context, name, newImage
 			_ = file.Close()
 		}
 	}
-	upgradeLogFiles.Store(name, logFile)
+	upgradeLogFiles.Store(name, plainLogFile)
 
-	task, err := newContainer.NewTask(ctx, cio.NewCreator(cio.WithStreams(nil, logFile, logFile)))
+	var stdoutWriter io.Writer = plainLogFile
+	var stderrWriter io.Writer = plainLogFile
+	if stdoutLogWriter != nil {
+		stdoutWriter = io.MultiWriter(plainLogFile, stdoutLogWriter)
+		stderrWriter = io.MultiWriter(plainLogFile, stderrLogWriter)
+	}
+
+	containerOpts := []containerd.NewContainerOpts{
+		containerd.WithImage(img),
+		containerd.WithNewSnapshot(name, img),
+		containerd.WithSpec(spec),
+	}
+	if len(labels) > 0 {
+		containerOpts = append(containerOpts, containerd.WithContainerLabels(labels))
+	}
+	newContainer, err := c.client.NewContainer(ctx, name, containerOpts...)
 	if err != nil {
+		if jsonLogFile != nil {
+			_ = jsonLogFile.Close()
+		}
+		return oldImage, err
+	}
+
+	task, err := newContainer.NewTask(ctx, cio.NewCreator(cio.WithStreams(nil, stdoutWriter, stderrWriter)))
+	if err != nil {
+		if jsonLogFile != nil {
+			_ = jsonLogFile.Close()
+		}
 		return oldImage, err
 	}
 	if err = task.Start(ctx); err != nil {

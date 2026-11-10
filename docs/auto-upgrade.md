@@ -104,26 +104,29 @@ pixiu-upgrade **必须运行在 pixiu 容器之外**。升级过程会停止并�
 运行 upgrade 进程的主机/容器需要：
 
 - 挂载宿主 CRI socket 或目录，能创建/删除 pixiu 容器：
-  - containerd：挂载 `/run/containerd` 与 `/var/lib/containerd`（直接使用 containerd 客户端重建，无需安装 nerdctl）
+  - containerd：挂载 `/run/containerd`、`/var/lib/containerd`（直接使用 containerd 客户端重建，无需安装 nerdctl）；同时挂载 `/var/lib/nerdctl`，升级重建后会同步维护 nerdctl 状态与日志，保证 `nerdctl logs` 可用（未挂载时升级仍可执行，但升级后的容器无法用 `nerdctl logs` 查看）
   - docker：挂载 `/var/run/docker.sock`
 - 能访问 MySQL（与 pixiu 主服务相同的库）
 - 能访问 `/etc/pixiu`（读取配置；重建容器时沿用原有挂载参数）
 - 能访问版本源与镜像仓库（拉取新镜像）
 - 升级状态表 `upgrade_records` 由 pixiu 主服务启动时统一初始化（依赖 `default.auto_migrate: true`，或由运维手工建表）；pixiu-upgrade 不再建表，只做更新与查询，请确保主服务至少成功启动过一次。
-- upgrade_records 字段迁移：`latest_version`→`version_tag`、`latest_commit_id`→`commit_id`；移除 `last_probed_at`、`upgrade_available`。auto_migrate 不会改名/删列，存量环境需手工执行：
+- upgrade_records 字段迁移：`latest_version`→`version_tag`、`latest_commit_id`→`commit_id`、`last_error`→`error_message`，并清理 `last_probed_at`、`upgrade_available`、`current_version`、`last_checked_at` 等废弃列。`default.auto_migrate=true` 时，主服务启动会自动完成旧列回填/改名与废弃列删除；仅当 auto_migrate=false 时才需手工执行：
   `ALTER TABLE upgrade_records CHANGE COLUMN latest_version version_tag varchar(64) NOT NULL DEFAULT '', CHANGE COLUMN latest_commit_id commit_id varchar(64) NOT NULL DEFAULT '';`
   `ALTER TABLE upgrade_records DROP COLUMN last_probed_at;`
   `ALTER TABLE upgrade_records DROP COLUMN upgrade_available;`
   `ALTER TABLE upgrade_records CHANGE COLUMN last_error error_message text;`
+  `ALTER TABLE upgrade_records DROP COLUMN current_version;`
   （更老环境若仍有 `last_checked_at` 一并 DROP）
+- pixiu-upgrade 启动时会校验 `upgrade_records` 必需列，缺失时直接报错退出并提示先启动新版主服务或执行上述迁移，不再静默轮询重试。
 - upgrade_records 需保证 (version_tag, commit_id) 唯一：auto_migrate=true 会自动创建唯一索引；存量环境需手工执行 `CREATE UNIQUE INDEX uk_upgrade_version_commit ON upgrade_records (version_tag, commit_id);`
 - upgrade_records 新增 release_time 列：auto_migrate=true 自动添加；存量环境需手工执行 `ALTER TABLE upgrade_records ADD COLUMN release_time datetime(3) NULL;`
-- upgrade_records 移除 current_version、新增 is_current：auto_migrate 只新增列，存量环境需手工执行 `ALTER TABLE upgrade_records DROP COLUMN current_version;` 与 `ALTER TABLE upgrade_records ADD COLUMN is_current tinyint(1) NOT NULL DEFAULT 0;`
+- upgrade_records 移除 current_version、新增 is_current：auto_migrate=true 会自动新增 is_current 并删除 current_version；存量环境手工迁移时执行 `ALTER TABLE upgrade_records DROP COLUMN current_version;` 与 `ALTER TABLE upgrade_records ADD COLUMN is_current tinyint(1) NOT NULL DEFAULT 0;`
 
 ## 镜像构建与运行
 
-- 镜像地址：`crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest`，版本 tag 为 `v2.0.2-beta.1`。
-- GitHub Actions `build-upgrade-image.yml` 在 master 分支推送且 `cmd/upgrade/**`、`pkg/upgrade/**`、`pkg/controller/upgrade/**`、`pkg/db/**`、`pkg/util/runtime/**`、`cmd/app/config/**`、`docker/Dockerfile-upgrade`、`go.mod`、`go.sum` 等路径变化时，构建 linux/amd64 与 linux/arm64 镜像。
+- 镜像地址：`crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest`（dev，amd64）与 `...:v2.0.2-beta.1`（多架构版本）。
+- GitHub Actions `build-upgrade-dev-image.yml` 在 master/开发分支推送且 upgrade 相关路径变化时，仅构建 linux/amd64 并推送 `latest`，用于日常开发快速验证。
+- GitHub Actions `build-upgrade-image.yml` 在 master 分支推送且 `cmd/upgrade/**`、`pkg/upgrade/**`、`pkg/controller/upgrade/**`、`pkg/db/**`、`pkg/util/runtime/**`、`cmd/app/config/**`、`docker/Dockerfile-upgrade`、`go.mod`、`go.sum` 等路径变化时，构建 linux/amd64 与 linux/arm64 多架构镜像，仅推送版本 tag `v2.0.2-beta.1`（不再覆盖 `latest`）。
 - 镜像内置 `upgrade` 二进制并默认读取 `/etc/pixiu/config.yaml`，可用 `-config` 覆盖；重建容器通过 docker/containerd 客户端完成，不依赖 nerdctl。
 
 Docker 运行示例：
@@ -142,6 +145,7 @@ nerdctl run -d --name pixiu-upgrade --restart=always --net host --privileged=tru
   -v /etc/pixiu:/etc/pixiu \
   -v /run/containerd:/run/containerd \
   -v /var/lib/containerd:/var/lib/containerd \
+  -v /var/lib/nerdctl:/var/lib/nerdctl \
   crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
 ```
 
