@@ -23,13 +23,13 @@ jobs:
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "作者 $AUTHOR 历史 issue 数: $COUNT"
 
-      - name: Label as good first issue
+      - name: Label as welcome
         if: steps.check.outputs.count == '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPO: ${{ github.repository }}
         run: |
-          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "good first issue"
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "welcome"
           gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
-            --body "感谢提交首个 issue！🎉 已自动打上 \`good first issue\` 标签，维护者会尽快跟进。"
+            --body "感谢提交首个 issue！🎉 已自动打上 \`welcome\` 标签，维护者会尽快跟进。"
