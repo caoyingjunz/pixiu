@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "master"
-      - "feat/updater-refactor"
     paths:
       - 'cmd/upgrade/**'
       - 'pkg/upgrade/**'
@@ -25,14 +24,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Checkout pixiu-ui
-        uses: actions/checkout@v3
-        with:
-          repository: pixiu-io/pixiu-ui
-          ref: feat/current-version-display
-          token: ${{ secrets.PIXIU_UI_TOKEN }}
-          path: pixiu-ui
 
       - name: Get short commit hash
         run: |

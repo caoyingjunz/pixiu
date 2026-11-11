@@ -6,15 +6,8 @@ COPY go.mod go.sum ./
 COPY . .
 RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o upgrade ./cmd/upgrade
 
-# 前端一并打入（供升级后校验/本地展示使用），与主进程镜像使用同一份 pixiu-ui 构建产物
-FROM node:22.13.0-alpine AS dashboard-builder
-WORKDIR /build
-COPY pixiu-ui .
-RUN npm install --ignore-scripts && npx vite build --mode docker
-
 FROM alpine:3.20
 LABEL MAINTAINER="PIXIU"
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=builder /app/upgrade /usr/local/bin/upgrade
-COPY --from=dashboard-builder /build/dist /usr/share/pixiu/dashboard
 ENTRYPOINT ["upgrade"]

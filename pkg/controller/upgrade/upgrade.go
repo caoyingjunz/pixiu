@@ -132,8 +132,8 @@ func (u *upgrade) TriggerUpgrade(ctx context.Context) error {
 	return nil
 }
 
-// updateRecord 对最新一条匹配记录执行条件更新，返回受影响行数；无匹配时返回 0, nil。
-func (u *upgrade) updateRecord(ctx context.Context, updates map[string]interface{}, opts ...db.Options) (int64, error) {
+// update 对最新一条匹配记录执行条件更新，返回受影响行数；无匹配时返回 0, nil。
+func (u *upgrade) update(ctx context.Context, updates map[string]interface{}, opts ...db.Options) (int64, error) {
 	record, err := u.GetBy(ctx, opts...)
 	if err != nil || record == nil {
 		return 0, err
@@ -178,7 +178,7 @@ func (u *upgrade) MarkPending(ctx context.Context) (bool, error) {
 // Claim 原子认领待升级请求：仅当记录处于「待升级」时推进到「升级中」，并记录执行者标识。
 // 未抢到返回 nil, nil；返回非空记录即代表本次认领成功。
 func (u *upgrade) Claim(ctx context.Context, upgradeID string) (*model.UpgradeRecord, error) {
-	affected, err := u.updateRecord(ctx, map[string]interface{}{
+	affected, err := u.update(ctx, map[string]interface{}{
 		"status":        model.UpgradeStatusUpgrading,
 		"upgrade_id":    upgradeID,
 		"error_message": "",
@@ -234,7 +234,7 @@ func (u *upgrade) CurrentVersion(ctx context.Context) (string, error) {
 }
 
 func (u *upgrade) MarkFailed(ctx context.Context, upgradeID, message string) (bool, error) {
-	affected, err := u.updateRecord(ctx, map[string]interface{}{
+	affected, err := u.update(ctx, map[string]interface{}{
 		"status":        model.UpgradeStatusFailed,
 		"error_message": message,
 		"gmt_modified":  time.Now(),
@@ -249,7 +249,7 @@ func (u *upgrade) MarkFailed(ctx context.Context, upgradeID, message string) (bo
 }
 
 func (u *upgrade) Reset(ctx context.Context, upgradeID, message string) (bool, error) {
-	affected, err := u.updateRecord(ctx, map[string]interface{}{
+	affected, err := u.update(ctx, map[string]interface{}{
 		"status":        model.UpgradeStatusFailed,
 		"error_message": message,
 		"gmt_modified":  time.Now(),
