@@ -47,6 +47,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.3
 	github.com/aws/smithy-go v1.28.5
 	github.com/containerd/errdefs v1.0.0
+	github.com/containerd/typeurl/v2 v2.3.0
 	github.com/distribution/reference v0.6.0
 	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.26.6+incompatible
 	github.com/lib/pq v1.10.9
@@ -101,7 +102,6 @@ require (
 	github.com/containerd/log v0.2.0 // indirect
 	github.com/containerd/platforms v1.0.0-rc.5 // indirect
 	github.com/containerd/ttrpc v1.2.10 // indirect
-	github.com/containerd/typeurl/v2 v2.3.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect

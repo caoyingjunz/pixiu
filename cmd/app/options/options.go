@@ -32,6 +32,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
+	pixiulicense "github.com/caoyingjunz/pixiu/pkg/license"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	"github.com/caoyingjunz/pixiu/pkg/upgrader"
 	pixiuruntime "github.com/caoyingjunz/pixiu/pkg/util/runtime"
@@ -166,6 +167,9 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	// 登记宿主容器运行时配置（懒加载：启动不连接 CRI socket，
 	// 首次部署/日志等实际使用时才建立连接，连接失败只影响当次调用，不阻断启动）
 	pixiuruntime.Init(o.ComponentConfig.Runtime)
+
+	// 登记商业 license：加载/验签失败只降级社区版，不阻断启动
+	pixiulicense.Init(o.ComponentConfig.License.Path)
 
 	o.ComponentConfig.Log.Init(isCLIVerbositySet(cmd))
 
