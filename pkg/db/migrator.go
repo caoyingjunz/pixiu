@@ -22,22 +22,21 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	defaultTableOptions = "AUTO_INCREMENT=20220801 DEFAULT CHARSET=utf8"
-)
-
 type migrator struct {
 	db *gorm.DB
 }
 
 // AutoMigrate 自动创建/更新指定模型的数据库表结构（补齐新增字段）
 func (m *migrator) AutoMigrate() error {
+	db := m.db.Set("gorm:table_options", "AUTO_INCREMENT=20220801 DEFAULT CHARSET=utf8")
+
 	for _, d := range model.GetMigrationModels() {
-		if err := m.db.Set("gorm:table_options", defaultTableOptions).AutoMigrate(d); err != nil {
+		if err := db.AutoMigrate(d); err != nil {
 			return err
 		}
 	}
-	return m.migrateAPIGroupColumn(m.db)
+
+	return m.migrateAPIGroupColumn(db)
 }
 
 // migrateAPIGroupColumn 将历史保留字段 group 迁移到 api_group，避免 MySQL 保留字导致读写异常
