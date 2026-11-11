@@ -54,5 +54,5 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:v2.0.2-beta.1
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:v2.0.2-beta.2
         # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:${{ env.COMMIT_HASH }}
