@@ -37,8 +37,8 @@ type UpgradeInterface interface {
 
 	// GetBy 按 opts 条件返回单条升级记录；不存在时返回 nil, nil。
 	GetBy(ctx context.Context, opts ...Options) (*model.UpgradeRecord, error)
-	// SetCurrent 将指定记录标记为当前使用版本，并清除其他记录的标记。
-	SetCurrent(ctx context.Context, id int64) error
+	// MarkCompleted 原子回写升级完成（status 2→3）并将该记录标记为当前使用版本。
+	MarkCompleted(ctx context.Context, id int64, upgradeID, version string) (int64, error)
 }
 
 type upgrade struct {
@@ -75,8 +75,24 @@ func (u *upgrade) GetBy(ctx context.Context, opts ...Options) (*model.UpgradeRec
 	return &object, nil
 }
 
-func (u *upgrade) SetCurrent(ctx context.Context, id int64) error {
-	return u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func (u *upgrade) MarkCompleted(ctx context.Context, id int64, upgradeID, version string) (int64, error) {
+	var affected int64
+	err := u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&model.UpgradeRecord{}).
+			Where("id = ? AND status = ? AND upgrade_id = ? AND version_tag = ?",
+				id, model.UpgradeStatusUpgrading, upgradeID, version).
+			Updates(map[string]interface{}{
+				"status":        model.UpgradeStatusCompleted,
+				"error_message": "",
+				"gmt_modified":  time.Now(),
+			})
+		affected = result.RowsAffected
+		if result.Error != nil {
+			return result.Error
+		}
+		if affected != 1 {
+			return nil
+		}
 		if err := tx.Model(&model.UpgradeRecord{}).
 			Where("is_current = ? AND id <> ?", true, id).
 			Update("is_current", false).Error; err != nil {
@@ -86,6 +102,7 @@ func (u *upgrade) SetCurrent(ctx context.Context, id int64) error {
 			Where("id = ?", id).
 			Update("is_current", true).Error
 	})
+	return affected, err
 }
 
 func (u *upgrade) List(ctx context.Context, opts ...Options) ([]model.UpgradeRecord, error) {

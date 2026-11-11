@@ -48,6 +48,9 @@ type Interface interface {
 	MarkPending(ctx context.Context) (bool, error)
 	MarkCompleted(ctx context.Context, upgradeID, version string) (bool, error)
 	MarkFailed(ctx context.Context, upgradeID, message string) (bool, error)
+
+	// CurrentVersion 返回当前使用版本的版本号；无记录时返回空字符串。
+	CurrentVersion(ctx context.Context) (string, error)
 }
 
 type Getter interface {
@@ -113,7 +116,7 @@ func (u *upgrade) TriggerUpgrade(ctx context.Context) error {
 		return err
 	}
 	switch {
-	case record == nil || record.Image == "" || record.VersionTag == "":
+	case record == nil || record.Image == "" || record.VersionTag == "" || record.IsCurrent:
 		return apierrors.NewError(fmt.Errorf("当前已是最新版本"), http.StatusConflict)
 	case record.Status != model.UpgradeStatusNotUpgraded && record.Status != model.UpgradeStatusFailed:
 		return apierrors.NewError(fmt.Errorf("当前已是最新版本"), http.StatusConflict)
@@ -153,7 +156,7 @@ func (u *upgrade) MarkPending(ctx context.Context) (bool, error) {
 	}
 	if record == nil ||
 		(record.Status != model.UpgradeStatusNotUpgraded && record.Status != model.UpgradeStatusFailed) ||
-		record.Image == "" || record.VersionTag == "" {
+		record.Image == "" || record.VersionTag == "" || record.IsCurrent {
 		return false, nil
 	}
 
@@ -212,25 +215,22 @@ func (u *upgrade) MarkCompleted(ctx context.Context, upgradeID, version string) 
 		return false, nil
 	}
 
-	affected, err := u.dao.Update(ctx, record.Id, map[string]interface{}{
-		"status":        model.UpgradeStatusCompleted,
-		"error_message": "",
-		"gmt_modified":  time.Now(),
-	},
-		db.WithUpgradeStatus(model.UpgradeStatusUpgrading),
-		db.WithUpgradeID(upgradeID),
-		db.WithUpgradeVersionTag(version),
-	)
+	affected, err := u.dao.MarkCompleted(ctx, record.Id, upgradeID, version)
 	if err != nil {
 		return false, err
 	}
-	if affected != 1 {
-		return false, nil
+	return affected == 1, nil
+}
+
+func (u *upgrade) CurrentVersion(ctx context.Context) (string, error) {
+	record, err := u.GetBy(ctx, db.WithUpgradeIsCurrent(true))
+	if err != nil {
+		return "", err
 	}
-	if err = u.dao.SetCurrent(ctx, record.Id); err != nil {
-		return false, err
+	if record == nil {
+		return "", nil
 	}
-	return true, nil
+	return record.VersionTag, nil
 }
 
 func (u *upgrade) MarkFailed(ctx context.Context, upgradeID, message string) (bool, error) {

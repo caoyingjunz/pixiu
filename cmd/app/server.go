@@ -141,15 +141,6 @@ func Run(opt *options.Options) error {
 		}
 	}()
 
-	// 新版 pixiu 启动后确认运行版本已到达升级目标，回写升级完成状态 3（不阻塞启动）
-	if opt.UpgradeChecker != nil {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-			defer cancel()
-			opt.UpgradeChecker.MarkCompleted(ctx)
-		}()
-	}
-
 	// 自动升级：启动后立即执行一次版本检查，周期检查由 JobManager 统一调度
 	if opt.UpgradeChecker != nil {
 		go func() {

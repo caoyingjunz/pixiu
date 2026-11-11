@@ -48,6 +48,15 @@ func NewRouter(o *options.Options) {
 		},
 	}
 	group.Register(o.HttpEngine.Group("/pixiu/upgrade"), o.Controller.APIResource())
+
+	versionGroup := &apiregistry.Group{
+		Name:    "版本信息",
+		BaseURL: "/pixiu",
+		Entries: []apiregistry.RouteEntry{
+			{Method: "GET", RelativePath: "/version", Handler: r.getCurrentVersion, Description: "获取当前版本"},
+		},
+	}
+	versionGroup.Register(o.HttpEngine.Group("/pixiu"), o.Controller.APIResource())
 }
 
 func (r *upgradeRouter) getLatestVersion(c *gin.Context) {
@@ -65,6 +74,18 @@ func (r *upgradeRouter) getLatestVersion(c *gin.Context) {
 	status.Enabled = r.enabled
 	resp.Result = status
 
+	httputils.SetSuccess(c, resp)
+}
+
+func (r *upgradeRouter) getCurrentVersion(c *gin.Context) {
+	resp := httputils.NewResponse()
+
+	version, err := r.c.Upgrade().CurrentVersion(c)
+	if err != nil {
+		httputils.SetFailed(c, resp, apierrors.ErrServerInternal)
+		return
+	}
+	resp.Result = gin.H{"version": version}
 	httputils.SetSuccess(c, resp)
 }
 

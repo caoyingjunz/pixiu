@@ -24,7 +24,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
-// upgradeRequiredColumns 是当前代码读写 upgrade_records 所依赖的列。
+// upgradeRequiredColumns 是当前代码读写 server_versions 所依赖的列。
 var upgradeRequiredColumns = []string{
 	"version_tag",
 	"commit_id",
@@ -36,9 +36,9 @@ var upgradeRequiredColumns = []string{
 	"error_message",
 }
 
-// ValidateUpgradeSchema 校验 upgrade_records 是否具备当前版本所需的列。
+// ValidateUpgradeSchema 校验 server_versions 是否具备当前版本所需的列。
 // pixiu-upgrade 不执行 AutoMigrate，启动时显式校验并快速失败，
-// 避免表结构过旧时每轮轮询都写入失败、只留下重复错误日志。
+// 避免每轮轮询都写入失败、只留下重复错误日志。
 func ValidateUpgradeSchema(db *gorm.DB) error {
 	upgrade := &model.UpgradeRecord{}
 	migrator := db.Migrator()
@@ -50,7 +50,7 @@ func ValidateUpgradeSchema(db *gorm.DB) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("upgrade_records 缺少列 %v；请先启动新版 pixiu 主服务完成 AutoMigrate，或按 docs/auto-upgrade.md 执行手工迁移", missing)
+		return fmt.Errorf("server_versions 缺少列 %v；请先启动 pixiu 主服务完成 AutoMigrate 建表", missing)
 	}
 	return nil
 }

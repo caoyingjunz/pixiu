@@ -80,10 +80,10 @@ func newFactory(cfg *upgrader.Config) (pixiudb.ShareDaoFactory, error) {
 	if err != nil {
 		return nil, err
 	}
-	// upgrade_records 表由 pixiu 主服务统一初始化；本进程只负责更新与查询。
+	// server_versions 表由 pixiu 主服务统一初始化；本进程只负责更新与查询。
 	// 启动时校验表结构，避免存量库列不一致时每轮轮询都写入失败。
 	if err := pixiudb.ValidateUpgradeSchema(db); err != nil {
-		return nil, fmt.Errorf("校验 upgrade_records 表结构失败: %w", err)
+		return nil, fmt.Errorf("校验 server_versions 表结构失败: %w", err)
 	}
 	return pixiudb.NewDaoFactory(db, false)
 }

@@ -74,7 +74,7 @@ type Options struct {
 
 	// ConfigFile is the location of the pixiu server's configuration file.
 	ConfigFile string
-	// ServerVersion 当前 pixiu 编译版本，用于升级完成后回写状态 3。
+	// ServerVersion 当前 pixiu 编译版本，用于版本检测请求参数。
 	ServerVersion string
 
 	JobManager *jobmanager.Manager

@@ -2,10 +2,10 @@
 
 自动升级由两个进程协作完成：
 
-- **pixiu 主服务**：内置版本检查循环，定期查询版本源并与当前运行镜像比对，把结果写入数据库；新版 pixiu 启动后还会确认运行版本并回写「升级完成」。
-- **pixiu-upgrade**：独立进程，轮询数据库中的升级请求，执行镜像拉取与容器重建。
+- **pixiu 主服务**：内置版本检查循环，定期查询版本源并与当前运行镜像比对，把结果写入数据库；不参与升级执行与完成回写。
+- **pixiu-upgrade**：独立进程，轮询数据库中的升级请求，执行镜像拉取与容器重建；容器重建后稳定运行时由它原子回写「升级完成」并把 `is_current` 切到新版本。
 
-升级状态以版本记录（`upgrade_records`，每个 version+commit 一行，历史全部保留）持久化，使用 `status` 字段表达完整状态机；业务层按 `id` 降序取最新一条。
+升级状态以版本记录（`server_versions`，每个 version+commit 一行，历史全部保留）持久化，使用 `status` 字段表达完整状态机；业务层按 `id` 降序取最新一条。
 
 ## 状态机
 
@@ -14,20 +14,20 @@
 | 0 | 未升级 | 检查器发现数据库中不存在的新版本，等待用户确认 | pixiu 主服务（检查器 `Create`） |
 | 1 | 待升级 | 用户确认升级，等待 upgrade 进程认领 | 主服务 API `POST /pixiu/upgrade`（`MarkPending`） |
 | 2 | 升级中 | upgrade 进程原子认领成功并写入 `upgrade_id` | pixiu-upgrade（`Claim`，条件 1→2） |
-| 3 | 升级完成 | 新版 pixiu 确认当前运行版本与目标版本一致，并标记 is_current | 新版 pixiu 启动钩子（`MarkCompleted`，条件 2→3） |
+| 3 | 升级完成 | pixiu-upgrade 确认新容器稳定运行后回写完成，并在同一事务内把 `is_current` 切到新版本 | pixiu-upgrade（`MarkCompleted`，条件 2→3） |
 | 4 | 升级失败 | 拉取/重建失败，或新容器在启动观察窗口内退出，`error_message` 记录原因 | pixiu-upgrade（`MarkFailed`，2/3→4）或启动自检（`Reset`，2→4） |
 
 状态迁移全部通过带条件的原子 `UPDATE` 完成，只有 `RowsAffected == 1` 才算成功：
 
 ```
-0 ──用户确认──> 1 ──upgrade 进程认领──> 2 ──新版 pixiu 回写──> 3
+0 ──用户确认──> 1 ──upgrade 进程认领──> 2 ──容器稳定后 upgrade 进程回写──> 3
 ↑                                  │
 └──────────发现更新版本─────────────┴──失败/崩溃恢复──> 4 ──用户重试──> 1
 ```
 
 其他约束：
 
-- 每个 version+commit 对应一条 upgrade_records 记录，历史全部保留；状态接口返回最新一条（id 最大）。
+- 每个 version+commit 对应一条 server_versions 记录，历史全部保留；状态接口返回最新一条（id 最大）。
 - 检查器只新增版本记录，不修改已有记录的状态。
 - 检查器发现新的 version+commit 时新增一条记录，历史记录（含状态 4）保持不变。
 - 同一版本升级失败后，该条记录保持状态 4，直到用户重试。
@@ -109,18 +109,8 @@ pixiu-upgrade **必须运行在 pixiu 容器之外**。升级过程会停止并�
 - 能访问 MySQL（与 pixiu 主服务相同的库）
 - 能访问 `/etc/pixiu`（读取配置；重建容器时沿用原有挂载参数）
 - 能访问版本源与镜像仓库（拉取新镜像）
-- 升级状态表 `upgrade_records` 由 pixiu 主服务启动时统一初始化（依赖 `default.auto_migrate: true`，或由运维手工建表）；pixiu-upgrade 不再建表，只做更新与查询，请确保主服务至少成功启动过一次。
-- upgrade_records 字段迁移：`latest_version`→`version_tag`、`latest_commit_id`→`commit_id`、`last_error`→`error_message`，并清理 `last_probed_at`、`upgrade_available`、`current_version`、`last_checked_at` 等废弃列。`default.auto_migrate=true` 时，主服务启动会自动完成旧列回填/改名与废弃列删除；仅当 auto_migrate=false 时才需手工执行：
-  `ALTER TABLE upgrade_records CHANGE COLUMN latest_version version_tag varchar(64) NOT NULL DEFAULT '', CHANGE COLUMN latest_commit_id commit_id varchar(64) NOT NULL DEFAULT '';`
-  `ALTER TABLE upgrade_records DROP COLUMN last_probed_at;`
-  `ALTER TABLE upgrade_records DROP COLUMN upgrade_available;`
-  `ALTER TABLE upgrade_records CHANGE COLUMN last_error error_message text;`
-  `ALTER TABLE upgrade_records DROP COLUMN current_version;`
-  （更老环境若仍有 `last_checked_at` 一并 DROP）
-- pixiu-upgrade 启动时会校验 `upgrade_records` 必需列，缺失时直接报错退出并提示先启动新版主服务或执行上述迁移，不再静默轮询重试。
-- upgrade_records 需保证 (version_tag, commit_id) 唯一：auto_migrate=true 会自动创建唯一索引；存量环境需手工执行 `CREATE UNIQUE INDEX uk_upgrade_version_commit ON upgrade_records (version_tag, commit_id);`
-- upgrade_records 新增 release_time 列：auto_migrate=true 自动添加；存量环境需手工执行 `ALTER TABLE upgrade_records ADD COLUMN release_time datetime(3) NULL;`
-- upgrade_records 移除 current_version、新增 is_current：auto_migrate=true 会自动新增 is_current 并删除 current_version；存量环境手工迁移时执行 `ALTER TABLE upgrade_records DROP COLUMN current_version;` 与 `ALTER TABLE upgrade_records ADD COLUMN is_current tinyint(1) NOT NULL DEFAULT 0;`
+- 升级状态表 `server_versions` 由 pixiu 主服务启动时统一初始化（依赖 `default.auto_migrate: true`，或由运维手工建表）；pixiu-upgrade 不再建表，只做更新与查询，请确保主服务至少成功启动过一次。
+- pixiu-upgrade 启动时会校验 `server_versions` 必需列，缺失时直接报错退出，提示先启动主服务建表。
 
 ## 镜像构建与运行
 
@@ -157,17 +147,21 @@ nerdctl run -d --name pixiu-upgrade --restart=always --net host --privileged=tru
 - 升级窗口内 pixiu 服务会短暂不可用（容器重建），建议在业务低峰执行。
 - 拉取镜像或重建容器失败时，状态置为 4 并记录 `error_message`，不会自动回滚；需人工处理后在页面重试（4 → 1）。
 - 重建后会观察容器 30 秒：期间容器退出/崩溃即判定启动失败，状态置为 4。
-- 成功重建并保持运行后不会立即写状态 3：新版 pixiu 启动后会校验「当前运行镜像 tag / 镜像地址 / 编译版本」与目标版本是否一致，一致才回写 3。回写最多重试 10 次、间隔 3 秒。
+- 成功重建并在 30 秒观察窗口内保持运行后，由 pixiu-upgrade 原子回写状态 3，并在同一事务内把 `is_current` 切到新版本记录（旧记录 `is_current` 置 0）。回写失败只记录日志，不影响已运行的新容器。
 
 ## 崩溃恢复
 
 - upgrade 进程启动时执行 `Reset`：把自己上次遗留的「升级中」（状态 2）记录置为失败（状态 4），并写入 `error_message` 说明进程重启。这样记录不会永久卡在 2，用户可以重新发起升级。
 - 由于 `upgrade_id` 参与条件更新，其他实例不会误清理不属于自己的「升级中」记录。
-- pixiu 主服务启动时如果发现自己是「升级中」的新容器，会在 60 秒内反复确认运行版本并回写状态 3；确认失败只记录告警，不影响服务启动。
 
 ## 接口
 
 - `GET /pixiu/upgrade/latest-version`：返回最新一条升级记录：`enabled`、`version_tag`、`is_current`、`commit_id`、`image`、`status`、`upgrading`（兼容字段，等价于 `status` 为 1 或 2）、`error_message`、`release_time`。`enabled` 表示升级功能是否开启；`release_time` 为该版本的发布时间（可选，无法解析时缺省）。
 - `POST /pixiu/upgrade`：管理员触发升级（0/4 → 1）。无可用升级或目标镜像为空返回 409「当前已是最新版本」；状态 1/2 返回 409「升级已在进行中」；并发下状态被改变返回 409「升级状态已变化，请刷新后重试」。
+- `GET /pixiu/version`：返回 `{"version": "..."}`，即当前 `is_current` 记录的 `version_tag`；无 `is_current` 记录时 `version` 为空字符串。所有登录用户可读。
 
 `GET /latest-version` 与 `POST /pixiu/upgrade` 均仅管理员可访问；`upgrade.enabled=false` 时返回 enabled=false，触发升级返回 409。
+
+## is_current 语义
+
+`is_current` 标记当前已部署且容器稳定运行的版本：由 pixiu-upgrade 在容器稳定运行后回写升级完成时，于同一事务内切换（新记录置 1、其他记录置 0）；升级进行中或启动观察窗口内不会切换。

@@ -55,5 +55,5 @@ type UpgradeRecord struct {
 }
 
 func (u *UpgradeRecord) TableName() string {
-	return "upgrade_records"
+	return "server_versions"
 }
