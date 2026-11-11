@@ -116,7 +116,7 @@ func (p *proxyRouter) proxyHandler(c *gin.Context) {
 		}
 	}
 
-	// 上游 service proxy 需 Basic 认证时（数据源 ID 或 X-Pixiu-Proxy-Authorization），
+	// 上游 service proxy 需认证时（数据源 ID 或 X-Pixiu-Proxy-Authorization），
 	// 绕过 apiserver proxy 经 Pod port-forward 注入 Authorization。
 	upstreamAuth := datasourceauth.BasicAuthorization(datasource)
 	if upstreamAuth == "" {

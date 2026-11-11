@@ -115,6 +115,25 @@ func BasicAuthorization(datasource *types.Datasource) string {
 	default:
 		return ""
 	}
+	return HTTPAuthorization(username, password)
+}
+
+func HTTPAuthorization(username, password string) string {
+	if strings.TrimSpace(username) != "" {
+		return basicAuthorization(username, password)
+	}
+	return bearerAuthorization(password)
+}
+
+func bearerAuthorization(token string) string {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return ""
+	}
+	return "Bearer " + token
+}
+
+func basicAuthorization(username, password string) string {
 	if strings.TrimSpace(username) == "" && strings.TrimSpace(password) == "" {
 		return ""
 	}
