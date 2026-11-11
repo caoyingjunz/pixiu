@@ -722,13 +722,10 @@ func (c *containerdRuntime) ReplaceContainer(ctx context.Context, name, newImage
 	}
 	klog.Infof("[升级] 旧容器(%s)已删除，开始按原 OCI spec 创建新容器", name)
 
-	// 升级重建的容器由 containerd 直接创建，不维护 nerdctl 元数据；
-	// 删除原容器遗留的 nerdctl/state-dir 标签，避免 nerdctl logs 误读升级前的旧日志。
 	labels := make(map[string]string, len(info.Labels))
 	for k, v := range info.Labels {
 		labels[k] = v
 	}
-	delete(labels, "nerdctl/state-dir")
 
 	// 日志固定写入 <DefaultLogDir>/<name>.log，由升级进程持有句柄，便于运维 tail 或 pixiu 页面查看。
 	plainLogFile, err := openLogFile(logPath(name))
