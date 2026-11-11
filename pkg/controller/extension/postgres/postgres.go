@@ -146,6 +146,15 @@ func validatePostgresDatasource(object *model.Datasource) error {
 }
 
 func (c *controller) conn(ctx context.Context, id int64) (*sql.DB, *types.PostgresSourceConfig, error) {
+	return c.connTo(ctx, id, "")
+}
+
+func pgCacheKey(id int64, database string) string {
+	return strconv.FormatInt(id, 10) + "/" + database
+}
+
+// connTo 按指定库另开连接；database 为空时用数据源默认库。PG 不能在同一连接内切库。
+func (c *controller) connTo(ctx context.Context, id int64, database string) (*sql.DB, *types.PostgresSourceConfig, error) {
 	o, cfg, e := datasourcecontroller.LoadDatasourceConfig(ctx, c.factory, id, validatePostgresDatasource)
 	if e != nil {
 		return nil, nil, e
@@ -153,11 +162,28 @@ func (c *controller) conn(ctx context.Context, id int64) (*sql.DB, *types.Postgr
 	if cfg.Postgres == nil {
 		return nil, nil, apierrors.NewError(fmt.Errorf("missing postgres config"), http.StatusBadRequest)
 	}
-	p := cfg.Postgres
-	key := strconv.FormatInt(id, 10)
-	fp := dsn(p, p.SSLMode)
+	p := *cfg.Postgres
+	dbName := strings.TrimSpace(database)
+	if dbName == "" {
+		dbName = p.Database
+		if dbName == "" {
+			dbName = "postgres"
+		}
+	} else if err := pgCheckIdent("database", dbName); err != nil {
+		return nil, nil, err
+	}
+	p.Database = dbName
+	key := pgCacheKey(id, dbName)
+	fp := dsn(&p, p.SSLMode)
+	idPrefix := strconv.FormatInt(id, 10) + "/"
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	for k, x := range c.conns {
+		if strings.HasPrefix(k, idPrefix) && x.version != o.ResourceVersion {
+			x.db.Close()
+			delete(c.conns, k)
+		}
+	}
 	if x, ok := c.conns[key]; ok {
 		// 配置未变化时复用缓存连接；缓存连接可能已失效，复用前先做健康检查
 		if x.version == o.ResourceVersion && x.fingerprint == fp {
@@ -166,18 +192,19 @@ func (c *controller) conn(ctx context.Context, id int64) (*sql.DB, *types.Postgr
 			pingCancel()
 			if pingErr == nil {
 				x.last = time.Now()
-				return x.db, p, nil
+				c.conns[key] = x
+				return x.db, &p, nil
 			}
 		}
 		x.db.Close()
 		delete(c.conns, key)
 	}
-	db, e := open(p)
+	db, e := open(&p)
 	if e != nil {
 		return nil, nil, e
 	}
 	c.conns[key] = cached{db: db, version: o.ResourceVersion, fingerprint: fp, last: time.Now()}
-	return db, p, nil
+	return db, &p, nil
 }
 func (c *controller) Ping(ctx context.Context, id int64) (*types.PostgresPing, error) {
 	db, p, e := c.conn(ctx, id)
@@ -283,7 +310,7 @@ func (c *controller) Info(ctx context.Context, id int64) (*types.PostgresServerI
 	pgScanOne(ctx, db, "select count(*) filter (where state='active'),count(*) filter (where state='idle'),count(*) filter (where wait_event is not null),count(*) filter (where state='idle in transaction') from pg_stat_activity", &r.ActiveSessions, &r.IdleSessions, &r.WaitingSessions, &r.IdleInTxSessions)
 	pgScanOne(ctx, db, "select count(*) filter (where datallowconn),count(*) filter (where not datistemplate) from pg_database", &r.DatabaseCount, &r.UserDatabaseCount)
 	pgScanOne(ctx, db, "select pg_is_in_recovery()", &r.InRecovery)
-	pgScanOne(ctx, db, "select coalesce(sum(pg_database_size(datname)),0) from pg_database where datallowconn", &r.DataSizeBytes)
+	pgScanOne(ctx, db, "select coalesce(sum(pg_database_size(datname)),0) from pg_database where datallowconn and has_database_privilege(datname,'CONNECT')", &r.DataSizeBytes)
 	var hit, read int64
 	pgScanOne(ctx, db, "select coalesce(sum(blks_hit),0),coalesce(sum(blks_read),0),coalesce(sum(xact_commit),0)+coalesce(sum(xact_rollback),0),coalesce(sum(temp_files),0),coalesce(sum(temp_bytes),0),coalesce(sum(deadlocks),0) from pg_stat_database", &hit, &read, &r.TotalTransactions, &r.TempFiles, &r.TempBytes, &r.Deadlocks)
 	if hit+read > 0 {
@@ -315,33 +342,46 @@ func (c *controller) ListDatabases(ctx context.Context, id int64) ([]types.Postg
 	if e != nil {
 		return nil, e
 	}
-	return pgQuerySlice(ctx, db, "select datname,pg_get_userbyid(datdba),pg_database_size(datname),pg_encoding_to_char(encoding),datcollate from pg_database where datallowconn order by datname", func(r *sql.Rows) (types.PostgresDatabase, error) {
+	// pg_database_size 需要 CONNECT；无权限的库会让整条查询失败，下拉变成无数据。
+	out, err := pgQuerySlice(ctx, db, "select datname,pg_get_userbyid(datdba),pg_database_size(datname),pg_encoding_to_char(encoding),datcollate from pg_database where datallowconn and has_database_privilege(datname,'CONNECT') order by datname", func(r *sql.Rows) (types.PostgresDatabase, error) {
 		var x types.PostgresDatabase
 		e := r.Scan(&x.Name, &x.Owner, &x.SizeBytes, &x.Encoding, &x.Collation)
 		return x, e
 	})
+	if err != nil {
+		return nil, wrapPgErr(err)
+	}
+	return out, nil
 }
 func (c *controller) ListSchemas(ctx context.Context, id int64, dbn string) ([]types.PostgresSchema, error) {
-	db, _, e := c.conn(ctx, id)
+	db, _, e := c.connTo(ctx, id, dbn)
 	if e != nil {
 		return nil, e
 	}
-	return pgQuerySlice(ctx, db, "select schema_name,coalesce(schema_owner,'') from information_schema.schemata where schema_name not like 'pg_%' and schema_name <> 'information_schema' order by schema_name", func(r *sql.Rows) (types.PostgresSchema, error) {
+	out, err := pgQuerySlice(ctx, db, "select schema_name,coalesce(schema_owner,'') from information_schema.schemata where schema_name not like 'pg_%' and schema_name <> 'information_schema' order by schema_name", func(r *sql.Rows) (types.PostgresSchema, error) {
 		var x types.PostgresSchema
 		e := r.Scan(&x.Name, &x.Owner)
 		return x, e
 	})
+	if err != nil {
+		return nil, wrapPgErr(err)
+	}
+	return out, nil
 }
 func (c *controller) ListTables(ctx context.Context, id int64, dbn, schema string) ([]types.PostgresTable, error) {
-	db, _, e := c.conn(ctx, id)
+	db, _, e := c.connTo(ctx, id, dbn)
 	if e != nil {
 		return nil, e
 	}
-	return pgQuerySlice(ctx, db, "select n.nspname,c.relname,case c.relkind when 'r' then 'table' when 'v' then 'view' when 'm' then 'materialized_view' when 'S' then 'sequence' else c.relkind::text end,coalesce(c.reltuples,0)::bigint,pg_total_relation_size(c.oid) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind in ('r','v','m','S') order by c.relname", func(r *sql.Rows) (types.PostgresTable, error) {
+	out, err := pgQuerySlice(ctx, db, "select n.nspname,c.relname,case c.relkind when 'r' then 'table' when 'v' then 'view' when 'm' then 'materialized_view' when 'S' then 'sequence' else c.relkind::text end,coalesce(c.reltuples,0)::bigint,case when has_table_privilege(c.oid,'SELECT') then pg_total_relation_size(c.oid) else 0 end from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind in ('r','v','m','S') order by c.relname", func(r *sql.Rows) (types.PostgresTable, error) {
 		var x types.PostgresTable
 		e := r.Scan(&x.Schema, &x.Name, &x.Type, &x.Rows, &x.SizeBytes)
 		return x, e
 	}, schema)
+	if err != nil {
+		return nil, wrapPgErr(err)
+	}
+	return out, nil
 }
 func (c *controller) ListSessions(ctx context.Context, id int64) ([]types.PostgresSession, error) {
 	db, _, e := c.conn(ctx, id)
