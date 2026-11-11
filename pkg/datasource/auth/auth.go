@@ -80,20 +80,7 @@ func Prepare(
 	}
 
 	token, err := defaultAuthenticator.nacosToken(datasource, func() (string, time.Duration, error) {
-		loginTarget := *target
-		loginTarget.Path = nacosLoginPath(target.Path, datasource.Config.Nacos)
-		loginTarget.RawPath = ""
-		loginTarget.RawQuery = ""
-		request, err := newNacosLoginRequest(ctx, datasource, loginTarget.String())
-		if err != nil {
-			return "", 0, err
-		}
-		response, err := execute(request)
-		if err != nil {
-			return "", 0, err
-		}
-		defer response.Body.Close()
-		return parseNacosLoginResponse(response)
+		return loginNacos(ctx, datasource, target, execute)
 	})
 	if err != nil {
 		return "", err
@@ -237,14 +224,68 @@ func newNacosLoginRequest(ctx context.Context, datasource *types.Datasource, tar
 	return request, nil
 }
 
-func nacosLoginPath(requestPath string, config *types.NacosSourceConfig) string {
-	if strings.HasPrefix(requestPath, "/nacos/v3/") {
-		return "/nacos/v3/auth/user/login"
+func loginNacos(
+	ctx context.Context,
+	datasource *types.Datasource,
+	target *url.URL,
+	execute RequestExecutor,
+) (string, time.Duration, error) {
+	var lastErr error
+	for _, path := range nacosLoginPaths(target.Path, datasource.Config.Nacos) {
+		loginTarget := *target
+		loginTarget.Path = path
+		loginTarget.RawPath = ""
+		loginTarget.RawQuery = ""
+		request, err := newNacosLoginRequest(ctx, datasource, loginTarget.String())
+		if err != nil {
+			return "", 0, err
+		}
+		response, err := execute(request)
+		if err != nil {
+			return "", 0, err
+		}
+		token, ttl, err := parseNacosLoginResponse(response)
+		response.Body.Close()
+		if err == nil {
+			return token, ttl, nil
+		}
+		if !errors.Is(err, errNacosAuthDisabled) {
+			return "", 0, err
+		}
+		lastErr = err
 	}
-	if strings.HasPrefix(requestPath, "/v3/") || (config != nil && config.Version == "v3") {
-		return "/v3/auth/user/login"
+	if lastErr != nil {
+		return "", 0, lastErr
 	}
-	return "/nacos/v1/auth/login"
+	return "", 0, fmt.Errorf("nacos login path is empty")
+}
+
+func nacosLoginPaths(requestPath string, config *types.NacosSourceConfig) []string {
+	version := ""
+	if config != nil {
+		version = config.Version
+	}
+	v3 := strings.Contains(requestPath, "/v3/") || version == "v3"
+	if strings.HasPrefix(requestPath, "/nacos/") {
+		if version == "v2" {
+			return []string{"/nacos/v1/auth/login"}
+		}
+		if v3 {
+			return []string{"/nacos/v3/auth/user/login"}
+		}
+		// Actuator 路径不带 /v3。自动识别 3.x 时先登录主服务的 v3，404 再退回 2.x。
+		if strings.Contains(requestPath, "/actuator/") {
+			return []string{"/nacos/v3/auth/user/login", "/nacos/v1/auth/login"}
+		}
+		return []string{"/nacos/v1/auth/login"}
+	}
+	if version == "v2" {
+		return []string{"/nacos/v1/auth/login"}
+	}
+	if v3 {
+		return []string{"/v3/auth/user/login"}
+	}
+	return []string{"/nacos/v1/auth/login"}
 }
 
 func parseNacosLoginResponse(response *http.Response) (string, time.Duration, error) {
