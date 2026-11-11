@@ -11,7 +11,7 @@
 
 | status | 名称 | 含义 | 写入方 |
 |---|---|---|---|
-| 0 | 未升级 | 检查器发现数据库中不存在的新版本，等待用户确认 | pixiu 主服务（检查器 `Create`） |
+| 0 | 未升级 | 检查器发现存在新版本（发布时间晚于当前 `is_current` 记录、且数据库中不存在该 version+commit），等待用户确认 | pixiu 主服务（检查器 `Create`） |
 | 1 | 待升级 | 用户确认升级，等待 upgrade 进程认领 | 主服务 API `POST /pixiu/upgrade`（`MarkPending`） |
 | 2 | 升级中 | upgrade 进程原子认领成功并写入 `upgrade_id` | pixiu-upgrade（`Claim`，条件 1→2） |
 | 3 | 升级完成 | pixiu-upgrade 确认新容器稳定运行后回写完成，并在同一事务内把 `is_current` 切到新版本 | pixiu-upgrade（`MarkCompleted`，条件 2→3） |
@@ -31,7 +31,7 @@
 - 检查器只新增版本记录，不修改已有记录的状态。
 - 检查器发现新的 version+commit 时新增一条记录，历史记录（含状态 4）保持不变。
 - 同一版本升级失败后，该条记录保持状态 4，直到用户重试。
-- 新发现的 version+commit 直接入库并置 status=0；不再读取运行容器镜像。
+- 仅当版本源返回的 `release_time` 晚于当前 `is_current` 记录的 `release_time` 时，才把新发现的 version+commit 入库并置 status=0；任一侧缺少发布时间时按原逻辑入库。不再读取运行容器镜像，也不再按版本号比较。
 
 ## pixiu 主服务配置
 
@@ -104,13 +104,12 @@ pixiu-upgrade **必须运行在 pixiu 容器之外**。升级过程会停止并�
 运行 upgrade 进程的主机/容器需要：
 
 - 挂载宿主 CRI socket 或目录，能创建/删除 pixiu 容器：
-  - containerd：挂载 `/run/containerd`、`/var/lib/containerd`（直接使用 containerd 客户端重建，无需安装 nerdctl）；同时挂载 `/var/lib/nerdctl`，升级重建后会同步维护 nerdctl 状态与日志，保证 `nerdctl logs` 可用（未挂载时升级仍可执行，但升级后的容器无法用 `nerdctl logs` 查看）
+  - containerd：挂载 `/run/containerd`、`/var/lib/containerd`（直接使用 containerd 客户端重建，无需安装 nerdctl）。升级重建后的 pixiu 容器不维护 nerdctl 元数据，`nerdctl logs` 不适用于该容器；日志固定写在宿主 `/etc/pixiu/runner-logs/<容器名>.log`（由 upgrade 进程写入），可用 `tail` 或 pixiu 页面查看
   - docker：挂载 `/var/run/docker.sock`
 - 能访问 MySQL（与 pixiu 主服务相同的库）
 - 能访问 `/etc/pixiu`（读取配置；重建容器时沿用原有挂载参数）
 - 能访问版本源与镜像仓库（拉取新镜像）
 - 升级状态表 `server_versions` 由 pixiu 主服务启动时统一初始化（依赖 `default.auto_migrate: true`，或由运维手工建表）；pixiu-upgrade 不再建表，只做更新与查询，请确保主服务至少成功启动过一次。
-- pixiu-upgrade 启动时会校验 `server_versions` 必需列，缺失时直接报错退出，提示先启动主服务建表。
 
 ## 镜像构建与运行
 
@@ -135,7 +134,6 @@ nerdctl run -d --name pixiu-upgrade --restart=always --net host --privileged=tru
   -v /etc/pixiu:/etc/pixiu \
   -v /run/containerd:/run/containerd \
   -v /var/lib/containerd:/var/lib/containerd \
-  -v /var/lib/nerdctl:/var/lib/nerdctl \
   crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
 ```
 

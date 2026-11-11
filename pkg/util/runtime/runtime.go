@@ -80,7 +80,6 @@ type Runtime interface {
 	ImageExists(ctx context.Context, ref string) (bool, error)
 	PullImage(ctx context.Context, ref string) error
 	RemoveImage(ctx context.Context, ref string) error
-	ContainerImageRef(ctx context.Context, name string) (string, error)
 
 	// ReplaceContainer 按原容器配置用 newImage 重建容器并启动，返回旧镜像引用。
 	// 仅用于本地部署的自升级场景；调用方负责失败处理。

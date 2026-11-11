@@ -23,7 +23,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -38,15 +37,10 @@ type VersionInfo struct {
 
 // versionPayload 是版本源返回的版本字段集合。
 type versionPayload struct {
-	ID              int64  `json:"id"`
-	GmtCreate       string `json:"gmt_create"`
-	GmtModified     string `json:"gmt_modified"`
-	ResourceVersion int64  `json:"resource_version"`
-	Version         string `json:"version"`
-	Image           string `json:"image"`
-	Commit          string `json:"commit"`
-	ReleaseTime     string `json:"release_time"`
-	Description     string `json:"description"`
+	Version     string `json:"version"`
+	Image       string `json:"image"`
+	Commit      string `json:"commit"`
+	ReleaseTime string `json:"release_time"`
 }
 
 func (p versionPayload) toVersionInfo() VersionInfo {
@@ -143,72 +137,4 @@ func buildVersionURL(rawURL, currentVersion, currentCommit string) (string, erro
 	}
 	parsed.RawQuery = query.Encode()
 	return parsed.String(), nil
-}
-
-// compareVersion 比较语义化版本：a>b 返回 1，a<b 返回 -1，相等返回 0。
-// 解析失败时按字符串比较，调用方仅在结果 > 0 时升级。
-func compareVersion(a, b string) int {
-	aMain, aPre := splitVersion(a)
-	bMain, bPre := splitVersion(b)
-	if aMain == nil || bMain == nil {
-		return strings.Compare(a, b)
-	}
-	for i := 0; i < 3; i++ {
-		if aMain[i] != bMain[i] {
-			if aMain[i] > bMain[i] {
-				return 1
-			}
-			return -1
-		}
-	}
-	// 无预发布 > 有预发布
-	switch {
-	case aPre == "" && bPre != "":
-		return 1
-	case aPre != "" && bPre == "":
-		return -1
-	case aPre == bPre:
-		return 0
-	case aPre > bPre:
-		return 1
-	default:
-		return -1
-	}
-}
-
-func splitVersion(version string) ([]int, string) {
-	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
-	mainPart := version
-	pre := ""
-	if idx := strings.IndexAny(version, "-+"); idx >= 0 {
-		mainPart, pre = version[:idx], version[idx+1:]
-	}
-	segments := strings.Split(mainPart, ".")
-	if len(segments) != 3 {
-		return nil, ""
-	}
-	numbers := make([]int, 3)
-	for i, segment := range segments {
-		number, err := strconv.Atoi(segment)
-		if err != nil {
-			return nil, ""
-		}
-		numbers[i] = number
-	}
-	return numbers, pre
-}
-
-// imageTag 返回镜像引用的 tag（去掉仓库与 digest）。
-func imageTag(image string) string {
-	image = strings.TrimSpace(image)
-	if idx := strings.Index(image, "@"); idx >= 0 {
-		image = image[:idx]
-	}
-	if idx := strings.LastIndex(image, "/"); idx >= 0 {
-		image = image[idx+1:]
-	}
-	if idx := strings.LastIndex(image, ":"); idx >= 0 {
-		return image[idx+1:]
-	}
-	return image
 }

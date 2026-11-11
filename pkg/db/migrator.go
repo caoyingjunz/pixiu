@@ -24,17 +24,7 @@ import (
 
 const (
 	defaultTableOptions = "AUTO_INCREMENT=20220801 DEFAULT CHARSET=utf8"
-	// upgradeTableOptions 升级状态表固定自增起点为 20261108（2026-11-08）。
-	upgradeTableOptions = "AUTO_INCREMENT=20261108 DEFAULT CHARSET=utf8"
 )
-
-// tableOptionsFor 返回模型对应的建表参数：升级状态表固定 20261108，其余表沿用全库 20220801。
-func tableOptionsFor(d interface{}) string {
-	if _, ok := d.(*model.UpgradeRecord); ok {
-		return upgradeTableOptions
-	}
-	return defaultTableOptions
-}
 
 type migrator struct {
 	db *gorm.DB
@@ -43,7 +33,7 @@ type migrator struct {
 // AutoMigrate 自动创建/更新指定模型的数据库表结构（补齐新增字段）
 func (m *migrator) AutoMigrate() error {
 	for _, d := range model.GetMigrationModels() {
-		if err := m.db.Set("gorm:table_options", tableOptionsFor(d)).AutoMigrate(d); err != nil {
+		if err := m.db.Set("gorm:table_options", defaultTableOptions).AutoMigrate(d); err != nil {
 			return err
 		}
 	}

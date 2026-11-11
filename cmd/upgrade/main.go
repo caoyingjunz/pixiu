@@ -26,6 +26,7 @@ import (
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"k8s.io/klog/v2"
 
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
@@ -76,14 +77,13 @@ func newFactory(cfg *upgrader.Config) (pixiudb.ShareDaoFactory, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local",
 		cfg.Mysql.User, cfg.Mysql.Password, cfg.Mysql.Host, port, cfg.Mysql.Name)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	// SQL 只由业务日志体现：关闭 gorm 默认通道，避免每轮轮询 record not found 的查询噪声
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: pixiudb.NewLogger(logger.Silent, 0),
+	})
 	if err != nil {
 		return nil, err
 	}
 	// server_versions 表由 pixiu 主服务统一初始化；本进程只负责更新与查询。
-	// 启动时校验表结构，避免存量库列不一致时每轮轮询都写入失败。
-	if err := pixiudb.ValidateUpgradeSchema(db); err != nil {
-		return nil, fmt.Errorf("校验 server_versions 表结构失败: %w", err)
-	}
 	return pixiudb.NewDaoFactory(db, false)
 }

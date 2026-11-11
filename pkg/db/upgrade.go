@@ -31,8 +31,6 @@ import (
 type UpgradeInterface interface {
 	Create(ctx context.Context, object *model.UpgradeRecord) error
 	Update(ctx context.Context, id int64, updates map[string]interface{}, opts ...Options) (int64, error)
-	Delete(ctx context.Context, id int64) error
-	Get(ctx context.Context, id int64) (*model.UpgradeRecord, error)
 	List(ctx context.Context, opts ...Options) ([]model.UpgradeRecord, error)
 
 	// GetBy 按 opts 条件返回单条升级记录；不存在时返回 nil, nil。
@@ -47,17 +45,6 @@ type upgrade struct {
 
 func newUpgrade(db *gorm.DB) UpgradeInterface {
 	return &upgrade{db: db}
-}
-
-func (u *upgrade) Get(ctx context.Context, id int64) (*model.UpgradeRecord, error) {
-	var object model.UpgradeRecord
-	if err := u.db.WithContext(ctx).Where("id = ?", id).First(&object).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &object, nil
 }
 
 func (u *upgrade) GetBy(ctx context.Context, opts ...Options) (*model.UpgradeRecord, error) {
@@ -134,8 +121,4 @@ func (u *upgrade) Update(ctx context.Context, id int64, updates map[string]inter
 	}
 	result = result.Updates(updates)
 	return result.RowsAffected, result.Error
-}
-
-func (u *upgrade) Delete(ctx context.Context, id int64) error {
-	return u.db.WithContext(ctx).Where("id = ?", id).Delete(&model.UpgradeRecord{}).Error
 }

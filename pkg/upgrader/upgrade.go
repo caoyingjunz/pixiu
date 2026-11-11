@@ -115,6 +115,17 @@ func (u *Upgrade) ProbeVersion(ctx context.Context) error {
 		return nil
 	}
 
+	// 版本新旧以发布时间判定，避免版本号语义差异导致误判；
+	// 任一侧缺少可解析的发布时间时保持原逻辑（继续查重/入库）。
+	latestReleaseTime := parseReleaseTime(latest.ReleaseTime)
+	if latestReleaseTime != nil && currentRecord != nil && currentRecord.ReleaseTime != nil &&
+		!latestReleaseTime.After(*currentRecord.ReleaseTime) {
+		klog.V(4).Infof("版本源返回的发布时间不晚于当前版本，跳过入库: latest=%s release_time=%s, current=%s release_time=%s",
+			latest.Version, latestReleaseTime.Format(time.RFC3339),
+			currentRecord.VersionTag, currentRecord.ReleaseTime.Format(time.RFC3339))
+		return nil
+	}
+
 	// 尝试去获取本地是否已经这个版本
 	record, err := u.controller.GetBy(ctx, db.WithUpgradeVersionTag(latest.Version), db.WithUpgradeCommitID(latest.CommitID))
 	if err != nil {
@@ -160,55 +171,75 @@ func (u *Upgrade) pollAndUpgrade(ctx context.Context) {
 		return
 	}
 
-	klog.Infof("收到升级请求，开始升级到 %s（image=%s upgrade_id=%s）", oneWaitForUpgrade.VersionTag, oneWaitForUpgrade.Image, oneWaitForUpgrade.UpgradeID)
+	klog.Infof("收到升级请求，开始升级到 %s（image=%s upgrade_id=%s），数据库状态已置为「升级中」(status=2)", oneWaitForUpgrade.VersionTag, oneWaitForUpgrade.Image, oneWaitForUpgrade.UpgradeID)
 	go u.doUpgrade(oneWaitForUpgrade.Image, oneWaitForUpgrade.VersionTag, oneWaitForUpgrade.UpgradeID)
 }
 
 func (u *Upgrade) doUpgrade(image, latestVersion, upgradeID string) {
+	startedAt := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), upgradeTimeout)
 	defer cancel()
 
+	klog.Infof("[升级] 开始执行: upgrade_id=%s version=%s image=%s container=%s timeout=%s", upgradeID, latestVersion, image, u.cfg.ContainerName, upgradeTimeout)
+
 	// 状态回写使用独立短超时，避免升级主流程超时后无法记录失败原因
 	markFailed := func(err error) {
-		klog.Errorf("升级失败: %v", err)
+		klog.Errorf("[升级] 升级失败（耗时 %s）: %v", time.Since(startedAt).Round(time.Millisecond), err)
 		markCtx, markCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer markCancel()
-		if _, markErr := u.controller.MarkFailed(markCtx, upgradeID, err.Error()); markErr != nil {
-			klog.Errorf("回写升级失败状态失败: %v", markErr)
+		marked, markErr := u.controller.MarkFailed(markCtx, upgradeID, err.Error())
+		if markErr != nil {
+			klog.Errorf("[升级] 回写失败状态失败: %v", markErr)
+		} else if !marked {
+			klog.Warningf("[升级] 回写失败状态未命中: upgrade_id=%s", upgradeID)
+		} else {
+			klog.Infof("[升级] 已回写失败状态（status=4）: upgrade_id=%s", upgradeID)
 		}
 	}
 
+	klog.Infof("[升级] 步骤 1/4：获取容器运行时")
 	rt, err := u.rtProvider()
 	if err != nil {
 		markFailed(err)
 		return
 	}
+	klog.Infof("[升级] 步骤 1/4：容器运行时就绪")
 
-	if _, err = rt.ReplaceContainer(ctx, u.cfg.ContainerName, image); err != nil {
+	klog.Infof("[升级] 步骤 2/4：拉取镜像并重建容器 container=%s image=%s", u.cfg.ContainerName, image)
+	stepStartedAt := time.Now()
+	oldImage, err := rt.ReplaceContainer(ctx, u.cfg.ContainerName, image)
+	if err != nil {
 		markFailed(err)
 		return
 	}
+	klog.Infof("[升级] 步骤 2/4：容器重建完成（旧镜像=%s，耗时 %s）", oldImage, time.Since(stepStartedAt).Round(time.Millisecond))
 
 	// 重建后短窗口内确认容器保持运行：退出/崩溃即判定升级失败
+	klog.Infof("[升级] 步骤 3/4：观察新容器运行状态（窗口 %s，间隔 %s）", startupConfirmTimeout, startupConfirmInterval)
+	stepStartedAt = time.Now()
 	if err = u.waitForContainerStarted(ctx, rt); err != nil {
 		markFailed(err)
 		return
 	}
+	klog.Infof("[升级] 步骤 3/4：新容器运行稳定（耗时 %s）", time.Since(stepStartedAt).Round(time.Millisecond))
+
 	// 容器稳定运行后由 upgrade 进程原子回写完成状态并切换 is_current。
+	klog.Infof("[升级] 步骤 4/4：回写升级完成状态（status 2→3 并切换 is_current）")
 	markCtx, markCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer markCancel()
 	marked, markErr := u.controller.MarkCompleted(markCtx, upgradeID, latestVersion)
 	if markErr != nil {
-		klog.Errorf("回写升级完成状态失败: %v", markErr)
+		klog.Errorf("[升级] 回写升级完成状态失败: %v", markErr)
 	} else if !marked {
-		klog.Warningf("回写升级完成状态未命中: upgrade_id=%s version=%s", upgradeID, latestVersion)
+		klog.Warningf("[升级] 回写升级完成状态未命中: upgrade_id=%s version=%s", upgradeID, latestVersion)
 	} else {
-		klog.Infof("pixiu 升级完成: version=%s upgrade_id=%s", latestVersion, upgradeID)
+		klog.Infof("pixiu 升级完成: version=%s upgrade_id=%s（总耗时 %s）", latestVersion, upgradeID, time.Since(startedAt).Round(time.Millisecond))
 	}
 }
 
 // waitForContainerStarted 在重建后观察窗口内确认容器保持运行；容器退出即视为启动失败。
 func (u *Upgrade) waitForContainerStarted(ctx context.Context, rt runtime.Runtime) error {
+	klog.Infof("[升级] 开始检查容器(%s)是否保持运行（窗口 %s，间隔 %s）", u.cfg.ContainerName, startupConfirmTimeout, startupConfirmInterval)
 	deadline := time.Now().Add(startupConfirmTimeout)
 	for {
 		running, err := rt.IsContainerRunning(ctx, u.cfg.ContainerName)
@@ -216,9 +247,11 @@ func (u *Upgrade) waitForContainerStarted(ctx context.Context, rt runtime.Runtim
 			return fmt.Errorf("检查新版本容器状态失败: %v", err)
 		}
 		if !running {
+			klog.Warningf("[升级] 容器(%s)未保持运行，判定升级失败", u.cfg.ContainerName)
 			return fmt.Errorf("新版本容器未保持运行，升级失败")
 		}
 		if time.Now().After(deadline) {
+			klog.Infof("[升级] 容器(%s)持续运行已超过 %s", u.cfg.ContainerName, startupConfirmTimeout)
 			return nil
 		}
 		select {

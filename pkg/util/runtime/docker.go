@@ -298,25 +298,13 @@ var _ Runtime = (*dockerRuntime)(nil)
 
 // 自升级场景的容器操作（仅本地部署使用）。
 
-// inspectContainer 返回 docker 容器详情，供 ContainerImageRef / ReplaceContainer 共用。
+// inspectContainer 返回 docker 容器详情，供 ReplaceContainer 使用。
 func (d *dockerRuntime) inspectContainer(ctx context.Context, name string) (container.InspectResponse, error) {
 	result, err := d.client.ContainerInspect(ctx, name, client.ContainerInspectOptions{})
 	if err != nil {
 		return container.InspectResponse{}, err
 	}
 	return result.Container, nil
-}
-
-// ContainerImageRef 返回容器当前使用的镜像引用。
-func (d *dockerRuntime) ContainerImageRef(ctx context.Context, name string) (string, error) {
-	info, err := d.inspectContainer(ctx, name)
-	if err != nil {
-		return "", err
-	}
-	if info.Config == nil || info.Config.Image == "" {
-		return "", fmt.Errorf("容器(%s)缺少镜像信息", name)
-	}
-	return info.Config.Image, nil
 }
 
 // IsContainerRunning 返回容器是否处于运行状态；容器不存在时返回 false, nil。
@@ -345,17 +333,21 @@ func (d *dockerRuntime) ReplaceContainer(ctx context.Context, name, newImage str
 		return "", fmt.Errorf("容器(%s)缺少配置信息", name)
 	}
 	oldImage := info.Config.Image
+	klog.Infof("[升级] 已读取容器(%s)配置，旧镜像=%s", name, oldImage)
 
 	cfg := *info.Config
 	cfg.Image = newImage
 	cfg.Hostname = "" // 由引擎重新分配
 
+	klog.Infof("[升级] 开始拉取新镜像(%s) container=%s", newImage, name)
 	if err = d.PullImage(ctx, newImage); err != nil {
 		return oldImage, err
 	}
+	klog.Infof("[升级] 镜像拉取完成(%s)，开始停止并删除旧容器(%s)", newImage, name)
 	if err = d.RemoveContainer(ctx, name); err != nil {
 		return oldImage, err
 	}
+	klog.Infof("[升级] 旧容器(%s)已删除，开始创建新容器", name)
 	resp, err := d.client.ContainerCreate(ctx, client.ContainerCreateOptions{
 		Config:     &cfg,
 		HostConfig: info.HostConfig,
@@ -364,8 +356,10 @@ func (d *dockerRuntime) ReplaceContainer(ctx context.Context, name, newImage str
 	if err != nil {
 		return oldImage, err
 	}
+	klog.Infof("[升级] 新容器(%s)已创建，开始启动", name)
 	if _, err = d.client.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
 		return oldImage, err
 	}
+	klog.Infof("[升级] 新容器(%s)已启动 image=%s", name, newImage)
 	return oldImage, nil
 }
