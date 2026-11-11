@@ -41,6 +41,7 @@ func NewServerCommand(version string) *cobra.Command {
 	if err != nil {
 		klog.Fatalf("unable to initialize command options: %v", err)
 	}
+	opts.ServerVersion = version
 
 	cmd := &cobra.Command{
 		Use:  "pixiu-server",
@@ -139,6 +140,17 @@ func Run(opt *options.Options) error {
 			klog.Fatal("failed to listen pixiu server: ", err)
 		}
 	}()
+
+	// 自动升级：启动后立即执行一次版本检查，周期检查由 JobManager 统一调度
+	if opt.UpgradeChecker != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			if err := opt.UpgradeChecker.ProbeVersion(ctx); err != nil {
+				klog.Errorf("initial upgrade check failed: %v", err)
+			}
+		}()
+	}
 
 	klog.Info("starting job manager")
 	opt.JobManager.Run()

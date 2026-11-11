@@ -70,6 +70,9 @@ type Runtime interface {
 	// RemoveContainer 停止并删除同名容器；容器不存在时返回 nil
 	RemoveContainer(ctx context.Context, name string) error
 
+	// IsContainerRunning 返回容器当前是否处于运行状态；容器不存在时返回 false, nil。
+	IsContainerRunning(ctx context.Context, name string) (bool, error)
+
 	// Logs 返回容器日志读取流；follow 为 true 时持续跟随
 	Logs(ctx context.Context, name string, follow bool) (io.ReadCloser, error)
 
@@ -77,6 +80,11 @@ type Runtime interface {
 	ImageExists(ctx context.Context, ref string) (bool, error)
 	PullImage(ctx context.Context, ref string) error
 	RemoveImage(ctx context.Context, ref string) error
+
+	// ReplaceContainer 按原容器配置用 newImage 重建容器并启动，返回旧镜像引用。
+	// 仅用于本地部署的自升级场景；调用方负责失败处理。
+	// TODO: 现专用于 pixiu 的自动化升级，后续考虑和 RunContainer 合并
+	ReplaceContainer(ctx context.Context, name, newImage string) (string, error)
 
 	Close() error
 }

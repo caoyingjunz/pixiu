@@ -1,0 +1,58 @@
+name: Publish pixiu-upgrade image
+
+on:
+  push:
+    branches:
+      - "master"
+    paths:
+      - 'cmd/upgrade/**'
+      - 'pkg/upgrade/**'
+      - 'pkg/controller/upgrade/**'
+      - 'pkg/db/**'
+      - 'pkg/util/runtime/**'
+      - 'cmd/app/config/**'
+      - 'docker/Dockerfile-upgrade'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/build-upgrade-image.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Get short commit hash
+        run: |
+          echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "TIMESTAMP=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login harbor
+        uses: docker/login-action@v3
+        with:
+          registry: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com
+          username: ${{ secrets.DOCKER_NAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push the multi-arch pixiu-upgrade image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile-upgrade
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:v2.0.2-beta.1
+        # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:${{ env.COMMIT_HASH }}

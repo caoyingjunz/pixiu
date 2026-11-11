@@ -36,6 +36,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/typeurl/v2"
 	"github.com/distribution/reference"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"k8s.io/klog/v2"
@@ -46,6 +47,8 @@ const (
 	containerdStopGrace = 5 * time.Second
 	// logPollInterval 跟随日志时的轮询间隔，避免忙等
 	logPollInterval = 300 * time.Millisecond
+	// nerdctlNameLabel 是 nerdctl 写入容器的名称标签；nerdctl 容器 ID 为哈希，名称仅存于标签。
+	nerdctlNameLabel = "nerdctl/name"
 )
 
 // containerd 容器 ID 的合法字符集
@@ -269,9 +272,40 @@ func (c *containerdRuntime) removeOrphanSnapshot(ctx context.Context, key string
 	return c.client.SnapshotService(snapshotter).Remove(ctx, key)
 }
 
+// resolveContainer 按名称解析 containerd 容器。
+// pixiu 自行创建的容器 ID 即名称；nerdctl 创建的容器 ID 是哈希，名称保存在 nerdctl/name 标签中。
+// 先按 ID 直查，未命中再按标签回退，兼容两种来源。
+func (c *containerdRuntime) resolveContainer(ctx context.Context, name string) (containerd.Container, error) {
+	container, err := c.client.LoadContainer(ctx, name)
+	if err == nil {
+		return container, nil
+	}
+	if !errdefs.IsNotFound(err) {
+		return nil, err
+	}
+
+	containers, listErr := c.client.Containers(ctx)
+	if listErr != nil {
+		return nil, listErr
+	}
+	for _, candidate := range containers {
+		info, infoErr := candidate.Info(ctx)
+		if infoErr != nil {
+			if errdefs.IsNotFound(infoErr) {
+				continue
+			}
+			return nil, infoErr
+		}
+		if info.Labels[nerdctlNameLabel] == name {
+			return candidate, nil
+		}
+	}
+	return nil, err
+}
+
 // RemoveContainer 停止并删除同名容器；容器不存在时返回 nil
 func (c *containerdRuntime) RemoveContainer(ctx context.Context, name string) error {
-	container, err := c.client.LoadContainer(ctx, name)
+	container, err := c.resolveContainer(ctx, name)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
 			return nil
@@ -615,3 +649,120 @@ func (l *fileFollower) Close() error {
 }
 
 var _ Runtime = (*containerdRuntime)(nil)
+
+// 自升级场景的容器操作（仅本地部署使用）。
+
+// upgradeLogFiles 保存升级重建任务日志文件句柄，避免被 GC 回收导致容器输出写失败。
+var upgradeLogFiles sync.Map
+
+// IsContainerRunning 返回容器是否处于运行状态；容器不存在时返回 false, nil。
+func (c *containerdRuntime) IsContainerRunning(ctx context.Context, name string) (bool, error) {
+	container, err := c.resolveContainer(ctx, name)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	task, err := container.Task(ctx, nil)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	status, err := task.Status(ctx)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return status.Status == containerd.Running, nil
+}
+
+// ReplaceContainer 使用 containerd 客户端按原容器配置用 newImage 重建容器，返回旧镜像引用。
+// 复用原容器的 OCI spec（env/mounts/network/privileged 等）与 labels（含 restart 策略），
+// 不依赖 nerdctl。
+func (c *containerdRuntime) ReplaceContainer(ctx context.Context, name, newImage string) (string, error) {
+	container, err := c.resolveContainer(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	info, err := container.Info(ctx)
+	if err != nil {
+		return "", err
+	}
+	oldImage := info.Image
+	klog.Infof("[升级] 已读取容器(%s)配置，旧镜像=%s", name, oldImage)
+	if info.Spec == nil {
+		return oldImage, fmt.Errorf("容器(%s)缺少 OCI spec，无法重建", name)
+	}
+	spec := &oci.Spec{}
+	if err = typeurl.UnmarshalTo(info.Spec, spec); err != nil {
+		return oldImage, fmt.Errorf("解析容器(%s) OCI spec 失败: %v", name, err)
+	}
+
+	imageRef, err := normalizeImageRef(newImage)
+	if err != nil {
+		return oldImage, fmt.Errorf("非法的镜像名(%s): %v", newImage, err)
+	}
+	// 先拉镜像成功，再删除旧容器，避免拉取失败导致服务中断
+	klog.Infof("[升级] 开始拉取新镜像(%s) container=%s", imageRef, name)
+	if err = c.PullImage(ctx, imageRef); err != nil {
+		return oldImage, err
+	}
+	img, err := c.client.GetImage(ctx, imageRef)
+	if err != nil {
+		return oldImage, err
+	}
+	klog.Infof("[升级] 镜像拉取完成(%s)，开始停止并删除旧容器(%s)", imageRef, name)
+	if err = c.RemoveContainer(ctx, name); err != nil {
+		return oldImage, err
+	}
+	klog.Infof("[升级] 旧容器(%s)已删除，开始按原 OCI spec 创建新容器", name)
+
+	labels := make(map[string]string, len(info.Labels))
+	for k, v := range info.Labels {
+		labels[k] = v
+	}
+
+	// 日志固定写入 <DefaultLogDir>/<name>.log，由升级进程持有句柄，便于运维 tail 或 pixiu 页面查看。
+	plainLogFile, err := openLogFile(logPath(name))
+	if err != nil {
+		return oldImage, err
+	}
+	if old, ok := upgradeLogFiles.Load(name); ok {
+		if file, ok := old.(*os.File); ok {
+			_ = file.Close()
+		}
+	}
+	upgradeLogFiles.Store(name, plainLogFile)
+
+	var stdoutWriter io.Writer = plainLogFile
+	var stderrWriter io.Writer = plainLogFile
+
+	containerOpts := []containerd.NewContainerOpts{
+		containerd.WithImage(img),
+		containerd.WithNewSnapshot(name, img),
+		containerd.WithSpec(spec),
+	}
+	if len(labels) > 0 {
+		containerOpts = append(containerOpts, containerd.WithContainerLabels(labels))
+	}
+	newContainer, err := c.client.NewContainer(ctx, name, containerOpts...)
+	if err != nil {
+		return oldImage, err
+	}
+	klog.Infof("[升级] 新容器(%s)已创建，开始启动", name)
+
+	task, err := newContainer.NewTask(ctx, cio.NewCreator(cio.WithStreams(nil, stdoutWriter, stderrWriter)))
+	if err != nil {
+		return oldImage, err
+	}
+	if err = task.Start(ctx); err != nil {
+		return oldImage, err
+	}
+	klog.Infof("[升级] 新容器(%s)已启动 image=%s", name, imageRef)
+	return oldImage, nil
+}

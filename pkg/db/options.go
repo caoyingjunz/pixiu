@@ -589,3 +589,57 @@ func WithTokenHash(hash string) Options {
 		return tx.Where("token_hash = ?", hash)
 	}
 }
+
+// WithUpgradeStatus 按升级状态集合过滤。空列表必须匹配 0 行，避免漏掉 WHERE 条件导致误更新。
+func WithUpgradeStatus(statuses ...int) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(statuses) == 0 {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("status IN ?", statuses)
+	}
+}
+
+// WithUpgradeID 按 upgrade_id（升级执行者标识）过滤。空 id 必须匹配 0 行，避免误匹配空标识记录。
+func WithUpgradeID(id string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if id == "" {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("upgrade_id = ?", id)
+	}
+}
+
+// WithUpgradeVersionTag 按目标版本 tag 过滤。空版本必须匹配 0 行，避免误匹配未写入版本的记录。
+func WithUpgradeVersionTag(versionTag string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if versionTag == "" {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("version_tag = ?", versionTag)
+	}
+}
+
+// WithUpgradeCommitID 按目标 commit id 过滤。空 commit 必须匹配 0 行，避免误匹配未写入 commit 的记录。
+func WithUpgradeCommitID(commitID string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if commitID == "" {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("commit_id = ?", commitID)
+	}
+}
+
+// WithUpgradeIsCurrent 按是否当前使用版本过滤。
+func WithUpgradeIsCurrent(current bool) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("is_current = ?", current)
+	}
+}
+
+// WithUpgradeTargetReady 仅匹配已具备目标镜像与版本、可执行升级的记录。
+func WithUpgradeTargetReady() Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("image <> '' AND version_tag <> ''")
+	}
+}

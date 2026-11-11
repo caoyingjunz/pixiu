@@ -38,6 +38,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/role"
 	"github.com/caoyingjunz/pixiu/pkg/controller/runner"
 	"github.com/caoyingjunz/pixiu/pkg/controller/tenant"
+	"github.com/caoyingjunz/pixiu/pkg/controller/upgrade"
 	"github.com/caoyingjunz/pixiu/pkg/controller/user"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 )
@@ -64,6 +65,7 @@ type PixiuInterface interface {
 	extensioncontroller.Getter
 	apps.Getter
 	clusterexpand.Getter
+	upgrade.Getter
 }
 
 type pixiu struct {
@@ -107,6 +109,9 @@ func (p *pixiu) Distribution() distribution.Interface {
 func (p *pixiu) Runner() runner.Interface { return runner.NewRunner(p.cc, p.factory) }
 func (p *pixiu) Appstore() apps.Interface {
 	return apps.New(p.cc, p.factory)
+}
+func (p *pixiu) Upgrade() upgrade.Interface {
+	return upgrade.New(p.factory.Upgrade())
 }
 func (p *pixiu) Extension() extensioncontroller.Interface {
 	return p.extension
