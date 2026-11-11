@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	register(&UpgradeRecord{})
+	register(&ServerVersion{})
 }
 
 // 系统升级状态机（写入方见各常量说明）。
@@ -40,8 +40,8 @@ const (
 	UpgradeStatusFailed = 4
 )
 
-// UpgradeRecord 系统升级记录
-type UpgradeRecord struct {
+// ServerVersion 服务器版本记录（每个 version+commit 一行，is_current 标记当前部署版本）
+type ServerVersion struct {
 	pixiu.Model
 
 	VersionTag   string     `gorm:"column:version_tag;type:varchar(64);default:'';uniqueIndex:uk_upgrade_version_commit,priority:1" json:"version_tag"`
@@ -54,6 +54,6 @@ type UpgradeRecord struct {
 	ErrorMessage string     `gorm:"column:error_message;type:text" json:"error_message"`
 }
 
-func (u *UpgradeRecord) TableName() string {
+func (u *ServerVersion) TableName() string {
 	return "server_versions"
 }

@@ -32,9 +32,9 @@ import (
 // 所有状态迁移均使用条件 UPDATE + RowsAffected 判定，禁止整行覆盖写入。
 type Interface interface {
 	// Create 为一次新的版本探测创建记录
-	Create(ctx context.Context, object *model.UpgradeRecord) error
+	Create(ctx context.Context, object *model.ServerVersion) error
 	// GetBy 按条件返回最新的一条升级记录；未传条件时取 id 最大的一条；不存在时返回 nil, nil。
-	GetBy(ctx context.Context, opts ...db.Options) (*model.UpgradeRecord, error)
+	GetBy(ctx context.Context, opts ...db.Options) (*model.ServerVersion, error)
 	// Latest 返回最新一条升级状态；存在升级流程中的记录时优先返回该记录。
 	Latest(ctx context.Context) (*types.UpgradeStatus, error)
 	// TriggerUpgrade 校验并原子迁移到待升级（0/4 -> 1）。
@@ -42,7 +42,7 @@ type Interface interface {
 	// Reset 升级器启动时清理自身上次崩溃遗留
 	Reset(ctx context.Context, upgradeID, message string) (bool, error)
 	// Claim 升级进程原子认领；未抢到返回 nil, nil
-	Claim(ctx context.Context, upgradeID string) (*model.UpgradeRecord, error)
+	Claim(ctx context.Context, upgradeID string) (*model.ServerVersion, error)
 
 	// MarkPending 升级状态调整
 	MarkPending(ctx context.Context) (bool, error)
@@ -66,7 +66,7 @@ func New(dao db.UpgradeInterface) Interface {
 }
 
 // GetBy 按条件返回最新的一条升级记录；未传条件时取 id 最大的一条；不存在时返回 nil, nil。
-func (u *upgrade) GetBy(ctx context.Context, opts ...db.Options) (*model.UpgradeRecord, error) {
+func (u *upgrade) GetBy(ctx context.Context, opts ...db.Options) (*model.ServerVersion, error) {
 	q := make([]db.Options, 0, len(opts)+1)
 	q = append(q, db.WithOrderByDesc())
 	q = append(q, opts...)
@@ -86,7 +86,7 @@ func (u *upgrade) Latest(ctx context.Context) (*types.UpgradeStatus, error) {
 	return upgradeStatus(record), nil
 }
 
-func upgradeStatus(record *model.UpgradeRecord) *types.UpgradeStatus {
+func upgradeStatus(record *model.ServerVersion) *types.UpgradeStatus {
 	if record == nil {
 		return &types.UpgradeStatus{}
 	}
@@ -142,7 +142,7 @@ func (u *upgrade) update(ctx context.Context, updates map[string]interface{}, op
 }
 
 // Create 为一次新的版本探测创建记录（每个 version+commit 一行）。
-func (u *upgrade) Create(ctx context.Context, object *model.UpgradeRecord) error {
+func (u *upgrade) Create(ctx context.Context, object *model.ServerVersion) error {
 	if object == nil {
 		return fmt.Errorf("保存版本探测结果失败: 记录为空")
 	}
@@ -177,7 +177,7 @@ func (u *upgrade) MarkPending(ctx context.Context) (bool, error) {
 
 // Claim 原子认领待升级请求：仅当记录处于「待升级」时推进到「升级中」，并记录执行者标识。
 // 未抢到返回 nil, nil；返回非空记录即代表本次认领成功。
-func (u *upgrade) Claim(ctx context.Context, upgradeID string) (*model.UpgradeRecord, error) {
+func (u *upgrade) Claim(ctx context.Context, upgradeID string) (*model.ServerVersion, error) {
 	affected, err := u.update(ctx, map[string]interface{}{
 		"status":        model.UpgradeStatusUpgrading,
 		"upgrade_id":    upgradeID,

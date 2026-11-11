@@ -142,7 +142,7 @@ func (u *Upgrade) ProbeVersion(ctx context.Context) error {
 		klog.Errorf("解析升级镜像失败: %v", err)
 		return nil
 	}
-	newRecord := &model.UpgradeRecord{
+	newRecord := &model.ServerVersion{
 		VersionTag:  latest.Version,
 		CommitID:    latest.CommitID,
 		Image:       image,

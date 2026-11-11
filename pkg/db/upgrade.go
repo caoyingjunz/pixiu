@@ -29,12 +29,12 @@ import (
 // UpgradeInterface 系统升级状态 DAO，只提供简单 CRUD，不包含业务语义。
 // 状态机与版本记录约定均在 pkg/controller/upgrade 中实现。
 type UpgradeInterface interface {
-	Create(ctx context.Context, object *model.UpgradeRecord) error
+	Create(ctx context.Context, object *model.ServerVersion) error
 	Update(ctx context.Context, id int64, updates map[string]interface{}, opts ...Options) (int64, error)
-	List(ctx context.Context, opts ...Options) ([]model.UpgradeRecord, error)
+	List(ctx context.Context, opts ...Options) ([]model.ServerVersion, error)
 
 	// GetBy 按 opts 条件返回单条升级记录；不存在时返回 nil, nil。
-	GetBy(ctx context.Context, opts ...Options) (*model.UpgradeRecord, error)
+	GetBy(ctx context.Context, opts ...Options) (*model.ServerVersion, error)
 	// MarkCompleted 原子回写升级完成（status 2→3）并将该记录标记为当前使用版本。
 	MarkCompleted(ctx context.Context, id int64, upgradeID, version string) (int64, error)
 }
@@ -47,8 +47,8 @@ func newUpgrade(db *gorm.DB) UpgradeInterface {
 	return &upgrade{db: db}
 }
 
-func (u *upgrade) GetBy(ctx context.Context, opts ...Options) (*model.UpgradeRecord, error) {
-	var object model.UpgradeRecord
+func (u *upgrade) GetBy(ctx context.Context, opts ...Options) (*model.ServerVersion, error) {
+	var object model.ServerVersion
 	result := u.db.WithContext(ctx)
 	for _, opt := range opts {
 		result = opt(result)
@@ -65,7 +65,7 @@ func (u *upgrade) GetBy(ctx context.Context, opts ...Options) (*model.UpgradeRec
 func (u *upgrade) MarkCompleted(ctx context.Context, id int64, upgradeID, version string) (int64, error) {
 	var affected int64
 	err := u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&model.UpgradeRecord{}).
+		result := tx.Model(&model.ServerVersion{}).
 			Where("id = ? AND status = ? AND upgrade_id = ? AND version_tag = ?",
 				id, model.UpgradeStatusUpgrading, upgradeID, version).
 			Updates(map[string]interface{}{
@@ -80,20 +80,20 @@ func (u *upgrade) MarkCompleted(ctx context.Context, id int64, upgradeID, versio
 		if affected != 1 {
 			return nil
 		}
-		if err := tx.Model(&model.UpgradeRecord{}).
+		if err := tx.Model(&model.ServerVersion{}).
 			Where("is_current = ? AND id <> ?", true, id).
 			Update("is_current", false).Error; err != nil {
 			return err
 		}
-		return tx.Model(&model.UpgradeRecord{}).
+		return tx.Model(&model.ServerVersion{}).
 			Where("id = ?", id).
 			Update("is_current", true).Error
 	})
 	return affected, err
 }
 
-func (u *upgrade) List(ctx context.Context, opts ...Options) ([]model.UpgradeRecord, error) {
-	var objects []model.UpgradeRecord
+func (u *upgrade) List(ctx context.Context, opts ...Options) ([]model.ServerVersion, error) {
+	var objects []model.ServerVersion
 	result := u.db.WithContext(ctx)
 	for _, opt := range opts {
 		result = opt(result)
@@ -104,7 +104,7 @@ func (u *upgrade) List(ctx context.Context, opts ...Options) ([]model.UpgradeRec
 	return objects, nil
 }
 
-func (u *upgrade) Create(ctx context.Context, object *model.UpgradeRecord) error {
+func (u *upgrade) Create(ctx context.Context, object *model.ServerVersion) error {
 	now := time.Now()
 	if object.GmtCreate.IsZero() {
 		object.GmtCreate = now
@@ -115,7 +115,7 @@ func (u *upgrade) Create(ctx context.Context, object *model.UpgradeRecord) error
 }
 
 func (u *upgrade) Update(ctx context.Context, id int64, updates map[string]interface{}, opts ...Options) (int64, error) {
-	result := u.db.WithContext(ctx).Model(&model.UpgradeRecord{}).Where("id = ?", id)
+	result := u.db.WithContext(ctx).Model(&model.ServerVersion{}).Where("id = ?", id)
 	for _, opt := range opts {
 		result = opt(result)
 	}
