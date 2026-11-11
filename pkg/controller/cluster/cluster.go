@@ -351,9 +351,12 @@ func (c *cluster) ensurePixiuSystemNamespace(ctx context.Context, cs *client.Clu
 }
 
 // buildPixiuViewClusterRole 构造 pixiu 内置只读 ClusterRole：拷贝内置 view 的规则，
-// 追加 pixiu 依赖的 metrics dashboard、nodes，以及 Prometheus 等内部数据源所需的 services/proxy。
+// 追加 pixiu 依赖的 metrics dashboard、nodes、secrets，以及 Prometheus 等内部数据源所需的 services/proxy。
 func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.ClusterRole {
-	rules := viewClusterRole.Rules
+	// 复制一份规则，避免 append 修改到内置 view 对象的切片
+	rules := make([]rbacv1.PolicyRule, 0, len(viewClusterRole.Rules)+4)
+	rules = append(rules, viewClusterRole.Rules...)
+
 	rules = append(rules, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{"metrics.pixiu.io"},
@@ -370,6 +373,14 @@ func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.Clus
 			APIGroups: []string{""},
 			Resources: []string{"services/proxy"},
 			Verbs:     []string{"get"},
+		},
+		// 内置 view 不含 secrets：pixiu 的保密字典列表/详情页与 Ingress TLS
+		// 证书选择都需要读取 Secret（只读授权与自定义授权的规则矩阵均以
+		// pixiu-view 为基线），缺失会导致 list secrets 403
+		{
+			APIGroups: []string{""},
+			Resources: []string{"secrets"},
+			Verbs:     []string{"get", "list", "watch"},
 		},
 	}...)
 	return &rbacv1.ClusterRole{
