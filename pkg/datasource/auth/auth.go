@@ -60,7 +60,7 @@ func RequiresPodProxy(datasource *types.Datasource) bool {
 	if isNacosDatasource(datasource) {
 		return hasNacosCredentials(datasource)
 	}
-	return Authorization(datasource) != ""
+	return BasicAuthorization(datasource) != ""
 }
 
 func Prepare(
@@ -70,7 +70,7 @@ func Prepare(
 	execute RequestExecutor,
 ) (string, error) {
 	if !isNacosDatasource(datasource) {
-		return Authorization(datasource), nil
+		return BasicAuthorization(datasource), nil
 	}
 	if !hasNacosCredentials(datasource) {
 		return "", nil
@@ -106,7 +106,7 @@ func Prepare(
 	return "", nil
 }
 
-func Authorization(datasource *types.Datasource) string {
+func BasicAuthorization(datasource *types.Datasource) string {
 	if datasource == nil || isNacosDatasource(datasource) {
 		return ""
 	}
