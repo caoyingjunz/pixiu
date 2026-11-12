@@ -62,7 +62,8 @@ type fileConfig struct {
 
 // upgradeSection 是 upgrade 配置段的原始形态（时长等字段为字符串，normalize 后转为 Config）。
 type upgradeSection struct {
-	Enabled         bool   `yaml:"enabled"`
+	// Enabled 为指针以区分「未配置」与「显式 false」：未配置时默认开启。
+	Enabled         *bool  `yaml:"enabled"`
 	VersionURL      string `yaml:"version_url"`
 	VersionRoute    string `yaml:"version_route"`
 	ImageRepository string `yaml:"image_repository"`
@@ -89,8 +90,9 @@ func Load(path string) (*Config, error) {
 
 // FromUpgradeOptions 由主服务配置构造 upgrade 进程配置（版本检测在主服务内运行，不需要 mysql 段）。
 func FromUpgradeOptions(opt config.UpgradeOptions, rt config.RuntimeOptions) (*Config, error) {
+	enabled := opt.IsEnabled()
 	return normalize(upgradeSection{
-		Enabled:         opt.IsEnabled(),
+		Enabled:         &enabled,
 		VersionURL:      opt.VersionURL,
 		VersionRoute:    opt.VersionRoute,
 		ImageRepository: opt.ImageRepository,
@@ -102,8 +104,10 @@ func FromUpgradeOptions(opt config.UpgradeOptions, rt config.RuntimeOptions) (*C
 
 // normalize 校验并补全默认值；requireMysql 为 true 时校验数据库配置（独立进程需要自行连库）。
 func normalize(section upgradeSection, rt config.RuntimeOptions, mysql config.MysqlOptions, requireMysql bool) (*Config, error) {
+	// 未配置（nil）时默认开启，仅显式 false 才关闭。
+	enabled := section.Enabled == nil || *section.Enabled
 	cfg := &Config{
-		Enabled:         section.Enabled,
+		Enabled:         enabled,
 		VersionURL:      section.VersionURL,
 		ImageRepository: section.ImageRepository,
 		ContainerName:   section.ContainerName,

@@ -1,6 +1,6 @@
 # 常见问题汇总（FAQ）
 
-> 最后更新：2026-11-11　|　维护：平台组
+> 最后更新：2026-11-12　|　维护：平台组
 
 每个问题对应一个独立 Markdown 文档，本文件仅作索引。
 
@@ -16,6 +16,7 @@
 | FAQ-006 | Velero 应用安装失败（BSL/VSL provider 为空） | 应用商店 / Velero | [velero-provider-required.md](./velero-provider-required.md) |
 | FAQ-007 | 节点监控 CPU、内存指标无数据（节点标签不匹配） | 监控与数据源 | [node-monitor-metrics-empty.md](./node-monitor-metrics-empty.md) |
 | FAQ-008 | Nacos 实例概览 CPU、内存等图表无数据（未暴露 Prometheus） | 中间件 / Nacos | [nacos-prometheus-metrics-empty.md](./nacos-prometheus-metrics-empty.md) |
+| FAQ-009 | 点击升级后一直显示「升级中」（未部署 pixiu-upgrade） | 自动升级 | [upgrade-stuck-pending.md](./upgrade-stuck-pending.md) |
 
 ## 新增 FAQ 规范
 
