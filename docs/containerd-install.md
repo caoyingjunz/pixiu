@@ -54,13 +54,13 @@ nerdctl -n default run -d --restart=always --net host --privileged=true \
   -v /etc/pixiu:/etc/pixiu \
   -v /run/containerd:/run/containerd \
   -v /var/lib/containerd:/var/lib/containerd \
-  --name pixiu crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
+  --name pixiu crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.2
 ```
 
 ## 验证
 ```bash
 root@VM-0-11-ubuntu:~# nerdctl ps
 CONTAINER ID    IMAGE                                                                                          COMMAND                   CREATED          STATUS    PORTS    NAMES
-672a3cbb360d    crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1    "/docker-entrypoint.…"    5 seconds ago    Up                 pixiu
+672a3cbb360d    crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.2    "/docker-entrypoint.…"    5 seconds ago    Up                 pixiu
 827b5b7ed697    ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7                                                    "docker-entrypoint.s…"    8 minutes ago    Up                 mariadb
 ```

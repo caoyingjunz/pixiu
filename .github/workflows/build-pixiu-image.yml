@@ -63,7 +63,7 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.2
         # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.COMMIT_HASH }}
 
   # 原先原生 arm64 job（推送 *-arm64 单架构标签），多架构稳定后可删除
@@ -109,4 +109,4 @@ jobs:
   #         provenance: false
   #         sbom: false
   #         tags: |
-  #           crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.1-arm64
+  #           crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.2-arm64
