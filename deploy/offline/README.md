@@ -94,7 +94,7 @@ mysql:
 
 #### 安装 pixiu-server
 ```bash
-docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1
+docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.2
 ```
 ![img_4.png](img_4.png)
 
@@ -108,7 +108,7 @@ docker run -d --net host --restart=always --privileged=true -v /etc/pixiu:/etc/p
 
 ```bash
 sudo nerdctl -n default save -o pixiu-image.tar \
-  10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1
+  10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.2
 # 部署 runner 镜像同理（如 kubez-ansible），按需导出
 sudo nerdctl -n default save -o kubez-ansible.tar ccr.ccs.tencentyun.com/pixiucloud/kubez-ansible:v3.0.4
 ```
@@ -124,7 +124,7 @@ sudo nerdctl -n default images                        # 确认已导入
 ```
 
 - 给 kubelet 用的 k8s 集群运行时镜像走另一条路：`sudo ctr -n k8s.io images import`（如 `zcat images-export/images/*.tar.gz | sudo ctr -n k8s.io images import -`）。它与 pixiu 容器所用的 `default` 命名空间不是一回事，不要混用，也不要指望 pixiu 复用 k8s.io 里的镜像。
-- 私有仓库为 HTTP/自签证书时，nerdctl 需加全局 `--insecure-registry`（如 `sudo nerdctl --insecure-registry pull 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1`）。
+- 私有仓库为 HTTP/自签证书时，nerdctl 需加全局 `--insecure-registry`（如 `sudo nerdctl --insecure-registry pull 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.2`）。
 
 2）启动：把 docker 的 socket 挂载换成 containerd 状态路径——`-v /run/containerd:/run/containerd`（整目录共享，含 socket）与 `-v /var/lib/containerd:/var/lib/containerd`（pixiu 作为 containerd 本地客户端会在容器内创建 fifo、执行镜像解包挂载，两棵路径须与宿主 daemon/shim 一致）；`--restart=always` 等参数不变；runner 容器日志固定写到 `/etc/pixiu/runner-logs`（随 `/etc/pixiu` 卷持久化，无需额外挂载）。
 
@@ -137,7 +137,7 @@ sudo nerdctl -n default run -d --restart=always --net host --privileged=true \
   -v /etc/pixiu:/etc/pixiu \
   -v /run/containerd:/run/containerd \
   -v /var/lib/containerd:/var/lib/containerd \
-  --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.1
+  --name pixiu 10.206.32.8:5000/pixiu/pixiu:v2.0.2-beta.2
 ```
 
 3）配置：`/etc/pixiu/config.yaml` 中把运行时指向 containerd，pixiu 才会用 containerd 拉起部署 runner 容器（默认 containerd，不配置即使用 containerd）。
