@@ -167,8 +167,9 @@ func validateClusterName(name string) error {
 }
 
 func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest) error {
-	// 防 SSRF：拒绝 kubeconfig server 指向回环/链路本地/元数据/未指定/多播地址
-	if err := c.validateKubeconfigServer(req.KubeConfig); err != nil {
+	// 防 SSRF：拒绝 kubeconfig server 指向回环/链路本地/元数据/未指定/多播地址；
+	// 隧道模式下拨号由集群内 Agent 发起，回环地址合法，放行。
+	if err := c.validateKubeconfigServer(req.KubeConfig, req.ConnectMode); err != nil {
 		return err
 	}
 	// 连通性预检（隧道模式 Agent 上线前不可达，跳过）
@@ -183,7 +184,9 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 // validateKubeconfigServer 防 SSRF：校验 kubeconfig server 地址不指向回环、链路本地（含云元数据 169.254.169.254）、
 // 未指定、多播等危险地址。私网 IP（10/8、172.16/12、192.168/16）不拦截，pixiu 常部署在内网管理内网集群，
 // 拦截会误伤正常场景；如需拦截私网可后续增加配置开关。
-func (c *cluster) validateKubeconfigServer(kubeConfig string) error {
+// 隧道模式（connect_mode=tunnel）下拨号由集群内 Agent 发起，回环地址（127.0.0.1/::1 及解析到回环的域名）
+// 是合法目标，予以放行；直连模式仍拒绝。
+func (c *cluster) validateKubeconfigServer(kubeConfig string, connectMode model.ConnectMode) error {
 	data, err := client.ParseKubeConfigBytes(kubeConfig)
 	if err != nil {
 		return fmt.Errorf("解析 kubeconfig 失败: %v", err)
@@ -203,10 +206,15 @@ func (c *cluster) validateKubeconfigServer(kubeConfig string) error {
 	}
 
 	hostname := u.Hostname()
-	// 任一命中回环/链路本地/未指定/多播即拒绝；169.254.169.254（云元数据）属于 IsLinkLocalUnicast 会被拦截
+	// 任一命中回环/链路本地/未指定/多播即拒绝；169.254.169.254（云元数据）属于 IsLinkLocalUnicast 会被拦截。
+	// 隧道模式放行回环（Agent 在集群内发起拨号），链路本地/元数据/未指定/多播仍一律拒绝。
+	allowLoopback := connectMode == model.ConnectModeTunnel
 	reject := func(ipStr string) bool {
 		ip := net.ParseIP(ipStr)
 		if ip == nil {
+			return false
+		}
+		if allowLoopback && ip.IsLoopback() {
 			return false
 		}
 		return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast()
