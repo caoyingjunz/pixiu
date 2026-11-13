@@ -1,16 +1,13 @@
 # 自动升级
 
-pixiu 会检测新版本，独立的 pixiu-upgrade 进程拉取镜像并重建 pixiu 容器；两者共用同一份 config.yaml。
+开启后，pixiu 会检测新版本，独立的 pixiu-upgrade 负责升级 pixiu 容器，目前只支持手动安装的 pixiu 环境，不支持 docker-compose 和 kubernetes 的安装模式。
 
-## 依赖
+## 网络依赖
 
-- 从 v2.0.2-beta.2 默认开启自动更新功能
-- 能访问外网，用于获取版本源（不外发任何数据）
-- 如果环境不满足，需要手动关闭
+- pixiu 服务：需要能连通外网的 `https://hub.pixiuio.com` 地址，用于自动获取版本信息
+- pixiu-upgrade：需要和 pixiu 部署在同一台节点。
 
 ## 部署
-
-pixiu-upgrade 容器必须运行在 pixiu 所在节点上。
 
 ```bash
 # docker
@@ -21,10 +18,11 @@ docker run -d --name pixiu-upgrade --restart=always --net host \
 # containerd
 nerdctl run -d --name pixiu-upgrade --restart=always --net host --privileged=true \
   -v /etc/pixiu:/etc/pixiu -v /run/containerd:/run/containerd -v /var/lib/containerd:/var/lib/containerd \
+  -v /var/lib/nerdctl:/var/lib/nerdctl \
   crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
 ```
 
-升级后的 pixiu 容器日志写在 `/etc/pixiu/runner-logs/<容器名>.log`（`nerdctl logs` 不适用），可用 `tail -f` 或 pixiu 页面查看。镜像 tag 与 `docs/upgrade/README.md` 中的版本保持一致。
+升级后的 pixiu 容器由 nerdctl/docker 创建，日志分别用 `nerdctl -n default logs pixiu` / `docker logs pixiu` 查看。
 
 ## 关闭自动升级
 

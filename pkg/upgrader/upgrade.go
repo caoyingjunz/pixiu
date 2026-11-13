@@ -27,7 +27,6 @@ import (
 	upgradecontroller "github.com/caoyingjunz/pixiu/pkg/controller/upgrade"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 const (
@@ -38,32 +37,43 @@ const (
 	startupConfirmInterval = 2 * time.Second
 )
 
+// ContainerCLI 由 pixiu-upgrade 进程实现（nerdctl/docker 命令行）。
+// 编排层只依赖该接口，不直接执行外部命令。
+type ContainerCLI interface {
+	Pull(ctx context.Context, image string) error
+	Stop(ctx context.Context, name string) error
+	Remove(ctx context.Context, name string) error
+	Run(ctx context.Context, name, image, runArgs string) error
+	IsRunning(ctx context.Context, name string) (bool, error)
+}
+
 // Upgrade 定时检查外部版本并持久化到数据库；用户确认后由独立 upgrade 进程按状态机执行升级。
 //
 // 状态机：0 未升级 -> 1 待升级 -> 2 升级中 -> 3 升级完成 / 4 升级失败（可重试 4 -> 1）。
 type Upgrade struct {
 	cfg          *Config
 	controller   upgradecontroller.Interface
-	rtProvider   func() (runtime.Runtime, error)
 	buildVersion string
+	// cli 容器命令实现，仅独立 upgrade 进程需要（主服务只做版本检测时为 nil）。
+	cli ContainerCLI
 }
 
-// New 用已构造好的容器运行时创建 Upgrade（独立 upgrade 进程使用）。
-func New(cfg *Config, rt runtime.Runtime, factory db.ShareDaoFactory) *Upgrade {
+// New 创建 Upgrade（独立 upgrade 进程使用），升级时通过注入的 cli 重建容器。
+func New(cfg *Config, factory db.ShareDaoFactory, cli ContainerCLI) *Upgrade {
 	return &Upgrade{
 		cfg:        cfg,
 		controller: upgradecontroller.New(factory.Upgrade()),
-		rtProvider: func() (runtime.Runtime, error) { return rt, nil },
+		cli:        cli,
 	}
 }
 
-// NewWithDefaultRuntime 使用进程内全局懒加载的容器运行时（pixiu 主服务内做版本检测使用），
-// 避免启动阶段就建立 CRI 连接。buildVersion 为当前 pixiu 编译版本，用于版本检测请求参数（current_commit）。
+// NewWithDefaultRuntime 创建 Upgrade（pixiu 主服务内做版本检测使用，不执行升级）。
+// 函数名保留以兼容既有调用方；版本检测无需容器运行时，不再建立 CRI 连接。
+// buildVersion 为当前 pixiu 编译版本，用于版本检测请求参数（current_commit）。
 func NewWithDefaultRuntime(cfg *Config, factory db.ShareDaoFactory, buildVersion string) *Upgrade {
 	return &Upgrade{
 		cfg:          cfg,
 		controller:   upgradecontroller.New(factory.Upgrade()),
-		rtProvider:   runtime.Default,
 		buildVersion: buildVersion,
 	}
 }
@@ -197,34 +207,46 @@ func (u *Upgrade) doUpgrade(image, latestVersion, upgradeID string) {
 		}
 	}
 
-	klog.Infof("[升级] 步骤 1/4：获取容器运行时")
-	rt, err := u.rtProvider()
-	if err != nil {
-		markFailed(err)
-		return
-	}
-	klog.Infof("[升级] 步骤 1/4：容器运行时就绪")
-
-	klog.Infof("[升级] 步骤 2/4：拉取镜像并重建容器 container=%s image=%s", u.cfg.ContainerName, image)
+	// 与手动 update.sh 保持一致：pull → stop → rm → run
+	klog.Infof("[升级] 步骤 1/4：拉取镜像 image=%s", image)
 	stepStartedAt := time.Now()
-	oldImage, err := rt.ReplaceContainer(ctx, u.cfg.ContainerName, image)
-	if err != nil {
+	if err := u.cli.Pull(ctx, image); err != nil {
 		markFailed(err)
 		return
 	}
-	klog.Infof("[升级] 步骤 2/4：容器重建完成（旧镜像=%s，耗时 %s）", oldImage, time.Since(stepStartedAt).Round(time.Millisecond))
+	klog.Infof("[升级] 步骤 1/4：镜像拉取完成（耗时 %s）", time.Since(stepStartedAt).Round(time.Millisecond))
 
-	// 重建后短窗口内确认容器保持运行：退出/崩溃即判定升级失败
-	klog.Infof("[升级] 步骤 3/4：观察新容器运行状态（窗口 %s，间隔 %s）", startupConfirmTimeout, startupConfirmInterval)
+	klog.Infof("[升级] 步骤 2/4：停止并删除旧容器 container=%s", u.cfg.ContainerName)
 	stepStartedAt = time.Now()
-	if err = u.waitForContainerStarted(ctx, rt); err != nil {
+	if err := u.cli.Stop(ctx, u.cfg.ContainerName); err != nil {
 		markFailed(err)
 		return
 	}
-	klog.Infof("[升级] 步骤 3/4：新容器运行稳定（耗时 %s）", time.Since(stepStartedAt).Round(time.Millisecond))
+	if err := u.cli.Remove(ctx, u.cfg.ContainerName); err != nil {
+		markFailed(err)
+		return
+	}
+	klog.Infof("[升级] 步骤 2/4：旧容器已停止并删除（耗时 %s）", time.Since(stepStartedAt).Round(time.Millisecond))
+
+	klog.Infof("[升级] 步骤 3/4：启动新容器 container=%s image=%s", u.cfg.ContainerName, image)
+	stepStartedAt = time.Now()
+	if err := u.cli.Run(ctx, u.cfg.ContainerName, image, u.cfg.RunArgs); err != nil {
+		markFailed(err)
+		return
+	}
+	klog.Infof("[升级] 步骤 3/4：新容器已启动（耗时 %s）", time.Since(stepStartedAt).Round(time.Millisecond))
+
+	// 启动后短窗口内确认容器保持运行：退出/崩溃即判定升级失败
+	klog.Infof("[升级] 步骤 4/4：观察新容器运行状态（窗口 %s，间隔 %s）", startupConfirmTimeout, startupConfirmInterval)
+	stepStartedAt = time.Now()
+	if err := u.waitForContainerStarted(ctx); err != nil {
+		markFailed(err)
+		return
+	}
+	klog.Infof("[升级] 步骤 4/4：新容器运行稳定（耗时 %s）", time.Since(stepStartedAt).Round(time.Millisecond))
 
 	// 容器稳定运行后由 upgrade 进程原子回写完成状态并切换 is_current。
-	klog.Infof("[升级] 步骤 4/4：回写升级完成状态（status 2→3 并切换 is_current）")
+	klog.Infof("[升级] 回写升级完成状态（status 2→3 并切换 is_current）")
 	markCtx, markCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer markCancel()
 	marked, markErr := u.controller.MarkCompleted(markCtx, upgradeID, latestVersion)
@@ -237,12 +259,12 @@ func (u *Upgrade) doUpgrade(image, latestVersion, upgradeID string) {
 	}
 }
 
-// waitForContainerStarted 在重建后观察窗口内确认容器保持运行；容器退出即视为启动失败。
-func (u *Upgrade) waitForContainerStarted(ctx context.Context, rt runtime.Runtime) error {
+// waitForContainerStarted 在启动后观察窗口内确认容器保持运行；容器退出即视为启动失败。
+func (u *Upgrade) waitForContainerStarted(ctx context.Context) error {
 	klog.Infof("[升级] 开始检查容器(%s)是否保持运行（窗口 %s，间隔 %s）", u.cfg.ContainerName, startupConfirmTimeout, startupConfirmInterval)
 	deadline := time.Now().Add(startupConfirmTimeout)
 	for {
-		running, err := rt.IsContainerRunning(ctx, u.cfg.ContainerName)
+		running, err := u.cli.IsRunning(ctx, u.cfg.ContainerName)
 		if err != nil {
 			return fmt.Errorf("检查新版本容器状态失败: %v", err)
 		}

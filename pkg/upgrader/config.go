@@ -33,6 +33,10 @@ const (
 	defaultContainerName = "pixiu"
 	defaultInterval      = 10 * time.Second
 	defaultPollInterval  = 5 * time.Second
+
+	// 内置默认启动参数：用户不配置 run_args 时按运行时直接使用。
+	defaultRunArgsContainerd = "--net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /run/containerd:/run/containerd -v /var/lib/containerd:/var/lib/containerd"
+	defaultRunArgsDocker     = "--net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock"
 )
 
 // Config 是 pixiu-upgrade 的配置（与主服务共用 config.yaml，读取 upgrade/runtime/mysql 段），
@@ -48,6 +52,9 @@ type Config struct {
 	UpgradeID string
 	// PollInterval 轮询数据库中升级请求的间隔。
 	PollInterval time.Duration
+	// RunArgs 重建 pixiu 容器时传给 nerdctl/docker run 的参数（不含 --name 与镜像）。
+	// 内置按运行时的默认值，可不配置；需要额外挂载/参数时覆盖。
+	RunArgs string
 
 	Runtime config.RuntimeOptions
 	Mysql   config.MysqlOptions
@@ -71,6 +78,10 @@ type upgradeSection struct {
 	ContainerName   string `yaml:"container_name"`
 	UpgradeID       string `yaml:"upgrade_id"`
 	PollInterval    string `yaml:"poll_interval"`
+	// RunArgs 通用兜底参数：对应运行时的 run_args_docker/run_args_containerd 为空时生效。
+	RunArgs           string `yaml:"run_args"`
+	RunArgsDocker     string `yaml:"run_args_docker"`
+	RunArgsContainerd string `yaml:"run_args_containerd"`
 }
 
 // Load 读取并校验 pixiu 配置文件中的 upgrade/runtime/mysql 段（pixiu-upgrade 与主服务共用 config.yaml）。
@@ -116,6 +127,28 @@ func normalize(section upgradeSection, rt config.RuntimeOptions, mysql config.My
 		Mysql:           mysql,
 	}
 
+	// 启动参数解析顺序：
+	// 1. 通用 run_args（trim）
+	// 2. 按 CRI 覆盖（docker 取 run_args_docker，其余含未配置时取 run_args_containerd，非空才覆盖）
+	// 3. 最终仍为空则使用对应 CRI 的内置默认值（未配置时 CRI 默认 containerd）
+	runArgs := strings.TrimSpace(section.RunArgs)
+	if rt.CRI == "docker" {
+		if v := strings.TrimSpace(section.RunArgsDocker); v != "" {
+			runArgs = v
+		}
+		if runArgs == "" {
+			runArgs = defaultRunArgsDocker
+		}
+	} else {
+		if v := strings.TrimSpace(section.RunArgsContainerd); v != "" {
+			runArgs = v
+		}
+		if runArgs == "" {
+			runArgs = defaultRunArgsContainerd
+		}
+	}
+	cfg.RunArgs = runArgs
+
 	if cfg.VersionURL == "" {
 		cfg.VersionURL = defaultVersionURL
 	}
@@ -160,7 +193,6 @@ func normalize(section upgradeSection, rt config.RuntimeOptions, mysql config.My
 	if requireMysql && (cfg.Mysql.Host == "" || cfg.Mysql.Name == "" || cfg.Mysql.User == "") {
 		return nil, fmt.Errorf("mysql 配置不完整（host/name/user 必填）")
 	}
-
 	cfg.Runtime.SetDefaults()
 	if err := cfg.Runtime.Valid(); err != nil {
 		return nil, err

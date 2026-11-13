@@ -31,7 +31,6 @@ import (
 
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/upgrader"
-	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 func main() {
@@ -56,17 +55,11 @@ func main() {
 		klog.Fatalf("初始化数据库失败: %v", err)
 	}
 
-	rt, err := runtime.New(cfg.Runtime)
-	if err != nil {
-		klog.Fatalf("初始化容器运行时失败: %v", err)
-	}
-	defer rt.Close()
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// 轮询升级请求并执行容器重建
-	upgrader.New(cfg, rt, factory).RunExecutor(ctx)
+	// 轮询升级请求，通过 nerdctl/docker 命令行重建 pixiu 容器
+	upgrader.New(cfg, factory, newContainerCLI(cfg.Runtime)).RunExecutor(ctx)
 }
 
 func newFactory(cfg *upgrader.Config) (pixiudb.ShareDaoFactory, error) {
