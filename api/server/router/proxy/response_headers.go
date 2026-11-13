@@ -19,7 +19,7 @@ package proxy
 import "github.com/gin-gonic/gin"
 
 // challengeStrippingResponseWriter 剥离上游 401 认证挑战头（WWW-Authenticate / Proxy-Authenticate），
-// 防止浏览器对 /pixiu/proxy 的响应弹出原生 Basic Auth 登录框。
+// 防止浏览器对 /pixiu/proxy 和 /pixiu/external 的响应弹出原生 Basic Auth 登录框。
 // 内嵌 gin.ResponseWriter，自动获得 Hijack/Flush/WriteString/Status/Size/Pusher 等全部方法，
 // 保证 websocket/SPDY 升级与现有行为不变。
 type challengeStrippingResponseWriter struct {
