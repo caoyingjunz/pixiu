@@ -186,7 +186,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 
 	o.AlertEvaluator = jobmanager.NewAlertEvaluator(o.Factory)
 
-	if o.ComponentConfig.Upgrade.IsEnabled() {
+	if o.ComponentConfig.Upgrade.IsVersionDiscoveryEnabled() {
 		upgradeCfg, err := upgrader.FromUpgradeOptions(o.ComponentConfig.Upgrade, o.ComponentConfig.Runtime)
 		if err != nil {
 			return err
@@ -205,7 +205,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 		jobmanager.NewCronHpaEvaluator(o.Controller.Extension().Autoscaling()),
 		o.AlertEvaluator,
 	}
-	if o.ComponentConfig.Upgrade.IsEnabled() {
+	if o.ComponentConfig.Upgrade.IsVersionDiscoveryEnabled() {
 		jobs = append(jobs, jobmanager.NewUpgradeChecker(o.UpgradeChecker, o.UpgradeChecker.Interval()))
 	}
 	o.JobManager = jobmanager.NewManager(&accessOpts, jobs...)

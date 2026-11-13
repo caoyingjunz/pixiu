@@ -31,8 +31,8 @@ const (
 	defaultVersionURL    = "https://hub.pixiuio.com"
 	defaultVersionRoute  = "/api/v2/pixiu/versions/latest"
 	defaultContainerName = "pixiu"
-	defaultInterval      = 10 * time.Second
-	defaultPollInterval  = 5 * time.Second
+	defaultInterval      = 6 * time.Hour
+	defaultPollInterval  = 60 * time.Second
 
 	// 内置默认启动参数：用户不配置 run_args 时按运行时直接使用。
 	defaultRunArgsContainerd = "--net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /run/containerd:/run/containerd -v /var/lib/containerd:/var/lib/containerd"
@@ -69,7 +69,7 @@ type fileConfig struct {
 
 // upgradeSection 是 upgrade 配置段的原始形态（时长等字段为字符串，normalize 后转为 Config）。
 type upgradeSection struct {
-	// Enabled 为指针以区分「未配置」与「显式 false」：未配置时默认开启。
+	// Enabled 为指针以区分「未配置」与「显式 false」：未配置时默认关闭，upgrade 进程需显式 true 才运行。
 	Enabled         *bool  `yaml:"enabled"`
 	VersionURL      string `yaml:"version_url"`
 	VersionRoute    string `yaml:"version_route"`
@@ -115,8 +115,8 @@ func FromUpgradeOptions(opt config.UpgradeOptions, rt config.RuntimeOptions) (*C
 
 // normalize 校验并补全默认值；requireMysql 为 true 时校验数据库配置（独立进程需要自行连库）。
 func normalize(section upgradeSection, rt config.RuntimeOptions, mysql config.MysqlOptions, requireMysql bool) (*Config, error) {
-	// 未配置（nil）时默认开启，仅显式 false 才关闭。
-	enabled := section.Enabled == nil || *section.Enabled
+	// 未配置（nil）时默认关闭，仅显式 true 才开启（自动升级默认关闭）。
+	enabled := section.Enabled != nil && *section.Enabled
 	cfg := &Config{
 		Enabled:         enabled,
 		VersionURL:      section.VersionURL,

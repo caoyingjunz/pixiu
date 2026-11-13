@@ -141,7 +141,7 @@ func Run(opt *options.Options) error {
 		}
 	}()
 
-	// 自动升级：启动后立即执行一次版本检查，周期检查由 JobManager 统一调度
+	// 版本自发现：启动后立即探测一次版本源，周期探测由 JobManager 统一调度
 	if opt.UpgradeChecker != nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
