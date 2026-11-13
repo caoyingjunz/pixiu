@@ -185,7 +185,7 @@ func applyAuthAndHeaders(req *http.Request, ep *Endpoint, extra map[string]strin
 	}
 }
 
-// ResolveAlertDatasource 按规则绑定 / 默认 prometheus 告警源解析数据源。
+// ResolveAlertDatasource 按规则绑定的告警数据源解析，未绑定时取 Prometheus 类型数据源列表的第一条。
 func ResolveAlertDatasource(ctx context.Context, factory db.ShareDaoFactory, datasourceID int64) (*model.Datasource, error) {
 	if datasourceID > 0 {
 		ds, err := factory.Datasource().Get(ctx, datasourceID)
@@ -204,7 +204,6 @@ func ResolveAlertDatasource(ctx context.Context, factory db.ShareDaoFactory, dat
 	list, err := factory.Datasource().List(ctx,
 		db.WithDatasourceType(model.DatasourceTypeAlert),
 		db.WithDatasourceSubType(model.DatasourceSubTypePrometheus),
-		db.WithDatasourceIsDefault(true),
 	)
 	if err != nil {
 		return nil, err
