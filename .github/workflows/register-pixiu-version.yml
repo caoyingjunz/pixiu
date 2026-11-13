@@ -1,0 +1,128 @@
+name: Register pixiu version
+
+# 发布流程说明：
+#   1. 发布 PR 只改仓库根目录的 VERSION 文件（版本号唯一来源），合并到 master
+#   2. 各 build-*.yml 读取 VERSION 作为镜像 tag，构建并推送发布镜像
+#   3. 本 workflow 由 VERSION 变更触发，等 4 个发布镜像都就绪后，把版本元数据
+#      注册到 Hub（rainbow）的版本管理接口（POST /api/v2/pixiu/versions）
+#
+# 为什么必须等镜像：pixiu 实例通过 Hub 的 /pixiu/versions/latest 探测新版本，
+# 探测到后按版本里的 image 直接升级。镜像没推完就写入版本记录，会让集群升级失败。
+#
+# 需要配置的 secrets / vars（本仓库 Settings -> Secrets and variables -> Actions）：
+#   secrets.RAINBOW_AK        Hub 管理员 AccessKey（普通用户 AK 会被 403 拒绝）
+#   secrets.RAINBOW_SK        对应的 SecretKey
+#   vars.RAINBOW_ENDPOINT     Hub 地址，默认 https://hub.pixiuio.com
+#   注意：GitHub Runner 出口 IP 是动态的，这对 AK 不要配 IP allow/deny 规则。
+#
+# 幂等：版本已存在时改为更新元数据（rainbow 的 create 接口遇重复会报「已存在」），
+# 因此本 workflow 可以安全重跑。
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'VERSION'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 版本号（留空则读取 VERSION 文件）
+        required: false
+      description:
+        description: 版本说明（留空则取提交标题）
+        required: false
+      skip_image_check:
+        description: 填 1 跳过镜像就绪等待（仅应急用，可能让集群升级失败）
+        required: false
+        default: '0'
+
+env:
+  REGISTRY: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com
+  REGISTRY_NAMESPACE: pixiu-public
+  # 镜像等待总预算与轮询间隔（秒）：4 个发布镜像并行构建，正常情况下远小于该预算
+  IMAGE_WAIT_TIMEOUT: '3600'
+  IMAGE_WAIT_INTERVAL: '30'
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 需要完整历史以取提交时间作为发布时间
+          fetch-depth: 0
+
+      - name: Resolve version metadata
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DESCRIPTION: ${{ inputs.description }}
+        run: |
+          set -euo pipefail
+          version="$(printf '%s' "${INPUT_VERSION:-}" | tr -d '[:space:]')"
+          if [ -z "$version" ]; then
+            version="$(tr -d '[:space:]' < VERSION)"
+          fi
+          # 与 rainbow 的 pixiuVersionRegexp 保持一致，提前失败比等服务端报错更直观
+          if ! printf '%s' "$version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'; then
+            echo "::error::版本号格式不合法: ${version} (需匹配 ^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$)"
+            exit 1
+          fi
+
+          desc="${INPUT_DESCRIPTION:-}"
+          if [ -z "$desc" ]; then
+            desc="$(git log -1 --pretty=%s)"
+          fi
+          # GITHUB_ENV 不允许值里带换行，统一压成单行
+          desc="$(printf '%s' "$desc" | tr '\n' ' ')"
+          commit="$(git rev-parse --short HEAD)"
+          release_time="$(git log -1 --format=%cI)"
+          image="${REGISTRY}/${REGISTRY_NAMESPACE}/pixiu:${version}"
+
+          {
+            echo "VERSION_TAG=$version"
+            echo "COMMIT_HASH=$commit"
+            echo "RELEASE_TIME=$release_time"
+            echo "DESCRIPTION=$desc"
+            echo "IMAGE=$image"
+          } >> "$GITHUB_ENV"
+
+          echo "待注册版本: version=$version commit=$commit image=$image"
+
+      - name: Wait for release images
+        if: ${{ inputs.skip_image_check != '1' }}
+        env:
+          DOCKER_NAME: ${{ secrets.DOCKER_NAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$DOCKER_PASSWORD" | docker login "$REGISTRY" -u "$DOCKER_NAME" --password-stdin
+          # 版本记录一旦写入，集群可能立即升级，因此要求全部发布镜像可用后才继续。
+          # 用统一 deadline 而不是「每个镜像各自重试 N 次」，避免某个镜像缺失时逐个耗光预算。
+          deadline=$(( SECONDS + IMAGE_WAIT_TIMEOUT ))
+          for repo in pixiu pixiu-upgrade pixiu-cluster-agent pixiu-deploy-agent; do
+            ref="${REGISTRY}/${REGISTRY_NAMESPACE}/${repo}:${VERSION_TAG}"
+            until docker manifest inspect "$ref" > /dev/null 2>&1; do
+              if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "::error::等待镜像超时（${IMAGE_WAIT_TIMEOUT}s）: $ref"
+                exit 1
+              fi
+              echo "等待镜像: ${ref} (剩余 $(( deadline - SECONDS ))s)"
+              sleep "$IMAGE_WAIT_INTERVAL"
+            done
+            echo "镜像已就绪: $ref"
+          done
+
+      - name: Set up Golang
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Register version to Hub
+        env:
+          RAINBOW_ENDPOINT: ${{ vars.RAINBOW_ENDPOINT || 'https://hub.pixiuio.com' }}
+          RAINBOW_AK: ${{ secrets.RAINBOW_AK }}
+          RAINBOW_SK: ${{ secrets.RAINBOW_SK }}
+        run: go run ./hack/tools/registerpixiuversion

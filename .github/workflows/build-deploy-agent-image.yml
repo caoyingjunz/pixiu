@@ -5,6 +5,8 @@ on:
     branches:
       - "master"
     paths:
+      # 发布 PR 只改 VERSION，需触发所有发布镜像重建，否则版本记录会指向不存在的镜像
+      - 'VERSION'
       - 'cmd/deploy-agent/**'
       - 'docker/Dockerfile-deploy-agent'
       - 'deploy/agent/**'
@@ -24,6 +26,8 @@ jobs:
         run: |
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "TIMESTAMP=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+          # 镜像 tag 统一取 VERSION 文件（发布 PR 只改这一个文件），避免各 workflow 各写一份版本号后漂移
+          echo "VERSION_TAG=$(tr -d '[:space:]' < VERSION)" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -51,5 +55,5 @@ jobs:
           sbom: false
           tags: |
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-deploy-agent:latest
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-deploy-agent:v2.0.2-beta.2
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-deploy-agent:${{ env.VERSION_TAG }}
         # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-deploy-agent:${{ env.COMMIT_HASH }}
