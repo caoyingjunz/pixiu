@@ -85,14 +85,6 @@ func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceR
 	}
 
 	for _, datasource := range datasources {
-		if req.IsDefault && datasource.IsDefault {
-			return apierrors.NewError(
-				fmt.Errorf("default datasource already exists for cluster=%s type=%d, please unset the current default first",
-					req.ClusterName, req.Type),
-				http.StatusConflict,
-			)
-		}
-
 		if datasource.Name == req.Name {
 			return apierrors.NewError(
 				fmt.Errorf("datasource already exists: cluster=%s type=%d name=%s",
@@ -140,7 +132,6 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 		Type:        req.Type,
 		SubType:     req.SubType,
 		Config:      cfg,
-		IsDefault:   req.IsDefault,
 		External:    req.External,
 		Description: req.Description,
 	})
@@ -364,9 +355,6 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 	if req.SubType != old.SubType {
 		updates["sub_type"] = req.SubType
 	}
-	if req.IsDefault != old.IsDefault {
-		updates["is_default"] = req.IsDefault
-	}
 	if req.External != old.External {
 		updates["external"] = req.External
 	}
@@ -551,7 +539,6 @@ func modelToTypeWithRedaction(object *model.Datasource, redact bool) (*types.Dat
 		Type:        object.Type,
 		SubType:     object.SubType,
 		Config:      cfg,
-		IsDefault:   object.IsDefault,
 		External:    object.External,
 		Description: object.Description,
 	}, nil

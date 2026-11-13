@@ -54,7 +54,6 @@ type Datasource struct {
 	Type        DatasourceType    `gorm:"column:type;not null" json:"type"`
 	SubType     DatasourceSubType `gorm:"column:sub_type;type:varchar(32);not null" json:"sub_type"`
 	Config      string            `gorm:"column:config;type:text" json:"config"`
-	IsDefault   bool              `gorm:"column:is_default;default:false;not null" json:"is_default"`
 	External    bool              `gorm:"column:external;default:false;not null" json:"external"`
 	Description string            `gorm:"column:description;type:text" json:"description"`
 }
