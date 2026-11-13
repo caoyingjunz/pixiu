@@ -66,6 +66,8 @@ var externalProxyTransport = &http.Transport{
 
 func (p *proxyRouter) externalProxyHandler(c *gin.Context) {
 	resp := httputils.NewResponse()
+	// 剥离上游 401 认证挑战头，避免浏览器弹出原生 Basic Auth 登录框
+	c.Writer = &challengeStrippingResponseWriter{ResponseWriter: c.Writer}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), externalProxyRequestTimeout)
 	defer cancel()
 	c.Request = c.Request.WithContext(ctx)
@@ -179,12 +181,16 @@ func (p *proxyRouter) forwardExternalRequest(c *gin.Context, resp *httputils.Res
 		httputils.SetFailed(c, resp, proxyErr)
 	}
 	reverseProxy.ModifyResponse = func(r *http.Response) error {
-		if r != nil && r.Body != nil {
-			if r.ContentLength > externalProxyMaxBodyBytes {
-				r.Body.Close()
-				return errExternalProxyResponseTooLarge
+		if r != nil {
+			r.Header.Del("WWW-Authenticate")
+			r.Header.Del("Proxy-Authenticate")
+			if r.Body != nil {
+				if r.ContentLength > externalProxyMaxBodyBytes {
+					r.Body.Close()
+					return errExternalProxyResponseTooLarge
+				}
+				r.Body = newMaxBytesReadCloser(r.Body, externalProxyMaxBodyBytes, errExternalProxyResponseTooLarge)
 			}
-			r.Body = newMaxBytesReadCloser(r.Body, externalProxyMaxBodyBytes, errExternalProxyResponseTooLarge)
 		}
 		return nil
 	}
