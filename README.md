@@ -64,6 +64,7 @@ readonly / Pixiu123!
 
 ### 升级手册
 - [手动升级](docs/upgrade/README.md)
+- [自动升级](docs/upgrade/auto-upgrade.md)
 
 ### 离线安装
 - [离线安装](deploy/offline/README.md)

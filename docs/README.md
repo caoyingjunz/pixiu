@@ -18,4 +18,4 @@
 ![img.png](images/img.png)
 
 # 自动升级
-[自动升级说明](auto-upgrade.md)
+[自动升级说明](upgrade/auto-upgrade.md)

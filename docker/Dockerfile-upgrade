@@ -8,6 +8,13 @@ RUN CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.version=${VERSION}'" -o upgr
 
 FROM alpine:3.20
 LABEL MAINTAINER="PIXIU"
-RUN apk add --no-cache ca-certificates tzdata
+ARG TARGETARCH
+ARG NERDCTL_VERSION=2.4.0
+# 同时安装 docker CLI 与 nerdctl：pixiu-upgrade 通过命令行（pull/stop/rm/run）重建 pixiu 容器
+RUN apk add --no-cache ca-certificates tzdata docker-cli curl \
+    && curl -fsSL "https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/nerdctl-${NERDCTL_VERSION}-linux-${TARGETARCH}.tar.gz" -o /tmp/nerdctl.tar.gz \
+    && tar -xzf /tmp/nerdctl.tar.gz -C /usr/local/bin nerdctl \
+    && rm -f /tmp/nerdctl.tar.gz \
+    && apk del curl
 COPY --from=builder /app/upgrade /usr/local/bin/upgrade
 ENTRYPOINT ["upgrade"]
