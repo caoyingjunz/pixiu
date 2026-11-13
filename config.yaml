@@ -100,6 +100,10 @@ appstore:
 
 # 可升级的配置
 upgrade:
-  enabled: true
-  interval: 10s
+  # 版本自发现默认开启；自动升级默认关闭（需 enabled: true 并部署 pixiu-upgrade）
+  version_discovery: true
+  interval: 6h
+  enabled: false
+  # pixiu-upgrade 轮询升级请求的周期，默认 60s
+  poll_interval: 60s
 #  version_url: http://127.0.0.1:8090

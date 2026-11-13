@@ -57,10 +57,15 @@ type Config struct {
 }
 
 // UpgradeOptions 自动升级配置。
-// 版本检测（检查外部版本号并落库）在主服务流程内执行；
+// 版本自发现（定期探测版本源并写入 server_versions）在主服务流程内执行；
 // 升级执行（拉取镜像、重建服务容器）由独立的 pixiu-upgrade 进程完成。
+// 「版本自发现」与「自动升级」是两个独立开关：
+//   - version_discovery 控制主服务是否探测版本源，默认开启；
+//   - enabled 控制自动升级（页面提示、触发接口、upgrade 进程执行），默认关闭。
 type UpgradeOptions struct {
-	// Enabled 是否启用自动升级的版本检测；未配置时默认开启，显式 false 关闭。
+	// VersionDiscovery 是否启用版本自发现（定期探测版本源并写入 server_versions）；未配置时默认开启。
+	VersionDiscovery *bool `yaml:"version_discovery"`
+	// Enabled 是否启用自动升级；未配置时默认关闭，需显式 true 并在开启后部署 pixiu-upgrade。
 	Enabled *bool `yaml:"enabled"`
 	// VersionURL 版本号检查地址
 	VersionURL string `yaml:"version_url"`
@@ -68,17 +73,22 @@ type UpgradeOptions struct {
 	VersionRoute string `yaml:"version_route"`
 	// ImageRepository 版本源未返回镜像时的镜像仓库前缀
 	ImageRepository string `yaml:"image_repository"`
-	// Interval 版本检测间隔，如 6h
+	// Interval 版本检测间隔，默认 6h
 	Interval string `yaml:"interval"`
 	// ContainerName 待升级的服务容器名，默认 pixiu
 	ContainerName string `yaml:"container_name"`
-	// PollInterval upgrade 进程轮询升级请求的间隔，如 5s
+	// PollInterval upgrade 进程轮询升级请求的间隔，默认 60s
 	PollInterval string `yaml:"poll_interval"`
 }
 
-// IsEnabled 返回版本检测是否启用；未配置时默认开启。
+// IsVersionDiscoveryEnabled 返回版本自发现是否启用；未配置时默认开启。
+func (o *UpgradeOptions) IsVersionDiscoveryEnabled() bool {
+	return o == nil || o.VersionDiscovery == nil || *o.VersionDiscovery
+}
+
+// IsEnabled 返回自动升级是否启用；未配置时默认关闭。
 func (o *UpgradeOptions) IsEnabled() bool {
-	return o == nil || o.Enabled == nil || *o.Enabled
+	return o != nil && o.Enabled != nil && *o.Enabled
 }
 
 // AppstoreOptions 应用商店配置（Chart 包存储在本地磁盘）。
