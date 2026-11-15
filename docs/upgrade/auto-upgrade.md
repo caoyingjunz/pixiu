@@ -1,6 +1,6 @@
 # 自动升级
 
-版本自发现功能默认开启：pixiu 主服务会定期探测新发布的版本。自动升级默认关闭：显式开启后才在页面提示升级、允许触发升级接口，并由独立的 pixiu-upgrade 进程负责升级 pixiu 容器。目前只支持手动安装的 pixiu 环境，不支持 docker-compose 和 kubernetes 的安装模式。
+版本自发现功能默认开启：pixiu 主服务会定期探测新发布的版本。自动升级默认关闭：显式开启后才在页面提示升级、允许触发升级接口，并由独立的 pixiu-upgrade 进程负责升级 pixiu 容器。支持手动安装和 docker-compose 安装的 pixiu 环境，不支持 kubernetes 安装模式。
 
 ## 配置
 
@@ -39,6 +39,16 @@ nerdctl run -d --name pixiu-upgrade --restart=always --net host --privileged=tru
 ```
 
 升级后的 pixiu 容器由 nerdctl/docker 创建，日志分别用 `nerdctl -n default logs pixiu` / `docker logs pixiu` 查看。
+
+### docker-compose 部署
+
+`deploy/docker-compose/docker-compose.yaml` 中已包含 `pixiu-upgrade` 服务，随 `docker compose up -d` 一并启动，与 pixiu 共用宿主机的 `/etc/pixiu` 配置目录和 docker.sock。使用该方式需满足：
+
+- `config.yaml` 放在宿主机 `/etc/pixiu/config.yaml`，pixiu 与 pixiu-upgrade 两个容器都挂载 `/etc/pixiu:/etc/pixiu`（仓库自带 compose 文件已是此配置）。
+- `config.yaml` 中 `runtime.cri: docker`、`upgrade.enabled: true`。
+- 升级器重建 pixiu 容器时使用内置的 docker 默认参数 `--net host --restart=always --privileged=true -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock`，与 compose 中 pixiu 的端口映射等方式可能不同；若部署依赖自定义网络、端口映射或环境变量，请在 `config.yaml` 的 `upgrade.run_args_docker` 中显式写全，避免升级后行为变化。
+
+> 配置目录务必保持为 `/etc/pixiu`。升级器不会读取 compose 文件，而是按上述默认参数重建容器；若把配置挂到自定义路径（如 `/data/pixiu`），新容器将读不到 `config.yaml`。
 
 ## 开启 / 关闭
 

@@ -22,4 +22,15 @@ services:
     volumes:
       - /etc/pixiu:/etc/pixiu
       - /var/run/docker.sock:/var/run/docker.sock
-  
+
+  # 自动升级执行进程：必须运行在 pixiu 容器之外，与 pixiu 共用同一份 /etc/pixiu 配置
+  # 对应命令行：docker run -d --name pixiu-upgrade --restart=always --net host \
+  #   -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock pixiu-upgrade:latest
+  pixiu-upgrade:
+    image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
+    container_name: pixiu-upgrade
+    restart: always
+    network_mode: host
+    volumes:
+      - /etc/pixiu:/etc/pixiu
+      - /var/run/docker.sock:/var/run/docker.sock
