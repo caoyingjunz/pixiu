@@ -13,3 +13,12 @@ mysql:
   password: Pixiu868686
   port: 3306
   name: pixiu
+
+# 容器运行时：使用 docker-compose 部署时为 docker
+runtime:
+  cri: docker
+
+# 自动升级：version_discovery 默认开启，enabled 需显式开启并部署 pixiu-upgrade 进程
+upgrade:
+  version_discovery: true
+  enabled: true
