@@ -36,21 +36,21 @@ import (
 )
 
 const (
-	maxSQLBytes         = 65536           // 控制台单条 SQL 长度上限
-	defaultQueryLimit   = 500             // SELECT 结果缺省行数上限
-	maxQueryLimit       = 10000           // SELECT 结果最大行数上限
-	maxCellValueRunes   = 4096            // 结果单元格最大显示长度（rune）
-	maxBackupRows       = 1000000         // 备份单表最大行数
-	defaultBackupRows   = 10000           // 备份单表缺省行数
-	maxBackupBytes      = 128 << 20       // 备份 SQL 文本体积上限 128MB
-	maxBackupTables     = 200             // 单次备份表数量上限
-	maxSessionListSize  = 1000            // PROCESSLIST 最大返回条数
-	maxBatchStatements  = 50              // 批量执行单次最大语句条数
+	maxSQLBytes          = 65536            // 控制台单条 SQL 长度上限
+	defaultQueryLimit    = 500              // SELECT 结果缺省行数上限
+	maxQueryLimit        = 10000            // SELECT 结果最大行数上限
+	maxCellValueRunes    = 4096             // 结果单元格最大显示长度（rune）
+	maxBackupRows        = 1000000          // 备份单表最大行数
+	defaultBackupRows    = 10000            // 备份单表缺省行数
+	maxBackupBytes       = 128 << 20        // 备份 SQL 文本体积上限 128MB
+	maxBackupTables      = 200              // 单次备份表数量上限
+	maxSessionListSize   = 1000             // PROCESSLIST 最大返回条数
+	maxBatchStatements   = 50               // 批量执行单次最大语句条数
 	maxImportSQLBytes    = 128 << 20        // SQL 导入单次脚本体积上限 128MB
 	maxImportStatements  = 200000           // SQL 导入单次最大语句条数
 	maxImportResultItems = 500              // SQL 导入响应明细保留上限（保留末尾条目）
 	mysqlImportTimeout   = 15 * time.Minute // SQL 导入执行超时上限
-	maxExportRows       = 100000          // 单表 CSV 导出最大行数
+	maxExportRows        = 100000           // 单表 CSV 导出最大行数
 )
 
 // readOnlyKeywords 只读语句关键字：控制台普通用户仅可执行这类语句
