@@ -17,8 +17,14 @@ limitations under the License.
 package mysql
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
+	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -200,6 +206,90 @@ func (mr *mysqlRouter) executeBatchSQL(c *gin.Context) {
 		return
 	}
 	if r.Result, err = mr.c.Extension().Mysql().ExecuteBatchSQL(c, m.DatasourceId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+const (
+	maxImportFileBytes = 128 << 20
+	maxImportBodyBytes = 130 << 20
+)
+
+// importSQL 库级 SQL 脚本导入：支持 multipart/form-data 文件流式上传与 JSON 请求体，单连接顺序执行遇错即停
+func (mr *mysqlRouter) importSQL(c *gin.Context) {
+	r := httputils.NewResponse()
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxImportBodyBytes)
+
+	var (
+		m   meta
+		req types.MySQLExecuteBatchRequest
+		err error
+	)
+	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
+		if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
+			httputils.SetFailed(c, r, err)
+			return
+		}
+		reader, mrErr := c.Request.MultipartReader()
+		if mrErr != nil {
+			httputils.SetFailed(c, r, apierrors.NewError(fmt.Errorf("invalid multipart request: %v", mrErr), http.StatusBadRequest))
+			return
+		}
+		var (
+			database string
+			sqlData  []byte
+			hasFile  bool
+		)
+		for {
+			part, partErr := reader.NextPart()
+			if partErr == io.EOF {
+				break
+			}
+			if partErr != nil {
+				httputils.SetFailed(c, r, apierrors.NewError(fmt.Errorf("failed to read multipart data: %v", partErr), http.StatusBadRequest))
+				return
+			}
+			switch part.FormName() {
+			case "database":
+				val, readErr := io.ReadAll(io.LimitReader(part, 1024))
+				_ = part.Close()
+				if readErr != nil {
+					httputils.SetFailed(c, r, readErr)
+					return
+				}
+				database = string(val)
+			case "file":
+				hasFile = true
+				data, readErr := io.ReadAll(io.LimitReader(part, maxImportFileBytes+1))
+				_ = part.Close()
+				if readErr != nil {
+					httputils.SetFailed(c, r, readErr)
+					return
+				}
+				if len(data) > maxImportFileBytes {
+					httputils.SetFailed(c, r, apierrors.NewError(fmt.Errorf("sql file exceeds limit %d bytes", maxImportFileBytes), http.StatusRequestEntityTooLarge))
+					return
+				}
+				sqlData = data
+			default:
+				_ = part.Close()
+			}
+		}
+		if !hasFile {
+			httputils.SetFailed(c, r, apierrors.NewError(fmt.Errorf("sql file is required"), http.StatusBadRequest))
+			return
+		}
+		req = types.MySQLExecuteBatchRequest{
+			Database: database,
+			SQL:      string(sqlData),
+		}
+	} else if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = mr.c.Extension().Mysql().ImportSQL(c, m.DatasourceId, &req); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

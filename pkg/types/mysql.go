@@ -130,9 +130,11 @@ type MySQLExecuteBatchItem struct {
 
 // MySQLExecuteBatchResult 批量执行结果：遇错停止，StoppedAt 为出错语句序号（0 表示全部成功）
 type MySQLExecuteBatchResult struct {
-	Items     []MySQLExecuteBatchItem `json:"items"`
-	StoppedAt int                     `json:"stopped_at"`
-	Total     int                     `json:"total"` // 拆分出的语句总数
+	Items        []MySQLExecuteBatchItem `json:"items"`
+	StoppedAt    int                     `json:"stopped_at"`
+	Total        int                     `json:"total"`                   // 拆分出的语句总数
+	Executed     int                     `json:"executed,omitempty"`      // 实际尝试执行的语句数（含失败条）
+	ItemsOmitted int                     `json:"items_omitted,omitempty"` // 结果明细被截断时省略的前置条目数
 }
 
 // MySQLUser 实例用户

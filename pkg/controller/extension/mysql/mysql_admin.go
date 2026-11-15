@@ -36,17 +36,21 @@ import (
 )
 
 const (
-	maxSQLBytes        = 65536     // 控制台单条 SQL 长度上限
-	defaultQueryLimit  = 500       // SELECT 结果缺省行数上限
-	maxQueryLimit      = 10000     // SELECT 结果最大行数上限
-	maxCellValueRunes  = 4096      // 结果单元格最大显示长度（rune）
-	maxBackupRows      = 1000000   // 备份单表最大行数
-	defaultBackupRows  = 10000     // 备份单表缺省行数
-	maxBackupBytes     = 128 << 20 // 备份 SQL 文本体积上限 128MB
-	maxBackupTables    = 200       // 单次备份表数量上限
-	maxSessionListSize = 1000      // PROCESSLIST 最大返回条数
-	maxBatchStatements = 50        // 批量执行单次最大语句条数
-	maxExportRows      = 100000    // 单表 CSV 导出最大行数
+	maxSQLBytes         = 65536           // 控制台单条 SQL 长度上限
+	defaultQueryLimit   = 500             // SELECT 结果缺省行数上限
+	maxQueryLimit       = 10000           // SELECT 结果最大行数上限
+	maxCellValueRunes   = 4096            // 结果单元格最大显示长度（rune）
+	maxBackupRows       = 1000000         // 备份单表最大行数
+	defaultBackupRows   = 10000           // 备份单表缺省行数
+	maxBackupBytes      = 128 << 20       // 备份 SQL 文本体积上限 128MB
+	maxBackupTables     = 200             // 单次备份表数量上限
+	maxSessionListSize  = 1000            // PROCESSLIST 最大返回条数
+	maxBatchStatements  = 50              // 批量执行单次最大语句条数
+	maxImportSQLBytes    = 128 << 20        // SQL 导入单次脚本体积上限 128MB
+	maxImportStatements  = 200000           // SQL 导入单次最大语句条数
+	maxImportResultItems = 500              // SQL 导入响应明细保留上限（保留末尾条目）
+	mysqlImportTimeout   = 15 * time.Minute // SQL 导入执行超时上限
+	maxExportRows       = 100000          // 单表 CSV 导出最大行数
 )
 
 // readOnlyKeywords 只读语句关键字：控制台普通用户仅可执行这类语句
@@ -327,18 +331,28 @@ func (c *controller) ExecuteSQL(ctx context.Context, datasourceId int64, req *ty
 // ExecuteBatchSQL 批量执行：服务端拆分语句并在同一连接上逐条执行（保持会话状态，
 // 如 USE/临时表/变量），遇错即停；失败项携带语句序号与起始行号，供前端定位
 func (c *controller) ExecuteBatchSQL(ctx context.Context, datasourceId int64, req *types.MySQLExecuteBatchRequest) (*types.MySQLExecuteBatchResult, error) {
+	return c.executeStatementsBatch(ctx, datasourceId, req, maxSQLBytes, maxBatchStatements, mysqlQueryTimeout, false)
+}
+
+// ImportSQL 库级 SQL 导入：支持最高 128MB / 200000 条语句，使用 15 分钟上下文在同一连接上顺序执行，
+// 遇错即停并裁剪 SELECT 结果集与响应明细以控制响应体积
+func (c *controller) ImportSQL(ctx context.Context, datasourceId int64, req *types.MySQLExecuteBatchRequest) (*types.MySQLExecuteBatchResult, error) {
+	return c.executeStatementsBatch(ctx, datasourceId, req, maxImportSQLBytes, maxImportStatements, mysqlImportTimeout, true)
+}
+
+func (c *controller) executeStatementsBatch(ctx context.Context, datasourceId int64, req *types.MySQLExecuteBatchRequest, maxBytes, maxStmts int, timeout time.Duration, omitRows bool) (*types.MySQLExecuteBatchResult, error) {
 	if req == nil || strings.TrimSpace(req.SQL) == "" {
 		return nil, apierrors.NewError(fmt.Errorf("sql is required"), http.StatusBadRequest)
 	}
-	if len(req.SQL) > maxSQLBytes {
-		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxSQLBytes), http.StatusBadRequest)
+	if len(req.SQL) > maxBytes {
+		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxBytes), http.StatusBadRequest)
 	}
 	statements := splitStatements(req.SQL)
 	if len(statements) == 0 {
 		return nil, apierrors.NewError(fmt.Errorf("no executable statement found"), http.StatusBadRequest)
 	}
-	if len(statements) > maxBatchStatements {
-		return nil, apierrors.NewError(fmt.Errorf("too many statements: %d, limit %d", len(statements), maxBatchStatements), http.StatusBadRequest)
+	if len(statements) > maxStmts {
+		return nil, apierrors.NewError(fmt.Errorf("too many statements: %d, limit %d", len(statements), maxStmts), http.StatusBadRequest)
 	}
 	if req.Database != "" {
 		if err := checkIdentifier("database", req.Database); err != nil {
@@ -361,7 +375,7 @@ func (c *controller) ExecuteBatchSQL(ctx context.Context, datasourceId int64, re
 		return nil, err
 	}
 
-	ctx, cancel := queryContext(ctx)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	conn, err := dbConn.Conn(ctx)
@@ -377,22 +391,50 @@ func (c *controller) ExecuteBatchSQL(ctx context.Context, datasourceId int64, re
 		}
 	}
 
+	limit := req.Limit
+	if omitRows {
+		limit = 1
+	}
+	itemCap := len(statements)
+	if omitRows && itemCap > maxImportResultItems*2 {
+		itemCap = maxImportResultItems * 2
+	}
 	batch := &types.MySQLExecuteBatchResult{
-		Items: make([]types.MySQLExecuteBatchItem, 0, len(statements)),
+		Items: make([]types.MySQLExecuteBatchItem, 0, itemCap),
 		Total: len(statements),
 	}
+	executed := 0
 	for i, st := range statements {
+		executed = i + 1
 		item := types.MySQLExecuteBatchItem{Index: i + 1, StartLine: st.StartLine}
-		result, err := runStatementOnConn(ctx, conn, st.Text, req.Limit, isReadOnlyStatement(st.Text))
+		result, err := runStatementOnConn(ctx, conn, st.Text, limit, isReadOnlyStatement(st.Text))
 		if err != nil {
 			item.Error = err.Error()
 			batch.Items = append(batch.Items, item)
 			batch.StoppedAt = item.Index
 			break
 		}
+		if omitRows && result != nil {
+			result.Columns = nil
+			result.Rows = nil
+			result.Truncated = false
+		}
 		item.Ok = true
 		item.Result = result
 		batch.Items = append(batch.Items, item)
+		// 大规模导入时仅滚动保留最近 maxImportResultItems 条，避免响应 JSON 体积失控
+		if omitRows && len(batch.Items) >= maxImportResultItems*2 {
+			copy(batch.Items, batch.Items[len(batch.Items)-maxImportResultItems:])
+			batch.Items = batch.Items[:maxImportResultItems]
+		}
+	}
+	batch.Executed = executed
+	if omitRows && len(batch.Items) > maxImportResultItems {
+		copy(batch.Items, batch.Items[len(batch.Items)-maxImportResultItems:])
+		batch.Items = batch.Items[:maxImportResultItems]
+	}
+	if omitRows && executed > len(batch.Items) {
+		batch.ItemsOmitted = executed - len(batch.Items)
 	}
 	return batch, nil
 }

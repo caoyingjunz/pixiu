@@ -42,6 +42,7 @@ func RegisterMysql(o *options.Options, group *apiregistry.Group) {
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/mysql/:datasourceId/table", Handler: mr.getTableDetail, Description: "MySQL 表详情"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/mysql/:datasourceId/query", Handler: mr.executeSQL, Description: "MySQL SQL 控制台"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/mysql/:datasourceId/query/batch", Handler: mr.executeBatchSQL, Description: "MySQL SQL 控制台批量执行"},
+		apiregistry.RouteEntry{Method: "POST", RelativePath: "/mysql/:datasourceId/import", Handler: mr.importSQL, Description: "MySQL SQL 脚本批量导入"},
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/mysql/:datasourceId/users", Handler: mr.listUsers, Description: "MySQL 用户列表"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/mysql/:datasourceId/users", Handler: mr.createUser, Description: "MySQL 创建用户"},
 		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/mysql/:datasourceId/users", Handler: mr.deleteUser, Description: "MySQL 删除用户"},
