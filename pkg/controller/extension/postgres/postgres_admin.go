@@ -27,7 +27,6 @@ const (
 	pgQueryTimeout      = 30 * time.Second
 )
 
-// readOnlyKeywords 只读语句关键字
 var readOnlyKeywords = map[string]struct{}{
 	"SELECT": {}, "WITH": {}, "EXPLAIN": {}, "ANALYZE": {}, "SHOW": {},
 }
@@ -40,10 +39,9 @@ var allowedPrivileges = map[string]struct{}{
 }
 
 var (
-	pgIdentPattern = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_$]{0,62}$`)
+	pgIdentPattern     = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_$]{0,62}$`)
+	pgParameterPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 )
-
-// ── SQL 语句解析 ─────────────────────────────────────────────
 
 func pgStripComments(s string) string {
 	for {
@@ -223,8 +221,6 @@ func pgSplitStatements(sqlText string) []pgStatement {
 	return stmts
 }
 
-// ── 标识符工具 ───────────────────────────────────────────────
-
 func pgQuoteIdent(s string) string {
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
@@ -238,8 +234,6 @@ func pgCheckIdent(kind, s string) error {
 	}
 	return nil
 }
-
-// ── 结果集工具 ───────────────────────────────────────────────
 
 func pgConvertCellValue(v interface{}) interface{} {
 	switch t := v.(type) {
@@ -373,7 +367,54 @@ func parsePgVersionNum(s string) int {
 	return v
 }
 
-// ── SQL 控制台 ───────────────────────────────────────────────
+func pgParameterSQL(name, value string) (string, error) {
+	if !pgParameterPattern.MatchString(name) || len(value) > 4096 || strings.ContainsRune(value, 0) {
+		return "", fmt.Errorf("invalid parameter name or value")
+	}
+	escaped := strings.ReplaceAll(strings.ReplaceAll(value, `\`, `\\`), `'`, `''`)
+	return "ALTER SYSTEM SET " + pgQuoteIdent(name) + " = E'" + escaped + "'", nil
+}
+
+func (c *controller) SetParameter(ctx context.Context, id int64, req *types.PostgresSetParameterRequest) (*types.PostgresSetParameterResult, error) {
+	if err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	if req == nil {
+		return nil, apierrors.NewError(fmt.Errorf("invalid parameter name or value"), http.StatusBadRequest)
+	}
+	statement, err := pgParameterSQL(req.Name, req.Value)
+	if err != nil {
+		return nil, apierrors.NewError(err, http.StatusBadRequest)
+	}
+	db, _, err := c.connTo(ctx, id, "")
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := pgQueryContext(ctx)
+	defer cancel()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return nil, wrapPgErr(err)
+	}
+	defer conn.Close()
+	var parameterContext string
+	if err := conn.QueryRowContext(ctx, "SELECT context FROM pg_catalog.pg_settings WHERE name = $1", req.Name).Scan(&parameterContext); err != nil {
+		return nil, wrapPgErr(err)
+	}
+	if parameterContext != "sighup" && parameterContext != "superuser" && parameterContext != "user" {
+		return nil, apierrors.NewError(fmt.Errorf("parameter cannot be changed by configuration reload"), http.StatusBadRequest)
+	}
+	if _, err := conn.ExecContext(ctx, statement); err != nil {
+		return nil, wrapPgErr(err)
+	}
+	result := &types.PostgresSetParameterResult{}
+	if err := conn.QueryRowContext(ctx, "SELECT pg_catalog.pg_reload_conf()").Scan(&result.Reloaded); err != nil {
+		result.Warning = "参数已写入配置，但重载失败：" + err.Error()
+	} else if !result.Reloaded {
+		result.Warning = "参数已写入配置，但重载请求未被接受"
+	}
+	return result, nil
+}
 
 func (c *controller) ExecuteSQL(ctx context.Context, id int64, q *types.PostgresQueryRequest) (*types.PostgresQueryResult, error) {
 	if q == nil || strings.TrimSpace(q.SQL) == "" {
@@ -481,8 +522,6 @@ func (c *controller) ExecuteBatchSQL(ctx context.Context, id int64, req *types.P
 	}
 	return batch, nil
 }
-
-// ── 表详情 ───────────────────────────────────────────────────
 
 func (c *controller) GetTableDetail(ctx context.Context, id int64, database, schema, table string) (*types.PostgresTableDetail, error) {
 	if err := pgCheckIdent("schema", schema); err != nil {
@@ -808,8 +847,6 @@ func (c *controller) AlterTable(ctx context.Context, id int64, req *types.Postgr
 	return c.execDDL(ctx, id, req.Database, req.SQL)
 }
 
-// ── 用户管理 ─────────────────────────────────────────────────
-
 func (c *controller) ListUsers(ctx context.Context, id int64) ([]types.PostgresUser, error) {
 	dbConn, _, err := c.conn(ctx, id)
 	if err != nil {
@@ -940,8 +977,6 @@ func (c *controller) GrantRole(ctx context.Context, id int64, req *types.Postgre
 
 	return c.execDDL(ctx, id, "", stmt)
 }
-
-// ── 慢查询 ───────────────────────────────────────────────────
 
 func (c *controller) ListSlowQueries(ctx context.Context, id int64, page, pageSize int64, orderBy, orderDir string) (*types.PostgresSlowQueryList, error) {
 	if page <= 0 {

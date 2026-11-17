@@ -57,19 +57,17 @@ func RegisterPostgres(o *options.Options, g *apiregistry.Group) {
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/schemas", Handler: r.schemas, Description: "PostgreSQL Schema 列表"},
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/tables", Handler: r.tables, Description: "PostgreSQL 表列表"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/query", Handler: r.query, Description: "PostgreSQL SQL 控制台"},
+		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/parameter", Handler: r.setParameter, Description: "PostgreSQL 修改运行参数"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/batch", Handler: r.batchQuery, Description: "PostgreSQL SQL 批量执行"},
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/sessions", Handler: r.sessions, Description: "PostgreSQL 会话列表"},
 		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/postgres/:datasourceId/sessions", Handler: r.cancel, Description: "PostgreSQL 取消或终止会话"},
-		// 表管理
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/table-detail", Handler: r.tableDetail, Description: "PostgreSQL 表详情"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/create-table", Handler: r.createTable, Description: "PostgreSQL 建表"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/alter-table", Handler: r.alterTable, Description: "PostgreSQL 编辑表"},
-		// 用户管理
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/users", Handler: r.users, Description: "PostgreSQL 用户列表"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/users", Handler: r.createUser, Description: "PostgreSQL 创建用户"},
 		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/postgres/:datasourceId/users", Handler: r.deleteUser, Description: "PostgreSQL 删除用户"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/grant", Handler: r.grantRole, Description: "PostgreSQL 用户授权"},
-		// 慢查询
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/slow-queries", Handler: r.slowQueries, Description: "PostgreSQL 慢查询分析"})
 }
 
@@ -188,6 +186,23 @@ func (r *router) query(c *gin.Context) {
 	httputils.SetSuccess(c, res)
 }
 
+func (r *router) setParameter(c *gin.Context) {
+	var m meta
+	var q types.PostgresSetParameterRequest
+	res := httputils.NewResponse()
+	if e := httputils.ShouldBindAny(c, &q, &m, nil); e != nil {
+		httputils.SetFailed(c, res, e)
+		return
+	}
+	result, e := r.c.Extension().Postgres().SetParameter(c, m.DatasourceId, &q)
+	if e != nil {
+		httputils.SetFailed(c, res, e)
+		return
+	}
+	res.Result = result
+	httputils.SetSuccess(c, res)
+}
+
 func (r *router) sessions(c *gin.Context) {
 	var m meta
 	res := httputils.NewResponse()
@@ -219,8 +234,6 @@ func (r *router) cancel(c *gin.Context) {
 	httputils.SetSuccess(c, res)
 }
 
-// ── 批量执行 ──────────────────────────────────────────────────
-
 func (r *router) batchQuery(c *gin.Context) {
 	var m meta
 	var q types.PostgresBatchRequest
@@ -237,8 +250,6 @@ func (r *router) batchQuery(c *gin.Context) {
 	res.Result = result
 	httputils.SetSuccess(c, res)
 }
-
-// ── 表管理 ────────────────────────────────────────────────────
 
 func (r *router) tableDetail(c *gin.Context) {
 	var m meta
@@ -286,8 +297,6 @@ func (r *router) alterTable(c *gin.Context) {
 	}
 	httputils.SetSuccess(c, res)
 }
-
-// ── 用户管理 ──────────────────────────────────────────────────
 
 func (r *router) users(c *gin.Context) {
 	var m meta
@@ -349,8 +358,6 @@ func (r *router) grantRole(c *gin.Context) {
 	}
 	httputils.SetSuccess(c, res)
 }
-
-// ── 慢查询 ────────────────────────────────────────────────────
 
 func (r *router) slowQueries(c *gin.Context) {
 	var m meta

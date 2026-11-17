@@ -32,6 +32,7 @@ type Interface interface {
 	ListSchemas(context.Context, int64, string) ([]types.PostgresSchema, error)
 	ListTables(context.Context, int64, string, string) ([]types.PostgresTable, error)
 	ExecuteSQL(context.Context, int64, *types.PostgresQueryRequest) (*types.PostgresQueryResult, error)
+	SetParameter(context.Context, int64, *types.PostgresSetParameterRequest) (*types.PostgresSetParameterResult, error)
 	ExecuteBatchSQL(context.Context, int64, *types.PostgresBatchRequest) (*types.PostgresBatchResult, error)
 	GetTableDetail(context.Context, int64, string, string, string) (*types.PostgresTableDetail, error)
 	CreateTable(context.Context, int64, *types.PostgresCreateTableRequest) error
@@ -373,9 +374,9 @@ func (c *controller) ListTables(ctx context.Context, id int64, dbn, schema strin
 	if e != nil {
 		return nil, e
 	}
-	out, err := pgQuerySlice(ctx, db, "select n.nspname,c.relname,case c.relkind when 'r' then 'table' when 'v' then 'view' when 'm' then 'materialized_view' when 'S' then 'sequence' else c.relkind::text end,coalesce(c.reltuples,0)::bigint,case when has_table_privilege(c.oid,'SELECT') then pg_total_relation_size(c.oid) else 0 end from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind in ('r','v','m','S') order by c.relname", func(r *sql.Rows) (types.PostgresTable, error) {
+	out, err := pgQuerySlice(ctx, db, "select n.nspname,c.relname,case c.relkind when 'r' then 'table' when 'v' then 'view' when 'm' then 'materialized_view' when 'S' then 'sequence' else c.relkind::text end,coalesce(c.reltuples,0)::bigint,case when has_table_privilege(c.oid,'SELECT') then pg_total_relation_size(c.oid) else 0 end,pg_get_userbyid(c.relowner),coalesce(obj_description(c.oid,'pg_class'),'') from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind in ('r','v','m','S') order by c.relname", func(r *sql.Rows) (types.PostgresTable, error) {
 		var x types.PostgresTable
-		e := r.Scan(&x.Schema, &x.Name, &x.Type, &x.Rows, &x.SizeBytes)
+		e := r.Scan(&x.Schema, &x.Name, &x.Type, &x.Rows, &x.SizeBytes, &x.Owner, &x.Comment)
 		return x, e
 	}, schema)
 	if err != nil {

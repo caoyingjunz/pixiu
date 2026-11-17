@@ -50,12 +50,24 @@ type PostgresTable struct {
 	Type      string `json:"type"`
 	Rows      int64  `json:"rows"`
 	SizeBytes int64  `json:"sizeBytes"`
+	Owner     string `json:"owner"`
+	Comment   string `json:"comment"`
 }
 type PostgresQueryRequest struct {
 	Database string `json:"database"` // 目标库；PG 不能在同一连接内切换数据库，需按库另开连接
 	Schema   string `json:"schema"`
 	SQL      string `json:"sql" binding:"required"`
 	Limit    int64  `json:"limit,omitempty"`
+}
+
+type PostgresSetParameterRequest struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type PostgresSetParameterResult struct {
+	Reloaded bool   `json:"reloaded"`
+	Warning  string `json:"warning,omitempty"`
 }
 type PostgresQueryResult struct {
 	Columns   []string        `json:"columns,omitempty"`
