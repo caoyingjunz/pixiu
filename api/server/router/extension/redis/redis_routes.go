@@ -241,3 +241,183 @@ func (rr *redisRouter) setRedisKeyTTL(c *gin.Context) {
 	}
 	httputils.SetSuccess(c, r)
 }
+
+type aclUserOptions struct {
+	Username string `form:"username" binding:"required"`
+}
+
+func (rr *redisRouter) listRedisConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = rr.c.Extension().Redis().ListConfig(c, m.DatasourceId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (rr *redisRouter) setRedisConfig(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		req types.RedisSetConfigRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = rr.c.Extension().Redis().SetConfig(c, m.DatasourceId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (rr *redisRouter) listRedisACLUsers(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = rr.c.Extension().Redis().ListACLUsers(c, m.DatasourceId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (rr *redisRouter) createRedisACLUser(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		req types.RedisCreateACLUserRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = rr.c.Extension().Redis().CreateACLUser(c, m.DatasourceId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (rr *redisRouter) deleteRedisACLUser(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m    meta
+		opts aclUserOptions
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &m, &opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = rr.c.Extension().Redis().DeleteACLUser(c, m.DatasourceId, opts.Username); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (rr *redisRouter) grantRedisACLUser(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		req types.RedisGrantACLUserRequest
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = rr.c.Extension().Redis().GrantACLUser(c, m.DatasourceId, &req); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+type slowlogOptions struct {
+	Count int64 `form:"count"`
+}
+
+type clientKillOptions struct {
+	ID string `form:"id" binding:"required"`
+}
+
+func (rr *redisRouter) listRedisSlowLogs(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m    meta
+		opts slowlogOptions
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &m, &opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = rr.c.Extension().Redis().ListSlowLogs(c, m.DatasourceId, opts.Count); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (rr *redisRouter) listRedisClients(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m   meta
+		err error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = rr.c.Extension().Redis().ListClients(c, m.DatasourceId); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}
+
+func (rr *redisRouter) killRedisClient(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		m    meta
+		opts clientKillOptions
+		err  error
+	)
+	if err = httputils.ShouldBindAny(c, nil, &m, &opts); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if err = rr.c.Extension().Redis().KillClient(c, m.DatasourceId, opts.ID); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	httputils.SetSuccess(c, r)
+}

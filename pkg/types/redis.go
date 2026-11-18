@@ -44,30 +44,23 @@ type RedisInfo struct {
 	ConnectedClients int64  `json:"connected_clients"`
 	KeyspaceHits     int64  `json:"keyspace_hits"`
 	KeyspaceMisses   int64  `json:"keyspace_misses"`
-	TotalKeys        int64  `json:"total_keys"` // DBSIZE
-	Raw              string `json:"raw"`        // INFO 命令原始输出
+	TotalKeys        int64  `json:"total_keys"`
 
-	// 内存详情
-	UsedMemory       int64   `json:"used_memory"`             // 字节
-	UsedMemoryRss    int64   `json:"used_memory_rss"`         // 字节
-	UsedMemoryPeak   int64   `json:"used_memory_peak"`        // 字节
-	UsedMemoryLua    int64   `json:"used_memory_lua"`         // 字节
-	MaxMemory        int64   `json:"max_memory"`              // 字节，0 表示未限制
-	MaxMemoryHuman   string  `json:"max_memory_human"`        // 可读格式
-	MaxMemoryPolicy  string  `json:"max_memory_policy"`       // 淘汰策略
-	MemFragmentation float64 `json:"mem_fragmentation_ratio"` // 内存碎片率
+	UsedMemory             int64   `json:"used_memory"`
+	UsedMemoryRss          int64   `json:"used_memory_rss"`
+	UsedMemoryPeak         int64   `json:"used_memory_peak"`
+	UsedMemoryLua          int64   `json:"used_memory_lua"`
+	MaxMemory              int64   `json:"max_memory"`
+	MaxMemoryHuman         string  `json:"max_memory_human"`
+	MaxMemoryPolicy        string  `json:"max_memory_policy"`
+	TotalSystemMemory      int64   `json:"total_system_memory"`
+	TotalSystemMemoryHuman string  `json:"total_system_memory_human"`
+	MemFragmentation       float64 `json:"mem_fragmentation_ratio"`
 
-	// 命令统计
 	TotalCommands    int64 `json:"total_commands_processed"`
 	InstantaneousOps int64 `json:"instantaneous_ops_per_sec"`
-
-	// 网络
-	NetInputBytes  int64 `json:"net_input_bytes_total"`
-	NetOutputBytes int64 `json:"net_output_bytes_total"`
-
-	// 键空间统计
-	EvictedKeys int64 `json:"evicted_keys"`
-	ExpiredKeys int64 `json:"expired_keys"`
+	EvictedKeys      int64 `json:"evicted_keys"`
+	ExpiredKeys      int64 `json:"expired_keys"`
 
 	// 连接
 	BlockedClients int64 `json:"blocked_clients"`
@@ -141,4 +134,76 @@ type RedisUpdateKeyValueRequest struct {
 	Key   string `json:"key" binding:"required"`
 	Value string `json:"value"`
 	DB    *int   `json:"db,omitempty"`
+}
+
+// RedisConfigItem Redis CONFIG GET 返回的单个参数
+type RedisConfigItem struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// RedisSetConfigRequest 修改运行期配置（CONFIG SET）
+type RedisSetConfigRequest struct {
+	Name  string `json:"name" binding:"required"`
+	Value string `json:"value"`
+}
+
+// RedisACLUser Redis ACL 用户（解析自 ACL LIST）
+type RedisACLUser struct {
+	Name     string   `json:"name"`
+	Enabled  bool     `json:"enabled"`
+	NoPass   bool     `json:"nopass"`
+	Commands string   `json:"commands"`
+	Keys     []string `json:"keys"`
+	Channels []string `json:"channels"`
+	Flags    []string `json:"flags"`
+}
+
+// RedisACLListResult ACL 用户列表；Supported=false 表示实例不支持或无权执行 ACL
+type RedisACLListResult struct {
+	Supported bool           `json:"supported"`
+	Message   string         `json:"message,omitempty"`
+	Users     []RedisACLUser `json:"users"`
+}
+
+// RedisCreateACLUserRequest 创建 ACL 用户
+type RedisCreateACLUserRequest struct {
+	Name     string   `json:"name" binding:"required"`
+	Password string   `json:"password"`
+	NoPass   bool     `json:"nopass"`
+	Enabled  *bool    `json:"enabled"`
+	Keys     string   `json:"keys"`
+	Commands []string `json:"commands"`
+}
+
+// RedisGrantACLUserRequest 为 ACL 用户追加命令分类或 Key 模式
+type RedisGrantACLUserRequest struct {
+	Name     string   `json:"name" binding:"required"`
+	Commands []string `json:"commands"`
+	Keys     string   `json:"keys"`
+}
+
+// RedisSlowLogItem SLOWLOG GET 中的一条记录
+type RedisSlowLogItem struct {
+	ID         int64    `json:"id"`
+	Timestamp  int64    `json:"timestamp"`
+	DurationUs int64    `json:"duration_us"`
+	Command    string   `json:"command"`
+	Args       []string `json:"args"`
+	ClientAddr string   `json:"client_addr"`
+	ClientName string   `json:"client_name"`
+}
+
+// RedisClientItem CLIENT LIST 中的一个连接
+type RedisClientItem struct {
+	ID     string `json:"id"`
+	Addr   string `json:"addr"`
+	Name   string `json:"name"`
+	Age    int64  `json:"age"`
+	Idle   int64  `json:"idle"`
+	Flags  string `json:"flags"`
+	DB     string `json:"db"`
+	Cmd    string `json:"cmd"`
+	User   string `json:"user"`
+	TotMem int64  `json:"tot_mem"`
 }
