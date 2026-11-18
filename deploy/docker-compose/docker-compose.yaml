@@ -29,12 +29,12 @@ services:
   # 自动升级执行进程：必须运行在 pixiu 容器之外，与 pixiu 共用同一份 /etc/pixiu 配置
   # 对应命令行：docker run -d --name pixiu-upgrade --restart=always --net host \
   #   -v /etc/pixiu:/etc/pixiu -v /var/run/docker.sock:/var/run/docker.sock pixiu-upgrade:latest
-  # 以上独立 docker run 示例保留不变；Compose 部署使用默认网络，才能通过服务名 mysql 访问数据库
   pixiu-upgrade:
     image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
     container_name: pixiu-upgrade
     restart: always
-    # 声明 MySQL 依赖，确保升级进程随 Compose 启动时先启动 mysql 容器
+    # 注释 host 网络，避免升级进程无法通过 Compose 服务名 mysql 连接数据库
+    # network_mode: host
     depends_on:
       - mysql
     volumes:
