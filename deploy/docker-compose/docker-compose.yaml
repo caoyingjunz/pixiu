@@ -1,3 +1,6 @@
+# 保留 Compose 文件版本字段，兼容仍使用旧版 docker-compose 的部署环境
+version: "2.4"
+
 services:
   mysql:
     image: ccr.ccs.tencentyun.com/pixiucloud/mysql:5.7
@@ -30,7 +33,10 @@ services:
     image: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:latest
     container_name: pixiu-upgrade
     restart: always
-    network_mode: host
+    # 注释 host 网络，避免升级进程无法通过 Compose 服务名 mysql 连接数据库
+    # network_mode: host
+    depends_on:
+      - mysql
     volumes:
       - /etc/pixiu:/etc/pixiu
       - /var/run/docker.sock:/var/run/docker.sock
