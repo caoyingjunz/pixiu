@@ -75,6 +75,17 @@ type Interface interface {
 	// UpdateKeyValue 修改 string 类型 key 的值（保持原 TTL）；仅管理员可调用
 	UpdateKeyValue(ctx context.Context, datasourceId int64, db *int, req *types.RedisUpdateKeyValueRequest) error
 	SetKeyTTL(ctx context.Context, datasourceId int64, db *int, key string, ttl int64) error
+	// ListConfig / SetConfig 读取与修改运行期配置（CONFIG GET/SET）；写操作仅管理员可调用
+	ListConfig(ctx context.Context, datasourceId int64) ([]types.RedisConfigItem, error)
+	SetConfig(ctx context.Context, datasourceId int64, req *types.RedisSetConfigRequest) error
+	// ACL 用户管理（Redis 6+）；写操作仅管理员可调用。List 在实例不支持 ACL 时返回 Supported=false
+	ListACLUsers(ctx context.Context, datasourceId int64) (*types.RedisACLListResult, error)
+	CreateACLUser(ctx context.Context, datasourceId int64, req *types.RedisCreateACLUserRequest) error
+	DeleteACLUser(ctx context.Context, datasourceId int64, username string) error
+	GrantACLUser(ctx context.Context, datasourceId int64, req *types.RedisGrantACLUserRequest) error
+	ListSlowLogs(ctx context.Context, datasourceId int64, count int64) ([]types.RedisSlowLogItem, error)
+	ListClients(ctx context.Context, datasourceId int64) ([]types.RedisClientItem, error)
+	KillClient(ctx context.Context, datasourceId int64, id string) error
 }
 
 type controller struct {
@@ -410,38 +421,29 @@ func (c *controller) Info(ctx context.Context, datasourceId int64, db *int) (*ty
 	}
 
 	info := &types.RedisInfo{
-		RedisVersion:     parseInfoField(raw, "redis_version"),
-		RedisMode:        parseInfoField(raw, "redis_mode"),
-		OS:               parseInfoField(raw, "os"),
-		UsedMemoryHuman:  parseInfoField(raw, "used_memory_human"),
-		UptimeInSeconds:  parseInfoInt(raw, "uptime_in_seconds"),
-		ConnectedClients: parseInfoInt(raw, "connected_clients"),
-		KeyspaceHits:     parseInfoInt(raw, "keyspace_hits"),
-		KeyspaceMisses:   parseInfoInt(raw, "keyspace_misses"),
-		TotalKeys:        dbSize,
-		Raw:              raw,
-
-		// 内存详情
-		UsedMemory:       parseInfoInt(raw, "used_memory"),
-		UsedMemoryRss:    parseInfoInt(raw, "used_memory_rss"),
-		UsedMemoryPeak:   parseInfoInt(raw, "used_memory_peak"),
-		UsedMemoryLua:    parseInfoInt(raw, "used_memory_lua"),
-		MaxMemory:        parseInfoInt(raw, "maxmemory"),
-		MaxMemoryHuman:   parseInfoField(raw, "maxmemory_human"),
-		MaxMemoryPolicy:  parseInfoField(raw, "maxmemory_policy"),
-		MemFragmentation: parseInfoFloat(raw, "mem_fragmentation_ratio"),
-
-		// 命令统计
-		TotalCommands:    parseInfoInt(raw, "total_commands_processed"),
-		InstantaneousOps: parseInfoInt(raw, "instantaneous_ops_per_sec"),
-
-		// 网络
-		NetInputBytes:  parseInfoInt(raw, "net_input_bytes_total"),
-		NetOutputBytes: parseInfoInt(raw, "net_output_bytes_total"),
-
-		// 键空间统计
-		EvictedKeys: parseInfoInt(raw, "evicted_keys"),
-		ExpiredKeys: parseInfoInt(raw, "expired_keys"),
+		RedisVersion:           parseInfoField(raw, "redis_version"),
+		RedisMode:              parseInfoField(raw, "redis_mode"),
+		OS:                     parseInfoField(raw, "os"),
+		UsedMemoryHuman:        parseInfoField(raw, "used_memory_human"),
+		UptimeInSeconds:        parseInfoInt(raw, "uptime_in_seconds"),
+		ConnectedClients:       parseInfoInt(raw, "connected_clients"),
+		KeyspaceHits:           parseInfoInt(raw, "keyspace_hits"),
+		KeyspaceMisses:         parseInfoInt(raw, "keyspace_misses"),
+		TotalKeys:              dbSize,
+		UsedMemory:             parseInfoInt(raw, "used_memory"),
+		UsedMemoryRss:          parseInfoInt(raw, "used_memory_rss"),
+		UsedMemoryPeak:         parseInfoInt(raw, "used_memory_peak"),
+		UsedMemoryLua:          parseInfoInt(raw, "used_memory_lua"),
+		MaxMemory:              parseInfoInt(raw, "maxmemory"),
+		MaxMemoryHuman:         parseInfoField(raw, "maxmemory_human"),
+		MaxMemoryPolicy:        parseInfoField(raw, "maxmemory_policy"),
+		TotalSystemMemory:      parseInfoInt(raw, "total_system_memory"),
+		TotalSystemMemoryHuman: parseInfoField(raw, "total_system_memory_human"),
+		MemFragmentation:       parseInfoFloat(raw, "mem_fragmentation_ratio"),
+		TotalCommands:          parseInfoInt(raw, "total_commands_processed"),
+		InstantaneousOps:       parseInfoInt(raw, "instantaneous_ops_per_sec"),
+		EvictedKeys:            parseInfoInt(raw, "evicted_keys"),
+		ExpiredKeys:            parseInfoInt(raw, "expired_keys"),
 
 		// 连接
 		BlockedClients: parseInfoInt(raw, "blocked_clients"),
@@ -755,7 +757,14 @@ func (c *controller) SetKeyTTL(ctx context.Context, datasourceId int64, db *int,
 	if err != nil {
 		return wrapRedisErr(err)
 	}
-	if !ok {
+	if ok {
+		return nil
+	}
+	exists, existsErr := client.Exists(ctx, key).Result()
+	if existsErr != nil {
+		return wrapRedisErr(existsErr)
+	}
+	if exists == 0 {
 		return apierrors.NewError(fmt.Errorf("key not found"), http.StatusNotFound)
 	}
 	return nil

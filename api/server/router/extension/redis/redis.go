@@ -44,5 +44,14 @@ func RegisterRedis(o *options.Options, group *apiregistry.Group) {
 		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/redis/:datasourceId/keys", Handler: rr.deleteRedisKeys, Description: "Redis 批量删除 Key"},
 		apiregistry.RouteEntry{Method: "PUT", RelativePath: "/redis/:datasourceId/key", Handler: rr.updateRedisKeyValue, Description: "Redis 修改 Key 值"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/redis/:datasourceId/key/ttl", Handler: rr.setRedisKeyTTL, Description: "Redis 修改 Key TTL"},
+		apiregistry.RouteEntry{Method: "GET", RelativePath: "/redis/:datasourceId/config", Handler: rr.listRedisConfig, Description: "Redis 参数配置"},
+		apiregistry.RouteEntry{Method: "PUT", RelativePath: "/redis/:datasourceId/config", Handler: rr.setRedisConfig, Description: "Redis 修改参数"},
+		apiregistry.RouteEntry{Method: "GET", RelativePath: "/redis/:datasourceId/acl/users", Handler: rr.listRedisACLUsers, Description: "Redis ACL 用户列表"},
+		apiregistry.RouteEntry{Method: "POST", RelativePath: "/redis/:datasourceId/acl/user", Handler: rr.createRedisACLUser, Description: "Redis 创建 ACL 用户"},
+		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/redis/:datasourceId/acl/user", Handler: rr.deleteRedisACLUser, Description: "Redis 删除 ACL 用户"},
+		apiregistry.RouteEntry{Method: "POST", RelativePath: "/redis/:datasourceId/acl/user/grant", Handler: rr.grantRedisACLUser, Description: "Redis ACL 用户授权"},
+		apiregistry.RouteEntry{Method: "GET", RelativePath: "/redis/:datasourceId/slowlog", Handler: rr.listRedisSlowLogs, Description: "Redis 慢日志"},
+		apiregistry.RouteEntry{Method: "GET", RelativePath: "/redis/:datasourceId/clients", Handler: rr.listRedisClients, Description: "Redis 客户端列表"},
+		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/redis/:datasourceId/clients", Handler: rr.killRedisClient, Description: "Redis 断开客户端"},
 	)
 }
