@@ -104,6 +104,9 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	if err := validatePostgresConstraint(req); err != nil {
 		return err
 	}
+	if err := validateMongoConstraint(req); err != nil {
+		return err
+	}
 	if err := validateStorageConstraint(req, true); err != nil {
 		return err
 	}
@@ -234,6 +237,31 @@ func validatePostgresConstraint(req *types.CreateDatasourceRequest) error {
 	return nil
 }
 
+// validateMongoConstraint 校验 MongoDB 数据源的约束：
+// 必须是 middleware 类型 + 外部直连，且提供 host 与 user_name。
+func validateMongoConstraint(req *types.CreateDatasourceRequest) error {
+	if req.SubType != model.DatasourceSubTypeMongoDB {
+		return nil
+	}
+	if req.Type != model.DatasourceTypeMiddleware || !req.External {
+		return apierrors.NewError(fmt.Errorf("mongodb datasource requires middleware type and external direct connection"), http.StatusBadRequest)
+	}
+	if req.Config == nil || req.Config.Mongo == nil {
+		return apierrors.NewError(fmt.Errorf("mongodb datasource requires config.mongo"), http.StatusBadRequest)
+	}
+	cfg := req.Config.Mongo
+	if strings.TrimSpace(cfg.Host) == "" || strings.TrimSpace(cfg.UserName) == "" {
+		return apierrors.NewError(fmt.Errorf("mongodb datasource requires host and user_name"), http.StatusBadRequest)
+	}
+	if cfg.Port <= 0 {
+		cfg.Port = 27017
+	}
+	if strings.TrimSpace(cfg.Database) == "" {
+		cfg.Database = "admin"
+	}
+	return nil
+}
+
 // validateStorageConstraint 校验对象存储数据源只能通过外部 HTTP 地址访问。
 // 对象存储服务不对应 Pixiu 集群内的 Service，因此不支持内部数据源模式。
 //
@@ -312,6 +340,9 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 		return err
 	}
 	if err := validatePostgresConstraint(&req.CreateDatasourceRequest); err != nil {
+		return err
+	}
+	if err := validateMongoConstraint(&req.CreateDatasourceRequest); err != nil {
 		return err
 	}
 	if err := validateStorageConstraint(&req.CreateDatasourceRequest, false); err != nil {
@@ -566,6 +597,9 @@ func redactDatasourceConfig(cfg *types.DatasourceConfig) {
 	if cfg.Postgres != nil {
 		cfg.Postgres.Password = ""
 	}
+	if cfg.Mongo != nil {
+		cfg.Mongo.Password = ""
+	}
 	if cfg.Storage != nil {
 		cfg.Storage.SecretAccessKey = ""
 		cfg.Storage.SessionToken = ""
@@ -601,6 +635,9 @@ func preserveDatasourcePasswords(cfg *types.DatasourceConfig, oldConfig string) 
 	}
 	if cfg.Postgres != nil && old.Postgres != nil && cfg.Postgres.Password == "" {
 		cfg.Postgres.Password = old.Postgres.Password
+	}
+	if cfg.Mongo != nil && old.Mongo != nil && cfg.Mongo.Password == "" {
+		cfg.Mongo.Password = old.Mongo.Password
 	}
 	if cfg.Storage != nil && old.Storage != nil {
 		if cfg.Storage.AccessKeyID == "" {

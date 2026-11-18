@@ -54,6 +54,7 @@ func Catalog() []Definition {
 		{Code: "middleware.mysql", ParentCode: "middleware", Title: "MySQL", Path: "/middleware/mysql", Kind: KindMenu, AdminOnly: true},
 		{Code: "middleware.rabbitmq", ParentCode: "middleware", Title: "RabbitMQ", Path: "/middleware/rabbitmq", Kind: KindMenu, AdminOnly: true},
 		{Code: "middleware.postgres", ParentCode: "middleware", Title: "PostgreSQL", Path: "/middleware/postgres", Kind: KindMenu, AdminOnly: true},
+		{Code: "middleware.mongodb", ParentCode: "middleware", Title: "MongoDB", Path: "/middleware/mongodb", Kind: KindMenu, AdminOnly: true},
 		{Code: "middleware.storage", ParentCode: "middleware", Title: "对象存储", Path: "/storage/instances", Kind: KindMenu, AdminOnly: true},
 
 		{Code: "monitor", Title: "监控告警", Path: "/monitor", Kind: KindDirectory},

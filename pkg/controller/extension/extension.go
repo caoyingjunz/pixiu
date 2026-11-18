@@ -20,6 +20,7 @@ package extension
 import (
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	autoscalingcontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/autoscaling"
+	mongocontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/mongo"
 	mysqlcontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/mysql"
 	postgrescontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/postgres"
 	rediscontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension/redis"
@@ -37,6 +38,7 @@ type Interface interface {
 	Autoscaling() autoscalingcontroller.Interface
 	Mysql() mysqlcontroller.Interface
 	Postgres() postgrescontroller.Interface
+	Mongo() mongocontroller.Interface
 	ObjectStorage() objectstoragecontroller.Interface
 }
 
@@ -45,6 +47,7 @@ type controller struct {
 	autoscaling   autoscalingcontroller.Interface
 	mysql         mysqlcontroller.Interface
 	postgres      postgrescontroller.Interface
+	mongo         mongocontroller.Interface
 	objectStorage objectstoragecontroller.Interface
 }
 
@@ -54,6 +57,7 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 		autoscaling:   autoscalingcontroller.New(cfg, f),
 		mysql:         mysqlcontroller.New(cfg, f),
 		postgres:      postgrescontroller.New(cfg, f),
+		mongo:         mongocontroller.New(cfg, f),
 		objectStorage: objectstoragecontroller.New(cfg, f),
 	}
 }
@@ -66,4 +70,5 @@ func (c *controller) Mysql() mysqlcontroller.Interface {
 	return c.mysql
 }
 func (c *controller) Postgres() postgrescontroller.Interface           { return c.postgres }
+func (c *controller) Mongo() mongocontroller.Interface                 { return c.mongo }
 func (c *controller) ObjectStorage() objectstoragecontroller.Interface { return c.objectStorage }

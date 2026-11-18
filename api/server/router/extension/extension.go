@@ -20,6 +20,7 @@ package extension
 import (
 	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	autoscalingrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/autoscaling"
+	mongorouter "github.com/caoyingjunz/pixiu/api/server/router/extension/mongo"
 	mysqlrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/mysql"
 	postgresrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/postgres"
 	redisrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/redis"
@@ -39,6 +40,7 @@ func NewRouter(o *options.Options) {
 	redisrouter.RegisterRedis(o, group)
 	mysqlrouter.RegisterMysql(o, group)
 	postgresrouter.RegisterPostgres(o, group)
+	mongorouter.RegisterMongo(o, group)
 	storagerouter.RegisterStorage(o, group)
 	group.Register(o.HttpEngine.Group(extensionBaseURL), o.Controller.APIResource())
 }
