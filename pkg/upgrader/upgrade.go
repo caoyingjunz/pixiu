@@ -156,6 +156,7 @@ func (u *Upgrade) ProbeVersion(ctx context.Context) error {
 		VersionTag:  latest.Version,
 		CommitID:    latest.CommitID,
 		Image:       image,
+		Description: latest.Description,
 		Status:      model.UpgradeStatusNotUpgraded,
 		ReleaseTime: parseReleaseTime(latest.ReleaseTime),
 	}

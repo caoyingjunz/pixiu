@@ -47,6 +47,7 @@ type ServerVersion struct {
 	VersionTag   string     `gorm:"column:version_tag;type:varchar(64);default:'';uniqueIndex:uk_upgrade_version_commit,priority:1" json:"version_tag"`
 	CommitID     string     `gorm:"column:commit_id;type:varchar(64);default:'';uniqueIndex:uk_upgrade_version_commit,priority:2" json:"commit_id"`
 	Image        string     `gorm:"type:varchar(512);default:''" json:"image"`
+	Description  string     `gorm:"column:description;type:varchar(1024);default:''" json:"description"`
 	IsCurrent    bool       `gorm:"column:is_current;default:false;not null" json:"is_current"`
 	Status       int        `gorm:"type:tinyint;default:0;not null" json:"status"`
 	UpgradeID    string     `gorm:"column:upgrade_id;type:varchar(128);default:''" json:"upgrade_id"`
