@@ -291,6 +291,11 @@ type (
 		Nodes  []CreatePlanNodeRequest `json:"nodes"`
 	}
 
+	// StartPlanRequest 启动部署计划的请求体
+	StartPlanRequest struct {
+		Force bool `json:"force"` // 是否强制终止运行中的任务后重新启动
+	}
+
 	CreatePlanNodeRequest struct {
 		NodeId int64        `json:"node_id,omitempty"`        // 关联主机库节点时使用，不传则新建
 		Name   string       `json:"name" binding:"omitempty"` // required

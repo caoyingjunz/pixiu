@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -30,8 +31,10 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 type Getter interface {
@@ -60,8 +63,8 @@ type Interface interface {
 	// GenerateJoinParams 通过 Kubernetes API 自动生成 join 参数（bootstrap token + CA hash + apiserver）。
 	GenerateJoinParams(ctx context.Context, clusterId int64) (*types.ExpansionJoinParams, error)
 
-	// Start 按已保存的扩容计划启动一次扩容
-	Start(ctx context.Context, clusterId int64) error
+	// Start 按已保存的扩容计划启动一次扩容；force 为 true 时先强制终止运行中的扩容任务再重新开始
+	Start(ctx context.Context, clusterId int64, force bool) error
 
 	// Run 启动扩容 worker
 	Run(ctx context.Context, workers int) error
@@ -346,7 +349,8 @@ func (c *controller) syncExpansionPlanNodes(ctx context.Context, factory db.Shar
 }
 
 // Start 按已保存的扩容计划（配置 + 节点 + join 参数）启动一次扩容。
-func (c *controller) Start(ctx context.Context, clusterId int64) error {
+// force 为 true 时，若已存在运行中的扩容任务，则先强制终止再重新开始。
+func (c *controller) Start(ctx context.Context, clusterId int64, force bool) error {
 	obj, _, err := c.authorize(ctx, clusterId)
 	if err != nil {
 		return err
@@ -360,7 +364,12 @@ func (c *controller) Start(ctx context.Context, clusterId int64) error {
 		return err
 	}
 	if err = c.checkNoActiveExpansion(ctx, clusterId, "该集群存在进行中的扩容任务，请稍后重试"); err != nil {
-		return err
+		if !force {
+			return err
+		}
+		if err = c.terminateActiveExpansion(ctx, clusterId); err != nil {
+			return err
+		}
 	}
 
 	info := c.detectClusterInfo(ctx, obj)
@@ -452,6 +461,63 @@ func (c *controller) checkNoActiveExpansion(ctx context.Context, clusterId int64
 		return errors.NewError(fmt.Errorf("%s", message), http.StatusConflict)
 	}
 	return nil
+}
+
+// terminateActiveExpansion 强制终止该集群运行中的扩容计划：删除 runner 容器并等待计划状态收口。
+// 容器不存在视为成功；删除失败仅记录日志。等待超时返回 409。
+func (c *controller) terminateActiveExpansion(ctx context.Context, clusterId int64) error {
+	plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
+	if err != nil {
+		klog.Errorf("list running expansion plans of cluster(%d): %v", clusterId, err)
+		return errors.ErrServerInternal
+	}
+	if len(plans) == 0 {
+		return nil
+	}
+
+	rt, err := runtime.Default()
+	if err != nil {
+		klog.Errorf("get container runtime to terminate expansion of cluster(%d): %v", clusterId, err)
+		return errors.ErrServerInternal
+	}
+	// 容器删除使用独立 ctx，不受请求取消影响；两轮扫描覆盖「上一步已退出、下一步未创建」的窗口
+	removeCtx, removeCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer removeCancel()
+	for round := 0; round < 2; round++ {
+		if round > 0 {
+			time.Sleep(time.Second)
+		}
+		for i := range plans {
+			planId := plans[i].Id
+			for _, action := range []string{kubezansible.Bootstrap, kubezansible.AddNode} {
+				name := fmt.Sprintf("%s-%d", action, planId)
+				if rmErr := rt.RemoveContainer(removeCtx, name); rmErr != nil {
+					klog.Errorf("remove expansion container(%s) of plan(%d): %v", name, planId, rmErr)
+				}
+			}
+		}
+	}
+
+	// 使用独立 ctx 轮询等待状态收口，避免请求取消中断等待
+	waitCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	for {
+		remaining, listErr := c.factory.Plan().List(waitCtx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
+		if listErr != nil {
+			klog.Errorf("wait expansion termination of cluster(%d): %v", clusterId, listErr)
+			return errors.ErrServerInternal
+		}
+		if len(remaining) == 0 {
+			// 给旧 worker 留出收尾写入时间
+			time.Sleep(time.Second)
+			return nil
+		}
+		select {
+		case <-waitCtx.Done():
+			return errors.NewError(fmt.Errorf("强制终止扩容任务超时，请稍后重试"), http.StatusConflict)
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 // CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据

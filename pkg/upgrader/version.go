@@ -33,6 +33,7 @@ type VersionInfo struct {
 	Image       string
 	CommitID    string
 	ReleaseTime string
+	Description string
 }
 
 // versionPayload 是版本源返回的版本字段集合。
@@ -41,6 +42,7 @@ type versionPayload struct {
 	Image       string `json:"image"`
 	Commit      string `json:"commit"`
 	ReleaseTime string `json:"release_time"`
+	Description string `json:"description"`
 }
 
 func (p versionPayload) toVersionInfo() VersionInfo {
@@ -49,6 +51,7 @@ func (p versionPayload) toVersionInfo() VersionInfo {
 		Image:       strings.TrimSpace(p.Image),
 		CommitID:    strings.TrimSpace(p.Commit),
 		ReleaseTime: strings.TrimSpace(p.ReleaseTime),
+		Description: strings.TrimSpace(p.Description),
 	}
 }
 

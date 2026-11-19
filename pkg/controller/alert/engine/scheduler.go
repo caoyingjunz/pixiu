@@ -90,8 +90,7 @@ func (s *Scheduler) syncRules(ctx context.Context) {
 		return
 	}
 	if len(rules) == 0 {
-		klog.V(2).Infoln("no enabled alert rules to sync")
-		return
+		klog.V(2).Infoln("no enabled alert rules to sync, will stop stale workers")
 	}
 
 	desired := make(map[int64]*RuleWorker, len(rules))

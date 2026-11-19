@@ -19,7 +19,9 @@ package plan
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
+	"time"
 
 	"gorm.io/gorm"
 	"k8s.io/client-go/util/workqueue"
@@ -31,8 +33,10 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 	"github.com/caoyingjunz/pixiu/pkg/util/token"
 	"github.com/caoyingjunz/pixiu/pkg/util/uuid"
 )
@@ -49,8 +53,8 @@ type Interface interface {
 	Get(ctx context.Context, pid int64) (*types.Plan, error)
 	List(ctx context.Context, listOption types.ListOptions) (interface{}, error)
 
-	// Start 启动部署任务
-	Start(ctx context.Context, pid int64) error
+	// Start 启动部署任务；force 为 true 时先强制终止运行中的任务再重新开始（Agent 模式暂不支持）
+	Start(ctx context.Context, pid int64, force bool) error
 	// Destroy 销毁k8s集群
 	Destroy(ctx context.Context, pid int64, restart bool) error
 	// Run 启动 plan worker 处理协程
@@ -64,10 +68,18 @@ type Interface interface {
 
 var taskQueue workqueue.RateLimitingInterface
 var taskC *client.Task
+var startLocks sync.Map // map[int64]*sync.Mutex，按 planId 串行化启动
 
 func init() {
 	taskQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tasks")
 	taskC = client.NewTaskCache()
+}
+
+func lockPlanStart(pid int64) func() {
+	value, _ := startLocks.LoadOrStore(pid, &sync.Mutex{})
+	mu := value.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
 }
 
 type plan struct {
@@ -559,7 +571,8 @@ func (p *plan) SyncTaskStatus(ctx context.Context) error {
 // 2. 节点
 // 3. 校验runner
 // 3. 运行任务
-func (p *plan) preStart(ctx context.Context, pid int64) error {
+// force 为 true 时，运行中的任务先强制终止再继续校验。
+func (p *plan) preStart(ctx context.Context, pid int64, force bool) error {
 	planObj, err := p.factory.Plan().Get(ctx, pid)
 	if err != nil {
 		return err
@@ -581,7 +594,22 @@ func (p *plan) preStart(ctx context.Context, pid int64) error {
 		return errors.ErrServerInternal
 	}
 	if isRunning {
-		return errors.ErrNotAcceptable
+		if !force {
+			return errors.ErrNotAcceptable
+		}
+		if planObj.ExecMode == model.PlanExecModeAgent {
+			return errors.NewError(fmt.Errorf("Agent 模式暂不支持强制终止"), http.StatusBadRequest)
+		}
+		if err = p.terminateRunningPlan(pid); err != nil {
+			return err
+		}
+		// 强制终止后重新确认任务已收口
+		if isRunning, err = p.IsRunning(ctx, pid); err != nil {
+			return errors.ErrServerInternal
+		}
+		if isRunning {
+			return errors.NewError(fmt.Errorf("强制终止部署任务超时，请稍后重试"), http.StatusConflict)
+		}
 	}
 
 	// 1. 校验配置
@@ -662,20 +690,78 @@ func (p *plan) checkPlanAccess(ctx context.Context, pid int64) error {
 	return util.CheckResourceAccess(ctx, p.factory, object.UserId, types.ResourceTypePlan, pid)
 }
 
-func (p *plan) Start(ctx context.Context, pid int64) error {
+func (p *plan) Start(ctx context.Context, pid int64, force bool) error {
 	// 非超级管理员只能启动自己的部署计划或被 scope 授权的计划
 	if err := p.checkPlanAccess(ctx, pid); err != nil {
 		klog.Errorf("start plan(%d) access check failed: %v", pid, err)
 		return err
 	}
+
+	// 同一计划的启动串行化，避免并发强制终止/入队交错
+	unlock := lockPlanStart(pid)
+	defer unlock()
+
 	// 启动前校验
-	if err := p.preStart(ctx, pid); err != nil {
+	if err := p.preStart(ctx, pid, force); err != nil {
 		klog.Errorf("pre-start check failed: %v", err)
 		return err
 	}
 
 	taskQueue.Add(pid)
 	return nil
+}
+
+// terminateRunningPlan 强制终止运行中的部署任务：删除 runner 容器并轮询等待计划状态不再是运行中。
+// 容器不存在视为成功；删除失败仅记录日志。等待超时返回 409。
+func (p *plan) terminateRunningPlan(pid int64) error {
+	rt, err := runtime.Default()
+	if err != nil {
+		klog.Errorf("get container runtime to terminate plan(%d): %v", pid, err)
+		return errors.ErrServerInternal
+	}
+	actions := []string{
+		kubezansible.Bootstrap,
+		kubezansible.DeployMaster,
+		kubezansible.DeployNode,
+		kubezansible.Apply,
+	}
+	// 容器删除使用独立 ctx，不受请求取消影响；两轮扫描覆盖「上一步已退出、下一步未创建」的窗口
+	removeCtx, removeCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer removeCancel()
+	for round := 0; round < 2; round++ {
+		if round > 0 {
+			time.Sleep(time.Second)
+		}
+		for _, action := range actions {
+			name := fmt.Sprintf("%s-%d", action, pid)
+			if rmErr := rt.RemoveContainer(removeCtx, name); rmErr != nil {
+				klog.Errorf("remove deploy container(%s) of plan(%d): %v", name, pid, rmErr)
+			}
+		}
+	}
+
+	// 使用独立 ctx 轮询等待状态收口，避免请求取消中断等待
+	waitCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	for {
+		running, isErr := p.IsRunning(waitCtx, pid)
+		if isErr != nil {
+			if waitCtx.Err() != nil {
+				return errors.NewError(fmt.Errorf("强制终止部署任务超时，请稍后重试"), http.StatusConflict)
+			}
+			return errors.ErrServerInternal
+		}
+		if !running {
+			// 给旧 worker 留出收尾写入时间
+			time.Sleep(time.Second)
+			return nil
+		}
+		select {
+		case <-waitCtx.Done():
+			return errors.NewError(fmt.Errorf("强制终止部署任务超时，请稍后重试"), http.StatusConflict)
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 // Destroy 全部设置成销毁

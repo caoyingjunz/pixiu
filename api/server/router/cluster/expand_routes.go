@@ -167,13 +167,14 @@ func (cr *clusterRouter) startExpansion(c *gin.Context) {
 
 	var (
 		opt expandClusterMeta
+		req types.StartClusterExpansionRequest
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = cr.c.ClusterExpand().Start(c, opt.ClusterId); err != nil {
+	if err = cr.c.ClusterExpand().Start(c, opt.ClusterId, req.Force); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

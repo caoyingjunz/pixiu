@@ -145,13 +145,14 @@ func (t *planRouter) startPlan(c *gin.Context) {
 
 	var (
 		opt planMeta
+		req types.StartPlanRequest
 		err error
 	)
-	if err = c.ShouldBindUri(&opt); err != nil {
+	if err = httputils.ShouldBindAny(c, &req, &opt, nil); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = t.c.Plan().Start(c, opt.PlanId); err != nil {
+	if err = t.c.Plan().Start(c, opt.PlanId, req.Force); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

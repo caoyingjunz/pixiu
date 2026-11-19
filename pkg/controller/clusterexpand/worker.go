@@ -370,9 +370,9 @@ func (c *controller) markFirstUnfinishedTaskFailed(ctx context.Context, planId i
 	}
 }
 
-// failExpansionPlan 将扩容计划标记为失败：计划状态置失败、补一条失败任务、计划节点置添加失败。
+// failExpansionPlan 将扩容计划标记为失败：补一条失败任务、计划节点置添加失败，最后翻转计划状态。
+// 状态最后写入，保证「状态非 Running」意味着旧 worker 的清理写入已完成，避免与新的强制重启交错。
 func (c *controller) failExpansionPlan(ctx context.Context, planId int64, cause error) {
-	c.updatePlanStatus(ctx, planId, model.FailedPlanStatus)
 	c.markFirstUnfinishedTaskFailed(ctx, planId, cause.Error())
 
 	// 按计划关联反查节点，避免早期失败时「添加中」状态残留
@@ -386,5 +386,6 @@ func (c *controller) failExpansionPlan(ctx context.Context, planId int64, cause 
 			"status_message": cause.Error(),
 		})
 	}
+	c.updatePlanStatus(ctx, planId, model.FailedPlanStatus)
 	klog.Errorf("expansion plan(%d) failed: %v", planId, cause)
 }

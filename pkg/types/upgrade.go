@@ -21,11 +21,12 @@ import "time"
 // UpgradeStatus 系统升级状态（由 pixiu-upgrade 同步到数据库）。
 type UpgradeStatus struct {
 	// Enabled 是否开启升级功能（upgrade.enabled）
-	Enabled    bool   `json:"enabled"`
-	VersionTag string `json:"version_tag"`
-	IsCurrent  bool   `json:"is_current"`
-	CommitID   string `json:"commit_id"`
-	Image      string `json:"image,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	VersionTag  string `json:"version_tag"`
+	IsCurrent   bool   `json:"is_current"`
+	CommitID    string `json:"commit_id"`
+	Image       string `json:"image,omitempty"`
+	Description string `json:"description,omitempty"`
 	// Status 升级状态机：0 未升级 / 1 待升级 / 2 升级中 / 3 升级完成 / 4 升级失败
 	Status       int        `json:"status"`
 	Upgrading    bool       `json:"upgrading"`
