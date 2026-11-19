@@ -98,7 +98,6 @@ func upgradeStatus(record *model.ServerVersion) *types.UpgradeStatus {
 		VersionTag:   record.VersionTag,
 		CommitID:     record.CommitID,
 		Image:        record.Image,
-		Description:  record.Description,
 		Status:       record.Status,
 		Upgrading:    record.Status == model.UpgradeStatusPending || record.Status == model.UpgradeStatusUpgrading,
 		ErrorMessage: record.ErrorMessage,
