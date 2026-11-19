@@ -65,6 +65,17 @@ func (m *Manager) Run(ctx context.Context) error {
 }
 
 func (m *Manager) EvaluateRule(ctx context.Context, rule *model.AlertRule) error {
+	// 兜底：worker 快照中的规则可能已被删除或禁用，评估前回查最新状态
+	current, err := m.factory.Alert().Rule().Get(ctx, rule.Id)
+	if err != nil {
+		klog.Errorf("failed to get alert rule(%d:%s): %v", rule.Id, rule.Name, err)
+		return err
+	}
+	if current == nil || !current.Enabled {
+		klog.V(2).Infof("skip evaluating alert rule(%d:%s): rule deleted or disabled", rule.Id, rule.Name)
+		return nil
+	}
+
 	silences, err := m.silence.LoadActive(ctx, time.Now())
 	if err != nil {
 		klog.Errorf("failed to load active alert silences: %v", err)

@@ -154,8 +154,40 @@ func (n *Manager) DispatchPending(ctx context.Context) error {
 		klog.V(1).Infof("no pending alert notifications to dispatch")
 		return nil
 	}
+
+	// 一次性查询所有关联规则，避免逐条查库；规则不存在或已禁用时不再发送
+	ruleIDs := make([]int64, 0, len(items))
+	seen := make(map[int64]struct{}, len(items))
+	for i := range items {
+		ruleID := items[i].RuleId
+		if _, ok := seen[ruleID]; ok {
+			continue
+		}
+		seen[ruleID] = struct{}{}
+		ruleIDs = append(ruleIDs, ruleID)
+	}
+
+	enabledRules := make(map[int64]bool, len(ruleIDs))
+	rules, err := n.factory.Alert().Rule().List(ctx, db.WithIDIn(ruleIDs...))
+	if err != nil {
+		klog.Errorf("failed to list alert rules for pending notifications: %v", err)
+		return err
+	}
+	for i := range rules {
+		enabledRules[rules[i].Id] = rules[i].Enabled
+	}
+
 	for i := range items {
 		item := items[i]
+		if !enabledRules[item.RuleId] {
+			if err = n.factory.Alert().Notification().Update(ctx, item.Id, item.ResourceVersion, map[string]interface{}{
+				"status":    model.AlertNotificationStatusFailed,
+				"error_msg": "alert rule disabled or deleted",
+			}); err != nil {
+				klog.Errorf("failed to mark alert notification(%d) as failed: %v", item.Id, err)
+			}
+			continue
+		}
 		if err = n.dispatchOne(ctx, &item); err != nil {
 			klog.Errorf("failed to dispatch alert notification(%d): %v", item.Id, err)
 		}
