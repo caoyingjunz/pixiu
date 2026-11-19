@@ -245,7 +245,23 @@ func (p *DatasourceMetricProvider) getClusterSet(ctx context.Context, clusterNam
 	if object == nil {
 		return nil, fmt.Errorf("cluster %s not found", clusterName)
 	}
-	cs, err := client.NewClusterSet(object.KubeConfig)
+	// 按集群 connect_mode 注入隧道拨号：隧道集群走 remotedialer 反向隧道，
+	// 授权子集群复用主集群隧道；勿直连 kubeconfig 中的 apiserver 地址。
+	//
+	// 说明：等价于 controller/cluster.ResolveClusterSetOptions，但后者所在包导入
+	// cmd/app/config → jobmanager → 本包会构成 import cycle，故在此就地实现。
+	opts := client.ClusterSetOptions{
+		ClusterName: object.Name,
+		ConnectMode: object.ConnectMode,
+	}
+	if object.PermissionId != 0 && object.OwnerReference != 0 {
+		if master, err := p.factory.Cluster().Get(ctx, object.OwnerReference); err == nil && master != nil &&
+			master.ConnectMode == model.ConnectModeTunnel {
+			opts.ConnectMode = model.ConnectModeTunnel
+			opts.ClusterName = master.Name
+		}
+	}
+	cs, err := client.NewClusterSetWithOptions(object.KubeConfig, opts)
 	if err != nil {
 		return nil, fmt.Errorf("build cluster client %s: %w", clusterName, err)
 	}
