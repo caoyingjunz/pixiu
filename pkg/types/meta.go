@@ -534,4 +534,7 @@ func (c *DatasourceConfig) Clean(t model.DatasourceType, subType model.Datasourc
 	if subType != model.DatasourceSubTypeStorage {
 		c.Storage = nil
 	}
+	if subType != model.DatasourceSubTypeMongoDB {
+		c.Mongo = nil
+	}
 }
