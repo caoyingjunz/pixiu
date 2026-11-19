@@ -668,7 +668,6 @@ func (p *plan) Start(ctx context.Context, pid int64) error {
 		klog.Errorf("start plan(%d) access check failed: %v", pid, err)
 		return err
 	}
-
 	// 启动前校验
 	if err := p.preStart(ctx, pid); err != nil {
 		klog.Errorf("pre-start check failed: %v", err)
