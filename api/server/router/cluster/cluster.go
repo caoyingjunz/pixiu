@@ -115,7 +115,6 @@ func (cr *clusterRouter) initRoutes(ginEngine *gin.Engine) {
 
 			// 启动扩容
 			{Method: "POST", RelativePath: "/:clusterId/expansions", Handler: cr.startExpansion, Description: "开始扩容"},
-			{Method: "POST", RelativePath: "/:clusterId/expansions/stop", Handler: cr.stopExpansion, Description: "终止扩容"},
 
 			{Method: "POST", RelativePath: "/:clusterId/expansion-join-params", Handler: cr.generateExpansionJoinParams, Description: "生成扩容参数"},
 			{Method: "GET", RelativePath: "/:clusterId/expansion-capabilities", Handler: cr.getExpansionCapabilities, Description: "扩容能力探测"},

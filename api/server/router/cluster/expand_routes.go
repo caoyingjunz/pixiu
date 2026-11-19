@@ -180,24 +180,6 @@ func (cr *clusterRouter) startExpansion(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-func (cr *clusterRouter) stopExpansion(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		opt expandClusterMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if err = cr.c.ClusterExpand().Stop(c, opt.ClusterId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	httputils.SetSuccess(c, r)
-}
-
 func (cr *clusterRouter) generateExpansionJoinParams(c *gin.Context) {
 	r := httputils.NewResponse()
 

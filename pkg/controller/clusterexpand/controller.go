@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"k8s.io/klog/v2"
 
@@ -31,10 +30,8 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/kubezansible"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
-	"github.com/caoyingjunz/pixiu/pkg/util/runtime"
 )
 
 type Getter interface {
@@ -65,9 +62,6 @@ type Interface interface {
 
 	// Start 按已保存的扩容计划启动一次扩容
 	Start(ctx context.Context, clusterId int64) error
-	// Stop 终止该集群正在运行的扩容任务：停止 runner 容器并等待计划收口，
-	// 随后将计划置为失败，把任务与节点原因记录为「已手动终止」。
-	Stop(ctx context.Context, clusterId int64) error
 
 	// Run 启动扩容 worker
 	Run(ctx context.Context, workers int) error
@@ -447,82 +441,6 @@ func (c *controller) Start(ctx context.Context, clusterId int64) error {
 	return nil
 }
 
-// Stop 终止该集群正在运行的扩容任务。
-// 与 Start 共用同一把集群锁，避免终止与启动并发；无进行中的扩容任务时返回 409。
-func (c *controller) Stop(ctx context.Context, clusterId int64) error {
-	if _, _, err := c.authorize(ctx, clusterId); err != nil {
-		return err
-	}
-
-	unlock := lockCluster(clusterId)
-	defer unlock()
-
-	plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
-	if err != nil {
-		klog.Errorf("list running expansion plans of cluster(%d): %v", clusterId, err)
-		return errors.ErrServerInternal
-	}
-	if len(plans) == 0 {
-		return errors.NewError(fmt.Errorf("该集群没有进行中的扩容任务"), http.StatusConflict)
-	}
-
-	if err = c.terminateActiveExpansion(ctx, clusterId); err != nil {
-		return err
-	}
-
-	for i := range plans {
-		c.markExpansionTerminated(ctx, plans[i].Id)
-	}
-	return nil
-}
-
-// expansionTerminatedMessage 手动终止扩容时写入任务与节点的原因文案。
-const expansionTerminatedMessage = "已手动终止"
-
-// markExpansionTerminated 将已被终止的扩容计划收口为失败：
-// 已有失败任务时改写其原因为「已手动终止」，否则把第一个未结束任务标记为失败；
-// 添加中的节点置为添加失败；最后翻转计划状态。
-func (c *controller) markExpansionTerminated(ctx context.Context, planId int64) {
-	tasks, err := c.factory.Plan().Task().List(ctx, planId)
-	if err != nil {
-		klog.Errorf("list plan(%d) tasks for termination: %v", planId, err)
-	} else {
-		failedTaskName := ""
-		for i := range tasks {
-			if tasks[i].Status == model.FailedPlanStatus {
-				failedTaskName = tasks[i].Name
-				break
-			}
-		}
-		if failedTaskName != "" {
-			c.updateTask(ctx, planId, failedTaskName, map[string]interface{}{
-				"message": expansionTerminatedMessage, "gmt_modified": time.Now(),
-			})
-		} else {
-			c.markFirstUnfinishedTaskFailed(ctx, planId, expansionTerminatedMessage)
-		}
-	}
-
-	nodes, err := c.factory.Plan().Node().List(ctx, db.WithPlanIdEq(planId))
-	if err != nil {
-		klog.Errorf("list plan(%d) nodes for termination: %v", planId, err)
-	}
-	for i := range nodes {
-		if nodes[i].Status != model.NodeStatusAdding {
-			continue
-		}
-		if updErr := c.factory.Plan().Node().InternalUpdate(ctx, nodes[i].Id, map[string]interface{}{
-			"status":         model.NodeStatusFailed,
-			"status_message": expansionTerminatedMessage,
-		}); updErr != nil {
-			klog.Errorf("mark plan(%d) node(%d) terminated: %v", planId, nodes[i].Id, updErr)
-		}
-	}
-
-	c.updatePlanStatus(ctx, planId, model.FailedPlanStatus)
-	klog.Infof("expansion plan(%d) terminated by user", planId)
-}
-
 // checkNoActiveExpansion 扩容计划处于运行中时返回冲突。
 func (c *controller) checkNoActiveExpansion(ctx context.Context, clusterId int64, message string) error {
 	count, err := c.factory.Plan().Count(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
@@ -534,63 +452,6 @@ func (c *controller) checkNoActiveExpansion(ctx context.Context, clusterId int64
 		return errors.NewError(fmt.Errorf("%s", message), http.StatusConflict)
 	}
 	return nil
-}
-
-// terminateActiveExpansion 强制终止该集群运行中的扩容计划：删除 runner 容器并等待计划状态收口。
-// 容器不存在视为成功；删除失败仅记录日志。等待超时返回 409。
-func (c *controller) terminateActiveExpansion(ctx context.Context, clusterId int64) error {
-	plans, err := c.factory.Plan().List(ctx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
-	if err != nil {
-		klog.Errorf("list running expansion plans of cluster(%d): %v", clusterId, err)
-		return errors.ErrServerInternal
-	}
-	if len(plans) == 0 {
-		return nil
-	}
-
-	rt, err := runtime.Default()
-	if err != nil {
-		klog.Errorf("get container runtime to terminate expansion of cluster(%d): %v", clusterId, err)
-		return errors.ErrServerInternal
-	}
-	// 容器删除使用独立 ctx，不受请求取消影响；两轮扫描覆盖「上一步已退出、下一步未创建」的窗口
-	removeCtx, removeCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer removeCancel()
-	for round := 0; round < 2; round++ {
-		if round > 0 {
-			time.Sleep(time.Second)
-		}
-		for i := range plans {
-			planId := plans[i].Id
-			for _, action := range []string{kubezansible.Bootstrap, kubezansible.AddNode} {
-				name := fmt.Sprintf("%s-%d", action, planId)
-				if rmErr := rt.RemoveContainer(removeCtx, name); rmErr != nil {
-					klog.Errorf("remove expansion container(%s) of plan(%d): %v", name, planId, rmErr)
-				}
-			}
-		}
-	}
-
-	// 使用独立 ctx 轮询等待状态收口，避免请求取消中断等待
-	waitCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	for {
-		remaining, listErr := c.factory.Plan().List(waitCtx, db.WithPlanTypeEq(1), db.WithPlanClusterIdEq(clusterId), db.WithTaskStatus(model.RunningPlanStatus))
-		if listErr != nil {
-			klog.Errorf("wait expansion termination of cluster(%d): %v", clusterId, listErr)
-			return errors.ErrServerInternal
-		}
-		if len(remaining) == 0 {
-			// 给旧 worker 留出收尾写入时间
-			time.Sleep(time.Second)
-			return nil
-		}
-		select {
-		case <-waitCtx.Done():
-			return errors.NewError(fmt.Errorf("强制终止扩容任务超时，请稍后重试"), http.StatusConflict)
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
 }
 
 // CreateOrUpdateExpansionPlan 创建或更新集群扩容计划（plans.type=1）的配置与元数据
