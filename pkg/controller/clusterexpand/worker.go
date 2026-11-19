@@ -371,7 +371,7 @@ func (c *controller) markFirstUnfinishedTaskFailed(ctx context.Context, planId i
 }
 
 // failExpansionPlan 将扩容计划标记为失败：补一条失败任务、计划节点置添加失败，最后翻转计划状态。
-// 状态最后写入，保证「状态非 Running」意味着旧 worker 的清理写入已完成，避免与新的强制重启交错。
+// 状态最后写入，保证「状态非 Running」意味着旧 worker 的清理写入已完成，避免与终止/重启流程交错。
 func (c *controller) failExpansionPlan(ctx context.Context, planId int64, cause error) {
 	c.markFirstUnfinishedTaskFailed(ctx, planId, cause.Error())
 

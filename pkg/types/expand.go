@@ -117,12 +117,6 @@ type CreateOrUpdateClusterExpansionPlanRequest struct {
 	Description string                  `json:"description"`
 }
 
-// StartClusterExpansionRequest 启动集群扩容计划的请求体。
-// 对应 POST /pixiu/clusters/:clusterId/expansions。
-type StartClusterExpansionRequest struct {
-	Force bool `json:"force"` // 是否强制终止运行中的任务后重新启动
-}
-
 // ClusterExpansionPlanResponse 集群扩容计划（plans.type=1）及配置的查询结果。
 // 计划不存在时 Exists=false，其余字段省略。
 type ClusterExpansionPlanResponse struct {
