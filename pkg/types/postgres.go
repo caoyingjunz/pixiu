@@ -48,7 +48,7 @@ type PostgresTable struct {
 	Schema    string `json:"schema"`
 	Name      string `json:"name"`
 	Type      string `json:"type"`
-	Rows      int64  `json:"rows"`
+	Rows      *int64 `json:"rows"` // Exact visible row count, or null if unavailable.
 	SizeBytes int64  `json:"sizeBytes"`
 	Owner     string `json:"owner"`
 	Comment   string `json:"comment"`
@@ -114,6 +114,15 @@ type PostgresBatchResult struct {
 	Items     []PostgresBatchItem `json:"items"`
 	StoppedAt int                 `json:"stoppedAt"`
 	Total     int                 `json:"total"`
+}
+
+// PostgresImportMaxBytes matches the default Nginx client_max_body_size of 100m.
+const PostgresImportMaxBytes = 100 << 20
+
+type PostgresImportResult struct {
+	PostgresBatchResult
+	Executed     int `json:"executed"`
+	ItemsOmitted int `json:"itemsOmitted"`
 }
 
 // ── 表详情 ────────────────────────────────────────────────────
