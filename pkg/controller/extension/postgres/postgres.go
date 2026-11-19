@@ -4,14 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
-	"github.com/caoyingjunz/pixiu/api/server/httputils"
-	"github.com/caoyingjunz/pixiu/cmd/app/config"
-	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
-	"github.com/caoyingjunz/pixiu/pkg/db"
-	"github.com/caoyingjunz/pixiu/pkg/db/model"
-	"github.com/caoyingjunz/pixiu/pkg/types"
-	_ "github.com/lib/pq"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -20,6 +13,17 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/klog/v2"
+
+	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	datasourcecontroller "github.com/caoyingjunz/pixiu/pkg/controller/datasource"
+	"github.com/caoyingjunz/pixiu/pkg/db"
+	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/types"
+	_ "github.com/lib/pq"
 )
 
 type Interface interface {
@@ -34,6 +38,7 @@ type Interface interface {
 	ExecuteSQL(context.Context, int64, *types.PostgresQueryRequest) (*types.PostgresQueryResult, error)
 	SetParameter(context.Context, int64, *types.PostgresSetParameterRequest) (*types.PostgresSetParameterResult, error)
 	ExecuteBatchSQL(context.Context, int64, *types.PostgresBatchRequest) (*types.PostgresBatchResult, error)
+	ImportSQL(context.Context, int64, string, io.Reader) (*types.PostgresImportResult, error)
 	GetTableDetail(context.Context, int64, string, string, string) (*types.PostgresTableDetail, error)
 	CreateTable(context.Context, int64, *types.PostgresCreateTableRequest) error
 	AlterTable(context.Context, int64, *types.PostgresAlterTableRequest) error
@@ -374,13 +379,57 @@ func (c *controller) ListTables(ctx context.Context, id int64, dbn, schema strin
 	if e != nil {
 		return nil, e
 	}
-	out, err := pgQuerySlice(ctx, db, "select n.nspname,c.relname,case c.relkind when 'r' then 'table' when 'v' then 'view' when 'm' then 'materialized_view' when 'S' then 'sequence' else c.relkind::text end,coalesce(c.reltuples,0)::bigint,case when has_table_privilege(c.oid,'SELECT') then pg_total_relation_size(c.oid) else 0 end,pg_get_userbyid(c.relowner),coalesce(obj_description(c.oid,'pg_class'),'') from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind in ('r','v','m','S') order by c.relname", func(r *sql.Rows) (types.PostgresTable, error) {
-		var x types.PostgresTable
-		e := r.Scan(&x.Schema, &x.Name, &x.Type, &x.Rows, &x.SizeBytes, &x.Owner, &x.Comment)
-		return x, e
+	return listPostgresTables(ctx, db, schema)
+}
+
+func listPostgresTables(ctx context.Context, db *sql.DB, schema string) ([]types.PostgresTable, error) {
+	ctx, cancel := pgQueryContext(ctx)
+	defer cancel()
+
+	type tableEntry struct {
+		types.PostgresTable
+		canCount bool
+	}
+	entries, err := pgQuerySlice(ctx, db, `
+		select n.nspname, c.relname,
+			case c.relkind when 'r' then 'table' when 'v' then 'view'
+				when 'm' then 'materialized_view' when 'S' then 'sequence' end,
+			case when has_table_privilege(c.oid, 'SELECT') then pg_total_relation_size(c.oid) else 0 end,
+			pg_get_userbyid(c.relowner), coalesce(obj_description(c.oid, 'pg_class'), ''),
+			c.relkind in ('r', 'm') and c.relispopulated and has_table_privilege(c.oid, 'SELECT')
+		from pg_class c join pg_namespace n on n.oid = c.relnamespace
+		where n.nspname = $1 and c.relkind in ('r', 'v', 'm', 'S')
+		order by c.relname`, func(r *sql.Rows) (tableEntry, error) {
+		var entry tableEntry
+		err := r.Scan(&entry.Schema, &entry.Name, &entry.Type, &entry.SizeBytes, &entry.Owner, &entry.Comment, &entry.canCount)
+		return entry, err
 	}, schema)
 	if err != nil {
 		return nil, wrapPgErr(err)
+	}
+
+	out := make([]types.PostgresTable, 0, len(entries))
+	for _, entry := range entries {
+		table := entry.PostgresTable
+		// Do not execute view definitions just to load the table list.
+		if entry.canCount {
+			if err := ctx.Err(); err != nil {
+				klog.V(2).InfoS("PostgreSQL row count skipped", "schema", table.Schema, "table", table.Name, "error", err)
+				out = append(out, table)
+				continue
+			}
+			countCtx, cancelCount := pgOpContext(ctx)
+			var rows int64
+			query := "select pg_catalog.count(*) from " + pgQuoteIdent(table.Schema) + "." + pgQuoteIdent(table.Name)
+			err := db.QueryRowContext(countCtx, query).Scan(&rows)
+			cancelCount()
+			if err == nil {
+				table.Rows = &rows
+			} else {
+				klog.V(2).InfoS("PostgreSQL row count failed", "schema", table.Schema, "table", table.Name, "error", err)
+			}
+		}
+		out = append(out, table)
 	}
 	return out, nil
 }

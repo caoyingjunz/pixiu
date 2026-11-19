@@ -1,6 +1,11 @@
 package postgres
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+
+	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
@@ -59,6 +64,7 @@ func RegisterPostgres(o *options.Options, g *apiregistry.Group) {
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/query", Handler: r.query, Description: "PostgreSQL SQL 控制台"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/parameter", Handler: r.setParameter, Description: "PostgreSQL 修改运行参数"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/batch", Handler: r.batchQuery, Description: "PostgreSQL SQL 批量执行"},
+		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/import", Handler: r.importSQL, Description: "PostgreSQL SQL 脚本批量导入"},
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/sessions", Handler: r.sessions, Description: "PostgreSQL 会话列表"},
 		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/postgres/:datasourceId/sessions", Handler: r.cancel, Description: "PostgreSQL 取消或终止会话"},
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/table-detail", Handler: r.tableDetail, Description: "PostgreSQL 表详情"},
@@ -245,6 +251,34 @@ func (r *router) batchQuery(c *gin.Context) {
 	result, e := r.c.Extension().Postgres().ExecuteBatchSQL(c, m.DatasourceId, &q)
 	if e != nil {
 		httputils.SetFailed(c, res, e)
+		return
+	}
+	res.Result = result
+	httputils.SetSuccess(c, res)
+}
+
+func (r *router) importSQL(c *gin.Context) {
+	var m meta
+	res := httputils.NewResponse()
+	if err := httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
+		httputils.SetFailed(c, res, err)
+		return
+	}
+	if c.ContentType() != "application/octet-stream" {
+		httputils.SetFailed(c, res, apierrors.NewError(fmt.Errorf("expected application/octet-stream SQL script"), http.StatusUnsupportedMediaType))
+		return
+	}
+
+	// Preserve Gin's authentication values while cancelling work on disconnect.
+	ctx, cancel := context.WithCancel(c)
+	defer cancel()
+	stop := context.AfterFunc(c.Request.Context(), cancel)
+	defer stop()
+	body := http.MaxBytesReader(c.Writer, c.Request.Body, types.PostgresImportMaxBytes)
+	defer body.Close()
+	result, err := r.c.Extension().Postgres().ImportSQL(ctx, m.DatasourceId, c.Query("database"), body)
+	if err != nil {
+		httputils.SetFailed(c, res, err)
 		return
 	}
 	res.Result = result

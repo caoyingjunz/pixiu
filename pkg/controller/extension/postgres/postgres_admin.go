@@ -16,13 +16,13 @@ import (
 )
 
 const (
-	maxSQLBytes         = 65536 // 控制台单条 SQL 长度上限
-	defaultQueryLimit   = 500   // SELECT 结果缺省行数上限
-	maxQueryLimit       = 10000 // SELECT 结果最大行数上限
-	maxCellValueRunes   = 4096  // 结果单元格最大显示长度（rune）
-	maxBatchStatements  = 50    // 批量执行单次最大语句条数
-	maxSlowPageSize     = 100   // 慢查询分页单页上限
-	defaultSlowPageSize = 20    // 慢查询缺省页大小
+	maxConsoleSQLBytes  = 64 << 10 // 控制台请求 SQL 长度上限，导入使用独立上限
+	defaultQueryLimit   = 500      // SELECT 结果缺省行数上限
+	maxQueryLimit       = 10000    // SELECT 结果最大行数上限
+	maxCellValueRunes   = 4096     // 结果单元格最大显示长度（rune）
+	maxBatchStatements  = 50       // 批量执行单次最大语句条数
+	maxSlowPageSize     = 100      // 慢查询分页单页上限
+	defaultSlowPageSize = 20       // 慢查询缺省页大小
 	pgOpTimeout         = 10 * time.Second
 	pgQueryTimeout      = 30 * time.Second
 )
@@ -70,11 +70,10 @@ func pgFirstKeyword(sqlText string) string {
 	if strings.HasPrefix(s, "(") {
 		return "SELECT"
 	}
-	fields := strings.Fields(s)
-	if len(fields) == 0 {
-		return ""
+	for word := range strings.FieldsSeq(s) {
+		return strings.ToUpper(word)
 	}
-	return strings.ToUpper(fields[0])
+	return ""
 }
 
 func pgIsReadOnly(sqlText string) bool {
@@ -141,7 +140,7 @@ type pgStatement struct {
 	StartLine int
 }
 
-func pgSplitStatements(sqlText string) []pgStatement {
+func pgSplitStatements(sqlText string, maxStatements int) []pgStatement {
 	var (
 		stmts          []pgStatement
 		startIdx       = -1
@@ -161,7 +160,7 @@ func pgSplitStatements(sqlText string) []pgStatement {
 		if startIdx < 0 {
 			return
 		}
-		if text := strings.TrimSpace(sqlText[startIdx:endIdx]); text != "" {
+		if text := strings.TrimSpace(sqlText[startIdx:endIdx]); pgStripComments(text) != "" {
 			stmts = append(stmts, pgStatement{Text: text, StartLine: startLine})
 		}
 		startIdx = -1
@@ -212,6 +211,9 @@ func pgSplitStatements(sqlText string) []pgStatement {
 			}
 		case ';':
 			closeStmt(i)
+			if len(stmts) > maxStatements {
+				return stmts
+			}
 		case ' ', '\t', '\r':
 		default:
 			markStart(i)
@@ -420,8 +422,8 @@ func (c *controller) ExecuteSQL(ctx context.Context, id int64, q *types.Postgres
 	if q == nil || strings.TrimSpace(q.SQL) == "" {
 		return nil, apierrors.NewError(fmt.Errorf("sql is required"), http.StatusBadRequest)
 	}
-	if len(q.SQL) > maxSQLBytes {
-		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxSQLBytes), http.StatusBadRequest)
+	if len(q.SQL) > maxConsoleSQLBytes {
+		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxConsoleSQLBytes), http.StatusBadRequest)
 	}
 	if pgHasMultipleStatements(q.SQL) {
 		return nil, apierrors.NewError(fmt.Errorf("only a single statement is allowed, use batch execution for multiple statements"), http.StatusBadRequest)
@@ -462,15 +464,15 @@ func (c *controller) ExecuteBatchSQL(ctx context.Context, id int64, req *types.P
 	if req == nil || strings.TrimSpace(req.SQL) == "" {
 		return nil, apierrors.NewError(fmt.Errorf("sql is required"), http.StatusBadRequest)
 	}
-	if len(req.SQL) > maxSQLBytes {
-		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxSQLBytes), http.StatusBadRequest)
+	if len(req.SQL) > maxConsoleSQLBytes {
+		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxConsoleSQLBytes), http.StatusBadRequest)
 	}
-	statements := pgSplitStatements(req.SQL)
+	statements := pgSplitStatements(req.SQL, maxBatchStatements)
 	if len(statements) == 0 {
 		return nil, apierrors.NewError(fmt.Errorf("no executable statement found"), http.StatusBadRequest)
 	}
 	if len(statements) > maxBatchStatements {
-		return nil, apierrors.NewError(fmt.Errorf("too many statements: %d, limit %d", len(statements), maxBatchStatements), http.StatusBadRequest)
+		return nil, apierrors.NewError(fmt.Errorf("too many statements: limit %d", maxBatchStatements), http.StatusBadRequest)
 	}
 
 	// 写语句门禁
