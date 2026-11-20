@@ -107,3 +107,11 @@ upgrade:
   # pixiu-upgrade 轮询升级请求的周期，默认 60s
   poll_interval: 60s
 #  version_url: http://127.0.0.1:8090
+
+# 商业授权（license）配置
+# 未配置或文件缺失时自动降级为社区版（≤3 集群 / ≤50 主机，无付费功能）
+license:
+  # license.key 文件路径；控制台「商业授权」页上传时写入该路径
+  # path: /etc/pixiu/license.key
+  # 热更新轮询间隔（秒），默认 86400（24 小时），续费换证免重启
+  # auto_reload_interval: 86400
