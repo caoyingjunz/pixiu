@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
@@ -38,7 +40,7 @@ type Getter interface {
 }
 
 type Interface interface {
-	Create(ctx context.Context, req *types.CreateDatasourceRequest) error
+	Create(ctx context.Context, req *types.CreateDatasourceRequest) (*types.Datasource, error)
 	Update(ctx context.Context, req *types.UpdateDatasourceRequest) error
 	Delete(ctx context.Context, datasourceId int64) error
 	Get(ctx context.Context, datasourceId int64, options ...GetOption) (*types.Datasource, error)
@@ -66,8 +68,124 @@ func New(cfg config.Config, f db.ShareDaoFactory) Interface {
 	return &controller{cc: cfg, factory: f}
 }
 
-func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceRequest) error {
-	datasources, err := c.factory.Datasource().List(
+func externalPrometheusCluster(external bool, typ model.DatasourceType, subType model.DatasourceSubType, clusterName string) string {
+	if external && typ == model.DatasourceTypeAlert && subType == model.DatasourceSubTypePrometheus {
+		return clusterName
+	}
+	return ""
+}
+
+func lockPrometheusClusters(ctx context.Context, factory db.ShareDaoFactory, previous, next string) error {
+	names := []string{previous}
+	if previous != next {
+		names = append(names, next)
+	}
+	// Moves between two clusters must acquire their locks in a consistent order.
+	sort.Strings(names)
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		cluster, err := factory.Cluster().GetBy(ctx, db.WithName(name), db.WithForUpdate())
+		if err != nil {
+			klog.Errorf("failed to get Prometheus binding cluster %q: %v", name, err)
+			return apierrors.ErrServerInternal
+		}
+		if cluster == nil && name != next {
+			// Only an administrator may clear an orphaned binding.
+			if _, err := httputils.CheckRootUser(ctx); err != nil {
+				return err
+			}
+			continue
+		}
+		if cluster == nil || (name == next && (cluster.OwnerReference != 0 || cluster.PermissionId != 0)) {
+			return apierrors.NewError(fmt.Errorf("invalid primary cluster %q for Prometheus binding", name), http.StatusBadRequest)
+		}
+		if err := controllerutil.CheckResourceOwner(ctx, cluster.UserId); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *controller) writePrometheusBinding(
+	ctx context.Context, previous, next string, keepID int64, expected []types.PrometheusBindingVersion,
+	write func(db.ShareDaoFactory) error,
+) error {
+	if len(expected) != 0 && next == "" {
+		return apierrors.NewError(fmt.Errorf("替换关联时必须指定目标集群"), http.StatusBadRequest)
+	}
+	if previous == next && len(expected) == 0 {
+		return write(c.factory)
+	}
+	err := c.factory.Transaction(ctx, func(tx db.ShareDaoFactory) error {
+		if err := lockPrometheusClusters(ctx, tx, previous, next); err != nil {
+			return err
+		}
+		if next != "" {
+			if err := detachReplacedPrometheus(ctx, tx, next, keepID, expected); err != nil {
+				return err
+			}
+		}
+		return write(tx)
+	})
+	if err != nil {
+		if _, ok := err.(apierrors.Error); ok {
+			return err
+		}
+		klog.Errorf("failed to write external Prometheus binding: %v", err)
+		return apierrors.ErrServerInternal
+	}
+	return nil
+}
+
+func detachReplacedPrometheus(
+	ctx context.Context, tx db.ShareDaoFactory, clusterName string, keepID int64, expected []types.PrometheusBindingVersion,
+) error {
+	dao := tx.Datasource()
+	bindings, err := dao.List(ctx,
+		db.WithClusterName(clusterName),
+		db.WithDatasourceType(model.DatasourceTypeAlert),
+		db.WithDatasourceSubType(model.DatasourceSubTypePrometheus),
+	)
+	if err != nil {
+		return err
+	}
+	displaced := make([]model.Datasource, 0, len(bindings))
+	for _, binding := range bindings {
+		if binding.External && binding.Id != keepID {
+			displaced = append(displaced, binding)
+		}
+	}
+	conflict := apierrors.NewError(fmt.Errorf("目标集群的外部 Prometheus 关联已存在或已变化，请重新确认后保存"), http.StatusConflict)
+	versions := make(map[int64]int64, len(expected))
+	for _, binding := range expected {
+		versions[binding.Id] = binding.ResourceVersion
+	}
+	if len(expected) != len(versions) || len(versions) != len(displaced) {
+		return conflict
+	}
+	for _, binding := range displaced {
+		if version, ok := versions[binding.Id]; !ok || version != binding.ResourceVersion {
+			return conflict
+		}
+		if err := controllerutil.CheckResourceAccess(ctx, tx, binding.UserId, types.ResourceTypeDatasource, binding.Id); err != nil {
+			return err
+		}
+	}
+	for _, binding := range displaced {
+		if err := dao.Update(ctx, binding.Id, binding.ResourceVersion, map[string]interface{}{"cluster_name": ""}); err != nil {
+			if utilerrors.IsRecordNotFound(err) {
+				return conflict
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func preCreate(ctx context.Context, factory db.ShareDaoFactory, req *types.CreateDatasourceRequest) error {
+	datasources, err := factory.Datasource().List(
 		ctx,
 		db.WithClusterName(req.ClusterName),
 		db.WithDatasourceType(req.Type),
@@ -97,50 +215,63 @@ func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceR
 	return nil
 }
 
-func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) error {
+func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) (*types.Datasource, error) {
 	if err := validateRedisConstraint(req); err != nil {
-		return err
+		return nil, err
 	}
 	if err := validatePostgresConstraint(req); err != nil {
-		return err
+		return nil, err
 	}
 	if err := validateStorageConstraint(req, true); err != nil {
-		return err
+		return nil, err
 	}
-	if err := c.preCreate(ctx, req); err != nil {
-		return err
-	}
-
 	if !req.External && req.ClusterName == "" {
-		return apierrors.NewError(
+		return nil, apierrors.NewError(
 			fmt.Errorf("cluster_name is required when datasource is not external"),
 			http.StatusBadRequest,
 		)
+	}
+	if req.Config == nil {
+		return nil, apierrors.NewError(fmt.Errorf("datasource config is required"), http.StatusBadRequest)
 	}
 
 	// 对配置进行简化，移除不必要的配置
 	req.Config.Clean(req.Type, req.SubType)
 	cfg, err := req.Config.Marshal()
 	if err != nil {
-		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
+		return nil, apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
 	}
 
-	_, err = c.factory.Datasource().Create(ctx, &model.Datasource{
-		UserId:      req.UserId,
-		ClusterName: req.ClusterName,
-		Name:        req.Name,
-		Type:        req.Type,
-		SubType:     req.SubType,
-		Config:      cfg,
-		External:    req.External,
-		Description: req.Description,
+	next := externalPrometheusCluster(req.External, req.Type, req.SubType, req.ClusterName)
+	var created *types.Datasource
+	err = c.writePrometheusBinding(ctx, "", next, 0, req.ReplacePrometheusBindings, func(tx db.ShareDaoFactory) error {
+		if err := preCreate(ctx, tx, req); err != nil {
+			return err
+		}
+		object, err := tx.Datasource().Create(ctx, &model.Datasource{
+			UserId:      req.UserId,
+			ClusterName: req.ClusterName,
+			Name:        req.Name,
+			Type:        req.Type,
+			SubType:     req.SubType,
+			Config:      cfg,
+			External:    req.External,
+			Description: req.Description,
+		})
+		if err != nil {
+			klog.Errorf("failed to create datasource %s: %v", req.Name, err)
+			return apierrors.ErrServerInternal
+		}
+		created, err = modelToTypeWithRedaction(object, true)
+		if err != nil {
+			return apierrors.ErrServerInternal
+		}
+		return nil
 	})
 	if err != nil {
-		klog.Errorf("failed to create datasource %s: %v", req.Name, err)
-		return apierrors.ErrServerInternal
+		return nil, err
 	}
-
-	return nil
+	return created, nil
 }
 
 // validateRedisConstraint 校验 Redis 数据源的约束：
@@ -327,20 +458,25 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 	if err = controllerutil.CheckResourceAccess(ctx, c.factory, old.UserId, types.ResourceTypeDatasource, req.Id); err != nil {
 		return err
 	}
-
+	previous := externalPrometheusCluster(old.External, old.Type, old.SubType, old.ClusterName)
+	next := externalPrometheusCluster(req.External, req.Type, req.SubType, req.ClusterName)
 	updates := make(map[string]interface{})
 
-	if err = preserveDatasourcePasswords(req.Config, old.Config); err != nil {
-		klog.Errorf("failed to preserve datasource(%d) credentials: %v", req.Id, err)
-		return apierrors.ErrServerInternal
-	}
-	req.Config.Clean(req.Type, req.SubType)
-	cfg, err := req.Config.Marshal()
-	if err != nil {
-		return err
-	}
-	if cfg != old.Config {
-		updates["config"] = cfg
+	if req.Config != nil {
+		if err = preserveDatasourcePasswords(req.Config, old.Config); err != nil {
+			klog.Errorf("failed to preserve datasource(%d) credentials: %v", req.Id, err)
+			return apierrors.ErrServerInternal
+		}
+		req.Config.Clean(req.Type, req.SubType)
+		cfg, err := req.Config.Marshal()
+		if err != nil {
+			return err
+		}
+		if cfg != old.Config {
+			updates["config"] = cfg
+		}
+	} else if req.Type != old.Type || req.SubType != old.SubType || req.External != old.External {
+		return apierrors.NewError(fmt.Errorf("datasource config is required when changing type or source"), http.StatusBadRequest)
 	}
 
 	if req.Name != old.Name {
@@ -362,22 +498,23 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 		updates["description"] = req.Description
 	}
 
-	if len(updates) == 0 {
+	if len(updates) == 0 && len(req.ReplacePrometheusBindings) == 0 {
 		klog.V(2).Infof("datasource(%d): no fields to update", req.Id)
 		return nil
 	}
-	if err = c.factory.Datasource().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
-		if utilerrors.IsRecordNotFound(err) {
-			return apierrors.NewError(
-				fmt.Errorf("datasource not found or resource version conflict"),
-				http.StatusConflict,
-			)
+	return c.writePrometheusBinding(ctx, previous, next, req.Id, req.ReplacePrometheusBindings, func(tx db.ShareDaoFactory) error {
+		if err := tx.Datasource().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+			if utilerrors.IsRecordNotFound(err) {
+				return apierrors.NewError(
+					fmt.Errorf("datasource not found or resource version conflict"),
+					http.StatusConflict,
+				)
+			}
+			klog.Errorf("failed to update datasource %d: %v", req.Id, err)
+			return apierrors.ErrServerInternal
 		}
-		klog.Errorf("failed to update datasource %d: %v", req.Id, err)
-		return apierrors.ErrServerInternal
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func (c *controller) Delete(ctx context.Context, datasourceId int64) error {

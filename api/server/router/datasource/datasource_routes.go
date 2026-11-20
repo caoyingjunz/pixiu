@@ -38,10 +38,12 @@ func (dr *datasourceRouter) createDatasource(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if err = dr.c.Datasource().Create(c, &req); err != nil {
+	created, err := dr.c.Datasource().Create(c, &req)
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
+	r.Result = created
 	httputils.SetSuccess(c, r)
 }
 
