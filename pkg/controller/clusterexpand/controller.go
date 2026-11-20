@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -362,6 +364,9 @@ func (c *controller) Start(ctx context.Context, clusterId int64) error {
 	if err = c.checkNoActiveExpansion(ctx, clusterId, "该集群存在进行中的扩容任务，请稍后重试"); err != nil {
 		return err
 	}
+	if err = c.checkBootstrapTokenExpiry(ctx, expansionPlan.Id); err != nil {
+		return err
+	}
 
 	info := c.detectClusterInfo(ctx, obj)
 	if !info.Capabilities.Supported {
@@ -438,6 +443,41 @@ func (c *controller) Start(ctx context.Context, clusterId int64) error {
 	}
 
 	expansionQueue.Add(expansionPlan.Id)
+	return nil
+}
+
+// checkBootstrapTokenExpiry 校验扩容计划持久化的 bootstrap token 有效期；
+// 缺失、不可解析或已过期均拒绝（必须通过自动生成获得带有效期的 Token）。
+func (c *controller) checkBootstrapTokenExpiry(ctx context.Context, planId int64) error {
+	cfg, err := c.factory.Plan().Config().GetByPlan(ctx, planId)
+	if err != nil {
+		if !utilerrors.IsRecordNotFound(err) {
+			klog.Warningf("get expansion plan(%d) config: %v", planId, err)
+		}
+		return nil
+	}
+	if cfg == nil {
+		return nil
+	}
+
+	var ks types.KubernetesSpec
+	if err = ks.Unmarshal(cfg.Kubernetes); err != nil {
+		klog.Warningf("unmarshal expansion plan(%d) kubernetes config: %v", planId, err)
+		return nil
+	}
+
+	raw := strings.TrimSpace(ks.BootstrapTokenExpiresAt)
+	if raw == "" {
+		return errors.NewError(fmt.Errorf("Bootstrap Token 有效期未知，请通过自动生成重新获取 Token"), http.StatusBadRequest)
+	}
+	expireAt, perr := time.Parse(time.RFC3339, raw)
+	if perr != nil {
+		klog.Warningf("parse bootstrap token expires_at(%q) of expansion plan(%d): %v", raw, planId, perr)
+		return errors.NewError(fmt.Errorf("Bootstrap Token 有效期未知，请通过自动生成重新获取 Token"), http.StatusBadRequest)
+	}
+	if time.Now().After(expireAt) {
+		return errors.NewError(fmt.Errorf("Bootstrap Token 已过期，请重新生成或填写有效 Token"), http.StatusBadRequest)
+	}
 	return nil
 }
 
