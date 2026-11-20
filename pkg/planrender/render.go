@@ -26,6 +26,7 @@ import (
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	sshutil "github.com/caoyingjunz/pixiu/pkg/util/ssh"
 	pixiutpl "github.com/caoyingjunz/pixiu/template"
 )
 
@@ -159,7 +160,11 @@ func writeRSA(planId int64, name, workDir string, auth types.PlanNodeAuth) (stri
 		return "", err
 	}
 	f := filepath.Join(rsaDir, "id_rsa")
-	if err := os.WriteFile(f, []byte(auth.Key.Data), 0o600); err != nil {
+	keyData, err := normalizeNodePrivateKey(name, auth.Key.Data)
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(f, []byte(keyData), 0o600); err != nil {
 		return "", err
 	}
 	return f, nil
@@ -219,11 +224,31 @@ func RenderExpand(planDir string, nodes []types.PlanNode, globals pixiutpl.Expan
 }
 
 func writeExpandRSA(planDir, name, data string) error {
+	keyData, err := normalizeNodePrivateKey(name, data)
+	if err != nil {
+		return err
+	}
 	rsaDir := filepath.Join(planDir, "ssh", name)
 	if err := os.MkdirAll(rsaDir, 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(rsaDir, "id_rsa"), []byte(data), 0o600)
+	return os.WriteFile(filepath.Join(rsaDir, "id_rsa"), []byte(keyData), 0o600)
+}
+
+// normalizeNodePrivateKey 校验并规范化节点私钥，生成可落盘到 id_rsa 的内容。
+//
+// 凭据在库表/JSON 中流转时会丢失 PEM 末尾换行（NormalizePrivateKeyPEM 也
+// 会 TrimSuffix 掉末尾 LF），直接落盘后 OpenSSH/libcrypto 加载报 "error in
+// libcrypto"，进而在 bootstrap-servers 阶段 SSH 认证失败。
+func normalizeNodePrivateKey(nodeName, raw string) (string, error) {
+	if _, err := sshutil.ParsePrivateKeySigner(raw); err != nil {
+		return "", fmt.Errorf("node(%s) ssh private key is invalid (check credential format): %w", nodeName, err)
+	}
+	pemData := sshutil.NormalizePrivateKeyPEM(raw)
+	if !strings.HasSuffix(pemData, "\n") {
+		pemData += "\n"
+	}
+	return pemData, nil
 }
 
 // NewPlan 将 DB 模型转为 types.Plan，供 local 模式控制面渲染使用。
