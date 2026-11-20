@@ -46,7 +46,6 @@ const (
 	maxBackupTables      = 200              // 单次备份表数量上限
 	maxSessionListSize   = 1000             // PROCESSLIST 最大返回条数
 	maxBatchStatements   = 50               // 批量执行单次最大语句条数
-	maxImportSQLBytes    = 128 << 20        // SQL 导入单次脚本体积上限 128MB
 	maxImportStatements  = 200000           // SQL 导入单次最大语句条数
 	maxImportResultItems = 500              // SQL 导入响应明细保留上限（保留末尾条目）
 	mysqlImportTimeout   = 15 * time.Minute // SQL 导入执行超时上限
@@ -183,9 +182,8 @@ type sqlStatement struct {
 	StartLine int
 }
 
-// splitStatements 拆分多条语句（规则与 hasMultipleStatements 一致：
-// 引号/行注释/块注释内的分号不作为分隔符），并记录每条语句起始行
-func splitStatements(sqlText string) []sqlStatement {
+// splitStatements 记录语句起始行，超过上限后提前停止。
+func splitStatements(sqlText string, maxStatements int) []sqlStatement {
 	var (
 		stmts          []sqlStatement
 		startIdx       = -1
@@ -266,6 +264,9 @@ func splitStatements(sqlText string) []sqlStatement {
 			}
 		case ';':
 			closeStmt(i)
+			if len(stmts) > maxStatements {
+				return stmts
+			}
 		case ' ', '\t', '\r':
 			// 空白不启动新语句
 		default:
@@ -334,25 +335,32 @@ func (c *controller) ExecuteBatchSQL(ctx context.Context, datasourceId int64, re
 	return c.executeStatementsBatch(ctx, datasourceId, req, maxSQLBytes, maxBatchStatements, mysqlQueryTimeout, false)
 }
 
-// ImportSQL 库级 SQL 导入：支持最高 128MB / 200000 条语句，使用 15 分钟上下文在同一连接上顺序执行，
-// 遇错即停并裁剪 SELECT 结果集与响应明细以控制响应体积
+// ImportSQL 在同一连接上逐条执行，遇错即停。
 func (c *controller) ImportSQL(ctx context.Context, datasourceId int64, req *types.MySQLExecuteBatchRequest) (*types.MySQLExecuteBatchResult, error) {
-	return c.executeStatementsBatch(ctx, datasourceId, req, maxImportSQLBytes, maxImportStatements, mysqlImportTimeout, true)
+	return c.executeStatementsBatch(ctx, datasourceId, req, types.MySQLImportMaxBytes, maxImportStatements, mysqlImportTimeout, true)
 }
 
-func (c *controller) executeStatementsBatch(ctx context.Context, datasourceId int64, req *types.MySQLExecuteBatchRequest, maxBytes, maxStmts int, timeout time.Duration, omitRows bool) (*types.MySQLExecuteBatchResult, error) {
+func (c *controller) executeStatementsBatch(ctx context.Context, datasourceId int64, req *types.MySQLExecuteBatchRequest, maxBytes, maxStmts int, timeout time.Duration, importing bool) (*types.MySQLExecuteBatchResult, error) {
 	if req == nil || strings.TrimSpace(req.SQL) == "" {
 		return nil, apierrors.NewError(fmt.Errorf("sql is required"), http.StatusBadRequest)
 	}
 	if len(req.SQL) > maxBytes {
-		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxBytes), http.StatusBadRequest)
+		code := http.StatusBadRequest
+		if importing {
+			code = http.StatusRequestEntityTooLarge
+		}
+		return nil, apierrors.NewError(fmt.Errorf("sql length exceeds limit %d bytes", maxBytes), code)
 	}
-	statements := splitStatements(req.SQL)
+	sqlText := req.SQL
+	if importing {
+		sqlText = strings.TrimPrefix(sqlText, "\ufeff")
+	}
+	statements := splitStatements(sqlText, maxStmts)
 	if len(statements) == 0 {
 		return nil, apierrors.NewError(fmt.Errorf("no executable statement found"), http.StatusBadRequest)
 	}
 	if len(statements) > maxStmts {
-		return nil, apierrors.NewError(fmt.Errorf("too many statements: %d, limit %d", len(statements), maxStmts), http.StatusBadRequest)
+		return nil, apierrors.NewError(fmt.Errorf("too many statements: limit %d", maxStmts), http.StatusBadRequest)
 	}
 	if req.Database != "" {
 		if err := checkIdentifier("database", req.Database); err != nil {
@@ -392,11 +400,11 @@ func (c *controller) executeStatementsBatch(ctx context.Context, datasourceId in
 	}
 
 	limit := req.Limit
-	if omitRows {
+	if importing {
 		limit = 1
 	}
 	itemCap := len(statements)
-	if omitRows && itemCap > maxImportResultItems*2 {
+	if importing && itemCap > maxImportResultItems*2 {
 		itemCap = maxImportResultItems * 2
 	}
 	batch := &types.MySQLExecuteBatchResult{
@@ -414,7 +422,7 @@ func (c *controller) executeStatementsBatch(ctx context.Context, datasourceId in
 			batch.StoppedAt = item.Index
 			break
 		}
-		if omitRows && result != nil {
+		if importing && result != nil {
 			result.Columns = nil
 			result.Rows = nil
 			result.Truncated = false
@@ -423,17 +431,17 @@ func (c *controller) executeStatementsBatch(ctx context.Context, datasourceId in
 		item.Result = result
 		batch.Items = append(batch.Items, item)
 		// 大规模导入时仅滚动保留最近 maxImportResultItems 条，避免响应 JSON 体积失控
-		if omitRows && len(batch.Items) >= maxImportResultItems*2 {
+		if importing && len(batch.Items) >= maxImportResultItems*2 {
 			copy(batch.Items, batch.Items[len(batch.Items)-maxImportResultItems:])
 			batch.Items = batch.Items[:maxImportResultItems]
 		}
 	}
 	batch.Executed = executed
-	if omitRows && len(batch.Items) > maxImportResultItems {
+	if importing && len(batch.Items) > maxImportResultItems {
 		copy(batch.Items, batch.Items[len(batch.Items)-maxImportResultItems:])
 		batch.Items = batch.Items[:maxImportResultItems]
 	}
-	if omitRows && executed > len(batch.Items) {
+	if importing && executed > len(batch.Items) {
 		batch.ItemsOmitted = executed - len(batch.Items)
 	}
 	return batch, nil

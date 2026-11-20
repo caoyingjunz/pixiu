@@ -119,6 +119,9 @@ type MySQLExecuteBatchRequest struct {
 	Limit    int64  `json:"limit,omitempty"` // 每条 SELECT 结果行数上限，缺省/超限时归一化
 }
 
+// MySQLImportMaxBytes matches the default Nginx client_max_body_size of 100m.
+const MySQLImportMaxBytes = 100 << 20
+
 // MySQLExecuteBatchItem 单条语句的执行结果；ok=false 时 Error 携带错误信息
 type MySQLExecuteBatchItem struct {
 	Index     int               `json:"index"`      // 语句序号（从 1 开始）

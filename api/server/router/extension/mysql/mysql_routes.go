@@ -17,10 +17,11 @@ limitations under the License.
 package mysql
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -212,67 +213,67 @@ func (mr *mysqlRouter) executeBatchSQL(c *gin.Context) {
 	httputils.SetSuccess(c, r)
 }
 
-const (
-	maxImportFileBytes = 128 << 20
-	maxImportBodyBytes = 130 << 20
-)
+const maxLegacyImportBodyBytes = types.MySQLImportMaxBytes + (2 << 20)
 
-// importSQL 库级 SQL 脚本导入：支持 multipart/form-data 文件流式上传与 JSON 请求体，单连接顺序执行遇错即停
+// importSQL accepts a raw SQL script and keeps compatibility with multipart and JSON clients.
 func (mr *mysqlRouter) importSQL(c *gin.Context) {
 	r := httputils.NewResponse()
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxImportBodyBytes)
+	contentType := c.ContentType()
+	bodyLimit := int64(maxLegacyImportBodyBytes)
+	if contentType == "application/octet-stream" {
+		bodyLimit = types.MySQLImportMaxBytes
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, bodyLimit)
+	defer c.Request.Body.Close()
 
-	var (
-		m   meta
-		req types.MySQLExecuteBatchRequest
-		err error
-	)
-	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
-		if err = httputils.ShouldBindAny(c, nil, &m, nil); err != nil {
-			httputils.SetFailed(c, r, err)
+	var m meta
+	if err := c.ShouldBindUri(&m); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	var req types.MySQLExecuteBatchRequest
+	switch contentType {
+	case "application/octet-stream":
+		script, readErr := readImportScript(c.Request.Body)
+		if readErr != nil {
+			httputils.SetFailed(c, r, readErr)
 			return
 		}
+		req = types.MySQLExecuteBatchRequest{Database: c.Query("database"), SQL: script}
+	case "multipart/form-data":
 		reader, mrErr := c.Request.MultipartReader()
 		if mrErr != nil {
 			httputils.SetFailed(c, r, apierrors.NewError(fmt.Errorf("invalid multipart request: %v", mrErr), http.StatusBadRequest))
 			return
 		}
-		var (
-			database string
-			sqlData  []byte
-			hasFile  bool
-		)
+		var hasFile bool
 		for {
 			part, partErr := reader.NextPart()
-			if partErr == io.EOF {
+			if errors.Is(partErr, io.EOF) {
 				break
 			}
 			if partErr != nil {
-				httputils.SetFailed(c, r, apierrors.NewError(fmt.Errorf("failed to read multipart data: %v", partErr), http.StatusBadRequest))
+				httputils.SetFailed(c, r, importReadError(partErr))
 				return
 			}
 			switch part.FormName() {
 			case "database":
 				val, readErr := io.ReadAll(io.LimitReader(part, 1024))
-				_ = part.Close()
 				if readErr != nil {
-					httputils.SetFailed(c, r, readErr)
+					httputils.SetFailed(c, r, importReadError(readErr))
 					return
 				}
-				database = string(val)
+				_ = part.Close()
+				req.Database = string(val)
 			case "file":
 				hasFile = true
-				data, readErr := io.ReadAll(io.LimitReader(part, maxImportFileBytes+1))
-				_ = part.Close()
+				script, readErr := readImportScript(part)
 				if readErr != nil {
 					httputils.SetFailed(c, r, readErr)
 					return
 				}
-				if len(data) > maxImportFileBytes {
-					httputils.SetFailed(c, r, apierrors.NewError(fmt.Errorf("sql file exceeds limit %d bytes", maxImportFileBytes), http.StatusRequestEntityTooLarge))
-					return
-				}
-				sqlData = data
+				req.SQL = script
 			default:
 				_ = part.Close()
 			}
@@ -281,19 +282,48 @@ func (mr *mysqlRouter) importSQL(c *gin.Context) {
 			httputils.SetFailed(c, r, apierrors.NewError(fmt.Errorf("sql file is required"), http.StatusBadRequest))
 			return
 		}
-		req = types.MySQLExecuteBatchRequest{
-			Database: database,
-			SQL:      string(sqlData),
+	default:
+		if err := c.ShouldBindJSON(&req); err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				err = importReadError(err)
+			}
+			httputils.SetFailed(c, r, err)
+			return
 		}
-	} else if err = httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+	}
+
+	// Preserve Gin's authentication values and cancel the DB work on disconnect.
+	ctx, cancel := context.WithCancel(c)
+	defer cancel()
+	stop := context.AfterFunc(c.Request.Context(), cancel)
+	defer stop()
+	result, err := mr.c.Extension().Mysql().ImportSQL(ctx, m.DatasourceId, &req)
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = mr.c.Extension().Mysql().ImportSQL(c, m.DatasourceId, &req); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
+	r.Result = result
 	httputils.SetSuccess(c, r)
+}
+
+func readImportScript(body io.Reader) (string, error) {
+	data, err := io.ReadAll(io.LimitReader(body, types.MySQLImportMaxBytes+1))
+	if len(data) > types.MySQLImportMaxBytes {
+		err = &http.MaxBytesError{Limit: types.MySQLImportMaxBytes}
+	}
+	if err != nil {
+		return "", importReadError(err)
+	}
+	return string(data), nil
+}
+
+func importReadError(err error) error {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return apierrors.NewError(fmt.Errorf("sql upload exceeds limit %d bytes", tooLarge.Limit), http.StatusRequestEntityTooLarge)
+	}
+	return apierrors.NewError(fmt.Errorf("failed to read SQL script: %w", err), http.StatusBadRequest)
 }
 
 func (mr *mysqlRouter) listUsers(c *gin.Context) {
