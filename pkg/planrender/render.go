@@ -237,13 +237,9 @@ func writeExpandRSA(planDir, name, data string) error {
 
 // normalizeNodePrivateKey 校验并规范化节点私钥，生成可落盘到 id_rsa 的内容。
 //
-// 背景：凭据在库表/JSON 中流转时会丢失 PEM 末尾换行（NormalizePrivateKeyPEM 也
+// 凭据在库表/JSON 中流转时会丢失 PEM 末尾换行（NormalizePrivateKeyPEM 也
 // 会 TrimSuffix 掉末尾 LF），直接落盘后 OpenSSH/libcrypto 加载报 "error in
-// libcrypto"，进而在 bootstrap-servers 阶段 SSH 认证失败。这里统一：
-//  1. 先用 ParsePrivateKeySigner 校验私钥确实可解析（含脏数据修复），
-//     解析失败时在渲染阶段就带节点名报错，而不是等到批量部署才看到 UNREACHABLE；
-//  2. 规范化为 PEM 并补齐末尾 LF，保证 ssh-keygen -y -f 可读；
-//  3. 不记录私钥正文，只返回节点名与错误类型信息。
+// libcrypto"，进而在 bootstrap-servers 阶段 SSH 认证失败。
 func normalizeNodePrivateKey(nodeName, raw string) (string, error) {
 	if _, err := sshutil.ParsePrivateKeySigner(raw); err != nil {
 		return "", fmt.Errorf("node(%s) ssh private key is invalid (check credential format): %w", nodeName, err)
