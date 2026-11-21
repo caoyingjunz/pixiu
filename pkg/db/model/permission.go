@@ -41,7 +41,7 @@ type Permission struct {
 	UserId   int64  `gorm:"column:user_id;not null;index:idx_user_id;index:idx_user_cluster,priority:1;uniqueIndex:uk_user_cluster_name,priority:1" json:"user_id"`
 	UserName string `gorm:"column:user_name;not null;index:idx_user_name,priority:1" json:"user_name"`
 
-	// 目标集群名称（全局唯一集群名）
+	// 权限关联的授权集群名称（全局唯一集群名）
 	ClusterId   int64  `gorm:"column:cluster_id;type:varchar(128);not null;index:idx_user_cluster,priority:2;uniqueIndex:uk_user_cluster_name,priority:2" json:"cluster_id"`
 	ClusterName string `json:"cluster_name"`
 

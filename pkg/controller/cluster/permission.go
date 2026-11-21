@@ -274,7 +274,10 @@ func (c *cluster) preUpdatePermission(ctx context.Context, permissionId int64) (
 	return oldP, nil
 }
 
-// 删除前置检查：资源存在 + 撤销授权属于主集群所有者的权限
+// 删除前置检查：资源存在 + 撤销授权属于主集群所有者的权限。
+// 容错口径：主集群记录已不存在时，无法校验归属，跳过 owner 校验并继续删除数据库记录；
+// k8s 清理由调用方统一 best-effort 处理。
+// 主集群查询本身报错（数据库故障）仍按错误返回，不吞掉真正的故障。
 func (c *cluster) preDeletePermission(ctx context.Context, permissionId int64) (*model.Permission, error) {
 	object, err := c.factory.Permission().Get(ctx, permissionId)
 	if err != nil {
@@ -285,10 +288,22 @@ func (c *cluster) preDeletePermission(ctx context.Context, permissionId int64) (
 		klog.Errorf("permission(%d) not found", permissionId)
 		return nil, errors.ErrPermissionNotFound
 	}
-	if err = c.authorizePermissionOwner(ctx, object); err != nil {
+
+	masterCluster, err := c.factory.Cluster().Get(ctx, object.OwnerClusterId)
+	if err != nil {
+		klog.Errorf("failed to get master cluster(%d): %v", object.OwnerClusterId, err)
 		return nil, err
 	}
+	if masterCluster == nil {
+		klog.Warningf("master cluster(%d, %q) of permission(%d) not found, skip owner check",
+			object.OwnerClusterId, object.OwnerClusterName, permissionId)
+		return object, nil
+	}
 
+	if err = util.CheckResourceOwner(ctx, masterCluster.UserId); err != nil {
+		klog.Errorf("failed to check resource owner: %v", err)
+		return nil, err
+	}
 	return object, nil
 }
 
@@ -439,10 +454,10 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 }
 
 // DeletePermission
-// 1. 校验权限归属（主集群所有者或超管）
-// 2. 删除数据库记录
-// 3. 移除 k8s 的资源
-// 4. 删除已授权的集群记录
+// 1. 校验权限归属（主集群所有者或超管；主集群记录缺失时跳过校验）
+// 2. 移除 k8s 资源（best-effort，任何失败仅告警，不阻塞删除）
+// 3. 删除已授权的子集群记录（子集群记录已不存在视为幂等成功；其它错误属于 pixiu 自身逻辑失败，必须返回错误）
+// 4. 删除数据库授权记录（核心数据，最后执行，失败则整体失败）
 func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) error {
 	object, err := c.preDeletePermission(ctx, permissionId)
 	if err != nil {
@@ -450,19 +465,27 @@ func (c *cluster) DeletePermission(ctx context.Context, permissionId int64) erro
 	}
 
 	if err = c.deleteKubernetesRule(ctx, object, true); err != nil {
-		klog.Errorf("failed to clean up k8s rules: %v", err)
-		return fmt.Errorf("清理 k8s 规则失败，已中止删除: %w", err)
+		klog.Warningf("failed to clean up k8s rules for permission(%d), continue deleting record: %v", permissionId, err)
+	}
+
+	if object.ClusterId != 0 {
+		// 删除关联授权集群
+		if err = c.Delete(ctx, object.ClusterId, true); err != nil {
+			// 如果子集群记录已不存在视为删除成功
+			if err == servererrors.ErrClusterNotFound || stderrors.Is(err, errors.ErrClusterNotFound) {
+				klog.Infof("authorized cluster(%d) of permission(%d) already gone", object.ClusterId, permissionId)
+			} else {
+				klog.Errorf("failed to delete authorized cluster(%d) of permission(%d): %v", object.ClusterId, permissionId, err)
+				return err
+			}
+		}
 	}
 
 	if _, err = c.factory.Permission().Delete(ctx, permissionId); err != nil {
 		klog.Errorf("failed to delete permission(%d): %v", permissionId, err)
 		return errors.ErrInternal
 	}
-
-	if object.ClusterId == 0 {
-		return nil
-	}
-	return c.Delete(ctx, object.ClusterId, true)
+	return nil
 }
 
 func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermissionRequest, clusterSet client.ClusterSet) (string, error) {
