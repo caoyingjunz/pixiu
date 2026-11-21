@@ -381,6 +381,156 @@ func buildPixiuViewClusterRole(viewClusterRole *rbacv1.ClusterRole) *rbacv1.Clus
 	}
 }
 
+// 预置角色动词集合：运维/开发规则对齐阿里云 ACK cs:ops / cs:dev，
+// 仅保留通用 Kubernetes 资源（剔除 istio/knative/tekton/alicloud 等厂商专有 CRD）。
+var (
+	pixiuFullVerbs = []string{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"}
+	pixiuReadVerbs = []string{"get", "list", "watch"}
+)
+
+// buildPixiuOpsClusterRole 构造运维预置角色：参考阿里云 cs:ops，
+// 在开发人员权限之上追加节点/存储卷/命名空间的基础设施改权限及节点指标。
+func buildPixiuOpsClusterRole() *rbacv1.ClusterRole {
+	rules := buildManagedWorkloadRules()
+	rules = append(rules, []rbacv1.PolicyRule{
+		// 只读类状态资源
+		{
+			APIGroups: []string{""},
+			Resources: []string{"bindings", "events", "limitranges", "namespaces/status",
+				"replicationcontrollers/status", "pods/log", "pods/status",
+				"resourcequotas", "resourcequotas/status", "componentstatuses"},
+			Verbs: pixiuReadVerbs,
+		},
+		// 运维相较开发多出的基础设施写权限（patch）
+		{
+			APIGroups: []string{""},
+			Resources: []string{"namespaces", "nodes", "persistentvolumes"},
+			Verbs:     []string{"get", "list", "watch", "patch"},
+		},
+		{
+			APIGroups: []string{"coordination.k8s.io"},
+			Resources: []string{"leases"},
+			Verbs:     []string{"get"},
+		},
+		{
+			APIGroups: []string{"storage.k8s.io"},
+			Resources: []string{"storageclasses"},
+			Verbs:     pixiuReadVerbs,
+		},
+		{
+			APIGroups: []string{"metrics.k8s.io"},
+			Resources: []string{"pods", "nodes"},
+			Verbs:     pixiuReadVerbs,
+		},
+	}...)
+	return &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   types.PixiuOpsClusterRole,
+			Labels: map[string]string{"maintainer": "pixiu"},
+		},
+		Rules: rules,
+	}
+}
+
+// buildPixiuDevClusterRole 构造开发预置角色：参考阿里云 cs:dev，
+// 可读写工作负载与控制台可见资源，但不含节点/存储卷等基础设施改权限。
+func buildPixiuDevClusterRole() *rbacv1.ClusterRole {
+	rules := buildManagedWorkloadRules()
+	rules = append(rules, []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"events", "namespaces/status", "replicationcontrollers/status",
+				"pods/log", "pods/status", "componentstatuses"},
+			Verbs: pixiuReadVerbs,
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"namespaces"},
+			Verbs:     pixiuReadVerbs,
+		},
+		{
+			APIGroups: []string{"metrics.k8s.io"},
+			Resources: []string{"pods"},
+			Verbs:     pixiuReadVerbs,
+		},
+	}...)
+	return &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   types.PixiuDevClusterRole,
+			Labels: map[string]string{"maintainer": "pixiu"},
+		},
+		Rules: rules,
+	}
+}
+
+// buildManagedWorkloadRules 构造运维/开发共享的工作负载与应用资源规则（阿里云 cs:ops/cs:dev 的通用 K8s 部分）。
+func buildManagedWorkloadRules() []rbacv1.PolicyRule {
+	return []rbacv1.PolicyRule{
+		// Pod 及运维子资源（exec/attach/portforward/proxy）
+		{
+			APIGroups: []string{""},
+			Resources: []string{"pods", "pods/attach", "pods/exec", "pods/portforward", "pods/proxy"},
+			Verbs:     pixiuFullVerbs,
+		},
+		// 配置与网络资源（含 secrets 与 service proxy）
+		{
+			APIGroups: []string{""},
+			Resources: []string{"configmaps", "endpoints", "persistentvolumeclaims",
+				"replicationcontrollers", "replicationcontrollers/scale", "secrets",
+				"serviceaccounts", "services", "services/proxy"},
+			Verbs: pixiuFullVerbs,
+		},
+		// pixiu 自身依赖：经 apiserver 代理访问集群内 Prometheus/Loki、读取监控大盘
+		{
+			APIGroups: []string{""},
+			Resources: []string{"services/proxy"},
+			Verbs:     []string{"get"},
+		},
+		{
+			APIGroups: []string{"metrics.pixiu.io"},
+			Resources: []string{"api/dashboard"},
+			Verbs:     pixiuReadVerbs,
+		},
+		{
+			APIGroups: []string{"apps"},
+			Resources: []string{"daemonsets", "deployments", "deployments/rollback", "deployments/scale",
+				"replicasets", "replicasets/scale", "statefulsets"},
+			Verbs: pixiuFullVerbs,
+		},
+		{
+			APIGroups: []string{"autoscaling"},
+			Resources: []string{"horizontalpodautoscalers"},
+			Verbs:     pixiuFullVerbs,
+		},
+		{
+			APIGroups: []string{"batch"},
+			Resources: []string{"cronjobs", "jobs"},
+			Verbs:     pixiuFullVerbs,
+		},
+		{
+			APIGroups: []string{"extensions"},
+			Resources: []string{"daemonsets", "deployments", "deployments/rollback", "deployments/scale",
+				"ingresses", "replicasets", "replicasets/scale", "replicationcontrollers/scale"},
+			Verbs: pixiuFullVerbs,
+		},
+		{
+			APIGroups: []string{"networking.k8s.io"},
+			Resources: []string{"*"},
+			Verbs:     pixiuFullVerbs,
+		},
+		{
+			APIGroups: []string{"policy"},
+			Resources: []string{"poddisruptionbudgets"},
+			Verbs:     pixiuFullVerbs,
+		},
+		{
+			APIGroups: []string{"apiextensions.k8s.io"},
+			Resources: []string{"customresourcedefinitions"},
+			Verbs:     pixiuFullVerbs,
+		},
+	}
+}
+
 // 创建内置的 ClusterRole
 func (c *cluster) addPixiuClusterRole(ctx context.Context, req *types.CreateClusterRequest, cs *client.ClusterSet) error {
 	// 如果是子集群，不需要添加，只有主集群需要新增权限
