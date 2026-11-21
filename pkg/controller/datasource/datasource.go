@@ -18,10 +18,17 @@ package datasource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
+	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
+	"k8s.io/apimachinery/pkg/api/validate/content"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
@@ -98,6 +105,14 @@ func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceR
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) error {
+	var storedLabels *string
+	if len(req.Labels) != 0 {
+		encoded, err := encodeDatasourceLabels(req.Labels)
+		if err != nil {
+			return err
+		}
+		storedLabels = &encoded
+	}
 	if err := validateRedisConstraint(req); err != nil {
 		return err
 	}
@@ -133,6 +148,7 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 		SubType:     req.SubType,
 		Config:      cfg,
 		External:    req.External,
+		Labels:      storedLabels,
 		Description: req.Description,
 	})
 	if err != nil {
@@ -141,6 +157,120 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	}
 
 	return nil
+}
+
+func encodeDatasourceLabels(labels map[string]string) (string, error) {
+	if err := validateDatasourceLabels(labels); err != nil {
+		return "", apierrors.NewError(err, http.StatusBadRequest)
+	}
+	encoded, err := json.Marshal(labels)
+	return string(encoded), err
+}
+
+func decodeDatasourceLabels(stored *string) (map[string]string, error) {
+	labels := make(map[string]string)
+	if stored != nil {
+		if err := json.Unmarshal([]byte(*stored), &labels); err != nil {
+			return nil, err
+		}
+	}
+	return labels, nil
+}
+
+func validateDatasourceLabels(labels map[string]string) error {
+	for key, value := range labels {
+		if err := validateDatasourceLabelKey(key); err != nil {
+			return err
+		}
+		if err := validateDatasourceLabelValue(key, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDatasourceLabelKey(key string) error {
+	name := asciiLabelLetters(key)
+	if prefix, suffix, ok := strings.Cut(key, "/"); ok {
+		name = prefix + "/" + asciiLabelLetters(suffix)
+	}
+	if problems := content.IsLabelKey(name); len(problems) != 0 {
+		return fmt.Errorf("invalid label key %q: %s", key, strings.Join(problems, "; "))
+	}
+	return nil
+}
+
+func validateDatasourceLabelValue(key, value string) error {
+	if problems := content.IsLabelValue(asciiLabelLetters(value)); len(problems) != 0 {
+		return fmt.Errorf("invalid value for label %q: %s", key, strings.Join(problems, "; "))
+	}
+	return nil
+}
+
+func asciiLabelLetters(text string) string {
+	return strings.Map(func(r rune) rune {
+		if r > unicode.MaxASCII && (unicode.IsLetter(r) || unicode.IsNumber(r)) {
+			return 'a'
+		}
+		return r
+	}, text)
+}
+
+var datasourceSelectorToken = regexp.MustCompile(`[^ \t\r\n=!,()<>]+`)
+
+func parseDatasourceLabelSelector(selector string) ([]db.DatasourceLabelRequirement, error) {
+	if !utf8.ValidString(selector) || strings.ContainsRune(selector, 0) {
+		return nil, fmt.Errorf("invalid label selector text")
+	}
+	selector = strings.ReplaceAll(selector, "\uFF0C", ",")
+
+	// Use ASCII aliases for the Kubernetes parser, then validate the original keys and values.
+	tokens := make(map[string]bool)
+	for _, token := range datasourceSelectorToken.FindAllString(selector, -1) {
+		tokens[token] = true
+	}
+	original := make(map[string]string)
+	next := 0
+	encoded := datasourceSelectorToken.ReplaceAllStringFunc(selector, func(token string) string {
+		if asciiLabelLetters(token) == token {
+			return token
+		}
+		for {
+			next++
+			alias := fmt.Sprintf("pixiu-label-%d", next)
+			if !tokens[alias] {
+				original[alias] = token
+				return alias
+			}
+		}
+	})
+	restore := func(token string) string {
+		if text, ok := original[token]; ok {
+			return text
+		}
+		return token
+	}
+
+	parsed, err := labels.ParseToRequirements(encoded)
+	if err != nil {
+		return nil, err
+	}
+	requirements := make([]db.DatasourceLabelRequirement, 0, len(parsed))
+	for _, requirement := range parsed {
+		key := restore(requirement.Key())
+		if err := validateDatasourceLabelKey(key); err != nil {
+			return nil, err
+		}
+		values := requirement.Values().List()
+		for i, value := range values {
+			values[i] = restore(value)
+			if err := validateDatasourceLabelValue(key, values[i]); err != nil {
+				return nil, err
+			}
+		}
+		requirements = append(requirements, db.DatasourceLabelRequirement{Key: key, Operator: requirement.Operator(), Values: values})
+	}
+	return requirements, nil
 }
 
 // validateRedisConstraint 校验 Redis 数据源的约束：
@@ -330,6 +460,21 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 
 	updates := make(map[string]interface{})
 
+	if req.Labels != nil {
+		encoded, err := encodeDatasourceLabels(req.Labels)
+		if err != nil {
+			return err
+		}
+		current, err := decodeDatasourceLabels(old.Labels)
+		if err != nil {
+			klog.Errorf("failed to read datasource(%d) labels: %v", req.Id, err)
+			return apierrors.ErrServerInternal
+		}
+		if !maps.Equal(req.Labels, current) {
+			updates["labels"] = encoded
+		}
+	}
+
 	if err = preserveDatasourcePasswords(req.Config, old.Config); err != nil {
 		klog.Errorf("failed to preserve datasource(%d) credentials: %v", req.Id, err)
 		return apierrors.ErrServerInternal
@@ -445,6 +590,17 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	opts := []db.Options{
 		db.WithNameLike(listOption.NameSelector),
 	}
+	if selector := strings.TrimSpace(listOption.LabelSelector); selector != "" {
+		requirements, err := parseDatasourceLabelSelector(selector)
+		if err != nil {
+			return nil, apierrors.NewError(fmt.Errorf("invalid label selector: %w", err), http.StatusBadRequest)
+		}
+		filter, err := db.DatasourceLabelFilter(requirements)
+		if err != nil {
+			return nil, apierrors.NewError(fmt.Errorf("invalid label selector: %w", err), http.StatusBadRequest)
+		}
+		opts = append(opts, filter)
+	}
 
 	// 集群数据源可见性：请求指定集群时，解析被授权集群（子集群）→ 主集群并校验集群访问权；
 	// 否则走通用过滤（用户所属 + datasource scope 授权）
@@ -482,7 +638,6 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	if listOption.SubType != "" {
 		opts = append(opts, db.WithDatasourceSubType(listOption.SubType))
 	}
-
 	pageResult.Total, err = c.factory.Datasource().Count(ctx, opts...)
 	if err != nil {
 		klog.Errorf("failed to count dataSources: %v", err)
@@ -521,6 +676,10 @@ func modelToTypeWithRedaction(object *model.Datasource, redact bool) (*types.Dat
 	if err := cfg.Unmarshal(object.Config); err != nil {
 		return nil, err
 	}
+	labels, err := decodeDatasourceLabels(object.Labels)
+	if err != nil {
+		return nil, err
+	}
 	if redact {
 		redactDatasourceConfig(&cfg)
 	}
@@ -540,6 +699,7 @@ func modelToTypeWithRedaction(object *model.Datasource, redact bool) (*types.Dat
 		SubType:     object.SubType,
 		Config:      cfg,
 		External:    object.External,
+		Labels:      labels,
 		Description: object.Description,
 	}, nil
 }
