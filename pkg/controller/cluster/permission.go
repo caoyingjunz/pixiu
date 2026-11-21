@@ -505,12 +505,14 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 		return "", err
 	}
 
-	// 只读或者管理员，进行集群绑定
-	if req.PType == int(model.PermissionPTypeReadonly) || req.PType == int(model.PermissionPTypeAdmin) {
+	// 集群级预置角色（只读/管理员/运维/开发）走 ClusterRoleBinding，自定义走 namespace 级 RoleBinding
+	switch model.PermissionPType(req.PType) {
+	case model.PermissionPTypeReadonly, model.PermissionPTypeAdmin,
+		model.PermissionPTypeOps, model.PermissionPTypeDeveloper:
 		if err := createClusterRoleBinding(ctx, req, kubeClient); err != nil {
 			return "", err
 		}
-	} else if req.PType == int(model.PermissionPTypeCustom) {
+	case model.PermissionPTypeCustom:
 		for _, ns := range req.TargetNamespaces {
 			klog.Infof("creating namespace(%s) RoleBinding", ns)
 			if err := createRoleBinding(ctx, req, kubeClient, ns); err != nil {
@@ -518,7 +520,7 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 				return "", err
 			}
 		}
-	} else {
+	default:
 		return "", fmt.Errorf("不支持的 p_type: %d", req.PType)
 	}
 
@@ -790,16 +792,48 @@ func ensurePixiuViewClusterRole(ctx context.Context, clientSet kubernetes.Interf
 	return nil
 }
 
+// ensureManagedClusterRole 幂等确保目标集群存在指定的预置 ClusterRole（运维/开发）。
+// 规则由服务端固定构造，已存在则整体覆盖，避免存量集群的预置角色缺失或过期。
+func ensureManagedClusterRole(ctx context.Context, clientSet kubernetes.Interface, name string, build func() *rbacv1.ClusterRole) error {
+	desired := build()
+	existing, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
+	if err == nil {
+		existing.Rules = desired.Rules
+		if _, err = clientSet.RbacV1().ClusterRoles().Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("更新 ClusterRole(%s) 失败: %w", name, err)
+		}
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("检查 ClusterRole(%s) 失败: %w", name, err)
+	}
+	if _, err = clientSet.RbacV1().ClusterRoles().Create(ctx, desired, metav1.CreateOptions{}); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return fmt.Errorf("创建 ClusterRole(%s) 失败: %w", name, err)
+	}
+	return nil
+}
+
 // 创建 ClusterRole
 // PType 0 只读：复用 pixiu-view，缺失时幂等补建
 // PType 1 自定义：用 req.Rules 创建
 // PType 2 管理员：复用内置 cluster-admin，无需创建
+// PType 3 运维 / 4 开发：复用 pixiu-ops / pixiu-dev，缺失时幂等补建
 func createClusterRole(ctx context.Context, req *types.CreatePermissionRequest, clientSet kubernetes.Interface) error {
-	if req.PType == int(model.PermissionPTypeReadonly) {
+	switch model.PermissionPType(req.PType) {
+	case model.PermissionPTypeReadonly:
 		return ensurePixiuViewClusterRole(ctx, clientSet)
+	case model.PermissionPTypeOps:
+		return ensureManagedClusterRole(ctx, clientSet, types.PixiuOpsClusterRole, buildPixiuOpsClusterRole)
+	case model.PermissionPTypeDeveloper:
+		return ensureManagedClusterRole(ctx, clientSet, types.PixiuDevClusterRole, buildPixiuDevClusterRole)
+	case model.PermissionPTypeAdmin:
+		return nil // 管理员直接复用内置 cluster-admin
 	}
 	if req.PType != int(model.PermissionPTypeCustom) {
-		return nil
+		return fmt.Errorf("不支持的 p_type: %d", req.PType)
 	}
 
 	name := req.ClusterRoleName

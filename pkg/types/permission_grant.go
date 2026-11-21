@@ -24,10 +24,12 @@ import (
 )
 
 // ValidatePermissionGrant 校验授权类型与自定义规则。
-// p_type 仅允许 0/1/2；管理员（2）仅超级管理员可授予；自定义规则禁止通配 verb 与 RBAC 提权。
+// p_type 仅允许 0/1/2/3/4；管理员（2）仅超级管理员可授予；
+// 预置角色（0 只读 / 2 管理员 / 3 运维 / 4 开发）的规则由服务端固定，忽略前端下发的 rules；
+// 自定义（1）规则禁止通配 verb 与 RBAC 提权。
 func ValidatePermissionGrant(isRoot bool, pType int, rules []rbacv1.PolicyRule, namespaces []string) error {
-	if pType < 0 || pType > 2 {
-		return fmt.Errorf("p_type 仅支持 0（只读）、1（自定义）、2（管理员）")
+	if pType < 0 || pType > 4 {
+		return fmt.Errorf("p_type 仅支持 0（只读）、1（自定义）、2（管理员）、3（运维）、4（开发）")
 	}
 	if pType == 2 && !isRoot {
 		return fmt.Errorf("仅超级管理员可授予集群管理员权限")

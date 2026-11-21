@@ -823,6 +823,8 @@ const DefaultSSHPort = 22
 
 const (
 	PixiuViewClusterRole = "pixiu-view"
+	PixiuOpsClusterRole  = "pixiu-ops"
+	PixiuDevClusterRole  = "pixiu-dev"
 	ClusterAdminRole     = "cluster-admin"
 )
 
@@ -1154,7 +1156,7 @@ type CreatePermissionRequest struct {
 	ExpirationSeconds int64  `json:"expiration_seconds"` // 默认 1 年
 	Description       string `json:"description"`
 
-	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
+	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员，3 运维，4 开发
 	Rules []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
 
 	// SA/RBAC 对象名由服务端按用户生成，忽略客户端传入。
@@ -1173,7 +1175,7 @@ type UpdatePermissionRequest struct {
 	Name              string              `json:"name"`
 	ExpirationSeconds int64               `json:"expiration_seconds"` // 默认 1 年
 	Description       string              `json:"description"`
-	PType             int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员
+	PType             int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员，3 运维，4 开发
 	Rules             []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
 	TargetNamespaces  []string            `json:"target_namespaces"`
 	Force             bool                `json:"force"` // 强制下发
@@ -1192,6 +1194,10 @@ func (o *CreatePermissionRequest) SetDefaultOptions() {
 		o.ClusterRoleName = PixiuViewClusterRole
 	case 2:
 		o.ClusterRoleName = ClusterAdminRole
+	case 3:
+		o.ClusterRoleName = PixiuOpsClusterRole
+	case 4:
+		o.ClusterRoleName = PixiuDevClusterRole
 	default:
 		o.ClusterRoleName = fmt.Sprintf("pixiu-cr-%d", o.UserId)
 	}

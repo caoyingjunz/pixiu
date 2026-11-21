@@ -22,13 +22,15 @@ func init() {
 	register(&Permission{})
 }
 
-// PermissionPType 授权类型：0 只读 1 自定义 2 管理员
+// PermissionPType 授权类型：0 只读 1 自定义 2 管理员 3 运维 4 开发
 type PermissionPType int8
 
 const (
-	PermissionPTypeReadonly PermissionPType = iota
-	PermissionPTypeCustom
-	PermissionPTypeAdmin
+	PermissionPTypeReadonly  PermissionPType = iota // 0 只读
+	PermissionPTypeCustom                           // 1 自定义
+	PermissionPTypeAdmin                            // 2 管理员
+	PermissionPTypeOps                              // 3 运维
+	PermissionPTypeDeveloper                        // 4 开发
 )
 
 // Permission 集群 scoped kubeconfig 授权记录
