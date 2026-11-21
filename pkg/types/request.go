@@ -127,6 +127,7 @@ type (
 		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
 		Config      *DatasourceConfig       `json:"config"`
 		External    bool                    `json:"external"`
+		Labels      map[string]string       `json:"labels"` // 更新时不传则保留，空对象清除标签
 		Description string                  `json:"description" binding:"omitempty"`
 	}
 

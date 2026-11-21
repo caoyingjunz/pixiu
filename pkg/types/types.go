@@ -534,6 +534,7 @@ type Datasource struct {
 	SubType     model.DatasourceSubType `json:"sub_type"`
 	Config      DatasourceConfig        `json:"config"`
 	External    bool                    `json:"external"`
+	Labels      map[string]string       `json:"labels"`
 	Description string                  `json:"description"`
 }
 
