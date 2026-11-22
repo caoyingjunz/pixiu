@@ -632,7 +632,7 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 		}
 	case model.PermissionPTypeOps, model.PermissionPTypeDeveloper:
 		// 命名空间级预置：删除各命名空间 RoleBinding，保留共享 ClusterRole（pixiu-ops/pixiu-dev）。
-		// binding 名为空（存量异常数据）时跳过 k8s 绑定清理，避免以空名发起删除。
+		// binding 名为空时跳过 k8s 绑定清理，避免以空名发起删除。
 		if bindingName == "" {
 			klog.Warningf("permission(%d) has empty role binding name, skip k8s binding cleanup", object.Id)
 			break
@@ -644,15 +644,6 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 					klog.Errorf("failed to delete RoleBindings(%s) in namespace(%s): %v", bindingName, targetNamespace, err)
 					errs = append(errs, err)
 				}
-			}
-		}
-
-		// 兼容本分支早期集群级语义数据：尝试删除同名 ClusterRoleBinding，NotFound 忽略
-		klog.Infof("deleting legacy ClusterRoleBindings(%s) for ClusterRole(%s)", bindingName, name)
-		if err = clientSet.RbacV1().ClusterRoleBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
-			if !apierrors.IsNotFound(err) {
-				klog.Errorf("failed to delete legacy ClusterRoleBindings(%s) for ClusterRole(%s): %v", bindingName, name, err)
-				errs = append(errs, err)
 			}
 		}
 	default:
@@ -833,7 +824,7 @@ func createRoleBinding(ctx context.Context, req *types.CreatePermissionRequest, 
 }
 
 // ensurePixiuViewClusterRole 幂等确保目标集群存在 pixiu-view ClusterRole（只读授权复用，避免悬空绑定）。
-// 已存在则覆盖为当前期望规则（含 services/proxy），保证存量授权也能访问监控代理。
+// 已存在则覆盖为当前期望规则（含 services/proxy），保证只读授权始终可访问监控代理。
 func ensurePixiuViewClusterRole(ctx context.Context, clientSet kubernetes.Interface) error {
 	name := types.PixiuViewClusterRole
 	viewRole, err := clientSet.RbacV1().ClusterRoles().Get(ctx, "view", metav1.GetOptions{})
@@ -864,7 +855,7 @@ func ensurePixiuViewClusterRole(ctx context.Context, clientSet kubernetes.Interf
 }
 
 // ensureManagedClusterRole 幂等确保目标集群存在指定的预置 ClusterRole（运维/开发共享角色）。
-// 规则由服务端固定构造（命名空间级安全子集），已存在则整体覆盖，避免存量集群的预置角色缺失或过期。
+// 规则由服务端固定构造（命名空间级安全子集），已存在则整体覆盖，保证预置角色与当前规则一致。
 func ensureManagedClusterRole(ctx context.Context, clientSet kubernetes.Interface, name string, build func() *rbacv1.ClusterRole) error {
 	desired := build()
 	existing, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
