@@ -23,9 +23,10 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-// ValidatePermissionGrant 校验授权类型与自定义规则。
+// ValidatePermissionGrant 校验授权类型、目标命名空间与自定义规则。
 // p_type 仅允许 0/1/2/3/4；管理员（2）仅超级管理员可授予；
 // 预置角色（0 只读 / 2 管理员 / 3 运维 / 4 开发）的规则由服务端固定，忽略前端下发的 rules；
+// 命名空间级授权（1 自定义 / 3 运维 / 4 开发）必须指定目标命名空间；
 // 自定义（1）规则禁止通配 verb 与 RBAC 提权。
 func ValidatePermissionGrant(isRoot bool, pType int, rules []rbacv1.PolicyRule, namespaces []string) error {
 	if pType < 0 || pType > 4 {
@@ -33,6 +34,13 @@ func ValidatePermissionGrant(isRoot bool, pType int, rules []rbacv1.PolicyRule, 
 	}
 	if pType == 2 && !isRoot {
 		return fmt.Errorf("仅超级管理员可授予集群管理员权限")
+	}
+	// 运维/开发为命名空间级预置角色，规则由服务端定义，仅要求目标命名空间非空
+	if pType == 3 || pType == 4 {
+		if len(namespaces) == 0 {
+			return fmt.Errorf("运维/开发预置授权必须指定目标命名空间")
+		}
+		return nil
 	}
 	if pType != 1 {
 		return nil

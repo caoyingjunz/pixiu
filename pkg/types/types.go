@@ -1156,8 +1156,8 @@ type CreatePermissionRequest struct {
 	ExpirationSeconds int64  `json:"expiration_seconds"` // 默认 1 年
 	Description       string `json:"description"`
 
-	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员，3 运维，4 开发
-	Rules []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
+	PType int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员，3 运维（命名空间级），4 开发（命名空间级）
+	Rules []rbacv1.PolicyRule `json:"rules"`  // 仅 p_type=1 使用；预置角色（0/2/3/4）规则由服务端定义
 
 	// SA/RBAC 对象名由服务端按用户生成，忽略客户端传入。
 	SAName          string `json:"-"`
@@ -1165,7 +1165,7 @@ type CreatePermissionRequest struct {
 	ClusterRoleName string `json:"-"`
 	RoleBindingName string `json:"-"`
 
-	TargetNamespaces []string `json:"target_namespaces"`
+	TargetNamespaces []string `json:"target_namespaces"` // p_type=1/3/4 必填；0/2 忽略
 }
 
 // UpdatePermissionRequest 更新权限
@@ -1175,10 +1175,10 @@ type UpdatePermissionRequest struct {
 	Name              string              `json:"name"`
 	ExpirationSeconds int64               `json:"expiration_seconds"` // 默认 1 年
 	Description       string              `json:"description"`
-	PType             int                 `json:"p_type"` // 0 只读，1 自定义，2 管理员，3 运维，4 开发
-	Rules             []rbacv1.PolicyRule `json:"rules"`  // p_type=1 时使用
-	TargetNamespaces  []string            `json:"target_namespaces"`
-	Force             bool                `json:"force"` // 强制下发
+	PType             int                 `json:"p_type"`            // 0 只读，1 自定义，2 管理员，3 运维（命名空间级），4 开发（命名空间级）
+	Rules             []rbacv1.PolicyRule `json:"rules"`             // 仅 p_type=1 使用；预置角色（0/2/3/4）规则由服务端定义
+	TargetNamespaces  []string            `json:"target_namespaces"` // p_type=1/3/4 必填；0/2 忽略
+	Force             bool                `json:"force"`             // 强制下发
 }
 
 func (o *CreatePermissionRequest) SetDefaultOptions() {

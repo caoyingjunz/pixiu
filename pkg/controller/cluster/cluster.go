@@ -388,39 +388,24 @@ var (
 	pixiuReadVerbs = []string{"get", "list", "watch"}
 )
 
-// buildPixiuOpsClusterRole 构造运维预置角色：参考阿里云 cs:ops，
-// 在开发人员权限之上追加节点/存储卷/命名空间的基础设施改权限及节点指标。
+// buildPixiuOpsClusterRole 构造运维预置角色：在开发人员规则之上，
+// 追加命名空间内限额/配额的只读与租约查看权限。
+// 运维/开发均为命名空间级预置角色（经 RoleBinding 在目标命名空间内生效），
+// 规则须同时满足「命名空间内有效」与自定义规则黑名单，是自定义（p_type=1）授权规则的安全子集。
 func buildPixiuOpsClusterRole() *rbacv1.ClusterRole {
 	rules := buildManagedWorkloadRules()
 	rules = append(rules, []rbacv1.PolicyRule{
-		// 只读类状态资源
+		// 命名空间内的运维只读信息（限额、配额）
 		{
 			APIGroups: []string{""},
-			Resources: []string{"bindings", "events", "limitranges", "namespaces/status",
-				"replicationcontrollers/status", "pods/log", "pods/status",
-				"resourcequotas", "resourcequotas/status", "componentstatuses"},
-			Verbs: pixiuReadVerbs,
+			Resources: []string{"limitranges", "resourcequotas", "resourcequotas/status"},
+			Verbs:     pixiuReadVerbs,
 		},
-		// 运维相较开发多出的基础设施写权限（patch）
-		{
-			APIGroups: []string{""},
-			Resources: []string{"namespaces", "nodes", "persistentvolumes"},
-			Verbs:     []string{"get", "list", "watch", "patch"},
-		},
+		// 租约仅用于查看控制器选举等运维信息
 		{
 			APIGroups: []string{"coordination.k8s.io"},
 			Resources: []string{"leases"},
 			Verbs:     []string{"get"},
-		},
-		{
-			APIGroups: []string{"storage.k8s.io"},
-			Resources: []string{"storageclasses"},
-			Verbs:     pixiuReadVerbs,
-		},
-		{
-			APIGroups: []string{"metrics.k8s.io"},
-			Resources: []string{"pods", "nodes"},
-			Verbs:     pixiuReadVerbs,
 		},
 	}...)
 	return &rbacv1.ClusterRole{
@@ -432,38 +417,20 @@ func buildPixiuOpsClusterRole() *rbacv1.ClusterRole {
 	}
 }
 
-// buildPixiuDevClusterRole 构造开发预置角色：参考阿里云 cs:dev，
-// 可读写工作负载与控制台可见资源，但不含节点/存储卷等基础设施改权限。
+// buildPixiuDevClusterRole 构造开发预置角色：可读写命名空间内工作负载与控制台可见资源。
 func buildPixiuDevClusterRole() *rbacv1.ClusterRole {
-	rules := buildManagedWorkloadRules()
-	rules = append(rules, []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"events", "namespaces/status", "replicationcontrollers/status",
-				"pods/log", "pods/status", "componentstatuses"},
-			Verbs: pixiuReadVerbs,
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{"namespaces"},
-			Verbs:     pixiuReadVerbs,
-		},
-		{
-			APIGroups: []string{"metrics.k8s.io"},
-			Resources: []string{"pods"},
-			Verbs:     pixiuReadVerbs,
-		},
-	}...)
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   types.PixiuDevClusterRole,
 			Labels: map[string]string{"maintainer": "pixiu"},
 		},
-		Rules: rules,
+		Rules: buildManagedWorkloadRules(),
 	}
 }
 
-// buildManagedWorkloadRules 构造运维/开发共享的工作负载与应用资源规则（阿里云 cs:ops/cs:dev 的通用 K8s 部分）。
+// buildManagedWorkloadRules 构造运维/开发共享的命名空间级工作负载与应用资源规则。
+// 所有资源均须在命名空间内有效（RoleBinding 语义），且不得命中自定义规则黑名单
+// （不含 serviceaccounts、nodes、namespaces、persistentvolumes、storageclasses、CRD 等）。
 func buildManagedWorkloadRules() []rbacv1.PolicyRule {
 	return []rbacv1.PolicyRule{
 		// Pod 及运维子资源（exec/attach/portforward/proxy）
@@ -477,15 +444,22 @@ func buildManagedWorkloadRules() []rbacv1.PolicyRule {
 			APIGroups: []string{""},
 			Resources: []string{"configmaps", "endpoints", "persistentvolumeclaims",
 				"replicationcontrollers", "replicationcontrollers/scale", "secrets",
-				"serviceaccounts", "services", "services/proxy"},
+				"services", "services/proxy"},
 			Verbs: pixiuFullVerbs,
 		},
-		// pixiu 自身依赖：经 apiserver 代理访问集群内 Prometheus/Loki、读取监控大盘
+		// 只读类状态资源
 		{
 			APIGroups: []string{""},
-			Resources: []string{"services/proxy"},
-			Verbs:     []string{"get"},
+			Resources: []string{"events", "pods/log", "pods/status", "replicationcontrollers/status"},
+			Verbs:     pixiuReadVerbs,
 		},
+		// 命名空间内 Pod 指标
+		{
+			APIGroups: []string{"metrics.k8s.io"},
+			Resources: []string{"pods"},
+			Verbs:     pixiuReadVerbs,
+		},
+		// pixiu 自身依赖：读取监控大盘（聚合 API/CRD 可能为集群级，RoleBinding 下无效但无害）
 		{
 			APIGroups: []string{"metrics.pixiu.io"},
 			Resources: []string{"api/dashboard"},
@@ -515,17 +489,12 @@ func buildManagedWorkloadRules() []rbacv1.PolicyRule {
 		},
 		{
 			APIGroups: []string{"networking.k8s.io"},
-			Resources: []string{"*"},
+			Resources: []string{"ingresses", "ingresses/status", "networkpolicies"},
 			Verbs:     pixiuFullVerbs,
 		},
 		{
 			APIGroups: []string{"policy"},
 			Resources: []string{"poddisruptionbudgets"},
-			Verbs:     pixiuFullVerbs,
-		},
-		{
-			APIGroups: []string{"apiextensions.k8s.io"},
-			Resources: []string{"customresourcedefinitions"},
 			Verbs:     pixiuFullVerbs,
 		},
 	}
