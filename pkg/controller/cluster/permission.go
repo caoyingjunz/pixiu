@@ -48,10 +48,11 @@ import (
 // allNamespacesSentinel 前端「全部命名空间」哨兵值，仅集群级预置角色使用，落库前必须剔除。
 const allNamespacesSentinel = "__all__"
 
-// effectiveRules 归一授权规则：仅自定义（p_type=1）使用客户端下发的规则，
-// 预置角色（0/2/3/4）的规则完全由服务端定义，一律置空，避免客户端规则落库或下发。
+// effectiveRules 归一授权规则：只读（0）/管理员（2）忽略客户端规则，
+// 自定义（1）/运维（3）/开发（4）统一使用客户端下发的规则。
 func effectiveRules(pType int, rules []rbacv1.PolicyRule) []rbacv1.PolicyRule {
-	if pType != int(model.PermissionPTypeCustom) {
+	switch model.PermissionPType(pType) {
+	case model.PermissionPTypeReadonly, model.PermissionPTypeAdmin:
 		return nil
 	}
 	return rules
@@ -132,7 +133,7 @@ func (c *cluster) CreatePermission(ctx context.Context, req *types.CreatePermiss
 
 	req.UserId = uid
 	req.SetDefaultOptions()
-	// 落库与 k8s 下发均使用归一值：命名空间级预置角色规则由服务端定义，忽略客户端 rules
+	// 落库与 k8s 下发均使用归一值：1/3/4 使用客户端 rules，0/2 忽略
 	req.TargetNamespaces = namespaces
 	req.Rules = effectiveRules(req.PType, req.Rules)
 
@@ -417,7 +418,7 @@ func (c *cluster) UpdatePermission(ctx context.Context, req *types.UpdatePermiss
 	if err = types.ValidatePermissionGrant(user.Role == model.RoleRoot, pType, req.Rules, namespaces); err != nil {
 		return err
 	}
-	// 校验通过后再归一规则：仅自定义（p_type=1）使用客户端规则，预置角色一律置空
+	// 校验通过后再归一规则：1/3/4 使用客户端规则，0/2 忽略
 	rules := effectiveRules(pType, req.Rules)
 
 	// 计算命名空间是否有变化，新增或者减少，或者不变
@@ -553,8 +554,7 @@ func (c *cluster) addKubernetesRule(ctx context.Context, req *types.CreatePermis
 		return "", err
 	}
 
-	// 集群级预置角色（只读/管理员）走 ClusterRoleBinding；
-	// 自定义与命名空间级预置角色（运维/开发）按 target_namespaces 逐个创建 RoleBinding
+	// 只读/管理员走 ClusterRoleBinding；自定义/运维/开发（1/3/4）按 target_namespaces 逐个创建 RoleBinding
 	switch model.PermissionPType(req.PType) {
 	case model.PermissionPTypeReadonly, model.PermissionPTypeAdmin:
 		if err := createClusterRoleBinding(ctx, req, kubeClient); err != nil {
@@ -611,8 +611,8 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 	}
 
 	switch object.PType {
-	case model.PermissionPTypeCustom:
-		// 自定义：删除用户专属 ClusterRole 与各命名空间 RoleBinding
+	case model.PermissionPTypeCustom, model.PermissionPTypeOps, model.PermissionPTypeDeveloper:
+		// 自定义与运维/开发同逻辑：删除用户专属 ClusterRole 与各命名空间 RoleBinding
 		klog.Infof("deleting ClusterRole(%s)", name)
 		if err = clientSet.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
 			if !apierrors.IsNotFound(err) {
@@ -621,20 +621,9 @@ func (c *cluster) deleteKubernetesRule(ctx context.Context, object *model.Permis
 			}
 		}
 
-		for _, targetNamespace := range decodeStringSlice(object.TargetNamespaces) {
-			klog.Infof("deleting RoleBindings %s(%s)", targetNamespace, bindingName)
-			if err = clientSet.RbacV1().RoleBindings(targetNamespace).Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil {
-				if !apierrors.IsNotFound(err) {
-					klog.Errorf("failed to delete RoleBindings(%s) in namespace(%s): %v", bindingName, targetNamespace, err)
-					errs = append(errs, err)
-				}
-			}
-		}
-	case model.PermissionPTypeOps, model.PermissionPTypeDeveloper:
-		// 命名空间级预置：删除各命名空间 RoleBinding，保留共享 ClusterRole（pixiu-ops/pixiu-dev）。
-		// binding 名为空时跳过 k8s 绑定清理，避免以空名发起删除。
+		// binding 名为空时跳过 RoleBinding 清理，避免以空名发起删除
 		if bindingName == "" {
-			klog.Warningf("permission(%d) has empty role binding name, skip k8s binding cleanup", object.Id)
+			klog.Warningf("permission(%d) has empty role binding name, skip role binding cleanup", object.Id)
 			break
 		}
 		for _, targetNamespace := range decodeStringSlice(object.TargetNamespaces) {
@@ -854,48 +843,19 @@ func ensurePixiuViewClusterRole(ctx context.Context, clientSet kubernetes.Interf
 	return nil
 }
 
-// ensureManagedClusterRole 幂等确保目标集群存在指定的预置 ClusterRole（运维/开发共享角色）。
-// 规则由服务端固定构造（命名空间级安全子集），已存在则整体覆盖，保证预置角色与当前规则一致。
-func ensureManagedClusterRole(ctx context.Context, clientSet kubernetes.Interface, name string, build func() *rbacv1.ClusterRole) error {
-	desired := build()
-	existing, err := clientSet.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
-	if err == nil {
-		existing.Rules = desired.Rules
-		if _, err = clientSet.RbacV1().ClusterRoles().Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("更新 ClusterRole(%s) 失败: %w", name, err)
-		}
-		return nil
-	}
-	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("检查 ClusterRole(%s) 失败: %w", name, err)
-	}
-	if _, err = clientSet.RbacV1().ClusterRoles().Create(ctx, desired, metav1.CreateOptions{}); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			return nil
-		}
-		return fmt.Errorf("创建 ClusterRole(%s) 失败: %w", name, err)
-	}
-	return nil
-}
-
 // 创建 ClusterRole
 // PType 0 只读：复用 pixiu-view，缺失时幂等补建
-// PType 1 自定义：用 req.Rules 创建
 // PType 2 管理员：复用内置 cluster-admin，无需创建
-// PType 3 运维 / 4 开发：命名空间级预置角色，复用共享 ClusterRole pixiu-ops / pixiu-dev
-// （规则由服务端定义，经各命名空间 RoleBinding 生效），缺失时幂等补建
+// PType 1 自定义 / 3 运维 / 4 开发：同逻辑，用 req.Rules 创建用户专属 ClusterRole
 func createClusterRole(ctx context.Context, req *types.CreatePermissionRequest, clientSet kubernetes.Interface) error {
 	switch model.PermissionPType(req.PType) {
 	case model.PermissionPTypeReadonly:
 		return ensurePixiuViewClusterRole(ctx, clientSet)
-	case model.PermissionPTypeOps:
-		return ensureManagedClusterRole(ctx, clientSet, types.PixiuOpsClusterRole, buildPixiuOpsClusterRole)
-	case model.PermissionPTypeDeveloper:
-		return ensureManagedClusterRole(ctx, clientSet, types.PixiuDevClusterRole, buildPixiuDevClusterRole)
 	case model.PermissionPTypeAdmin:
 		return nil // 管理员直接复用内置 cluster-admin
-	}
-	if req.PType != int(model.PermissionPTypeCustom) {
+	case model.PermissionPTypeCustom, model.PermissionPTypeOps, model.PermissionPTypeDeveloper:
+		// 继续创建用户专属 ClusterRole
+	default:
 		return fmt.Errorf("不支持的 p_type: %d", req.PType)
 	}
 

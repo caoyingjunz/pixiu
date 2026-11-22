@@ -22,7 +22,7 @@ func init() {
 	register(&Permission{})
 }
 
-// PermissionPType 授权类型：0 只读 1 自定义 2 管理员 3 运维（命名空间级） 4 开发（命名空间级）
+// PermissionPType 授权类型：0 只读 1 自定义 2 管理员 3 运维 4 开发（3/4 与自定义同逻辑）
 type PermissionPType int8
 
 const (
@@ -55,8 +55,7 @@ type Permission struct {
 	ExpirationSeconds int64           `gorm:"column:expiration_seconds" json:"expiration_seconds"`
 	PType             PermissionPType `gorm:"column:p_type" json:"p_type"`
 
-	// PType=1 时生效，JSON 序列化的 PolicyRule 列表；
-	// 3/4 为命名空间级预置角色，规则由服务端定义，此处存空
+	// PType=1/3/4 时生效，JSON 序列化的 PolicyRule 列表；3/4 与自定义同逻辑（使用客户端规则）
 	Rules string `gorm:"type:text" json:"rules"`
 
 	SAName      string `gorm:"column:sa_name" json:"sa_name"`
