@@ -23,6 +23,7 @@ import (
 	mysqlrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/mysql"
 	postgresrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/postgres"
 	redisrouter "github.com/caoyingjunz/pixiu/api/server/router/extension/redis"
+	"github.com/caoyingjunz/pixiu/api/server/router/extension/sqlbackup"
 	storagerouter "github.com/caoyingjunz/pixiu/api/server/router/extension/storage"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 )
@@ -40,5 +41,8 @@ func NewRouter(o *options.Options) {
 	mysqlrouter.RegisterMysql(o, group)
 	postgresrouter.RegisterPostgres(o, group)
 	storagerouter.RegisterStorage(o, group)
+	group.Entries = append(group.Entries, apiregistry.RouteEntry{
+		Method: "GET", RelativePath: sqlbackup.DownloadRoute, Handler: sqlbackup.Download, Description: "SQL 备份文件下载",
+	})
 	group.Register(o.HttpEngine.Group(extensionBaseURL), o.Controller.APIResource())
 }

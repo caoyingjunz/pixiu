@@ -34,6 +34,24 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 )
 
+// SQLBackupSummary SQL 文件备份结果摘要
+type SQLBackupSummary struct {
+	GeneratedAt string `json:"generated_at"`
+	TableNum    int    `json:"table_num"`
+	SizeBytes   int64  `json:"size_bytes"`
+	Truncated   bool   `json:"truncated"`
+	Preview     string `json:"preview"`
+}
+
+// TableMetadataOptions 轻量表元数据查询参数
+type TableMetadataOptions struct {
+	Metadata string `form:"metadata" binding:"required,oneof=tableNames columnNames"`
+	Table    string `form:"table"`
+	Keyword  string `form:"keyword"`
+	Match    string `form:"match" binding:"omitempty,oneof=contains prefix exact"`
+	Limit    int    `form:"limit" binding:"omitempty,min=1,max=100"`
+}
+
 // 资源类型（scope 授权维度）
 const (
 	ResourceTypePlan         = "plan"

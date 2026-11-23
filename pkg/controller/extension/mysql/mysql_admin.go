@@ -17,20 +17,25 @@ limitations under the License.
 package mysql
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/pkg/controller/extension/sqlbackup"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -42,8 +47,6 @@ const (
 	maxCellValueRunes    = 4096             // 结果单元格最大显示长度（rune）
 	maxBackupRows        = 1000000          // 备份单表最大行数
 	defaultBackupRows    = 10000            // 备份单表缺省行数
-	maxBackupBytes       = 128 << 20        // 备份 SQL 文本体积上限 128MB
-	maxBackupTables      = 200              // 单次备份表数量上限
 	maxSessionListSize   = 1000             // PROCESSLIST 最大返回条数
 	maxBatchStatements   = 50               // 批量执行单次最大语句条数
 	maxImportStatements  = 200000           // SQL 导入单次最大语句条数
@@ -816,7 +819,8 @@ func (c *controller) KillSession(ctx context.Context, datasourceId int64, id int
 
 // ListSlowQueries 分页读取 mysql.slow_log（需 slow_query_log=ON 且 log_output 含 TABLE）；
 // 未开启表输出时返回空列表并附带慢日志状态，由前端提示原因与开启方式
-func (c *controller) ListSlowQueries(ctx context.Context, datasourceId, page, pageSize int64) (*types.MySQLSlowQueryList, error) {
+func (c *controller) ListSlowQueries(ctx context.Context, datasourceId int64, opts types.MySQLSlowQueryOptions) (*types.MySQLSlowQueryList, error) {
+	page, pageSize := opts.Page, opts.PageSize
 	if page <= 0 {
 		page = 1
 	}
@@ -851,7 +855,8 @@ func (c *controller) ListSlowQueries(ctx context.Context, datasourceId, page, pa
 		return result, nil
 	}
 
-	if err := dbConn.QueryRowContext(ctx, "SELECT COUNT(*) FROM mysql.slow_log").Scan(&result.Total); err != nil {
+	where, order, args := slowQueryCriteria(opts)
+	if err := dbConn.QueryRowContext(ctx, "SELECT COUNT(*) FROM mysql.slow_log"+where, args...).Scan(&result.Total); err != nil {
 		return nil, wrapMySQLErr(err)
 	}
 	if result.Total == 0 {
@@ -860,7 +865,7 @@ func (c *controller) ListSlowQueries(ctx context.Context, datasourceId, page, pa
 
 	rows, err := dbConn.QueryContext(ctx,
 		"SELECT start_time, query_time, lock_time, rows_sent, rows_examined, user_host, db, sql_text "+
-			"FROM mysql.slow_log ORDER BY start_time DESC LIMIT ? OFFSET ?", pageSize, offset)
+			"FROM mysql.slow_log"+where+" ORDER BY "+order+" LIMIT ? OFFSET ?", append(args, pageSize, offset)...)
 	if err != nil {
 		return nil, wrapMySQLErr(err)
 	}
@@ -887,6 +892,39 @@ func (c *controller) ListSlowQueries(ctx context.Context, datasourceId, page, pa
 	return result, wrapRowsErr(rows.Err())
 }
 
+func slowQueryCriteria(opts types.MySQLSlowQueryOptions) (where, order string, args []any) {
+	conditions := make([]string, 0, 3)
+	if opts.Database != "" {
+		conditions = append(conditions, "BINARY db = ?")
+		args = append(args, opts.Database)
+	}
+	if opts.MinSeconds > 0 {
+		conditions = append(conditions, "query_time >= SEC_TO_TIME(?)")
+		args = append(args, opts.MinSeconds)
+	}
+	if keyword := strings.TrimSpace(opts.Keyword); keyword != "" {
+		conditions = append(conditions, "LOCATE(LOWER(?), LOWER(CONCAT_WS(' ', db, CAST(user_host AS CHAR), CAST(sql_text AS CHAR)))) > 0")
+		args = append(args, keyword)
+	}
+	if len(conditions) > 0 {
+		where = " WHERE " + strings.Join(conditions, " AND ")
+	}
+	dir := " DESC"
+	if strings.EqualFold(opts.OrderDir, "asc") {
+		dir = " ASC"
+	}
+	order = "start_time DESC"
+	switch opts.OrderBy {
+	case "queryTime":
+		order = "query_time" + dir + ", " + order
+	case "lockTime":
+		order = "lock_time" + dir + ", " + order
+	case "rows":
+		order = "rows_examined" + dir + ", rows_sent" + dir + ", " + order
+	}
+	return
+}
+
 // parseUserHost 解析 mysql.slow_log.user_host 格式：root[root] @ localhost []
 func parseUserHost(raw string) (user, host string) {
 	if i := strings.Index(raw, "["); i > 0 {
@@ -908,6 +946,18 @@ func parseUserHost(raw string) (user, host string) {
 // Backup 生成库/表的 SQL 文本备份（SHOW CREATE TABLE + INSERT），仅管理员可调用。
 // 行数与总体积均有上限，超限标记 Truncated。
 func (c *controller) Backup(ctx context.Context, datasourceId int64, req *types.MySQLBackupRequest) (*types.MySQLBackupResult, error) {
+	var content strings.Builder
+	summary, err := c.WriteBackup(ctx, datasourceId, req, &content)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MySQLBackupResult{
+		Database: req.Database, GeneratedAt: summary.GeneratedAt, TableNum: summary.TableNum,
+		Truncated: summary.Truncated, SizeBytes: summary.SizeBytes, Content: content.String(),
+	}, nil
+}
+
+func (c *controller) WriteBackup(ctx context.Context, datasourceId int64, req *types.MySQLBackupRequest, dst io.Writer) (*types.SQLBackupSummary, error) {
 	if err := requireMySQLAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -931,7 +981,7 @@ func (c *controller) Backup(ctx context.Context, datasourceId int64, req *types.
 	}
 
 	// 备份可能涉及大量读取，使用独立的长超时上下文
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, sqlbackup.Timeout)
 	defer cancel()
 
 	// 解析目标表：未指定时取整库全部表
@@ -950,6 +1000,9 @@ func (c *controller) Backup(ctx context.Context, datasourceId int64, req *types.
 				return nil, wrapMySQLErr(err)
 			}
 			tables = append(tables, name)
+			if len(tables) > sqlbackup.MaxTables {
+				break
+			}
 		}
 		if err := rows.Err(); err != nil {
 			rows.Close()
@@ -960,8 +1013,8 @@ func (c *controller) Backup(ctx context.Context, datasourceId int64, req *types.
 	if len(tables) == 0 {
 		return nil, apierrors.NewError(fmt.Errorf("no tables to backup in database %s", req.Database), http.StatusNotFound)
 	}
-	if len(tables) > maxBackupTables {
-		return nil, apierrors.NewError(fmt.Errorf("backup tables exceed limit %d", maxBackupTables), http.StatusBadRequest)
+	if len(tables) > sqlbackup.MaxTables {
+		return nil, apierrors.NewError(fmt.Errorf("backup tables exceed limit %d", sqlbackup.MaxTables), http.StatusBadRequest)
 	}
 	for _, t := range tables {
 		if err := checkIdentifier("table", t); err != nil {
@@ -969,134 +1022,168 @@ func (c *controller) Backup(ctx context.Context, datasourceId int64, req *types.
 		}
 	}
 
-	result := &types.MySQLBackupResult{
-		Database:    req.Database,
+	result := &types.SQLBackupSummary{
 		GeneratedAt: time.Now().Format("2006-01-02 15:04:05"),
-		TableNum:    len(tables),
 	}
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("-- Pixiu MySQL Backup\n-- Database: %s\n-- Generated At: %s\n-- Tables: %d\n\n",
-		req.Database, result.GeneratedAt, len(tables)))
-	sb.WriteString("SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n")
-
+	out := sqlbackup.NewWriter(dst)
+	if _, err := out.Statement(fmt.Sprintf("-- Pixiu MySQL Backup\n-- Database: %s\n-- Generated At: %s\n-- Requested tables: %d\n\n"+
+		"SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n", req.Database, result.GeneratedAt, len(tables))); err != nil {
+		return nil, err
+	}
+	sizeLimited := false
+	var ddlDuration, rowDuration time.Duration
+	defer func() {
+		klog.V(3).InfoS("MySQL SQL backup stages", "ddl", ddlDuration, "dataAndWrite", rowDuration,
+			"tables", result.TableNum, "withData", req.WithData)
+	}()
 	for _, table := range tables {
 		fullName := quoteIdent(req.Database) + "." + quoteIdent(table)
 
 		var tableName, ddl string
-		if err := dbConn.QueryRowContext(ctx, "SHOW CREATE TABLE "+fullName).Scan(&tableName, &ddl); err != nil {
+		started := time.Now()
+		err := dbConn.QueryRowContext(ctx, "SHOW CREATE TABLE "+fullName).Scan(&tableName, &ddl)
+		ddlDuration += time.Since(started)
+		if err != nil {
 			return nil, wrapMySQLErr(err)
 		}
-		sb.WriteString(fmt.Sprintf("-- Table: %s\nDROP TABLE IF EXISTS %s;\n%s;\n\n",
+		ok, err := out.Statement(fmt.Sprintf("-- Table: %s\nDROP TABLE IF EXISTS %s;\n%s;\n\n",
 			table, quoteIdent(table), ddl))
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			sizeLimited = true
+			break
+		}
+		result.TableNum++
 
 		if req.WithData {
-			truncated, err := backupTableData(ctx, dbConn, fullName, quoteIdent(table), maxRows, &sb)
+			started := time.Now()
+			truncated, full, err := backupTableData(ctx, dbConn, fullName, quoteIdent(table), maxRows, out)
+			rowDuration += time.Since(started)
 			if err != nil {
 				return nil, err
 			}
+			result.Truncated = result.Truncated || truncated
+			if full {
+				sizeLimited = true
+				break
+			}
 			if truncated {
-				result.Truncated = true
+				ok, err := out.Statement("-- Table data truncated: row limit reached.\n\n")
+				if err != nil {
+					return nil, err
+				}
+				if !ok {
+					sizeLimited = true
+					break
+				}
 			}
 		}
-		if sb.Len() > maxBackupBytes {
-			result.Truncated = true
-			sb.WriteString("-- [backup truncated: size limit reached]\n")
-			break
-		}
 	}
-	sb.WriteString("\nSET FOREIGN_KEY_CHECKS = 1;\n")
-
-	result.Content = sb.String()
-	result.SizeBytes = int64(len(result.Content))
+	if err := out.Finish(result, "\nSET FOREIGN_KEY_CHECKS = 1;\n", sizeLimited); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
-// backupTableData 导出单表数据为 INSERT 语句（每 50 行一条），返回是否因行数上限截断
-func backupTableData(ctx context.Context, dbConn *sql.DB, fullName, quotedTable string, maxRows int64, sb *strings.Builder) (bool, error) {
+func backupTableData(ctx context.Context, dbConn *sql.DB, fullName, quotedTable string, maxRows int64, out *sqlbackup.Writer) (rowLimited, sizeLimited bool, err error) {
 	rows, err := dbConn.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s LIMIT %d", fullName, maxRows+1))
 	if err != nil {
-		return false, wrapMySQLErr(err)
+		return false, false, wrapMySQLErr(err)
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return false, wrapMySQLErr(err)
+		return false, false, wrapMySQLErr(err)
 	}
 
-	truncated := false
-	var batch []string
-	rowCount := int64(0)
-	flush := func() {
-		if len(batch) == 0 {
-			return
-		}
-		sb.WriteString(fmt.Sprintf("INSERT INTO %s VALUES\n%s;\n", quotedTable, strings.Join(batch, ",\n")))
-		batch = batch[:0]
+	batch := sqlbackup.NewInserts(out, "INSERT INTO "+quotedTable+" VALUES\n")
+	values, ptrs := make([]interface{}, len(cols)), make([]interface{}, len(cols))
+	for i := range ptrs {
+		ptrs[i] = &values[i]
 	}
+	rowCount := int64(0)
+	tuple := make([]byte, 0, 1024)
 	for rows.Next() {
 		if rowCount >= maxRows {
-			truncated = true
+			rowLimited = true
 			break
 		}
-		values := make([]interface{}, len(cols))
-		ptrs := make([]interface{}, len(cols))
-		for i := range values {
-			ptrs[i] = &values[i]
-		}
 		if err := rows.Scan(ptrs...); err != nil {
-			return false, wrapMySQLErr(err)
+			return false, false, wrapMySQLErr(err)
 		}
 		rowCount++
-		literals := make([]string, len(cols))
+		tuple = tuple[:0]
+		tuple = append(tuple, '(')
 		for i, v := range values {
-			literals[i] = sqlLiteral(v)
+			if i > 0 {
+				tuple = append(tuple, ',', ' ')
+			}
+			tuple = appendSQLLiteral(tuple, v)
 		}
-		batch = append(batch, "("+strings.Join(literals, ", ")+")")
-		if len(batch) >= 50 {
-			flush()
+		tuple = append(tuple, ')')
+		if ok, err := batch.RowBytes(tuple); !ok || err != nil {
+			return false, !ok, err
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return false, wrapMySQLErr(err)
+		return false, false, wrapMySQLErr(err)
 	}
-	flush()
-	if rowCount > 0 {
-		sb.WriteString("\n")
-	}
-	return truncated, nil
+	ok, err := batch.Flush()
+	return rowLimited, !ok, err
 }
 
-// sqlLiteral 将驱动返回值转为 SQL 字面量：NULL/二进制 hex/时间格式化/字符串转义
-func sqlLiteral(v interface{}) string {
+func appendSQLLiteral(dst []byte, v interface{}) []byte {
 	switch t := v.(type) {
 	case nil:
-		return "NULL"
+		return append(dst, "NULL"...)
 	case []byte:
 		if utf8.Valid(t) {
-			return quoteSQLString(string(t))
+			return appendSQLString(dst, t)
 		}
-		return "0x" + hex.EncodeToString(t)
+		dst = append(dst, '0', 'x')
+		return hex.AppendEncode(dst, t)
 	case time.Time:
-		return "'" + t.Format("2006-01-02 15:04:05") + "'"
+		dst = append(dst, '\'')
+		dst = t.AppendFormat(dst, "2006-01-02 15:04:05")
+		return append(dst, '\'')
 	case bool:
 		if t {
-			return "1"
+			return append(dst, '1')
 		}
-		return "0"
-	case int64, uint64, float32, float64, int, uint:
-		return fmt.Sprintf("%v", t)
+		return append(dst, '0')
+	case int64:
+		return strconv.AppendInt(dst, t, 10)
+	case uint64:
+		return strconv.AppendUint(dst, t, 10)
+	case int:
+		return strconv.AppendInt(dst, int64(t), 10)
+	case uint:
+		return strconv.AppendUint(dst, uint64(t), 10)
+	case float32, float64:
+		return fmt.Append(dst, t)
 	default:
-		return quoteSQLString(fmt.Sprintf("%v", t))
+		return appendSQLString(dst, []byte(fmt.Sprint(t)))
 	}
 }
 
-// quoteSQLString SQL 字符串字面量转义（反斜杠与单引号）
-func quoteSQLString(s string) string {
-	return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(s) + "'"
+func appendSQLString(dst, s []byte) []byte {
+	dst = append(dst, '\'')
+	if bytes.IndexByte(s, '\\') >= 0 || bytes.IndexByte(s, '\'') >= 0 {
+		for _, c := range s {
+			if c == '\\' || c == '\'' {
+				dst = append(dst, '\\')
+			}
+			dst = append(dst, c)
+		}
+		return append(dst, '\'')
+	}
+	dst = append(dst, s...)
+	return append(dst, '\'')
 }
 
-// ExportTableStreaming 流式导出表数据为 CSV（需要 gin.Context 参数以便写入响应）
 // 仅管理员可调用
 func (c *controller) ExportTableStreaming(ginCtx *gin.Context, datasourceId int64, req *types.MySQLTableExportRequest) error {
 	// 参数校验

@@ -5,13 +5,17 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"k8s.io/klog/v2"
+
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/pkg/controller/extension/sqlbackup"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -538,6 +542,10 @@ func (c *controller) GetTableDetail(ctx context.Context, id int64, database, sch
 		return nil, err
 	}
 
+	return getPgTableDetail(ctx, dbConn, schema, table)
+}
+
+func getPgTableDetail(ctx context.Context, dbConn *sql.DB, schema, table string) (*types.PostgresTableDetail, error) {
 	ctx, cancel := pgOpContext(ctx)
 	defer cancel()
 
@@ -545,8 +553,10 @@ func (c *controller) GetTableDetail(ctx context.Context, id int64, database, sch
 
 	// 表体积与行数估算（顺带取 relkind，供前端区分基表/视图/序列）
 	_ = dbConn.QueryRowContext(ctx,
-		"select coalesce(c.reltuples,0)::bigint, pg_total_relation_size(c.oid), c.relkind from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2",
-		schema, table).Scan(&detail.Rows, &detail.SizeBytes, &detail.RelKind)
+		`select coalesce(c.reltuples,0)::bigint, pg_total_relation_size(c.oid), c.relkind,
+			exists (select 1 from pg_catalog.pg_inherits where inhparent=c.oid)
+		from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2`,
+		schema, table).Scan(&detail.Rows, &detail.SizeBytes, &detail.RelKind, &detail.HasChildren)
 
 	// 列信息（使用 pg_catalog 避免 information_schema 域类型问题）
 	colRows, err := dbConn.QueryContext(ctx, `
@@ -980,7 +990,8 @@ func (c *controller) GrantRole(ctx context.Context, id int64, req *types.Postgre
 	return c.execDDL(ctx, id, "", stmt)
 }
 
-func (c *controller) ListSlowQueries(ctx context.Context, id int64, page, pageSize int64, orderBy, orderDir string) (*types.PostgresSlowQueryList, error) {
+func (c *controller) ListSlowQueries(ctx context.Context, id int64, opts types.PostgresSlowQueryOptions) (*types.PostgresSlowQueryList, error) {
+	page, pageSize := opts.Page, opts.PageSize
 	if page <= 0 {
 		page = 1
 	}
@@ -1019,25 +1030,13 @@ func (c *controller) ListSlowQueries(ctx context.Context, id int64, page, pageSi
 		usePG13Cols = true
 	}
 
-	// 排序字段白名单
-	validOrderBy := map[string]string{
-		"total_time": "total",
-		"mean_time":  "mean",
-		"calls":      "calls",
-		"rows":       "rows",
-		"max_time":   "max",
-		"min_time":   "min",
-	}
 	colSuffix := "_time"
 	if usePG13Cols {
 		colSuffix = "_exec_time"
 	}
-	colName := "total" + colSuffix
-	if ob, ok := validOrderBy[strings.ToLower(orderBy)]; ok {
-		colName = ob + colSuffix
-	}
+	sortExpr := slowQuerySortExpr(opts.OrderBy, colSuffix)
 	dir := "DESC"
-	if strings.ToUpper(orderDir) == "ASC" {
+	if strings.EqualFold(opts.OrderDir, "asc") {
 		dir = "ASC"
 	}
 
@@ -1045,18 +1044,28 @@ func (c *controller) ListSlowQueries(ctx context.Context, id int64, page, pageSi
 	minCol := "min" + colSuffix
 	maxCol := "max" + colSuffix
 	meanCol := "mean" + colSuffix
+	totalCol := "total" + colSuffix
+	where, args := pgSlowQueryCriteria(opts, meanCol)
+	from := ` FROM pg_stat_statements s
+LEFT JOIN pg_database d ON s.dbid = d.oid
+LEFT JOIN pg_user u ON s.userid = u.usesysid` + where
+	if err := dbConn.QueryRowContext(ctx, "SELECT count(*)"+from, args...).Scan(&result.Total); err != nil {
+		return nil, wrapPgErr(err)
+	}
+	if result.Total == 0 {
+		return result, nil
+	}
 
 	query := fmt.Sprintf(`
 SELECT s.query, s.calls, s.%s, s.%s, s.%s, s.%s, s.rows,
        s.shared_blks_hit, s.shared_blks_read,
        d.datname as db_name,
-       u.usename as user_name
-FROM pg_stat_statements s
-LEFT JOIN pg_database d ON s.dbid = d.oid
-LEFT JOIN pg_user u ON s.userid = u.usesysid
-ORDER BY s.%s %s LIMIT $1 OFFSET $2`, colName, meanCol, minCol, maxCol, colName, dir)
+       u.usename as user_name,
+       COALESCE(100.0 * s.%s / NULLIF(SUM(s.%s) OVER (), 0), 0)%s
+ORDER BY %s %s, s.dbid, s.userid, s.queryid LIMIT $%d OFFSET $%d`,
+		totalCol, meanCol, minCol, maxCol, totalCol, totalCol, from, sortExpr, dir, len(args)+1, len(args)+2)
 
-	rows, err := dbConn.QueryContext(ctx, query, pageSize, offset)
+	rows, err := dbConn.QueryContext(ctx, query, append(args, pageSize, offset)...)
 	if err != nil {
 		return nil, wrapPgErr(err)
 	}
@@ -1067,7 +1076,7 @@ ORDER BY s.%s %s LIMIT $1 OFFSET $2`, colName, meanCol, minCol, maxCol, colName,
 		var dbName, userName sql.NullString
 		if err := rows.Scan(&item.Query, &item.Calls, &item.TotalTimeMs, &item.MeanTimeMs,
 			&item.MinTimeMs, &item.MaxTimeMs, &item.Rows,
-			&item.SharedBlksHit, &item.SharedBlksRead, &dbName, &userName); err != nil {
+			&item.SharedBlksHit, &item.SharedBlksRead, &dbName, &userName, &item.SharePercent); err != nil {
 			return nil, wrapPgErr(err)
 		}
 		if dbName.Valid {
@@ -1079,8 +1088,194 @@ ORDER BY s.%s %s LIMIT $1 OFFSET $2`, colName, meanCol, minCol, maxCol, colName,
 		result.Items = append(result.Items, item)
 	}
 
-	// 获取总数
-	_ = dbConn.QueryRowContext(ctx, "SELECT count(*) FROM pg_stat_statements").Scan(&result.Total)
-
 	return result, rows.Err()
+}
+
+const pgSlowQueryHitRatio = "100.0 * s.shared_blks_hit / NULLIF(s.shared_blks_hit + s.shared_blks_read, 0)"
+
+func slowQuerySortExpr(orderBy, timeSuffix string) string {
+	switch strings.ToLower(orderBy) {
+	case "calls":
+		return "s.calls"
+	case "rows":
+		return "s.rows"
+	case "mean_time", "meantimems":
+		return "s.mean" + timeSuffix
+	case "max_time", "maxtimems":
+		return "s.max" + timeSuffix
+	case "min_time", "mintimems":
+		return "s.min" + timeSuffix
+	case "hit_ratio":
+		return "COALESCE(" + pgSlowQueryHitRatio + ", -1)"
+	default:
+		return "s.total" + timeSuffix
+	}
+}
+
+func pgSlowQueryCriteria(opts types.PostgresSlowQueryOptions, meanCol string) (string, []any) {
+	var conditions []string
+	var args []any
+	if opts.Database != "" {
+		args = append(args, opts.Database)
+		conditions = append(conditions, fmt.Sprintf("d.datname = $%d", len(args)))
+	}
+	if keyword := strings.TrimSpace(opts.Keyword); keyword != "" {
+		args = append(args, keyword)
+		conditions = append(conditions, fmt.Sprintf("strpos(lower(concat_ws(' ', d.datname, u.usename, s.query)), lower($%d)) > 0", len(args)))
+	}
+	if opts.MinTimeMs > 0 {
+		args = append(args, opts.MinTimeMs)
+		conditions = append(conditions, fmt.Sprintf("s.%s >= $%d", meanCol, len(args)))
+	}
+	if opts.LowCacheHit {
+		conditions = append(conditions, "("+pgSlowQueryHitRatio+") < 90")
+	}
+	if len(conditions) == 0 {
+		return "", args
+	}
+	return " WHERE " + strings.Join(conditions, " AND "), args
+}
+
+// WriteBackup 生成指定表的 SQL 文本备份（DDL + INSERT），写入 dst。
+func (c *controller) WriteBackup(ctx context.Context, id int64, req *types.PostgresBackupRequest, dst io.Writer) (*types.SQLBackupSummary, error) {
+	if err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	if req == nil || len(req.Tables) == 0 || len(req.Tables) > sqlbackup.MaxTables {
+		return nil, apierrors.NewError(fmt.Errorf("select between 1 and %d tables", sqlbackup.MaxTables), http.StatusBadRequest)
+	}
+	if err := pgCheckIdent("database", req.Database); err != nil {
+		return nil, err
+	}
+	for _, table := range req.Tables {
+		if err := pgCheckIdent("schema", table.Schema); err != nil {
+			return nil, err
+		}
+		if err := pgCheckIdent("table", table.Name); err != nil {
+			return nil, err
+		}
+	}
+	const maxRows = 10000
+	limit := req.MaxRows
+	if limit <= 0 || limit > maxRows {
+		limit = maxRows
+	}
+	ctx, cancel := context.WithTimeout(ctx, sqlbackup.Timeout)
+	defer cancel()
+	db, _, err := c.connTo(ctx, id, req.Database)
+	if err != nil {
+		return nil, err
+	}
+	result := &types.SQLBackupSummary{GeneratedAt: time.Now().UTC().Format(time.RFC3339)}
+	out := sqlbackup.NewWriter(dst)
+	if _, err := out.Statement(fmt.Sprintf("-- PostgreSQL dump\n-- Database: %s\n-- Generated at: %s\n\n"+
+		"SET standard_conforming_strings = on;\n\n", req.Database, result.GeneratedAt)); err != nil {
+		return nil, err
+	}
+
+	sizeLimited := false
+	var ddlDuration, rowDuration time.Duration
+	defer func() {
+		klog.V(3).InfoS("PostgreSQL SQL backup stages", "ddl", ddlDuration, "dataAndWrite", rowDuration,
+			"tables", result.TableNum, "withData", req.WithData)
+	}()
+	for _, table := range req.Tables {
+		started := time.Now()
+		detail, err := getPgTableDetail(ctx, db, table.Schema, table.Name)
+		ddlDuration += time.Since(started)
+		if err != nil {
+			return nil, err
+		}
+		if detail.RelKind == "" {
+			return nil, apierrors.NewError(fmt.Errorf("table %s.%s not found", table.Schema, table.Name), http.StatusNotFound)
+		}
+		ident := pgQuoteIdent(table.Schema) + "." + pgQuoteIdent(table.Name)
+		if ok, err := out.Statement("-- Table " + ident + "\n" + strings.TrimSuffix(detail.DDL, ";") + ";\n"); err != nil {
+			return nil, err
+		} else if !ok {
+			sizeLimited = true
+			break
+		}
+		result.TableNum++
+		if req.WithData {
+			started := time.Now()
+			rowLimited, full, err := writePgBackupRows(ctx, db, ident, detail.Columns, limit, out)
+			rowDuration += time.Since(started)
+			if err != nil {
+				return nil, err
+			}
+			result.Truncated = result.Truncated || rowLimited
+			if full {
+				sizeLimited = true
+				break
+			}
+			if rowLimited {
+				if ok, err := out.Statement("-- Table data truncated: row limit reached.\n"); err != nil {
+					return nil, err
+				} else if !ok {
+					sizeLimited = true
+					break
+				}
+			}
+		}
+	}
+	if err := out.Finish(result, "\n", sizeLimited); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func writePgBackupRows(ctx context.Context, db *sql.DB, table string, columns []types.PostgresColumn, maxRows int64, out *sqlbackup.Writer) (rowLimited, sizeLimited bool, err error) {
+	names, projection := make([]string, len(columns)), make([]string, len(columns))
+	for i, col := range columns {
+		names[i] = pgQuoteIdent(col.Name)
+		projection[i] = "pg_catalog.quote_nullable(" + names[i] + "::pg_catalog.text)"
+	}
+	if len(projection) == 0 {
+		projection = []string{"1"}
+	}
+	rows, err := db.QueryContext(ctx, "SELECT "+strings.Join(projection, ", ")+" FROM "+table+" LIMIT $1", maxRows+1)
+	if err != nil {
+		return false, false, wrapPgErr(err)
+	}
+	defer rows.Close()
+
+	batch := sqlbackup.NewInserts(out, "INSERT INTO "+table+" ("+strings.Join(names, ", ")+") VALUES\n")
+	literals, dest := make([]string, len(names)), make([]any, len(names))
+	for i := range dest {
+		dest[i] = &literals[i]
+	}
+	tuple := make([]byte, 0, 256)
+	for n := int64(0); rows.Next(); n++ {
+		if n >= maxRows {
+			rowLimited = true
+			break
+		}
+		if len(names) == 0 {
+			if ok, err := out.Statement("INSERT INTO " + table + " DEFAULT VALUES;\n"); !ok || err != nil {
+				return false, !ok, err
+			}
+			continue
+		}
+		if err := rows.Scan(dest...); err != nil {
+			return false, false, wrapPgErr(err)
+		}
+		tuple = tuple[:0]
+		tuple = append(tuple, '(')
+		for i, lit := range literals {
+			if i > 0 {
+				tuple = append(tuple, ',', ' ')
+			}
+			tuple = append(tuple, lit...)
+		}
+		tuple = append(tuple, ')')
+		if ok, err := batch.RowBytes(tuple); !ok || err != nil {
+			return false, !ok, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, false, wrapPgErr(err)
+	}
+	ok, err := batch.Flush()
+	return rowLimited, !ok, err
 }

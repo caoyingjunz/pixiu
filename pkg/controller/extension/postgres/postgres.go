@@ -14,8 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/klog/v2"
-
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
@@ -33,12 +31,16 @@ type Interface interface {
 	PingAdhoc(context.Context, int64, *types.PostgresSourceConfig) (*types.PostgresPing, error)
 	Info(context.Context, int64) (*types.PostgresServerInfo, error)
 	ListDatabases(context.Context, int64) ([]types.PostgresDatabase, error)
+	ListDatabaseNames(context.Context, int64) ([]string, error)
 	ListSchemas(context.Context, int64, string) ([]types.PostgresSchema, error)
 	ListTables(context.Context, int64, string, string) ([]types.PostgresTable, error)
+	ListTableMetadata(context.Context, int64, string, string, types.TableMetadataOptions) ([]string, error)
+	ListTablePage(context.Context, int64, string, string, types.PostgresTablePageOptions) (*types.PostgresTablePage, error)
 	ExecuteSQL(context.Context, int64, *types.PostgresQueryRequest) (*types.PostgresQueryResult, error)
 	SetParameter(context.Context, int64, *types.PostgresSetParameterRequest) (*types.PostgresSetParameterResult, error)
 	ExecuteBatchSQL(context.Context, int64, *types.PostgresBatchRequest) (*types.PostgresBatchResult, error)
 	ImportSQL(context.Context, int64, string, io.Reader) (*types.PostgresImportResult, error)
+	WriteBackup(context.Context, int64, *types.PostgresBackupRequest, io.Writer) (*types.SQLBackupSummary, error)
 	GetTableDetail(context.Context, int64, string, string, string) (*types.PostgresTableDetail, error)
 	CreateTable(context.Context, int64, *types.PostgresCreateTableRequest) error
 	AlterTable(context.Context, int64, *types.PostgresAlterTableRequest) error
@@ -46,7 +48,7 @@ type Interface interface {
 	CreateUser(context.Context, int64, *types.PostgresCreateUserRequest) error
 	DeleteUser(context.Context, int64, string) error
 	GrantRole(context.Context, int64, *types.PostgresGrantRequest) error
-	ListSlowQueries(context.Context, int64, int64, int64, string, string) (*types.PostgresSlowQueryList, error)
+	ListSlowQueries(ctx context.Context, id int64, opts types.PostgresSlowQueryOptions) (*types.PostgresSlowQueryList, error)
 	ListSessions(context.Context, int64) ([]types.PostgresSession, error)
 	CancelSession(context.Context, int64, int64, bool) error
 }
@@ -343,13 +345,32 @@ func (c *controller) Info(ctx context.Context, id int64) (*types.PostgresServerI
 	}
 	return r, nil
 }
+
+const pgVisibleDatabasesSQL = " from pg_database where datallowconn and has_database_privilege(datname,'CONNECT') order by datname"
+
+func (c *controller) ListDatabaseNames(ctx context.Context, id int64) ([]string, error) {
+	db, _, err := c.conn(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	names, err := pgQuerySlice(ctx, db, "select datname"+pgVisibleDatabasesSQL, func(r *sql.Rows) (string, error) {
+		var name string
+		err := r.Scan(&name)
+		return name, err
+	})
+	if err != nil {
+		return nil, wrapPgErr(err)
+	}
+	return names, nil
+}
+
 func (c *controller) ListDatabases(ctx context.Context, id int64) ([]types.PostgresDatabase, error) {
 	db, _, e := c.conn(ctx, id)
 	if e != nil {
 		return nil, e
 	}
 	// pg_database_size 需要 CONNECT；无权限的库会让整条查询失败，下拉变成无数据。
-	out, err := pgQuerySlice(ctx, db, "select datname,pg_get_userbyid(datdba),pg_database_size(datname),pg_encoding_to_char(encoding),datcollate from pg_database where datallowconn and has_database_privilege(datname,'CONNECT') order by datname", func(r *sql.Rows) (types.PostgresDatabase, error) {
+	out, err := pgQuerySlice(ctx, db, "select datname,pg_get_userbyid(datdba),pg_database_size(datname),pg_encoding_to_char(encoding),datcollate"+pgVisibleDatabasesSQL, func(r *sql.Rows) (types.PostgresDatabase, error) {
 		var x types.PostgresDatabase
 		e := r.Scan(&x.Name, &x.Owner, &x.SizeBytes, &x.Encoding, &x.Collation)
 		return x, e
@@ -386,50 +407,22 @@ func listPostgresTables(ctx context.Context, db *sql.DB, schema string) ([]types
 	ctx, cancel := pgQueryContext(ctx)
 	defer cancel()
 
-	type tableEntry struct {
-		types.PostgresTable
-		canCount bool
-	}
-	entries, err := pgQuerySlice(ctx, db, `
+	out, err := pgQuerySlice(ctx, db, `
 		select n.nspname, c.relname,
 			case c.relkind when 'r' then 'table' when 'v' then 'view'
 				when 'm' then 'materialized_view' when 'S' then 'sequence' end,
-			case when has_table_privilege(c.oid, 'SELECT') then pg_total_relation_size(c.oid) else 0 end,
+			`+pgTableSizeSQL+`,
 			pg_get_userbyid(c.relowner), coalesce(obj_description(c.oid, 'pg_class'), ''),
-			c.relkind in ('r', 'm') and c.relispopulated and has_table_privilege(c.oid, 'SELECT')
+			`+pgTableRowsSQL+`
 		from pg_class c join pg_namespace n on n.oid = c.relnamespace
 		where n.nspname = $1 and c.relkind in ('r', 'v', 'm', 'S')
-		order by c.relname`, func(r *sql.Rows) (tableEntry, error) {
-		var entry tableEntry
-		err := r.Scan(&entry.Schema, &entry.Name, &entry.Type, &entry.SizeBytes, &entry.Owner, &entry.Comment, &entry.canCount)
-		return entry, err
+		order by c.relname`, func(r *sql.Rows) (types.PostgresTable, error) {
+		var table types.PostgresTable
+		err := r.Scan(&table.Schema, &table.Name, &table.Type, &table.SizeBytes, &table.Owner, &table.Comment, &table.Rows)
+		return table, err
 	}, schema)
 	if err != nil {
 		return nil, wrapPgErr(err)
-	}
-
-	out := make([]types.PostgresTable, 0, len(entries))
-	for _, entry := range entries {
-		table := entry.PostgresTable
-		// Do not execute view definitions just to load the table list.
-		if entry.canCount {
-			if err := ctx.Err(); err != nil {
-				klog.V(2).InfoS("PostgreSQL row count skipped", "schema", table.Schema, "table", table.Name, "error", err)
-				out = append(out, table)
-				continue
-			}
-			countCtx, cancelCount := pgOpContext(ctx)
-			var rows int64
-			query := "select pg_catalog.count(*) from " + pgQuoteIdent(table.Schema) + "." + pgQuoteIdent(table.Name)
-			err := db.QueryRowContext(countCtx, query).Scan(&rows)
-			cancelCount()
-			if err == nil {
-				table.Rows = &rows
-			} else {
-				klog.V(2).InfoS("PostgreSQL row count failed", "schema", table.Schema, "table", table.Name, "error", err)
-			}
-		}
-		out = append(out, table)
 	}
 	return out, nil
 }
