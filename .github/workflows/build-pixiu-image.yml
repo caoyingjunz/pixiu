@@ -2,19 +2,18 @@ name: Publish pixiu-server image
 
 on:
   push:
-    branches:
-      - "master"
-    paths-ignore:
-      - 'docs/**'
-      - 'cmd/cluster-agent/**'
-      - 'docker/Dockerfile-cluster-agent'
-      - 'docker/Dockerfile-toolbox'
-      - 'deploy/agent/**'
-      - '.github/workflows/build-cluster-agent-image.yml'
-      - '.github/workflows/build-toolbox-image.yml'
-      - 'cmd/upgrade/**'
-      - 'docker/Dockerfile-upgrade'
-      - '.github/workflows/build-upgrade-image.yml'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      pixiu_ui_ref:
+        description: '打包进镜像的 pixiu-ui ref（tag/branch/commit，默认 master）'
+        required: false
+        default: master
+        type: string
+
+env:
+  IMAGE_VERSION: v2.0.2-beta.2
 
 jobs:
   build:
@@ -28,7 +27,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: pixiu-io/pixiu-ui
-          ref: master
+          ref: ${{ github.event.inputs.pixiu_ui_ref || 'master' }}
           # GITHUB_TOKEN 无法访问其他私有仓库，需配置有 pixiu-ui 读权限的 PAT
           token: ${{ secrets.PIXIU_UI_TOKEN }}
           path: pixiu-ui
@@ -51,6 +50,13 @@ jobs:
           username: ${{ secrets.DOCKER_NAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Check DefaultVersion matches image version
+        run: |
+          DEFAULT=$(sed -n 's/.*DefaultVersion = "\([^"]*\)".*/\1/p' pkg/controller/upgrade/upgrade.go | head -1)
+          if [ -n "$DEFAULT" ] && [ "$DEFAULT" != "$IMAGE_VERSION" ]; then
+            echo "::warning::DefaultVersion=$DEFAULT 与发布版本 $IMAGE_VERSION 不一致"
+          fi
+
       - name: Build and push the multi-arch pixiu image
         uses: docker/build-push-action@v5
         with:
@@ -58,13 +64,12 @@ jobs:
           file: ./docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
+            VERSION=${{ env.IMAGE_VERSION }}
           push: true
           provenance: false
           sbom: false
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.2
-        # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.COMMIT_HASH }}
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.IMAGE_VERSION }}
 
   # 原先原生 arm64 job（推送 *-arm64 单架构标签），多架构稳定后可删除
   # build-arm64:
@@ -104,9 +109,9 @@ jobs:
   #         file: ./docker/Dockerfile
   #         platforms: linux/arm64
   #         build-args: |
-  #           VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
+  #           VERSION=${{ env.IMAGE_VERSION }}
   #         push: true
   #         provenance: false
   #         sbom: false
   #         tags: |
-  #           crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:v2.0.2-beta.2-arm64
+  #           crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:${{ env.IMAGE_VERSION }}-arm64

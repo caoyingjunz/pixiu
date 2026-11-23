@@ -29,9 +29,6 @@ webshell-image:
 		--build-arg HELM_VERSION=$(helmVersion) \
 		-t $(dockerhubUser)/pixiu-webshell:$(tag) -f docker/Dockerfile .
 
-push-webshell-image: webshell-image
-	docker push $(dockerhubUser)/pixiu-webshell:$(tag)
-
 licfmt:
 	go run hack/tools/licfmt/licfmt.go -v ./*
 
