@@ -2,20 +2,12 @@ name: Publish pixiu-upgrade image
 
 on:
   push:
-    branches:
-      - "master"
-    paths:
-      - 'cmd/upgrade/**'
-      - 'pkg/upgrade/**'
-      - 'pkg/upgrader/**'
-      - 'pkg/controller/upgrade/**'
-      - 'pkg/db/**'
-      - 'pkg/util/runtime/**'
-      - 'cmd/app/config/**'
-      - 'docker/Dockerfile-upgrade'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/build-upgrade-image.yml'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  IMAGE_VERSION: v2.0.2-beta.2
 
 jobs:
   build:
@@ -43,6 +35,13 @@ jobs:
           username: ${{ secrets.DOCKER_NAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Check DefaultVersion matches image version
+        run: |
+          DEFAULT=$(sed -n 's/.*DefaultVersion = "\([^"]*\)".*/\1/p' pkg/controller/upgrade/upgrade.go | head -1)
+          if [ -n "$DEFAULT" ] && [ "$DEFAULT" != "$IMAGE_VERSION" ]; then
+            echo "::warning::DefaultVersion=$DEFAULT 与发布版本 $IMAGE_VERSION 不一致"
+          fi
+
       - name: Build and push the multi-arch pixiu-upgrade image
         uses: docker/build-push-action@v5
         with:
@@ -50,10 +49,9 @@ jobs:
           file: ./docker/Dockerfile-upgrade
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
+            VERSION=${{ env.IMAGE_VERSION }}
           push: true
           provenance: false
           sbom: false
           tags: |
-            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:v2.0.2-beta.2
-        # crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:${{ env.COMMIT_HASH }}
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu-upgrade:${{ env.IMAGE_VERSION }}
