@@ -18,13 +18,9 @@ package db
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
-	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/util/errors"
@@ -115,37 +111,4 @@ func (l *datasource) Count(ctx context.Context, opts ...Options) (int64, error) 
 		return 0, err
 	}
 	return total, nil
-}
-
-type DatasourceLabelRequirement struct {
-	Key      string
-	Operator selection.Operator
-	Values   []string
-}
-
-func DatasourceLabelFilter(requirements []DatasourceLabelRequirement) (Options, error) {
-	conditions := make([]clause.Expression, 0, len(requirements))
-	for _, req := range requirements {
-		// Quote the complete key and compare values without case folding.
-		path := "$." + strconv.Quote(req.Key)
-		const field = "JSON_EXTRACT(`labels`, ?)"
-		const text = "CAST(JSON_UNQUOTE(" + field + ") AS BINARY)"
-		var condition clause.Expr
-		switch req.Operator {
-		case selection.Equals, selection.DoubleEquals, selection.In:
-			condition = clause.Expr{SQL: text + " IN ?", Vars: []any{path, req.Values}}
-		case selection.NotEquals, selection.NotIn:
-			condition = clause.Expr{SQL: "(" + field + " IS NULL OR " + text + " NOT IN ?)", Vars: []any{path, path, req.Values}}
-		case selection.Exists:
-			condition = clause.Expr{SQL: field + " IS NOT NULL", Vars: []any{path}}
-		case selection.DoesNotExist:
-			condition = clause.Expr{SQL: field + " IS NULL", Vars: []any{path}}
-		default:
-			return nil, fmt.Errorf("unsupported label selector operator %q", req.Operator)
-		}
-		conditions = append(conditions, condition)
-	}
-
-	filter := clause.And(conditions...)
-	return func(tx *gorm.DB) *gorm.DB { return tx.Where(filter) }, nil
 }

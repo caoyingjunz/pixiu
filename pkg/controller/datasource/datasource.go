@@ -18,17 +18,11 @@ package datasource
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"net/http"
-	"regexp"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
-	"k8s.io/apimachinery/pkg/api/validate/content"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
@@ -38,6 +32,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	utilerrors "github.com/caoyingjunz/pixiu/pkg/util/errors"
+	"github.com/caoyingjunz/pixiu/pkg/util/labels"
 )
 
 type Getter interface {
@@ -105,13 +100,8 @@ func (c *controller) preCreate(ctx context.Context, req *types.CreateDatasourceR
 }
 
 func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequest) error {
-	var storedLabels *string
-	if len(req.Labels) != 0 {
-		encoded, err := encodeDatasourceLabels(req.Labels)
-		if err != nil {
-			return err
-		}
-		storedLabels = &encoded
+	if err := labels.Validate(req.Labels); err != nil {
+		return apierrors.NewError(err, http.StatusBadRequest)
 	}
 	if err := validateRedisConstraint(req); err != nil {
 		return err
@@ -140,16 +130,25 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 		return apierrors.NewError(fmt.Errorf("invalid datasource config: %v", err), http.StatusBadRequest)
 	}
 
-	_, err = c.factory.Datasource().Create(ctx, &model.Datasource{
-		UserId:      req.UserId,
-		ClusterName: req.ClusterName,
-		Name:        req.Name,
-		Type:        req.Type,
-		SubType:     req.SubType,
-		Config:      cfg,
-		External:    req.External,
-		Labels:      storedLabels,
-		Description: req.Description,
+	// 资源与标签同事务写入
+	err = c.factory.Transaction(ctx, func(f db.ShareDaoFactory) error {
+		object, err := f.Datasource().Create(ctx, &model.Datasource{
+			UserId:      req.UserId,
+			ClusterName: req.ClusterName,
+			Name:        req.Name,
+			Type:        req.Type,
+			SubType:     req.SubType,
+			Config:      cfg,
+			External:    req.External,
+			Description: req.Description,
+		})
+		if err != nil {
+			return err
+		}
+		if len(req.Labels) == 0 {
+			return nil
+		}
+		return f.ResourceLabels().Set(ctx, types.ResourceTypeDatasource, object.Id, req.Labels)
 	})
 	if err != nil {
 		klog.Errorf("failed to create datasource %s: %v", req.Name, err)
@@ -157,120 +156,6 @@ func (c *controller) Create(ctx context.Context, req *types.CreateDatasourceRequ
 	}
 
 	return nil
-}
-
-func encodeDatasourceLabels(labels map[string]string) (string, error) {
-	if err := validateDatasourceLabels(labels); err != nil {
-		return "", apierrors.NewError(err, http.StatusBadRequest)
-	}
-	encoded, err := json.Marshal(labels)
-	return string(encoded), err
-}
-
-func decodeDatasourceLabels(stored *string) (map[string]string, error) {
-	labels := make(map[string]string)
-	if stored != nil {
-		if err := json.Unmarshal([]byte(*stored), &labels); err != nil {
-			return nil, err
-		}
-	}
-	return labels, nil
-}
-
-func validateDatasourceLabels(labels map[string]string) error {
-	for key, value := range labels {
-		if err := validateDatasourceLabelKey(key); err != nil {
-			return err
-		}
-		if err := validateDatasourceLabelValue(key, value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateDatasourceLabelKey(key string) error {
-	name := asciiLabelLetters(key)
-	if prefix, suffix, ok := strings.Cut(key, "/"); ok {
-		name = prefix + "/" + asciiLabelLetters(suffix)
-	}
-	if problems := content.IsLabelKey(name); len(problems) != 0 {
-		return fmt.Errorf("invalid label key %q: %s", key, strings.Join(problems, "; "))
-	}
-	return nil
-}
-
-func validateDatasourceLabelValue(key, value string) error {
-	if problems := content.IsLabelValue(asciiLabelLetters(value)); len(problems) != 0 {
-		return fmt.Errorf("invalid value for label %q: %s", key, strings.Join(problems, "; "))
-	}
-	return nil
-}
-
-func asciiLabelLetters(text string) string {
-	return strings.Map(func(r rune) rune {
-		if r > unicode.MaxASCII && (unicode.IsLetter(r) || unicode.IsNumber(r)) {
-			return 'a'
-		}
-		return r
-	}, text)
-}
-
-var datasourceSelectorToken = regexp.MustCompile(`[^ \t\r\n=!,()<>]+`)
-
-func parseDatasourceLabelSelector(selector string) ([]db.DatasourceLabelRequirement, error) {
-	if !utf8.ValidString(selector) || strings.ContainsRune(selector, 0) {
-		return nil, fmt.Errorf("invalid label selector text")
-	}
-	selector = strings.ReplaceAll(selector, "\uFF0C", ",")
-
-	// Use ASCII aliases for the Kubernetes parser, then validate the original keys and values.
-	tokens := make(map[string]bool)
-	for _, token := range datasourceSelectorToken.FindAllString(selector, -1) {
-		tokens[token] = true
-	}
-	original := make(map[string]string)
-	next := 0
-	encoded := datasourceSelectorToken.ReplaceAllStringFunc(selector, func(token string) string {
-		if asciiLabelLetters(token) == token {
-			return token
-		}
-		for {
-			next++
-			alias := fmt.Sprintf("pixiu-label-%d", next)
-			if !tokens[alias] {
-				original[alias] = token
-				return alias
-			}
-		}
-	})
-	restore := func(token string) string {
-		if text, ok := original[token]; ok {
-			return text
-		}
-		return token
-	}
-
-	parsed, err := labels.ParseToRequirements(encoded)
-	if err != nil {
-		return nil, err
-	}
-	requirements := make([]db.DatasourceLabelRequirement, 0, len(parsed))
-	for _, requirement := range parsed {
-		key := restore(requirement.Key())
-		if err := validateDatasourceLabelKey(key); err != nil {
-			return nil, err
-		}
-		values := requirement.Values().List()
-		for i, value := range values {
-			values[i] = restore(value)
-			if err := validateDatasourceLabelValue(key, values[i]); err != nil {
-				return nil, err
-			}
-		}
-		requirements = append(requirements, db.DatasourceLabelRequirement{Key: key, Operator: requirement.Operator(), Values: values})
-	}
-	return requirements, nil
 }
 
 // validateRedisConstraint 校验 Redis 数据源的约束：
@@ -460,19 +345,18 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 
 	updates := make(map[string]interface{})
 
+	// 标签只维护关联表：不传保留，空对象清除
+	labelsChanged := false
 	if req.Labels != nil {
-		encoded, err := encodeDatasourceLabels(req.Labels)
-		if err != nil {
-			return err
+		if err := labels.Validate(req.Labels); err != nil {
+			return apierrors.NewError(err, http.StatusBadRequest)
 		}
-		current, err := decodeDatasourceLabels(old.Labels)
+		current, err := c.factory.ResourceLabels().Get(ctx, types.ResourceTypeDatasource, req.Id)
 		if err != nil {
 			klog.Errorf("failed to read datasource(%d) labels: %v", req.Id, err)
 			return apierrors.ErrServerInternal
 		}
-		if !maps.Equal(req.Labels, current) {
-			updates["labels"] = encoded
-		}
+		labelsChanged = !maps.Equal(req.Labels, current)
 	}
 
 	if err = preserveDatasourcePasswords(req.Config, old.Config); err != nil {
@@ -507,11 +391,22 @@ func (c *controller) Update(ctx context.Context, req *types.UpdateDatasourceRequ
 		updates["description"] = req.Description
 	}
 
-	if len(updates) == 0 {
+	if len(updates) == 0 && !labelsChanged {
 		klog.V(2).Infof("datasource(%d): no fields to update", req.Id)
 		return nil
 	}
-	if err = c.factory.Datasource().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+
+	// 主表与关联表同事务更新，仅标签变化也走一次 Update 以复用乐观锁
+	err = c.factory.Transaction(ctx, func(f db.ShareDaoFactory) error {
+		if err := f.Datasource().Update(ctx, req.Id, req.ResourceVersion, updates); err != nil {
+			return err
+		}
+		if labelsChanged {
+			return f.ResourceLabels().Set(ctx, types.ResourceTypeDatasource, req.Id, req.Labels)
+		}
+		return nil
+	})
+	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(
 				fmt.Errorf("datasource not found or resource version conflict"),
@@ -537,7 +432,14 @@ func (c *controller) Delete(ctx context.Context, datasourceId int64) error {
 	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
 		return err
 	}
-	if err := c.factory.Datasource().Delete(ctx, datasourceId); err != nil {
+	// 物理删除，需同事务级联清理标签行
+	err = c.factory.Transaction(ctx, func(f db.ShareDaoFactory) error {
+		if err := f.Datasource().Delete(ctx, datasourceId); err != nil {
+			return err
+		}
+		return f.ResourceLabels().Delete(ctx, types.ResourceTypeDatasource, datasourceId)
+	})
+	if err != nil {
 		if utilerrors.IsRecordNotFound(err) {
 			return apierrors.NewError(fmt.Errorf("datasource not found"), http.StatusNotFound)
 		}
@@ -564,7 +466,12 @@ func (c *controller) Get(ctx context.Context, datasourceId int64, options ...Get
 	if err = controllerutil.CheckResourceAccess(ctx, c.factory, object.UserId, types.ResourceTypeDatasource, datasourceId); err != nil {
 		return nil, err
 	}
-	ds, err := modelToTypeWithRedaction(object, getOptions.redact)
+	lbls, err := c.factory.ResourceLabels().Get(ctx, types.ResourceTypeDatasource, object.Id)
+	if err != nil {
+		klog.Errorf("failed to read datasource(%d) labels: %v", datasourceId, err)
+		return nil, apierrors.ErrServerInternal
+	}
+	ds, err := modelToTypeWithRedaction(object, lbls, getOptions.redact)
 	if err != nil {
 		return nil, apierrors.ErrServerInternal
 	}
@@ -590,17 +497,16 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	opts := []db.Options{
 		db.WithNameLike(listOption.NameSelector),
 	}
-	if selector := strings.TrimSpace(listOption.LabelSelector); selector != "" {
-		requirements, err := parseDatasourceLabelSelector(selector)
-		if err != nil {
-			return nil, apierrors.NewError(fmt.Errorf("invalid label selector: %w", err), http.StatusBadRequest)
-		}
-		filter, err := db.DatasourceLabelFilter(requirements)
-		if err != nil {
-			return nil, apierrors.NewError(fmt.Errorf("invalid label selector: %w", err), http.StatusBadRequest)
-		}
-		opts = append(opts, filter)
+	// 标签过滤：EXISTS 子查询与名称/授权等条件 AND 组合
+	labelOpt, err := db.WithLabelSelector(
+		listOption.LabelSelector,
+		types.ResourceTypeDatasource,
+		(&model.Datasource{}).TableName(),
+	)
+	if err != nil {
+		return nil, apierrors.NewError(fmt.Errorf("invalid label selector: %w", err), http.StatusBadRequest)
 	}
+	opts = append(opts, labelOpt)
 
 	// 集群数据源可见性：请求指定集群时，解析被授权集群（子集群）→ 主集群并校验集群访问权；
 	// 否则走通用过滤（用户所属 + datasource scope 授权）
@@ -658,9 +564,20 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 		return nil, apierrors.ErrServerInternal
 	}
 
-	items := make([]types.Datasource, 0)
+	// 批量回填标签，避免 N+1
+	ids := make([]int64, 0, len(objects))
 	for i := range objects {
-		t, convErr := modelToTypeWithRedaction(&objects[i], true)
+		ids = append(ids, objects[i].Id)
+	}
+	labelMap, err := c.factory.ResourceLabels().BatchGet(ctx, types.ResourceTypeDatasource, ids)
+	if err != nil {
+		klog.Errorf("failed to load datasource labels: %v", err)
+		return nil, apierrors.ErrServerInternal
+	}
+
+	items := make([]types.Datasource, 0, len(objects))
+	for i := range objects {
+		t, convErr := modelToTypeWithRedaction(&objects[i], labelMap[objects[i].Id], true)
 		if convErr != nil {
 			return nil, apierrors.ErrServerInternal
 		}
@@ -671,14 +588,13 @@ func (c *controller) List(ctx context.Context, listOption types.ListOptions) (in
 	return pageResult, nil
 }
 
-func modelToTypeWithRedaction(object *model.Datasource, redact bool) (*types.Datasource, error) {
+func modelToTypeWithRedaction(object *model.Datasource, lbls model.Labels, redact bool) (*types.Datasource, error) {
 	var cfg types.DatasourceConfig
 	if err := cfg.Unmarshal(object.Config); err != nil {
 		return nil, err
 	}
-	labels, err := decodeDatasourceLabels(object.Labels)
-	if err != nil {
-		return nil, err
+	if lbls == nil {
+		lbls = model.Labels{} // 统一返回空对象，避免响应里出现 null
 	}
 	if redact {
 		redactDatasourceConfig(&cfg)
@@ -699,7 +615,7 @@ func modelToTypeWithRedaction(object *model.Datasource, redact bool) (*types.Dat
 		SubType:     object.SubType,
 		Config:      cfg,
 		External:    object.External,
-		Labels:      labels,
+		Labels:      lbls,
 		Description: object.Description,
 	}, nil
 }

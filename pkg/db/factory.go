@@ -43,6 +43,7 @@ type ShareDaoFactory interface {
 	Chart() ChartInterface
 	Backup() BackupInterface
 	Upgrade() UpgradeInterface
+	ResourceLabels() ResourceLabelInterface
 
 	// Transaction 在单库事务中执行 fn，fn 内应使用传入的 factory 访问 DAO。
 	Transaction(ctx context.Context, fn func(ShareDaoFactory) error) error
@@ -70,10 +71,11 @@ func (f *shareDaoFactory) Email() EmailInterface               { return newEmail
 func (f *shareDaoFactory) RegistrationCode() RegistrationCodeInterface {
 	return newRegistrationCode(f.db)
 }
-func (f *shareDaoFactory) CronHpa() CronHpaInterface { return newCronHpa(f.db) }
-func (f *shareDaoFactory) Chart() ChartInterface     { return newChart(f.db) }
-func (f *shareDaoFactory) Backup() BackupInterface   { return newBackup(f.db) }
-func (f *shareDaoFactory) Upgrade() UpgradeInterface { return newUpgrade(f.db) }
+func (f *shareDaoFactory) CronHpa() CronHpaInterface              { return newCronHpa(f.db) }
+func (f *shareDaoFactory) Chart() ChartInterface                  { return newChart(f.db) }
+func (f *shareDaoFactory) Backup() BackupInterface                { return newBackup(f.db) }
+func (f *shareDaoFactory) Upgrade() UpgradeInterface              { return newUpgrade(f.db) }
+func (f *shareDaoFactory) ResourceLabels() ResourceLabelInterface { return newResourceLabel(f.db) }
 
 func (f *shareDaoFactory) Transaction(ctx context.Context, fn func(ShareDaoFactory) error) error {
 	return f.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
