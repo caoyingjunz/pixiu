@@ -76,6 +76,23 @@ type MySQLColumn struct {
 	OrdinalPos int64  `json:"ordinal_position"`
 }
 
+type MySQLTablePageOptions struct {
+	Page        int64  `form:"page" binding:"min=1,max=2147483647"`
+	PageSize    int64  `form:"pageSize" binding:"omitempty,min=1,max=100"`
+	Keyword     string `form:"keyword"`
+	FilterField string `form:"filterField" binding:"omitempty,oneof=name engine comment all"`
+	SizeOrder   string `form:"sizeOrder" binding:"omitempty,oneof=asc desc"`
+	RowsOrder   string `form:"rowsOrder" binding:"omitempty,oneof=asc desc"`
+	OmitCounts  bool   `form:"omitCounts"`
+}
+
+type MySQLTablePage struct {
+	Items         []MySQLTable `json:"items"`
+	Total         int64        `json:"total"`
+	TableCount    int64        `json:"tableCount"`
+	CountsOmitted bool         `json:"countsOmitted,omitempty"`
+}
+
 // MySQLTableDetail 表详情（DDL + 列 + 索引）
 type MySQLTableDetail struct {
 	Name    string        `json:"name"`
@@ -175,6 +192,16 @@ type MySQLSession struct {
 	Time    int64  `json:"time"`
 	State   string `json:"state"`
 	Info    string `json:"info"` // 正在执行的 SQL（截断保护）
+}
+
+type MySQLSlowQueryOptions struct {
+	Page       int64  `form:"page"`
+	PageSize   int64  `form:"page_size"`
+	Database   string `form:"database"`
+	Keyword    string `form:"keyword"`
+	MinSeconds int    `form:"min_seconds"`
+	OrderBy    string `form:"order_by"`
+	OrderDir   string `form:"order_dir"`
 }
 
 // MySQLSlowQuery 慢查询记录

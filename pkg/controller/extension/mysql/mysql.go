@@ -22,6 +22,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -69,7 +70,10 @@ type Interface interface {
 	PingAdhoc(ctx context.Context, datasourceId int64, cfg *types.MySQLSourceConfig) (*types.MySQLPing, error)
 	Info(ctx context.Context, datasourceId int64) (*types.MySQLServerInfo, error)
 	ListDatabases(ctx context.Context, datasourceId int64) ([]types.MySQLDatabase, error)
+	ListDatabaseNames(ctx context.Context, datasourceId int64) ([]string, error)
 	ListTables(ctx context.Context, datasourceId int64, database string) ([]types.MySQLTable, error)
+	ListTableMetadata(ctx context.Context, datasourceId int64, database string, opts types.TableMetadataOptions) ([]string, error)
+	ListTablePage(ctx context.Context, datasourceId int64, database string, opts types.MySQLTablePageOptions) (*types.MySQLTablePage, error)
 	GetTableDetail(ctx context.Context, datasourceId int64, database, table string) (*types.MySQLTableDetail, error)
 	// ExecuteSQL SQL 控制台：读语句放行，写语句仅管理员可执行
 	ExecuteSQL(ctx context.Context, datasourceId int64, req *types.MySQLQueryRequest) (*types.MySQLQueryResult, error)
@@ -85,9 +89,10 @@ type Interface interface {
 	ListSessions(ctx context.Context, datasourceId int64) ([]types.MySQLSession, error)
 	// KillSession 终止会话，仅管理员可调用
 	KillSession(ctx context.Context, datasourceId int64, id int64) error
-	ListSlowQueries(ctx context.Context, datasourceId, page, pageSize int64) (*types.MySQLSlowQueryList, error)
+	ListSlowQueries(ctx context.Context, datasourceId int64, opts types.MySQLSlowQueryOptions) (*types.MySQLSlowQueryList, error)
 	// Backup 生成库/表的 SQL 文本备份，仅管理员可调用
 	Backup(ctx context.Context, datasourceId int64, req *types.MySQLBackupRequest) (*types.MySQLBackupResult, error)
+	WriteBackup(ctx context.Context, datasourceId int64, req *types.MySQLBackupRequest, dst io.Writer) (*types.SQLBackupSummary, error)
 	// ExportTableStreaming 流式导出表数据为 CSV，需要 gin.Context 以便直接写入响应体；仅管理员可调用
 	ExportTableStreaming(c *gin.Context, datasourceId int64, req *types.MySQLTableExportRequest) error
 }
@@ -496,6 +501,34 @@ func (c *controller) Info(ctx context.Context, datasourceId int64) (*types.MySQL
 	return info, nil
 }
 
+func (c *controller) ListDatabaseNames(ctx context.Context, datasourceId int64) ([]string, error) {
+	db, _, err := c.connFor(ctx, datasourceId)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := opContext(ctx)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, `SELECT SCHEMA_NAME FROM information_schema.SCHEMATA
+WHERE SCHEMA_NAME NOT IN (`+systemDatabases+`) ORDER BY SCHEMA_NAME`)
+	if err != nil {
+		return nil, wrapMySQLErr(err)
+	}
+	defer rows.Close()
+	names := []string{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, wrapMySQLErr(err)
+		}
+		names = append(names, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrapMySQLErr(err)
+	}
+	return names, nil
+}
+
 // ListDatabases 用户库列表（含字符集、体积、表数），排除系统库
 func (c *controller) ListDatabases(ctx context.Context, datasourceId int64) ([]types.MySQLDatabase, error) {
 	dbConn, _, err := c.connFor(ctx, datasourceId)
@@ -549,12 +582,16 @@ func (c *controller) ListTables(ctx context.Context, datasourceId int64, databas
 	ctx, cancel := opContext(ctx)
 	defer cancel()
 
-	rows, err := dbConn.QueryContext(ctx, `
+	return queryMySQLTables(ctx, dbConn, mysqlTableSelect+` WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME`, database)
+}
+
+const mysqlTableSelect = `
 SELECT TABLE_NAME, IFNULL(ENGINE, ''), IFNULL(TABLE_ROWS, 0),
        IFNULL(DATA_LENGTH + INDEX_LENGTH, 0), CREATE_TIME, IFNULL(TABLE_COMMENT, '')
-FROM information_schema.TABLES
-WHERE TABLE_SCHEMA = ?
-ORDER BY TABLE_NAME`, database)
+FROM information_schema.TABLES`
+
+func queryMySQLTables(ctx context.Context, db *sql.DB, query string, args ...any) ([]types.MySQLTable, error) {
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, wrapMySQLErr(err)
 	}

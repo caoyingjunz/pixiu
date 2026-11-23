@@ -48,10 +48,27 @@ type PostgresTable struct {
 	Schema    string `json:"schema"`
 	Name      string `json:"name"`
 	Type      string `json:"type"`
-	Rows      *int64 `json:"rows"` // Exact visible row count, or null if unavailable.
+	Rows      *int64 `json:"rows"` // Catalog row estimate, or null if unavailable.
 	SizeBytes int64  `json:"sizeBytes"`
 	Owner     string `json:"owner"`
 	Comment   string `json:"comment"`
+}
+
+type PostgresTablePageOptions struct {
+	Page        int64  `form:"page" binding:"min=1,max=2147483647"`
+	PageSize    int64  `form:"pageSize" binding:"omitempty,min=1,max=100"`
+	Keyword     string `form:"keyword"`
+	FilterField string `form:"filterField" binding:"omitempty,oneof=table schema owner comment all"`
+	SizeOrder   string `form:"sizeOrder" binding:"omitempty,oneof=asc desc"`
+	RowsOrder   string `form:"rowsOrder" binding:"omitempty,oneof=asc desc"`
+	OmitCounts  bool   `form:"omitCounts"`
+}
+
+type PostgresTablePage struct {
+	Items         []PostgresTable `json:"items"`
+	Total         int64           `json:"total"`
+	TableCount    int64           `json:"tableCount"`
+	CountsOmitted bool            `json:"countsOmitted,omitempty"`
 }
 type PostgresQueryRequest struct {
 	Database string `json:"database"` // 目标库；PG 不能在同一连接内切换数据库，需按库另开连接
@@ -135,6 +152,7 @@ type PostgresTableDetail struct {
 	Rows        int64                `json:"rows"`
 	SizeBytes   int64                `json:"sizeBytes"`
 	RelKind     string               `json:"relKind,omitempty"`
+	HasChildren bool                 `json:"hasChildren"`
 	Columns     []PostgresColumn     `json:"columns"`
 	Indexes     []PostgresIndex      `json:"indexes"`
 	ForeignKeys []PostgresForeignKey `json:"foreignKeys"`
@@ -226,8 +244,20 @@ type PostgresGrantRequest struct {
 
 // ── 慢查询 ────────────────────────────────────────────────────
 
+type PostgresSlowQueryOptions struct {
+	Page        int64   `form:"page"`
+	PageSize    int64   `form:"pageSize"`
+	OrderBy     string  `form:"orderBy"`
+	OrderDir    string  `form:"orderDir"`
+	Database    string  `form:"database"`
+	Keyword     string  `form:"keyword"`
+	MinTimeMs   float64 `form:"minTimeMs"`
+	LowCacheHit bool    `form:"lowCacheHit"`
+}
+
 // PostgresSlowQuery 慢查询记录（来自 pg_stat_statements）
 type PostgresSlowQuery struct {
+	SharePercent   float64 `json:"sharePercent"`
 	Query          string  `json:"query"`
 	Calls          int64   `json:"calls"`
 	TotalTimeMs    float64 `json:"totalTimeMs"`
@@ -246,4 +276,18 @@ type PostgresSlowQueryList struct {
 	PgStatStatements bool                `json:"pgStatStatements"`
 	Total            int64               `json:"total"`
 	Items            []PostgresSlowQuery `json:"items"`
+}
+
+// PostgresBackupTable 备份目标表（含 schema）
+type PostgresBackupTable struct {
+	Schema string `json:"schema" binding:"required"`
+	Name   string `json:"name" binding:"required"`
+}
+
+// PostgresBackupRequest PostgreSQL SQL 文件备份请求
+type PostgresBackupRequest struct {
+	Database string                `json:"database" binding:"required"`
+	Tables   []PostgresBackupTable `json:"tables" binding:"required,dive"`
+	WithData bool                  `json:"with_data"`
+	MaxRows  int64                 `json:"max_rows"`
 }

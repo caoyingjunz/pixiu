@@ -3,11 +3,13 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
+	"github.com/caoyingjunz/pixiu/api/server/router/extension/sqlbackup"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	"github.com/caoyingjunz/pixiu/pkg/types"
@@ -40,13 +42,6 @@ type userOpts struct {
 	Name string `form:"name"`
 }
 
-type slowQueryOpts struct {
-	Page     int64  `form:"page"`
-	PageSize int64  `form:"pageSize"`
-	OrderBy  string `form:"orderBy"`
-	OrderDir string `form:"orderDir"`
-}
-
 type pingPostgresRequest struct {
 	DatasourceId int64 `json:"datasource_id"`
 	types.PostgresSourceConfig
@@ -65,6 +60,7 @@ func RegisterPostgres(o *options.Options, g *apiregistry.Group) {
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/parameter", Handler: r.setParameter, Description: "PostgreSQL 修改运行参数"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/batch", Handler: r.batchQuery, Description: "PostgreSQL SQL 批量执行"},
 		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/import", Handler: r.importSQL, Description: "PostgreSQL SQL 脚本批量导入"},
+		apiregistry.RouteEntry{Method: "POST", RelativePath: "/postgres/:datasourceId/backup/file", Handler: r.backupFile, Description: "PostgreSQL SQL 文件备份"},
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/sessions", Handler: r.sessions, Description: "PostgreSQL 会话列表"},
 		apiregistry.RouteEntry{Method: "DELETE", RelativePath: "/postgres/:datasourceId/sessions", Handler: r.cancel, Description: "PostgreSQL 取消或终止会话"},
 		apiregistry.RouteEntry{Method: "GET", RelativePath: "/postgres/:datasourceId/table-detail", Handler: r.tableDetail, Description: "PostgreSQL 表详情"},
@@ -132,12 +128,16 @@ func (r *router) databases(c *gin.Context) {
 		httputils.SetFailed(c, res, e)
 		return
 	}
-	result, e := r.c.Extension().Postgres().ListDatabases(c, m.DatasourceId)
+	var e error
+	if c.Query("namesOnly") == "true" {
+		res.Result, e = r.c.Extension().Postgres().ListDatabaseNames(c, m.DatasourceId)
+	} else {
+		res.Result, e = r.c.Extension().Postgres().ListDatabases(c, m.DatasourceId)
+	}
 	if e != nil {
 		httputils.SetFailed(c, res, e)
 		return
 	}
-	res.Result = result
 	httputils.SetSuccess(c, res)
 }
 
@@ -166,12 +166,28 @@ func (r *router) tables(c *gin.Context) {
 		httputils.SetFailed(c, res, e)
 		return
 	}
-	result, e := r.c.Extension().Postgres().ListTables(c, m.DatasourceId, o.Database, o.Schema)
+	var e error
+	if c.Request.URL.Query().Has("metadata") {
+		var metadata types.TableMetadataOptions
+		if e = c.ShouldBindQuery(&metadata); e != nil {
+			httputils.SetFailed(c, res, e)
+			return
+		}
+		res.Result, e = r.c.Extension().Postgres().ListTableMetadata(c, m.DatasourceId, o.Database, o.Schema, metadata)
+	} else if c.Request.URL.Query().Has("page") {
+		var page types.PostgresTablePageOptions
+		if e = httputils.ShouldBindAny(c, nil, nil, &page); e != nil {
+			httputils.SetFailed(c, res, e)
+			return
+		}
+		res.Result, e = r.c.Extension().Postgres().ListTablePage(c, m.DatasourceId, o.Database, o.Schema, page)
+	} else {
+		res.Result, e = r.c.Extension().Postgres().ListTables(c, m.DatasourceId, o.Database, o.Schema)
+	}
 	if e != nil {
 		httputils.SetFailed(c, res, e)
 		return
 	}
-	res.Result = result
 	httputils.SetSuccess(c, res)
 }
 
@@ -269,20 +285,30 @@ func (r *router) importSQL(c *gin.Context) {
 		return
 	}
 
-	// Preserve Gin's authentication values while cancelling work on disconnect.
-	ctx, cancel := context.WithCancel(c)
-	defer cancel()
-	stop := context.AfterFunc(c.Request.Context(), cancel)
-	defer stop()
 	body := http.MaxBytesReader(c.Writer, c.Request.Body, types.PostgresImportMaxBytes)
 	defer body.Close()
-	result, err := r.c.Extension().Postgres().ImportSQL(ctx, m.DatasourceId, c.Query("database"), body)
+	result, err := r.c.Extension().Postgres().ImportSQL(c, m.DatasourceId, c.Query("database"), body)
 	if err != nil {
 		httputils.SetFailed(c, res, err)
 		return
 	}
 	res.Result = result
 	httputils.SetSuccess(c, res)
+}
+
+func (r *router) backupFile(c *gin.Context) {
+	var m meta
+	var req struct {
+		types.PostgresBackupRequest
+		Filename string `json:"filename"`
+	}
+	if err := httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, httputils.NewResponse(), err)
+		return
+	}
+	sqlbackup.Serve(c, req.Filename, func(ctx context.Context, dst io.Writer) (*types.SQLBackupSummary, error) {
+		return r.c.Extension().Postgres().WriteBackup(ctx, m.DatasourceId, &req.PostgresBackupRequest, dst)
+	})
 }
 
 func (r *router) tableDetail(c *gin.Context) {
@@ -395,13 +421,13 @@ func (r *router) grantRole(c *gin.Context) {
 
 func (r *router) slowQueries(c *gin.Context) {
 	var m meta
-	var o slowQueryOpts
+	var o types.PostgresSlowQueryOptions
 	res := httputils.NewResponse()
 	if e := httputils.ShouldBindAny(c, nil, &m, &o); e != nil {
 		httputils.SetFailed(c, res, e)
 		return
 	}
-	result, e := r.c.Extension().Postgres().ListSlowQueries(c, m.DatasourceId, o.Page, o.PageSize, o.OrderBy, o.OrderDir)
+	result, e := r.c.Extension().Postgres().ListSlowQueries(c, m.DatasourceId, o)
 	if e != nil {
 		httputils.SetFailed(c, res, e)
 		return

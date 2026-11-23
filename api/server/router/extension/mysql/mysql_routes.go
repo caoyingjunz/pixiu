@@ -27,6 +27,7 @@ import (
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/server/router/extension/sqlbackup"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -55,11 +56,6 @@ type userOptions struct {
 
 type sessionOptions struct {
 	Id int64 `form:"id" binding:"required"`
-}
-
-type slowQueryOptions struct {
-	Page     int64 `form:"page"`
-	PageSize int64 `form:"page_size"`
 }
 
 // pingMySQLAdhoc 临时探测：请求体直接传连接配置，不依赖已保存的数据源
@@ -128,7 +124,12 @@ func (mr *mysqlRouter) listDatabases(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = mr.c.Extension().Mysql().ListDatabases(c, m.DatasourceId); err != nil {
+	if c.Query("namesOnly") == "true" {
+		r.Result, err = mr.c.Extension().Mysql().ListDatabaseNames(c, m.DatasourceId)
+	} else {
+		r.Result, err = mr.c.Extension().Mysql().ListDatabases(c, m.DatasourceId)
+	}
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -147,7 +148,24 @@ func (mr *mysqlRouter) listTables(c *gin.Context) {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = mr.c.Extension().Mysql().ListTables(c, m.DatasourceId, opts.Database); err != nil {
+	if c.Request.URL.Query().Has("metadata") {
+		var metadata types.TableMetadataOptions
+		if err = c.ShouldBindQuery(&metadata); err != nil {
+			httputils.SetFailed(c, r, err)
+			return
+		}
+		r.Result, err = mr.c.Extension().Mysql().ListTableMetadata(c, m.DatasourceId, opts.Database, metadata)
+	} else if c.Request.URL.Query().Has("page") {
+		var page types.MySQLTablePageOptions
+		if err = c.ShouldBindQuery(&page); err != nil {
+			httputils.SetFailed(c, r, err)
+			return
+		}
+		r.Result, err = mr.c.Extension().Mysql().ListTablePage(c, m.DatasourceId, opts.Database, page)
+	} else {
+		r.Result, err = mr.c.Extension().Mysql().ListTables(c, m.DatasourceId, opts.Database)
+	}
+	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -293,12 +311,7 @@ func (mr *mysqlRouter) importSQL(c *gin.Context) {
 		}
 	}
 
-	// Preserve Gin's authentication values and cancel the DB work on disconnect.
-	ctx, cancel := context.WithCancel(c)
-	defer cancel()
-	stop := context.AfterFunc(c.Request.Context(), cancel)
-	defer stop()
-	result, err := mr.c.Extension().Mysql().ImportSQL(ctx, m.DatasourceId, &req)
+	result, err := mr.c.Extension().Mysql().ImportSQL(c, m.DatasourceId, &req)
 	if err != nil {
 		httputils.SetFailed(c, r, err)
 		return
@@ -446,14 +459,14 @@ func (mr *mysqlRouter) listSlowQueries(c *gin.Context) {
 
 	var (
 		m    meta
-		opts slowQueryOptions
+		opts types.MySQLSlowQueryOptions
 		err  error
 	)
 	if err = httputils.ShouldBindAny(c, nil, &m, &opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
-	if r.Result, err = mr.c.Extension().Mysql().ListSlowQueries(c, m.DatasourceId, opts.Page, opts.PageSize); err != nil {
+	if r.Result, err = mr.c.Extension().Mysql().ListSlowQueries(c, m.DatasourceId, opts); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
@@ -478,6 +491,21 @@ func (mr *mysqlRouter) backup(c *gin.Context) {
 		return
 	}
 	httputils.SetSuccess(c, r)
+}
+
+func (mr *mysqlRouter) backupFile(c *gin.Context) {
+	var m meta
+	var req struct {
+		types.MySQLBackupRequest
+		Filename string `json:"filename"`
+	}
+	if err := httputils.ShouldBindAny(c, &req, &m, nil); err != nil {
+		httputils.SetFailed(c, httputils.NewResponse(), err)
+		return
+	}
+	sqlbackup.Serve(c, req.Filename, func(ctx context.Context, dst io.Writer) (*types.SQLBackupSummary, error) {
+		return mr.c.Extension().Mysql().WriteBackup(ctx, m.DatasourceId, &req.MySQLBackupRequest, dst)
+	})
 }
 
 // exportTable 导出表数据为 CSV（流式响应）

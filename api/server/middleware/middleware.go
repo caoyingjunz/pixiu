@@ -17,12 +17,14 @@ limitations under the License.
 package middleware
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/caoyingjunz/pixiu/api/server/router/extension/sqlbackup"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/util"
 )
@@ -42,6 +44,9 @@ func init() {
 
 // 允许特定请求不经过 JWT 验证（由业务侧 Token 鉴权）
 func allowCustomRequest(c *gin.Context) bool {
+	if c.Request.Method == http.MethodGet && c.FullPath() == sqlbackup.DownloadPath {
+		return true
+	}
 	path := c.Request.URL.Path
 	// Agent 任务 API（deploy-agent heartbeat / claim / logs / result / plan）
 	if strings.HasPrefix(path, "/pixiu/agents/heartbeat") ||
