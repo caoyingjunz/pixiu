@@ -1,6 +1,8 @@
 name: Publish pixiu-dev-server image
 
 on:
+  # 允许手动/API 触发：合并 pixiu-ui 的 PR 后由 skill 通过 workflow_dispatch 重建 dev 镜像
+  workflow_dispatch:
   push:
     branches:
       - "master"
