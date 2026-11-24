@@ -143,6 +143,9 @@ type InstallInfo struct {
 	Values      string `json:"values"`
 	// Status 集群内 helm release 的真实状态（running / deployed / failed 等）
 	Status string `json:"status"`
+	// Updated 集群内 helm release 的最近更新时间（等价 helm list 的 UPDATED；外部/平台 release 均返回）。
+	// 集群不可达回退 DB 记账时为空，前端回退 gmt_modified。
+	Updated string `json:"updated"`
 	// DeployStatus 平台侧部署生命周期：pending / installing / success / failed
 	DeployStatus string `json:"deploy_status"`
 	// PendingOp 待执行/正在执行的操作类型：install / upgrade / rollback / uninstall
