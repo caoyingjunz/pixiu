@@ -257,6 +257,7 @@ func (c *controller) ListReleases(ctx context.Context, clusterName, namespace st
 		if rec, ok := recIndex[key]; ok {
 			info := toInstallInfo(rec) // 记账来源：Managed=true
 			info.Status = releaseStatus(rel)
+			info.Updated = helmUpdatedAt(rel)
 			items = append(items, info)
 			continue
 		}
@@ -689,6 +690,14 @@ func releaseStatus(rel *release.Release) string {
 	return string(rel.Info.Status)
 }
 
+// helmUpdatedAt 返回 helm release 的最近更新时间（helm list UPDATED）；无信息时返回空串。
+func helmUpdatedAt(rel *release.Release) string {
+	if rel == nil || rel.Info == nil || rel.Info.LastDeployed.IsZero() {
+		return ""
+	}
+	return rel.Info.LastDeployed.Format("2006-01-02 15:04:05")
+}
+
 // externalInstallInfo 由集群内实时 release 构造「外部 release」信息（非平台记账，只读，Managed=false）。
 func externalInstallInfo(clusterName string, rel *release.Release) types.InstallInfo {
 	info := types.InstallInfo{
@@ -696,6 +705,7 @@ func externalInstallInfo(clusterName string, rel *release.Release) types.Install
 		Namespace:   rel.Namespace,
 		ReleaseName: rel.Name,
 		Status:      releaseStatus(rel),
+		Updated:     helmUpdatedAt(rel),
 		Managed:     false,
 	}
 	if rel.Chart != nil && rel.Chart.Metadata != nil {
