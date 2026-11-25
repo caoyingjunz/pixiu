@@ -863,7 +863,7 @@ func (c *cluster) ReRunJob(ctx context.Context, cluster string, namespace string
 		break
 	}
 	if jobErr != nil {
-		return fmt.Errorf("failed to rerun job(%s) %v", jobName, err)
+		return fmt.Errorf("failed to rerun job(%s) %v", jobName, jobErr)
 	}
 
 	return nil
