@@ -54,6 +54,50 @@ type Config struct {
 
 	// Upgrade 自动升级配置（仅本地部署模式）；版本检测在主服务内运行，升级执行由独立 upgrade 进程完成
 	Upgrade UpgradeOptions `yaml:"upgrade"`
+
+	// CICD 流水线控制面配置
+	CICD CICDOptions `yaml:"cicd"`
+}
+
+// CICDOptions CI/CD 控制面配置（设计第 11 节）。
+type CICDOptions struct {
+	Enabled               bool   `yaml:"enabled"`
+	Workers               int    `yaml:"workers"`
+	PollInterval          string `yaml:"poll_interval"`
+	LogRetentionDays      int    `yaml:"log_retention_days"`
+	MaxRunningPerPipeline int    `yaml:"max_running_per_pipeline"`
+	MaxPendingRuns        int    `yaml:"max_pending_runs"`
+	LogDir                string `yaml:"log_dir"`
+
+	Build CICDBuildOptions `yaml:"build"`
+}
+
+type CICDBuildOptions struct {
+	Tool            string `yaml:"tool"`
+	Isolation       string `yaml:"isolation"`
+	StorageDriver   string `yaml:"storage_driver"`
+	InsecureRegistry bool  `yaml:"insecure_registry"`
+}
+
+func (o *CICDOptions) SetDefaults() {
+	if o.PollInterval == "" {
+		o.PollInterval = "3s"
+	}
+	if o.LogRetentionDays <= 0 {
+		o.LogRetentionDays = 14
+	}
+	if o.MaxRunningPerPipeline <= 0 {
+		o.MaxRunningPerPipeline = 1
+	}
+	if o.MaxPendingRuns <= 0 {
+		o.MaxPendingRuns = 100
+	}
+	if o.LogDir == "" {
+		o.LogDir = "/tmp/pixiu/cicd-logs"
+	}
+	if o.Build.Tool == "" {
+		o.Build.Tool = "buildah"
+	}
 }
 
 // UpgradeOptions 自动升级配置。
@@ -292,6 +336,7 @@ func (c *Config) Valid() (err error) {
 	// 按设计，启动链不做任何 CRI 配置校验：坏值延迟到首次实际使用运行时（runtime.New）时报错，不阻断启动
 
 	c.Appstore.SetDefaults()
+	c.CICD.SetDefaults()
 
 	return
 }

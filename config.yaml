@@ -98,6 +98,28 @@ appstore:
   # 单个 chart 包上传大小上限（MB），默认 32
   max_upload_mb: 32
 
+# CI/CD 流水线控制面（Tekton 执行引擎 + Buildah 构建）
+cicd:
+  # 总开关：关闭后菜单隐藏、worker 不启动、接口拒绝；用于灰度与回滚
+  enabled: false
+  # 后台编排 worker 数量
+  workers: 2
+  # pending 队列轮询间隔
+  poll_interval: 3s
+  # 日志按天清理保留时长
+  log_retention_days: 14
+  # 单条流水线最大并发运行数
+  max_running_per_pipeline: 1
+  # 全局 pending 队列上限
+  max_pending_runs: 100
+  # 运行日志文件本地目录
+  log_dir: /tmp/pixiu/cicd-logs
+  build:
+    tool: buildah
+    isolation: chroot
+    storage_driver: vfs
+    insecure_registry: false
+
 # 可升级的配置
 upgrade:
   # 版本自发现默认开启；自动升级默认关闭（需 enabled: true 并部署 pixiu-upgrade）
