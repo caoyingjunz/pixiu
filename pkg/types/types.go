@@ -105,6 +105,7 @@ type DatasourceConfig struct {
 	Mysql    *MySQLSourceConfig    `json:"mysql,omitempty"`
 	Postgres *PostgresSourceConfig `json:"postgres,omitempty"`
 	Storage  *StorageSourceConfig  `json:"storage,omitempty"`
+	Mongo    *MongoSourceConfig    `json:"mongo,omitempty"`
 }
 
 // StorageSourceConfig stores provider-specific object storage metadata and credentials.
@@ -475,6 +476,40 @@ func (p *PostgresSourceConfig) NormalizePort() int {
 		return 5432
 	}
 	return p.Port
+}
+
+// MongoSourceConfig MongoDB 数据源连接配置（仅外部直连）
+type MongoSourceConfig struct {
+	Host       string `json:"host,omitempty"`        // 连接地址（可逗号分隔多个节点）
+	Port       int    `json:"port,omitempty"`        // 端口，缺省 27017
+	UserName   string `json:"user_name,omitempty"`   // 用户名
+	Password   string `json:"password,omitempty"`    // 密码
+	Database   string `json:"database,omitempty"`    // 认证/默认库，缺省 admin
+	ReplicaSet string `json:"replica_set,omitempty"` // 副本集名称（可选）
+	AuthSource string `json:"auth_source,omitempty"` // 认证库（可选）
+	SSL        bool   `json:"ssl,omitempty"`         // 是否启用 TLS
+	Timeout    int    `json:"timeout,omitempty"`     // 连接超时秒数，缺省 5
+}
+
+// DisplayAddress 用于日志/探测结果展示的连接摘要（脱敏，不含密码）
+func (m *MongoSourceConfig) DisplayAddress() string {
+	return fmt.Sprintf("%s:%d", m.Host, m.NormalizePort())
+}
+
+// NormalizePort 归一化端口，非法值回退默认 27017
+func (m *MongoSourceConfig) NormalizePort() int {
+	if m.Port <= 0 || m.Port > 65535 {
+		return 27017
+	}
+	return m.Port
+}
+
+// NormalizeDatabase 归一化认证库，空值回退 admin
+func (m *MongoSourceConfig) NormalizeDatabase() string {
+	if strings.TrimSpace(m.Database) == "" {
+		return "admin"
+	}
+	return m.Database
 }
 
 // DisplayAddress 用于日志/探测结果展示的连接摘要（脱敏，不含密码）

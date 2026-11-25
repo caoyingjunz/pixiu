@@ -43,6 +43,7 @@ const (
 	DatasourceSubTypeRabbitMQ     DatasourceSubType = "rabbitmq"
 	DatasourceSubTypePostgres     DatasourceSubType = "postgres"
 	DatasourceSubTypeStorage      DatasourceSubType = "storage"
+	DatasourceSubTypeMongoDB      DatasourceSubType = "mongodb"
 )
 
 type Datasource struct {
