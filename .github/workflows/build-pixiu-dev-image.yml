@@ -20,8 +20,13 @@ on:
       - 'docker/Dockerfile-upgrade'
       - '.github/workflows/build-upgrade-image.yml'
 
+# 两个架构各自用原生 runner 并行构建，互不依赖、互不影响：
+#   - amd64: ubuntu-latest（x86_64 原生）
+#   - arm64: ubuntu-24.04-arm（ARM64 原生，无需 QEMU 模拟）
+# 任一架构失败不影响另一个已推送的镜像标签。
 jobs:
-  build:
+  build-amd64:
+    name: Build amd64 image
     runs-on: ubuntu-latest
 
     steps:
@@ -42,7 +47,6 @@ jobs:
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "TIMESTAMP=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
-      # 只构建 amd64，无需 QEMU（runner 本身即 amd64）
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -66,3 +70,49 @@ jobs:
           sbom: false
           tags: |
             crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest
+
+  build-arm64:
+    name: Build arm64 image
+    # GitHub 托管 ARM64 runner，原生编译，无需 QEMU
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Checkout pixiu-ui
+        uses: actions/checkout@v3
+        with:
+          repository: pixiu-io/pixiu-ui
+          ref: master
+          token: ${{ secrets.PIXIU_UI_TOKEN }}
+          path: pixiu-ui
+
+      - name: Get short commit hash
+        run: |
+          echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "TIMESTAMP=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login harbor
+        uses: docker/login-action@v3
+        with:
+          registry: crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com
+          username: ${{ secrets.DOCKER_NAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push the arm64 pixiu image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/arm64
+          build-args: |
+            VERSION=${{ env.COMMIT_HASH }}-${{ env.TIMESTAMP }}
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            crpi-0ecikjs9ylb2hqyo.cn-hangzhou.personal.cr.aliyuncs.com/pixiu-public/pixiu:latest-arm64
