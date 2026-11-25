@@ -17,12 +17,16 @@ limitations under the License.
 package db
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	"github.com/caoyingjunz/pixiu/pkg/util/labels"
 )
 
 type Options func(*gorm.DB) *gorm.DB
@@ -637,4 +641,58 @@ func WithUpgradeTargetReady() Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("image <> '' AND version_tag <> ''")
 	}
+}
+
+// WithLabelSelector 基于关联表 resource_labels 过滤主表，适用于所有资源：
+// 每个条件生成一条 EXISTS / NOT EXISTS 相关子查询，条件间为 AND，可与任意 Options 组合。
+// resourceType 复用 types.ResourceTypeXxx；tableName 须为 model 常量（非用户输入）。
+func WithLabelSelector(selector, resourceType, tableName string) (Options, error) {
+	requirements, err := labels.Parse(strings.TrimSpace(selector))
+	if err != nil {
+		return nil, err
+	}
+	if len(requirements) == 0 {
+		return func(tx *gorm.DB) *gorm.DB { return tx }, nil
+	}
+
+	const field = "JSON_EXTRACT(`rl`.`labels`, ?)"
+	var exprs []clause.Expression
+	for _, req := range requirements {
+		path := "$." + strconv.Quote(req.Key) // Validate 已排除 JSON-path 元字符
+		var cond string
+		var vars []any
+		notExists := false
+		switch req.Operator {
+		case labels.Equals, labels.In, labels.NotEquals, labels.NotIn:
+			if len(req.Values) == 0 {
+				return nil, fmt.Errorf("empty values for label %q", req.Key)
+			}
+			cond = "CAST(JSON_UNQUOTE(" + field + ") AS BINARY) IN (" +
+				strings.TrimRight(strings.Repeat("?,", len(req.Values)), ",") + ")"
+			vars = append(vars, path)
+			for _, value := range req.Values {
+				vars = append(vars, value)
+			}
+			// 值不相等 / notin 等价于「不存在值相等的那一行」，天然覆盖 key 不存在的情况
+			notExists = req.Operator == labels.NotEquals || req.Operator == labels.NotIn
+		case labels.Exists, labels.DoesNotExist:
+			cond = field + " IS NOT NULL"
+			vars = append(vars, path)
+			// key 不存在等价于「不存在 key 存在的那一行」，关联表无行也命中
+			notExists = req.Operator == labels.DoesNotExist
+		default:
+			return nil, fmt.Errorf("unsupported label selector operator %q", req.Operator)
+		}
+
+		prefix := ""
+		if notExists {
+			prefix = "NOT "
+		}
+		sql := prefix + "EXISTS (SELECT 1 FROM `resource_labels` rl " +
+			"WHERE rl.resource_type = ? AND rl.resource_id = `" + tableName + "`.`id` AND " + cond + ")"
+		exprs = append(exprs, clause.Expr{SQL: sql, Vars: append([]any{resourceType}, vars...)})
+	}
+
+	where := clause.And(exprs...)
+	return func(tx *gorm.DB) *gorm.DB { return tx.Where(where) }, nil
 }

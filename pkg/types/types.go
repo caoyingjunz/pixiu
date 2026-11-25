@@ -541,6 +541,9 @@ type Cluster struct {
 	TimeMeta       `json:",inline"`
 }
 
+// Labels 是平台级标签类型，与具体资源无关；所有资源的请求/响应统一使用。
+type Labels = model.Labels
+
 type Datasource struct {
 	PixiuMeta `json:",inline"`
 	TimeMeta  `json:",inline"`
@@ -552,6 +555,7 @@ type Datasource struct {
 	SubType     model.DatasourceSubType `json:"sub_type"`
 	Config      DatasourceConfig        `json:"config"`
 	External    bool                    `json:"external"`
+	Labels      Labels                  `json:"labels"`
 	Description string                  `json:"description"`
 }
 
