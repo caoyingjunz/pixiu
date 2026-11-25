@@ -1,0 +1,180 @@
+name: Issue spam monitor
+
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Score new issue and notify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const crypto = require('crypto');
+            const issue = context.payload.issue;
+            const repo = context.repo;
+            const author = issue && issue.user && issue.user.login;
+            if (!author) return;
+
+            const allowlist = (process.env.SPAM_ALLOWLIST || '')
+              .split(',').map(s => s.trim()).filter(Boolean);
+            if (allowlist.includes(author)) {
+              core.info(`allowlisted author: ${author}`);
+              return;
+            }
+
+            const now = new Date();
+            const since24 = new Date(now.getTime() - 24 * 3600 * 1000)
+              .toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+            let authorInfo = {};
+            try {
+              const { data } = await github.rest.users.getByUsername({ username: author });
+              authorInfo = data;
+            } catch (e) {
+              core.warning(`读取作者信息失败: ${e.message}`);
+            }
+
+            let recentCount = 0;
+            try {
+              const q = `repo:${repo.owner}/${repo.repo} is:issue author:${author} created:>=${since24}`;
+              const { data } = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
+              recentCount = data.total_count || 0;
+            } catch (e) {
+              core.warning(`统计作者近期 issue 失败: ${e.message}`);
+            }
+
+            const title = issue.title || '';
+            const body = issue.body || '';
+            const text = `${title}\n${body}`;
+            let score = 0;
+            const reasons = [];
+
+            const ageDays = authorInfo.created_at
+              ? (now.getTime() - new Date(authorInfo.created_at).getTime()) / 86400000
+              : 9999;
+            if (ageDays < 7) {
+              score += 30; reasons.push(`新号 ${ageDays.toFixed(1)} 天`);
+            } else if (ageDays < 30) {
+              score += 15; reasons.push(`较新账号 ${ageDays.toFixed(0)} 天`);
+            }
+
+            const followers = authorInfo.followers == null ? 0 : authorInfo.followers;
+            const publicRepos = authorInfo.public_repos == null ? 0 : authorInfo.public_repos;
+            if (followers < 5 && publicRepos === 0) {
+              score += 20; reasons.push('0 公开仓库且低关注');
+            }
+
+            const bodyLen = body.trim().length;
+            if (bodyLen === 0) {
+              score += 25; reasons.push('正文为空');
+            } else if (bodyLen < 20) {
+              score += 15; reasons.push('正文过短');
+            }
+            if (title.trim().length < 8) {
+              score += 10; reasons.push('标题过短');
+            }
+
+            const links = (text.match(/https?:\/\//gi) || []).length;
+            if (links >= 3) {
+              score += 20; reasons.push(`外链 ${links} 个`);
+            }
+
+            const badWords = /(博彩|赌博|色情|成人|加密货币|量化带单|刷单|兼职|加群|微信群|qq群|telegram|t\.me|二维码|代开发票|私彩)/i;
+            if (badWords.test(text)) {
+              score += 30; reasons.push('命中广告/导流关键词');
+            }
+
+            if (recentCount >= 10) {
+              score += 50; reasons.push(`24h 内 ${recentCount} 条 issue`);
+            } else if (recentCount >= 4) {
+              score += 30; reasons.push(`24h 内 ${recentCount} 条 issue`);
+            } else if (recentCount >= 2) {
+              score += 10; reasons.push(`24h 内 ${recentCount} 条 issue`);
+            }
+
+            const level = score >= 60 ? '高' : score >= 35 ? '中' : '低';
+            core.info(`score=${score} level=${level} reasons=${reasons.join(' / ') || '无'}`);
+            if (score < 35) return;
+
+            try {
+              await github.rest.issues.addLabels({
+                ...repo,
+                issue_number: issue.number,
+                labels: ['spam-suspect']
+              });
+            } catch (e) {
+              if (e.status === 404) {
+                try {
+                  await github.rest.issues.createLabel({
+                    ...repo,
+                    name: 'spam-suspect',
+                    color: 'fbca04',
+                    description: '疑似垃圾 issue，待人工确认'
+                  });
+                  await github.rest.issues.addLabels({
+                    ...repo,
+                    issue_number: issue.number,
+                    labels: ['spam-suspect']
+                  });
+                } catch (inner) {
+                  core.warning(`打标签失败: ${inner.message}`);
+                }
+              } else {
+                core.warning(`打标签失败: ${e.message}`);
+              }
+            }
+
+            const webhook = process.env.DINGTALK_WEBHOOK || '';
+            if (!webhook) {
+              core.warning('DINGTALK_WEBHOOK 未配置，跳过钉钉通知');
+              return;
+            }
+
+            const secret = process.env.DINGTALK_SECRET || '';
+            const timestamp = Date.now().toString();
+            let sign = '';
+            if (secret) {
+              const hmac = crypto.createHmac('sha256', secret)
+                .update(`${timestamp}\n${secret}`)
+                .digest('base64');
+              sign = `&timestamp=${timestamp}&sign=${encodeURIComponent(hmac)}`;
+            }
+
+            const ageText = authorInfo.created_at ? `${ageDays.toFixed(1)} 天` : '未知';
+            const content = [
+              'workbuddy',
+              `GitHub issue 风险提醒（${level}风险，评分 ${score}）`,
+              `仓库: ${repo.owner}/${repo.repo}`,
+              `Issue: #${issue.number} ${title}`,
+              `作者: @${author}（注册 ${ageText}，followers ${followers}，公开仓库 ${publicRepos}）`,
+              `24h 内开 issue: ${recentCount}`,
+              `命中规则: ${reasons.join(' / ') || '无'}`,
+              `链接: ${issue.html_url}`,
+              `作者主页: https://github.com/${author}`,
+              '',
+              '请人工确认；确认是垃圾后运行 github-spam-cleanup 处理。'
+            ].join('\n');
+
+            try {
+              const resp = await fetch(`${webhook}${sign}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ msgtype: 'text', text: { content } })
+              });
+              if (!resp.ok) {
+                core.warning(`钉钉通知失败: ${resp.status} ${await resp.text()}`);
+              }
+            } catch (e) {
+              core.warning(`钉钉通知失败: ${e.message}`);
+            }
+          env:
+            DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+            DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+            SPAM_ALLOWLIST: ${{ vars.SPAM_ALLOWLIST }}
