@@ -144,9 +144,12 @@ func (c *Client) ConfigureStorageLocation(ctx context.Context, namespace, name s
 	if existing, err := secret.Get(ctx, secretName, metav1.GetOptions{}); err == nil {
 		if secretCredential(existing) != credentials {
 			secretChanged = true
-			secretObject := &unstructured.Unstructured{Object: secretData}
-			secretObject.SetResourceVersion(existing.GetResourceVersion())
-			if _, err = secret.Update(ctx, secretObject, metav1.UpdateOptions{}); err != nil {
+			// 以现有对象为底就地更新，保留用户附加的 labels/annotations 等元数据
+			updated := existing.DeepCopy()
+			if setErr := unstructured.SetNestedField(updated.Object, credentials, "stringData", "cloud"); setErr != nil {
+				return fmt.Errorf("build Velero storage credential: %w", setErr)
+			}
+			if _, err = secret.Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("update Velero storage credential: %w", err)
 			}
 		}
@@ -173,8 +176,26 @@ func (c *Client) ConfigureStorageLocation(ctx context.Context, namespace, name s
 	if err == nil {
 		// 无变化时不更新，避免无谓触发 Velero 重新校验；凭据变化时仍需更新 BSL 以触发校验。
 		if !storageLocationMatches(existing, bsl) || secretChanged {
-			bsl.SetResourceVersion(existing.GetResourceVersion())
-			if _, err = locations.Update(ctx, bsl, metav1.UpdateOptions{}); err != nil {
+			// 以现有对象为底就地更新，保留 pixiu 未声明的字段（注解、CRD 默认值、扩展配置）
+			updated := existing.DeepCopy()
+			spec, _, specErr := unstructured.NestedMap(updated.Object, "spec")
+			if specErr != nil {
+				return fmt.Errorf("read Velero storage location spec: %w", specErr)
+			}
+			if spec == nil {
+				spec = map[string]interface{}{}
+			}
+			desiredSpec, _, _ := unstructured.NestedMap(bsl.Object, "spec")
+			for _, key := range []string{"objectStorage", "credential", "config"} {
+				desiredNested, _, _ := unstructured.NestedMap(desiredSpec, key)
+				existingNested, _, _ := unstructured.NestedMap(spec, key)
+				spec[key] = mergeUnstructuredMap(existingNested, desiredNested)
+			}
+			spec["provider"] = desiredSpec["provider"]
+			if setErr := unstructured.SetNestedMap(updated.Object, spec, "spec"); setErr != nil {
+				return fmt.Errorf("build Velero storage location: %w", setErr)
+			}
+			if _, err = locations.Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("configure Velero storage location: %w", err)
 			}
 		}
@@ -255,6 +276,18 @@ func secretCredential(secret *unstructured.Unstructured) string {
 	}
 }
 
+// mergeUnstructuredMap 以现有字段为底、覆盖期望字段，保留未声明的扩展键。
+func mergeUnstructuredMap(existing, desired map[string]interface{}) map[string]interface{} {
+	merged := make(map[string]interface{}, len(existing)+len(desired))
+	for key, value := range existing {
+		merged[key] = value
+	}
+	for key, value := range desired {
+		merged[key] = value
+	}
+	return merged
+}
+
 // storageLocationMatches 只比较我们下发的字段，避免 CRD 默认值造成误判。
 func storageLocationMatches(existing, desired *unstructured.Unstructured) bool {
 	for _, path := range [][]string{
@@ -272,7 +305,13 @@ func storageLocationMatches(existing, desired *unstructured.Unstructured) bool {
 	}
 	wantConfig, _, _ := unstructured.NestedMap(desired.Object, "spec", "config")
 	gotConfig, _, _ := unstructured.NestedMap(existing.Object, "spec", "config")
-	return apiequality.Semantic.DeepEqual(wantConfig, gotConfig)
+	// 仅比较期望下发的键：保留现有对象中的额外配置，避免每次都判定不一致而重复更新
+	for key, want := range wantConfig {
+		if !apiequality.Semantic.DeepEqual(gotConfig[key], want) {
+			return false
+		}
+	}
+	return true
 }
 
 func credentialsFile(config *StorageConfig) string {
