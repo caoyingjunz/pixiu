@@ -1092,7 +1092,7 @@ func (c *cluster) calJobFieldSelectors(ctx context.Context, client *kubernetes.C
 
 func (c *cluster) calCronJobFieldSelectors(ctx context.Context, client *kubernetes.Clientset, namespace string, name string) ([]string, error) {
 
-	return nil, nil
+	return c.calCronJobEventSelectors(ctx, client, namespace, name)
 }
 
 // GetKubeObjectByLabel
