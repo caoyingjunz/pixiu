@@ -242,6 +242,24 @@ func (c *controller) ListReleases(ctx context.Context, clusterName, namespace st
 		recIndex[triple{rec.Namespace, rec.ReleaseName}] = rec
 	}
 
+	// 外部 release 的「同名 Chart 是否在目录」判定：按 chart 名缓存，避免同一请求内 N 次查询。
+	// GetChartByName 出错按未命中（false）处理，不阻断列表。
+	chartInCatalogCache := make(map[string]bool)
+	chartInCatalog := func(chartName string) bool {
+		if chartName == "" {
+			return false
+		}
+		if v, ok := chartInCatalogCache[chartName]; ok {
+			return v
+		}
+		inCatalog := false
+		if chart, err := c.factory.Chart().GetChartByName(ctx, chartName); err == nil && chart != nil {
+			inCatalog = true
+		}
+		chartInCatalogCache[chartName] = inCatalog
+		return inCatalog
+	}
+
 	items := make([]types.InstallInfo, 0, len(releases)+len(records))
 	seen := make(map[triple]bool, len(releases))
 	for _, rel := range releases {
@@ -261,8 +279,10 @@ func (c *controller) ListReleases(ctx context.Context, clusterName, namespace st
 			items = append(items, info)
 			continue
 		}
-		// 外部 release（非平台记账）：只读，Managed=false。
-		items = append(items, externalInstallInfo(resolvedName, rel))
+		// 外部 release（非平台记账）：只读，Managed=false；回填是否存在同名 Chart 供前端判定能否升级。
+		info := externalInstallInfo(resolvedName, rel)
+		info.ChartInCatalog = chartInCatalog(info.ChartName)
+		items = append(items, info)
 	}
 
 	// 补录：DB 中 pending/installing 但集群尚无对应 release 的记账（尚未下发或正在编排）。
@@ -351,12 +371,18 @@ func (c *controller) GetRelease(ctx context.Context, clusterName, namespace, nam
 		return &info, nil
 	}
 	info := externalInstallInfo(resolvedName, rel)
+	// 外部 release：回填是否存在同名 Chart，供前端判定升级按钮是否可用。
+	if info.ChartName != "" {
+		if chart, err := c.factory.Chart().GetChartByName(ctx, info.ChartName); err == nil && chart != nil {
+			info.ChartInCatalog = true
+		}
+	}
 	return &info, nil
 }
 
 // Upgrade 异步升级已安装的 release 到指定版本。
 // 同步段：鉴权 → 记账定位（未命中则按需纳管）→ 目标版本解析；随后把目标 version/values 落库并置回 pending 入队。
-// 按需纳管：集群内已存在但未记账的外部 release（其 chart 在目录内）会补建 pending 记账并直接入队；
+// 外部 release（平台未记账，如 helm CLI 手动安装）可在应用商店存在同名 Chart 时按需纳管升级（前端有风险提示）；
 // 若其 chart 不在平台目录（无法解析目标版本），则拒绝（400），避免留下无法执行的 pending 记录。
 func (c *controller) Upgrade(ctx context.Context, clusterName, namespace, name string, req *types.UpgradeChartRequest) error {
 	if err := c.ensureStore(); err != nil {
@@ -372,10 +398,14 @@ func (c *controller) Upgrade(ctx context.Context, clusterName, namespace, name s
 		if err != nil {
 			return err
 		}
+		// 显式 chart_id 覆盖：前端上传同名 Chart 后提交，由下方 resolveVersion 校验存在性。
+		if req.ChartId > 0 {
+			rec.ChartId = req.ChartId
+		}
 		// 升级依赖目标版本解析（resolveVersion 按 rec.ChartId）；chart 不在目录则无法升级，直接拒绝，不落库。
 		if rec.ChartId == 0 {
 			return apierrors.NewError(
-				fmt.Errorf("该 release 的 chart 不在应用商店目录中，无法通过平台升级；请卸载后用目录 chart 重新安装"),
+				fmt.Errorf("该 release 的 Chart 不在应用商店目录中，无法通过平台升级；请先在应用商店上传同名 Chart"),
 				http.StatusBadRequest,
 			)
 		}
@@ -397,7 +427,11 @@ func (c *controller) Upgrade(ctx context.Context, clusterName, namespace, name s
 		return err
 	}
 
-	cv, err := c.resolveVersion(ctx, rec.ChartId, req.Version)
+	targetChartID := rec.ChartId
+	if req.ChartId > 0 {
+		targetChartID = req.ChartId
+	}
+	cv, err := c.resolveVersion(ctx, targetChartID, req.Version)
 	if err != nil {
 		return err
 	}
@@ -410,6 +444,18 @@ func (c *controller) Upgrade(ctx context.Context, clusterName, namespace, name s
 		"pending_op":    model.InstallOpUpgrade,
 		"message":       "",
 	}
+	// 显式切换到目录内另一 Chart（如同名重建的新 id）：同步更新记账的 chart 归属，worker 据此取包。
+	if targetChartID != rec.ChartId {
+		chart, err := c.factory.Chart().GetChart(ctx, targetChartID)
+		if err != nil {
+			return apierrors.ErrServerInternal
+		}
+		if chart == nil {
+			return apierrors.NewError(fmt.Errorf("chart not found"), http.StatusNotFound)
+		}
+		updates["chart_id"] = targetChartID
+		updates["chart_name"] = chart.Name
+	}
 	if err = c.factory.Chart().UpdateInstallDeploy(ctx, rec.Id, updates); err != nil {
 		return apierrors.ErrServerInternal
 	}
@@ -418,21 +464,17 @@ func (c *controller) Upgrade(ctx context.Context, clusterName, namespace, name s
 
 // Uninstall 异步卸载 release 并删除记账（真正的 helm 卸载 + 删记录由 worker 完成）。
 // 同时充当「删除失败记录」入口：worker 侧若集群内已无该 release，会直接清理记账。
-// 未记账的外部 release 会先按需纳管（补建 pending=uninstall 记录），再由 worker 执行卸载。
+// 外部 release（平台未记账，如 helm CLI 手动安装）只读，直接拒绝写操作（400）。
 func (c *controller) Uninstall(ctx context.Context, clusterName, namespace, name string) error {
-	resolvedName, rec, user, err := c.authorizeAndLoadMaybe(ctx, clusterName, namespace, name)
+	_, rec, _, err := c.authorizeAndLoadMaybe(ctx, clusterName, namespace, name)
 	if err != nil {
 		return err
 	}
 	if rec == nil {
-		rec, err = c.externalReleaseRecord(ctx, resolvedName, namespace, name, model.InstallOpUninstall, 0, user)
-		if err != nil {
-			return err
-		}
-		if _, err = c.factory.Chart().CreateInstall(ctx, rec); err != nil {
-			return apierrors.ErrServerInternal
-		}
-		return nil
+		return apierrors.NewError(
+			fmt.Errorf("该 Release 由 helm CLI 安装，平台未纳管，请使用 helm CLI 操作"),
+			http.StatusBadRequest,
+		)
 	}
 
 	if err = ensureNotBusy(rec); err != nil {
@@ -449,21 +491,17 @@ func (c *controller) Uninstall(ctx context.Context, clusterName, namespace, name
 }
 
 // Rollback 异步回滚 release 到指定 revision。
-// 未记账的外部 release 会先按需纳管（补建 pending=rollback 记录，并带上目标 revision）。
+// 外部 release（平台未记账，如 helm CLI 手动安装）只读，直接拒绝写操作（400）。
 func (c *controller) Rollback(ctx context.Context, clusterName, namespace, name string, req *types.RollbackChartRequest) error {
-	resolvedName, rec, user, err := c.authorizeAndLoadMaybe(ctx, clusterName, namespace, name)
+	_, rec, _, err := c.authorizeAndLoadMaybe(ctx, clusterName, namespace, name)
 	if err != nil {
 		return err
 	}
 	if rec == nil {
-		rec, err = c.externalReleaseRecord(ctx, resolvedName, namespace, name, model.InstallOpRollback, req.Version, user)
-		if err != nil {
-			return err
-		}
-		if _, err = c.factory.Chart().CreateInstall(ctx, rec); err != nil {
-			return apierrors.ErrServerInternal
-		}
-		return nil
+		return apierrors.NewError(
+			fmt.Errorf("该 Release 由 helm CLI 安装，平台未纳管，请使用 helm CLI 操作"),
+			http.StatusBadRequest,
+		)
 	}
 
 	if err = ensureNotBusy(rec); err != nil {
@@ -482,7 +520,8 @@ func (c *controller) Rollback(ctx context.Context, clusterName, namespace, name 
 
 // authorizeAndLoadMaybe 鉴权集群访问并尝试读取平台托管的安装记账。
 // 返回解析后的集群名（供 helm 加载 kubeconfig，务必使用）、记账记录（可能为 nil）与当前用户。
-// 记录未命中不报错，由调用方决定是否按需纳管；身份为集群作用域自然身份 (cluster, namespace, name)。
+// 记录未命中不报错，由调用方决定如何处理（升级可按需纳管；卸载/回滚应拒绝外部 release）；
+// 身份为集群作用域自然身份 (cluster, namespace, name)。
 func (c *controller) authorizeAndLoadMaybe(ctx context.Context, clusterName, namespace, name string) (string, *model.AppstoreInstall, *model.User, error) {
 	user, err := httputils.GetUserFromContext(ctx)
 	if err != nil {
@@ -731,6 +770,7 @@ func toInstallInfo(rec *model.AppstoreInstall) types.InstallInfo {
 		PendingOp:      rec.PendingOp,
 		Message:        rec.Message,
 		Managed:        true, // 记账来源：平台托管
+		ChartInCatalog: rec.ChartId > 0,
 		TargetRevision: rec.TargetRevision,
 		CreatedBy:      rec.CreatedBy,
 		CreatedByName:  rec.CreatedByName,
