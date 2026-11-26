@@ -28,6 +28,8 @@ func init() {
 
 type AuditOperationStatus uint8
 
+const AuditActionSystem = "SYSTEM"
+
 const (
 	AuditOpFail    AuditOperationStatus = iota // 执行失败
 	AuditOpSuccess                             // 执行成功
@@ -48,19 +50,29 @@ func (s AuditOperationStatus) String() string {
 type Audit struct {
 	pixiu.Model
 
-	RequestId         string               `gorm:"column:request_id;type:varchar(32);index" json:"request_id"`            // 请求 ID
-	Ip                string               `gorm:"type:varchar(128)" json:"ip"`                                           // 客户端 IP
-	Action            string               `gorm:"type:varchar(255)" json:"action"`                                       // HTTP 方法 [POST/DELETE/PUT/GET]
-	Operator          string               `gorm:"type:varchar(255)" json:"operator"`                                     // 操作人 ID
-	Path              string               `gorm:"type:varchar(255)" json:"path"`                                         // HTTP 路径
-	ObjectType        ObjectType           `gorm:"column:resource_type;type:varchar(128)" json:"resource_type"`           // 操作资源类型 [cluster/plan...]
-	Status            AuditOperationStatus `gorm:"type:tinyint" json:"status"`                                            // 记录操作运行结果[OperationStatus]
-	Duration          int64                `gorm:"column:duration;type:bigint;default:0" json:"duration"`                 // 请求耗时 ms
-	ResponseCode      int                  `gorm:"column:response_code;type:int;default:0" json:"response_code"`          // HTTP 响应码
-	Cluster           string               `gorm:"column:cluster;type:varchar(255)" json:"cluster"`                       // K8s 集群名
-	ResourceName      string               `gorm:"column:resource_name;type:varchar(255)" json:"resource_name"`           // 资源名称
-	ResourceNamespace string               `gorm:"column:resource_namespace;type:varchar(255)" json:"resource_namespace"` // 资源命名空间
+	RequestId         string               `gorm:"column:request_id;type:varchar(32);index" json:"request_id"`               // 请求 ID
+	Ip                string               `gorm:"type:varchar(128)" json:"ip"`                                              // 客户端 IP
+	Action            string               `gorm:"type:varchar(255)" json:"action"`                                          // HTTP 方法 [POST/DELETE/PUT/GET]
+	Operator          string               `gorm:"type:varchar(255)" json:"operator"`                                        // 操作人 ID
+	Path              string               `gorm:"type:varchar(255)" json:"path"`                                            // HTTP 路径
+	ObjectType        ObjectType           `gorm:"column:resource_type;type:varchar(128)" json:"resource_type"`              // 操作资源类型 [cluster/plan...]
+	Status            AuditOperationStatus `gorm:"type:tinyint" json:"status"`                                               // 记录操作运行结果[OperationStatus]
+	Duration          int64                `gorm:"column:duration;type:bigint;default:0" json:"duration"`                    // 请求耗时 ms
+	ResponseCode      int                  `gorm:"column:response_code;type:int;default:0" json:"response_code"`             // HTTP 响应码
+	Cluster           string               `gorm:"column:cluster;type:varchar(255);index:idx_audits_cluster" json:"cluster"` // K8s 集群名
+	ResourceName      string               `gorm:"column:resource_name;type:varchar(255)" json:"resource_name"`              // 资源名称
+	ResourceNamespace string               `gorm:"column:resource_namespace;type:varchar(255)" json:"resource_namespace"`    // 资源命名空间
+	OperatorId        int64                `gorm:"column:operator_id;type:bigint;not null;default:0;index:idx_audits_operator_id" json:"operator_id"`
+	ResourceId        int64                `gorm:"column:resource_id;type:bigint;not null;default:0;index:idx_audits_resource_id" json:"resource_id"`
+	Operation         string               `gorm:"column:operation;type:varchar(32);not null;default:''" json:"operation"`
+	ResourceKind      string               `gorm:"column:resource_kind;type:varchar(64);not null;default:''" json:"resource_kind"`
+	Detail            string               `gorm:"column:detail;type:varchar(512);not null;default:''" json:"detail"`
 }
+
+// K8sAuditReviewPathPattern 只匹配认证、授权查询端点，不匹配同名资源。
+const K8sAuditReviewPathPattern = `^/pixiu/proxy/[^/]+/apis/(authentication|authorization)[.]k8s[.]io/[^/]+/` +
+	`(namespaces/[^/]+/)?(selfsubjectrulesreviews|selfsubjectaccessreviews|localsubjectaccessreviews|` +
+	`subjectaccessreviews|tokenreviews|selfsubjectreviews)/?([?].*)?$`
 
 func (a *Audit) String() string {
 	return fmt.Sprintf("user %s(ip addr: %s) access %s with %s then %s (duration: %dms)", a.Operator, a.Ip,

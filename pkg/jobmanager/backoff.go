@@ -29,8 +29,19 @@ const (
 	backoffMaxInterval  = 8 * time.Minute
 	backoffMaxFailures  = 8
 
-	// maxProbeMessageLen 探测失败信息写入数据库时的最大长度，避免超长字段与敏感信息外泄。
-	maxProbeMessageLen = 500
+	// maxTextLen 探测信息、审计详情等字段的长度上限（对应 varchar(512)）。
+	maxTextLen = 500
+
+	// disconnectConfirmFailures 连续探测失败多少次才判定失联。
+	// 首次失败多为抖动，单次失败即置失联会产生大量"失联-恢复"噪音审计。
+	disconnectConfirmFailures = 2
+)
+
+// 探测结论，写入集群 probe_reason 并参与失联审计的文案判定。
+const (
+	probeReasonHealthy           = "Healthy"
+	probeReasonProbeFailed       = "ProbeFailed"
+	probeReasonAgentDisconnected = "AgentDisconnected"
 )
 
 // probeBackoff 集群连通性探测的并发安全指数退避器。
@@ -73,19 +84,21 @@ func (p *probeBackoff) shouldProbe(name string, now time.Time) bool {
 	return false
 }
 
-// markResult 记录探测结果：success=true 清空失败计数，否则 +1（封顶 backoffMaxFailures）。
-func (p *probeBackoff) markResult(name string, success bool, _ time.Time) {
+// markResult 记录探测结果并返回该集群当前的连续失败次数：
+// success=true 清空失败计数，否则 +1（封顶 backoffMaxFailures）。
+func (p *probeBackoff) markResult(name string, success bool, _ time.Time) int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if success {
 		delete(p.failures, name)
-		return
+		return 0
 	}
 	f := p.failures[name] + 1
 	if f > backoffMaxFailures {
 		f = backoffMaxFailures
 	}
 	p.failures[name] = f
+	return f
 }
 
 // cleanup 删除不存在集群的退避状态，避免集群删除后状态残留。
@@ -104,29 +117,30 @@ func (p *probeBackoff) cleanup(exist map[string]struct{}) {
 	}
 }
 
-// truncateProbeMessage 截断探测失败信息，避免超长或泄露敏感信息。
-func truncateProbeMessage(msg string) string {
-	if len(msg) <= maxProbeMessageLen {
-		return msg
+// truncateText 按字符截断文本，避免超出 varchar(512) 导致整条事务回滚。
+func truncateText(text string) string {
+	runes := []rune(text)
+	if len(runes) <= maxTextLen {
+		return text
 	}
-	runes := []rune(msg)
-	if len(runes) > maxProbeMessageLen {
-		runes = runes[:maxProbeMessageLen]
-	}
-	return string(runes)
+	return string(runes[:maxTextLen])
 }
 
 // probeConditionUpdates 构建集群连通性 condition 的写库字段。
-// last_probe_time 始终以 now 填充，保证每次探测都刷新探测时间。
+// last_probe_time 始终刷新；last_healthy_time 只在探测成功时刷新，用于推算失联起点。
 func probeConditionUpdates(connected bool, reason, message string, now time.Time) map[string]interface{} {
 	status := model.ClusterProbeUnhealthy
 	if connected {
 		status = model.ClusterProbeHealthy
 	}
-	return map[string]interface{}{
+	updates := map[string]interface{}{
 		"probe_status":    status,
 		"probe_reason":    reason,
-		"probe_message":   truncateProbeMessage(message),
-		"last_probe_time": now,
+		"probe_message":   truncateText(message),
+		"last_probe_time": now.Truncate(time.Microsecond),
 	}
+	if connected {
+		updates["last_healthy_time"] = now.Truncate(time.Microsecond)
+	}
+	return updates
 }

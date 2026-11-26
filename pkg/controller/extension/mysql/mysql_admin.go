@@ -307,6 +307,7 @@ func (c *controller) ExecuteSQL(ctx context.Context, datasourceId int64, req *ty
 			return nil, err
 		}
 	}
+	httputils.ApplySQLAudit(ctx, readOnly, req.Database, req.SQL)
 
 	dbConn, _, err := c.connFor(ctx, datasourceId)
 	if err != nil {
@@ -372,14 +373,18 @@ func (c *controller) executeStatementsBatch(ctx context.Context, datasourceId in
 	}
 
 	// 写/DDL/管理语句门禁：任一条非只读即要求管理员，与单条执行一致
+	mutating := make([]string, 0, len(statements))
 	for _, st := range statements {
 		if !isReadOnlyStatement(st.Text) {
-			if err := requireMySQLAdmin(ctx); err != nil {
-				return nil, err
-			}
-			break
+			mutating = append(mutating, st.Text)
 		}
 	}
+	if len(mutating) > 0 {
+		if err := requireMySQLAdmin(ctx); err != nil {
+			return nil, err
+		}
+	}
+	httputils.ApplySQLAudit(ctx, len(mutating) == 0, req.Database, mutating...)
 
 	dbConn, _, err := c.connFor(ctx, datasourceId)
 	if err != nil {

@@ -27,10 +27,22 @@ import (
 
 type Options func(*gorm.DB) *gorm.DB
 
+func WithColumns(columns ...string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Select(columns)
+	}
+}
+
 // WithId 按主键 id 精确过滤（如非管理员用户列表仅查自身）。
 func WithId(id int64) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("id = ?", id)
+	}
+}
+
+func WithIDBefore(id int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("id < ?", id)
 	}
 }
 
@@ -202,30 +214,12 @@ func WithUserStatus(status int) Options {
 	}
 }
 
-func WithAuditOperatorLike(operator string) Options {
-	return func(tx *gorm.DB) *gorm.DB {
-		if operator == "" {
-			return tx
-		}
-		return tx.Where("operator like ?", "%"+operator+"%")
-	}
-}
-
 func WithAuditAction(action string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		if action == "" {
 			return tx
 		}
 		return tx.Where("action = ?", action)
-	}
-}
-
-func WithAuditObjectType(ot string) Options {
-	return func(tx *gorm.DB) *gorm.DB {
-		if ot == "" {
-			return tx
-		}
-		return tx.Where("resource_type = ?", ot)
 	}
 }
 
@@ -247,6 +241,65 @@ func WithAuditCreatedAfter(t time.Time) Options {
 func WithAuditCluster(cluster string) Options {
 	return func(tx *gorm.DB) *gorm.DB {
 		return tx.Where("cluster = ?", cluster)
+	}
+}
+
+func WithAuditOperator(operator string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if operator == "" {
+			return tx
+		}
+		return tx.Where("operator = ?", operator)
+	}
+}
+
+func WithAuditOperation(operation string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if operation == "" {
+			return tx
+		}
+		return tx.Where("operation = ?", operation)
+	}
+}
+
+func WithAuditObjectTypes(types []string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(types) == 0 {
+			return tx
+		}
+		return tx.Where("resource_type IN ?", types)
+	}
+}
+
+func WithNameIn(names []string) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		if len(names) == 0 {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("name IN ?", names)
+	}
+}
+
+func WithAuditExcludeK8sReviews() Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("path NOT REGEXP ?", model.K8sAuditReviewPathPattern)
+	}
+}
+
+func WithAuditScope(userID int64, userName string, clusterNames []string, resourceIDs []int64) Options {
+	return func(tx *gorm.DB) *gorm.DB {
+		scope := tx.Session(&gorm.Session{NewDB: true}).
+			Where("operator_id = ?", userID).
+			Or("operator_id = 0 AND operator = ? AND action <> ?", userName, model.AuditActionSystem)
+		if len(clusterNames) > 0 {
+			scope = scope.Or("cluster IN ?", clusterNames)
+		}
+		if len(resourceIDs) > 0 {
+			scope = scope.Or("resource_id IN ? AND resource_type IN ?", resourceIDs, model.AuditDatasourceTypes)
+		}
+		return tx.Where(scope).Where("resource_type NOT IN ?", []model.ObjectType{
+			model.ObjectUser, model.ObjectAuth, model.ObjectTenant,
+		})
 	}
 }
 

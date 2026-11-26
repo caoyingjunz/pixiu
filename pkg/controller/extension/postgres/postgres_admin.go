@@ -15,6 +15,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/controller/extension/sqlbackup"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
@@ -439,6 +440,7 @@ func (c *controller) ExecuteSQL(ctx context.Context, id int64, q *types.Postgres
 			return nil, err
 		}
 	}
+	httputils.ApplySQLAudit(ctx, readOnly, q.Database, q.SQL)
 
 	dbConn, _, err := c.connTo(ctx, id, q.Database)
 	if err != nil {
@@ -480,14 +482,18 @@ func (c *controller) ExecuteBatchSQL(ctx context.Context, id int64, req *types.P
 	}
 
 	// 写语句门禁
+	mutating := make([]string, 0, len(statements))
 	for _, st := range statements {
 		if !pgIsReadOnly(st.Text) {
-			if err := requireAdmin(ctx); err != nil {
-				return nil, err
-			}
-			break
+			mutating = append(mutating, st.Text)
 		}
 	}
+	if len(mutating) > 0 {
+		if err := requireAdmin(ctx); err != nil {
+			return nil, err
+		}
+	}
+	httputils.ApplySQLAudit(ctx, len(mutating) == 0, req.Database, mutating...)
 
 	dbConn, _, err := c.connTo(ctx, id, req.Database)
 	if err != nil {
@@ -842,6 +848,7 @@ func (c *controller) CreateTable(ctx context.Context, id int64, req *types.Postg
 	if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(req.SQL)), "CREATE") {
 		return apierrors.NewError(fmt.Errorf("only CREATE TABLE statements are allowed"), http.StatusBadRequest)
 	}
+	httputils.ApplySQLAudit(ctx, false, req.Database, req.SQL)
 	return c.execDDL(ctx, id, req.Database, req.SQL)
 }
 
@@ -856,6 +863,7 @@ func (c *controller) AlterTable(ctx context.Context, id int64, req *types.Postgr
 	if !strings.HasPrefix(upper, "ALTER") && !strings.HasPrefix(upper, "CREATE INDEX") && !strings.HasPrefix(upper, "DROP INDEX") {
 		return apierrors.NewError(fmt.Errorf("only ALTER TABLE / CREATE INDEX / DROP INDEX statements are allowed"), http.StatusBadRequest)
 	}
+	httputils.ApplySQLAudit(ctx, false, req.Database, req.SQL)
 	return c.execDDL(ctx, id, req.Database, req.SQL)
 }
 

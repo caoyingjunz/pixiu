@@ -29,6 +29,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/caoyingjunz/pixiu/cmd/app/config"
+	auditlog "github.com/caoyingjunz/pixiu/pkg/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 	pixiudb "github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/jobmanager"
@@ -84,6 +85,9 @@ type Options struct {
 	// UpgradeChecker 自动升级的版本检测器；仅 upgrader.enabled=true 时创建。
 	// 版本检测由 JobManager 周期调度，升级执行由独立 pixiu-upgrade 进程完成。
 	UpgradeChecker *upgrader.Upgrade
+
+	// AuditRecorder 审计异步写入队列，进程退出前需要 drain。
+	AuditRecorder *auditlog.Recorder
 }
 
 func NewOptions() (*Options, error) {
@@ -195,6 +199,7 @@ func (o *Options) Complete(cmd *cobra.Command) error {
 	}
 
 	accessOpts := o.ComponentConfig.Log.AccessOptions()
+	o.AuditRecorder = auditlog.NewRecorder(o.Factory)
 	jobs := []jobmanager.Job{
 		jobmanager.NewAuditsCleaner(o.ComponentConfig.Audit, o.Factory),
 		jobmanager.NewAlertHistoryCleaner(o.ComponentConfig.AlertHistory, o.Factory),

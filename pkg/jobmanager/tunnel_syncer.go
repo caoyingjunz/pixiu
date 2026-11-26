@@ -36,12 +36,15 @@ const (
 type TunnelSyncer struct {
 	factory db.ShareDaoFactory
 	backoff *probeBackoff
+	// confirmFailures 连续失败多少次才判定失联，与直连探测保持一致。
+	confirmFailures int
 }
 
 func NewTunnelSyncer(f db.ShareDaoFactory) *TunnelSyncer {
 	return &TunnelSyncer{
-		factory: f,
-		backoff: newProbeBackoff(),
+		factory:         f,
+		backoff:         newProbeBackoff(),
+		confirmFailures: disconnectConfirmFailures,
 	}
 }
 
@@ -74,15 +77,19 @@ func (ts *TunnelSyncer) Do(ctx *JobContext) error {
 	}
 
 	exist := make(map[string]struct{}, len(clusters))
+	var firstErr error
 	for i := range clusters {
 		obj := &clusters[i]
 		exist[obj.Name] = struct{}{}
-		if err = ts.checkTunnelCluster(ctx, tm, obj); err != nil {
+		if err := ts.checkTunnelCluster(ctx, tm, obj); err != nil {
 			klog.Errorf("[TunnelSyncer] cluster %s: %v", obj.Name, err)
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
 	ts.backoff.cleanup(exist)
-	return nil
+	return firstErr
 }
 
 func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manager, obj *model.Cluster) error {
@@ -100,9 +107,13 @@ func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manag
 
 	// 多 server 共享 db 场景：agent 隧道可能连到其他 server 实例（如生产）。
 	// 本进程从未接入该集群（无 session 且未授权过）时不修改共享 db 状态，
-	// 避免本进程把集群误判为失联/等待接入。
+	// 避免本进程把集群误判为失联/等待接入；但已失联且从未记录过的集群仍要留痕。
 	if !tm.HasSession(obj.Name) && !tm.SeenSession(obj.Name) {
 		tm.SetAgentConnected(obj.Name, false)
+		if err := backfillDisconnectAudit(ctx, ts.factory, *obj); err != nil {
+			klog.Errorf("[TunnelSyncer] backfill disconnect audit for %s: %v", obj.Name, err)
+			return err
+		}
 		return nil
 	}
 
@@ -113,7 +124,7 @@ func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manag
 	}
 
 	connected, reason, message, nodeData, kubernetesVersion := probeTunnelL7(ctx, tm, obj)
-	ts.backoff.markResult(obj.Name, connected, now)
+	failures := ts.backoff.markResult(obj.Name, connected, now)
 
 	prev := tm.AgentConnected(obj.Name)
 	tm.SetAgentConnected(obj.Name, connected)
@@ -122,7 +133,8 @@ func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manag
 	switch {
 	case connected && (obj.ClusterStatus == model.ClusterStatusPending || obj.ClusterStatus == model.ClusterStatusError):
 		desired = model.ClusterStatusRunning
-	case !connected && obj.ClusterStatus == model.ClusterStatusRunning:
+	case !connected && obj.ClusterStatus == model.ClusterStatusRunning && failures >= ts.confirmFailures:
+		// 连续失败达到阈值才判定失联，单次失败只更新探测状态。
 		desired = model.ClusterStatusError
 	}
 
@@ -138,7 +150,7 @@ func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manag
 	if prev != connected {
 		klog.V(2).Infof("[TunnelSyncer] cluster %s agent_connected=%v", obj.Name, connected)
 	}
-	if err := ts.factory.Cluster().InternalUpdate(ctx, obj.Id, updates); err != nil {
+	if err := updateClusterProbe(ctx, ts.factory, *obj, updates); err != nil {
 		if utilerrors.IsNotUpdated(err) {
 			return nil
 		}
@@ -154,12 +166,12 @@ func (ts *TunnelSyncer) checkTunnelCluster(ctx context.Context, tm *tunnel.Manag
 func probeTunnelL7(ctx context.Context, tm *tunnel.Manager, obj *model.Cluster) (connected bool, reason, message, nodeData, version string) {
 	// session 已消失（但本进程曾见过，见 SeenSession 前置）：直接判定失联，避免空转拨测
 	if !tm.HasSession(obj.Name) {
-		return false, "AgentDisconnected", "agent 隧道未连接", "", ""
+		return false, probeReasonAgentDisconnected, "agent 隧道未连接", "", ""
 	}
 
 	nodeData, version, err := probeClusterMeta(*obj)
 	if err != nil {
-		return false, "ProbeFailed", err.Error(), "", ""
+		return false, probeReasonProbeFailed, err.Error(), "", ""
 	}
-	return true, "Healthy", "", nodeData, version
+	return true, probeReasonHealthy, "", nodeData, version
 }

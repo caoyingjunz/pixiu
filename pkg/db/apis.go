@@ -36,6 +36,7 @@ type APIResourceInterface interface {
 
 	GetByMethodAndPath(ctx context.Context, method, path string) (*model.API, error)
 	GetByRoleId(ctx context.Context, roleId int64) ([]model.API, error)
+	ExistsByRoleMethodPath(ctx context.Context, roleId int64, method, path string) (bool, error)
 }
 
 type apis struct {
@@ -143,6 +144,15 @@ func (a *apis) GetByRoleId(ctx context.Context, roleId int64) ([]model.API, erro
 		return nil, err
 	}
 	return objects, nil
+}
+
+func (a *apis) ExistsByRoleMethodPath(ctx context.Context, roleId int64, method, path string) (bool, error) {
+	var n int64
+	err := a.db.WithContext(ctx).Model(&model.API{}).
+		Joins("JOIN role_apis ON role_apis.api_id = apis.id").
+		Where("role_apis.role_id = ? AND apis.method = ? AND apis.path = ?", roleId, method, path).
+		Count(&n).Error
+	return n > 0, err
 }
 
 func newAPIs(db *gorm.DB) *apis {
