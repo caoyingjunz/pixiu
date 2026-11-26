@@ -29,8 +29,10 @@ const (
 	maskedCredential = " [敏感内容已隐藏]"
 )
 
-// credentialPattern 命中即整条语句隐藏，避免引号、转义与方言差异漏出密码。
-var credentialPattern = regexp.MustCompile(`(?i)\b(?:password|passwd|secret|token|identified)\b`)
+// credentialPattern 命中即整条语句隐藏，覆盖折叠 `=` 无法处理的凭据语法（如 IDENTIFIED BY）。
+// 敏感词可作标识符前缀（secret_col、api_key）但后接字母不算；不收录 token，避免 token_count 误伤。
+var credentialPattern = regexp.MustCompile(
+	`(?i)(^|[^a-z0-9])(password|passwd|pwd|secret|identified|credential|api_?key|access_?key|private_?key)($|[^a-z])`)
 
 // token 是词法扫描的一个片段。
 // text 保留原文（标识符含引号），lower 仅对未加引号的内容生效用于关键字匹配。
@@ -56,11 +58,95 @@ func summarizeStatement(sqlText string) string {
 	if len(tokens) == 0 {
 		return ""
 	}
-	text := render(tokens)
-	if credentialPattern.MatchString(text) {
+	if credentialPattern.MatchString(identifiers(tokens)) {
 		return truncateRunes(strings.ToUpper(tokens[0].lower)+maskedCredential, auditDetailMax)
 	}
-	return truncateRunes(collapseValues(tokens), auditDetailMax)
+	return truncateRunes(collapseValues(collapseAssignments(tokens)), auditDetailMax)
+}
+
+// identifiers 拼接非字面量 token，列值里的 api_key 不应触发整条隐藏。
+func identifiers(tokens []token) string {
+	var b strings.Builder
+	for _, t := range tokens {
+		if t.text == "" {
+			continue
+		}
+		switch t.text[0] {
+		case '\'', '"':
+			continue
+		case '`':
+			b.WriteString(strings.ToLower(strings.Trim(t.text, "`")))
+		default:
+			b.WriteString(t.lower)
+		}
+		b.WriteByte(' ')
+	}
+	return b.String()
+}
+
+// collapseAssignments 把 `= 字面量` 折叠成 `= ?`，避免 UPDATE 的字面量原文落库。
+// 字符串一律折叠；数字只在 SET 子句内折叠，保留 WHERE id=5 便于定位。
+func collapseAssignments(tokens []token) []token {
+	setFrom, setTo := setClauseRange(tokens)
+	out := make([]token, 0, len(tokens))
+	for i := 0; i < len(tokens); i++ {
+		out = append(out, tokens[i])
+		if tokens[i].text != "=" || i+1 >= len(tokens) || !isLiteralToken(tokens[i+1]) {
+			continue
+		}
+		if isNumericToken(tokens[i+1].lower) && (i < setFrom || i > setTo) {
+			continue
+		}
+		out = append(out, token{text: "?", spaceBefore: tokens[i+1].spaceBefore})
+		i++
+	}
+	return out
+}
+
+// setClauseRange 返回 SET 子句的下标闭区间，没有 SET 时返回 (-1, -1)。
+func setClauseRange(tokens []token) (int, int) {
+	start := -1
+	for i, t := range tokens {
+		if t.lower == "set" {
+			start = i
+			break
+		}
+	}
+	if start < 0 {
+		return -1, -1
+	}
+	for i := start + 1; i < len(tokens); i++ {
+		switch tokens[i].lower {
+		case "where", "order", "limit", "returning":
+			return start, i - 1
+		}
+	}
+	return start, len(tokens) - 1
+}
+
+// isLiteralToken 判断是否为字符串或数字字面量（反引号是标识符）。
+func isLiteralToken(t token) bool {
+	if t.text == "" {
+		return false
+	}
+	if t.text[0] == '\'' || t.text[0] == '"' {
+		return true
+	}
+	return isNumericToken(t.lower)
+}
+
+func isNumericToken(s string) bool {
+	if s == "" || s[0] < '0' || s[0] > '9' {
+		return false
+	}
+	for i := 1; i < len(s); i++ {
+		switch c := s[i]; {
+		case c >= '0' && c <= '9', c == '.', c == 'e', c == 'E', c == '+', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // collapseValues 把 VALUES 之后的字面量折叠成 (?)。
@@ -153,6 +239,11 @@ func readQuoted(s string, i int) (string, int) {
 				j++
 			}
 		case quote:
+			// '' 与 "" 是引号转义，字面量未结束
+			if quote != '`' && j+1 < len(s) && s[j+1] == quote {
+				j++
+				continue
+			}
 			return s[i : j+1], j + 1
 		}
 	}
@@ -219,6 +310,10 @@ func tablesFromTokens(tokens []token) []string {
 		return singleTable(name)
 	case "create":
 		idx := skipKeywords(tokens, 1, "or", "replace", "temporary", "temp", "unlogged")
+		// CREATE 之后没有有效 token 时无可解析对象
+		if idx >= len(tokens) {
+			return nil
+		}
 		switch tokens[idx].lower {
 		case "table":
 			name, _ := qualifiedIdent(tokens, skipKeywords(tokens, idx+1, "if", "not", "exists"))
@@ -227,6 +322,9 @@ func tablesFromTokens(tokens []token) []string {
 			return singleTable(identAfter(tokens, idx, "on"))
 		}
 	case "drop":
+		if len(tokens) < 2 {
+			return nil
+		}
 		idx := 1
 		switch tokens[idx].lower {
 		case "table":
