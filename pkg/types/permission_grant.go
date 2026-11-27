@@ -23,23 +23,26 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-// ValidatePermissionGrant 校验授权类型与自定义规则。
-// p_type 仅允许 0/1/2；管理员（2）仅超级管理员可授予；自定义规则禁止通配 verb 与 RBAC 提权。
+// ValidatePermissionGrant 校验授权类型、目标命名空间与规则。
+// p_type 仅允许 0/1/2/3/4；管理员（2）仅超级管理员可授予；
+// 只读（0）/管理员（2）忽略 rules 与 target_namespaces；
+// 自定义（1）/运维（3）/开发（4）走同一自定义逻辑：必须指定目标命名空间与规则，
+// 规则禁止通配 verb 与 RBAC 提权。
 func ValidatePermissionGrant(isRoot bool, pType int, rules []rbacv1.PolicyRule, namespaces []string) error {
-	if pType < 0 || pType > 2 {
-		return fmt.Errorf("p_type 仅支持 0（只读）、1（自定义）、2（管理员）")
+	if pType < 0 || pType > 4 {
+		return fmt.Errorf("p_type 仅支持 0（只读）、1（自定义）、2（管理员）、3（运维）、4（开发）")
 	}
 	if pType == 2 && !isRoot {
 		return fmt.Errorf("仅超级管理员可授予集群管理员权限")
 	}
-	if pType != 1 {
+	if pType == 0 || pType == 2 {
 		return nil
 	}
 	if len(namespaces) == 0 {
-		return fmt.Errorf("自定义授权必须指定目标命名空间")
+		return fmt.Errorf("自定义/运维/开发授权必须指定目标命名空间")
 	}
 	if len(rules) == 0 {
-		return fmt.Errorf("自定义授权必须指定规则")
+		return fmt.Errorf("自定义/运维/开发授权必须指定规则")
 	}
 	return validateCustomPolicyRules(rules)
 }
