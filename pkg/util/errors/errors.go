@@ -77,6 +77,14 @@ var (
 
 	ErrPlanNotFound = errors.New("部署计划不存在")
 	ErrConflict     = errors.New("操作冲突")
+
+	// CI/CD
+	ErrPipelineNotFound    = errors.New("流水线不存在")
+	ErrPipelineExists      = errors.New("流水线名称已存在")
+	ErrRunNotFound         = errors.New("运行记录不存在")
+	ErrEngineNotInstalled  = errors.New("Tekton 引擎未安装或不可用")
+	ErrRunConflict         = errors.New("运行冲突：并发数已达上限或队列已满")
+	ErrCredentialInvalid   = errors.New("凭据无效")
 )
 
 func IsRecordNotFound(err error) bool {

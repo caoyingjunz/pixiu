@@ -73,6 +73,9 @@ func Catalog() []Definition {
 		{Code: "backup.plans", ParentCode: "backup", Title: "备份计划", Path: "/backup/plans", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/backup/plans"}},
 		{Code: "backup.restores", ParentCode: "backup", Title: "恢复任务", Path: "/backup/restores", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/backup/restores"}},
 
+		{Code: "cicd", Title: "CI/CD", Path: "/cicd", Kind: KindDirectory},
+		{Code: "cicd.pipelines", ParentCode: "cicd", Title: "流水线", Path: "/cicd/pipelines", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/cicd/pipelines"}},
+
 		// 应用商店为普通菜单（普通用户可见）；用自身 Chart 列表接口推导，避免仅有集群查看权就带出无关菜单
 		// 导入 / 删除仍在 controller 用 CheckRoot 守卫，普通用户仅可浏览与安装
 		{Code: "appstore", Title: "应用商店", Path: "/appstore", Kind: KindMenu, RequiredAPIs: []string{"GET:/pixiu/apps/charts"}},

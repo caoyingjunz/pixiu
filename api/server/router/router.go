@@ -35,6 +35,7 @@ import (
 	"github.com/caoyingjunz/pixiu/api/server/router/audit"
 	authrouter "github.com/caoyingjunz/pixiu/api/server/router/auth"
 	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
+	cicdrouter "github.com/caoyingjunz/pixiu/api/server/router/cicd"
 	"github.com/caoyingjunz/pixiu/api/server/router/distribution"
 	emailrouter "github.com/caoyingjunz/pixiu/api/server/router/email"
 	extensionrouter "github.com/caoyingjunz/pixiu/api/server/router/extension"
@@ -81,6 +82,7 @@ func InstallRouters(o *options.Options) {
 		extensionrouter.NewRouter,
 		backup.NewRouter,
 		upgrade.NewRouter,
+		cicdrouter.NewRouter,
 	}
 
 	install(o, fs...)

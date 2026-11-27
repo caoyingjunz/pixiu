@@ -96,6 +96,7 @@ func Run(opt *options.Options) error {
 		opt.Controller.Cluster().Run,
 		opt.Controller.Appstore().Run,
 		opt.Controller.ClusterExpand().Run,
+		opt.Controller.CICD().Run,
 	}
 	for _, runner := range runers {
 		if err := runner(context.TODO(), 5); err != nil {

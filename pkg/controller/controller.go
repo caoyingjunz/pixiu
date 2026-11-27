@@ -26,6 +26,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/audit"
 	"github.com/caoyingjunz/pixiu/pkg/controller/auth"
 	"github.com/caoyingjunz/pixiu/pkg/controller/backup"
+	"github.com/caoyingjunz/pixiu/pkg/controller/cicd"
 	"github.com/caoyingjunz/pixiu/pkg/controller/cluster"
 	"github.com/caoyingjunz/pixiu/pkg/controller/clusterexpand"
 	"github.com/caoyingjunz/pixiu/pkg/controller/datasource"
@@ -66,6 +67,7 @@ type PixiuInterface interface {
 	apps.Getter
 	clusterexpand.Getter
 	upgrade.Getter
+	cicd.Getter
 }
 
 type pixiu struct {
@@ -115,6 +117,9 @@ func (p *pixiu) Upgrade() upgrade.Interface {
 }
 func (p *pixiu) Extension() extensioncontroller.Interface {
 	return p.extension
+}
+func (p *pixiu) CICD() cicd.Interface {
+	return cicd.New(p.cc, p.factory, p.Cluster())
 }
 
 func New(cfg config.Config, f db.ShareDaoFactory) PixiuInterface {
