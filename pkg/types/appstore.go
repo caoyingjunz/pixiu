@@ -124,6 +124,8 @@ type InstallReleaseRequest struct {
 type UpgradeChartRequest struct {
 	Version string                 `json:"version" binding:"required"`
 	Values  map[string]interface{} `json:"values"`
+	// ChartId 显式指定目标 Chart（例如升级时上传本地 Chart 后使用）；为 0 时沿用记账 Chart。
+	ChartId int64 `json:"chart_id"`
 }
 
 // RollbackChartRequest 回滚已安装 release 请求。
@@ -154,6 +156,8 @@ type InstallInfo struct {
 	Message string `json:"message"`
 	// Managed 是否平台记账（appstore 安装的 release 为 true；集群内外部 release 只读，为 false）
 	Managed bool `json:"managed"`
+	// ChartInCatalog 是否存在可用的同名 Chart（外部 release 用于判定能否升级；平台记账通常为 true）
+	ChartInCatalog bool `json:"chart_in_catalog"`
 	// Stale 数据是否来自 DB 回退（集群不可达/超时），此时 Status 等实时信息可能过期
 	Stale bool `json:"stale"`
 	// TargetRevision 回滚目标 revision
