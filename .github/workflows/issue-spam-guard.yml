@@ -1,0 +1,39 @@
+name: Issue/PR Spam Guard
+
+# 用户创建 issue/PR 时的垃圾账号拦截。
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (base branch only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Detect and handle spam
+        env:
+          BLACK_TOKEN: ${{ secrets.BLACK_TOKEN }}
+          BLACKLIST_REPO: ${{ secrets.BLACKLIST_REPO }}
+          BLACKLIST_PATH: ${{ secrets.BLACKLIST_PATH }}
+          DRYRUN: ${{ vars.SPAM_GUARD_DRYRUN }}
+        run: |
+          set -euo pipefail
+          if [ "$DRYRUN" = "true" ]; then
+            echo "== DRY-RUN 模式：只判定不删 =="
+            python3 hack/issue_spam_guard.py
+          else
+            python3 hack/issue_spam_guard.py --apply
+          fi
+
