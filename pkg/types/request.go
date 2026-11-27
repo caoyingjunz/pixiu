@@ -119,15 +119,21 @@ type (
 		ExpiresAt *time.Time `json:"expires_at"`
 	}
 
+	PrometheusBindingVersion struct {
+		Id              int64 `json:"id"`
+		ResourceVersion int64 `json:"resource_version"`
+	}
+
 	CreateDatasourceRequest struct {
-		UserId      int64                   `json:"user_id"` // 关联用户（router 层从会话解析填充，不接受客户端指定）
-		Name        string                  `json:"name" binding:"required"`
-		ClusterName string                  `json:"cluster_name"`
-		Type        model.DatasourceType    `json:"type"`
-		SubType     model.DatasourceSubType `json:"sub_type" binding:"required"`
-		Config      *DatasourceConfig       `json:"config"`
-		External    bool                    `json:"external"`
-		Description string                  `json:"description" binding:"omitempty"`
+		UserId                    int64                      `json:"user_id"` // 关联用户（router 层从会话解析填充，不接受客户端指定）
+		Name                      string                     `json:"name" binding:"required"`
+		ClusterName               string                     `json:"cluster_name"`
+		Type                      model.DatasourceType       `json:"type"`
+		SubType                   model.DatasourceSubType    `json:"sub_type" binding:"required"`
+		Config                    *DatasourceConfig          `json:"config"`
+		External                  bool                       `json:"external"`
+		Description               string                     `json:"description" binding:"omitempty"`
+		ReplacePrometheusBindings []PrometheusBindingVersion `json:"replace_prometheus_bindings,omitempty"`
 	}
 
 	UpdateDatasourceRequest struct {
