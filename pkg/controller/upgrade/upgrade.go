@@ -29,7 +29,7 @@ import (
 )
 
 // DefaultVersion 无 is_current 记录时对外展示的兜底版本号（随版本发布更新）。
-const DefaultVersion = "v2.0.2-beta.2"
+const DefaultVersion = "v2.0.2-beta.3"
 
 // Interface 系统升级状态业务接口。
 // 所有状态迁移均使用条件 UPDATE + RowsAffected 判定，禁止整行覆盖写入。
