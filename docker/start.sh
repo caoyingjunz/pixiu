@@ -312,7 +312,7 @@ write_proxy_locations() {
     cat <<EOF
         root /usr/share/nginx/html;
         index index.html;
-        client_max_body_size 100m;
+        client_max_body_size 1025m;
 
         # 访问日志含真实客户端 IP（经 real_ip 后 \$remote_addr）
         access_log ${NGINX_LOG_DIR}/access.log pixiu_access;
