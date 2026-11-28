@@ -87,8 +87,8 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 		exist[cluster.Name] = struct{}{}
 		go func(c model.Cluster) {
 			defer wg.Done()
-			if err = cs.doSync(c); err != nil {
-				errCh <- err
+			if e := cs.doSync(c); e != nil {
+				errCh <- e
 			}
 		}(cluster)
 	}
