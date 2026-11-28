@@ -39,6 +39,9 @@ const (
 	pathUserPermissions = "/pixiu/users/permissions"
 	pathAuthLogout      = "/pixiu/auth/logout"
 	pathAuthRefresh     = "/pixiu/auth/refresh"
+	pathAuditsRecent    = "/pixiu/audits/recent"
+	pathAudits          = "/pixiu/audits"
+	pathAuditsExport    = "/pixiu/audits/export"
 	pathProxy           = "/pixiu/proxy/:clusterName/*act"
 	pathExternal        = "/pixiu/external/*act"
 )
@@ -61,6 +64,9 @@ func Classify(roleId int64, method, fullPath string) Decision {
 	if method == http.MethodPost && fullPath == pathAuthRefresh {
 		return Allow
 	}
+	if method == http.MethodGet && fullPath == pathAuditsRecent {
+		return Allow
+	}
 	if fullPath == pathProxy || fullPath == pathExternal {
 		return Proxy
 	}
@@ -69,5 +75,12 @@ func Classify(roleId int64, method, fullPath string) Decision {
 
 // AllowedBySet 在 Check 决策下，用 buttons 集合判断是否放行。
 func AllowedBySet(set map[string]bool, method, fullPath string) bool {
-	return rbacapi.Match(set, method, fullPath)
+	if rbacapi.Match(set, method, fullPath) {
+		return true
+	}
+	// 能查看审计列表即可导出当前筛选结果
+	if method == http.MethodGet && fullPath == pathAuditsExport {
+		return rbacapi.Match(set, http.MethodGet, pathAudits)
+	}
+	return false
 }

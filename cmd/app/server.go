@@ -161,26 +161,46 @@ func Run(opt *options.Options) error {
 	<-quit
 	klog.Info("shutting pixiu server down ...")
 
-	// The context is used to inform the server it has 5 seconds to finish the request
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	gracefulShutdown(opt, srv, tlsSrv)
+	return nil
+}
 
-	if err := srv.Shutdown(ctx); err != nil {
-		klog.Fatalf("pixiu server forced to shutdown: %v", err)
-	}
-	if tlsSrv != nil {
-		if err := tlsSrv.Shutdown(ctx); err != nil {
-			klog.Fatalf("pixiu HTTPS server forced to shutdown: %v", err)
+const (
+	// shutdownGracePeriod 等待在途请求处理完成的最长时间
+	shutdownGracePeriod = 5 * time.Second
+	// auditDrainTimeout 排空审计队列的最长时间
+	auditDrainTimeout = 3 * time.Second
+)
+
+// gracefulShutdown 按依赖顺序停止各组件：
+// 先停 HTTP 接入（不再产生新请求与新审计），再排空审计队列，最后停止后台任务。
+func gracefulShutdown(opt *options.Options, servers ...*http.Server) {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownGracePeriod)
+	defer cancel()
+	for _, srv := range servers {
+		if srv == nil {
+			continue
+		}
+		if err := srv.Shutdown(ctx); err != nil {
+			// 超时也要继续后面的清理，不能直接退出进程
+			klog.Errorf("server forced to shutdown: %v", err)
 		}
 	}
 
-	klog.Info("shutting job manager down ...")
+	if opt.AuditRecorder != nil {
+		klog.Info("draining audit queue ...")
+		drainCtx, drainCancel := context.WithTimeout(context.Background(), auditDrainTimeout)
+		if err := opt.AuditRecorder.Close(drainCtx); err != nil {
+			klog.Errorf("failed to drain audit queue: %v", err)
+		}
+		drainCancel()
+	}
+
+	klog.Info("stopping job manager ...")
 	opt.JobManager.Stop()
 	if opt.AlertEvaluator != nil {
 		opt.AlertEvaluator.Stop()
 	}
-
-	return nil
 }
 
 func prepareTLSFiles(opt *options.Options) (certFile, keyFile string, err error) {

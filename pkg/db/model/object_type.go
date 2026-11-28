@@ -29,11 +29,33 @@ const (
 	ObjectAuth           ObjectType = "auth"
 	ObjectContainerProxy ObjectType = "container_proxy"
 	ObjectExternalProxy  ObjectType = "external_proxy"
+	ObjectMySQL          ObjectType = "mysql"
+	ObjectPostgres       ObjectType = "postgres"
+	ObjectRedis          ObjectType = "redis"
+	ObjectStorage        ObjectType = "storage"
+	ObjectBackup         ObjectType = "backup"
+	ObjectNacos          ObjectType = "nacos"
+	ObjectES             ObjectType = "es"
+	ObjectRabbitMQ       ObjectType = "rabbitmq"
 	ObjectAll            ObjectType = "*"
 )
 
 func (o ObjectType) String() string {
 	return string(o)
+}
+
+var AuditDatasourceTypes = []ObjectType{
+	ObjectDatasource, ObjectMySQL, ObjectPostgres, ObjectRedis,
+	ObjectStorage, ObjectNacos, ObjectES, ObjectRabbitMQ,
+}
+
+func (o ObjectType) IsDatasource() bool {
+	for _, objectType := range AuditDatasourceTypes {
+		if o == objectType {
+			return true
+		}
+	}
+	return false
 }
 
 var ObjectTypeMap = map[ObjectType]struct{}{
@@ -46,5 +68,13 @@ var ObjectTypeMap = map[ObjectType]struct{}{
 	ObjectAuth:           {},
 	ObjectContainerProxy: {},
 	ObjectExternalProxy:  {},
+	ObjectMySQL:          {},
+	ObjectPostgres:       {},
+	ObjectRedis:          {},
+	ObjectStorage:        {},
+	ObjectBackup:         {},
+	ObjectNacos:          {},
+	ObjectES:             {},
+	ObjectRabbitMQ:       {},
 	ObjectAll:            {},
 }

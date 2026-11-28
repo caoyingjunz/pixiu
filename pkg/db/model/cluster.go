@@ -111,7 +111,12 @@ type Cluster struct {
 	ProbeReason  string             `gorm:"column:probe_reason;type:varchar(128)" json:"probe_reason"`
 	ProbeMessage string             `gorm:"column:probe_message;type:varchar(512)" json:"probe_message"`
 	// LastProbeTime 未探测前为 NULL，避免 MySQL 严格模式拒绝零日期
-	LastProbeTime *time.Time `gorm:"column:last_probe_time;type:datetime;default:null" json:"last_probe_time"`
+	LastProbeTime *time.Time `gorm:"column:last_probe_time;type:datetime(6);default:null" json:"last_probe_time"`
+	// LastHealthyTime 最后一次探测成功的时间，用于推算失联起点与失联时长
+	LastHealthyTime *time.Time `gorm:"column:last_healthy_time;type:datetime(6);default:null" json:"last_healthy_time"`
+
+	// 当前失联周期是否已记审计，健康探测后重置，不依赖审计记录的保留时间。
+	DisconnectAudited bool `gorm:"column:disconnect_audited;not null;default:false" json:"-"`
 
 	// Agent 建连 token（仅隧道模式），全局唯一
 	AgentToken string `gorm:"type:varchar(128);index:idx_agent_token" json:"agent_token,omitempty"`

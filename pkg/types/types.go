@@ -809,6 +809,15 @@ type Audit struct {
 	Cluster           string                     `json:"cluster"`            // K8s 集群名
 	ResourceName      string                     `json:"resource_name"`      // 资源名称
 	ResourceNamespace string                     `json:"resource_namespace"` // 资源命名空间
+	RequestId         string                     `json:"request_id"`
+	OperatorId        int64                      `json:"operator_id"`
+	OperatorName      string                     `json:"operator_name"`
+	ResourceId        int64                      `json:"resource_id"`
+	Operation         string                     `json:"operation"`
+	ResourceKind      string                     `json:"resource_kind"`
+	Detail            string                     `json:"detail"`
+	ResourceAlias     string                     `json:"resource_alias"`
+	ClusterAlias      string                     `json:"cluster_alias"`
 }
 
 type AuthType string
@@ -1019,6 +1028,8 @@ type CustomMeta struct {
 	ObjectType string `form:"object_type" json:"object_type"`
 	StartTime  string `form:"start_time" json:"start_time"`
 	EndTime    string `form:"end_time" json:"end_time"`
+	Module     string `form:"module" json:"module"`
+	Operation  string `form:"operation" json:"operation"`
 
 	// agent
 	AgentStatus *model.AgentStatus `form:"agent_status" json:"agent_status"`

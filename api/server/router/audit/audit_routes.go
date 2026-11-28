@@ -17,34 +17,15 @@ limitations under the License.
 package audit
 
 import (
+	"fmt"
+	"net/http"
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
-
-type AuditMeta struct {
-	AuditId int64 `uri:"auditId" binding:"required"`
-}
-
-func (a *auditRouter) getAudit(c *gin.Context) {
-	r := httputils.NewResponse()
-
-	var (
-		opt AuditMeta
-		err error
-	)
-	if err = c.ShouldBindUri(&opt); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-	if r.Result, err = a.c.Audit().Get(c, opt.AuditId); err != nil {
-		httputils.SetFailed(c, r, err)
-		return
-	}
-
-	httputils.SetSuccess(c, r)
-}
 
 func (a *auditRouter) listAudits(c *gin.Context) {
 	r := httputils.NewResponse()
@@ -63,4 +44,45 @@ func (a *auditRouter) listAudits(c *gin.Context) {
 	}
 
 	httputils.SetSuccess(c, r)
+}
+
+func (a *auditRouter) listRecentAudits(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if r.Result, err = a.c.Audit().ListRecent(c, listOption); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+
+	httputils.SetSuccess(c, r)
+}
+
+func (a *auditRouter) exportAudits(c *gin.Context) {
+	r := httputils.NewResponse()
+
+	var (
+		listOption types.ListOptions
+		err        error
+	)
+	if err = httputils.BindListOptionsWithUser(c, &listOption); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	result, err := a.c.Audit().Export(c, listOption)
+	if err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", result.Filename))
+	c.Header("X-Pixiu-Export-Total", strconv.FormatInt(result.Total, 10))
+	c.Header("X-Pixiu-Export-Count", strconv.Itoa(result.Count))
+	c.Data(http.StatusOK, "text/csv; charset=utf-8", result.Data)
 }

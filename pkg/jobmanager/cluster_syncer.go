@@ -40,13 +40,18 @@ type ClusterSyncer struct {
 	factory  db.ShareDaoFactory
 	disabled bool
 	backoff  *probeBackoff
+	// confirmFailures 连续失败多少次才判定失联，可用常量或测试覆盖。
+	confirmFailures int
+	// started 只打印一次启动日志，避免每轮探测都刷屏。
+	started sync.Once
 }
 
 func NewClusterSyncer(f db.ShareDaoFactory, disabled bool) *ClusterSyncer {
 	return &ClusterSyncer{
-		factory:  f,
-		disabled: disabled,
-		backoff:  newProbeBackoff(),
+		factory:         f,
+		disabled:        disabled,
+		backoff:         newProbeBackoff(),
+		confirmFailures: disconnectConfirmFailures,
 	}
 }
 
@@ -64,7 +69,11 @@ func (cs *ClusterSyncer) LogLevel() AccessLogLevel {
 
 func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	if cs.disabled {
-		klog.V(2).Info("[ClusterSyncer] disabled")
+		// 关闭探测会让集群状态与失联审计一起停更，必须显式可见，不能静默跳过。
+		cs.started.Do(func() {
+			klog.Info("[ClusterSyncer] cluster probing is disabled (debug mode or cluster_probe=disabled), " +
+				"cluster status and disconnect audits will NOT be updated")
+		})
 		return nil
 	}
 
@@ -77,6 +86,9 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 		klog.Errorf("[ClusterSyncer] failed to get clusters: %v", err)
 		return err
 	}
+	cs.started.Do(func() {
+		klog.Infof("[ClusterSyncer] cluster probing enabled, %d direct clusters", len(clusters))
+	})
 
 	diff := len(clusters)
 	errCh := make(chan error, diff)
@@ -87,7 +99,7 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 		exist[cluster.Name] = struct{}{}
 		go func(c model.Cluster) {
 			defer wg.Done()
-			if err = cs.doSync(c); err != nil {
+			if err := cs.doSync(c); err != nil {
 				errCh <- err
 			}
 		}(cluster)
@@ -103,7 +115,7 @@ func (cs *ClusterSyncer) Do(ctx *JobContext) (err error) {
 	default:
 	}
 
-	return nil
+	return err
 }
 
 func (cs *ClusterSyncer) doSync(cluster model.Cluster) error {
@@ -134,19 +146,26 @@ func (cs *ClusterSyncer) doSync(cluster model.Cluster) error {
 		nodeData          string
 		err               error
 	)
-	status := model.ClusterStatusRunning
 	connected := true
-	probeReason := "Healthy"
+	probeReason := probeReasonHealthy
 	probeMessage := ""
 	nodeData, kubernetesVersion, err = probeClusterMeta(cluster)
 	if err != nil {
 		klog.Errorf("[probeClusterMeta] %s failed: %v, cluster status will be marked as unavailable", cluster.AliasName, err)
-		status = model.ClusterStatusError
 		connected = false
-		probeReason = "ProbeFailed"
+		probeReason = probeReasonProbeFailed
 		probeMessage = err.Error()
 	}
-	cs.backoff.markResult(cluster.Name, connected, now)
+	failures := cs.backoff.markResult(cluster.Name, connected, now)
+
+	// 未达到连续失败阈值时保持原状态，只有已确认失联的集群继续维持失联。
+	status := cluster.ClusterStatus
+	switch {
+	case connected:
+		status = model.ClusterStatusRunning
+	case failures >= cs.confirmFailures, cluster.ClusterStatus == model.ClusterStatusError:
+		status = model.ClusterStatusError
+	}
 
 	updates := make(map[string]interface{})
 	parseStatus(updates, status, kubernetesVersion, nodeData, cluster)
@@ -155,8 +174,9 @@ func (cs *ClusterSyncer) doSync(cluster model.Cluster) error {
 		updates[k] = v
 	}
 
-	if err = cs.factory.Cluster().InternalUpdate(context.TODO(), cluster.Id, updates); err != nil {
+	if err = updateClusterProbe(context.Background(), cs.factory, cluster, updates); err != nil {
 		klog.Errorf("failed to update cluster(%s) status: %v", cluster.Name, err)
+		return err
 	}
 	return nil
 }

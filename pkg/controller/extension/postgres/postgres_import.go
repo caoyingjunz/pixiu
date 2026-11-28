@@ -12,6 +12,7 @@ import (
 	"time"
 
 	apierrors "github.com/caoyingjunz/pixiu/api/server/errors"
+	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 )
 
@@ -26,6 +27,7 @@ func (c *controller) ImportSQL(ctx context.Context, id int64, database string, s
 	if err := requireAdmin(ctx); err != nil {
 		return nil, err
 	}
+	httputils.ApplySQLAudit(ctx, false, database, "IMPORT SQL")
 	if err := pgCheckIdent("database", database); err != nil {
 		return nil, err
 	}

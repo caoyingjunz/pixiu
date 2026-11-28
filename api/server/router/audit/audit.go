@@ -17,9 +17,9 @@ limitations under the License.
 package audit
 
 import (
-	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/gin-gonic/gin"
 
+	"github.com/caoyingjunz/pixiu/api/server/router/apiregistry"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/controller"
 )
@@ -36,11 +36,13 @@ func NewRouter(o *options.Options) {
 }
 
 func (a *auditRouter) initRoutes(ginEngine *gin.Engine) {
+	persistRecent := false
 	group := &apiregistry.Group{
 		Name:    "审计",
 		BaseURL: "/pixiu/audits",
 		Entries: []apiregistry.RouteEntry{
-			//{Method: "GET", RelativePath: "/:auditId", Handler: a.getAudit, Description: "获取审计日志详情"},
+			{Method: "GET", RelativePath: "/recent", Handler: a.listRecentAudits, Description: "工作台最近动态", Persist: &persistRecent},
+			{Method: "GET", RelativePath: "/export", Handler: a.exportAudits, Description: "导出"},
 			{Method: "GET", RelativePath: "", Handler: a.listAudits, Description: "查看列表"},
 		},
 	}

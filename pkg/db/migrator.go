@@ -36,7 +36,34 @@ func (m *migrator) AutoMigrate() error {
 		}
 	}
 
+	if err := m.ensureAuditIndexes(db); err != nil {
+		return err
+	}
 	return m.migrateAPIGroupColumn(db)
+}
+
+func (m *migrator) ensureAuditIndexes(db *gorm.DB) error {
+	audit := &model.Audit{}
+	mig := db.Migrator()
+	if !mig.HasTable(audit) {
+		return nil
+	}
+	if !mig.HasIndex(audit, "idx_audits_gmt_create") {
+		if err := db.Exec("CREATE INDEX idx_audits_gmt_create ON audits (gmt_create)").Error; err != nil {
+			return err
+		}
+	}
+	if !mig.HasIndex(audit, "idx_audits_resource_type_created") {
+		if err := db.Exec("CREATE INDEX idx_audits_resource_type_created ON audits (resource_type, gmt_create)").Error; err != nil {
+			return err
+		}
+	}
+	if !mig.HasIndex(audit, "idx_audits_operation_created") {
+		if err := db.Exec("CREATE INDEX idx_audits_operation_created ON audits (operation, gmt_create)").Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // migrateAPIGroupColumn 将历史保留字段 group 迁移到 api_group，避免 MySQL 保留字导致读写异常
