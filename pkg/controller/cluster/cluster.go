@@ -51,6 +51,7 @@ import (
 	controllerutil "github.com/caoyingjunz/pixiu/pkg/controller/util"
 	"github.com/caoyingjunz/pixiu/pkg/db"
 	"github.com/caoyingjunz/pixiu/pkg/db/model"
+	pixiulicense "github.com/caoyingjunz/pixiu/pkg/license"
 	"github.com/caoyingjunz/pixiu/pkg/tunnel"
 	"github.com/caoyingjunz/pixiu/pkg/types"
 	"github.com/caoyingjunz/pixiu/pkg/util"
@@ -155,6 +156,10 @@ type cluster struct {
 
 	listerFuncs map[string]listerFunc
 	getterFuncs map[string]getterFunc
+
+	// quotaMu 串行化"配额校验 + 写库"临界区，避免并发创建时 license 配额被超卖。
+	// pixiu 通常单实例部署，进程内互斥即可覆盖实际竞态；多实例需 DB 层约束。
+	quotaMu sync.Mutex
 }
 
 // validateClusterName 只做最小校验：集群名会作为 Agent 隧道会话 key 的一部分，
@@ -176,6 +181,18 @@ func (c *cluster) preCreate(ctx context.Context, req *types.CreateClusterRequest
 		if err := c.Ping(ctx, req.KubeConfig); err != nil {
 			return fmt.Errorf("尝试连接 kubernetes API 失败: %v", err)
 		}
+	}
+	return nil
+}
+
+// checkLicenseQuota 商业 license 配额校验：纳管集群数不能超过 license 授权上限
+func (c *cluster) checkLicenseQuota(ctx context.Context) error {
+	existing, err := c.factory.Cluster().List(ctx)
+	if err != nil {
+		return errors.ErrServerInternal
+	}
+	if err = pixiulicense.Get().CheckClusterQuota(len(existing)); err != nil {
+		return errors.NewError(err, http.StatusPaymentRequired)
 	}
 	return nil
 }
@@ -280,6 +297,12 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 
 	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
+	// 配额校验与写库在同一临界区内串行执行，避免并发创建绕过 license 集群数上限。
+	c.quotaMu.Lock()
+	if err := c.checkLicenseQuota(ctx); err != nil {
+		c.quotaMu.Unlock()
+		return nil, err
+	}
 	obj, err := c.factory.Cluster().Create(ctx, &model.Cluster{
 		Name:           req.Name,
 		UserId:         req.UserId,
@@ -294,6 +317,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 		OwnerReference: req.OwnerReference,
 		Nodes:          nodes,
 	}, txFunc)
+	c.quotaMu.Unlock()
 	if err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return nil, errors.ErrServerInternal
