@@ -33,6 +33,7 @@ import (
 	"github.com/caoyingjunz/pixiu/pkg/controller/email"
 	extensioncontroller "github.com/caoyingjunz/pixiu/pkg/controller/extension"
 	"github.com/caoyingjunz/pixiu/pkg/controller/helm"
+	"github.com/caoyingjunz/pixiu/pkg/controller/networkpolicy"
 	"github.com/caoyingjunz/pixiu/pkg/controller/node"
 	"github.com/caoyingjunz/pixiu/pkg/controller/plan"
 	"github.com/caoyingjunz/pixiu/pkg/controller/role"
@@ -66,6 +67,7 @@ type PixiuInterface interface {
 	apps.Getter
 	clusterexpand.Getter
 	upgrade.Getter
+	networkpolicy.Getter
 }
 
 type pixiu struct {
@@ -112,6 +114,9 @@ func (p *pixiu) Appstore() apps.Interface {
 }
 func (p *pixiu) Upgrade() upgrade.Interface {
 	return upgrade.New(p.factory.Upgrade())
+}
+func (p *pixiu) NetworkPolicy() networkpolicy.Interface {
+	return networkpolicy.New(p.Cluster())
 }
 func (p *pixiu) Extension() extensioncontroller.Interface {
 	return p.extension
