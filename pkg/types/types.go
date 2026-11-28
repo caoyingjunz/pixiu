@@ -419,6 +419,8 @@ type RedisSourceConfig struct {
 	Password         string   `json:"password,omitempty"`          // 数据节点密码
 	SentinelPassword string   `json:"sentinel_password,omitempty"` // 哨兵节点密码（仅 sentinel）
 	DB               int      `json:"db,omitempty"`                // DB 编号（cluster 固定 0）
+	TLS              bool     `json:"tls,omitempty"`               // 是否启用 TLS 加密（公有云「传输中加密」必须开启）
+	TLSSkipVerify    bool     `json:"tls_skip_verify,omitempty"`   // 跳过服务端证书校验（自签/内网 CA 场景）
 }
 
 // NormalizeMode 归一化部署模式，未知/空值按 standalone 处理
@@ -435,12 +437,19 @@ func (r *RedisSourceConfig) NormalizeMode() string {
 
 // DisplayAddress 用于日志/探测结果展示的连接摘要
 func (r *RedisSourceConfig) DisplayAddress() string {
+	suffix := ""
+	if r.TLS {
+		suffix = "+tls"
+	}
 	switch r.NormalizeMode() {
 	case RedisModeSentinel:
-		return fmt.Sprintf("sentinel://%s@%s", r.MasterName, strings.Join(r.Addresses, ","))
+		return fmt.Sprintf("sentinel%s://%s@%s", suffix, r.MasterName, strings.Join(r.Addresses, ","))
 	case RedisModeCluster:
-		return "cluster://" + strings.Join(r.Addresses, ",")
+		return fmt.Sprintf("cluster%s://%s", suffix, strings.Join(r.Addresses, ","))
 	default:
+		if r.TLS {
+			return "rediss://" + r.Address
+		}
 		return r.Address
 	}
 }

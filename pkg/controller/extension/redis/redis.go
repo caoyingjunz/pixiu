@@ -19,6 +19,7 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -171,11 +172,24 @@ func validateRedisConfig(cfg *types.RedisSourceConfig) error {
 	return nil
 }
 
+// redisTLSConfig 按配置生成客户端 TLS 配置，未开启 TLS 时返回 nil
+// ServerName 故意留空：由拨号器从连接地址推导，公有云证书 SAN 绑定的是域名/IP，填错反而校验失败
+func redisTLSConfig(cfg *types.RedisSourceConfig) *tls.Config {
+	if !cfg.TLS {
+		return nil
+	}
+	return &tls.Config{
+		InsecureSkipVerify: cfg.TLSSkipVerify, //nolint:gosec // 自签/内网 CA 场景由用户显式开启
+		MinVersion:         tls.VersionTLS12,  // 公有云托管 Redis 的最低要求
+	}
+}
+
 // buildRedisClient 按部署模式构造 redis 客户端（调用方负责 Close）
 func buildRedisClient(cfg *types.RedisSourceConfig) (goredis.UniversalClient, error) {
 	if err := validateRedisConfig(cfg); err != nil {
 		return nil, apierrors.NewError(err, http.StatusBadRequest)
 	}
+	tlsConfig := redisTLSConfig(cfg)
 	switch cfg.NormalizeMode() {
 	case types.RedisModeSentinel:
 		return goredis.NewFailoverClient(&goredis.FailoverOptions{
@@ -184,6 +198,7 @@ func buildRedisClient(cfg *types.RedisSourceConfig) (goredis.UniversalClient, er
 			Password:         cfg.Password,
 			SentinelPassword: cfg.SentinelPassword,
 			DB:               cfg.DB,
+			TLSConfig:        tlsConfig,
 			DialTimeout:      redisDialTimeout,
 			ReadTimeout:      redisOpTimeout,
 			WriteTimeout:     redisOpTimeout,
@@ -194,6 +209,7 @@ func buildRedisClient(cfg *types.RedisSourceConfig) (goredis.UniversalClient, er
 		return goredis.NewClusterClient(&goredis.ClusterOptions{
 			Addrs:           cfg.Addresses,
 			Password:        cfg.Password,
+			TLSConfig:       tlsConfig,
 			DialTimeout:     redisDialTimeout,
 			ReadTimeout:     redisOpTimeout,
 			WriteTimeout:    redisOpTimeout,
@@ -205,6 +221,7 @@ func buildRedisClient(cfg *types.RedisSourceConfig) (goredis.UniversalClient, er
 			Addr:            strings.TrimSpace(cfg.Address),
 			Password:        cfg.Password,
 			DB:              cfg.DB,
+			TLSConfig:       tlsConfig,
 			DialTimeout:     redisDialTimeout,
 			ReadTimeout:     redisOpTimeout,
 			WriteTimeout:    redisOpTimeout,
@@ -216,9 +233,10 @@ func buildRedisClient(cfg *types.RedisSourceConfig) (goredis.UniversalClient, er
 
 // configFingerprint 配置摘要，用于缓存失效判断
 func configFingerprint(cfg *types.RedisSourceConfig) string {
-	return fmt.Sprintf("%s|%s|%s|%s|%d|%s",
+	// tls 相关项必须纳入，否则切换开关后仍复用旧连接
+	return fmt.Sprintf("%s|%s|%s|%s|%d|%s|%t|%t",
 		cfg.NormalizeMode(), cfg.Address, strings.Join(cfg.Addresses, ","),
-		cfg.MasterName, cfg.DB, cfg.Password)
+		cfg.MasterName, cfg.DB, cfg.Password, cfg.TLS, cfg.TLSSkipVerify)
 }
 
 // validateRedisDatasource 校验数据源类型与外部直连约束，Ping/PingAdhoc 共用
@@ -340,7 +358,7 @@ func pingRedisClient(ctx context.Context, client goredis.UniversalClient, cfg *t
 
 	// 顺带返回版本信息，失败不影响探测结果
 	if info, err := client.Info(ctx, "server").Result(); err == nil {
-		result.Version = parseInfoField(info, "redis_version")
+		result.Version = parseRedisVersion(info)
 	}
 	return result
 }
@@ -421,7 +439,7 @@ func (c *controller) Info(ctx context.Context, datasourceId int64, db *int) (*ty
 	}
 
 	info := &types.RedisInfo{
-		RedisVersion:           parseInfoField(raw, "redis_version"),
+		RedisVersion:           parseRedisVersion(raw),
 		RedisMode:              parseInfoField(raw, "redis_mode"),
 		OS:                     parseInfoField(raw, "os"),
 		UsedMemoryHuman:        parseInfoField(raw, "used_memory_human"),
@@ -863,6 +881,14 @@ func parseInfoField(raw, field string) string {
 		}
 	}
 	return ""
+}
+
+// parseRedisVersion 取服务端版本：valkey 的 redis_version 是冻结的兼容值，优先取 valkey_version
+func parseRedisVersion(raw string) string {
+	if version := parseInfoField(raw, "valkey_version"); version != "" {
+		return version
+	}
+	return parseInfoField(raw, "redis_version")
 }
 
 func parseInfoInt(raw, field string) int64 {
