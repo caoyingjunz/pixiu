@@ -156,6 +156,10 @@ type cluster struct {
 
 	listerFuncs map[string]listerFunc
 	getterFuncs map[string]getterFunc
+
+	// quotaMu 串行化"配额校验 + 写库"临界区，避免并发创建时 license 配额被超卖。
+	// pixiu 通常单实例部署，进程内互斥即可覆盖实际竞态；多实例需 DB 层约束。
+	quotaMu sync.Mutex
 }
 
 // validateClusterName 只做最小校验：集群名会作为 Agent 隧道会话 key 的一部分，
@@ -249,10 +253,6 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 	if err := c.preCreate(ctx, req); err != nil {
 		return nil, errors.NewError(err, http.StatusBadRequest)
 	}
-	// 商业 license 集群数配额校验
-	if err := c.checkLicenseQuota(ctx); err != nil {
-		return nil, err
-	}
 	// 集群名会进入 Agent 隧道会话 key，禁止 ':' 以避免与部署代理会话命名空间冲突。
 	if err := validateClusterName(req.Name); err != nil {
 		return nil, errors.NewError(err, http.StatusBadRequest)
@@ -297,6 +297,12 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 
 	kubeNode := types.KubeNode{}
 	nodes, _ := kubeNode.Marshal()
+	// 配额校验与写库在同一临界区内串行执行，避免并发创建绕过 license 集群数上限。
+	c.quotaMu.Lock()
+	if err := c.checkLicenseQuota(ctx); err != nil {
+		c.quotaMu.Unlock()
+		return nil, err
+	}
 	obj, err := c.factory.Cluster().Create(ctx, &model.Cluster{
 		Name:           req.Name,
 		UserId:         req.UserId,
@@ -311,6 +317,7 @@ func (c *cluster) Create(ctx context.Context, req *types.CreateClusterRequest) (
 		OwnerReference: req.OwnerReference,
 		Nodes:          nodes,
 	}, txFunc)
+	c.quotaMu.Unlock()
 	if err != nil {
 		klog.Errorf("failed to create cluster %s: %v", req.Name, err)
 		return nil, errors.ErrServerInternal

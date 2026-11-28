@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 // Fingerprint 计算部署环境的机器指纹。
@@ -29,11 +30,22 @@ import (
 //  1. /etc/machine-id（主流 Linux 发行版）
 //  2. /var/lib/dbus/machine-id（部分发行版）
 //  3. IOPlatformUUID（macOS）
-//  4. 主机名（兜底，弱绑定）
+//  4. 主机名（兜底，弱绑定；主机名易变，仅在没有 machine-id 的环境使用）
 //
-// 返回 machine-id 的 SHA-256 hex（前 32 字节），用于签发时绑定部署环境；
-// 空指纹的 license 不绑定机器。
+// 返回 machine-id 的 SHA-256 hex（前 16 字节，32 个 hex 字符），用于签发时绑定部署环境；
+// 空指纹的 license 不绑定机器。结果进程内缓存一次，避免在热路径反复读文件/exec。
 func Fingerprint() string {
+	fingerprintOnce.Do(func() { fingerprintValue = detectFingerprint() })
+	return fingerprintValue
+}
+
+var (
+	fingerprintOnce  sync.Once
+	fingerprintValue string
+)
+
+// detectFingerprint 实际探测机器标识，仅在首次调用 Fingerprint 时执行。
+func detectFingerprint() string {
 	if id, err := os.ReadFile("/etc/machine-id"); err == nil {
 		if s := strings.TrimSpace(string(id)); s != "" {
 			return hashFingerprint(s)
@@ -62,7 +74,8 @@ func Fingerprint() string {
 	return ""
 }
 
-// hashFingerprint 对机器标识做加盐哈希，避免原始 machine-id 直接外泄
+// hashFingerprint 对机器标识做单向哈希，避免原始 machine-id 直接出现在
+// API 响应/日志中（固定域分隔前缀仅用于区分用途，不是机密盐，不用于对抗离线爆破）。
 func hashFingerprint(machineID string) string {
 	sum := sha256.Sum256([]byte("pixiu-license:" + machineID))
 	return hex.EncodeToString(sum[:16])

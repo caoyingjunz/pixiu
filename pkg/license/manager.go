@@ -56,35 +56,65 @@ func Init(path string) {
 	if err := globalManager.Reload(); err != nil {
 		klog.Warningf("[LICENSE] 初始加载失败，运行在社区版: %v", err)
 	} else {
-		klog.Infof("[LICENSE] 加载成功: edition=%s state=%s", globalManager.payloadEdition(), globalManager.state)
+		klog.Infof("[LICENSE] 加载成功: edition=%s state=%s", globalManager.payloadEdition(), globalManager.State())
 	}
 }
 
+var (
+	reloadCancelMu sync.Mutex
+	reloadCancel   context.CancelFunc
+)
+
 // StartAutoReload 周期性重读 license 文件，支持续费后免重启换证。
+// 重复调用会先停止上一次轮询；可通过 StopAutoReload 显式停止。
 func StartAutoReload(ctx context.Context, interval time.Duration) {
 	if interval <= 0 {
 		interval = 24 * time.Hour
 	}
+	reloadCancelMu.Lock()
+	if reloadCancel != nil {
+		reloadCancel()
+	}
+	runCtx, cancel := context.WithCancel(ctx)
+	reloadCancel = cancel
+	reloadCancelMu.Unlock()
+
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+		lastState := globalManager.State()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-runCtx.Done():
 				return
 			case <-ticker.C:
 				if err := globalManager.Reload(); err != nil {
-					// 只在状态发生变化时打日志，避免噪音
-					globalManager.mu.RLock()
-					changed := globalManager.state != StateValid
-					globalManager.mu.RUnlock()
-					if changed {
-						klog.Warningf("[LICENSE] 热更新失败: %v", err)
+					// 仅在状态真正变化时告警，避免同一异常反复刷屏
+					cur := globalManager.State()
+					if cur != lastState {
+						klog.Warningf("[LICENSE] 热更新失败，状态 %s -> %s: %v", lastState, cur, err)
 					}
+					lastState = cur
+					continue
 				}
+				cur := globalManager.State()
+				if cur != lastState {
+					klog.Infof("[LICENSE] 热更新完成，状态 %s -> %s", lastState, cur)
+				}
+				lastState = cur
 			}
 		}
 	}()
+}
+
+// StopAutoReload 停止 license 热更新轮询（用于优雅退出或测试）。
+func StopAutoReload() {
+	reloadCancelMu.Lock()
+	defer reloadCancelMu.Unlock()
+	if reloadCancel != nil {
+		reloadCancel()
+		reloadCancel = nil
+	}
 }
 
 // Get 返回全局 Manager 实例
@@ -101,7 +131,13 @@ func (m *Manager) Reload() error {
 		return fmt.Errorf("读取 license 文件失败: %w", err)
 	}
 
-	payload, err := VerifyLicense(EmbeddedPublicKey, data)
+	if _, err := EmbeddedPublicKey(); err != nil {
+		// 未注入验签公钥（商业授权未启用），视为社区版而非"非法 license"
+		m.set(StateCommunity, nil, err.Error())
+		return err
+	}
+	// 按载荷 kid 选择验签公钥，支持密钥轮转期新旧公钥并存
+	payload, err := VerifyLicenseWithKeys(data)
 	if err != nil {
 		m.set(StateInvalid, nil, err.Error())
 		return err
@@ -128,6 +164,16 @@ var (
 	ErrExpired      = errors.New("license 已过期")
 	ErrMismatch     = errors.New("license 与当前部署环境不匹配")
 )
+
+// VerifyContent 校验 license 文件内容（验签 + 有效期 + 指纹），不修改全局状态。
+// 供上传接口在落盘前预校验，避免非法 license 写入文件。
+func VerifyContent(data []byte) error {
+	payload, err := VerifyLicenseWithKeys(data)
+	if err != nil {
+		return err
+	}
+	return validate(payload)
+}
 
 // validate 校验载荷有效期与机器指纹
 func validate(p *Payload) error {
@@ -174,19 +220,32 @@ func (m *Manager) IsValid() bool {
 // HasFeature 判断当前是否授权指定付费功能。
 // 仅 valid 状态的 license 放开付费功能，其余状态一律视为社区版。
 func (m *Manager) HasFeature(f Feature) bool {
-	if !m.IsValid() {
+	m.mu.RLock()
+	valid := m.state == StateValid
+	payload := m.payload
+	m.mu.RUnlock()
+	if !valid {
 		return false
 	}
-	return m.Payload().HasFeature(f)
+	return payload.HasFeature(f)
 }
 
 // Quota 返回当前配额，-1 表示不限制。
 // 社区版（未授权）使用内置默认配额。
 func (m *Manager) Quota() Quota {
-	if !m.IsValid() {
+	m.mu.RLock()
+	valid := m.state == StateValid
+	payload := m.payload
+	m.mu.RUnlock()
+	return quotaOf(valid, payload)
+}
+
+// quotaOf 由是否有效与载荷计算配额，不访问 Manager 锁。
+// 供 Quota / Summary 复用，避免在持锁状态下回调其它加锁方法（RWMutex 递归读锁会死锁）。
+func quotaOf(valid bool, p *Payload) Quota {
+	if !valid || p == nil {
 		return Quota{MaxClusters: DefaultCommunityMaxClusters, MaxNodes: DefaultCommunityMaxNodes}
 	}
-	p := m.Payload()
 	return Quota{
 		MaxClusters: quotaOrDefault(p.MaxClusters),
 		MaxNodes:    quotaOrDefault(p.MaxNodes),
@@ -219,39 +278,45 @@ func (m *Manager) CheckNodeQuota(existing int) error {
 	return fmt.Errorf("已达 license 主机数上限（%d），请升级或续费 license", limit)
 }
 
-// Summary 返回 license 概要信息（API 用）
+// Summary 返回 license 概要信息（API 用）。
+// 先在锁内做一次性快照，所有派生计算（指纹、配额）放到锁外，
+// 避免持读锁时回调其它加锁方法或执行慢 IO 造成阻塞/死锁。
 func (m *Manager) Summary() Summary {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
+	state, payload, detail := m.state, m.payload, m.detail
+	m.mu.RUnlock()
 
 	summary := Summary{
-		State:       m.state,
+		State:       state,
 		Fingerprint: Fingerprint(),
 	}
-	if m.state == StateValid && m.payload != nil {
-		summary.Edition = m.payload.Edition
-		summary.Customer = m.payload.Customer
-		summary.ExpiresAt = m.payload.ExpiresAt
-		summary.Quota = m.Quota()
-		if m.payload.Edition == EditionEnterprise {
+	valid := state == StateValid && payload != nil
+	summary.Quota = quotaOf(valid, payload)
+
+	if valid {
+		summary.Edition = payload.Edition
+		summary.Customer = payload.Customer
+		summary.ExpiresAt = payload.ExpiresAt
+		if payload.Edition == EditionEnterprise {
 			summary.Features = AllFeatures
 		} else {
-			summary.Features = m.payload.Features
+			summary.Features = payload.Features
 		}
 		return summary
 	}
 
 	// 社区版兜底
 	summary.Edition = EditionCommunity
-	summary.Quota = m.Quota()
-	if m.detail != "" {
-		summary.Message = m.detail
+	if detail != "" {
+		summary.Message = detail
 	}
 	return summary
 }
 
 // payloadEdition 返回载荷版本（日志用）
 func (m *Manager) payloadEdition() Edition {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.payload == nil {
 		return EditionCommunity
 	}

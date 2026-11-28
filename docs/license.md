@@ -1,6 +1,8 @@
 # Pixiu 商业 License 说明
 
-Pixiu 采用 **Ed25519 离线签发的 license 文件** 做商业授权：服务端内嵌验签公钥，客户侧放置 `license.key` 即可解锁对应版本的功能与配额；未配置 license 时自动运行社区版。
+Pixiu 采用 **Ed25519 离线签发的 license 文件** 做商业授权：服务端在构建期注入验签公钥，客户侧放置 `license.key` 即可解锁对应版本的功能与配额；未配置 license 或未注入公钥时自动运行社区版。
+
+> 安全约定：源码不附带任何可用的验签公钥/私钥，避免任何人凭随源码分发的密钥对自行签发企业版 license。正式发布时需用签发方的公钥构建：`go build -ldflags "-X github.com/caoyingjunz/pixiu/pkg/license.embeddedPublicKeyHex=<公钥hex>" ./cmd/pixiu-server`。未注入时商业授权功能不启用，服务正常运行在社区版。
 
 ## 版本与功能划分
 
@@ -42,6 +44,24 @@ Pixiu 采用 **Ed25519 离线签发的 license 文件** 做商业授权：服务
 | `max_clusters` / `max_nodes` | 配额上限，0 或缺省表示不限制 |
 | `expires_at` | 过期时间（Unix 秒），0 表示永不过期 |
 | `fingerprint` | 机器指纹绑定；空表示不绑定部署环境 |
+| `kid` | 签发公钥标识；密钥轮转时用于选择对应验签公钥，空表示主公钥 |
+
+### 密钥轮转（kid）
+
+换密钥对时无需让全部存量 license 立即失效：为新公钥分配一个 `kid`，新旧公钥同时注入服务端，过渡期内两种 license 都能验签。
+
+```bash
+# 服务端同时注入主公钥（空 kid）与带 kid 的新公钥
+go build -ldflags "-X github.com/caoyingjunz/pixiu/pkg/license.embeddedPublicKeyHex=<主公钥hex> \
+  -X 'github.com/caoyingjunz/pixiu/pkg/license.embeddedPublicKeys=2026:<新公钥hex>,2025:<旧公钥hex>'" \
+  ./cmd/pixiu-server
+
+# 签发时用 --kid 指定新公钥标识
+go run ./cmd/license-gen sign --key license-keys/ed25519_private.key \
+  --in license.json --out license.key --kid 2026
+```
+
+待全部客户换证完成后，移除旧公钥条目即可。未知 `kid` 或不匹配的公钥一律验签失败（fail-closed）。
 
 ## 签发方操作（私钥持有者）
 
@@ -50,7 +70,7 @@ Pixiu 采用 **Ed25519 离线签发的 license 文件** 做商业授权：服务
 ```bash
 # 1. 生成密钥对（首次，正式商用前务必重新生成）
 go run ./cmd/license-gen keygen --dir ./license-keys
-# 将输出的公钥 hex 更新到 pkg/license/publickey.go 后重新编译 pixiu-server
+# 用输出的公钥 hex 通过 ldflags 注入并重新编译 pixiu-server（见文首安全约定）
 
 # 2. 获取客户环境的机器指纹（客户在其部署机上执行）
 go run ./cmd/license-gen print
@@ -90,5 +110,5 @@ go run ./cmd/license-gen verify --pub license-keys/ed25519_public.key --in licen
 ## 更换密钥对
 
 1. `go run ./cmd/license-gen keygen` 生成新密钥对；
-2. 新公钥 hex 替换 `pkg/license/publickey.go` 中常量并重新编译；
+2. 用新公钥 hex 通过 ldflags 注入重新编译 pixiu-server（见文首安全约定）；
 3. 用新私钥重新签发并分发全部客户 license（旧 license 全部失效）。

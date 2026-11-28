@@ -19,13 +19,18 @@ package middleware
 import (
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	"github.com/caoyingjunz/pixiu/pkg/license"
 )
+
+// debugBypassWarned 保证 debug 放通告警只打一次，避免刷屏。
+var debugBypassWarned sync.Once
 
 // featurePrefixes 付费功能 → API URL 前缀映射。
 // 新增付费模块时在此登记前缀，中间件即自动生效。
@@ -47,6 +52,9 @@ var featurePrefixes = []struct {
 func License(o *options.Options) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if o.ComponentConfig.Default.Mode.InDebug() {
+			debugBypassWarned.Do(func() {
+				klog.Warning("[LICENSE] 运行于 debug 模式，商业授权门控已放通；生产环境请勿使用 debug 模式")
+			})
 			c.Next()
 			return
 		}

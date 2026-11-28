@@ -83,6 +83,9 @@ const (
 // Payload license 载荷，签发与验签的统一数据结构。
 // 序列化后参与签名，字段顺序不影响验签（对整个 JSON 字节串签名）。
 type Payload struct {
+	// KeyID 签发公钥标识（kid），用于密钥轮转时选择对应验签公钥。
+	// 该字段参与签名，空值表示使用默认（主）公钥，兼容单公钥部署。
+	KeyID string `json:"kid,omitempty"`
 	// Customer 客户/授权对象标识
 	Customer string `json:"customer"`
 	// Edition 版本：community / professional / enterprise

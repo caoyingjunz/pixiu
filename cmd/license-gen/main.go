@@ -18,7 +18,7 @@ limitations under the License.
 //
 // 子命令：
 //
-//	keygen  生成 Ed25519 密钥对（私钥务必妥善保管，公钥需更新到 pkg/license/publickey.go 重新编译）
+//	keygen  生成 Ed25519 密钥对（私钥务必妥善保管，公钥通过 ldflags 注入服务端后重新编译）
 //	sign    对 license 载荷 JSON 签名，产出 license.key
 //	verify  校验 license.key 并打印载荷内容
 //	print   打印本机机器指纹（签发绑定环境时使用）
@@ -74,7 +74,7 @@ func newKeygenCommand() *cobra.Command {
 			if err = os.WriteFile(privFile, []byte(hex.EncodeToString(priv)), 0o600); err != nil {
 				fatal("写私钥失败: %v", err)
 			}
-			fmt.Printf("密钥对已生成:\n  公钥: %s（内容更新到 pkg/license/publickey.go 后重新编译 pixiu-server）\n  私钥: %s（仅签发方持有，严禁泄露）\n",
+			fmt.Printf("密钥对已生成:\n  公钥: %s（通过 ldflags -X github.com/caoyingjunz/pixiu/pkg/license.embeddedPublicKeyHex=<hex> 注入后重新编译 pixiu-server）\n  私钥: %s（仅签发方持有，严禁泄露）\n",
 				pubFile, privFile)
 			fmt.Printf("公钥 hex:\n%s\n", hex.EncodeToString(pub))
 		},
@@ -88,6 +88,7 @@ func newSignCommand() *cobra.Command {
 		keyFile  string
 		inFile   string
 		outFile  string
+		kid      string
 		duration time.Duration
 	)
 	cmd := &cobra.Command{
@@ -105,6 +106,10 @@ func newSignCommand() *cobra.Command {
 			// 允许用 -duration 快速设置有效期，覆盖载荷中的 expires_at
 			if duration > 0 {
 				payload.ExpiresAt = time.Now().Add(duration).Unix()
+			}
+			// --kid 指定签发公钥标识，密钥轮转时用于选择对应验签公钥
+			if kid != "" {
+				payload.KeyID = kid
 			}
 			payload.IssuedAt = time.Now().Unix()
 
@@ -130,6 +135,7 @@ func newSignCommand() *cobra.Command {
 	cmd.Flags().StringVar(&keyFile, "key", "license-keys/ed25519_private.key", "私钥文件路径")
 	cmd.Flags().StringVar(&inFile, "in", "license.json", "载荷 JSON 文件")
 	cmd.Flags().StringVar(&outFile, "out", "license.key", "签发结果文件")
+	cmd.Flags().StringVar(&kid, "kid", "", "签发公钥标识（密钥轮转时用，对应服务端注入的 kid）")
 	cmd.Flags().DurationVar(&duration, "duration", 0, "有效期（如 8760h 为一年），设置后覆盖载荷中的 expires_at")
 	return cmd
 }

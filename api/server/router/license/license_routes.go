@@ -18,6 +18,7 @@ package license
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -62,27 +63,61 @@ func (r *licenseRouter) update(c *gin.Context) {
 	httputils.SetSuccess(c, result)
 }
 
-// saveAndReload 原子写出 license 文件并热加载；新 license 验签失败时回滚旧文件
+// saveAndReload 预校验新 license 后原子写出并热加载。
+// 先验签再落盘：非法内容不会覆盖现有文件，无需回滚；写入用临时文件 + fsync + rename，
+// 避免进程崩溃时留下截断的 license 文件。
 func (r *licenseRouter) saveAndReload(content string) error {
 	path := r.path
 	if path == "" {
 		return ErrLicensePathNotConfigured
 	}
-	old, _ := os.ReadFile(path)
+	data := []byte(content)
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	// 落盘前先验签 + 校验有效期/指纹，非法内容直接拒绝，不动现有文件
+	if err := license.VerifyContent(data); err != nil {
+		return fmt.Errorf("license 校验失败: %w", err)
+	}
+	if err := writeFileAtomic(path, data, 0o644); err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	return license.Get().Reload()
+}
+
+// writeFileAtomic 原子写文件：同目录临时文件写满并 fsync 后 rename 覆盖目标。
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	if err := license.Get().Reload(); err != nil {
-		// 新 license 非法，回滚旧文件，保持原授权状态
-		if len(old) > 0 {
-			_ = os.WriteFile(path, old, 0o644)
-			_ = license.Get().Reload()
-		}
+	tmp, err := os.CreateTemp(dir, ".license-*.tmp")
+	if err != nil {
 		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName) // rename 成功后路径不存在，remove 无副作用
+
+	if err = tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err = tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err = tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	if err = os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	// 尽力 fsync 目录，确保 rename 持久化（部分平台不支持时忽略）
+	if d, err := os.Open(dir); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
 	}
 	return nil
 }

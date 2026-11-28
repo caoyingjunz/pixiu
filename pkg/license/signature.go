@@ -86,36 +86,69 @@ func SignPayload(priv ed25519.PrivateKey, p *Payload) ([]byte, error) {
 	return []byte(encoded), nil
 }
 
-// VerifyLicense 验证 license 文件内容并解析出载荷。
-// 依次校验：编码格式 → 签名 → 载荷 JSON。
-func VerifyLicense(pub ed25519.PublicKey, data []byte) (*Payload, error) {
-	if len(pub) != ed25519.PublicKeySize {
-		return nil, ErrPublicKeyInvalid
+// VerifyLicenseWithKeys 按载荷中的 kid 选择验签公钥并校验 license。
+// kid 位于未验签的 payload 中，但篡改 kid 只会导致选错公钥而验签失败（fail-closed），
+// 签名本身仍覆盖完整 payload（含 kid），因此安全。kid 为空时使用主公钥。
+func VerifyLicenseWithKeys(data []byte) (*Payload, error) {
+	payload, sig, err := decodeLicense(data)
+	if err != nil {
+		return nil, err
 	}
+	var meta struct {
+		KeyID string `json:"kid"`
+	}
+	if err = json.Unmarshal(payload, &meta); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrMalformedPayload, err)
+	}
+	pub, err := PublicKey(meta.KeyID)
+	if err != nil {
+		return nil, err
+	}
+	return verifyWithPublicKey(pub, payload, sig)
+}
+
+// decodeLicense 解析 license 文本，返回 payload 原始字节与签名字节。
+func decodeLicense(data []byte) (payload, sig []byte, err error) {
 	text := strings.TrimSpace(string(data))
 	if text == "" {
-		return nil, ErrInvalidFormat
+		return nil, nil, ErrInvalidFormat
 	}
-
 	parts := strings.SplitN(text, licenseSeparator, 2)
 	if len(parts) != 2 {
-		return nil, ErrInvalidFormat
+		return nil, nil, ErrInvalidFormat
 	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
+	payload, err = base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
-		return nil, fmt.Errorf("%w: payload base64 解码失败", ErrMalformedPayload)
+		return nil, nil, fmt.Errorf("%w: payload base64 解码失败", ErrMalformedPayload)
 	}
-	sig, err := base64.RawURLEncoding.DecodeString(parts[1])
+	sig, err = base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("%w: signature base64 解码失败", ErrMalformedPayload)
+		return nil, nil, fmt.Errorf("%w: signature base64 解码失败", ErrMalformedPayload)
+	}
+	return payload, sig, nil
+}
+
+// verifyWithPublicKey 用指定公钥验签并解析载荷。
+func verifyWithPublicKey(pub ed25519.PublicKey, payload, sig []byte) (*Payload, error) {
+	if len(pub) != ed25519.PublicKeySize {
+		return nil, ErrPublicKeyInvalid
 	}
 	if !ed25519.Verify(pub, payload, sig) {
 		return nil, ErrInvalidSignature
 	}
-
 	var p Payload
-	if err = json.Unmarshal(payload, &p); err != nil {
+	if err := json.Unmarshal(payload, &p); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrMalformedPayload, err)
 	}
 	return &p, nil
+}
+
+// VerifyLicense 用显式公钥验证 license 文件内容并解析出载荷（CLI/测试用）。
+// 依次校验：编码格式 → 签名 → 载荷 JSON。
+func VerifyLicense(pub ed25519.PublicKey, data []byte) (*Payload, error) {
+	payload, sig, err := decodeLicense(data)
+	if err != nil {
+		return nil, err
+	}
+	return verifyWithPublicKey(pub, payload, sig)
 }
