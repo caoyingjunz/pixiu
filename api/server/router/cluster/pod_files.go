@@ -17,13 +17,23 @@ limitations under the License.
 package cluster
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
 	"github.com/caoyingjunz/pixiu/pkg/types"
+	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
+)
+
+const (
+	PodFileDownloadRoute  = "/clusters/:cluster/namespaces/:namespace/pods/:pod/files/download"
+	PodFileDownloadPath   = kubeProxyBaseURL + PodFileDownloadRoute
+	PodFileDownloadCookie = "pixiu-pod-file-download"
 )
 
 func (cr *clusterRouter) listPodFiles(c *gin.Context) {
@@ -44,14 +54,55 @@ func (cr *clusterRouter) listPodFiles(c *gin.Context) {
 		return
 	}
 	opts.Cluster = credName
-	if r.Result, err = cr.c.Cluster().ListPodFiles(c, opts.Cluster, opts.Namespace, opts.Pod, fileOpt.Container, fileOpt.Path); err != nil {
+	if r.Result, err = cr.c.Cluster().ListPodFiles(c.Request.Context(), opts.Cluster, opts.Namespace, opts.Pod, fileOpt.Container, fileOpt.Path); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}
 	httputils.SetSuccess(c, r)
 }
 
+func (cr *clusterRouter) preparePodFileDownload(c *gin.Context) {
+	r := httputils.NewResponse()
+	var (
+		opts    types.PodResourceMeta
+		fileOpt types.PodFileOptions
+	)
+	if err := httputils.ShouldBindAny(c, nil, &opts, &fileOpt); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if _, err := cr.resolveCredClusterName(c, opts.Cluster); err != nil {
+		httputils.SetFailed(c, r, err)
+		return
+	}
+	if strings.TrimSpace(fileOpt.Container) == "" {
+		httputils.SetFailed(c, r, fmt.Errorf("container is required"))
+		return
+	}
+	downloadPath := c.Request.URL.EscapedPath()
+	// Browser downloads cannot send the Authorization header; scope the cookie to this endpoint.
+	if c.GetHeader("Authorization") != "" {
+		token, err := tokenutil.ExtractToken(c, false)
+		if err != nil {
+			httputils.SetFailed(c, r, err)
+			return
+		}
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name: PodFileDownloadCookie, Value: token, Path: downloadPath, MaxAge: 60,
+			HttpOnly: true, SameSite: http.SameSiteStrictMode,
+			Secure: c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https"),
+		})
+	}
+	c.Header("Cache-Control", "no-store")
+	query := url.Values{"container": {fileOpt.Container}, "path": {fileOpt.Path}}
+	r.Result = map[string]string{"download_url": downloadPath + "?" + query.Encode()}
+	httputils.SetSuccess(c, r)
+}
+
 func (cr *clusterRouter) downloadPodFile(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("X-Accel-Buffering", "no")
 	r := httputils.NewResponse()
 
 	var (
@@ -71,8 +122,12 @@ func (cr *clusterRouter) downloadPodFile(c *gin.Context) {
 	}
 	opts.Cluster = credName
 
-	if err = cr.c.Cluster().DownloadPodFile(c, opts.Cluster, opts.Namespace, opts.Pod, fileOpt.Container, fileOpt.Path, c.Writer); err != nil {
-		httputils.SetFailed(c, r, err)
+	if err = cr.c.Cluster().DownloadPodFile(c.Request.Context(), opts.Cluster, opts.Namespace, opts.Pod, fileOpt.Container, fileOpt.Path, c.Writer); err != nil {
+		if !c.Writer.Written() {
+			httputils.SetFailed(c, r, err)
+		} else {
+			_ = c.Error(err)
+		}
 		return
 	}
 }
@@ -98,10 +153,15 @@ func (cr *clusterRouter) uploadPodFile(c *gin.Context) {
 	}
 	opts.Cluster = credName
 
-	// Cap request body to upload limit + multipart overhead.
+	// Allow multipart overhead in addition to the file size limit.
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, types.PodFileMaxBytes+1024*1024)
 	fh, err := c.FormFile("file")
 	if err != nil {
+		var sizeErr *http.MaxBytesError
+		if errors.As(err, &sizeErr) {
+			httputils.SetFailed(c, r, fmt.Errorf("file exceeds size limit (%d bytes)", types.PodFileMaxBytes))
+			return
+		}
 		httputils.SetFailed(c, r, fmt.Errorf("file is required"))
 		return
 	}
@@ -117,7 +177,7 @@ func (cr *clusterRouter) uploadPodFile(c *gin.Context) {
 	}
 	defer f.Close()
 
-	if err = cr.c.Cluster().UploadPodFile(c, opts.Cluster, opts.Namespace, opts.Pod, fileOpt.Container, fileOpt.Path, fh.Filename, f, fh.Size); err != nil {
+	if err = cr.c.Cluster().UploadPodFile(c.Request.Context(), opts.Cluster, opts.Namespace, opts.Pod, fileOpt.Container, fileOpt.Path, fh.Filename, f, fh.Size); err != nil {
 		httputils.SetFailed(c, r, err)
 		return
 	}

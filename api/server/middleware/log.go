@@ -41,13 +41,24 @@ func Logger(cfg *config.LogOptions) gin.HandlerFunc {
 		c.Next()
 
 		err := httputils.GetRawError(c)
+		if err == nil && len(c.Errors) > 0 {
+			err = c.Errors.Last().Err
+		}
+		code := httputils.GetResponseCode(c)
+		if code == 0 {
+			code = c.Writer.Status()
+		}
 		fields := map[string]interface{}{
 			"request_id":              requestid.Get(c),
 			"method":                  c.Request.Method,
 			"uri":                     c.Request.RequestURI,
-			httputils.ResponseCodeKey: httputils.GetResponseCode(c),
+			httputils.ResponseCodeKey: code,
 			"client_ip":               c.ClientIP(),
 			"latency":                 fmt.Sprintf("%dµs", time.Since(start).Microseconds()),
+		}
+		if c.Writer.Header().Get("Content-Disposition") != "" {
+			fields["response_bytes"] = c.Writer.Size()
+			fields["content_length"] = c.Writer.Header().Get("Content-Length")
 		}
 		if opts.SQL {
 			if sqls := db.GetSQLs(c); len(sqls) > 0 {

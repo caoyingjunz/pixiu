@@ -19,9 +19,11 @@ package cluster
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path"
 	"sort"
 	"strconv"
@@ -41,7 +43,8 @@ import (
 
 const (
 	podFileExecTimeout     = 60 * time.Second
-	podFileDownloadTimeout = 120 * time.Second
+	podFileTransferTimeout = 30 * time.Minute
+	podFileIdleTimeout     = 2 * time.Minute
 )
 
 // ListPodFiles lists entries under path inside the pod container via non-TTY exec.
@@ -101,33 +104,161 @@ func (c *cluster) DownloadPodFile(ctx context.Context, cluster, namespace, pod, 
 		return fmt.Errorf("cannot download root directory")
 	}
 
-	stdout, stderr, err := c.execPodStream(ctx, podFileDownloadTimeout, cluster, namespace, pod, container, []string{
-		"sh", "-c", podFileDownloadTimeoutScript, "--", podFileDownloadScript, cleaned, strconv.FormatInt(types.PodFileMaxBytes, 10),
-	}, nil, types.PodFileMaxBytes)
+	metadata, stderrText, err := c.execPodCommand(ctx, cluster, namespace, pod, container, []string{
+		"sh", "-c", podFileDownloadTimeoutScript, "--", podFileDownloadScript, cleaned,
+		strconv.FormatInt(types.PodFileMaxBytes, 10), "50", "check",
+	})
 	if err != nil {
-		msg := strings.TrimSpace(stderr)
-		if msg == "" {
-			msg = err.Error()
-		}
-		klog.Errorf("download pod file failed cluster=%s ns=%s pod=%s container=%s path=%s: %v stderr=%s",
-			cluster, namespace, pod, container, cleaned, err, msg)
-		return fmt.Errorf("download failed: %s", shortenExecMessage(msg, err))
+		return fmt.Errorf("download failed: %s", shortenExecMessage(stderrText, err))
+	}
+	fields := strings.Fields(string(metadata))
+	if len(fields) != 2 || (fields[0] != "file" && fields[0] != "dir") {
+		return fmt.Errorf("download failed: invalid file metadata")
+	}
+	size, err := strconv.ParseInt(fields[1], 10, 64)
+	if err != nil || size < 0 || size > types.PodFileMaxBytes {
+		return fmt.Errorf("download failed: invalid file size")
+	}
+	isDir := fields[0] == "dir"
+	filename := sanitizeDownloadFilename(path.Base(cleaned))
+	if isDir {
+		filename += ".tar"
+		size = -1
 	}
 
-	filename := path.Base(cleaned)
-	if filename == "" || filename == "." || filename == "/" {
-		filename = "download"
+	// End the container command before the backend deadline, allowing time for cleanup.
+	scriptTimeout := strconv.FormatInt(int64((podFileTransferTimeout-10*time.Second)/time.Second), 10)
+	execCtx, cancel, executor, err := c.newPodExecutor(ctx, podFileTransferTimeout, cluster, namespace, pod, container, []string{
+		"sh", "-c", podFileDownloadTimeoutScript, "--", podFileDownloadScript, cleaned, strconv.FormatInt(types.PodFileMaxBytes, 10),
+		scriptTimeout,
+	}, !isDir)
+	if err != nil {
+		return fmt.Errorf("download failed: %s", shortenExecMessage("", err))
 	}
-	if parsePodDownloadKind(stderr) == "dir" {
-		filename = filename + ".tar"
+	defer cancel()
+
+	var output io.Writer = w
+	var tmp *os.File
+	if isDir {
+		// Validate the complete archive before sending it; its final size is unknown.
+		tmp, err = os.CreateTemp("", "pixiu-pod-file-*")
+		if err != nil {
+			return fmt.Errorf("download failed: %v", err)
+		}
+		defer func() {
+			_ = tmp.Close()
+			_ = os.Remove(tmp.Name())
+		}()
+		output = tmp
+	} else {
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(podFileIdleTimeout))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+		w.WriteHeader(http.StatusOK)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
+
+	written, stderrText, streamErr := streamPodFile(execCtx, executor, output, size, podFileIdleTimeout)
+	if streamErr != nil {
+		msg := strings.TrimSpace(stderrText)
+		if msg == "" {
+			msg = streamErr.Error()
+		}
+		klog.Errorf("download pod file failed cluster=%s ns=%s pod=%s container=%s path=%s bytes=%d expected=%d: %v stderr=%s",
+			cluster, namespace, pod, container, cleaned, written, size, streamErr, msg)
+		return fmt.Errorf("download failed: %s", shortenExecMessage(stderrText, streamErr))
+	}
+	if !isDir {
+		if written != size {
+			return fmt.Errorf("download failed: incomplete file (received %d of %d bytes)", written, size)
+		}
+		return nil
+	}
+
+	size, err = tmp.Seek(0, io.SeekEnd)
+	if err != nil {
+		return fmt.Errorf("download failed: %v", err)
+	}
+	if _, err = tmp.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("download failed: %v", err)
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, sanitizeDownloadFilename(filename)))
-	w.Header().Set("Content-Length", strconv.Itoa(len(stdout)))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(stdout)
+	_, err = io.Copy(w, tmp)
 	return err
+}
+
+func streamPodFile(ctx context.Context, executor remotecommand.Executor, output io.Writer, expectedSize int64, idleTimeout time.Duration) (int64, string, error) {
+	streamCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	stdout := &podFileSinkWriter{
+		w: output, limit: types.PodFileMaxBytes, cancel: func() { cancel(nil) }, ctx: streamCtx,
+	}
+	if response, ok := output.(http.ResponseWriter); ok {
+		control := http.NewResponseController(response)
+		stdout.response = control
+		stdout.idleTimeout = idleTimeout
+		// Canceling exec alone cannot interrupt a goroutine blocked writing to the browser.
+		interrupted := make(chan struct{})
+		stop := context.AfterFunc(streamCtx, func() {
+			_ = control.SetWriteDeadline(time.Now())
+			close(interrupted)
+		})
+		defer func() {
+			if !stop() {
+				<-interrupted
+			}
+			_ = control.SetWriteDeadline(time.Time{})
+		}()
+	}
+	idle := time.AfterFunc(idleTimeout, func() {
+		cancel(fmt.Errorf("file transfer stalled: no progress for %s", idleTimeout))
+	})
+	defer idle.Stop()
+	stdout.progress = func() { idle.Reset(idleTimeout) }
+	var stdin io.Reader
+	if expectedSize >= 0 {
+		reader, writer := io.Pipe()
+		defer reader.Close()
+		defer writer.Close()
+		stdin = reader
+		// Keep exec alive until stdout has drained; early server teardown can discard its tail.
+		stdout.progress = func() {
+			idle.Reset(idleTimeout)
+			if stdout.written == expectedSize {
+				_ = writer.Close()
+			}
+		}
+		if expectedSize == 0 {
+			_ = writer.Close()
+		}
+	}
+	stderr := &podFileOutputBuffer{}
+	streamErr := executor.StreamWithContext(streamCtx, remotecommand.StreamOptions{
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+		Tty:    false,
+	})
+	writeErr := stdout.result()
+	stderrText := string(stderr.result())
+	if cause := context.Cause(streamCtx); cause != nil && !errors.Is(cause, context.Canceled) {
+		return stdout.written, stderrText, cause
+	}
+	if writeErr != nil {
+		return stdout.written, stderrText, writeErr
+	}
+	if cause := context.Cause(streamCtx); cause != nil {
+		return stdout.written, stderrText, cause
+	}
+	return stdout.written, stderrText, streamErr
 }
 
 // UploadPodFile writes a local file into the pod container at dirPath/filename via exec stdin.
@@ -159,12 +290,11 @@ func (c *cluster) UploadPodFile(ctx context.Context, cluster, namespace, pod, co
 		return fmt.Errorf("invalid upload path")
 	}
 
-	limited := io.LimitReader(r, types.PodFileMaxBytes+1)
-	stdout, stderr, err := c.execPodCommandWithStdin(ctx, podFileDownloadTimeout, cluster, namespace, pod, container,
+	limited := io.LimitReader(r, size)
+	_, stderr, err := c.execPodStream(ctx, podFileTransferTimeout, cluster, namespace, pod, container,
 		[]string{
 			"sh", "-c", podFileUploadScript, "--", target,
 		}, limited)
-	_ = stdout
 	if err != nil {
 		msg := strings.TrimSpace(stderr)
 		if msg == "" {
@@ -178,24 +308,13 @@ func (c *cluster) UploadPodFile(ctx context.Context, cluster, namespace, pod, co
 }
 
 func (c *cluster) execPodCommand(ctx context.Context, cluster, namespace, pod, container string, command []string) ([]byte, string, error) {
-	return c.execPodCommandWithTimeout(ctx, podFileExecTimeout, cluster, namespace, pod, container, command)
-}
-
-func (c *cluster) execPodCommandWithTimeout(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string) ([]byte, string, error) {
-	return c.execPodStream(ctx, timeout, cluster, namespace, pod, container, command, nil, 0)
-}
-
-func (c *cluster) execPodCommandWithStdin(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string, stdin io.Reader) ([]byte, string, error) {
-	return c.execPodStream(ctx, timeout, cluster, namespace, pod, container, command, stdin, 0)
+	return c.execPodStream(ctx, podFileExecTimeout, cluster, namespace, pod, container, command, nil)
 }
 
 type podFileOutputBuffer struct {
-	mu       sync.Mutex
-	buffer   bytes.Buffer
-	limit    int64
-	exceeded bool
-	sealed   bool
-	cancel   context.CancelFunc
+	mu     sync.Mutex
+	buffer bytes.Buffer
+	sealed bool
 }
 
 func (b *podFileOutputBuffer) Write(p []byte) (int, error) {
@@ -204,34 +323,103 @@ func (b *podFileOutputBuffer) Write(p []byte) (int, error) {
 	if b.sealed {
 		return len(p), nil
 	}
-	if b.limit > 0 && int64(b.buffer.Len())+int64(len(p)) > b.limit {
-		b.exceeded = true
-		if b.cancel != nil {
-			b.cancel()
-		}
-		return 0, fmt.Errorf("pod file output exceeds size limit")
-	}
 	return b.buffer.Write(p)
 }
 
-func (b *podFileOutputBuffer) result() ([]byte, bool) {
+func (b *podFileOutputBuffer) result() []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.sealed = true
-	if b.exceeded {
-		return nil, true
-	}
-	return b.buffer.Bytes(), false
+	return b.buffer.Bytes()
 }
 
-func (c *cluster) execPodStream(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string, stdin io.Reader, outputLimit int64) ([]byte, string, error) {
-	cs, err := c.GetClusterSetByName(ctx, cluster)
+// StreamWithContext may return before its copy goroutine; sealing prevents late writes.
+type podFileSinkWriter struct {
+	mu          sync.Mutex
+	w           io.Writer
+	limit       int64
+	written     int64
+	err         error
+	sealed      bool
+	cancel      context.CancelFunc
+	response    *http.ResponseController
+	idleTimeout time.Duration
+	progress    func()
+	ctx         context.Context
+}
+
+func (s *podFileSinkWriter) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sealed {
+		return 0, io.ErrClosedPipe
+	}
+	if s.err != nil {
+		return 0, s.err
+	}
+	if s.limit > 0 && s.written+int64(len(p)) > s.limit {
+		s.err = fmt.Errorf("ETOOLARGE:%d", s.limit)
+		s.cancel()
+		return 0, s.err
+	}
+	if s.response != nil {
+		_ = s.response.SetWriteDeadline(time.Now().Add(s.idleTimeout))
+	}
+	if s.ctx != nil && s.ctx.Err() != nil {
+		return 0, s.ctx.Err()
+	}
+	n, err := s.w.Write(p)
+	s.written += int64(n)
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
+	if err == nil && s.response != nil {
+		if flushErr := s.response.Flush(); !errors.Is(flushErr, http.ErrNotSupported) {
+			err = flushErr
+		}
+	}
+	if err == nil && n > 0 && s.progress != nil {
+		s.progress()
+	}
+	if err != nil {
+		s.err = err
+		s.cancel()
+	}
+	return n, err
+}
+
+func (s *podFileSinkWriter) result() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sealed = true
+	return s.err
+}
+
+func (c *cluster) execPodStream(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string, stdin io.Reader) ([]byte, string, error) {
+	execCtx, cancel, executor, err := c.newPodExecutor(ctx, timeout, cluster, namespace, pod, container, command, stdin != nil)
 	if err != nil {
 		return nil, "", err
 	}
+	defer cancel()
+
+	stdout := &podFileOutputBuffer{}
+	stderr := &podFileOutputBuffer{}
+	err = executor.StreamWithContext(execCtx, remotecommand.StreamOptions{
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+		Tty:    false,
+	})
+	return stdout.result(), string(stderr.result()), err
+}
+
+func (c *cluster) newPodExecutor(ctx context.Context, timeout time.Duration, cluster, namespace, pod, container string, command []string, withStdin bool) (context.Context, context.CancelFunc, remotecommand.Executor, error) {
+	cs, err := c.GetClusterSetByName(ctx, cluster)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 
 	req := cs.Client.CoreV1().RESTClient().Post().
 		Resource("pods").
@@ -241,7 +429,7 @@ func (c *cluster) execPodStream(ctx context.Context, timeout time.Duration, clus
 		VersionedParams(&v1.PodExecOptions{
 			Container: container,
 			Command:   command,
-			Stdin:     stdin != nil,
+			Stdin:     withStdin,
 			Stdout:    true,
 			Stderr:    true,
 			TTY:       false,
@@ -249,23 +437,10 @@ func (c *cluster) execPodStream(ctx context.Context, timeout time.Duration, clus
 
 	executor, err := client.NewSPDYExecutor(cs.Config, "POST", req.URL())
 	if err != nil {
-		return nil, "", err
+		cancel()
+		return nil, nil, nil, err
 	}
-
-	stdout := &podFileOutputBuffer{limit: outputLimit, cancel: cancel}
-	stderr := &podFileOutputBuffer{}
-	err = executor.StreamWithContext(execCtx, remotecommand.StreamOptions{
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
-		Tty:    false,
-	})
-	output, exceeded := stdout.result()
-	errorOutput, _ := stderr.result()
-	if exceeded {
-		return nil, fmt.Sprintf("ETOOLARGE:%d", outputLimit), fmt.Errorf("pod file output exceeds size limit")
-	}
-	return output, string(errorOutput), err
+	return execCtx, cancel, executor, nil
 }
 
 func sanitizePodFilePath(p string) (string, error) {
@@ -480,23 +655,13 @@ ls -A 2>/dev/null | while IFS= read -r f; do
 done
 `
 
-func parsePodDownloadKind(stderr string) string {
-	for _, line := range strings.Split(stderr, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "PIXIU_KIND:") {
-			return strings.TrimPrefix(line, "PIXIU_KIND:")
-		}
-	}
-	return "file"
-}
-
 // podFileDownloadTimeoutScript runs downloads with a container-side deadline.
 const podFileDownloadTimeoutScript = `
 if ! command -v timeout >/dev/null 2>&1 || ! timeout -k 1 2 true >/dev/null 2>&1; then
   echo "ENOTIMEOUT:timeout not available" >&2
   exit 5
 fi
-timeout -k 5 110 sh -c "$1" -- "$2" "$3"
+timeout -k 5 "$4" sh -c "$1" -- "$2" "$3" "$5"
 status=$?
 if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
   echo "ETIMEDOUT:download timed out" >&2
@@ -505,7 +670,8 @@ exit "$status"
 `
 
 // podFileDownloadScript downloads a regular file or directory (tar).
-// Args: path maxBytes. On success stderr may contain PIXIU_KIND:file|dir.
+// Args: path maxBytes [check]. Check mode returns kind and size without file content.
+// Regular files wait for stdin EOF so exec stays open until the receiver drains stdout.
 const podFileDownloadScript = `
 set -e
 P="$1"
@@ -516,6 +682,10 @@ if [ ! -e "$P" ]; then
 fi
 if [ -L "$P" ]; then
   echo "EUNSUPPORTED:$P" >&2
+  exit 2
+fi
+if [ ! -r "$P" ]; then
+  echo "Permission denied: $P" >&2
   exit 2
 fi
 if [ -d "$P" ]; then
@@ -532,6 +702,10 @@ if [ -d "$P" ]; then
   if [ "$s" -gt "$MAX" ]; then
     echo "ETOOLARGE:$s" >&2
     exit 4
+  fi
+  if [ "$3" = "check" ]; then
+    printf 'dir\t0\n'
+    exit 0
   fi
   parent=$(dirname "$P")
   base=$(basename "$P")
@@ -551,7 +725,12 @@ if [ "$s" -gt "$MAX" ]; then
   echo "ETOOLARGE:$s" >&2
   exit 4
 fi
-head -c "$((MAX + 1))" -- "$P"
+if [ "$3" = "check" ]; then
+  printf 'file\t%s\n' "$s"
+  exit 0
+fi
+head -c "$s" -- "$P"
+IFS= read -r _ || true
 `
 
 // podFileUploadScript writes stdin to the target path. Args: absolute file path.

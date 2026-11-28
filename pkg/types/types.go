@@ -820,8 +820,8 @@ const (
 )
 
 const (
-	// PodFileMaxBytes 单次 pod 文件传输（上传/下载）负载大小上限。
-	PodFileMaxBytes int64 = 100 * 1024 * 1024 // 100MiB
+	// PodFileMaxBytes 单次 Pod 文件上传、下载的负载大小上限。
+	PodFileMaxBytes int64 = 1025 * 1024 * 1024 // 1025MiB
 )
 
 const (

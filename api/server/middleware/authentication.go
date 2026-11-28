@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/caoyingjunz/pixiu/api/server/httputils"
+	"github.com/caoyingjunz/pixiu/api/server/router/cluster"
 	"github.com/caoyingjunz/pixiu/api/server/router/proxy"
 	"github.com/caoyingjunz/pixiu/cmd/app/options"
 	tokenutil "github.com/caoyingjunz/pixiu/pkg/util/token"
@@ -98,6 +99,10 @@ func authenticateKubeGateway(c *gin.Context, o *options.Options) error {
 func parseRoleAndValidClaim(c *gin.Context, o *options.Options, keyBytes []byte) (*int64, error) {
 	isWs := strings.EqualFold(c.GetHeader("Upgrade"), "websocket")
 	token, err := tokenutil.ExtractToken(c, isWs)
+	if err != nil && !isWs && c.GetHeader("Authorization") == "" &&
+		c.Request.Method == http.MethodGet && c.FullPath() == cluster.PodFileDownloadPath {
+		token, err = c.Cookie(cluster.PodFileDownloadCookie)
+	}
 	if err != nil {
 		return nil, err
 	}
